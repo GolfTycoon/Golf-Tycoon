@@ -3,7 +3,7 @@ class_name MenuStyle
 ## The palette and card styling shared by the out-of-game menu screens (the
 ## title screen and the Start New Game setup screen).
 ##
-## Both screens sit on the same drawn MenuBackdrop and use the same dark,
+## Both screens sit on the same background-image MenuBackdrop and use the same dark,
 ## translucent cards with an accent-coloured border, so the colours and the
 ## StyleBoxFlat recipe live here once instead of being copied between them.
 

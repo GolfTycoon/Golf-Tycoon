@@ -190,7 +190,6 @@ func _build() -> void:
 	var backdrop := MenuBackdrop.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.green_anchor = Vector2(0.09, 0.94)
 	add_child(backdrop)
 
 	var page := _make_page()

@@ -7,9 +7,9 @@ class_name StartNewGameScreen
 ## Choose Location button hands those options to the World Map screen, where
 ## the player buys the location for their first course.
 ##
-## The screen sits on the title screen's drawn backdrop, in the same dark
-## translucent cards, and is built in one of four arrangements picked from the
-## window size (see layout_mode_for):
+## The screen sits on the title screen's shared background image, in the same
+## dark translucent cards, and is built in one of four arrangements picked
+## from the window size (see layout_mode_for):
 ##
 ##  * WIDE - desktops and landscape tablets: the choices as a sheet of option
 ##    cards, and beside it a "your company" rail with a live plan of the course
@@ -79,14 +79,6 @@ const MAX_WIDTH := {
 	Layout.LANDSCAPE: 1400.0,
 	Layout.PHONE: 520.0,
 }
-## Where the backdrop's drawn green sits in each arrangement.
-const GREEN_ANCHORS := {
-	Layout.WIDE: Vector2(0.10, 0.93),
-	Layout.TABLET: Vector2(0.82, 0.86),
-	Layout.LANDSCAPE: Vector2(0.86, 0.90),
-	Layout.PHONE: Vector2(0.80, 0.88),
-}
-
 const TITLE_TEXT := "Start New Game"
 const CTA_TEXT := "Choose Location"
 const NEXT_TOOLTIP := "Choose the location for your first course"
@@ -425,7 +417,6 @@ func _populate(m: Metrics) -> void:
 	var backdrop := MenuBackdrop.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.green_anchor = GREEN_ANCHORS[_layout_mode]
 	add_child(backdrop)
 
 	match _layout_mode:

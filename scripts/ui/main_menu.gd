@@ -36,8 +36,8 @@ class_name MainMenu
 ## Layout is container-driven inside each mode, so a live drag-resize only
 ## rebuilds the tree when the arrangement itself changes.
 ##
-## The scenery behind it (MenuBackdrop) is drawn in code. The heading is the
-## game logo (assets/ui/logo.png), not a typed wordmark.
+## The scenery behind it (MenuBackdrop) is the shared background image. The
+## heading is the game logo (assets/ui/logo.png), not a typed wordmark.
 
 signal start_new_game_requested()
 signal quick_start_requested()
@@ -82,15 +82,6 @@ const CARD_BG_HOVER := MenuStyle.CARD_BG_HOVER
 const CARD_BG_PRESSED := MenuStyle.CARD_BG_PRESSED
 const CARD_BG_DISABLED := MenuStyle.CARD_BG_DISABLED
 const RAIL_BG := MenuStyle.RAIL_BG
-
-## Where the backdrop's green (and its flag) sits in each arrangement, as a
-## share of the window. Kept clear of that arrangement's cards.
-const GREEN_ANCHORS := {
-	Layout.WIDE: Vector2(0.87, 0.90),
-	Layout.TABLET: Vector2(0.84, 0.91),
-	Layout.LANDSCAPE: Vector2(0.16, 0.90),
-	Layout.PHONE: Vector2(0.80, 0.91),
-}
 
 ## Widest the two-panel layouts stretch their content. Past this the page
 ## centres itself instead of pulling the cards into long, thin strips.
@@ -175,8 +166,6 @@ func _build() -> void:
 	var backdrop := MenuBackdrop.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Where the drawn flag lands: clear of the cards in each arrangement.
-	backdrop.green_anchor = GREEN_ANCHORS[_layout_mode]
 	add_child(backdrop)
 
 	match _layout_mode:
