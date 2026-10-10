@@ -12,7 +12,9 @@ extends SceneTree
 ##  * buying a location from its row button and building the generated first
 ##    course on it (also by pressing the row's Play button),
 ##  * buying a second location, switching to it, and coming back to find the
-##    first course exactly as it was left.
+##    first course exactly as it was left,
+##  * the Club tab's World Map button freezing the course while the globe is up
+##    and handing it back on Back (the pause menu no longer offers the map).
 
 var main: Node
 var gm: Node
@@ -178,16 +180,61 @@ func run() -> void:
 			outside += 1
 	check(outside == 0, "every generated hole sits on owned land")
 
-	# The player can go back to the world map from the pause menu.
+	# The World Map lives on the Club tab, not in the pause menu.
 	var before_money: int = gm.money
 	main._show_pause_menu()
 	await frames(2)
 	check(main.pause_menu != null, "the pause menu opens in game")
-	main._on_pause_world_map()
+	check(not ("World Map" in _all_labels_text(main.pause_menu)),
+		"the pause menu no longer offers the World Map")
+	main._on_pause_resume()
+	await frames(2)
+
+	var map_button: Button = _find_tool_button(main.terrain_toolbar, "world_map")
+	check(map_button != null, "the Club tab has the World Map button")
+	if map_button != null:
+		map_button.pressed.emit()
 	await frames(3)
 	screen = main.get_node_or_null("UI/HUD/WorldMapScreen")
-	check(screen != null, "the pause menu opens the world map")
+	check(screen != null, "the Club tab opens the world map")
+	check(main.terrain_toolbar._tab_bar.get_tab_title(main.terrain_toolbar._tab_bar.current_tab) == "Club",
+		"the World Map button keeps the Club tab open behind it")
 	check(gm.money == before_money, "opening the world map does not change the money")
+	check(gm.is_paused, "the course freezes behind the world map")
+	check(not main.bottom_bar.is_visible_in_tree(),
+		"the gameplay UI steps aside for the world map")
+
+	# Escape belongs to the map while it is up: the course behind it must not
+	# answer the key by opening the pause menu over the globe.
+	var escape := InputEventKey.new()
+	escape.keycode = KEY_ESCAPE
+	escape.pressed = true
+	main.get_viewport().push_input(escape)
+	await frames(3)
+	check(main.pause_menu == null, "Escape while the world map is up opens no pause menu")
+	check(main.get_node_or_null("UI/HUD/WorldMapScreen") == null,
+		"Escape closes the world map like Back does")
+	check(not gm.is_paused, "Escape hands the running course back too")
+	check(main.bottom_bar.is_visible_in_tree(), "the gameplay UI comes back after Escape")
+
+	# The Back button takes the same way out.
+	if map_button != null:
+		map_button.pressed.emit()
+	await frames(3)
+	screen = main.get_node_or_null("UI/HUD/WorldMapScreen")
+	if screen != null:
+		screen.back_requested.emit()
+	await frames(3)
+	check(main.get_node_or_null("UI/HUD/WorldMapScreen") == null, "Back closes the world map")
+	check(not gm.is_paused, "Back resumes the course that was running")
+	check(main.bottom_bar.is_visible_in_tree(), "the gameplay UI comes back after Back")
+
+	# Open it again for the site switching that follows.
+	if map_button != null:
+		map_button.pressed.emit()
+	await frames(3)
+	screen = main.get_node_or_null("UI/HUD/WorldMapScreen")
+	check(screen != null, "the Club tab reopens the world map")
 
 	# ------------------------------------------------------ buy and switch sites
 	var second := "florida"
@@ -220,12 +267,16 @@ func run() -> void:
 
 	main._on_world_map_play_location(target)
 	var cash_after_return: int = gm.money
+	# The restore is synchronous, so the edit is read back before the course
+	# starts playing again — once it does, the green fees golfers pay add to
+	# the hole's revenue.
+	var revenue_after_return: int = gm.current_course.holes[0].total_revenue
 	await frames(12)
 	check(world.active_location_id == target, "switched back to the first location")
 	check(gm.current_course.holes.size() == first_holes, "the first course kept its hole count")
 	check(gm.current_course.holes[0].par_override == 5,
 		"the first course kept the edit made before leaving (par override)")
-	check(gm.current_course.holes[0].total_revenue == 1234,
+	check(revenue_after_return == 1234,
 		"the first course kept the edit made before leaving (revenue)")
 	check(abs(cash_after_return - cash_after_switch) < 20000,
 		"switching back keeps the company's money (%d -> %d)" % [cash_after_switch, cash_after_return])
@@ -294,6 +345,21 @@ func run() -> void:
 	if failures == 0:
 		print("WORLD_MAP_FLOW_PASS: menu, setup, globe list, buying, switching and quick start all work")
 	quit(0 if failures == 0 else 1)
+
+## The toolbar button that acts for `tool_type`, wherever it sits on its tab.
+## The button's own `tool_type` carries its action, so no toolbar class has to
+## be named here — the type name would pull in the autoloads this run has not
+## registered yet (see the `-s` note at the top of the file).
+func _find_tool_button(node: Node, tool_type: String) -> Button:
+	for child in node.get_children():
+		# Terrain tiles carry an int type and action buttons a String, so the
+		# two are only ever compared as text.
+		if child is Button and str(child.get("tool_type")) == tool_type:
+			return child
+		var found := _find_tool_button(child, tool_type)
+		if found != null:
+			return found
+	return null
 
 ## The Buy / Play button inside a location's list row.
 func _row_action_button(screen, location_id: String) -> Button:

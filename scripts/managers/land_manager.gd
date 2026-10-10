@@ -143,8 +143,10 @@ func is_tile_owned(tile_pos: Vector2i) -> bool:
 
 func tile_to_parcel(tile_pos: Vector2i) -> Vector2i:
 	"""Convert a tile position to its parcel coordinate."""
-	var px = int((tile_pos.x - GRID_OFFSET) / float(PARCEL_SIZE))
-	var py = int((tile_pos.y - GRID_OFFSET) / float(PARCEL_SIZE))
+	# floori, not int: int() truncates toward zero, so the grid margin (tiles
+	# 0..3) and negative tiles would fold into parcel 0 and count as owned.
+	var px = floori(float(tile_pos.x - GRID_OFFSET) / float(PARCEL_SIZE))
+	var py = floori(float(tile_pos.y - GRID_OFFSET) / float(PARCEL_SIZE))
 	if px < 0 or px >= PARCEL_GRID_COLS or py < 0 or py >= PARCEL_GRID_ROWS:
 		return Vector2i(-1, -1)
 	return Vector2i(px, py)

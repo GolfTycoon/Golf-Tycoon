@@ -122,7 +122,7 @@ func upgrade() -> bool:
 	var cost = get_upgrade_cost()
 	if not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
-			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			EventBus.notify(GameManager.spending_blocked_message(), "error")
 		else:
 			EventBus.notify("Cannot afford upgrade ($%d)" % cost, "error")
 		return false

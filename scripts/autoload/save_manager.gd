@@ -197,7 +197,8 @@ func get_save_list() -> Array[Dictionary]:
 	var file_name = dir.get_next()
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".save"):
-			var save_name = file_name.replace(".save", "")
+			# trim_suffix, not replace: a name such as "my.save.v2" must keep its text.
+			var save_name = file_name.trim_suffix(".save")
 			var metadata = _read_save_metadata(SAVE_DIR + file_name)
 			metadata["name"] = save_name
 			saves.append(metadata)
@@ -605,11 +606,22 @@ func _read_save_metadata(path: String) -> Dictionary:
 	if data == null or not data is Dictionary:
 		return {"timestamp": "", "course_name": "Unknown", "day": 0}
 
-	var game = data.get("game_state", data)
+	var raw_game = data.get("game_state", data)
+	var game: Dictionary = raw_game if raw_game is Dictionary else {}
+	var raw_holes = data.get("holes", [])
+	var raw_day = game.get("current_day", 0)
+	var raw_money = game.get("money", 0)
+	var raw_reputation = game.get("reputation", 0.0)
 	return {
-		"timestamp": data.get("timestamp", ""),
-		"course_name": game.get("course_name", "Unknown"),
-		"day": int(game.get("current_day", 0)),
+		"timestamp": str(data.get("timestamp", "")),
+		"course_name": str(game.get("course_name", "Unknown")),
+		"day": int(raw_day) if raw_day is int or raw_day is float else 0,
+		"money": int(raw_money) if raw_money is int or raw_money is float else 0,
+		"reputation": float(raw_reputation) if raw_reputation is int or raw_reputation is float else 0.0,
+		"hole_count": raw_holes.size() if raw_holes is Array else 0,
+		"difficulty": str(game.get("difficulty", "")),
+		"theme": str(game.get("theme", "")),
+		"version": int(data.get("version", 0)) if data.get("version", 0) is int or data.get("version", 0) is float else 0,
 	}
 
 ## Auto-save periodically — with a 3.5-second day, one save per day would
