@@ -17,6 +17,8 @@ Each location's land is partly cleared already. How much is cleared is rolled fo
 
 The globe in the middle of the screen is an atlas you can spin and zoom. Pins mark each destination.
 
+**How you reach it.** The **World Map** button leads the Club tab's operations, beside Land, Marketing, Milestones and Scorecard. Opening it there freezes the course — the day, the golfers and the daily costs all wait — so a site can be bought, browsed or switched without the club falling behind. **Back** (or Escape) hands the course back exactly as it was: the gameplay UI returns and the day resumes only if it was running before the map opened. Start New Game and Quick Start open the same screen before the company has a course.
+
 ---
 
 ## Algorithm

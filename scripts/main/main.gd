@@ -116,9 +116,17 @@ var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var world_map_screen: WorldMapScreen = null
 var event_feed_panel: EventFeedPanel = null
-## True while the world map screen was opened from the title screen (as opposed
-## to the pause menu) — decides where Back and Play return to.
-var _world_map_from_menu: bool = false
+## Where the world map screen was opened from — decides where its Back button
+## (and a picked location) return to.
+##  - TITLE_SCREEN: Start New Game / Quick Start.
+##  - CLUB_TAB:     the Club tab's World Map button, which hands the course back.
+##  - PAUSE_MENU:   the in-game entry the pause menu used before the button
+##                  moved to the Club tab (kept for tests and harnesses).
+enum WorldMapOrigin { TITLE_SCREEN, CLUB_TAB, PAUSE_MENU }
+var _world_map_origin: int = WorldMapOrigin.TITLE_SCREEN
+## The game's pause flag from before the Club tab opened the map. The map freezes
+## the day while it is up, so this is what the course resumes to on the way out.
+var _world_map_restore_paused: bool = false
 ## Holes the world map asked the first course to start with (0 = build them all).
 var _generated_holes_pending: int = 0
 
@@ -361,6 +369,11 @@ func _input(event: InputEvent) -> void:
 			_stop_elevation_painting()
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
+		# The World Map is a screen of its own: while it is up, no gameplay
+		# hotkey (Escape included) reaches the course behind it. Its own Back
+		# button and Escape close it.
+		if _world_map_is_open():
+			return
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
 			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
@@ -631,6 +644,7 @@ func _setup_terrain_toolbar() -> void:
 	# Club / Player tab signals
 	terrain_toolbar.play_course_pressed.connect(_on_play_course_pressed)
 	terrain_toolbar.tournaments_pressed.connect(_toggle_tournament_panel)
+	terrain_toolbar.world_map_pressed.connect(_open_world_map_from_club_tab)
 	terrain_toolbar.land_pressed.connect(_toggle_land_panel)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
@@ -734,11 +748,26 @@ func _on_quit_pressed() -> void:
 
 ## ── World map ────────────────────────────────────────────────────────────
 
-## Show the globe. `from_menu` remembers where to return to: the title screen
-## (Start New Game / Quick Start) or the pause menu (World Map button).
+## Show the globe. `from_menu` is the legacy switch the title screen uses: true
+## from the title screen (Start New Game / Quick Start), false for the in-game
+## entry tests and harnesses use, which returns to the pause menu. The Club tab
+## opens the map through _open_world_map_from_club_tab().
 func _show_world_map_screen(from_menu: bool) -> void:
-	_world_map_from_menu = from_menu
-	if from_menu:
+	_show_world_map_screen_at(WorldMapOrigin.TITLE_SCREEN if from_menu else WorldMapOrigin.PAUSE_MENU)
+
+## The Club tab's World Map button: browse the company's sites without leaving
+## the course. The map freezes the day and takes the screen while it is up —
+## the same hands-off state the pause menu handed it — so a site can be bought,
+## browsed or switched without the course running on behind it.
+func _open_world_map_from_club_tab() -> void:
+	_world_map_restore_paused = GameManager.is_paused
+	GameManager.is_paused = true
+	_set_gameplay_ui_visible(false)
+	_show_world_map_screen_at(WorldMapOrigin.CLUB_TAB)
+
+func _show_world_map_screen_at(origin: int) -> void:
+	_world_map_origin = origin
+	if origin == WorldMapOrigin.TITLE_SCREEN:
 		_hide_main_menu()
 		_set_gameplay_ui_visible(false)
 		GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
@@ -759,14 +788,28 @@ func _close_world_map() -> void:
 		world_map_screen.queue_free()
 		world_map_screen = null
 
+## True while the world map screen is up. It takes the whole window, so the
+## course behind it must not answer gameplay hotkeys while it is open.
+func _world_map_is_open() -> bool:
+	return world_map_screen != null and world_map_screen.visible
+
 func _on_world_map_back() -> void:
-	var from_menu := _world_map_from_menu
+	var origin := _world_map_origin
 	_close_world_map()
-	if from_menu:
-		_show_main_menu()
-	else:
-		# Back to the paused game it was opened from.
-		_show_pause_menu()
+	match origin:
+		WorldMapOrigin.TITLE_SCREEN:
+			_show_main_menu()
+		WorldMapOrigin.CLUB_TAB:
+			_leave_club_world_map()
+		_:
+			# Back to the paused game it was opened from.
+			_show_pause_menu()
+
+## Hand the course back after the world map closes: the gameplay UI returns and
+## the day resumes only if it was running before the map opened.
+func _leave_club_world_map() -> void:
+	_set_gameplay_ui_visible(true)
+	GameManager.is_paused = _world_map_restore_paused
 
 ## The player pressed Play on an owned location: start the company's game
 ## there, restoring the course they left when there is one.
@@ -778,7 +821,7 @@ func _on_world_map_play_location(location_id: String) -> void:
 	if not leaving.is_empty() and leaving != location_id and GameManager.current_course != null:
 		WorldMap.take_snapshot(leaving, SaveManager.build_location_snapshot())
 
-	var from_menu := _world_map_from_menu
+	var origin := _world_map_origin
 	WorldMap.set_active_location(location_id)
 	_close_world_map()
 
@@ -787,15 +830,15 @@ func _on_world_map_play_location(location_id: String) -> void:
 	if can_restore:
 		WorldMap.apply_location_land(location_id)
 		SaveManager.switch_to_location(snapshot)
-		_after_location_activated(from_menu)
+		_after_location_activated(origin)
 		EventBus.notify("Moved to %s." % WorldMap.get_active_location().get("name", location_id), "info")
 		return
 
 	# Nothing to restore: build this location's course from the company's
 	# Start New Game options (location theme, generated holes, money).
-	_start_new_course_at_location(location_id, from_menu)
+	_start_new_course_at_location(location_id, origin)
 
-func _start_new_course_at_location(location_id: String, from_menu: bool) -> void:
+func _start_new_course_at_location(location_id: String, origin: int) -> void:
 	var def := WorldLocations.get_definition(location_id)
 	WorldMap.apply_location_land(location_id)
 	# Only the first location the player bought gets the pre-generated holes
@@ -803,7 +846,7 @@ func _start_new_course_at_location(location_id: String, from_menu: bool) -> void
 	var holes_for_this_location: int = WorldMap.holes_to_generate_for(location_id)
 	_generated_holes_pending = holes_for_this_location
 	_set_gameplay_ui_visible(true)
-	if from_menu:
+	if origin == WorldMapOrigin.TITLE_SCREEN:
 		GameManager.set_mode(GameManager.GameMode.SIMULATING)
 
 	# The balance carries over: buying the location before starting the course
@@ -825,6 +868,10 @@ func _start_new_course_at_location(location_id: String, from_menu: bool) -> void
 		terrain_toolbar.clear_selection()
 	if placement_preview:
 		placement_preview.set_terrain_painting_enabled(false)
+	# The new course replaces the one the map was opened over, so hand the
+	# course back the same way Back does: gameplay UI on, pre-map speed back.
+	if origin == WorldMapOrigin.CLUB_TAB:
+		_leave_club_world_map()
 
 ## The default course name for a location: "Monterey Golf Club".
 static func _course_name_for_location(definition: Dictionary) -> String:
@@ -832,14 +879,18 @@ static func _course_name_for_location(definition: Dictionary) -> String:
 	return course_name if course_name.to_lower().ends_with("golf club") else "%s Golf Club" % course_name
 
 ## Shared finishing touches after a location's course becomes the live one.
-func _after_location_activated(from_menu: bool) -> void:
+func _after_location_activated(origin: int) -> void:
 	_set_gameplay_ui_visible(true)
-	if from_menu:
-		GameManager.set_mode(GameManager.GameMode.SIMULATING)
-		GameManager.is_paused = false
-	else:
-		# Came from the pause menu: leave the game paused and show it again.
-		_show_pause_menu()
+	match origin:
+		WorldMapOrigin.TITLE_SCREEN:
+			GameManager.set_mode(GameManager.GameMode.SIMULATING)
+			GameManager.is_paused = false
+		WorldMapOrigin.CLUB_TAB:
+			# Picked from the Club tab: hand the course back, now at the new site.
+			_leave_club_world_map()
+		_:
+			# Came from the pause menu: leave the game paused and show it again.
+			_show_pause_menu()
 
 ## Legacy entry point (tests and harnesses): start a game directly on a course
 ## name and theme, bypassing the world map.
@@ -4028,7 +4079,6 @@ func _show_pause_menu() -> void:
 	pause_menu.resume_requested.connect(_on_pause_resume)
 	pause_menu.save_requested.connect(_on_pause_save)
 	pause_menu.load_requested.connect(_on_pause_load)
-	pause_menu.world_map_requested.connect(_on_pause_world_map)
 	pause_menu.settings_requested.connect(_on_pause_settings)
 	pause_menu.quit_to_menu_requested.connect(_on_pause_quit_to_menu)
 	pause_menu.quit_to_desktop_requested.connect(_on_pause_quit_to_desktop)
@@ -4060,12 +4110,6 @@ func _on_pause_load() -> void:
 	# Keep the game paused while the save/load panel is open
 	_hide_pause_menu()
 	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.LOAD)
-
-func _on_pause_world_map() -> void:
-	# Keep the game paused while the world map is open — the course behind it
-	# is snapshotted, so switching locations does not lose any work.
-	_hide_pause_menu()
-	_show_world_map_screen(false)
 
 func _on_pause_settings() -> void:
 	# Keep the game paused while the settings menu is open

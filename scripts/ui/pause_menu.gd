@@ -2,8 +2,11 @@ extends Control
 class_name PauseMenu
 ## PauseMenu - Full-screen pause overlay with game options
 ##
-## Triggered by Escape key. Provides Resume, Save, Load, Quit to Menu, and
-## Quit to Desktop options. Dims the game behind it.
+## Triggered by Escape key. Provides Resume, Save, Load, Settings, Quit to Menu,
+## and Quit to Desktop options. Dims the game behind it.
+##
+## The World Map is not here: it lives on the Club tab, where the company's
+## sites are managed.
 ##
 ## The simulation is frozen while this menu is open, but the player can still
 ## look around the course: pointer events that land on the dimmed backdrop
@@ -13,7 +16,6 @@ class_name PauseMenu
 signal resume_requested
 signal save_requested
 signal load_requested
-signal world_map_requested
 signal settings_requested
 signal quit_to_menu_requested
 signal quit_to_desktop_requested
@@ -95,7 +97,6 @@ func _build_ui() -> void:
 	_add_menu_button(vbox, "Resume", _on_resume_pressed)
 	_add_menu_button(vbox, "Save Game", _on_save_pressed)
 	_add_menu_button(vbox, "Load Game", _on_load_pressed)
-	_add_menu_button(vbox, "World Map", _on_world_map_pressed)
 	_add_menu_button(vbox, "Settings", _on_settings_pressed)
 
 	# Separator before destructive actions
@@ -193,9 +194,6 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
-
-func _on_world_map_pressed() -> void:
-	world_map_requested.emit()
 
 func _on_settings_pressed() -> void:
 	settings_requested.emit()

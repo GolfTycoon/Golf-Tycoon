@@ -1047,8 +1047,31 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	for child in ops_box.get_children():
 		if child is ToolButton:
 			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["land", "marketing", "milestones", "scorecard"],
+	assert_eq(tool_types, ["world_map", "land", "marketing", "milestones", "scorecard"],
 		"The Club tab's operations no longer include feed")
+
+## The World Map button moved from the pause menu into the Club tab's
+## operations, so it is the tab that opens the company's atlas.
+func test_world_map_button_leads_the_club_tab_operations() -> void:
+	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("world_map"), TerrainToolbar.Tab.CLUB,
+		"The World Map belongs to the Club tab")
+	assert_true(toolbar._is_menu_action("world_map"),
+		"The World Map action opens a screen, so it is never a paint tool")
+	assert_false(toolbar._tool_buttons.has("world_map"),
+		"A menu action holds no terrain tool selection")
+
+	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.CLUB)
+	var ops_box: HBoxContainer = page.get_child(0).get_child(1)
+	var first: ToolButton = ops_box.get_child(0)
+	assert_eq(first.tool_type, "world_map", "The World Map leads the operations row")
+	assert_eq(first.text, "World Map", "The button reads World Map")
+	assert_string_contains(first.tool_description, "course sites")
+
+	watch_signals(toolbar)
+	toolbar._on_tool_button_pressed("world_map")
+	assert_signal_emitted(toolbar, "world_map_pressed")
+	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.CLUB,
+		"The World Map button keeps the Club tab open behind it")
 
 func test_action_signals() -> void:
 	watch_signals(toolbar)

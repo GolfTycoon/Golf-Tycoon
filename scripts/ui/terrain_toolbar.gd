@@ -12,7 +12,7 @@ class_name TerrainToolbar
 ##  - Holes:          one button per course hole, three to a column, each opening that hole's context menu (the buttons are filled by main.gd)
 ##  - Golfers:        who is on the course, four golfers to a column, beside the recent rounds, six rounds to a column
 ##  - Player:         play the course, tournaments, player skills
-##  - Club:           land, marketing, milestones, scorecard
+##  - Club:           world map, land, marketing, milestones, scorecard
 ##  - Staff:          hire/fire staff, course condition, payroll, and effects
 ##
 ## Content within tabs is laid out horizontally and scrolls horizontally when
@@ -38,6 +38,8 @@ signal brush_size_changed(new_size: int)
 signal brush_shape_changed(round_shape: bool)
 signal play_course_pressed
 signal tournaments_pressed
+## Buy, browse and switch between the company's course sites on the world map.
+signal world_map_pressed
 signal land_pressed
 signal marketing_pressed
 signal milestones_pressed
@@ -112,6 +114,7 @@ const TOOL_TAB_MAP := {
 	"gradual": Tab.ELEVATION,
 	"play_course": Tab.PLAYER,
 	"tournaments": Tab.PLAYER,
+	"world_map": Tab.CLUB,
 	"land": Tab.CLUB,
 	"marketing": Tab.CLUB,
 	"milestones": Tab.CLUB,
@@ -989,6 +992,10 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 	var ops_box = HBoxContainer.new()
 	ops_box.add_theme_constant_override("separation", 4)
 	ops_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# The World Map leads the operations: it is the company's atlas, so it is
+	# where a club decides which site to work on next. Opening it from here
+	# freezes the course behind the globe, exactly as the pause menu did.
+	_add_tool_button(ops_box, {"type": "world_map", "name": "World Map", "desc": "Buy, browse and switch between the company's course sites"})
 	_add_tool_button(ops_box, {"type": "land", "name": "Land", "icon": "[L]", "hotkey": "L", "desc": "Buy land parcels to expand the course"})
 	_add_tool_button(ops_box, {"type": "marketing", "name": "Marketing", "icon": "[M]", "hotkey": "M", "desc": "Marketing campaigns to attract golfers"})
 	_add_tool_button(ops_box, {"type": "milestones", "name": "Milestones", "icon": "[G]", "hotkey": "G", "desc": "Goals and achievements"})
@@ -998,7 +1005,7 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 
 	hbox.add_child(_make_separator())
 
-	hbox.add_child(_make_tip_label("Expand land parcels, launch marketing campaigns, track milestones and check course records."))
+	hbox.add_child(_make_tip_label("Switch course sites on the World Map, buy land, run marketing campaigns, track milestones and check course records."))
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
@@ -1121,7 +1128,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["land", "marketing", "milestones", "scorecard", "tournaments", "play_course"]
+	return tool_type in ["world_map", "land", "marketing", "milestones", "scorecard", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -1626,6 +1633,8 @@ func _on_tool_button_pressed(tool_type) -> void:
 				play_course_pressed.emit()
 			"tournaments":
 				tournaments_pressed.emit()
+			"world_map":
+				world_map_pressed.emit()
 			"land":
 				land_pressed.emit()
 			"marketing":

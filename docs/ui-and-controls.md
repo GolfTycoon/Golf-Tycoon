@@ -12,8 +12,8 @@
 - **Main menu.** Headed by the game logo (`assets/ui/logo.png`). Start New Game, Quick Start, Continue, Load Game, Settings and Quit.
 - **Start New Game.** Company name (or roll for a random one), difficulty (Easy, Normal or Hard), starting money ($100K, $150K, $200K or Unlimited), generated holes, and the Weather, Wind and Seasons options.
 - **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features on, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
-- **World Map.** A spinning globe with a pin for each destination, a list of locations, Buy and Play, and Reset World. See [World Map](systems/economy-and-land/world-map.md).
-- **Pause menu.** Resume, Settings, Save and Quit. The camera still moves while paused.
+- **World Map.** A spinning globe with a pin for each destination, a list of locations, Buy and Play, and Reset World. It opens from the **World Map** button on the **Club** tab, and from Start New Game / Quick Start. The course behind it freezes while the globe is up, so switching sites never loses a day's work. See [World Map](systems/economy-and-land/world-map.md).
+- **Pause menu.** Resume, Save Game, Load Game, Settings, Quit to Menu and Quit to Desktop. The camera still moves while paused.
 - **Settings.** Four categories (Audio, Display, Gameplay, Controls) laid out for each window size. Desktop uses a category rail, the control cards and an "at a glance" panel. Tablets keep the rail beside or above the cards. Phones use four equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category includes the keyboard shortcut reference.
 - **Save and Load.** One archive with a Save or Load mode. Save names a checkpoint and asks before replacing one. Load shows the selected course's day, balance, holes and last-played time, and asks before replacing the live course. Saving is offered only from the pause menu. The title screen and game-over panel can only load.
 - **Golfer Skins studio.** Paint the golfers' clothing. See [Golfer Skins](golfer-skins.md).
