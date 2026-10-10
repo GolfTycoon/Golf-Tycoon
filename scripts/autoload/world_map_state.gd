@@ -42,6 +42,14 @@ var features: Dictionary = {
 var locations: Dictionary = {}
 ## Location currently being played (empty before the first course is bought).
 var active_location_id: String = ""
+## The first location the player bought in this company. Generated holes are
+## only laid out for this location (subsequent locations start empty so the
+## player builds them themselves).
+var first_purchased_location_id: String = ""
+## True once the generated holes from the Start New Game choice have been laid
+## out at the first purchased location (or the player chose zero holes). Used
+## to clear the value so Reset World and future purchases stop reserving land.
+var generated_holes_consumed: bool = false
 ## id -> save-data dictionary captured when the player left that location.
 var location_snapshots: Dictionary = {}
 ## Seed of the current world roll (shown nowhere, kept for reproducibility).
@@ -54,7 +62,16 @@ func _ready() -> void:
 		# run (legacy flows and tests start a course directly).
 		new_world(default_options())
 
-## The options Quick Start uses, and the fallback for a legacy game start.
+## Generated holes Quick Start lays out on its first course.
+const QUICK_START_HOLES: int = 3
+
+## The options Quick Start uses: the defaults, with a 3-hole generated course.
+static func quick_start_options() -> Dictionary:
+	var options := default_options()
+	options["generated_holes"] = QUICK_START_HOLES
+	return options
+
+## The fallback options for a legacy game start.
 static func default_options() -> Dictionary:
 	return {
 		"company_name": WorldLocations.random_company_name(),
@@ -92,6 +109,8 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	locations.clear()
 	location_snapshots.clear()
 	active_location_id = ""
+	first_purchased_location_id = ""
+	generated_holes_consumed = (generated_holes == 0)
 	_roll_locations(rng, generated_holes)
 
 	world_ready = true
@@ -101,12 +120,15 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	world_reset.emit()
 
 ## Re-roll the pre-cleared land (and therefore the prices) of every location the
-## player does not own yet. Owned land is never taken away.
+## player does not own yet. Owned land is never taken away. Once the player has
+## bought their first location, no further locations reserve parcels for a
+## generated course (generated holes only apply to the first purchase).
 func reset_world() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	world_seed = rng.seed
-	_roll_locations(rng, generated_holes)
+	var required := 0 if generated_holes_consumed else generated_holes
+	_roll_locations(rng, required)
 	world_reset.emit()
 
 func _roll_locations(rng: RandomNumberGenerator, required_holes: int) -> void:
@@ -165,12 +187,15 @@ func get_location_parcels(location_id: String) -> Array:
 	if def.is_empty():
 		return []
 	# The block is deterministic for a location (the per-world jitter comes out
-	# of its own seed) and always includes the land the generated first course
-	# needs, so even a small site can host the course the player asked for.
+	# of its own seed). Before the first purchase it always includes the land
+	# the generated first course needs, so even a small site can host the
+	# course the player asked for. After the first purchase no further land is
+	# reserved for generated holes.
+	var required_holes := 0 if generated_holes_consumed else generated_holes
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(locations.get(location_id, {}).get("seed", 0))
 	return WorldLocations.layout_order(int(def["size"]), rng,
-		WorldLocations.get_required_parcels(generated_holes))
+		WorldLocations.get_required_parcels(required_holes))
 
 ## Total number of parcels in a location's land.
 func get_total_parcels(location_id: String) -> int:
@@ -197,11 +222,33 @@ func buy_location(location_id: String) -> bool:
 	GameManager.modify_money(-price)
 	EventBus.log_transaction("Bought %s" % WorldLocations.get_definition(location_id).get("name", location_id), -price)
 	locations[location_id]["owned"] = true
+	# Remember the first bought location: only that one gets the pre-generated
+	# holes the player chose on the Start New Game screen. Every later purchase
+	# starts empty so the player builds the course themselves.
+	if first_purchased_location_id.is_empty():
+		first_purchased_location_id = location_id
 	EventBus.notify("%s purchased! %d parcels of land came ready to build on." % [
 		WorldLocations.get_definition(location_id).get("name", location_id),
 		get_unlocked_parcels(location_id).size()], "success")
 	location_purchased.emit(location_id)
 	return true
+
+## Pick a random location the company can afford right now (not yet owned).
+## Returns its id, or an empty string when nothing is affordable.
+func pick_random_affordable_location(rng_seed: int = -1) -> String:
+	var affordable: Array[String] = []
+	for def in WorldLocations.get_all():
+		var id := str(def["id"])
+		if not is_owned(id) and can_afford(id):
+			affordable.append(id)
+	if affordable.is_empty():
+		return ""
+	var rng := RandomNumberGenerator.new()
+	if rng_seed >= 0:
+		rng.seed = rng_seed
+	else:
+		rng.randomize()
+	return affordable[rng.randi_range(0, affordable.size() - 1)]
 
 ## The location currently being played, or an empty dictionary.
 func get_active_location() -> Dictionary:
@@ -213,6 +260,38 @@ func set_active_location(location_id: String) -> void:
 		return
 	active_location_id = location_id
 	active_location_changed.emit(location_id)
+
+## How many generated holes should be laid out at `location_id`. Returns the
+## player's Start New Game choice for the first location they bought, and 0 for
+## every location bought after that (and for 0-hole starts). Called before a
+## course is generated at a newly-activated location so the right number of
+## holes is queued.
+func holes_to_generate_for(location_id: String) -> int:
+	if generated_holes <= 0:
+		return 0
+	# If the player has bought at least one location, only the very first one
+	# gets the pre-generated holes. If nothing has been bought yet (legacy/
+	# quick-start paths) treat the incoming location as the first.
+	var target: String = first_purchased_location_id
+	if target.is_empty():
+		target = location_id
+	if location_id != target:
+		return 0
+	return generated_holes
+
+## Call once the generated holes have been placed on the first course. From
+## here on, no further location reserves land for a pre-generated layout —
+## later courses start empty so the player builds them.
+func mark_generated_holes_used() -> void:
+	if generated_holes_consumed:
+		return
+	generated_holes_consumed = true
+	# Re-roll unowned locations against a 0-hole requirement so their parcel
+	# blocks and prices no longer reserve land for the (now-used) layout.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	world_seed = rng.seed
+	_roll_locations(rng, 0)
 
 ## Apply the company settings to the GameManager. `with_money` is true when a
 ## brand new game is starting (the budget option becomes the opening balance);
@@ -274,6 +353,8 @@ func ensure_legacy_world(theme: int) -> String:
 	if preferred.is_empty():
 		preferred = str(WorldLocations.get_all()[0]["id"])
 	locations[preferred]["owned"] = true
+	if first_purchased_location_id.is_empty():
+		first_purchased_location_id = preferred
 	set_active_location(preferred)
 	return preferred
 
@@ -301,6 +382,8 @@ func serialize() -> Dictionary:
 		"difficulty": DifficultyPresets.to_string_name(difficulty),
 		"starting_money": starting_money_option,
 		"generated_holes": generated_holes,
+		"first_purchased_location": first_purchased_location_id,
+		"generated_holes_consumed": generated_holes_consumed,
 		"features": features.duplicate(),
 		"active_location": active_location_id,
 		"locations": location_data,
@@ -315,6 +398,18 @@ func deserialize(data: Dictionary) -> void:
 	difficulty = DifficultyPresets.from_string(str(data.get("difficulty", "normal")))
 	starting_money_option = int(data.get("starting_money", 100000))
 	generated_holes = int(data.get("generated_holes", 0))
+	first_purchased_location_id = str(data.get("first_purchased_location", ""))
+	# Older saves may not have the flag: if any location is already owned, the
+	# pre-generated holes (if any) were already laid out there.
+	if data.has("generated_holes_consumed"):
+		generated_holes_consumed = bool(data.get("generated_holes_consumed", false))
+	else:
+		var any_owned := false
+		for state in data.get("locations", {}).values():
+			if bool(state.get("owned", false)):
+				any_owned = true
+				break
+		generated_holes_consumed = any_owned or generated_holes == 0
 	var saved_features: Dictionary = data.get("features", {})
 	for key in FEATURE_KEYS:
 		features[key] = bool(saved_features.get(key, true))

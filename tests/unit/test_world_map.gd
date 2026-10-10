@@ -128,10 +128,10 @@ func test_new_world_applies_company_settings() -> void:
 	assert_eq(WorldMap.generated_holes, 9)
 
 func test_quick_start_defaults_match_the_agreed_options() -> void:
-	var options := WorldMapStateScript.default_options()
+	var options := WorldMapStateScript.quick_start_options()
 	assert_eq(options["difficulty"], DifficultyPresets.Preset.NORMAL)
 	assert_eq(options["starting_money"], 100000)
-	assert_eq(options["generated_holes"], 0)
+	assert_eq(options["generated_holes"], 3, "Quick Start generates a 3-hole course")
 	for key in WorldMap.FEATURE_KEYS:
 		assert_true(bool(options["features"][key]), "%s is enabled by default" % key)
 	assert_ne(options["company_name"], "", "Quick Start picks a random company name")
@@ -306,3 +306,16 @@ func _rng() -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20241003
 	return rng
+
+func test_pick_random_affordable_location_only_returns_affordable_unowned_sites() -> void:
+	WorldMap.new_world(WorldMapStateScript.quick_start_options(), 4711)
+	GameManager.money = 100000
+	var picked := WorldMap.pick_random_affordable_location(1)
+	assert_ne(picked, "", "something is affordable with the $100,000 Quick Start budget")
+	assert_true(WorldMap.can_afford(picked), "the pick can be afforded")
+	assert_false(WorldMap.is_owned(picked), "the pick is not already owned")
+
+func test_pick_random_affordable_location_returns_empty_when_nothing_is_affordable() -> void:
+	WorldMap.new_world(WorldMapStateScript.quick_start_options(), 4711)
+	GameManager.money = 0
+	assert_eq(WorldMap.pick_random_affordable_location(1), "", "no site is affordable with no money")

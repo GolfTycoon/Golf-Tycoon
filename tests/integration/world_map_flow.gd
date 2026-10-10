@@ -214,7 +214,9 @@ func run() -> void:
 	check(cash_after_switch == first_cash, "switching locations keeps the company's money (was %d, now %d)" % [first_cash, cash_after_switch])
 	await frames(12)
 	check(gm.current_course != null, "the second location has a course")
-	check(gm.current_course.holes.size() == 6, "the second site also gets the generated course")
+	check(gm.current_course.holes.size() == 0,
+		"generated holes are only placed on the first location bought (second site starts empty, got %d holes)" % (
+			gm.current_course.holes.size() if gm.current_course else -1))
 
 	main._on_world_map_play_location(target)
 	var cash_after_return: int = gm.money
@@ -277,12 +279,14 @@ func run() -> void:
 	# ------------------------------------------------------------ quick start
 	main._on_menu_quick_start()
 	await frames(3)
-	check(main.get_node_or_null("UI/HUD/WorldMapScreen") != null,
-		"Quick Start goes straight to the world map")
-	var defaults: Dictionary = world.default_options()
+	check(world.active_location_id != "" and world.is_owned(world.active_location_id),
+		"Quick Start buys and plays a random affordable location")
+	check(gm.current_course != null and gm.current_course.holes.size() == 3,
+		"Quick Start's course starts with 3 generated holes")
+	var defaults: Dictionary = world.quick_start_options()
 	check(world.difficulty == DifficultyPresets.Preset.NORMAL, "Quick Start uses Normal difficulty")
 	check(world.starting_money_option == 100000, "Quick Start starts with $100,000")
-	check(world.generated_holes == 0, "Quick Start generates no holes up front")
+	check(world.generated_holes == 3, "Quick Start generates a 3-hole course")
 	for key in defaults["features"]:
 		check(bool(world.features[key]), "Quick Start enables %s" % key)
 	check(world.company_name.length() > 0, "Quick Start picks a random company name")

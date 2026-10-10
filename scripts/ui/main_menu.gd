@@ -513,8 +513,8 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 
 func _make_quick_card(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_card("Quick Start",
-		"Straight to the world map: random company, Normal difficulty, $100,000.",
-		"Jump straight in: random company name, Normal difficulty, $100,000 and all features on",
+		"Random company, Normal difficulty, $100,000, a 3-hole course on a random affordable location.",
+		"Jump straight in: random company name, Normal difficulty, $100,000, all features on, and a random affordable location bought and played with 3 generated holes",
 		height, title_font, caption_font, ACCENT_SECONDARY)
 	button.name = "QuickStartButton"
 	button.pressed.connect(func(): quick_start_requested.emit())
