@@ -33,7 +33,7 @@ const PHONE_ROW_HEIGHT := 60.0
 const LANDSCAPE_ROW_HEIGHT := 46.0
 const TABLET_CARD_WIDTH := 218.0
 const TABLET_CARD_HEIGHT := 112.0
-## The out-of-game menus share one illustrated backdrop, one translucent
+## The out-of-game menus share one background image backdrop, one translucent
 ## card system and the same cream / golf-green / flag-gold accent palette.
 const COLOR_SURFACE := MenuStyle.SHEET_BG
 const COLOR_SURFACE_RAISED := MenuStyle.RAIL_BG
@@ -167,7 +167,6 @@ func _build() -> void:
 	var backdrop := MenuBackdrop.new()
 	backdrop.name = "Backdrop"
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	backdrop.green_anchor = _backdrop_anchor(_layout_mode)
 	add_child(backdrop)
 
 	var frame := MarginContainer.new()
@@ -195,17 +194,6 @@ func _build() -> void:
 			page.add_child(_build_phone_landscape_body(_built_size))
 		_:
 			page.add_child(_build_phone_portrait_body(_built_size))
-
-func _backdrop_anchor(mode: int) -> Vector2:
-	match mode:
-		LayoutMode.DESKTOP:
-			return Vector2(0.87, 0.90)
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
-			return Vector2(0.84, 0.91)
-		LayoutMode.PHONE_LANDSCAPE:
-			return Vector2(0.16, 0.90)
-		_:
-			return Vector2(0.80, 0.91)
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
