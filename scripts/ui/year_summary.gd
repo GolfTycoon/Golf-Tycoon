@@ -1,0 +1,370 @@
+extends CenteredPanel
+class_name YearSummaryPanel
+## YearSummaryPanel - Shows year-in-review statistics when a calendar year ends
+## (the pausing counterpart to the daily rollover, which stays silent).
+
+signal continue_pressed
+
+var _year: int = 2000
+
+func _init(year: int = 2000) -> void:
+	_year = year
+
+func _ready() -> void:
+	super._ready()
+	# Show centered immediately (this panel auto-shows on creation)
+	show_centered()
+
+func _build_ui() -> void:
+	# Get viewport height to set appropriate panel size
+	var viewport_height = 800  # Default fallback
+	if get_viewport():
+		viewport_height = get_viewport().get_visible_rect().size.y
+	var panel_height = min(680, viewport_height - 100)  # Leave margin from screen edges
+	custom_minimum_size = Vector2(400, panel_height)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	add_child(margin)
+
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(main_vbox)
+
+	# Title (fixed at top)
+	var title = Label.new()
+	title.text = "%d Year in Review" % _year
+	title.add_theme_font_size_override("font_size", 24)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_vbox.add_child(title)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# Scrollable content area
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_vbox.add_child(scroll)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
+
+	# The year that just finished is parked in previous_year_stats (the new
+	# year's accumulator has already been reset before this panel opens).
+	var stats: GameManager.DailyStatistics = GameManager.previous_year_stats
+	var prior: GameManager.DailyStatistics = GameManager.prior_year_stats  # Year before last, for trends
+
+	if stats == null:
+		var none = Label.new()
+		none.text = "No statistics recorded."
+		none.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+		vbox.add_child(none)
+		stats = GameManager.DailyStatistics.new()
+	else:
+		_build_sections(vbox, stats, prior)
+
+	# Action buttons (fixed at bottom, outside scroll area)
+	main_vbox.add_child(HSeparator.new())
+
+	var btn_row = VBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 6)
+	main_vbox.add_child(btn_row)
+
+	var continue_btn = Button.new()
+	continue_btn.text = "Continue to %d" % (_year + 1)
+	continue_btn.custom_minimum_size = Vector2(200, 38)
+	continue_btn.pressed.connect(_on_continue_pressed)
+	btn_row.add_child(continue_btn)
+
+func _build_sections(vbox: VBoxContainer, stats: GameManager.DailyStatistics, prior: GameManager.DailyStatistics) -> void:
+	# Revenue section
+	var revenue_label = Label.new()
+	revenue_label.text = "Revenue:"
+	revenue_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(revenue_label)
+
+	# Show green fees
+	var dim_green = UIConstants.COLOR_SUCCESS_DIM
+	var greenfee_row = _create_stat_row("  Green Fees:", "$%d" % stats.revenue, dim_green)
+	vbox.add_child(greenfee_row)
+
+	# Show building revenue if any
+	if stats.building_revenue > 0:
+		var building_row = _create_stat_row("  Amenities:", "$%d" % stats.building_revenue, dim_green)
+		vbox.add_child(building_row)
+
+	# Show tournament revenue if any
+	if stats.tournament_revenue > 0:
+		var tourn_rev_row = _create_stat_row("  Tournament:", "$%d" % stats.tournament_revenue, dim_green)
+		vbox.add_child(tourn_rev_row)
+
+	# Total revenue
+	var total_rev = stats.get_total_revenue()
+	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, UIConstants.COLOR_SUCCESS)
+	vbox.add_child(total_rev_row)
+
+	# Operating costs breakdown
+	var costs_label = Label.new()
+	costs_label.text = "Operating Costs:"
+	costs_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(costs_label)
+
+	# Show breakdown with indentation
+	var dim_color = UIConstants.COLOR_TEXT_DIM
+	if stats.terrain_maintenance > 0:
+		vbox.add_child(_create_stat_row("  Terrain:", "-$%d" % stats.terrain_maintenance, dim_color))
+	if stats.base_operating_cost > 0:
+		vbox.add_child(_create_stat_row("  Base:", "-$%d" % stats.base_operating_cost, dim_color))
+	if stats.staff_wages > 0:
+		vbox.add_child(_create_stat_row("  Staff:", "-$%d" % stats.staff_wages, dim_color))
+	if stats.building_operating_costs > 0:
+		vbox.add_child(_create_stat_row("  Buildings:", "-$%d" % stats.building_operating_costs, dim_color))
+	if stats.decoration_operating_costs > 0:
+		vbox.add_child(_create_stat_row("  Decorations:", "-$%d" % stats.decoration_operating_costs, dim_color))
+	if stats.tournament_entry_fee > 0:
+		vbox.add_child(_create_stat_row("  Tournament Fee:", "-$%d" % stats.tournament_entry_fee, dim_color))
+
+	var total_costs = stats.operating_costs + stats.tournament_entry_fee
+	vbox.add_child(_create_stat_row("Total Costs:", "-$%d" % total_costs, UIConstants.COLOR_DANGER_DIM))
+
+	if stats.hired_staff_payroll > 0:
+		vbox.add_child(_create_stat_row("  Hired staff:", "-$%d" % stats.hired_staff_payroll, dim_color))
+	if stats.marketing_cost > 0:
+		vbox.add_child(_create_stat_row("  Marketing:", "-$%d" % stats.marketing_cost, dim_color))
+
+	# Profit/Loss
+	var profit = stats.get_profit()
+	var profit_color = UIConstants.COLOR_SUCCESS if profit >= 0 else UIConstants.COLOR_DANGER
+	var profit_text = "+$%d" % profit if profit >= 0 else "-$%d" % abs(profit)
+	vbox.add_child(_create_stat_row("Annual Profit:", profit_text, profit_color))
+
+	if prior:
+		var trend = _create_stat_row("  vs. previous year:", "revenue %s  /  profit %s" % [
+			_trend_arrow(total_rev, prior.get_total_revenue()),
+			_trend_arrow(profit, prior.get_profit())], dim_color)
+		vbox.add_child(trend)
+
+	var steps := CourseAdvisor.review(GameManager.terrain_grid, GameManager.current_course, GameManager.entity_layer, GameManager.course_rating, stats)
+	if not steps.is_empty():
+		var next_step := Label.new()
+		next_step.text = "This year: " + steps[0].title + ". Open Course review for details."
+		next_step.custom_minimum_size.x = 350
+		next_step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		next_step.add_theme_font_size_override("font_size", 13)
+		next_step.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		vbox.add_child(next_step)
+
+	vbox.add_child(HSeparator.new())
+
+	# Course Rating section
+	var rating = GameManager.course_rating
+	var rating_label = Label.new()
+	rating_label.text = "Course Rating"
+	rating_label.add_theme_font_size_override("font_size", 16)
+	rating_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(rating_label)
+
+	# Star display
+	var stars = rating.get("stars", 3)
+	var overall = rating.get("overall", 3.0)
+	var star_text = ""
+	for i in range(stars):
+		star_text += "*"
+	for i in range(5 - stars):
+		star_text += "-"
+	star_text += " (%.1f)" % overall
+
+	var star_color = UIConstants.COLOR_WARNING
+	if stars >= 4:
+		star_color = UIConstants.COLOR_SUCCESS
+	elif stars <= 2:
+		star_color = UIConstants.COLOR_DANGER
+
+	vbox.add_child(_create_stat_row("Overall:", star_text, star_color))
+	vbox.add_child(_create_stat_row("  Condition:", "%.1f" % rating.get("condition", 3.0), dim_color))
+	vbox.add_child(_create_stat_row("  Design:", "%.1f" % rating.get("design", 3.0), dim_color))
+	vbox.add_child(_create_stat_row("  Value:", "%.1f" % rating.get("value", 3.0), dim_color))
+	vbox.add_child(_create_stat_row("  Pace:", "%.1f" % rating.get("pace", 3.0), dim_color))
+
+	# Course Difficulty section
+	var difficulty = rating.get("difficulty", 5.0)
+	var slope = rating.get("slope", 113)
+	var course_rtg = rating.get("course_rating", 72.0)
+
+	var diff_color = UIConstants.COLOR_SUCCESS
+	if difficulty >= 7.0:
+		diff_color = UIConstants.COLOR_DANGER
+	elif difficulty >= 5.0:
+		diff_color = UIConstants.COLOR_WARNING
+
+	vbox.add_child(_create_stat_row("Difficulty:", "%.1f (%s)" % [difficulty, CourseRatingSystem.get_difficulty_text(difficulty)], diff_color))
+
+	var slope_color = UIConstants.COLOR_INFO_DIM
+	if slope >= 130:
+		slope_color = UIConstants.COLOR_ORANGE
+	vbox.add_child(_create_stat_row("Slope Rating:", "%d" % slope, slope_color))
+	vbox.add_child(_create_stat_row("Course Rating:", "%.1f" % course_rtg, dim_color))
+
+	vbox.add_child(HSeparator.new())
+
+	# The year at a glance: playing volume
+	vbox.add_child(_create_stat_row("Arrivals:", str(stats.golfers_arrived), dim_color))
+	vbox.add_child(_create_stat_row("Completed rounds:", "%d" % stats.golfers_served))
+
+	# Golfer tier breakdown
+	if stats.golfers_served > 0:
+		var beginners = stats.tier_counts.get(GolferTier.Tier.BEGINNER, 0)
+		var casuals = stats.tier_counts.get(GolferTier.Tier.CASUAL, 0)
+		var serious = stats.tier_counts.get(GolferTier.Tier.SERIOUS, 0)
+		var pros = stats.tier_counts.get(GolferTier.Tier.PRO, 0)
+
+		if beginners > 0:
+			vbox.add_child(_create_stat_row("  Beginners:", "%d" % beginners, dim_color))
+		if casuals > 0:
+			vbox.add_child(_create_stat_row("  Casual:", "%d" % casuals, dim_color))
+		if serious > 0:
+			vbox.add_child(_create_stat_row("  Serious:", "%d" % serious, UIConstants.COLOR_INFO))
+		if pros > 0:
+			vbox.add_child(_create_stat_row("  Pro:", "%d" % pros, UIConstants.COLOR_GOLD))
+
+	# Average score (if any golfers played)
+	if stats.golfers_served > 0:
+		var avg_score = stats.get_average_score_to_par()
+		var avg_text = ""
+		if avg_score == 0:
+			avg_text = "Even"
+		elif avg_score > 0:
+			avg_text = "+%.1f" % avg_score
+		else:
+			avg_text = "%.1f" % avg_score
+		vbox.add_child(_create_stat_row("Avg Score:", avg_text))
+
+	vbox.add_child(HSeparator.new())
+
+	# Notable scores section
+	var notable_label = Label.new()
+	notable_label.text = "Notable Scores"
+	notable_label.add_theme_font_size_override("font_size", 16)
+	notable_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(notable_label)
+
+	var notable_container = HBoxContainer.new()
+	notable_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	notable_container.add_theme_constant_override("separation", 20)
+	vbox.add_child(notable_container)
+
+	# Hole in ones (gold)
+	if stats.holes_in_one > 0:
+		notable_container.add_child(_create_notable_badge("Hole-in-One", stats.holes_in_one, UIConstants.COLOR_GOLD))
+
+	# Eagles (gold-ish)
+	if stats.eagles > 0:
+		notable_container.add_child(_create_notable_badge("Eagle", stats.eagles, UIConstants.COLOR_GOLD_DIM))
+
+	# Birdies (blue)
+	if stats.birdies > 0:
+		notable_container.add_child(_create_notable_badge("Birdie", stats.birdies, UIConstants.COLOR_INFO))
+
+	# If no notable scores
+	if stats.holes_in_one == 0 and stats.eagles == 0 and stats.birdies == 0:
+		var none_label = Label.new()
+		none_label.text = "None this year"
+		none_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+		notable_container.add_child(none_label)
+
+	vbox.add_child(HSeparator.new())
+
+	# Golfer Satisfaction section
+	var satisfaction_label = Label.new()
+	satisfaction_label.text = "Golfer Satisfaction"
+	satisfaction_label.add_theme_font_size_override("font_size", 16)
+	satisfaction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(satisfaction_label)
+
+	var yearly_satisfaction := GameManager.previous_year_satisfaction
+	if yearly_satisfaction >= 0.0:
+		var satisfaction_pct := int(yearly_satisfaction * 100)
+		var sat_color: Color
+		if satisfaction_pct >= 70:
+			sat_color = UIConstants.COLOR_SUCCESS
+		elif satisfaction_pct >= 40:
+			sat_color = UIConstants.COLOR_WARNING
+		else:
+			sat_color = UIConstants.COLOR_DANGER
+		vbox.add_child(_create_stat_row("Average positive thoughts:", "%d%%" % satisfaction_pct, sat_color))
+
+	var experience := FeedbackManager.visit_summary()
+	if experience.reviews > 0:
+		vbox.add_child(_create_stat_row("Visit satisfaction (%d reviews):" % experience.reviews, "%d%%" % int(experience.satisfaction * 100), UIConstants.COLOR_TEXT))
+		vbox.add_child(_create_stat_row("Return intent:", "%d%%" % int(experience.return_intent * 100), UIConstants.COLOR_TEXT))
+	vbox.add_child(_create_stat_row("Returning guests:", str(experience.returning), UIConstants.COLOR_TEXT))
+	vbox.add_child(_create_stat_row("Amenity visits:", str(experience.service_visits), UIConstants.COLOR_TEXT))
+
+	# Show top feedback if available
+	var feedback_summary = FeedbackManager.get_daily_summary()
+	var top_compliment = feedback_summary["top_compliment"]
+	var top_complaint = feedback_summary["top_complaint"]
+
+	if top_compliment != "":
+		vbox.add_child(_create_stat_row("Top praise:", "\"%s\"" % top_compliment, UIConstants.COLOR_SUCCESS_MUTED))
+
+	if top_complaint != "":
+		vbox.add_child(_create_stat_row("Top concern:", "\"%s\"" % top_complaint, UIConstants.COLOR_DANGER_MUTED))
+
+	if top_compliment == "" and top_complaint == "" and yearly_satisfaction < 0.0:
+		var no_feedback = Label.new()
+		no_feedback.text = "No feedback recorded"
+		no_feedback.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+		no_feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(no_feedback)
+
+func _create_stat_row(label_text: String, value_text: String, value_color: Color = Color.WHITE) -> HBoxContainer:
+	var row = HBoxContainer.new()
+
+	var label = Label.new()
+	label.text = label_text
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+
+	var value = Label.new()
+	value.text = value_text
+	value.add_theme_color_override("font_color", value_color)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(value)
+
+	return row
+
+func _create_notable_badge(label_text: String, count: int, color: Color) -> VBoxContainer:
+	var badge = VBoxContainer.new()
+	badge.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var count_label = Label.new()
+	count_label.text = str(count)
+	count_label.add_theme_font_size_override("font_size", 20)
+	count_label.add_theme_color_override("font_color", color)
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.add_child(count_label)
+
+	var name_label = Label.new()
+	name_label.text = label_text
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.add_child(name_label)
+
+	return badge
+
+func _on_continue_pressed() -> void:
+	continue_pressed.emit()
+	queue_free()
+
+static func _trend_arrow(current: float, previous: float) -> String:
+	if current > previous:
+		return "^"
+	elif current < previous:
+		return "v"
+	return "="

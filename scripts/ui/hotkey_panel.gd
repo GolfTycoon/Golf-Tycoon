@@ -1,0 +1,167 @@
+extends CenteredPanel
+class_name HotkeyPanel
+## HotkeyPanel - Shows all keyboard shortcuts grouped by category
+
+func _build_ui() -> void:
+	custom_minimum_size = Vector2(480, 520)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	add_child(margin)
+
+	var main_vbox = VBoxContainer.new()
+	main_vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(main_vbox)
+
+	# Title
+	var title = Label.new()
+	title.text = "Keyboard Shortcuts"
+	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_vbox.add_child(title)
+
+	var subtitle = Label.new()
+	subtitle.text = "Press F1 to toggle this panel"
+	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_vbox.add_child(subtitle)
+
+	main_vbox.add_child(HSeparator.new())
+
+	# Scrollable content
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	main_vbox.add_child(scroll)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
+
+	# Two-column layout using GridContainer per section
+	_add_section(vbox, "Terrain Tools", [
+		["1", "Fairway"],
+		["2", "Rough"],
+		["3", "Green"],
+		["4", "Tee Box"],
+		["5", "Bunker"],
+		["6", "Water"],
+		["7", "Out of Bounds"],
+		["8", "Path (Improvements tab)"],
+		["9", "Firm Fairway"],
+		["0", "Waste Bunker"],
+		["Shift+2", "Deep Rough"],
+		["Shift+5", "Pot Bunker"],
+		["Shift+6", "Stream"],
+		["Shift+7", "Rocks"],
+		["Shift+9", "Small Boulders"],
+		["Shift+0", "Large Boulders"],
+		["Shift+8", "Brush"],
+		["Shift+F", "Wild Flowers"],
+	])
+
+	_add_section(vbox, "Objects & Placement", [
+		["T", "Trees"],
+		["B", "Buildings"],
+		["O", "Decorations (Improvements tab)"],
+		["H", "Open Hole"],
+		["X", "Bulldozer (improvements & buildings)"],
+	])
+
+	_add_section(vbox, "Toolbar Tabs", [
+		["=", "Course Terrain tab"],
+		[".", "Improvements tab"],
+		["E", "Elevation tab"],
+		["P", "Staff tab"],
+	])
+
+	_add_section(vbox, "Elevation", [
+		["V", "Vertex selector"],
+		["+", "Flat Square selector"],
+		["-", "Gradual Square selector"],
+		["Right Click", "Raise with the selected tool"],
+		["Left Click", "Lower with the selected tool"],
+	])
+
+	_add_section(vbox, "Management Panels", [
+		["F", "Finances"],
+		["U", "Tournaments"],
+		["L", "Land"],
+		["M", "Marketing"],
+		["Z", "Analytics"],
+		["G", "Milestones"],
+		["C", "Calendar"],
+		["N", "Event Feed"],
+		["Shift+R", "Routing overlay"],
+	])
+
+	_add_section(vbox, "Camera & View", [
+		["WASD", "Pan camera"],
+		["Middle Mouse Drag", "Pan camera"],
+		["Scroll / [ ]", "Zoom in/out"],
+		["While paused", "Camera can still pan & zoom"],
+		["Q", "Rotate course counter-clockwise"],
+		["Shift+Q", "Rotate course clockwise"],
+		["Tab", "Toggle minimap"],
+		["V", "Shot heatmap"],
+		["Shift+V", "Cycle heatmap mode"],
+		["J", "Fairway width + carry overlay"],
+		["F3", "Debug overlay"],
+	])
+
+	_add_section(vbox, "General", [
+		["Space", "Pause / Resume"],
+		["Ctrl+S", "Quick save"],
+		["Ctrl+Z", "Undo"],
+		["Ctrl+Shift+Z", "Redo"],
+		["Shift+Click", "Toggle bunker depth"],
+		["Esc", "Cancel / Deselect tool"],
+		["F1", "This help panel"],
+		["F2", "Weather debug"],
+		["F4", "Season debug"],
+	])
+
+	# Close button
+	main_vbox.add_child(HSeparator.new())
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(100, 35)
+	close_btn.pressed.connect(func(): hide())
+	main_vbox.add_child(close_btn)
+
+func _add_section(parent: VBoxContainer, section_name: String, shortcuts: Array) -> void:
+	var header = Label.new()
+	header.text = section_name
+	header.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
+	header.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+	parent.add_child(header)
+
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 2)
+	parent.add_child(grid)
+
+	for shortcut in shortcuts:
+		var key_label = Label.new()
+		key_label.text = shortcut[0]
+		key_label.custom_minimum_size = Vector2(110, 0)
+		key_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+		key_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		grid.add_child(key_label)
+
+		var desc_label = Label.new()
+		desc_label.text = shortcut[1]
+		desc_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+		desc_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+		grid.add_child(desc_label)
+
+	# Small spacer after section
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 4)
+	parent.add_child(spacer)

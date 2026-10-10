@@ -1,0 +1,256 @@
+extends RefCounted
+class_name TournamentSystem
+## TournamentSystem - Manages golf tournaments on the course
+##
+## Tournament tiers have different requirements and rewards:
+## - Local: 4+ holes, 2+ rating, small prize pool
+## - Regional: 9+ holes, 3+ rating, medium prize pool
+## - National: 18 holes, 4+ rating, large prize pool
+## - Championship: 18 holes, 4.5+ rating, 6+ difficulty, huge prize pool
+
+enum TournamentTier {
+	LOCAL,       # Small local event
+	REGIONAL,    # Regional competition
+	NATIONAL,    # National-level event
+	CHAMPIONSHIP # Prestigious championship
+}
+
+enum TournamentState {
+	NONE,        # No tournament
+	SCHEDULED,   # Tournament upcoming
+	IN_PROGRESS, # Tournament happening today
+	COMPLETED    # Tournament just finished
+}
+
+const TIER_DATA: Dictionary = {
+	TournamentTier.LOCAL: {
+		"name": "Local Tournament",
+		"min_holes": 4,
+		"min_rating": 2.0,
+		"min_difficulty": 0.0,
+		"min_yardage": 1500,
+		"entry_cost": 500,       # Cost to host
+		"prize_pool": 1000,      # Course pays out
+		"participant_count": 12,
+		"reputation_reward": 15,
+		"spectator_revenue": 800,       # Gate/concession revenue from spectators
+		"sponsorship_revenue": 500,     # Local sponsor deals
+	},
+	TournamentTier.REGIONAL: {
+		"name": "Regional Championship",
+		"min_holes": 9,
+		"min_rating": 3.0,
+		"min_difficulty": 4.0,
+		"min_yardage": 3000,
+		"entry_cost": 2000,
+		"prize_pool": 5000,
+		"participant_count": 24,
+		"reputation_reward": 40,
+		"spectator_revenue": 4000,      # Regional media attention
+		"sponsorship_revenue": 3000,    # Regional sponsor packages
+	},
+	TournamentTier.NATIONAL: {
+		"name": "National Open",
+		"min_holes": 18,
+		"min_rating": 4.0,
+		"min_difficulty": 5.0,
+		"min_yardage": 6000,
+		"entry_cost": 10000,
+		"prize_pool": 25000,
+		"participant_count": 48,
+		"reputation_reward": 100,
+		"spectator_revenue": 20000,     # National TV coverage
+		"sponsorship_revenue": 15000,   # Major sponsor deals
+	},
+	TournamentTier.CHAMPIONSHIP: {
+		"name": "Grand Championship",
+		"min_holes": 18,
+		"min_rating": 4.5,
+		"min_difficulty": 6.0,
+		"min_yardage": 6500,
+		"entry_cost": 50000,
+		"prize_pool": 100000,
+		"participant_count": 72,
+		"reputation_reward": 300,
+		"spectator_revenue": 80000,     # Massive crowds + TV rights
+		"sponsorship_revenue": 60000,   # Premium global sponsors
+	},
+}
+
+## Check if course qualifies for a tournament tier
+##
+## A missing course (`course_data == null`) is *not* an error state: it simply
+## means there are no holes yet, so it falls through to the ordinary "need N
+## holes" requirement. That keeps the Host Tournament button reporting something
+## the player can act on instead of a dead-end "No course data" tooltip.
+static func check_qualification(tier: TournamentTier, course_data, course_rating: Dictionary) -> Dictionary:
+	var requirements = TIER_DATA[tier]
+	var result = {
+		"qualified": true,
+		"missing": []
+	}
+
+	# Count open holes and total yardage. A course that has not been created
+	# yet (main menu, fresh boot) has simply no holes — not an error.
+	var open_holes = 0
+	var total_yardage = 0
+	var holes: Array = course_data.holes if course_data != null else []
+	for hole in holes:
+		if hole.is_open:
+			open_holes += 1
+			total_yardage += hole.distance_yards
+
+	# Check hole count
+	if open_holes < requirements.min_holes:
+		result.qualified = false
+		result.missing.append("Need %d holes (have %d)" % [requirements.min_holes, open_holes])
+
+	# Check course rating
+	var overall_rating = course_rating.get("overall", 0.0)
+	if overall_rating < requirements.min_rating:
+		result.qualified = false
+		result.missing.append("Need %.1f star rating (have %.1f)" % [requirements.min_rating, overall_rating])
+
+	# Check difficulty
+	var difficulty = course_rating.get("difficulty", 0.0)
+	if difficulty < requirements.min_difficulty:
+		result.qualified = false
+		result.missing.append("Need %.1f difficulty (have %.1f)" % [requirements.min_difficulty, difficulty])
+
+	# Check yardage
+	if total_yardage < requirements.min_yardage:
+		result.qualified = false
+		result.missing.append("Need %d yards (have %d)" % [requirements.min_yardage, total_yardage])
+
+	return result
+
+## Get all tiers the course qualifies for
+static func get_qualified_tiers(course_data, course_rating: Dictionary) -> Array:
+	var qualified = []
+	for tier in TIER_DATA.keys():
+		var check = check_qualification(tier, course_data, course_rating)
+		if check.qualified:
+			qualified.append(tier)
+	return qualified
+
+## Get tier name
+static func get_tier_name(tier: TournamentTier) -> String:
+	return TIER_DATA.get(tier, {}).get("name", "Unknown")
+
+## Get tier data
+static func get_tier_data(tier: TournamentTier) -> Dictionary:
+	return TIER_DATA.get(tier, {})
+
+## Calculate tournament results - returns winner info and scores
+static func generate_tournament_results(tier: TournamentTier, course_data, course_rating: Dictionary) -> Dictionary:
+	var tier_data = TIER_DATA[tier]
+	var participant_count = tier_data.participant_count
+	var course_par = _get_course_par(course_data)
+	var difficulty = course_rating.get("difficulty", 5.0)
+
+	# Guard against division by zero
+	if participant_count <= 0:
+		push_warning("Tournament has no participants")
+		return {"winner_name": "N/A", "winning_score": 0, "par": course_par, "scores": []}
+
+	# Generate scores for all participants
+	var scores = []
+	for i in range(participant_count):
+		# Better players (lower index) tend to score better
+		var skill_factor = 1.0 - (float(i) / participant_count * 0.5)
+		# Difficulty makes scores higher
+		var difficulty_factor = 1.0 + (difficulty - 5.0) * 0.02
+		# Random variation
+		var variation = randf_range(-3, 5)
+
+		var score = int(course_par * difficulty_factor + variation - skill_factor * 4)
+		scores.append(score)
+
+	scores.sort()
+
+	# Generate winner name
+	var winner_prefixes = ["Tiger", "Jack", "Arnold", "Ben", "Bobby", "Phil", "Rory", "Jordan"]
+	var winner_suffixes = ["Woods", "Nicklaus", "Palmer", "Hogan", "Jones", "Mickelson", "McIlroy", "Spieth"]
+	var winner_name = winner_prefixes[randi() % winner_prefixes.size()] + " " + winner_suffixes[randi() % winner_suffixes.size()]
+
+	return {
+		"winner_name": winner_name,
+		"winning_score": scores[0],
+		"par": course_par,
+		"scores": scores,
+		"participant_count": participant_count,
+		"prize_pool": tier_data.prize_pool,
+	}
+
+## Par a tournament is played to: the open holes, measured from the back tees
+## every competitor plays. Matching `TournamentSimulator._tournament_par()` keeps
+## the "Par" on the results screen against the same cards the leaderboard totals.
+static func _get_course_par(course_data) -> int:
+	if not course_data:
+		return 72
+	var total_par = 0
+	for hole in course_data.holes:
+		if hole.is_open:
+			total_par += int(hole.get_par_for_tee("back"))
+	return max(total_par, 18)
+
+## Get total tournament revenue (spectators + sponsorships)
+static func get_tournament_revenue(tier: TournamentTier) -> int:
+	var data = TIER_DATA.get(tier, {})
+	return data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+
+## Get net tournament profit (revenue - entry_cost)
+static func get_net_profit(tier: TournamentTier) -> int:
+	var data = TIER_DATA.get(tier, {})
+	var revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+	return revenue - data.get("entry_cost", 0)
+
+## Get number of rounds for a tier
+static func get_round_count(tier: TournamentTier) -> int:
+	match tier:
+		TournamentTier.LOCAL: return 1
+		TournamentTier.REGIONAL: return 2
+		TournamentTier.NATIONAL: return 4
+		TournamentTier.CHAMPIONSHIP: return 4
+		_: return 1
+
+## Competitors that tee off together. Two to a group: every pairing on the
+## course is a head-to-head, and the field spreads out as two golfers per hole.
+const GROUP_SIZE: int = 2
+
+static func get_group_size() -> int:
+	return GROUP_SIZE
+
+## How many competitors play live on the course at the start.
+##
+## Exactly one pairing per open hole — two competitors, everywhere the course
+## has to offer — so an event opens with the whole field spread out in front of
+## the player rather than queued on the first tee.
+static func get_live_field_size(open_holes: int) -> int:
+	return maxi(get_group_size(), maxi(0, open_holes) * get_group_size())
+
+## The whole field: big enough to seat a pair on every open hole, and never
+## smaller than the tier's nominal size, so a Championship still feels bigger
+## than a Local even on the same nine holes. Anyone the course cannot seat is
+## settled headlessly against the same scorecard.
+static func get_field_size(tier: TournamentTier, open_holes: int) -> int:
+	var nominal: int = TIER_DATA.get(tier, {}).get("participant_count", get_group_size())
+	return maxi(nominal, get_live_field_size(open_holes))
+
+## Get description text for a tier
+static func get_tier_description(tier: TournamentTier) -> String:
+	var data = TIER_DATA[tier]
+	var total_revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
+	var rounds = get_round_count(tier)
+	var round_text = "%d round" % rounds + ("s" if rounds > 1 else "")
+	return "%s (%s)\nRequires: %d holes, %.1f★ rating, %d yards\nField: %d players | Entry: $%d | Revenue: $%d\nReward: +%d reputation" % [
+		data.name,
+		round_text,
+		data.min_holes,
+		data.min_rating,
+		data.min_yardage,
+		data.participant_count,
+		data.entry_cost,
+		total_revenue,
+		data.reputation_reward
+	]

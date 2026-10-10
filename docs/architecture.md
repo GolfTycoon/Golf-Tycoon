@@ -1,0 +1,103 @@
+# Architecture
+
+> How Golf Tycoon is put together: a Godot 4.6 project in GDScript, one main scene, thirteen autoload singletons, and systems that talk to each other through signals on `EventBus`.
+
+**Source:** `project.godot` (autoloads, input map), `scenes/main/main.tscn` (scene tree), `scripts/main/main.gd` (game controller), `scripts/autoload/event_bus.gd` (signal hub)
+
+---
+
+## Plain English
+
+The game has three layers:
+
+1. **Autoloads** hold global state and services. These include the game manager, the save manager, the event bus and the screen layout.
+2. **The main scene** draws the course. `main.gd` runs the scene, the camera, the HUD and the tool palette.
+3. **Systems and managers** do the work. Systems are mostly stateless calculators, such as shot physics, weather and ratings. Managers own groups of live objects, such as golfers, balls and holes.
+
+Systems announce what happened with signals on `EventBus`, so they do not need direct references to each other. For example, a golfer finishing a hole emits `golfer_finished_hole`, and the scorecard, the event feed and the tournament board all listen for it.
+
+---
+
+## Folder Layout
+
+| Folder | Contents | Files |
+| --- | --- | --- |
+| `scripts/autoload/` | Global singletons | 11 |
+| `scripts/systems/` | Stateless rules and calculators | 35 |
+| `scripts/managers/` | Owners of live groups (golfers, land, staff, weeds, tournaments) | 13 |
+| `scripts/entities/` | Scene objects: golfers, balls, buildings, staff | 10 |
+| `scripts/terrain/` | Course surface, grid, overlays and generation | 30 |
+| `scripts/course/` | Hole routes, routing overlay and entity layer | 8 |
+| `scripts/ui/` | Menus, panels, HUD and components | 52 |
+| `scripts/effects/` | Particles and cosmetic effects | 11 |
+| `scripts/tools/` | Course-building tools such as hole creation | 5 |
+| `scripts/utils/` | Shared helpers | 4 |
+| `scripts/audio/` | Audio helpers | 1 |
+| `scripts/main/` | `main.gd`, the game controller | 1 |
+| `shaders/` | Course, elevation, planet and foliage shaders | 5 |
+| `data/` | JSON data for buildings, decorations, terrain and visitors | See [Data Reference](data-reference.md) |
+| `scenes/` | `main.tscn` and the golfer scene | 2 |
+| `tests/` | Unit, integration and harness scenes | See [Testing](development/testing.md) |
+| `tools/` | Editor and build scripts | 2 |
+
+---
+
+## Autoloads
+
+These singletons are registered in `project.godot`. They are loaded in this order.
+
+| Name | Script | Role |
+| --- | --- | --- |
+| `Screen` | `scripts/autoload/screen_manager.gd` | Responsive layout: window size, panel rectangles, compact mode |
+| `TouchInput` | `scripts/autoload/touch_input.gd` | Turns touch gestures into clicks, pans and pinch zoom |
+| `GameManager` | `scripts/autoload/game_manager.gd` | Money, reputation, day and time, game mode, speed, economy rules |
+| `EventBus` | `scripts/autoload/event_bus.gd` | Signal hub for all cross-system events |
+| `WorldMap` | `scripts/autoload/world_map_state.gd` | Company world: owned locations, unlocked land, active site |
+| `SaveManager` | `scripts/autoload/save_manager.gd` | Saves and loads the game (see [Save & Load](save-and-load.md)) |
+| `FeedbackManager` | `scripts/autoload/feedback_manager.gd` | Daily golfer satisfaction and feedback totals |
+| `ShadowSystem` | `scripts/systems/shadow_system.gd` | Shared shadow direction and intensity |
+| `UIConstants` | `scripts/autoload/ui_constants.gd` | Shared sizes, spacing and colours |
+| `TooltipManager` | `scripts/autoload/tooltip_manager.gd` | Tooltip display |
+| `SoundManager` | `scripts/autoload/sound_manager.gd` | Sound effects |
+| `EventFeedManager` | `scripts/managers/event_feed_manager.gd` | Event feed log (see [Event Feed](systems/events/event-feed.md)) |
+| `GolferSkins` | `scripts/autoload/golfer_skins.gd` | Loads and saves golfer skins (see [Golfer Skins](golfer-skins.md)) |
+
+---
+
+## Key Patterns
+
+- **Signals over references.** Systems talk through `EventBus`. Past-tense names describe things that happened, such as `golfer_finished_hole`. Present-tense names describe state, such as `money_changed`.
+- **Manager per entity group.** `GolferManager`, `BallManager` and `HoleManager` create, track and remove their objects. Managers are nodes in `main.tscn`.
+- **Stateless systems.** `WindSystem`, `WeatherSystem` and `CourseRatingSystem` hold little or no state and expose calculations as static functions. This makes them easy to test.
+- **Data-driven content.** Buildings, decorations, terrain and visiting golfers are loaded from JSON in `data/`. Terrain properties are the exception. They live in `terrain_types.gd`, and `terrain_types.json` only mirrors them.
+- **Overlay per visual effect.** Each terrain effect (water, bunkers, fairways, trees) is its own overlay class, managed by `TerrainGrid`.
+- **State machines.** Golfers move between `IDLE`, `WALKING`, `PREPARING_SHOT`, `SWINGING`, `WATCHING`, `LEAVING` and `FINISHED`, as defined in `golfer.gd`. Balls have their own states, such as in flight and rolling.
+
+---
+
+## Main Scene
+
+`scenes/main/main.tscn` is the root scene. `scripts/main/main.gd` is attached to its `Main` node.
+
+```
+Main (Node2D)                      main.gd
+├── TerrainGrid (Node2D)           terrain_grid.gd: draws the course surface and overlays
+├── Entities (Node2D)
+│   ├── Golfers, Balls, Buildings  containers for live objects
+├── GolferManager, BallManager, HoleManager (Node)
+├── Holes (Node2D)                 hole visuals
+├── IsometricCamera (Camera2D)
+└── UI (CanvasLayer)
+    └── HUD (Control)              status column, bottom bar, panels, toasts
+```
+
+The main scene is set in `project.godot` as `res://scenes/main/main.tscn`.
+
+---
+
+## Related
+
+- [UI & Controls](ui-and-controls.md) lists the screens and keys.
+- [Save & Load](save-and-load.md) covers what is stored.
+- [Data Reference](data-reference.md) lists the data files.
+- [Systems Index](systems/README.md) lists every game system.

@@ -1,0 +1,265 @@
+# Golfer Spawning & Tier System
+
+> Golfers arrive at a rate set by course rating, weather, season and reputation. Each arrival picks a tier, a group size and a landing zone that is clear of other players.
+
+**Source:** `scripts/managers/golfer_manager.gd` (spawn rate, cooldown, landing zones, group size), `scripts/systems/golfer_tier.gd` (tiers and weights)
+**Tests:** `tests/unit/test_spawn_rate.gd`, `tests/unit/test_golfer_tier.gd`
+
+---
+
+
+> **Source:** `scripts/managers/golfer_manager.gd` and `scripts/systems/golfer_tier.gd`
+
+## Plain English
+
+The golfer spawning system controls how many golfers visit the course and what types they are. It balances several factors to create a dynamic flow of golfers that responds to how the player designs and manages their course.
+
+### Spawn Rate
+
+Golfers arrive in groups with a cooldown between each spawn. The cooldown is shortened when the course has a high rating, good weather, active marketing campaigns, and seasonal demand (summer is busier). A 5-star course in good weather spawns golfers roughly twice as fast as a 1-star course in rain.
+
+### Capacity
+
+The maximum number of golfers on the course scales with hole count — each hole supports up to 4 concurrent golfers. This prevents overcrowding but rewards building more holes with increased revenue potential.
+
+### Tier Selection
+
+Each golfer belongs to one of four tiers: Beginner, Casual, Serious, or Pro. Tier selection uses a **weighted random system** where the weights are dynamically adjusted based on:
+- **Course rating** — Higher-tier golfers require higher minimum ratings
+- **Green fee** — Expensive courses repel budget players, attract premium ones
+- **Reputation** — Pros won't visit unknown courses (reputation < 70)
+- **Hole count** — Serious/pro golfers expect at least 9 holes
+- **Course difficulty** — Hard courses attract pros, easy courses attract beginners
+
+### Group Size
+
+Groups of 1–4 golfers spawn together. Higher green fees attract larger groups (foursomes), while budget courses see more singles and pairs.
+
+### Landing Zone Safety
+
+Before spawning a new group, the system checks that the first tee's landing zone is clear using a **cone-shaped directional check**. This prevents new groups from hitting into golfers already on the course.
+
+### Arriving Through the Clubhouse
+
+A new group does not appear on the first tee. Every guest is placed on the clubhouse's front door tile and walks the course to the first open tee (`Golfer.begin_arrival_from_clubhouse()`), with their ball already waiting there. The turn system only ever picks an IDLE golfer, so the arrival walk doubles as the group's entry queue: nobody tees off straight out of the doorway. A course with no clubhouse (only possible in a hand-built fixture or a stale save) keeps the old behaviour and seats the guest when their turn comes.
+
+### Leaving Through the Clubhouse
+
+The round ends when the last putt drops, but the golfer stays on the course for a few seconds more: they walk back to the clubhouse door, spend a moment there (that visit is what pays the clubhouse its per-golfer income and restores their needs), and only then turn `FINISHED` — state `LEAVING` (appended last, so saved state ids never shift) covers the walk home. Only then is the group taken off the course, once every member of the group is inside. `LEAVING` counts as off the course for capacity, tee/landing-zone clearance, hole-clear checks, staff service and amenity visits, so a group walking home never blocks play or holds a slot.
+
+The base group cooldown is 90 simulation seconds (formerly 15), divided by the combined rating/weather/season/marketing/price modifier. First-tee safety and course capacity remain additional constraints. Price demand uses `CourseEconomy` and the whole round price; group-size price bands also use the whole round price. This gives demand room to vary instead of being dominated by first-tee congestion.
+
+Last tee time now reserves 0.6 game hours per open hole for play, walking and queues. Full-round statistics and completion milestones use a separate `golfer_completed_round` event; the existing departure event also handles partial rounds. Partial rounds do not earn reputation.
+
+Tee bookings are now player-controlled in Finance: Busy (60), Balanced (90), and Relaxed (180) base simulation seconds. Demand/weather/rating still modify this spacing. Fewer bookings can ease traffic but also reduce revenue. Returning visitors replace a new visitor within an existing arrival opportunity; the system does not grant extra money or guaranteed additional demand merely for having a customer profile.
+
+Relaxed bookings additionally cap simultaneous guests at two per open hole (minimum four); other modes allow four per hole. This limits congestion when a popular course reaches its arrival cap.
+
+
+---
+
+## Algorithm
+
+### 1. Spawn Rate Modifier (Compound)
+
+```
+# Power curve: 1-star = 0.11x, 3-star = 1.0x, 5-star = 2.78x
+base_modifier = pow(overall_rating / 3.0, 2.0)
+
+# Compound with other factors
+base_modifier *= weather_spawn_modifier          # 0.3 (heavy rain) to 1.0 (sunny)
+base_modifier *= marketing_spawn_modifier        # 1.0 (none) to higher (active campaign)
+base_modifier *= seasonal_spawn_modifier         # Varies by season
+base_modifier *= seasonal_event_modifier         # Special event boost/reduction
+base_modifier *= difficulty_spawn_rate_multiplier # Easy 1.2x, Normal 1.0x, Hard 0.8x
+```
+
+| Rating | Spawn Modifier | Effect |
+|--------|---------------|--------|
+| 1★ | 0.11x | Nearly empty |
+| 2★ | 0.44x | Struggling |
+| 2.5★ | 0.69x | Below average |
+| 3★ | 1.00x | Baseline |
+| 4★ | 1.78x | Thriving |
+| 5★ | 2.78x | Packed |
+
+### 2. Effective Spawn Cooldown
+
+```
+min_spawn_cooldown = 15.0 seconds   # Configurable @export
+cooldown = min_spawn_cooldown / spawn_rate_modifier
+
+# Example: 3-star course, sunny weather
+# modifier = 1.0, cooldown = 15 seconds
+# Example: 1-star course, heavy rain
+# modifier = 0.11 * 0.3 = 0.033, cooldown = 455 seconds
+```
+
+### 3. Maximum Concurrent Golfers
+
+```
+max_golfers = max(4, open_hole_count * 4)
+```
+
+| Holes | Max Golfers |
+| ----- | ----------- |
+| 1 | 4 |
+| 4 | 16 |
+| 9 | 36 |
+| 18 | 72 |
+
+### 4. Tier Data
+
+| Tier | Skill Range | Tendency | Spending | Min Rating | Min Holes | Rep Gain | Base Weight |
+| ---- | ----------- | -------- | -------- | ---------- | --------- | -------- | ----------- |
+| Beginner | 0.30–0.50 | 0.4–0.8 | 0.7x | 1.0 | 1 | 1 | 0.35 |
+| Casual | 0.50–0.70 | 0.2–0.5 | 1.0x | 2.0 | 4 | 2 | 0.40 |
+| Serious | 0.70–0.85 | 0.1–0.3 | 1.5x | 3.0 | 9 | 4 | 0.20 |
+| Pro | 0.85–0.98 | 0.0–0.15 | 2.0x | 4.0 | 9 | 10 | 0.05 |
+
+### 5. Tier Weight Calculation
+
+Starting from `spawn_weight_base`, apply multipliers:
+
+```
+weight = base_weight
+
+# Rating filter
+if course_rating < min_course_rating:
+    weight *= 0.1                   # Drastically reduce
+
+# Hole count filter
+if hole_count < min_holes:
+    weight *= 0.05                  # Nearly eliminate
+
+# Fee attractiveness
+fee_factor = green_fee / 50.0      # Normalize around $50
+if fee_factor > spending_modifier * 1.5:
+    weight *= 0.3                   # Too expensive
+elif fee_factor < spending_modifier * 0.5:
+    weight *= 1.5                   # Good value
+
+# Reputation requirements
+if tier == PRO and reputation < 70:
+    weight *= 0.1                   # Pros don't visit unknown courses
+elif tier == SERIOUS and reputation < 50:
+    weight *= 0.5
+
+# Difficulty attraction
+if difficulty >= 7.0:
+    PRO:      weight *= 2.0         # Love challenging courses
+    SERIOUS:  weight *= 1.5
+    BEGINNER: weight *= 0.5         # Avoid hard courses
+elif difficulty >= 5.0:
+    SERIOUS:  weight *= 1.25        # Moderate challenge appeals
+elif difficulty < 3.0:
+    BEGINNER: weight *= 1.5         # Easy courses attract beginners
+    CASUAL:   weight *= 1.25
+    PRO:      weight *= 0.3         # Pros avoid easy courses
+```
+
+### 6. Weighted Random Selection
+
+```
+total = sum of all tier weights
+roll  = randf() * total
+
+cumulative = 0.0
+for each tier:
+    cumulative += weight[tier]
+    if roll <= cumulative:
+        return tier
+```
+
+### 7. Skill Generation (Per Golfer)
+
+```
+skills = {
+    driving:  randf_range(skill_low, skill_high),
+    accuracy: randf_range(skill_low, skill_high),
+    putting:  randf_range(skill_low, skill_high),
+    recovery: randf_range(skill_low, skill_high),
+}
+
+# Miss tendency
+tendency_magnitude = randf_range(tendency_low, tendency_high)
+tendency_sign = +1 or -1 (50/50)
+miss_tendency = magnitude * sign
+```
+
+### 8. Personality Generation (Per Tier)
+
+| Tier | Aggression Range | Patience Range |
+| ---- | ---------------- | -------------- |
+| Beginner | 0.2–0.4 (conservative) | 0.6–0.9 (patient) |
+| Casual | 0.3–0.6 | 0.4–0.7 |
+| Serious | 0.5–0.7 | 0.3–0.6 |
+| Pro | 0.6–0.9 (confident) | 0.2–0.5 (expects fast pace) |
+
+### 9. Group Size Distribution
+
+| Fee Range | Singles | Pairs | Threesomes | Foursomes |
+| --------- | ------- | ----- | ---------- | --------- |
+| < $25 | 40% | 30% | 20% | 10% |
+| $25–50 | 20% | 30% | 30% | 20% |
+| $50–100 | 10% | 20% | 30% | 40% |
+| > $100 | 5% | 15% | 25% | 55% |
+
+### 10. Landing Zone Safety Check
+
+Before spawning a new group, check the first tee's landing zone:
+
+```
+# Par 3: Check if any golfer is still on the hole
+if first_hole.par == 3:
+    return no golfer on hole 0
+
+# Par 4+: Cone-based check
+effective_distance = min(TYPICAL_DRIVER_DISTANCE, hole_length * 0.7)
+landing_target = tee + direction * effective_distance
+lateral_radius = LANDING_ZONE_BASE_RADIUS + effective_distance * LANDING_ZONE_VARIANCE
+               = 2.0 + effective_distance * 0.3
+
+CONE_HALF_ANGLE = 45 degrees
+
+for each active golfer (from earlier groups):
+    skip if behind the tee (negative dot product)
+    skip if too close (< 60% of shot distance)
+    skip if too far (> shot distance + radius)
+    if angle to golfer < 45 degrees:
+        landing zone blocked → don't spawn
+```
+
+## Tuning Levers
+
+| Parameter | Location | Current Value | Effect |
+| --- | --- | --- | --- |
+| Min spawn cooldown | `golfer_manager.gd` | 15.0 seconds | Lower = more frequent spawns |
+| Rating-to-modifier formula | `golfer_manager.gd` | pow(rating/3.0, 2.0) | Power curve: steep penalty below 3★, reward above |
+| Difficulty spawn multiplier | `golfer_manager.gd` | Easy 1.2x, Normal 1.0x, Hard 0.8x | Scales base modifier by difficulty preset |
+| Max golfers per hole | `golfer_manager.gd` | 4 | Higher = more crowded course |
+| Tier base weights | `golfer_tier.gd` | 0.35/0.40/0.20/0.05 | Base probability of each tier |
+| Tier skill ranges | `golfer_tier.gd` | See table | Skill bounds per tier |
+| Rating filter multiplier | `golfer_tier.gd` | 0.1 | Lower = harder to attract above-tier golfers |
+| Hole count filter | `golfer_tier.gd` | 0.05 | Lower = stricter hole count requirement |
+| Fee normalization | `golfer_tier.gd` | $50 | Changes what's considered "normal" price |
+| Pro reputation threshold | `golfer_tier.gd` | 70 | Lower = pros visit less-known courses |
+| Serious rep threshold | `golfer_tier.gd` | 50 | Lower = serious golfers visit sooner |
+| Difficulty thresholds | `golfer_tier.gd` | 3.0/5.0/7.0 | When difficulty bonuses kick in |
+| Landing zone base radius | `golfer_manager.gd` | 2.0 tiles | Wider = more cautious spawning |
+| Landing zone variance | `golfer_manager.gd` | 0.3 (30%) | Higher = more cautious on long shots |
+| Cone half-angle | `golfer_manager.gd` | 45 degrees | Wider = more conservative safety check |
+| Arrival walk | `golfer.gd::begin_arrival_from_clubhouse` | door tile → first tee | Where guests start; skipped without a clubhouse |
+| Walk-home timeout | `golfer.gd` `DEPARTURE_TIMEOUT_SECONDS` | 30 s | After this the clubhouse visit happens wherever the golfer is |
+| Clubhouse visit | `golfer.gd` `CLUBHOUSE_VISIT_SECONDS` | 1.6 s | How long a golfer stands at the door before leaving |
+| Group send-off | `golfer_manager.gd::_on_golfer_left_course` | 1.0 s | Pause after the last golfer is inside before the group is removed |
+
+---
+
+## Related
+
+- [Golfer Needs](golfer-needs.md) covers what golfers want on the course.
+- [Satisfaction and Feedback](satisfaction-feedback.md) covers how visits go.
+- [Course Rating](../ratings-and-reputation/course-rating.md) sets the rating that drives arrivals.
+- [Seasonal Calendar](../environment-and-time/seasonal-calendar.md) adds seasonal demand.
+- [Reputation](../ratings-and-reputation/reputation.md) sets which tiers visit.

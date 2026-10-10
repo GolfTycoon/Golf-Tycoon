@@ -1,0 +1,323 @@
+extends GutTest
+## Tests for GameManager - Core game state management
+
+# We test GameManager as an autoload singleton, so we access it directly.
+# GUT runs inside the Godot engine with the project's autoloads active.
+
+
+# --- Money & Bankruptcy ---
+
+func test_modify_money_adds_positive_amount() -> void:
+	var before = GameManager.money
+	GameManager.modify_money(100)
+	assert_eq(GameManager.money, before + 100, "Money should increase by 100")
+	# Restore
+	GameManager.modify_money(-100)
+
+func test_modify_money_subtracts_negative_amount() -> void:
+	var before = GameManager.money
+	GameManager.modify_money(-50)
+	assert_eq(GameManager.money, before - 50, "Money should decrease by 50")
+	# Restore
+	GameManager.modify_money(50)
+
+func test_can_afford_returns_true_for_affordable_cost() -> void:
+	GameManager.money = 10000
+	assert_true(GameManager.can_afford(5000), "Should afford 5000 with 10000")
+
+func test_can_afford_returns_true_when_cost_dips_into_negative() -> void:
+	GameManager.money = 500
+	# Bankruptcy threshold is -1000, so 500 - 1400 = -900 >= -1000
+	assert_true(GameManager.can_afford(1400), "Should allow spending that keeps above bankruptcy threshold")
+
+func test_can_afford_returns_false_when_below_bankruptcy() -> void:
+	GameManager.money = 500
+	# 500 - 1600 = -1100 < -1000 (BANKRUPTCY_THRESHOLD)
+	assert_false(GameManager.can_afford(1600), "Should reject spending below bankruptcy threshold")
+
+func test_can_afford_returns_true_for_zero_cost() -> void:
+	GameManager.money = 100
+	assert_true(GameManager.can_afford(0), "Zero cost should always be affordable")
+
+func test_can_afford_returns_true_for_negative_cost() -> void:
+	# Negative cost means gaining money (not a purchase)
+	GameManager.money = -5000
+	assert_true(GameManager.can_afford(-100), "Negative cost (income) should always be true")
+
+func test_is_bankrupt_when_below_threshold() -> void:
+	GameManager.money = -1001
+	assert_true(GameManager.is_bankrupt(), "Should be bankrupt below -1000")
+
+func test_is_not_bankrupt_above_threshold() -> void:
+	GameManager.money = -999
+	assert_false(GameManager.is_bankrupt(), "Should not be bankrupt above threshold")
+
+func test_is_not_bankrupt_at_threshold() -> void:
+	GameManager.money = -1000
+	assert_false(GameManager.is_bankrupt(), "-1000 is exactly at threshold, not below it")
+
+
+# --- Green Fee ---
+
+func test_set_green_fee_clamps_to_min() -> void:
+	GameManager.set_green_fee(1)
+	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Should clamp to minimum")
+
+func test_set_green_fee_clamps_to_effective_max() -> void:
+	# With 18 holes, effective max = min(18*10, 200) = $180
+	var course = GameManager.CourseData.new()
+	for i in range(18):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	GameManager.set_green_fee(999)
+	assert_eq(GameManager.green_fee, 180, "18 holes should allow max $180")
+
+func test_set_green_fee_clamps_by_hole_count() -> void:
+	# With 3 holes, effective max = 3*10 = $30
+	var course = GameManager.CourseData.new()
+	for i in range(3):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	GameManager.set_green_fee(100)
+	assert_eq(GameManager.green_fee, 30, "3 holes should cap fee at $30")
+
+func test_set_green_fee_accepts_valid_value() -> void:
+	# Set up enough holes so $75 is under the cap (need 8+ holes: 8*10=80)
+	var course = GameManager.CourseData.new()
+	for i in range(8):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	GameManager.set_green_fee(75)
+	assert_eq(GameManager.green_fee, 75, "Should accept 75 as valid fee with 8 holes")
+
+func test_set_green_fee_accepts_min_boundary() -> void:
+	GameManager.set_green_fee(GameManager.MIN_GREEN_FEE)
+	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Should accept min boundary")
+
+func test_get_effective_max_fee_scales_with_holes() -> void:
+	var course = GameManager.CourseData.new()
+	for i in range(6):
+		var hole = GameManager.HoleData.new()
+		hole.par = 4
+		hole.is_open = true
+		course.add_hole(hole)
+	GameManager.current_course = course
+	# 6 holes * $10 = $60
+	assert_eq(GameManager.get_effective_max_green_fee(), 60, "6 holes should have max fee $60")
+
+
+# --- Reputation ---
+
+func test_modify_reputation_clamps_to_max() -> void:
+	GameManager.reputation = 95.0
+	GameManager.modify_reputation(10.0)
+	assert_eq(GameManager.reputation, 100.0, "Should clamp to 100")
+
+func test_modify_reputation_clamps_to_min() -> void:
+	GameManager.reputation = 5.0
+	GameManager.modify_reputation(-10.0)
+	assert_eq(GameManager.reputation, 0.0, "Should clamp to 0")
+
+func test_modify_reputation_normal_range() -> void:
+	GameManager.reputation = 50.0
+	GameManager.modify_reputation(10.0)
+	assert_eq(GameManager.reputation, 60.0, "Should increase normally")
+
+
+# --- Game Speed ---
+
+func test_get_game_speed_multiplier_normal() -> void:
+	GameManager.is_paused = false
+	GameManager.current_speed = GameManager.GameSpeed.NORMAL
+	assert_eq(GameManager.get_game_speed_multiplier(), 1.0)
+
+func test_get_game_speed_multiplier_fast() -> void:
+	GameManager.is_paused = false
+	GameManager.current_speed = GameManager.GameSpeed.FAST
+	assert_eq(GameManager.get_game_speed_multiplier(), 3.0)
+
+func test_get_game_speed_multiplier_ultra() -> void:
+	GameManager.is_paused = false
+	GameManager.current_speed = GameManager.GameSpeed.ULTRA
+	assert_eq(GameManager.get_game_speed_multiplier(), 8.0)
+
+func test_get_game_speed_multiplier_paused() -> void:
+	GameManager.is_paused = true
+	assert_eq(GameManager.get_game_speed_multiplier(), 0.0, "Paused should return 0")
+	GameManager.is_paused = false
+
+func test_toggle_pause() -> void:
+	GameManager.is_paused = false
+	GameManager.toggle_pause()
+	assert_true(GameManager.is_paused, "Should be paused after toggle")
+	GameManager.toggle_pause()
+	assert_false(GameManager.is_paused, "Should be unpaused after second toggle")
+
+
+# --- Calendar Date Display ---
+
+func test_legacy_hour_scale_is_available_for_round_duration_ui() -> void:
+	assert_eq(GameManager.SECONDS_PER_GAME_HOUR, 120.0,
+		"Round UI should be able to convert simulation seconds to game minutes")
+	assert_eq(GameManager.LEGACY_DAY_SECONDS, 14.0 * GameManager.SECONDS_PER_GAME_HOUR,
+		"The legacy day scale should stay consistent with its hourly scale")
+
+func test_new_game_starts_on_january_first_2000() -> void:
+	GameManager.new_game("Test Course")
+	assert_eq(GameManager.current_day, 1, "New games start on day 1")
+	assert_eq(GameManager.get_date_string(), "Sat 1 Jan 2000", "Day 1 is Saturday 1 January 2000")
+
+func test_day_rollover_advances_calendar_date() -> void:
+	GameManager.new_game("Test Course")
+	# Day 1 = 1 Jan 2000, so day 32 = 1 Feb 2000 (2000 is a leap year).
+	GameManager.current_day = 32
+	assert_eq(GameManager.get_date_string(), "Tue 1 Feb 2000")
+
+func test_day_rollover_crosses_year_boundary() -> void:
+	GameManager.new_game("Test Course")
+	# 2000 has 366 days, so day 367 = 1 Jan 2001.
+	GameManager.current_day = 367
+	assert_eq(GameManager.get_date_string(), "Mon 1 Jan 2001")
+	assert_eq(GameManager.get_current_year(), 2001)
+
+func test_get_date_string_formats_weekday() -> void:
+	GameManager.new_game("Test Course")
+	GameManager.current_day = 7  # Friday 7 Jan 2000
+	assert_eq(GameCalendar.get_weekday(7), 5, "Jan 7 2000 was a Friday")
+
+
+# --- New Game ---
+
+func test_new_game_resets_state() -> void:
+	# Modify state
+	GameManager.money = 999
+	GameManager.reputation = 10.0
+	GameManager.current_day = 50
+	GameManager.green_fee = 100
+
+	GameManager.new_game("Test Course")
+
+	assert_eq(GameManager.money, GameManager.DEFAULT_STARTING_MONEY, "Money should reset to default")
+	assert_eq(GameManager.reputation, 50.0, "Reputation should reset to 50")
+	assert_eq(GameManager.current_day, 1, "Day should reset to 1")
+	assert_eq(GameManager.course_name, "Test Course", "Course name should be set")
+	assert_eq(GameManager.green_fee, GameManager.MIN_GREEN_FEE, "Green fee should reset to min (no holes yet)")
+	assert_eq(GameManager._day_progress, 0.0, "Day timer should reset")
+
+
+# --- Staff Tier Data ---
+
+func test_staff_tier_data_has_all_tiers() -> void:
+	assert_true(GameManager.STAFF_TIER_DATA.has(GameManager.StaffTier.PART_TIME))
+	assert_true(GameManager.STAFF_TIER_DATA.has(GameManager.StaffTier.FULL_TIME))
+	assert_true(GameManager.STAFF_TIER_DATA.has(GameManager.StaffTier.PREMIUM))
+
+func test_staff_tier_costs_increase() -> void:
+	var pt = GameManager.STAFF_TIER_DATA[GameManager.StaffTier.PART_TIME].cost_per_hole
+	var ft = GameManager.STAFF_TIER_DATA[GameManager.StaffTier.FULL_TIME].cost_per_hole
+	var pm = GameManager.STAFF_TIER_DATA[GameManager.StaffTier.PREMIUM].cost_per_hole
+	assert_lt(pt, ft, "Part-time should be cheaper than full-time")
+	assert_lt(ft, pm, "Full-time should be cheaper than premium")
+
+
+# --- CourseData ---
+
+func test_course_data_add_hole() -> void:
+	var course = GameManager.CourseData.new()
+	var hole = GameManager.HoleData.new()
+	hole.par = 4
+	course.add_hole(hole)
+	assert_eq(course.holes.size(), 1, "Should have one hole")
+	assert_eq(course.total_par, 4, "Total par should be 4")
+
+func test_course_data_multiple_holes_par() -> void:
+	var course = GameManager.CourseData.new()
+	for par in [3, 4, 5, 4]:
+		var hole = GameManager.HoleData.new()
+		hole.par = par
+		course.add_hole(hole)
+	assert_eq(course.total_par, 16, "Total par should be sum: 3+4+5+4=16")
+
+func test_course_data_get_open_holes() -> void:
+	var course = GameManager.CourseData.new()
+	for i in range(3):
+		var hole = GameManager.HoleData.new()
+		hole.hole_number = i + 1
+		hole.is_open = (i != 1)  # Close hole 2
+		course.add_hole(hole)
+	assert_eq(course.get_open_holes().size(), 2, "Should have 2 open holes")
+
+
+# --- HoleData ---
+
+func test_hole_data_defaults() -> void:
+	var hole = GameManager.HoleData.new()
+	assert_eq(hole.par, 4, "Default par should be 4")
+	assert_true(hole.is_open, "Holes should be open by default")
+	assert_eq(hole.difficulty_rating, 1.0, "Default difficulty should be 1.0")
+
+
+# --- Check Hole Records ---
+
+func test_check_hole_records_hole_in_one() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 5
+	var records = GameManager.check_hole_records("Tiger", 1, 1)
+	assert_eq(records.size(), 1, "Should have one record")
+	assert_eq(records[0].type, "hole_in_one", "Record type should be hole_in_one")
+	assert_eq(GameManager.course_records.total_hole_in_ones, 1, "Should track hole-in-one count")
+
+func test_check_hole_records_best_score_new() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 1
+	# First score for hole 1 - sets the record but doesn't "break" it
+	GameManager.check_hole_records("Alice", 1, 3)
+	# First score sets the record but only announces "broken" if there was an existing record
+	assert_eq(GameManager.course_records.best_per_hole.has(1), true, "Should have best for hole 1")
+	assert_eq(GameManager.course_records.best_per_hole[1].value, 3, "Best score should be 3")
+
+func test_check_hole_records_best_score_broken() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 1
+	# Set initial record
+	GameManager.check_hole_records("Alice", 1, 4)
+	# Beat it
+	var records = GameManager.check_hole_records("Bob", 1, 3)
+	var has_hole_record = false
+	for r in records:
+		if r.type == "hole_record":
+			has_hole_record = true
+	assert_true(has_hole_record, "Should announce broken hole record")
+	assert_eq(GameManager.course_records.best_per_hole[1].golfer_name, "Bob", "Bob should hold record")
+
+func test_check_round_record_first_round() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 1
+	var is_record = GameManager.check_round_record("Alice", 72)
+	assert_true(is_record, "First round should always be a course record")
+	assert_eq(GameManager.course_records.lowest_round.value, 72)
+
+func test_check_round_record_beaten() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 1
+	GameManager.check_round_record("Alice", 72)
+	var is_record = GameManager.check_round_record("Bob", 70)
+	assert_true(is_record, "Lower score should beat the record")
+	assert_eq(GameManager.course_records.lowest_round.golfer_name, "Bob")
+
+func test_check_round_record_not_beaten() -> void:
+	GameManager.reset_course_records()
+	GameManager.current_day = 1
+	GameManager.check_round_record("Alice", 70)
+	var is_record = GameManager.check_round_record("Bob", 72)
+	assert_false(is_record, "Higher score should not beat the record")
+	assert_eq(GameManager.course_records.lowest_round.golfer_name, "Alice")

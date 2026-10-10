@@ -1,0 +1,231 @@
+extends GutTest
+## Tests for SaveManager - Save/load data serialization
+##
+## Focuses on data serialization logic; filesystem tests are covered by
+## integration (manual) testing. Helpers mirror SaveManager's actual logic
+## so drift is detected early.
+
+const SaveManagerScript := preload("res://scripts/autoload/save_manager.gd")
+
+
+# --- Hole Serialization Round-trip ---
+
+func test_hole_serialization_roundtrip() -> void:
+	# Create holes
+	var course = GameManager.CourseData.new()
+
+	var hole1 = GameManager.HoleData.new()
+	hole1.hole_number = 1
+	hole1.par = 3
+	hole1.tee_position = Vector2i(10, 20)
+	hole1.green_position = Vector2i(30, 40)
+	hole1.hole_position = Vector2i(31, 41)
+	hole1.distance_yards = 150
+	hole1.is_open = true
+	hole1.difficulty_rating = 3.5
+	course.add_hole(hole1)
+
+	var hole2 = GameManager.HoleData.new()
+	hole2.hole_number = 2
+	hole2.par = 5
+	hole2.tee_position = Vector2i(50, 60)
+	hole2.green_position = Vector2i(100, 120)
+	hole2.hole_position = Vector2i(101, 121)
+	hole2.distance_yards = 520
+	hole2.is_open = false
+	hole2.difficulty_rating = 7.0
+	course.add_hole(hole2)
+
+	# Serialize (using the same logic SaveManager uses)
+	var serialized = _serialize_holes(course.holes)
+	assert_eq(serialized.size(), 2, "Should serialize 2 holes")
+
+	# Check serialized format
+	assert_eq(serialized[0].hole_number, 1)
+	assert_eq(serialized[0].par, 3)
+	assert_eq(int(serialized[0].tee_position.x), 10)
+	assert_eq(int(serialized[0].tee_position.y), 20)
+	assert_eq(serialized[0].is_open, true)
+	assert_almost_eq(float(serialized[0].difficulty_rating), 3.5, 0.001)
+
+	assert_eq(serialized[1].hole_number, 2)
+	assert_eq(serialized[1].par, 5)
+	assert_eq(serialized[1].is_open, false)
+	assert_almost_eq(float(serialized[1].difficulty_rating), 7.0, 0.001)
+
+	# Deserialize
+	var loaded_course = GameManager.CourseData.new()
+	_deserialize_holes(serialized, loaded_course)
+
+	assert_eq(loaded_course.holes.size(), 2)
+	assert_eq(loaded_course.holes[0].hole_number, 1)
+	assert_eq(loaded_course.holes[0].par, 3)
+	assert_eq(loaded_course.holes[0].tee_position, Vector2i(10, 20))
+	assert_eq(loaded_course.holes[0].green_position, Vector2i(30, 40))
+	assert_eq(loaded_course.holes[0].hole_position, Vector2i(31, 41))
+	assert_eq(loaded_course.holes[0].distance_yards, 150)
+	assert_eq(loaded_course.holes[0].is_open, true)
+	assert_almost_eq(loaded_course.holes[0].difficulty_rating, 3.5, 0.001)
+
+	assert_eq(loaded_course.holes[1].hole_number, 2)
+	assert_eq(loaded_course.holes[1].par, 5)
+	assert_eq(loaded_course.holes[1].is_open, false)
+
+func test_hole_serialization_defaults() -> void:
+	# Deserialize with missing fields - should use defaults
+	var data = [{"hole_number": 1}]  # Minimal data
+	var course = GameManager.CourseData.new()
+	_deserialize_holes(data, course)
+
+	assert_eq(course.holes.size(), 1)
+	assert_eq(course.holes[0].hole_number, 1)
+	assert_eq(course.holes[0].par, 4, "Default par should be 4")
+	assert_eq(course.holes[0].is_open, true, "Default should be open")
+	assert_almost_eq(course.holes[0].difficulty_rating, 1.0, 0.001, "Default difficulty should be 1.0")
+
+func test_hole_serialization_empty() -> void:
+	var course = GameManager.CourseData.new()
+	_deserialize_holes([], course)
+	assert_eq(course.holes.size(), 0)
+
+
+# --- JSON Round-trip Test ---
+
+func test_game_state_json_roundtrip() -> void:
+	# Simulate the data structure that SaveManager creates
+	var game_state = {
+		"course_name": "Test Links",
+		"money": 75000,
+		"reputation": 65.5,
+		"current_day": 15,
+		"green_fee": 45,
+	}
+
+	var save_data = {
+		"version": 2,
+		"timestamp": "2025-01-01T12:00:00",
+		"game_state": game_state,
+	}
+
+	# Convert to JSON and back (simulating file write/read)
+	var json_string = JSON.stringify(save_data)
+	var parsed = JSON.parse_string(json_string)
+
+	assert_not_null(parsed, "JSON should parse successfully")
+	assert_eq(int(parsed.version), 2)
+	assert_eq(parsed.game_state.course_name, "Test Links")
+	assert_eq(int(parsed.game_state.money), 75000)
+	assert_almost_eq(float(parsed.game_state.reputation), 65.5, 0.01)
+	assert_eq(int(parsed.game_state.green_fee), 45)
+
+func test_records_json_roundtrip() -> void:
+	# Test that CourseRecords survive JSON serialization
+	var records = CourseRecords.create_empty_records()
+	records.total_hole_in_ones = 2
+	records.lowest_round = CourseRecords.RecordEntry.new("Tiger", 65, 10, -1)
+	records.best_per_hole[3] = CourseRecords.RecordEntry.new("Phil", 2, 5, 3)
+
+	var serialized = CourseRecords.serialize_records(records)
+	var json_string = JSON.stringify(serialized)
+	var parsed = JSON.parse_string(json_string)
+	var restored = CourseRecords.deserialize_records(parsed)
+
+	assert_eq(restored.total_hole_in_ones, 2)
+	assert_eq(restored.lowest_round.golfer_name, "Tiger")
+	assert_eq(restored.lowest_round.value, 65)
+	assert_eq(restored.best_per_hole[3].golfer_name, "Phil")
+
+
+# --- Elevation save migration (v3 signed -5..+5 -> v4 levels 0..10) ---
+
+func test_pre_v4_elevation_heights_shift_into_the_new_range() -> void:
+	# Pre-v4 saves stored signed heights with flat ground at 0. Shifting by
+	# BASE_ELEVATION maps the old bottom (-5) to 0, flat (0) to 5, top (+5) to 10.
+	var legacy := {"3,3": -5, "4,4": -3, "5,5": 0, "6,6": 2, "7,7": 5}
+	var shifted: Dictionary = SaveManagerScript._shift_elevation_dict(legacy, TerrainGrid.BASE_ELEVATION)
+	assert_eq(int(shifted["3,3"]), TerrainGrid.MIN_ELEVATION)
+	assert_eq(int(shifted["4,4"]), TerrainGrid.BASE_ELEVATION - 3)
+	assert_eq(int(shifted["5,5"]), TerrainGrid.BASE_ELEVATION, "old flat ground becomes the base level")
+	assert_eq(int(shifted["6,6"]), TerrainGrid.BASE_ELEVATION + 2)
+	assert_eq(int(shifted["7,7"]), TerrainGrid.MAX_ELEVATION)
+
+func test_shift_elevation_dict_is_a_no_op_for_current_saves() -> void:
+	var current := {"3,3": 0, "4,4": 7}
+	assert_eq(SaveManagerScript._shift_elevation_dict(current, 0), current)
+
+func test_elevation_roundtrip_keeps_base_level_sparse() -> void:
+	var grid := TerrainGrid.new()
+	grid.grid_width = 8
+	grid.grid_height = 8
+	add_child_autofree(grid)
+	grid.set_vertex_elevation(Vector2i(3, 3), grid.BASE_ELEVATION + 2)
+	grid.set_vertex_elevation(Vector2i(4, 4), grid.MIN_ELEVATION)
+
+	var serialized := grid.serialize_elevation()
+	assert_eq(serialized.size(), 2, "only vertices off the base level are stored")
+	assert_true(serialized.has("3,3"))
+	assert_eq(int(serialized["4,4"]), 0, "level 0 is a stored height, not a missing entry")
+
+	grid.set_vertex_elevation(Vector2i(3, 3), grid.MIN_ELEVATION)
+	grid.deserialize_elevation(serialized)
+	assert_eq(grid.get_vertex_elevation(Vector2i(3, 3)), grid.BASE_ELEVATION + 2)
+	assert_eq(grid.get_vertex_elevation(Vector2i(4, 4)), grid.MIN_ELEVATION)
+	assert_eq(grid.get_vertex_elevation(Vector2i(5, 5)), grid.BASE_ELEVATION,
+			"missing entries read back as the flat base level")
+
+func test_legacy_tile_elevation_migrates_around_the_base_level() -> void:
+	# The pre-v3 save format stored one signed height per tile; shifted by
+	# BASE_ELEVATION on load, tiles above the old flat 0 land above the base
+	# level. The migration averages tiles onto shared corners, so a lone +2
+	# tile becomes a gentle +1 bump — the same smoothing legacy saves always
+	# got — and untouched ground keeps the base level exactly.
+	var grid := TerrainGrid.new()
+	grid.grid_width = 8
+	grid.grid_height = 8
+	add_child_autofree(grid)
+	var legacy_tiles := {"4,4": 2}
+	grid.migrate_tile_elevation(
+			SaveManagerScript._shift_elevation_dict(legacy_tiles, TerrainGrid.BASE_ELEVATION))
+	assert_eq(grid.get_elevation(Vector2i(4, 4)), TerrainGrid.BASE_ELEVATION + 1,
+			"a +2 legacy tile averages to one level above the base")
+	assert_eq(grid.get_elevation(Vector2i(0, 0)), TerrainGrid.BASE_ELEVATION)
+	for x in range(9):
+		for y in range(9):
+			var h: int = grid.get_vertex_elevation(Vector2i(x, y))
+			assert_between(h, TerrainGrid.MIN_ELEVATION, TerrainGrid.MAX_ELEVATION)
+
+
+# --- Helper functions (mirror SaveManager's serialization logic) ---
+
+func _serialize_holes(holes: Array) -> Array:
+	var result: Array = []
+	for hole in holes:
+		result.append({
+			"hole_number": hole.hole_number,
+			"par": hole.par,
+			"tee_position": {"x": hole.tee_position.x, "y": hole.tee_position.y},
+			"green_position": {"x": hole.green_position.x, "y": hole.green_position.y},
+			"hole_position": {"x": hole.hole_position.x, "y": hole.hole_position.y},
+			"distance_yards": hole.distance_yards,
+			"is_open": hole.is_open,
+			"difficulty_rating": hole.difficulty_rating,
+		})
+	return result
+
+func _deserialize_holes(holes_data: Array, course: GameManager.CourseData) -> void:
+	course.holes.clear()
+	for h in holes_data:
+		var hole = GameManager.HoleData.new()
+		hole.hole_number = int(h.get("hole_number", 1))
+		hole.par = int(h.get("par", 4))
+		var tee = h.get("tee_position", {"x": 0, "y": 0})
+		hole.tee_position = Vector2i(int(tee.get("x", 0)), int(tee.get("y", 0)))
+		var green = h.get("green_position", {"x": 0, "y": 0})
+		hole.green_position = Vector2i(int(green.get("x", 0)), int(green.get("y", 0)))
+		var hp = h.get("hole_position", {"x": 0, "y": 0})
+		hole.hole_position = Vector2i(int(hp.get("x", 0)), int(hp.get("y", 0)))
+		hole.distance_yards = int(h.get("distance_yards", 0))
+		hole.is_open = h.get("is_open", true)
+		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
+		course.holes.append(hole)
+	course._recalculate_par()

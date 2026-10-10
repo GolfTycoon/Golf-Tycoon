@@ -1,0 +1,95 @@
+extends Node2D
+class_name BunkerOverlay
+## BunkerOverlay - Renders subtle grain/stipple pattern on bunker tiles
+
+var terrain_grid: TerrainGrid
+var _bunker_positions: Array = []
+var _dot_offsets: Dictionary = {}  # Cached dot positions per tile
+var _is_web: bool = false
+
+func initialize(grid: TerrainGrid) -> void:
+	terrain_grid = grid
+	z_index = 1  # Render just above terrain tiles
+	_is_web = OS.get_name() == "Web"
+	_scan_bunker_tiles()
+	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+	EventBus.load_completed.connect(_on_load_completed)
+
+func _exit_tree() -> void:
+	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
+		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+
+func _on_load_completed(_success: bool) -> void:
+	_scan_bunker_tiles()
+	queue_redraw()
+
+func _scan_bunker_tiles() -> void:
+	_bunker_positions.clear()
+	_dot_offsets.clear()
+	if not terrain_grid:
+		return
+	for x in range(terrain_grid.grid_width):
+		for y in range(terrain_grid.grid_height):
+			var pos = Vector2i(x, y)
+			if terrain_grid.get_tile(pos) == TerrainTypes.Type.BUNKER:
+				_bunker_positions.append(pos)
+				_generate_dots_for_tile(pos)
+
+func _generate_dots_for_tile(pos: Vector2i) -> void:
+	# Generate consistent random dots using position as seed
+	var dots: Array = []
+	var seed_val = pos.x * 1000 + pos.y
+	var rng = RandomNumberGenerator.new()
+	rng.seed = seed_val
+
+	var is_deep = terrain_grid.get_bunker_depth(pos) == 1
+	var min_dots = 5 if _is_web else (10 if is_deep else 6)
+	var max_dots = 8 if _is_web else (18 if is_deep else 12)
+	var dot_count = rng.randi_range(min_dots, max_dots)
+	var min_radius = 1.0 if is_deep else 0.8
+	var max_radius = 2.0 if is_deep else 1.5
+	for i in range(dot_count):
+		var dx = rng.randf_range(4.0, terrain_grid.tile_width - 4.0)
+		var dy = rng.randf_range(3.0, terrain_grid.tile_height - 3.0)
+		var radius = rng.randf_range(min_radius, max_radius)
+		dots.append(Vector3(dx, dy, radius))
+
+	_dot_offsets[pos] = dots
+
+func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
+	if new_type == TerrainTypes.Type.BUNKER:
+		if tile_pos not in _bunker_positions:
+			_bunker_positions.append(tile_pos)
+		# Always regenerate dots (depth may have changed)
+		_generate_dots_for_tile(tile_pos)
+	elif old_type == TerrainTypes.Type.BUNKER:
+		_bunker_positions.erase(tile_pos)
+		_dot_offsets.erase(tile_pos)
+	queue_redraw()
+
+func _draw() -> void:
+	if not terrain_grid or _bunker_positions.is_empty():
+		return
+
+	# Viewport culling
+	var visible_rect = terrain_grid.get_visible_world_rect()
+	var margin = Vector2(terrain_grid.tile_width, terrain_grid.tile_height)
+	visible_rect = visible_rect.grow_individual(margin.x, margin.y, margin.x, margin.y)
+
+	for pos in _bunker_positions:
+		var screen_pos = terrain_grid.grid_to_screen(pos)
+		if not visible_rect.has_point(screen_pos):
+			continue
+		var local_pos = to_local(screen_pos)
+
+		if not _dot_offsets.has(pos):
+			continue
+
+		var is_deep = terrain_grid.get_bunker_depth(pos) == 1
+		var dot_color = Color(0.60, 0.55, 0.35, 0.45) if is_deep else Color(0.75, 0.68, 0.45, 0.35)
+		var dots = _dot_offsets[pos]
+		for dot in dots:
+			var dot_pos = local_pos + Vector2(dot.x, dot.y)
+			draw_circle(dot_pos, dot.z, dot_color)

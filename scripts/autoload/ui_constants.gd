@@ -1,0 +1,231 @@
+extends Node
+## UIConstants - Centralized color and size constants for UI theming
+## Registered as autoload singleton - access via UIConstants.COLOR_PRIMARY, etc.
+
+# =============================================================================
+# PRIMARY COLOR PALETTE (Golf green theme)
+# =============================================================================
+
+const COLOR_PRIMARY := Color("365c43")        # #2D5A3D - Main green
+const COLOR_PRIMARY_HOVER := Color("476f50")  # #4A8F5C - Hover state
+const COLOR_PRIMARY_PRESSED := Color("203e30") # #1E3D29 - Pressed state
+
+# =============================================================================
+# BACKGROUND COLORS
+# =============================================================================
+
+const COLOR_BG_PANEL := Color("182f29f5")    # Panel background
+const COLOR_BG_BUTTON := Color("294238")      # Button normal
+const COLOR_BG_HOVER := Color("365346")          # Button hover (neutral)
+const COLOR_BG_DARK := Color("10241f")        # Darker background
+const COLOR_BORDER := Color("63715a")         # Border color
+
+# =============================================================================
+# TEXT COLORS
+# =============================================================================
+
+const COLOR_TEXT := Color("f4edd9")              # Primary text
+const COLOR_TEXT_DIM := Color("b9c7af")          # Secondary text
+const COLOR_TEXT_MUTED := Color("7e9184")        # Disabled/muted text
+
+# =============================================================================
+# SEMANTIC STATUS COLORS
+# =============================================================================
+
+const COLOR_SUCCESS := Color(0.4, 0.9, 0.4)           # Profit, positive
+const COLOR_SUCCESS_DIM := Color(0.5, 0.8, 0.5)       # Dim green
+const COLOR_SUCCESS_MUTED := Color(0.6, 0.8, 0.6)     # Muted positive feedback
+const COLOR_WARNING := Color(0.9, 0.9, 0.4)           # Caution, moderate
+const COLOR_WARNING_DIM := Color(0.8, 0.8, 0.5)       # Muted caution
+const COLOR_DANGER := Color(0.9, 0.4, 0.4)            # Loss, negative
+const COLOR_DANGER_DIM := Color(0.8, 0.5, 0.5)        # Dim red
+const COLOR_DANGER_MUTED := Color(0.8, 0.6, 0.6)      # Muted negative feedback
+const COLOR_INFO := Color(0.4, 0.7, 1.0)              # Neutral info
+const COLOR_INFO_DIM := Color(0.7, 0.8, 1.0)          # Muted info/blue
+const COLOR_GOLD := Color("e5c57c")             # Premium, special
+const COLOR_GOLD_DIM := Color(0.9, 0.75, 0.2)         # Muted gold (eagle)
+const COLOR_ORANGE := Color(0.9, 0.6, 0.3)            # Championship, high tier
+const COLOR_PURPLE := Color(0.9, 0.3, 0.9)            # Pro tier
+const COLOR_BLUE_SOFT := Color(0.6, 0.6, 0.9)         # Casual tier
+
+# =============================================================================
+# GOLF SCORE COLORS
+# =============================================================================
+
+const COLOR_SCORE_EAGLE := Color("e5c57c")      # Eagle or better (gold)
+const COLOR_SCORE_BIRDIE := Color(0.3, 0.9, 0.3)      # Birdie (green)
+const COLOR_SCORE_PAR := Color.WHITE                   # Par
+const COLOR_SCORE_BOGEY := Color(0.9, 0.6, 0.3)       # Bogey (orange)
+const COLOR_SCORE_DOUBLE := Color(0.9, 0.3, 0.3)      # Double bogey+ (red)
+const COLOR_SCORE_OVER := Color(0.9, 0.4, 0.3)        # Over par (leaderboard)
+const COLOR_SCORE_UNDER := Color(0.3, 0.9, 0.3)       # Under par (leaderboard)
+
+# =============================================================================
+# MOOD COLORS
+# =============================================================================
+
+const COLOR_MOOD_HAPPY := Color(0.3, 0.9, 0.3)        # Satisfied/Happy
+const COLOR_MOOD_NEUTRAL := Color(0.9, 0.9, 0.3)      # Neutral
+const COLOR_MOOD_UNHAPPY := Color(0.9, 0.3, 0.3)      # Frustrated/Unhappy
+
+# =============================================================================
+# TYPOGRAPHY SCALE
+# =============================================================================
+
+const FONT_SIZE_XS := 10   # Wind labels, tiny text
+const FONT_SIZE_SM := 12   # Tooltips, secondary labels
+const FONT_SIZE_BASE := 14 # Body text, stat rows
+const FONT_SIZE_MD := 16   # Section headers
+const FONT_SIZE_LG := 18   # Panel titles
+const FONT_SIZE_XL := 24   # Major titles
+
+# =============================================================================
+# SPACING CONSTANTS
+# =============================================================================
+
+const MARGIN_XS := 4
+const MARGIN_SM := 8
+const MARGIN_MD := 12
+const MARGIN_LG := 16
+const MARGIN_XL := 24
+
+const SEPARATION_SM := 4
+const SEPARATION_MD := 6
+const SEPARATION_LG := 8
+
+# =============================================================================
+# PANEL SIZES (base at 1080p)
+# =============================================================================
+
+# Status readout: a column pinned to the top-right corner (HUDStatusColumn).
+# The top edge of the screen is otherwise free — nothing spans the full width.
+const HUD_COLUMN_WIDTH := 210
+const HUD_COLUMN_MARGIN := 8
+# Fallback height used before the column has measured itself (or if absent).
+const HUD_COLUMN_HEIGHT_ESTIMATE := 260
+# Group the status column joins so other HUD elements can find it.
+const HUD_COLUMN_GROUP := "hud_status_column"
+
+# Bottom bar height: view/speed controls on the left + tabbed toolbar on the right.
+# Keep in sync with main.tscn BottomBar offset_top.
+const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
+const BUILD_TOOLS_WIDTH := 260
+const TOOL_BUTTON_HEIGHT := 32
+
+# =============================================================================
+# TOOL ICONS (Unicode)
+# =============================================================================
+
+const TOOL_ICONS := {
+	"fairway": "[=]",
+	"rough": "[~]",
+	"green": "[O]",
+	"tee_box": "[T]",
+	"bunker": "[:]",
+	"water": "[w]",
+	"out_of_bounds": "[X]",
+	"path": "[.]",
+	"tree": "[^]",
+	"rock": "[*]",
+	"flower": "[f]",
+	"building": "[B]",
+	"vertex": "[V]",
+	"flat": "[+]",
+	"gradual": "[-]",
+	"open_hole": "[H]",
+	"staff": "[P]",
+}
+
+# =============================================================================
+# WEATHER ICONS (Unicode)
+# =============================================================================
+
+const WEATHER_ICONS := {
+	0: "* *",   # SUNNY
+	1: "~~~",   # PARTLY_CLOUDY
+	2: "===",   # OVERCAST
+	3: "~:~",   # LIGHT_RAIN
+	4: ":|:",   # RAIN
+	5: "|:|",   # HEAVY_RAIN
+}
+
+const WEATHER_NAMES := {
+	0: "Sunny",
+	1: "Partly Cloudy",
+	2: "Overcast",
+	3: "Light Rain",
+	4: "Rain",
+	5: "Heavy Rain",
+}
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+func get_scale_factor() -> float:
+	var viewport_height := DisplayServer.window_get_size().y
+	var scale := viewport_height / 1080.0
+	return clampf(scale, 0.8, 1.5)
+
+func get_scaled_size(base_size: Vector2) -> Vector2:
+	return base_size * get_scale_factor()
+
+func get_scaled_font_size(base_size: int) -> int:
+	var scale := get_scale_factor()
+	if scale > 1.1:
+		return base_size + 2
+	return base_size
+
+func get_tool_icon(tool_type) -> String:
+	if tool_type is int:
+		# TerrainTypes enum
+		match tool_type:
+			1: return TOOL_ICONS.get("grass", "[.]")
+			2: return TOOL_ICONS.get("fairway", "[=]")
+			3: return TOOL_ICONS.get("rough", "[~]")
+			4: return TOOL_ICONS.get("rough", "[~]")  # HEAVY_ROUGH
+			5: return TOOL_ICONS.get("green", "[O]")
+			6: return TOOL_ICONS.get("tee_box", "[T]")
+			7: return TOOL_ICONS.get("bunker", "[:]")
+			8: return TOOL_ICONS.get("water", "[w]")
+			9: return TOOL_ICONS.get("path", "[.]")
+			10: return TOOL_ICONS.get("out_of_bounds", "[X]")
+			12: return TOOL_ICONS.get("flower", "[f]")
+			13, 20, 21: return TOOL_ICONS.get("rock", "[*]")  # ROCKS, SMALL_BOULDERS, LARGE_BOULDERS
+			14: return TOOL_ICONS.get("fairway", "[=]")  # FIRM_FAIRWAY
+			15, 18: return TOOL_ICONS.get("bunker", "[:]")  # POT_BUNKER, WASTE_BUNKER
+			16: return TOOL_ICONS.get("water", "[w]")  # STREAM
+			17: return TOOL_ICONS.get("rough", "[~]")  # DEEP_ROUGH
+			19: return TOOL_ICONS.get("tree", "[^]")  # BRUSH
+		if TerrainTypes.is_tree(tool_type):
+			return TOOL_ICONS.get("tree", "[^]")  # Trees and every species tile
+		return "[?]"
+	else:
+		return TOOL_ICONS.get(str(tool_type), "[?]")
+
+## Vertical space reserved by the top-right status column, measured live.
+## Right-docked HUD panels (event feed, autosave toast, tournament leaderboard)
+## use this as their top margin so they never sit underneath the column.
+## Falls back to a conservative estimate when the column isn't in the tree.
+func get_hud_column_clearance(node: Node = null) -> float:
+	var column: Node = null
+	if node and node.is_inside_tree():
+		column = node.get_tree().get_first_node_in_group(HUD_COLUMN_GROUP)
+	if column and column is Control and column.visible:
+		return column.get_occupied_height() + HUD_COLUMN_MARGIN
+	return float(HUD_COLUMN_MARGIN + HUD_COLUMN_HEIGHT_ESTIMATE + HUD_COLUMN_MARGIN)
+
+func get_weather_icon(weather_type: int) -> String:
+	return WEATHER_ICONS.get(weather_type, "???")
+
+func get_weather_name(weather_type: int) -> String:
+	return WEATHER_NAMES.get(weather_type, "Unknown")
+
+## Return the appropriate score color for a given score-to-par differential.
+## Used by scorecards, round summaries, and golfer info popups.
+func get_score_color(diff: int) -> Color:
+	if diff < -1: return COLOR_SCORE_EAGLE
+	if diff == -1: return COLOR_SCORE_BIRDIE
+	if diff == 0: return COLOR_SCORE_PAR
+	if diff == 1: return COLOR_SCORE_BOGEY
+	return COLOR_SCORE_DOUBLE

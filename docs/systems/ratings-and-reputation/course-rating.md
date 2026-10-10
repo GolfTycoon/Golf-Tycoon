@@ -1,0 +1,206 @@
+# Course Rating
+
+> The course rating turns five categories into a one-to-five star score, and also reports difficulty and slope. The score shows golfers how good your course is, and it scales reputation gains.
+
+**Source:** `scripts/systems/course_rating_system.gd` (overall weights, all categories, slope, prestige), `scripts/systems/course_economy.gd` (fair price)
+**Tests:** `tests/unit/test_course_rating_system.gd`
+
+---
+
+
+> **Source:** `scripts/systems/course_rating_system.gd`
+
+## Plain English
+
+The course rating system evaluates the course on a **1-5 star scale** across five categories. Each category measures a different aspect of the golfer experience:
+
+- **Condition (25% weight):** How well-maintained is the course? Measures the ratio of premium terrain (fairway, green, tee box) in play corridors. A course that's mostly rough with thin fairways scores poorly; wide, well-manicured fairways score well. Staff quality (groundskeepers) applies a condition modifier.
+
+- **Design (15% weight):** Does the course have variety? Rewards having a mix of par 3s, 4s, and 5s. Hole count and par variety supply at most three stars. Finished tees and greens, plus separation between greens, earn the remaining two stars.
+
+- **Value (30% weight):** Is the course fairly priced? Compares what the golfer pays (green fee x holes) to what the course "should" charge based on reputation and hole count. Charging half the fair price earns 5 stars; charging double earns 1 star. This creates natural pricing pressure — raising fees without improving reputation tanks the rating.
+
+- **Pace (20% weight):** How fast does play move? Uses the bogey-or-worse ratio as a proxy for slow play (more bogeys = more strokes = slower rwhole squares and single vertices (see elevation-tools.md). Quick Start uses
+ounds). Marshals (from staff system) improve pace.
+
+- **Aesthetics (10% weight):** How well-landscaped is the course? Scores decorations and trees within 8 tiles of each hole's tee and green. Diminishing returns per same type, variety bonuses, and theme-matching multiplier. See [aesthetics-rating.md](aesthetics-rating.md) for full system.
+
+The system also calculates **slope rating** (how much harder the course is for average vs scratch golfers) and **course rating** (expected score for a scratch golfer), following USGA conventions.
+
+### Prestige Multiplier
+
+A separate prestige multiplier scales reputation gains. Difficult courses (7+ difficulty) with good ratings (4+ stars) earn bonus reputation — this rewards players who build challenging championship courses rather than easy beginner courses.
+
+---
+
+## Algorithm
+
+### 1. Overall Rating
+
+```
+overall = condition * 0.25 + design * 0.15 + value * 0.30 + pace * 0.20 + aesthetics * 0.10
+overall = clamp(overall, 1.0, 5.0)
+stars   = round(overall)    # Integer for display
+```
+
+### 2. Condition Rating
+
+```
+# Scan a corridor of width 12 (6 tiles either side) from tee to green for each hole
+corridor = get_tiles_in_corridor(tee_position, green_position, width=12)
+
+# Count premium terrain tiles
+premium_tiles = count of GREEN, FAIRWAY, TEE_BOX tiles in corridor
+total_tiles   = all tiles in corridor
+
+ratio = premium_tiles / total_tiles
+
+# 0% premium = 1 star, 60%+ premium = 5 stars
+base_rating = clamp(1.0 + (ratio / 0.15), 1.0, 5.0)
+
+# Staff condition modifier (groundskeeper quality)
+# course_condition ranges 0.0 to 1.0 from staff_manager
+condition_mod = 0.5 + (course_condition * 0.5)    # Range: 0.5 to 1.0
+
+final_condition = clamp(base_rating * condition_mod, 1.0, 5.0)
+```
+
+**Premium ratio to stars:**
+
+| Premium Ratio | Base Rating |
+| ------------- | ----------- |
+| 0% | 1.0 |
+| 15% | 2.0 |
+| 30% | 3.0 |
+| 45% | 4.0 |
+| 60%+ | 5.0 |
+
+### 3. Design Rating
+
+The existing hole-count and par-variety subtotal is compressed to `1 + (subtotal - 1) * 0.5`, capped at three stars. For each open hole:
+
+- A tee on tee-box terrain and cup on green terrain earn up to 1.25 additional stars, scaled by green tiles in the surrounding 5×5 area (seven tiles earns full credit).
+- A green at least five tiles from every other open green earns 0.75 additional stars.
+
+Average those two contributions across open holes, add them to the variety score, then clamp to 1–5. Without terrain data, only variety counts. This prevents creating 18 markers on unfinished ground from immediately earning five design stars.
+
+### 4. Value Rating
+
+```
+hole_count = number of open holes
+total_round_cost = green_fee * max(hole_count, 1)
+
+# Fair price scales with reputation AND hole count
+hole_factor = clamp(hole_count / 18.0, 0.15, 1.0)
+fair_price  = max(reputation * 2.0, 20.0) * hole_factor
+
+price_ratio = total_round_cost / max(fair_price, 1.0)
+
+# Linear mapping:
+#   0.5x fair = 5 stars (great value)
+#   1.0x fair = ~3.7 stars (fair)
+#   2.0x fair = 1 star (overpriced)
+rating = 5.0 - (price_ratio - 0.5) * 2.67
+
+value_rating = clamp(rating, 1.0, 5.0)
+```
+
+**Fair price examples:**
+
+| Reputation | Holes | Fair Price | $30 Fee = Total | Value Stars |
+| ---------- | ----- | ---------- | --------------- | ----------- |
+| 50 | 18 | $100 | $540 | ~1 (overpriced) |
+| 50 | 9 | $50 | $270 | ~1 (overpriced) |
+| 50 | 1 | $15 | $30 | ~1.7 |
+| 50 | 18 | $100 | $90 (fee=$5) | 5.0 (great value) |
+| 100 | 18 | $200 | $540 | ~2.4 |
+
+### 5. Pace Rating
+
+```
+total_scores = birdies + bogeys_or_worse + holes_in_one + eagles
+bad_ratio    = bogeys_or_worse / total_scores
+
+# 0% bad = 5 stars, ~50% bad = 2 stars
+base_rating = 5.0 - (bad_ratio * 6.0)
+
+# Marshal modifier from staff_manager (0.6 to 1.0)
+pace_mod = staff_manager.get_pace_modifier()
+
+pace_rating = clamp(base_rating * pace_mod, 2.0, 5.0)    # Floor of 2.0
+```
+
+### 6. Course Difficulty (Average Hole Difficulty)
+
+```
+avg_difficulty = sum(hole.difficulty_rating) / open_hole_count
+# Scale: 1.0 to 10.0 (see difficulty-calculator.md)
+```
+
+### 7. Slope Rating (55-155)
+
+```
+slope = 113 + int((avg_difficulty - 5.0) * 8.0)
+slope = clamp(slope, 55, 155)
+```
+
+- Standard slope: **113** (at difficulty 5.0)
+- Each difficulty point above/below 5.0 adjusts slope by ~8
+- Example: difficulty 7.0 → slope = 113 + 16 = **129**
+
+### 8. Course Rating (Expected Scratch Score)
+
+```
+difficulty_adjustment = (avg_difficulty - 5.0) * 0.15 * open_hole_count
+course_rating = total_par + difficulty_adjustment
+```
+
+- At difficulty 5.0: course rating equals par
+- At difficulty 7.0 with 18 holes: course rating = par + 5.4
+
+### 9. Prestige Multiplier (Reputation Gain Scaling)
+
+```
+multiplier = 1.0
+
+# High difficulty + high quality = prestigious
+if difficulty >= 7.0 and overall >= 4.0:
+    multiplier += 0.5    # +50% reputation
+elif difficulty >= 6.0 and overall >= 3.5:
+    multiplier += 0.25   # +25% reputation
+
+# Very high quality bonus
+if overall >= 4.5:
+    multiplier += 0.25   # +25% reputation
+
+# Low quality penalty
+if overall < 2.0:
+    multiplier *= 0.75   # -25% reputation
+```
+
+## Tuning Levers
+
+| Parameter | Location | Current Value | Effect |
+| --- | --- | --- | --- |
+| Category weights | `course_rating_system.gd` | 25/15/30/20/10 | How much each category matters |
+| Corridor width | `course_rating_system.gd` | `12` (6 tiles either side of centre) | Width of the terrain scan |
+| Premium ratio divisor | `course_rating_system.gd` | 0.15 | Lower = easier to get 5-star condition |
+| Design base score | `course_rating_system.gd` | 1.5 | Starting design score |
+| Par 3/5 bonus | `course_rating_system.gd` | +0.75 each | Reward for par variety |
+| Hole count bonuses | `course_rating_system.gd` | 0.25-2.0 | Reward for more holes |
+| Fair price formula | `course_rating_system.gd` | `rep * 2.0` | How reputation maps to fair price |
+| Value slope | `course_rating_system.gd` | 2.67 | Steepness of value curve |
+| Pace bad ratio multiplier | `course_rating_system.gd` | 6.0 | How much bogeys hurt pace |
+| Slope adjustment per point | `course_rating_system.gd` | 8.0 | Slope sensitivity to difficulty |
+| Prestige thresholds | `course_rating_system.gd` | See above | When prestige bonuses kick in |
+
+---
+
+## Related
+
+- [Aesthetics Rating](aesthetics-rating.md) covers the aesthetics category.
+- [Reputation](reputation.md) uses the rating to scale reputation gains.
+- [Difficulty Calculator](../course-design/difficulty-calculator.md) supplies hole difficulty.
+- [Routing Overlay](../course-design/routing-overlay.md) covers the walk that affects pace.
+- [Staff and Weeds](../economy-and-land/staff-and-weeds.md) supplies the condition and pace modifiers.
+- [Economy](../economy-and-land/economy.md) covers the fees used in the value rating.

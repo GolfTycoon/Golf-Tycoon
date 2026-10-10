@@ -1,0 +1,40 @@
+# Godot 4+ specific ignores
+.godot/
+*.uid
+godot
+
+# MCP addons (local dev tools)
+addons/godot_mcp/
+
+# Godot-specific ignores
+*.translation
+
+# Imported textures and samples
+.import/
+
+# Build and export
+/build/
+/export/
+*.exe
+*.x86_64
+*.pck
+
+# OS/IDE specific
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# VSCode
+.vscode/
+
+# JetBrains
+.idea/
+
+# Backup files
+*.bak
+*.backup
+
+# Log files
+*.log

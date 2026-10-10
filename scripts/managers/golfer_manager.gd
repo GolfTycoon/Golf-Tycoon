@@ -1,0 +1,1296 @@
+extends Node
+class_name GolferManager
+## GolferManager - Spawns and manages AI golfers on the course
+
+const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
+
+@export var min_spawn_cooldown_seconds: float = 90.0  # Minimum cooldown between group spawns
+
+var active_golfers: Array[Golfer] = []
+var next_golfer_id: int = 0
+var next_group_id: int = 0
+var time_since_last_spawn: float = 0.0
+
+## Cached spawn rate modifier to avoid recalculating every frame
+var _cached_spawn_modifier: float = 1.0
+var _spawn_modifier_cache_timer: float = 0.0
+const SPAWN_MODIFIER_CACHE_DURATION: float = 5.0  # Recalculate every 5 seconds
+
+## Visiting golfer pool: tracks which named visitors from the current location
+## have already been spawned so each one appears at most once per round.
+var _spawned_visitor_names: Dictionary = {}  # name -> true
+
+## Cached group data to avoid rebuilding every frame
+var _cached_groups: Dictionary = {}  # group_id -> Array[Golfer]
+var _cached_sorted_group_ids: Array = []
+var _groups_dirty: bool = true  # Rebuild groups when golfers are added/removed
+
+## True while clear_all_golfers() empties the course (see _on_golfer_left_course).
+var _clearing_golfers: bool = false
+
+## Throttle visual offset recalculation (O(n²) distance checks)
+var _visual_offset_timer: float = 0.0
+const VISUAL_OFFSET_INTERVAL: float = 0.2  # Recalculate every 200ms
+
+@onready var golfers_container: Node2D = get_parent().get_node("Entities/Golfers") if get_parent().has_node("Entities/Golfers") else null
+
+signal golfer_spawned(golfer: Golfer)
+signal golfer_removed(golfer_id: int)
+signal golfer_clicked(golfer: Golfer)
+
+func _ready() -> void:
+	# Connect to EventBus
+	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+	EventBus.golfer_left_course.connect(_on_golfer_left_course)
+	# A Golfer Skin the player saves in the studio (see EditGolferSkinsScreen)
+	# dresses the golfers already on the course, not only the ones after them.
+	GolferSkins.skins_changed.connect(_on_skins_changed)
+
+func _exit_tree() -> void:
+	if EventBus.golfer_finished_round.is_connected(_on_golfer_finished_round):
+		EventBus.golfer_finished_round.disconnect(_on_golfer_finished_round)
+	if EventBus.golfer_left_course.is_connected(_on_golfer_left_course):
+		EventBus.golfer_left_course.disconnect(_on_golfer_left_course)
+	if GolferSkins.skins_changed.is_connected(_on_skins_changed):
+		GolferSkins.skins_changed.disconnect(_on_skins_changed)
+
+
+## A Golfer Skin changed: build the frames of everyone on the course again, so a
+## shirt painted in the studio is on the golfers already out there.
+func _on_skins_changed() -> void:
+	for golfer in active_golfers:
+		if golfer != null and is_instance_valid(golfer):
+			golfer.refresh_skin_sprites()
+
+func get_group_size_weights() -> Array:
+	"""Get weighted probabilities for group sizes based on green fee"""
+	var fee = GameManager.green_fee * maxi(GameManager.get_open_hole_count(), 1)
+
+	# Lower fees attract more casual/single golfers
+	# Higher fees attract more serious golfers (foursomes)
+
+	if fee < 25:
+		# Budget course: More singles and pairs
+		return [0.4, 0.3, 0.2, 0.1]  # 40% singles, 30% pairs, 20% threesomes, 10% foursomes
+	elif fee < 50:
+		# Mid-range: Balanced groups
+		return [0.2, 0.3, 0.3, 0.2]  # 20% singles, 30% pairs, 30% threesomes, 20% foursomes
+	elif fee < 100:
+		# Premium: More foursomes
+		return [0.1, 0.2, 0.3, 0.4]  # 10% singles, 20% pairs, 30% threesomes, 40% foursomes
+	else:
+		# Exclusive: Mostly foursomes
+		return [0.05, 0.15, 0.25, 0.55]  # 5% singles, 15% pairs, 25% threesomes, 55% foursomes
+
+func get_spawn_rate_modifier() -> float:
+	"""Get spawn rate modifier based on course rating, weather, and marketing.
+	Uses power curve: 1 star = 0.11x (nearly empty), 3 stars = 1.0x, 5 stars = 2.78x (packed).
+	Bad weather further reduces spawn rate. Marketing campaigns increase it."""
+	var rating = GameManager.course_rating.get("overall", 3.0)
+	var base_modifier = pow(rating / 3.0, 2.0)
+
+	# Apply weather penalty (rain discourages golfers)
+	if GameManager.weather_system:
+		var weather_modifier = GameManager.weather_system.get_spawn_rate_modifier()
+		base_modifier *= weather_modifier
+
+	# Apply marketing bonus (active campaigns attract more golfers)
+	if GameManager.marketing_manager:
+		var marketing_modifier = GameManager.marketing_manager.get_spawn_rate_modifier()
+		base_modifier *= marketing_modifier
+
+	# Apply seasonal demand modifier (theme-aware: Desert peaks in winter, Parkland in summer)
+	var season = SeasonSystem.get_season(GameManager.current_day)
+	base_modifier *= SeasonSystem.get_spawn_modifier(season, GameManager.current_theme)
+
+	# Apply seasonal event modifier (special events boost/reduce demand)
+	var active_event = SeasonalEvents.get_active_event(GameManager.current_day)
+	if active_event:
+		base_modifier *= active_event.spawn_modifier
+
+	# Apply difficulty preset spawn rate modifier (Easy 1.2x, Normal 1.0x, Hard 0.8x)
+	base_modifier *= GameManager.get_spawn_rate_multiplier()
+
+	var holes := GameManager.get_open_hole_count()
+	var fair := CourseEconomy.fair_round_price(GameManager.reputation, holes, GameManager.current_day, GameManager.current_theme)
+	base_modifier *= CourseEconomy.price_demand(GameManager.green_fee, holes, fair)
+	return base_modifier
+
+func get_effective_spawn_cooldown() -> float:
+	"""Get spawn cooldown adjusted by course rating.
+	Higher rating = shorter cooldown = more golfers."""
+	# Use cached modifier to avoid expensive recalculation every frame
+	return GameManager.tee_booking_interval / maxf(_cached_spawn_modifier,.001)
+
+## The course never closes, so groups can tee off at any time of day.
+
+## Landing zone constants
+const LANDING_ZONE_BASE_RADIUS: float = 2.0    # Minimum radius in tiles (~44 yards)
+const LANDING_ZONE_VARIANCE: float = 0.3       # 30% of shot distance added to radius
+const TYPICAL_DRIVER_DISTANCE: float = 12.0    # Tiles (~264 yards) for estimating new group spawns
+
+func _get_landing_zone_radius(shot_distance: float) -> float:
+	"""Calculate landing zone radius based on shot distance.
+	Longer shots have more variance, so larger radius."""
+	return LANDING_ZONE_BASE_RADIUS + (shot_distance * LANDING_ZONE_VARIANCE)
+
+func get_max_concurrent_golfers() -> int:
+	"""Maximum golfers allowed on the course at once. Scales with hole count.
+	1 group (4 golfers) per hole — more holes = more capacity = more revenue."""
+	var holes = GameManager.get_open_hole_count()
+	var guests_per_hole := 2 if GameManager.tee_booking_interval >= 180 else 4
+	return max(4, holes * guests_per_hole)
+
+## A golfer whose round is over. LEAVING is the walk home and the clubhouse
+## visit that follows the last putt; FINISHED is once they have gone inside.
+## Neither is in play any more, so the group-ahead safety checks, the tee
+## bookkeeping and the course capacity count all skip both.
+static func _is_off_the_course(golfer: Golfer) -> bool:
+	return golfer.current_state in [Golfer.State.FINISHED, Golfer.State.LEAVING]
+
+func _is_at_golfer_cap() -> bool:
+	"""Check if the course has reached its maximum golfer capacity."""
+	var non_finished = 0
+	for golfer in active_golfers:
+		if not _is_off_the_course(golfer):
+			non_finished += 1
+	return non_finished >= get_max_concurrent_golfers()
+
+func _is_first_tee_clear() -> bool:
+	"""Check if the first tee's landing zone is clear for a new group to spawn.
+	Uses a cone-shaped check in the direction of play, so golfers on other holes
+	in opposite directions don't block spawning."""
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		return true
+
+	var first_hole = course_data.holes[0]
+	var tee_pos = Vector2(first_hole.tee_position)
+	var hole_pos = Vector2(first_hole.hole_position)
+	var hole_distance = tee_pos.distance_to(hole_pos)
+
+	# Par 3s: Use green-clear logic instead of landing zone
+	# (the entire hole is reachable from the tee, so check if anyone is still playing)
+	if first_hole.par == 3:
+		return _is_hole_clear_of_earlier_golfers(0)
+
+	# For longer holes: Estimate landing zone using cone-based directional check
+	# Cap shot distance to 70% of hole length so we don't check past the green
+	var effective_shot_distance = min(TYPICAL_DRIVER_DISTANCE, hole_distance * 0.7)
+	var direction = (hole_pos - tee_pos).normalized()
+	var landing_target = tee_pos + direction * effective_shot_distance
+	var lateral_radius = _get_landing_zone_radius(effective_shot_distance)
+
+	# Cone check: only blocks if golfer is ahead in the direction of play
+	return _is_cone_clear_of_golfers(tee_pos, landing_target, lateral_radius, -1, 0)
+
+func _is_hole_clear_of_earlier_golfers(hole_index: int) -> bool:
+	"""Check if any golfers from earlier groups are still playing this hole.
+	Used for par 3 green-clear checks."""
+	for golfer in active_golfers:
+		if _is_off_the_course(golfer):
+			continue
+		if golfer.current_hole == hole_index:
+			return false  # Someone is still on this hole
+	return true
+
+## Cone-based landing zone checking
+const LANDING_CONE_HALF_ANGLE: float = PI / 4.0  # 45 degrees - wider cone to catch golfers off the direct line
+
+func _is_cone_clear_of_golfers(origin: Vector2, target: Vector2, lateral_radius: float, exclude_group_id: int, restrict_to_hole: int = -1) -> bool:
+	"""Check if a cone-shaped landing zone is clear of golfers from groups ahead.
+	The cone extends from origin toward target, with angular spread for shot variance.
+	origin: where the shot is taken from
+	target: where the shot is aimed (center of landing zone)
+	lateral_radius: how far to check perpendicular to the shot line (for near-target checks)
+	exclude_group_id: golfers in this group are skipped (-1 to check all groups)
+	restrict_to_hole: only check golfers on this hole (-1 to check all holes)"""
+	var shot_direction = (target - origin).normalized()
+	var shot_distance = origin.distance_to(target)
+	# Only check the landing zone area - from 60% of shot distance to shot distance + radius
+	# This allows golfers past the landing zone (approaching the green) to not block
+	var min_check_distance = shot_distance * 0.6  # Shots rarely land shorter than 60% of target
+	var max_check_distance = shot_distance + lateral_radius  # Landing zone extends to target + spread
+
+	for golfer in active_golfers:
+		if _is_off_the_course(golfer):
+			continue
+
+		# Skip golfers in the excluded group (same group as shooter)
+		if exclude_group_id >= 0 and golfer.group_id == exclude_group_id:
+			continue
+
+		# Only check groups that started before the excluded group (they're ahead)
+		# For spawning (exclude_group_id = -1), check all existing golfers
+		if exclude_group_id >= 0 and golfer.group_id > exclude_group_id:
+			continue
+
+		# Only check golfers on the specified hole (course design handles cross-hole safety)
+		if restrict_to_hole >= 0 and golfer.current_hole != restrict_to_hole:
+			continue
+
+		var golfer_pos = Vector2(golfer.ball_position)
+		var to_golfer = golfer_pos - origin
+		var distance_to_golfer = to_golfer.length()
+
+		# Skip if golfer is behind the shooter (negative dot product = opposite direction)
+		if to_golfer.dot(shot_direction) < 0:
+			continue
+
+		# Skip if golfer is too close (not yet in landing zone) or too far (past landing zone)
+		if distance_to_golfer < min_check_distance or distance_to_golfer > max_check_distance:
+			continue
+
+		# Check if golfer is within the cone angle
+		if distance_to_golfer > 0.1:  # Avoid division by zero
+			var angle_to_golfer = shot_direction.angle_to(to_golfer.normalized())
+			if abs(angle_to_golfer) > LANDING_CONE_HALF_ANGLE:
+				continue
+
+		# Golfer is in the cone - area not clear
+		return false
+
+	return true
+
+func _is_area_clear_of_golfers(target: Vector2, radius: float, exclude_group_id: int, restrict_to_hole: int = -1) -> bool:
+	"""Check if an area is clear of golfers from groups ahead. (Legacy circular check)
+	exclude_group_id: golfers in this group are skipped (-1 to check all groups)
+	restrict_to_hole: only check golfers on this hole (-1 to check all holes)"""
+	for golfer in active_golfers:
+		if _is_off_the_course(golfer):
+			continue
+
+		# Skip golfers in the excluded group (same group as shooter)
+		if exclude_group_id >= 0 and golfer.group_id == exclude_group_id:
+			continue
+
+		# Only check groups that started before the excluded group (they're ahead)
+		# For spawning (exclude_group_id = -1), check all existing golfers
+		if exclude_group_id >= 0 and golfer.group_id > exclude_group_id:
+			continue
+
+		# Only check golfers on the specified hole (course design handles cross-hole safety)
+		if restrict_to_hole >= 0 and golfer.current_hole != restrict_to_hole:
+			continue
+
+		# Check if golfer is in the landing zone
+		var golfer_pos = Vector2(golfer.ball_position)
+		if golfer_pos.distance_to(target) < radius:
+			return false
+
+	return true
+
+func _process(delta: float) -> void:
+	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
+	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
+		return
+
+	# Periodically refresh cached spawn rate modifier
+	_spawn_modifier_cache_timer += delta
+	if _spawn_modifier_cache_timer >= SPAWN_MODIFIER_CACHE_DURATION:
+		_spawn_modifier_cache_timer = 0.0
+		_cached_spawn_modifier = get_spawn_rate_modifier()
+
+	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown).
+	# The course never closes, so spawning continues around the clock.
+	time_since_last_spawn += delta  # delta already scaled by Engine.time_scale
+
+	# Don't spawn regular golfers during tournaments
+	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
+
+	if not tournament_active and GameManager.get_open_hole_count() > 0:
+		var effective_cooldown = get_effective_spawn_cooldown()
+		if time_since_last_spawn >= effective_cooldown:
+			if _is_at_golfer_cap():
+				pass  # Course is full — wait for golfers to finish
+			elif _is_first_tee_clear():
+				spawn_initial_group()
+				time_since_last_spawn = 0.0
+
+	# Update active golfers
+	_update_golfers(delta)
+
+func _update_golfers(delta: float) -> void:
+	# Rebuild groups only when golfers are added/removed (not every frame)
+	if _groups_dirty:
+		_cached_groups.clear()
+		for golfer in active_golfers:
+			if golfer.group_id not in _cached_groups:
+				_cached_groups[golfer.group_id] = []
+			_cached_groups[golfer.group_id].append(golfer)
+		_cached_sorted_group_ids = _cached_groups.keys()
+		_cached_sorted_group_ids.sort()
+		_groups_dirty = false
+
+	# Process groups in deterministic order (sorted by group_id)
+	for group_id in _cached_sorted_group_ids:
+		_update_group(_cached_groups[group_id])
+
+	# Throttle visual offset recalculation (expensive O(n²) proximity checks)
+	_visual_offset_timer += delta
+	if _visual_offset_timer >= VISUAL_OFFSET_INTERVAL:
+		_visual_offset_timer = 0.0
+		_update_visual_offsets()
+
+	# Update active golfer highlights
+	_update_active_golfer_highlights()
+
+func _update_group(group: Array) -> void:
+	"""Update a single group - determine and advance the next golfer to play."""
+	for golfer in group:
+		golfer.traffic_blocked = false
+	# Block if anyone is mid-shot (preparing, swinging, or watching ball)
+	for golfer in group:
+		if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING]:
+			return
+
+	var course_data = GameManager.course_data
+	var group_hole = _get_group_current_hole(group)
+
+	# First, process any golfers who have holed out and need to clear the green
+	# They should leave BEFORE the next player putts
+	if group_hole >= 0 and group_hole < course_data.holes.size():
+		var hole_data = course_data.holes[group_hole]
+		var hole_pos = Vector2(hole_data.hole_position)
+		for golfer in group:
+			if golfer.current_state == Golfer.State.IDLE and golfer.current_hole == group_hole:
+				if HoleManager.is_ball_holed(golfer.ball_position_precise, hole_pos) and golfer.current_strokes > 0:
+					# This golfer has holed out - process them to send to next tee
+					_advance_golfer(golfer)
+					if golfer.current_state != Golfer.State.FINISHED:
+						return  # Only process one golfer per frame
+
+	# Get the next golfer to play based on golf rules
+	var next_golfer = _determine_next_golfer_in_group(group)
+	if not next_golfer:
+		return
+
+	var is_tee_shot = next_golfer.current_strokes == 0
+
+	# TEE SHOTS: Can proceed while others walk to their balls (all tee off first)
+	# FAIRWAY/GREEN SHOTS: Ready golf. The turn passes as soon as the previous
+	# shot has come to rest — a partner still walking to their ball only holds
+	# the group up while they are standing in the line of this shot.
+	if is_tee_shot or _is_walking_group_clear(next_golfer, group):
+		if _is_landing_area_clear(next_golfer, group):
+			_advance_golfer(next_golfer)
+		else:
+			for golfer in group:
+				golfer.traffic_blocked = true
+
+## ============================================================================
+## READY GOLF: PARTNERS WHO ARE STILL WALKING
+## ============================================================================
+## The group plays on as soon as the shot in progress has come to rest (nobody is
+## left in PREPARING_SHOT / SWINGING / WATCHING). Walking is no longer a turn in
+## itself: it only holds the group up when the ball would actually be hit at the
+## walker. Before this, every fairway and green shot waited for the whole group
+## to reach their ball, so a four-ball spent most of a hole standing still.
+
+## Clearance (tiles, ~22 yards each) kept around the route of a chip or putt, so
+## a partner is never struck while they are bending over the cup to pick their
+## ball up. Small on purpose: a walker steps clear in about a second, so the
+## hold-up is a beat rather than the wait the group used to sit through.
+const GROUP_SHORT_SHOT_CLEARANCE_TILES: float = 1.0
+## Shots shorter than this (tiles) are treated as chips and putts: the whole
+## route to the target is kept clear instead of just the landing zone.
+const GROUP_SHORT_SHOT_DISTANCE_TILES: float = 2.5
+
+## Are the partners who are still walking out of the line of this shot?
+##
+## Two shapes are checked, because a full swing and a putt leave the ball in
+## different places:
+##   * a chip or putt keeps its whole route to the target clear, and
+##   * anything with air under it keeps the landing cone clear (carry plus
+##     spread) — the same cone the group-ahead safety check uses.
+## A partner's *body* is what a ball would hit, and a walking golfer's body is
+## well short of the ball they are heading to, so the check uses where they are
+## standing rather than where their ball has landed. Partners who have stopped
+## walking are never checked: they are standing at their own ball, exactly as
+## they were back when the group waited for everyone to arrive.
+func _is_walking_group_clear(shooting_golfer: Golfer, group: Array) -> bool:
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		return true
+	if shooting_golfer.current_hole < 0 or shooting_golfer.current_hole >= course_data.holes.size():
+		return true
+
+	var hole_position = Vector2(course_data.holes[shooting_golfer.current_hole].hole_position)
+	var origin = Vector2(shooting_golfer.ball_position)
+	var target = Vector2(shooting_golfer.get_cached_or_compute_shot_target(hole_position))
+	var shot_distance = origin.distance_to(target)
+	var is_short_shot = shot_distance < GROUP_SHORT_SHOT_DISTANCE_TILES
+	var direction = (target - origin).normalized() if shot_distance > 0.001 else Vector2.ZERO
+	var lateral_radius = _get_landing_zone_radius(shot_distance)
+	# Shots rarely land shorter than 60% of the target distance, and the landing
+	# zone extends one spread past it (mirrors _is_cone_clear_of_golfers).
+	var min_check_distance = shot_distance * 0.6
+	var max_check_distance = shot_distance + lateral_radius
+
+	for golfer in group:
+		if golfer == shooting_golfer:
+			continue
+		if golfer.current_state != Golfer.State.WALKING:
+			continue
+		if golfer.current_hole != shooting_golfer.current_hole:
+			continue
+
+		var partner_position = _group_member_grid_position(golfer)
+
+		if is_short_shot:
+			# The ball rolls along the ground the whole way, so the route matters.
+			if _distance_to_line_segment(partner_position, origin, target) < GROUP_SHORT_SHOT_CLEARANCE_TILES:
+				return false
+			continue
+
+		var to_partner = partner_position - origin
+		if direction == Vector2.ZERO:
+			continue
+		# Behind the golfer cannot be hit; short of the landing zone is flown over;
+		# past it has already been passed.
+		if to_partner.dot(direction) < 0.0:
+			continue
+		var distance_to_partner = to_partner.length()
+		if distance_to_partner < min_check_distance or distance_to_partner > max_check_distance:
+			continue
+		if distance_to_partner > 0.1:
+			if absf(direction.angle_to(to_partner.normalized())) > LANDING_CONE_HALF_ANGLE:
+				continue
+		return false
+
+	return true
+
+## Where a group member is standing, in grid coordinates.
+func _group_member_grid_position(golfer: Golfer) -> Vector2:
+	var terrain_grid = GameManager.terrain_grid
+	if terrain_grid and golfer.is_inside_tree():
+		return terrain_grid.screen_to_grid_precise(golfer.global_position)
+	return Vector2(golfer.ball_position)
+
+## Shortest distance from a point to a line segment.
+static func _distance_to_line_segment(point: Vector2, from: Vector2, to: Vector2) -> float:
+	var span = to - from
+	var span_length_sq = span.length_squared()
+	if span_length_sq <= 0.0001:
+		return point.distance_to(from)
+	var along = clampf((point - from).dot(span) / span_length_sq, 0.0, 1.0)
+	return point.distance_to(from + span * along)
+
+## ============================================================================
+## GOLF TURN ORDER RULES (based on USGA etiquette)
+## ============================================================================
+## 1. HOLE PROGRESSION: Groups play together - all must finish hole N before
+##    anyone starts hole N+1.
+## 2. TEE ORDER (Honor System):
+##    - Hole 1: Golfers tee off in golfer_id order (deterministic)
+##    - Later holes: Golfer with best (lowest) score on previous hole has "honor"
+##      and tees off first. Ties retain previous order.
+## 3. FAIRWAY/GREEN (Away Rule): Golfer furthest from the hole plays first.
+## 4. READY GOLF: The turn passes once the previous shot has come to rest.
+##    Partners keep walking to their ball; only a walker standing in the line of
+##    the shot holds it up (see _is_walking_group_clear).
+## ============================================================================
+
+## The hole the group is playing right now.
+##
+## The lowest hole index is not the same thing: a tournament pairing that reaches
+## the end of the course wraps back to the first tee, so the partner who has just
+## holed out on the last green stands on hole index 0 while the other is still on
+## the last hole. The golfer furthest back in the round — the one who has carded
+## the fewest holes — is the one the group is waiting on, and the hole they are on
+## is the one the turn system has to keep feeding. Reading the lowest index
+## instead strands that partner on the last green: they are never picked again,
+## so they never walk round to the first tee.
+func _get_group_current_hole(group: Array) -> int:
+	var course_data = GameManager.course_data
+	var hole_count: int = course_data.holes.size() if course_data else 0
+	var current_hole: int = -1
+	var fewest_played: int = 0
+	for golfer in group:
+		if _is_off_the_course(golfer):
+			continue
+		if golfer.current_hole < 0 or golfer.current_hole >= hole_count:
+			continue
+		var played: int = golfer.hole_scores.size()
+		if current_hole < 0 or played < fewest_played \
+				or (played == fewest_played and golfer.current_hole < current_hole):
+			fewest_played = played
+			current_hole = golfer.current_hole
+	return current_hole
+
+func _get_honor_golfer(golfers: Array[Golfer], current_hole: int) -> Golfer:
+	"""Get the golfer with honor (best score on previous hole) for tee shots."""
+	if golfers.is_empty():
+		return null
+
+	if current_hole == 0:
+		# First hole: tee off in golfer_id order (deterministic)
+		golfers.sort_custom(func(a, b): return a.golfer_id < b.golfer_id)
+		return golfers[0]
+
+	# Honor system: lowest previous_hole_strokes goes first
+	# Ties: retain order by golfer_id (earlier spawned = earlier in order)
+	golfers.sort_custom(func(a, b):
+		if a.previous_hole_strokes != b.previous_hole_strokes:
+			return a.previous_hole_strokes < b.previous_hole_strokes
+		return a.golfer_id < b.golfer_id
+	)
+	return golfers[0]
+
+func _get_away_golfer(golfers: Array[Golfer], hole_index: int) -> Golfer:
+	"""Get the golfer furthest from the hole (away rule)."""
+	if golfers.is_empty():
+		return null
+
+	var course_data = GameManager.course_data
+	if not course_data or hole_index >= course_data.holes.size():
+		return golfers[0]
+
+	var hole_pos = Vector2(course_data.holes[hole_index].hole_position)
+	var furthest: Golfer = null
+	var max_dist: float = -1.0
+
+	for golfer in golfers:
+		var dist = golfer.ball_position_precise.distance_to(hole_pos)
+		if dist > max_dist:
+			max_dist = dist
+			furthest = golfer
+
+	return furthest if furthest else golfers[0]
+
+func _determine_next_golfer_in_group(group_golfers: Array) -> Golfer:
+	"""Determine which golfer in this group should shoot next using golf rules."""
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		return null
+
+	# 1. Find the hole the group is on (groups stay together; a pairing that has
+	#    wrapped waits for the partner still to finish the last hole)
+	var group_hole = _get_group_current_hole(group_golfers)
+	if group_hole == -1:
+		return null  # Everyone is finished
+
+	# 2. Get golfers who are IDLE and on that hole
+	var eligible: Array[Golfer] = []
+	for golfer in group_golfers:
+		if golfer.current_state == Golfer.State.IDLE:
+			if golfer.current_hole == group_hole:
+				if golfer.current_hole < course_data.holes.size():
+					eligible.append(golfer)
+
+	if eligible.is_empty():
+		return null
+
+	# 3. Separate tee shots from fairway/green shots
+	var on_tee: Array[Golfer] = []
+	var on_fairway: Array[Golfer] = []
+
+	for golfer in eligible:
+		if golfer.current_strokes == 0:
+			on_tee.append(golfer)
+		else:
+			on_fairway.append(golfer)
+
+	# 4. Tee shots: Honor system (best score on previous hole)
+	if not on_tee.is_empty():
+		return _get_honor_golfer(on_tee, group_hole)
+
+	# 5. Fairway/green: Away rule (furthest from hole)
+	if not on_fairway.is_empty():
+		return _get_away_golfer(on_fairway, group_hole)
+
+	return null
+
+func _is_tee_clear_of_other_groups(hole_index: int, current_group_id: int) -> bool:
+	"""Check if any other group is actively shooting from this tee.
+	Only one group should be teeing off at a time on any given hole."""
+	for golfer in active_golfers:
+		# Skip golfers in our group or later groups
+		if golfer.group_id >= current_group_id:
+			continue
+		# Skip golfers who are finished or walking home
+		if _is_off_the_course(golfer):
+			continue
+		# Check if this golfer is at the same tee and actively shooting
+		if golfer.current_hole == hole_index and golfer.current_strokes == 0:
+			# Another group is still teeing off on this hole
+			if golfer.current_state in [Golfer.State.PREPARING_SHOT, Golfer.State.SWINGING, Golfer.State.WATCHING, Golfer.State.IDLE]:
+				return false
+	return true
+
+func _is_landing_area_clear(shooting_golfer: Golfer, _group_golfers: Array) -> bool:
+	"""Check if the landing area is clear of golfers from groups ahead.
+	Uses cone-based directional check - only blocks if golfers are in the direction of the shot."""
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		return true
+
+	if shooting_golfer.current_hole >= course_data.holes.size():
+		return true
+
+	var hole_data = course_data.holes[shooting_golfer.current_hole]
+	var hole_position = hole_data.hole_position
+
+	# Tee shot rule: don't tee off if another group is still teeing off on this hole
+	if shooting_golfer.current_strokes == 0:
+		if not _is_tee_clear_of_other_groups(shooting_golfer.current_hole, shooting_golfer.group_id):
+			return false
+
+	# Par 3 tee shot rule: don't tee off until all earlier groups have cleared the green
+	if shooting_golfer.current_strokes == 0 and hole_data.par == 3:
+		for golfer in active_golfers:
+			if golfer.group_id == shooting_golfer.group_id:
+				continue
+			if _is_off_the_course(golfer):
+				continue
+			if golfer.group_id > shooting_golfer.group_id:
+				continue
+			if golfer.current_hole == shooting_golfer.current_hole:
+				return false  # An earlier group is still on this par 3
+
+	# Get the golfer's intended target and calculate shot distance
+	var ball_pos = Vector2(shooting_golfer.ball_position)
+	var target = Vector2(shooting_golfer.get_cached_or_compute_shot_target(hole_position))
+
+	# Calculate lateral radius for cone check
+	var shot_distance = ball_pos.distance_to(target)
+	var lateral_radius = _get_landing_zone_radius(shot_distance)
+
+	# Cone-based check: only blocks if golfers are ahead in the shot direction
+	return _is_cone_clear_of_golfers(ball_pos, target, lateral_radius, shooting_golfer.group_id, shooting_golfer.current_hole)
+
+## The hole a golfer plays next after `from_index`, or -1 when their round is
+## over.
+##
+## Tournament pairings tee off on their own hole, so their round wraps back to
+## the first tee and keeps going until the golfer has played the full circuit —
+## every open hole exactly once, so everyone is measured against the same par.
+## A hole that is already on the card is never played again: without that check a
+## pairing that teed off in the middle of the course went round to the first tee
+## and then back onto the holes it had started on, making its card longer than
+## the rest of the field's.
+func _next_hole_for(golfer: Golfer, course_data, from_index: int) -> int:
+	var next_index := _find_next_uncarded_hole(golfer, course_data, from_index)
+	if next_index >= 0:
+		return next_index
+	if _round_wraps_for(golfer, course_data):
+		return _find_next_uncarded_hole(golfer, course_data, 0)
+	return -1
+
+## The next open hole at or after `from_index` that is not already on this
+## golfer's card, or -1 when every open hole from there on has been played.
+func _find_next_uncarded_hole(golfer: Golfer, course_data, from_index: int) -> int:
+	var index := _find_next_open_hole(from_index, course_data)
+	while index < course_data.holes.size():
+		if not _has_carded_hole(golfer, course_data, index):
+			return index
+		index = _find_next_open_hole(index + 1, course_data)
+	return -1
+
+## Is the hole at `hole_index` already on this golfer's card? Cards record the
+## published hole number, which is not the same thing as the index on a course
+## whose holes have been renumbered.
+func _has_carded_hole(golfer: Golfer, course_data, hole_index: int) -> bool:
+	var hole_number: int = course_data.holes[hole_index].hole_number
+	for card in golfer.hole_scores:
+		if int(card.get("hole", -1)) == hole_number:
+			return true
+	return false
+
+## Does this golfer wrap around the course instead of finishing early?
+func _round_wraps_for(golfer: Golfer, course_data) -> bool:
+	if not golfer.is_tournament_golfer or golfer.is_owner_round:
+		return false
+	return golfer.hole_scores.size() < _count_open_holes(course_data)
+
+static func _count_open_holes(course_data) -> int:
+	var open_holes := 0
+	for hole in course_data.holes:
+		if hole.is_open:
+			open_holes += 1
+	return open_holes
+
+func _advance_golfer(golfer: Golfer) -> void:
+	"""Advance a specific golfer to their next shot"""
+	var course_data = GameManager.course_data
+	if not course_data or course_data.holes.is_empty():
+		return
+	# A golfer whose round is over is walking home: a ball that was still
+	# rolling when they finished must not pull them back into play.
+	if _is_off_the_course(golfer):
+		return
+
+	var next_hole_index = golfer.current_hole
+
+	# Skip closed holes when starting a new hole
+	if golfer.current_strokes == 0:
+		next_hole_index = _next_hole_for(golfer, course_data, next_hole_index)
+		if next_hole_index < 0:
+			# Round completed
+			golfer.finish_round()
+			return
+		golfer.current_hole = next_hole_index
+
+	if next_hole_index >= course_data.holes.size():
+		# Round completed
+		golfer.finish_round()
+		return
+
+	var hole_data = course_data.holes[next_hole_index]
+
+	# Start the hole or prepare for next shot
+	if golfer.current_strokes == 0:
+		# Select tee based on golfer tier (tournament golfers always use back tee)
+		var selected_tee: Vector2i
+		if golfer.is_tournament_golfer or hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+			selected_tee = hole_data.tee_position
+			golfer.current_tee_key = "back"
+		else:
+			selected_tee = hole_data.get_tee_for_tier(golfer.golfer_tier)
+			# Determine which tee key was selected for par tracking
+			for tee_key in hole_data.tee_positions:
+				if hole_data.tee_positions[tee_key] == selected_tee:
+					golfer.current_tee_key = tee_key
+					break
+
+		# For holes after the first, walk from previous green to the next tee
+		if next_hole_index > 0 and GameManager.terrain_grid:
+			var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(selected_tee)
+			var distance_to_tee = golfer.global_position.distance_to(tee_screen_pos)
+			if distance_to_tee > 10.0:
+				# Walk to the next tee first
+				golfer.path = golfer._find_path_to(tee_screen_pos)
+				golfer.path_index = 0
+				golfer._change_state(Golfer.State.WALKING)
+				return
+		# At the tee (or first hole) - start the hole
+		golfer.start_hole(next_hole_index, selected_tee)
+	else:
+		# Already hit at least one shot
+		# Check if close enough to hole it (use sub-tile precision for putting accuracy)
+		var hole_position = hole_data.hole_position
+		var hole_pos_vec = Vector2(hole_position)
+		var ball_holed = GolfRules.is_ball_holed(golfer.ball_position_precise, hole_pos_vec)
+
+		# Max stroke limit: triple bogey pickup (pace-of-play rule)
+		if not ball_holed:
+			var max_strokes = GolfRules.get_max_strokes(hole_data.par)
+			if golfer.current_strokes >= max_strokes:
+				print("%s picking up on hole %d (max %d strokes)" % [golfer.golfer_name, golfer.current_hole + 1, max_strokes])
+				golfer.ball_position = hole_position
+				golfer.ball_position_precise = hole_pos_vec
+				ball_holed = true
+
+		if ball_holed:
+			# Close enough to hole out
+			# Use per-tee par for the golfer's selected tee
+			var effective_par = hole_data.get_par_for_tee(golfer.current_tee_key)
+			var score_name = GolfRules.get_score_name(golfer.current_strokes, effective_par)
+			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d, %s tee) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, effective_par, golfer.current_tee_key, score_name])
+			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
+			golfer.finish_hole(effective_par)
+			golfer.current_hole += 1
+			golfer.current_strokes = 0
+
+			# Skip any closed holes after finishing
+			var follow_up = _next_hole_for(golfer, course_data, golfer.current_hole)
+			if follow_up < 0:
+				golfer.finish_round()
+				return
+			golfer.current_hole = follow_up
+
+			# Immediately walk to the next tee to clear the green
+			# Don't wait for turn - golfers should move off the green right away
+			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
+				var next_hole_data = course_data.holes[golfer.current_hole]
+				# Pre-select next tee for walk destination
+				var next_tee: Vector2i
+				if golfer.is_tournament_golfer or next_hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
+					next_tee = next_hole_data.tee_position
+				else:
+					next_tee = next_hole_data.get_tee_for_tier(golfer.golfer_tier)
+				# Update ball position to next tee immediately to prevent visual glitch
+				# where ball briefly appears at old hole position while walking
+				golfer.ball_position = next_tee
+				golfer.ball_position_precise = Vector2(next_tee)
+				var tee_screen_pos = GameManager.terrain_grid.grid_to_screen_center(next_tee)
+				golfer.path = golfer._find_path_to(tee_screen_pos)
+				golfer.path_index = 0
+				golfer._change_state(Golfer.State.WALKING)
+		else:
+			# Golfer is already at their ball (walked there after last shot)
+			# Just transition to PREPARING_SHOT to start their turn
+			golfer._change_state(Golfer.State.PREPARING_SHOT)
+
+func _find_next_open_hole(from_index: int, course_data: GameManager.CourseData) -> int:
+	"""Find the next open hole starting from from_index, skipping closed holes"""
+	var index = from_index
+	while index < course_data.holes.size():
+		if course_data.holes[index].is_open:
+			return index
+		# Closed hole, skip to next
+		index += 1
+	return index  # Past end = round complete
+
+## Spawn a new golfer
+func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int = -1) -> Golfer:
+	if not golfers_container:
+		push_error("No golfers container found")
+		return null
+
+	var golfer = GOLFER_SCENE.instantiate() as Golfer
+	golfer.golfer_id = next_golfer_id
+	next_golfer_id += 1
+	golfer.golfer_name = golfer_name
+	golfer.guest_key = FeedbackManager.next_guest_key()
+	golfer.group_id = group_id
+
+	# Set skill levels with some randomness
+	golfer.driving_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
+	golfer.accuracy_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
+	golfer.putting_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
+	golfer.recovery_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
+
+	# Set miss tendency: lower skill = stronger bias, random hook vs slice
+	var tendency_magnitude = (1.0 - skill_level) * randf_range(0.2, 0.7)
+	golfer.miss_tendency = tendency_magnitude * (1.0 if randf() > 0.5 else -1.0)
+
+	# Set personality traits (independent of skill)
+	golfer.aggression = randf_range(0.2, 0.9)  # Range from cautious to aggressive
+	golfer.patience = randf_range(0.3, 0.8)    # Range from impatient to patient
+
+	golfers_container.add_child(golfer)
+	active_golfers.append(golfer)
+	_groups_dirty = true
+	golfer.golfer_selected.connect(_on_golfer_selected)
+
+	# Guests arrive through the clubhouse: they appear at its door and walk to
+	# the first tee before the turn system can pick them (only an IDLE golfer
+	# plays, and the arrival walk leaves them WALKING until they get there).
+	_send_golfer_in_from_clubhouse(golfer)
+
+	# Process green fee payment
+	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
+
+	EventBus.golfer_spawned.emit(golfer.golfer_id, golfer_name)
+	golfer_spawned.emit(golfer)
+
+	return golfer
+
+## Start a newly spawned guest on the walk from the clubhouse door to the first
+## open tee. Without a clubhouse (or terrain) the golfer is left where the old
+## flow left them: the turn system seats them on the tee when their group is up.
+func _send_golfer_in_from_clubhouse(golfer: Golfer) -> void:
+	var terrain_grid = GameManager.terrain_grid
+	var course_data = GameManager.course_data
+	if terrain_grid == null or course_data == null or course_data.holes.is_empty():
+		return
+	var clubhouse := CourseClubhouse.find(GameManager.entity_layer)
+	if clubhouse == null:
+		return
+	var door := CourseClubhouse.front_tile(clubhouse, terrain_grid, GameManager.entity_layer)
+	if door.x < 0:
+		return
+	var first_hole := _find_next_open_hole(0, course_data)
+	if first_hole < 0 or first_hole >= course_data.holes.size():
+		return
+	golfer.begin_arrival_from_clubhouse(door, course_data.holes[first_hole].tee_position)
+
+## Spawn a random golfer with tier-based skills
+func spawn_random_golfer(group_id: int = -1) -> Golfer:
+	var returning := FeedbackManager.take_returning_guest()
+	if not returning.is_empty():
+		var regular := spawn_golfer(returning.name, .5, group_id)
+		if regular:
+			regular.initialize_from_tier(int(returning.tier))
+			regular.guest_key = returning.key
+			regular.is_returning_guest = true
+			for field in ["driving_skill","accuracy_skill","putting_skill","recovery_skill","patience","aggression","miss_tendency"]:
+				regular.set(field, returning[field])
+			regular.needs.setup(regular.golfer_tier, regular.patience)
+		return regular
+	var names = [
+		"Tiger", "Jack", "Arnold", "Phil", "Rory", "Jordan", "Brooks",
+		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
+	]
+
+	# Select tier based on course quality, difficulty, and hole count
+	var hole_count = GameManager.get_open_hole_count()
+	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation, hole_count)
+
+	# Build name with tier-appropriate prefix
+	var base_name = names[randi() % names.size()]
+	var prefix = GolferTier.get_name_prefix(tier)
+	var full_name = prefix + " " + base_name if prefix != "" else base_name
+
+	# Spawn with default skill (will be overridden by initialize_from_tier)
+	var golfer = spawn_golfer(full_name, 0.5, group_id)
+	if golfer:
+		golfer.initialize_from_tier(tier)
+		print("Spawned %s (%s tier)" % [full_name, GolferTier.get_tier_name(tier)])
+
+	return golfer
+
+## Spawn a visiting golfer from the current location's pool, if any are left.
+## Picks randomly from all golfers not already on the course. Returns the
+## spawned Golfer, or null when the pool is empty or unavailable.
+func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
+	var location_id := WorldMap.active_location_id
+	if location_id.is_empty():
+		return null
+	var pool := WorldLocations.get_visiting_golfers(location_id)
+	if pool.is_empty():
+		return null
+	# Build the list of candidates not yet on the course.
+	var available: Array = []
+	for visitor in pool:
+		if not _spawned_visitor_names.has(str(visitor.get("name", ""))):
+			available.append(visitor)
+	if available.is_empty():
+		return null
+	# Pick one at random.
+	var visitor: Dictionary = available[randi() % available.size()]
+	var visitor_name := str(visitor.get("name", ""))
+	var tier := int(visitor.get("tier", GolferTier.Tier.CASUAL))
+	var skin := str(visitor.get("skin_id", ""))
+	var group_colors := WorldLocations.parse_visitor_group_colors(visitor)
+	var golfer := spawn_golfer(visitor_name, 0.5, group_id)
+	if golfer == null:
+		return null
+	golfer.initialize_from_tier(tier)
+	golfer.skin_id = skin
+	golfer.group_color_overrides = group_colors
+	golfer.refresh_skin_sprites()
+	_spawned_visitor_names[visitor_name] = true
+	print("Spawned visiting golfer: %s (%s skin, %s tier) at %s" % [
+		visitor_name, skin, GolferTier.get_tier_name(tier), location_id])
+	return golfer
+
+## Spawn initial group of golfers when course opens.
+## Prefers visiting golfers from the location's pool; falls back to random
+## golfers once the pool is exhausted.
+func spawn_initial_group() -> void:
+	var group_size = _select_weighted_group_size()
+	var new_group_id = next_group_id
+	next_group_id += 1
+
+	print("New group %d: %d golfers (Fee: $%d)" % [new_group_id, group_size, GameManager.green_fee])
+
+	for i in range(group_size):
+		# Try the location's visiting golfer pool first.
+		var visitor := spawn_visiting_golfer(new_group_id)
+		if visitor == null:
+			spawn_random_golfer(new_group_id)
+		# Small delay between spawns in the same group
+		# (Timer-node delay: a pending SceneTreeTimer await would leak at quit.)
+		await Delay.seconds(self, 0.5)
+		if not is_instance_valid(self):
+			return
+
+func _select_weighted_group_size() -> int:
+	"""Select group size based on weighted probabilities from green fee"""
+	var weights = get_group_size_weights()
+	var random_value = randf()
+	var cumulative = 0.0
+
+	for i in range(weights.size()):
+		cumulative += weights[i]
+		if random_value <= cumulative:
+			return i + 1  # Return 1-4 (array index 0-3 maps to group size 1-4)
+
+	return 4  # Fallback to foursome
+
+## Spawn a tournament golfer with forced tier (no green fee)
+func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
+	if not golfers_container:
+		push_error("No golfers container found")
+		return null
+
+	var pro_names = [
+		"Seve", "Vijay", "Ernie", "Lee", "Gary", "Sam", "Ben", "Walter",
+		"Byron", "Gene", "Tom", "Nick", "Payne", "Hale", "Ray", "Billy"
+	]
+	var base_name = pro_names[randi() % pro_names.size()]
+	var prefix = GolferTier.get_name_prefix(forced_tier)
+	var full_name = prefix + " " + base_name if prefix != "" else base_name
+
+	var golfer = GOLFER_SCENE.instantiate() as Golfer
+	golfer.golfer_id = next_golfer_id
+	next_golfer_id += 1
+	golfer.golfer_name = full_name
+	golfer.group_id = group_id
+	golfer.is_tournament_golfer = true
+
+	# Set default skills (will be overridden by initialize_from_tier)
+	golfer.driving_skill = 0.5
+	golfer.accuracy_skill = 0.5
+	golfer.putting_skill = 0.5
+	golfer.recovery_skill = 0.5
+
+	golfers_container.add_child(golfer)
+	active_golfers.append(golfer)
+	_groups_dirty = true
+	golfer.golfer_selected.connect(_on_golfer_selected)
+
+	# Initialize tier skills — no green fee payment for tournament golfers
+	golfer.initialize_from_tier(forced_tier)
+
+	EventBus.golfer_spawned.emit(golfer.golfer_id, full_name)
+	golfer_spawned.emit(golfer)
+
+	return golfer
+
+## Get all active tournament golfers
+func get_tournament_golfers() -> Array[Golfer]:
+	var result: Array[Golfer] = []
+	for golfer in active_golfers:
+		if golfer.is_tournament_golfer and not golfer.is_owner_round:
+			result.append(golfer)
+	return result
+
+## Place a golfer on the tee of one specific hole without starting it.
+##
+## Tournament pairings are seated on their own hole, so an event opens with two
+## competitors visible on every tee instead of a queue behind the first one.
+func seat_golfer_at_hole(golfer: Golfer, hole_index: int) -> void:
+	var course_data = GameManager.course_data
+	if not course_data or hole_index < 0 or hole_index >= course_data.holes.size():
+		return
+	var hole_data = course_data.holes[hole_index]
+	golfer.current_hole = hole_index
+	golfer.ball_position = hole_data.tee_position
+	golfer.ball_position_precise = Vector2(hole_data.tee_position)
+	if GameManager.terrain_grid:
+		golfer.global_position = GameManager.terrain_grid.grid_to_screen_center(hole_data.tee_position)
+
+## Remove all tournament golfers from the course
+func remove_tournament_golfers() -> void:
+	var to_remove: Array[int] = []
+	for golfer in active_golfers:
+		if golfer.is_tournament_golfer and not golfer.is_owner_round:
+			to_remove.append(golfer.golfer_id)
+	for gid in to_remove:
+		remove_golfer(gid)
+
+## Remove a golfer from the course
+func remove_golfer(golfer_id: int) -> void:
+	for i in range(active_golfers.size()):
+		if active_golfers[i].golfer_id == golfer_id:
+			var golfer = active_golfers[i]
+			active_golfers.remove_at(i)
+			_groups_dirty = true
+			if golfer.golfer_selected.is_connected(_on_golfer_selected):
+				golfer.golfer_selected.disconnect(_on_golfer_selected)
+			golfer.queue_free()
+			# A golfer who walked home announced leaving at the clubhouse door;
+			# anyone else taken off the course says so now.
+			if not golfer.has_left_course():
+				EventBus.golfer_left_course.emit(golfer_id)
+			golfer_removed.emit(golfer_id)
+			return
+
+func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
+	# Find the golfer to get their tier and group_id
+	var finished_golfer = get_golfer(golfer_id)
+	if not finished_golfer:
+		return
+
+	# Tournament and owner-round golfers don't give reputation or record daily
+	# stats. Taking anyone off the course is not this signal's job any more:
+	# the round ends here, but the golfer still walks back to the clubhouse —
+	# see _on_golfer_left_course.
+	if finished_golfer.is_owner_round or finished_golfer.is_tournament_golfer:
+		return
+
+	# Record tier for daily statistics
+	GameManager.daily_stats.record_golfer_tier(finished_golfer.golfer_tier)
+
+	# Tier-based reputation gain, scaled by golfer mood
+	# Happy golfers spread the word; unhappy golfers hurt reputation
+	var base_rep: float = GolferTier.get_reputation_gain(finished_golfer.golfer_tier) * 0.1
+
+	# Pro golfers give bonus reputation if they had a good round
+	if finished_golfer.golfer_tier == GolferTier.Tier.PRO:
+		var score_to_par = total_strokes - finished_golfer.total_par
+		if score_to_par <= 0:
+			base_rep *= 2  # Double rep for pro under par
+
+	# Apply prestige multiplier (harder courses with good ratings = more reputation)
+	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
+	base_rep *= prestige_mult
+
+	# Scale by mood: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
+	var value: float = GameManager.course_rating.get("value", 3.0) / 5.0
+	var mood: float = minf(finished_golfer.current_mood, value + 0.15)
+	var reputation_gain: float
+	if mood >= 0.6:
+		reputation_gain = base_rep * lerpf(0.5, 1.0, (mood - 0.6) / 0.4)
+	elif mood >= 0.4:
+		reputation_gain = base_rep * 0.25  # Neutral: minimal gain
+	else:
+		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - mood) / 0.4)  # Unhappy: reputation loss
+
+	if finished_golfer.hole_scores.size() >= finished_golfer._round_total_holes:
+		GameManager.modify_reputation(reputation_gain)
+
+## A golfer has gone indoors (Golfer._leave_course). A group leaves the course
+## together: once every member of the group has finished their round and walked
+## back, the group is taken off so the player can watch them go. This is the
+## only place golfers are removed for finishing — the round-over signal fires
+## before the walk home, so it cannot be.
+func _on_golfer_left_course(golfer_id: int) -> void:
+	if _clearing_golfers:
+		return
+	var golfer := get_golfer(golfer_id)
+	if golfer == null or golfer.is_owner_round:
+		return
+	var group_id := golfer.group_id
+	var group: Array[Golfer] = []
+	for member in active_golfers:
+		if member.group_id == group_id:
+			group.append(member)
+			if member.current_state != Golfer.State.FINISHED:
+				return  # Somebody is still walking home; wait for them
+	# Wait a moment so players can see the group finish
+	# (Timer-node delay: a pending SceneTreeTimer await would leak at quit.)
+	await Delay.seconds(self, 1.0)
+	# Remove all golfers in the group (check validity — golfers may have been freed by a save/load)
+	for member in group:
+		if is_instance_valid(member):
+			remove_golfer(member.golfer_id)
+
+## Get all active golfers
+func get_active_golfers() -> Array[Golfer]:
+	return active_golfers
+
+## Forward golfer click events to main scene
+func _on_golfer_selected(golfer: Golfer) -> void:
+	golfer_clicked.emit(golfer)
+
+## Get golfer by ID
+func get_golfer(golfer_id: int) -> Golfer:
+	for golfer in active_golfers:
+		if golfer.golfer_id == golfer_id:
+			return golfer
+	return null
+
+## Clear all golfers from the course (used when loading saves)
+func clear_all_golfers() -> void:
+	# The whole course is being emptied (save/load, teardown). Everyone who
+	# watches golfers still hears about each one leaving, but the group-removal
+	# handler must not fire for golfers that are already on their way out.
+	_clearing_golfers = true
+	for golfer in active_golfers:
+		EventBus.golfer_left_course.emit(golfer.golfer_id)
+		golfer.queue_free()
+	active_golfers.clear()
+	_groups_dirty = true
+	_cached_groups.clear()
+	_cached_sorted_group_ids.clear()
+	next_golfer_id = 0
+	next_group_id = 0
+	time_since_last_spawn = 0.0
+	_spawned_visitor_names.clear()
+	_clearing_golfers = false
+
+## Serialize all active golfers
+func serialize_golfers() -> Array:
+	var data: Array = []
+	for golfer in active_golfers:
+		data.append(golfer.serialize())
+	return data
+
+## Restore golfers from save data
+func deserialize_golfers(golfers_data: Array) -> void:
+	clear_all_golfers()
+
+	if not golfers_container:
+		push_error("No golfers container found")
+		return
+
+	var max_id = 0
+	var max_group = 0
+
+	for golfer_data in golfers_data:
+		# Use the scene to ensure all child nodes are properly created
+		var golfer = GOLFER_SCENE.instantiate() as Golfer
+		golfers_container.add_child(golfer)
+		golfer.deserialize(golfer_data)
+		active_golfers.append(golfer)
+
+		# Track max IDs to prevent collisions with new golfers
+		if golfer.golfer_id > max_id:
+			max_id = golfer.golfer_id
+		if golfer.group_id > max_group:
+			max_group = golfer.group_id
+
+	next_golfer_id = max_id + 1
+	next_group_id = max_group + 1
+
+## ============================================================================
+## VISUAL OFFSET SYSTEM - Prevents golfers from stacking on top of each other
+## ============================================================================
+
+const CO_LOCATION_RADIUS: float = 20.0  # Screen pixels — golfers closer than this get offset
+const OFFSET_DISTANCE: float = 12.0     # Pixels to spread co-located golfers apart
+
+func _update_visual_offsets() -> void:
+	"""Assign small visual offsets to golfers occupying the same tile area,
+	so they fan out instead of stacking on top of each other."""
+	# Reset all offsets first
+	for golfer in active_golfers:
+		golfer.visual_offset = Vector2.ZERO
+
+	# Group golfers by proximity (screen position)
+	var clusters: Array[Array] = []
+	var assigned: Dictionary = {}  # golfer_id -> true
+
+	for i in range(active_golfers.size()):
+		var golfer_a = active_golfers[i]
+		if golfer_a.golfer_id in assigned:
+			continue
+
+		var cluster: Array = [golfer_a]
+		assigned[golfer_a.golfer_id] = true
+
+		for j in range(i + 1, active_golfers.size()):
+			var golfer_b = active_golfers[j]
+			if golfer_b.golfer_id in assigned:
+				continue
+			if golfer_a.global_position.distance_to(golfer_b.global_position) < CO_LOCATION_RADIUS:
+				cluster.append(golfer_b)
+				assigned[golfer_b.golfer_id] = true
+
+		if cluster.size() > 1:
+			clusters.append(cluster)
+
+	# Apply fan-out offsets to each cluster
+	for cluster in clusters:
+		var count = cluster.size()
+		for idx in range(count):
+			# Arrange in a semicircle arc around the shared position
+			var angle = PI * 0.3 + (PI * 0.4 / max(count - 1, 1)) * idx
+			var offset = Vector2(cos(angle), sin(angle) * 0.5) * OFFSET_DISTANCE
+			cluster[idx].visual_offset = offset
+
+func _update_active_golfer_highlights() -> void:
+	"""Mark the golfer who is currently taking their shot so they get a highlight ring.
+	Also set ring_opacity for visual hierarchy: active=full, same group=1.0, other groups=0.6."""
+	# Find which group has an active golfer
+	var active_group_id: int = -1
+	for golfer in active_golfers:
+		var is_active = golfer.current_state in [
+			Golfer.State.PREPARING_SHOT,
+			Golfer.State.SWINGING,
+			Golfer.State.WATCHING
+		]
+		golfer.is_active_golfer = is_active
+		if is_active:
+			active_group_id = golfer.group_id
+
+	# Set ring opacity: full for active group, dimmed for others
+	for golfer in active_golfers:
+		if active_group_id >= 0 and golfer.group_id != active_group_id:
+			golfer.ring_opacity = 0.6
+		else:
+			golfer.ring_opacity = 1.0

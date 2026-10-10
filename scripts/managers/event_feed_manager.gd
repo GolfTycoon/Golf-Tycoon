@@ -1,0 +1,467 @@
+extends Node
+## EventFeedManager - Persistent event feed for game history
+##
+## Captures important game events from EventBus signals and stores them
+## in a scrollable, filterable feed. Events persist for the session and
+## support click-to-navigate and category filtering.
+
+const MAX_EVENTS: int = 200
+
+## Event categories
+enum Category {
+	RECORDS,
+	ECONOMY,
+	GOLFERS,
+	WEATHER,
+	TOURNAMENT,
+	MILESTONE,
+	COURSE,
+	DAILY,
+}
+
+## Priority levels
+enum Priority {
+	INFO,      # Feed only, no toast
+	NORMAL,    # Standard 3.5s toast
+	HIGH,      # Extended 5s toast, badge pulse
+	CRITICAL,  # Persists until clicked, pauses ULTRA speed
+}
+
+## Navigate target types
+enum NavigateType {
+	NONE,
+	GOLFER,
+	HOLE,
+	POSITION,
+	PANEL,
+}
+
+## Single event entry in the feed
+class EventEntry:
+	var timestamp_day: int = 0  # Game day (see GameCalendar for date formatting)
+	var category: int = Category.GOLFERS
+	var priority: int = Priority.NORMAL
+	var message: String = ""
+	var icon: String = ""
+	var icon_color: Color = Color.WHITE
+	var navigate_type: int = NavigateType.NONE
+	var navigate_value: Variant = null  # golfer_id, hole_number, Vector2i, or panel name
+	var id: int = 0  # Unique ID for tracking
+
+## Category metadata
+const CATEGORY_DATA: Dictionary = {
+	Category.RECORDS: {"name": "Records", "icon": "*", "color_key": "gold"},
+	Category.ECONOMY: {"name": "Economy", "icon": "$", "color_key": "success"},
+	Category.GOLFERS: {"name": "Golfers", "icon": "#", "color_key": "info"},
+	Category.WEATHER: {"name": "Weather", "icon": "~", "color_key": "info"},
+	Category.TOURNAMENT: {"name": "Tournament", "icon": "!", "color_key": "purple"},
+	Category.MILESTONE: {"name": "Milestone", "icon": "+", "color_key": "orange"},
+	Category.COURSE: {"name": "Course", "icon": "=", "color_key": "warning"},
+	Category.DAILY: {"name": "Period", "icon": ">", "color_key": "text_dim"},
+}
+
+signal event_added(entry: EventEntry)
+signal unread_count_changed(count: int)
+
+var events: Array = []  # Array of EventEntry
+var unread_count: int = 0
+var category_filters: Dictionary = {}  # Category enum -> bool (true = visible)
+var _next_id: int = 0
+var _is_feed_open: bool = false
+
+## Fast-forward batching state
+var _ff_start_day: int = -1  # Day when fast-forward started (-1 = not tracking)
+var _ff_rounds_completed: int = 0
+var _ff_records_set: int = 0
+var _ff_revenue: int = 0
+var _ff_was_fast: bool = false  # True if we were at FAST or ULTRA speed
+
+## Batching: track recent NORMAL events per category per game-day for dedup at ULTRA
+var _batch_counts: Dictionary = {}  # category -> count this game-day
+var _batch_day: int = -1  # Game day of the current batch window
+var _is_loading: bool = false  # Suppress events during save file loading
+
+func _ready() -> void:
+	# Initialize all category filters to visible
+	for cat in Category.values():
+		category_filters[cat] = true
+
+	# Connect to EventBus signals
+	_connect_signals()
+
+	# Listen for speed changes to produce summaries
+	EventBus.game_speed_changed.connect(_on_game_speed_changed)
+
+	# Suppress events during load
+	EventBus.load_requested.connect(func(_save_name): _is_loading = true)
+	EventBus.load_completed.connect(func(_success): _is_loading = false)
+
+func _connect_signals() -> void:
+	# Records
+	EventBus.record_broken.connect(_on_record_broken)
+
+	# Economy
+	EventBus.money_changed.connect(_on_money_changed)
+	EventBus.reputation_changed.connect(_on_reputation_changed)
+	EventBus.green_fee_changed.connect(_on_green_fee_changed)
+	# NOTE: course_rating_changed is deliberately NOT connected here. The rating is
+	# recalculated every time the day closes, so a feed line for it repeats almost
+	# verbatim each day and buries the events worth reading. The HUD stars and the
+	# Course Rating panel remain the live readout of the rating.
+
+	# Golfers
+	EventBus.golfer_finished_round.connect(_on_golfer_finished_round)
+	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole)
+
+	# Weather & Seasons
+	EventBus.weather_changed.connect(_on_weather_changed)
+	EventBus.season_changed.connect(_on_season_changed)
+	EventBus.seasonal_event_upcoming.connect(_on_seasonal_event_upcoming)
+
+	# Tournaments
+	EventBus.tournament_scheduled.connect(_on_tournament_scheduled)
+	EventBus.tournament_started.connect(_on_tournament_started)
+	EventBus.tournament_completed.connect(_on_tournament_completed)
+
+	# Course
+	EventBus.hole_created.connect(_on_hole_created)
+	EventBus.hole_deleted.connect(_on_hole_deleted)
+	EventBus.building_placed.connect(_on_building_placed)
+
+	# Day cycle — the year rollover now carries the feed's period digest
+	EventBus.end_of_day.connect(_on_end_of_day)
+	EventBus.year_ended.connect(_on_year_ended)
+
+	# Game state
+	EventBus.new_game_started.connect(_on_new_game_started)
+
+## Add an event to the feed
+func add_event(category: int, priority: int, message: String,
+		navigate_type: int = NavigateType.NONE, navigate_value: Variant = null) -> EventEntry:
+	# Don't log events during main menu or save loading
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return null
+	if _is_loading:
+		return null
+
+	# Track fast-forward stats for summary
+	_track_ff_stats(category, priority)
+
+	# At ULTRA speed, batch NORMAL events of the same category within the same day
+	if GameManager.current_speed == GameManager.GameSpeed.ULTRA and priority == Priority.NORMAL:
+		if GameManager.current_day != _batch_day:
+			_batch_counts.clear()
+			_batch_day = GameManager.current_day
+		var count = _batch_counts.get(category, 0) + 1
+		_batch_counts[category] = count
+		# If >3 events of same category in same day, consolidate
+		if count > 3:
+			# Still add to feed but don't emit event_added (suppresses toast)
+			return _add_entry_silent(category, priority, message, navigate_type, navigate_value)
+
+	var entry = _create_entry(category, priority, message, navigate_type, navigate_value)
+	events.append(entry)
+	_enforce_limit()
+
+	# Track unread
+	if not _is_feed_open:
+		unread_count += 1
+		unread_count_changed.emit(unread_count)
+
+	event_added.emit(entry)
+	return entry
+
+## Create an entry without emitting event_added (for batched events)
+func _add_entry_silent(category: int, priority: int, message: String,
+		navigate_type: int, navigate_value: Variant) -> EventEntry:
+	var entry = _create_entry(category, priority, message, navigate_type, navigate_value)
+	events.append(entry)
+	_enforce_limit()
+	if not _is_feed_open:
+		unread_count += 1
+		unread_count_changed.emit(unread_count)
+	return entry
+
+## Build an EventEntry with all fields populated
+func _create_entry(category: int, priority: int, message: String,
+		navigate_type: int, navigate_value: Variant) -> EventEntry:
+	var entry = EventEntry.new()
+	entry.timestamp_day = GameManager.current_day
+	entry.category = category
+	entry.priority = priority
+	entry.message = message
+	entry.navigate_type = navigate_type
+	entry.navigate_value = navigate_value
+	entry.id = _next_id
+	_next_id += 1
+
+	var cat_data = CATEGORY_DATA.get(category, {})
+	entry.icon = cat_data.get("icon", "?")
+	entry.icon_color = _get_category_color(category)
+	return entry
+
+func _enforce_limit() -> void:
+	while events.size() > MAX_EVENTS:
+		events.pop_front()
+
+## Mark all events as read (called when feed panel opens)
+func mark_all_read() -> void:
+	_is_feed_open = true
+	if unread_count > 0:
+		unread_count = 0
+		unread_count_changed.emit(0)
+
+## Called when feed panel closes
+func on_feed_closed() -> void:
+	_is_feed_open = false
+
+## Get events filtered by current category settings
+func get_filtered_events() -> Array:
+	return events.filter(func(e: EventEntry): return category_filters.get(e.category, true))
+
+## Toggle a category filter
+func set_category_visible(category: int, visible: bool) -> void:
+	category_filters[category] = visible
+
+## Get color for a category
+func _get_category_color(category: int) -> Color:
+	var cat_data = CATEGORY_DATA.get(category, {})
+	var color_key = cat_data.get("color_key", "info")
+	match color_key:
+		"gold": return UIConstants.COLOR_GOLD
+		"success": return UIConstants.COLOR_SUCCESS
+		"info": return UIConstants.COLOR_INFO
+		"purple": return UIConstants.COLOR_PURPLE
+		"orange": return UIConstants.COLOR_ORANGE
+		"warning": return UIConstants.COLOR_WARNING
+		"text_dim": return UIConstants.COLOR_TEXT_DIM
+		_: return UIConstants.COLOR_TEXT
+
+## Clear all events (e.g. on new game)
+func clear_events() -> void:
+	events.clear()
+	unread_count = 0
+	_next_id = 0
+	unread_count_changed.emit(0)
+
+# --- Signal handlers ---
+
+func _on_record_broken(record_type: String, golfer_name: String, value: int, hole_number: int) -> void:
+	var msg := ""
+	var nav_type := NavigateType.HOLE
+	var nav_value: Variant = hole_number
+	match record_type:
+		"hole_in_one":
+			msg = "Hole-in-one! %s on Hole #%d" % [golfer_name, hole_number]
+		"course_record":
+			msg = "Course record! %s shot %d" % [golfer_name, value]
+			nav_type = NavigateType.NONE
+			nav_value = null
+		"hole_record":
+			msg = "Hole record! %s scored %d on Hole #%d" % [golfer_name, value, hole_number]
+		_:
+			msg = "New record by %s: %s" % [golfer_name, record_type]
+			nav_type = NavigateType.NONE
+			nav_value = null
+	add_event(Category.RECORDS, Priority.HIGH, msg, nav_type, nav_value)
+
+func _on_money_changed(old_amount: int, new_amount: int) -> void:
+	# Only log significant money milestones
+	var milestones := [100000, 250000, 500000, 1000000]
+	for milestone in milestones:
+		if old_amount < milestone and new_amount >= milestone:
+			add_event(Category.ECONOMY, Priority.NORMAL,
+				"Reached $%s!" % _format_money(milestone))
+			return
+
+	# Bankruptcy warning
+	if new_amount < 0 and old_amount >= 0:
+		add_event(Category.ECONOMY, Priority.CRITICAL,
+			"Warning: Funds depleted! Balance: $%s" % _format_money(new_amount))
+	elif new_amount <= -500 and old_amount > -500:
+		add_event(Category.ECONOMY, Priority.CRITICAL,
+			"Bankruptcy imminent! Balance: $%s" % _format_money(new_amount))
+
+func _on_reputation_changed(old_rep: float, new_rep: float) -> void:
+	# Log reputation milestones (every 25 points)
+	var old_bracket := int(old_rep / 25.0)
+	var new_bracket := int(new_rep / 25.0)
+	if new_bracket > old_bracket and new_rep >= 25.0:
+		add_event(Category.ECONOMY, Priority.NORMAL,
+			"Reputation reached %.0f!" % new_rep)
+	elif new_bracket < old_bracket and old_rep >= 25.0:
+		add_event(Category.ECONOMY, Priority.NORMAL,
+			"Reputation dropped to %.0f" % new_rep, NavigateType.PANEL, "financial")
+
+func _on_green_fee_changed(old_fee: int, new_fee: int) -> void:
+	add_event(Category.ECONOMY, Priority.INFO,
+		"Green fee changed: $%d -> $%d" % [old_fee, new_fee])
+
+func _on_golfer_finished_round(golfer_id: int, total_score: int, total_par: int) -> void:
+	var diff = total_score - total_par
+	# Only log notable rounds (3 under par or worse)
+	if diff <= -3:
+		var diff_str = "%d" % diff
+		add_event(Category.GOLFERS, Priority.NORMAL,
+			"Outstanding round: %d (%s) completed" % [total_score, diff_str],
+			NavigateType.GOLFER, golfer_id)
+
+func _on_golfer_finished_hole(_golfer_id: int, hole_number: int, strokes: int, par: int) -> void:
+	var diff = strokes - par
+	if diff <= -2:
+		var score_name = "Eagle" if diff == -2 else "Albatross"
+		add_event(Category.RECORDS, Priority.HIGH,
+			"%s on Hole #%d! (%d strokes, par %d)" % [score_name, hole_number, strokes, par],
+			NavigateType.HOLE, hole_number)
+
+func _on_weather_changed(weather_type: int, _intensity: float) -> void:
+	var weather_names := {
+		0: "Sunny", 1: "Partly Cloudy", 2: "Overcast",
+		3: "Light Rain", 4: "Rain", 5: "Heavy Rain"
+	}
+	var weather_name = weather_names.get(weather_type, "Unknown")
+	add_event(Category.WEATHER, Priority.INFO, "Weather: %s" % weather_name)
+
+func _on_season_changed(_old_season: int, new_season: int) -> void:
+	var season_names := {0: "Spring", 1: "Summer", 2: "Fall", 3: "Winter"}
+	var season_name = season_names.get(new_season, "Unknown")
+	var active_event = SeasonalEvents.get_active_event(GameManager.current_day + 1)
+	var detail = " — %s!" % active_event.name if active_event else ""
+	add_event(Category.WEATHER, Priority.NORMAL, "Season changed to %s%s" % [season_name, detail])
+
+func _on_seasonal_event_upcoming(event_name: String, days_until: int) -> void:
+	if days_until == 1:
+		add_event(Category.WEATHER, Priority.NORMAL, "%s tomorrow!" % event_name)
+	elif days_until == 2:
+		add_event(Category.WEATHER, Priority.INFO, "%s in 2 days" % event_name)
+
+func _on_tournament_scheduled(tier: int, start_day: int) -> void:
+	# Hosting starts the event on the spot, so there is nothing to book: only a
+	# tournament that really lies in the future (an older save) earns a feed line.
+	if start_day <= GameManager.current_day:
+		return
+	var tier_names := {0: "Local", 1: "Regional", 2: "National", 3: "Championship"}
+	var tier_name = tier_names.get(tier, "Tournament")
+	add_event(Category.TOURNAMENT, Priority.NORMAL,
+		"%s tournament scheduled for Day %d" % [tier_name, start_day])
+
+func _on_tournament_started(tier: int) -> void:
+	var tier_names := {0: "Local", 1: "Regional", 2: "National", 3: "Championship"}
+	var tier_name = tier_names.get(tier, "Tournament")
+	add_event(Category.TOURNAMENT, Priority.HIGH, "%s tournament has begun!" % tier_name)
+
+func _on_tournament_completed(tier: int, results: Dictionary) -> void:
+	var tier_names := {0: "Local", 1: "Regional", 2: "National", 3: "Championship"}
+	var tier_name = tier_names.get(tier, "Tournament")
+	var winner = results.get("winner_name", "Unknown")
+	var score = results.get("winning_score", 0)
+	add_event(Category.TOURNAMENT, Priority.HIGH,
+		"%s tournament complete! Winner: %s (%d)" % [tier_name, winner, score])
+
+func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+	add_event(Category.COURSE, Priority.NORMAL,
+		"Hole #%d created (Par %d, %d yards)" % [hole_number, par, distance_yards])
+
+func _on_hole_deleted(hole_number: int) -> void:
+	add_event(Category.COURSE, Priority.NORMAL,
+		"Hole #%d removed" % hole_number)
+
+func _on_building_placed(building_type: String, position: Vector2i) -> void:
+	add_event(Category.COURSE, Priority.INFO,
+		"%s built" % building_type.capitalize(),
+		NavigateType.POSITION, position)
+
+func _on_end_of_day(day_number: int) -> void:
+	# A silent monthly date header keeps the feed anchored on the calendar
+	# without flooding it — the period digest now arrives with the year summary.
+	if GameCalendar.is_last_day_of_year(day_number):
+		return  # The year digest below covers the rollover
+	if GameCalendar.get_month(day_number) != GameCalendar.get_month(day_number + 1):
+		add_event(Category.DAILY, Priority.INFO, GameCalendar.format_month(day_number + 1))
+
+func _on_year_ended(finished_year: int) -> void:
+	# Year digest — the feed's period summary (replaces the old daily digest).
+	var stats: GameManager.DailyStatistics = GameManager.previous_year_stats
+	if stats == null:
+		return
+	var revenue = stats.get_total_revenue()
+	var profit = stats.get_profit()
+	var golfers = stats.golfers_served
+	var satisfaction = 0.0
+	if GameManager.previous_year_satisfaction >= 0.0:
+		satisfaction = GameManager.previous_year_satisfaction * 100.0
+
+	var notable_parts: Array = []
+	if stats.holes_in_one > 0:
+		notable_parts.append("%d HIO" % stats.holes_in_one)
+	if stats.eagles > 0:
+		notable_parts.append("%d eagle%s" % [stats.eagles, "s" if stats.eagles > 1 else ""])
+
+	var msg = "%d: %d golfers, $%s revenue, $%s profit, %.0f%% satisfaction" % [
+		finished_year, golfers, _format_money(revenue), _format_money(profit), satisfaction
+	]
+	if not notable_parts.is_empty():
+		msg += " | " + ", ".join(notable_parts)
+
+	add_event(Category.DAILY, Priority.NORMAL, msg)
+
+func _on_new_game_started() -> void:
+	clear_events()
+	# TODO: Suppress hole_created/building_placed/weather_changed events during initial
+	# course setup. Quick Start and new game both emit these signals during async setup
+	# (terrain gen + QuickStartCourse.build()), flooding the feed with simultaneous entries.
+	# Attempted fixes: frame deferral (call_deferred + await) and 1-second timer both fail
+	# due to timing races with main.gd's async _on_new_game_started which also awaits frames.
+	# Possible approaches:
+	#   - Have main.gd emit a "setup_complete" signal after QuickStartCourse.build() finishes
+	#   - Add a flag to SaveManager/GameManager that systems can check during setup
+	#   - Clear events on first game_mode_changed to SIMULATING
+	add_event(Category.COURSE, Priority.NORMAL, "Welcome to %s!" % GameManager.course_name)
+
+func _format_money(amount: int) -> String:
+	if amount < 0:
+		return "-%s" % _format_money(-amount)
+	if amount >= 1000000:
+		return "%.1fM" % (amount / 1000000.0)
+	if amount >= 1000:
+		return "%d,%03d" % [int(amount / 1000.0), amount % 1000]
+	return str(amount)
+
+# --- Fast-forward tracking ---
+
+func _track_ff_stats(category: int, _priority: int) -> void:
+	if not _ff_was_fast:
+		return
+	match category:
+		Category.GOLFERS: _ff_rounds_completed += 1
+		Category.RECORDS: _ff_records_set += 1
+
+func _on_game_speed_changed(new_speed: int) -> void:
+	var is_fast = new_speed >= GameManager.GameSpeed.FAST
+	if is_fast and not _ff_was_fast:
+		# Starting fast-forward — begin tracking
+		_ff_start_day = GameManager.current_day
+		_ff_rounds_completed = 0
+		_ff_records_set = 0
+		_ff_revenue = GameManager.money
+		_ff_was_fast = true
+	elif not is_fast and _ff_was_fast:
+		# Slowed down — emit summary if we actually fast-forwarded
+		_ff_was_fast = false
+		_batch_counts.clear()
+		var days_elapsed = GameManager.current_day - _ff_start_day
+		if days_elapsed > 0 or _ff_rounds_completed > 0:
+			var revenue_change = GameManager.money - _ff_revenue
+			var parts: Array = []
+			if days_elapsed > 0:
+				parts.append("%s → %s" % [GameCalendar.format_date_short(_ff_start_day), GameCalendar.format_date_short(GameManager.current_day)])
+			if _ff_rounds_completed > 0:
+				parts.append("%d rounds" % _ff_rounds_completed)
+			if _ff_records_set > 0:
+				parts.append("%d record%s" % [_ff_records_set, "s" if _ff_records_set > 1 else ""])
+			if revenue_change != 0:
+				var sign_str = "+" if revenue_change > 0 else ""
+				parts.append("%s$%s" % [sign_str, _format_money(revenue_change)])
+			if not parts.is_empty():
+				EventBus.notify("Fast-forward: " + ", ".join(parts), "info")
+		_ff_start_day = -1
