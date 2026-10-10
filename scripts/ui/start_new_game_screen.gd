@@ -1458,7 +1458,8 @@ static func _money_short_label(option: int) -> String:
 static func _holes_tooltip(count: int) -> String:
 	if count == 0:
 		return "Start with an empty plot and build every hole yourself."
-	return "%d holes are generated for your first course (Par %d)." % [count, GeneratedCourse.get_par_for_count(count)]
+	return "%d holes are generated on the first location you buy (Par %d). Additional locations start empty." % [
+		count, GeneratedCourse.get_par_for_count(count)]
 
 static func _group_digits(amount: int) -> String:
 	var s := str(absi(amount))
@@ -1473,14 +1474,14 @@ static func _group_digits(amount: int) -> String:
 static func hole_hint(count: int) -> String:
 	if count == 0:
 		return "Build every hole yourself — the tutorial walks you through the first one."
-	return "%d holes (%d par) are laid out for you on the location you buy. You can change them afterwards." % [
+	return "%d holes (%d par) are laid out on the first location you buy. Later sites start empty so you build them yourself." % [
 		count, GeneratedCourse.get_par_for_count(count)]
 
 ## The one-line form of hole_hint, for the landscape picker.
 static func hole_hint_short(count: int) -> String:
 	if count == 0:
 		return "An empty plot: you build every hole."
-	return "%d holes (par %d) laid out on the site you buy." % [count, GeneratedCourse.get_par_for_count(count)]
+	return "%d holes (par %d) on the first site you buy." % [count, GeneratedCourse.get_par_for_count(count)]
 
 ## The caption under the course plan: "9 holes · par 36" / "Empty plot".
 static func plan_caption(count: int) -> String:

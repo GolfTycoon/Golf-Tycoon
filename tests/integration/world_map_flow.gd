@@ -214,7 +214,9 @@ func run() -> void:
 	check(cash_after_switch == first_cash, "switching locations keeps the company's money (was %d, now %d)" % [first_cash, cash_after_switch])
 	await frames(12)
 	check(gm.current_course != null, "the second location has a course")
-	check(gm.current_course.holes.size() == 6, "the second site also gets the generated course")
+	check(gm.current_course.holes.size() == 0,
+		"generated holes are only placed on the first location bought (second site starts empty, got %d holes)" % (
+			gm.current_course.holes.size() if gm.current_course else -1))
 
 	main._on_world_map_play_location(target)
 	var cash_after_return: int = gm.money

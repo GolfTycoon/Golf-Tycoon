@@ -790,7 +790,10 @@ func _on_world_map_play_location(location_id: String) -> void:
 func _start_new_course_at_location(location_id: String, from_menu: bool) -> void:
 	var def := WorldLocations.get_definition(location_id)
 	WorldMap.apply_location_land(location_id)
-	_generated_holes_pending = WorldMap.generated_holes
+	# Only the first location the player bought gets the pre-generated holes
+	# from the Start New Game screen; every later purchase starts empty.
+	var holes_for_this_location: int = WorldMap.holes_to_generate_for(location_id)
+	_generated_holes_pending = holes_for_this_location
 	_set_gameplay_ui_visible(true)
 	if from_menu:
 		GameManager.set_mode(GameManager.GameMode.SIMULATING)
@@ -802,7 +805,7 @@ func _start_new_course_at_location(location_id: String, from_menu: bool) -> void
 			"company_name": WorldMap.company_name,
 			"starting_money": GameManager.money,
 			"unlimited": GameManager.unlimited_money,
-			"generated_holes": WorldMap.generated_holes,
+			"generated_holes": holes_for_this_location,
 			"features": WorldMap.features,
 		})
 
@@ -2023,8 +2026,9 @@ func _on_new_game_started() -> void:
 		terrain_grid.refresh_all_overlays()
 		_suppress_tile_undo = false
 
-	# Lay out the holes the world map asked the first course to start with
-	# (Start New Game: 0, 3, 6, 9 or 18 generated holes).
+	# Lay out the holes the world map asked this course to start with. Only the
+	# first location the player bought gets pre-generated holes (Start New Game:
+	# 0, 3, 6, 9 or 18); subsequent locations are built by the player.
 	var generated_holes := 0
 	var holes_requested := _generated_holes_pending
 	_generated_holes_pending = 0
@@ -2035,6 +2039,10 @@ func _on_new_game_started() -> void:
 		terrain_grid.end_batch_quiet()
 		terrain_grid.refresh_all_overlays()
 		_suppress_tile_undo = false
+		# The generated-hole option only applies to the first course. From here
+		# on every new location starts empty, and Reset World no longer
+		# reserves extra parcels for a layout that has already been used.
+		WorldMap.mark_generated_holes_used()
 
 	# Build prebuilt course package if selected from main menu
 	if is_prebuilt:
