@@ -20,7 +20,7 @@
 ## When Saves Happen
 
 - **Quick save:** `Ctrl+S`.
-- **Save menu:** Pause menu, then Save, which uses named slots.
+- **Save menu:** Pause menu, then Save, which uses named slots. The archive lists each save with its course, day, balance and hole count. Saving over an existing name asks first.
 - **Autosave:** every 30 game days, and at the end of each year.
 
 ## What Is Saved

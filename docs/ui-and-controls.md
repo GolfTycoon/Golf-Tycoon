@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`
+**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -14,7 +14,8 @@
 - **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features on, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
 - **World Map.** A spinning globe with a pin for each destination, a list of locations, Buy and Play, and Reset World. See [World Map](systems/economy-and-land/world-map.md).
 - **Pause menu.** Resume, Settings, Save and Quit. The camera still moves while paused.
-- **Settings.** Display, audio and gameplay options.
+- **Settings.** Four categories (Audio, Display, Gameplay, Controls) laid out for each window size. Desktop uses a category rail, the control cards and an "at a glance" panel. Tablets keep the rail beside or above the cards. Phones use four equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category includes the keyboard shortcut reference.
+- **Save and Load.** One archive with a Save or Load mode. Save names a checkpoint and asks before replacing one. Load shows the selected course's day, balance, holes and last-played time, and asks before replacing the live course. Saving is offered only from the pause menu. The title screen and game-over panel can only load.
 - **Golfer Skins studio.** Paint the golfers' clothing. See [Golfer Skins](golfer-skins.md).
 
 ## In-Game Panels

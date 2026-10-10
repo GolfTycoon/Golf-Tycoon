@@ -76,6 +76,7 @@ Run a harness with `godot --headless --path . res://tests/harness/<name>.tscn`. 
 | `main_menu_layout_harness.tscn` | Title screen layout at several sizes |
 | `edit_golfer_skins_harness.tscn` | The Golfer Skins studio at several sizes |
 | `start_new_game_layout_harness.tscn` | The Start New Game screen at many sizes |
+| `save_settings_layout_harness.tscn` | The Save / Load archive and the Settings screen at phone, tablet and desktop sizes, plus save, delete and toggle behaviour |
 | `tournament_harness.tscn` | A two-round Regional event on a quick-start course |
 | `sim_harness.tscn` | Hires one of each staff type, moves areas daily, and runs a save and load across several days |
 | `elevation_tools_harness.tscn`, `inspect_harness.tscn` | Elevation tools and the inspect tool |

@@ -918,8 +918,8 @@ func _on_main_menu_load() -> void:
 
 	var panel = SaveLoadPanel.new()
 	panel.name = "SaveLoadPanel"
-	panel.anchors_preset = Control.PRESET_CENTER
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.allow_save = false
+	panel.open_mode = SaveLoadPanel.ScreenMode.LOAD
 
 	# When a save is loaded, dismiss the main menu
 	panel.panel_closed.connect(_on_main_menu_load_panel_closed)
@@ -2613,7 +2613,7 @@ func _sync_map_button() -> void:
 	if map_btn and mini_map:
 		map_btn.set_pressed_no_signal(mini_map.visible)
 
-func _show_save_load_panel(from_pause_menu: bool = false) -> void:
+func _show_save_load_panel(from_pause_menu: bool = false, open_mode: int = SaveLoadPanel.ScreenMode.LOAD) -> void:
 	# Toggle save/load panel
 	var hud = $UI/HUD
 	var existing = hud.get_node_or_null("SaveLoadPanel")
@@ -2623,8 +2623,12 @@ func _show_save_load_panel(from_pause_menu: bool = false) -> void:
 	_just_loaded_game = false
 	var panel = SaveLoadPanel.new()
 	panel.name = "SaveLoadPanel"
-	panel.anchors_preset = Control.PRESET_CENTER
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	# Saving and quitting only make sense while a course is live (the pause
+	# menu); the title screen and the game-over panel can only load.
+	panel.allow_save = from_pause_menu
+	panel.open_mode = open_mode
+	if from_pause_menu:
+		panel.camera = camera
 	panel.quit_to_menu_requested.connect(_on_quit_to_menu)
 	if from_pause_menu:
 		panel.panel_closed.connect(_on_save_load_panel_closed_from_pause)
@@ -4050,12 +4054,12 @@ func _on_pause_resume() -> void:
 func _on_pause_save() -> void:
 	# Keep the game paused while the save/load panel is open
 	_hide_pause_menu()
-	_show_save_load_panel(true)
+	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.SAVE)
 
 func _on_pause_load() -> void:
 	# Keep the game paused while the save/load panel is open
 	_hide_pause_menu()
-	_show_save_load_panel(true)
+	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.LOAD)
 
 func _on_pause_world_map() -> void:
 	# Keep the game paused while the world map is open — the course behind it
