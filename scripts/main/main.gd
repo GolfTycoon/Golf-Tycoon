@@ -1252,7 +1252,7 @@ func _paint_terrain_stamp(grid_pos: Vector2i) -> void:
 	var cost = TerrainTypes.get_placement_cost(current_tool)
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
-			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			EventBus.notify(GameManager.spending_blocked_message(), "error")
 		else:
 			EventBus.notify("Not enough money!", "error")
 		return
@@ -1367,7 +1367,7 @@ func _paint_walking_path_stamp(grid_pos: Vector2i) -> void:
 	var cost := TerrainTypes.get_placement_cost(TerrainTypes.Type.PATH)
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
-			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			EventBus.notify(GameManager.spending_blocked_message(), "error")
 		else:
 			EventBus.notify("Not enough money!", "error")
 		return
@@ -2201,7 +2201,7 @@ func _handle_placement_click(grid_pos: Vector2i) -> void:
 	var cost = placement_manager.get_placement_cost()
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
-			EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+			EventBus.notify(GameManager.spending_blocked_message(), "error")
 		else:
 			EventBus.notify("Not enough money!", "error")
 		return
@@ -2240,7 +2240,7 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 
 func _notify_cant_afford() -> void:
 	if GameManager.is_bankrupt():
-		EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+		EventBus.notify(GameManager.spending_blocked_message(), "error")
 	else:
 		EventBus.notify("Not enough money!", "error")
 
@@ -2322,7 +2322,7 @@ func _handle_bulldozer_click(grid_pos: Vector2i, _mouse_world: Vector2 = Vector2
 		if not GameManager.can_afford(cost):
 			if not dragging:
 				if GameManager.is_bankrupt():
-					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+					EventBus.notify(GameManager.spending_blocked_message(), "error")
 				else:
 					EventBus.notify("Not enough money to remove decoration ($%d)" % cost, "error")
 			return
@@ -2350,7 +2350,7 @@ func _handle_bulldozer_click(grid_pos: Vector2i, _mouse_world: Vector2 = Vector2
 		if not GameManager.can_afford(cost):
 			if not dragging:
 				if GameManager.is_bankrupt():
-					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+					EventBus.notify(GameManager.spending_blocked_message(), "error")
 				else:
 					EventBus.notify("Not enough money to demolish the building ($%d)" % cost, "error")
 			return
@@ -2372,7 +2372,7 @@ func _handle_bulldozer_click(grid_pos: Vector2i, _mouse_world: Vector2 = Vector2
 		if not GameManager.can_afford(cost):
 			if not dragging:
 				if GameManager.is_bankrupt():
-					EventBus.notify("Spending blocked! Balance below -$1,000", "error")
+					EventBus.notify(GameManager.spending_blocked_message(), "error")
 				else:
 					EventBus.notify("Not enough money to remove walking path ($%d)" % cost, "error")
 			return

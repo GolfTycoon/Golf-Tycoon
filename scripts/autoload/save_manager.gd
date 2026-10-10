@@ -197,7 +197,8 @@ func get_save_list() -> Array[Dictionary]:
 	var file_name = dir.get_next()
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(".save"):
-			var save_name = file_name.replace(".save", "")
+			# trim_suffix, not replace: a name such as "my.save.v2" must keep its text.
+			var save_name = file_name.trim_suffix(".save")
 			var metadata = _read_save_metadata(SAVE_DIR + file_name)
 			metadata["name"] = save_name
 			saves.append(metadata)

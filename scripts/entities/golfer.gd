@@ -1629,7 +1629,9 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 	if GameManager.wind_system and not is_putt:
 		var ws = GameManager.wind_system
 		if ws.wind_speed > 1.0:
-			var wind_deg = rad_to_deg(ws.wind_direction)
+			# Normalise to 0..360 first: the direction can be set to a negative angle
+			# (debug tools, loaded saves), and a negative index would not be in compass.
+			var wind_deg = fposmod(rad_to_deg(ws.wind_direction), 360.0)
 			var compass = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 			var compass_idx = int(round(wind_deg / 45.0)) % 8
 			wind_str = " | Wind: %dmph %s" % [int(ws.wind_speed), compass[compass_idx]]

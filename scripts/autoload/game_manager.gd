@@ -340,6 +340,25 @@ func can_afford(cost: int) -> bool:
 func is_bankrupt() -> bool:
 	return not unlimited_money and money < bankruptcy_threshold
 
+## The notice shown when a purchase is refused because the company is bankrupt.
+## The limit depends on the difficulty preset (Easy -$5,000, Normal -$1,000,
+## Hard $0), so the text is built from the live threshold rather than fixed.
+func spending_blocked_message() -> String:
+	var floor_text := "$0"
+	if bankruptcy_threshold < 0:
+		floor_text = "-$" + _thousands(-bankruptcy_threshold)
+	return "Spending blocked! Balance below %s" % floor_text
+
+## Whole-dollar text with thousands separators, e.g. 5000 -> "5,000".
+static func _thousands(amount: int) -> String:
+	var digits := str(absi(amount))
+	var out := ""
+	for i in range(digits.length()):
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += ","
+		out += digits[i]
+	return out
+
 ## The company starts with endless funds (Start New Game: Unlimited money).
 func set_unlimited_money(enabled: bool) -> void:
 	if unlimited_money == enabled:
@@ -710,29 +729,10 @@ func advance_to_next_day() -> void:
 	# Accumulate the finished day into the year-to-date totals
 	_accumulate_yearly_stats()
 
-	# Save yesterday's stats before resetting
+	# Save yesterday's stats before resetting. accumulate_from copies every field,
+	# so a new DailyStatistics field cannot be left out of the snapshot.
 	yesterday_stats = DailyStatistics.new()
-	yesterday_stats.golfers_arrived = daily_stats.golfers_arrived
-	yesterday_stats.hired_staff_payroll = daily_stats.hired_staff_payroll
-	yesterday_stats.marketing_cost = daily_stats.marketing_cost
-	yesterday_stats.revenue = daily_stats.revenue
-	yesterday_stats.building_revenue = daily_stats.building_revenue
-	yesterday_stats.operating_costs = daily_stats.operating_costs
-	yesterday_stats.terrain_maintenance = daily_stats.terrain_maintenance
-	yesterday_stats.base_operating_cost = daily_stats.base_operating_cost
-	yesterday_stats.staff_wages = daily_stats.staff_wages
-	yesterday_stats.building_operating_costs = daily_stats.building_operating_costs
-	yesterday_stats.golfers_served = daily_stats.golfers_served
-	yesterday_stats.tournament_revenue = daily_stats.tournament_revenue
-	yesterday_stats.tournament_entry_fee = daily_stats.tournament_entry_fee
-	yesterday_stats.holes_in_one = daily_stats.holes_in_one
-	yesterday_stats.eagles = daily_stats.eagles
-	yesterday_stats.birdies = daily_stats.birdies
-	yesterday_stats.pars = daily_stats.pars
-	yesterday_stats.bogeys_or_worse = daily_stats.bogeys_or_worse
-	yesterday_stats.total_strokes_today = daily_stats.total_strokes_today
-	yesterday_stats.total_par_today = daily_stats.total_par_today
-	yesterday_stats.tier_counts = daily_stats.tier_counts.duplicate()
+	yesterday_stats.accumulate_from(daily_stats)
 
 	# Reset daily statistics for the new day
 	daily_stats.reset()
