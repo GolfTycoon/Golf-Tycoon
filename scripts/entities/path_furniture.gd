@@ -3,12 +3,12 @@ class_name PathFurniture
 ## Ground-plane furniture shared by the placed object and its placement ghost.
 
 const EDGE_ORDER := [Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.DOWN]
-const SMALL_FIXTURES := ["park_bench", "course_signage", "waste_bin", "ball_washer", "bird_bath"]
+const SMALL_FIXTURES := ["park_bench", "ball_washer"]
 var kind := "park_bench"
 var facing := Vector2i.DOWN
 
 static func has_art(type: String) -> bool:
-	return type in ["park_bench", "course_signage", "waste_bin", "ball_washer"]
+	return type in ["park_bench", "ball_washer"]
 
 static func layout(grid: TerrainGrid, pos: Vector2i, type: String) -> Dictionary:
 	var result := {"offset": Vector2.ZERO, "facing": Vector2i.DOWN}
@@ -82,21 +82,6 @@ static func draw_item(canvas: CanvasItem, type: String, front: Vector2i, alpha: 
 				canvas.draw_line(a, b, _color("e0b985", alpha), 1.0)
 			if front.y < 0:
 				_back(canvas, front, alpha)
-		"course_signage":
-			canvas.draw_line(Vector2(-3, 1), Vector2(4, 1), _color("26362c66", alpha), 2.0)
-			canvas.draw_rect(Rect2(-1, -29, 3, 29), _color("705139", alpha))
-			var direction := -1.0 if front.x < 0 else 1.0
-			for y in [-26, -18]:
-				canvas.draw_colored_polygon(PackedVector2Array([Vector2(-10 * direction, y), Vector2(9 * direction, y), Vector2(13 * direction, y + 3), Vector2(9 * direction, y + 6), Vector2(-10 * direction, y + 6)]), _color("365b43", alpha))
-				canvas.draw_line(Vector2(-7 * direction, y + 1), Vector2(7 * direction, y + 1), _color("d4ba80", alpha), 1.0)
-				canvas.draw_line(Vector2(-5 * direction, y + 3), Vector2(4 * direction, y + 3), _color("eee2b7", alpha), 1.0)
-		"waste_bin":
-			canvas.draw_line(Vector2(-6, 1), Vector2(6, 1), _color("26362c66", alpha), 3.0)
-			canvas.draw_rect(Rect2(-6, -15, 12, 15), _color("36564b", alpha))
-			for x in [-3, 1, 5]:
-				canvas.draw_line(Vector2(x, -13), Vector2(x, -2), _color("638071", alpha), 1.0)
-			canvas.draw_rect(Rect2(-7, -17, 14, 3), _color("263e37", alpha))
-			canvas.draw_line(Vector2(-5, -18), Vector2(5, -18), _color("91a38b", alpha), 1.0)
 		"ball_washer":
 			canvas.draw_line(Vector2(-4, 1), Vector2(4, 1), _color("26362c66", alpha), 2.0)
 			canvas.draw_rect(Rect2(-1, -18, 3, 18), _color("42594c", alpha))

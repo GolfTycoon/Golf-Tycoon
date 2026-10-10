@@ -60,7 +60,6 @@ var waiting_hole_route: Array[Vector2i] = []
 var _hole_path_planner := HolePathPlanner.new()
 
 # Animation state
-var _garden_ghost: GardenArt
 var _building_ghost: CourseArchitecture
 var _pulse_time: float = 0.0
 var _current_alpha: float = 0.0
@@ -69,9 +68,6 @@ var _last_process_usec: int = -1
 var _label_style: StyleBoxFlat
 
 func _ready() -> void:
-	_garden_ghost = GardenArt.new()
-	_garden_ghost.visible = false
-	add_child(_garden_ghost)
 	_building_ghost = CourseArchitecture.new()
 	_building_ghost.name = "BuildingGhost"
 	_building_ghost.visible = false
@@ -274,8 +270,6 @@ func _get_footprint_at(grid_pos: Vector2i, size: Vector2i) -> Array:
 	return result
 
 func _draw() -> void:
-	if is_instance_valid(_garden_ghost):
-		_garden_ghost.visible = false
 	if is_instance_valid(_building_ghost):
 		_building_ghost.visible = false
 	if not terrain_grid:
@@ -627,13 +621,6 @@ func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 
 	var layout := PathFurniture.layout(terrain_grid, current_grid_pos, dec_type)
 	var anchor := terrain_grid.grid_to_screen_center(current_grid_pos) + Vector2(layout.offset)
-	if GardenArt.has_art(dec_type):
-		_garden_ghost.kind = dec_type
-		_garden_ghost.position = anchor
-		_garden_ghost.modulate = Color(1, 1, 1, a) if current_preview_valid else Color(1, .45, .4, a)
-		_garden_ghost.visible = true
-		_garden_ghost.queue_redraw()
-		return
 	if PathFurniture.has_art(dec_type):
 		draw_set_transform(anchor)
 		PathFurniture.draw_item(self, dec_type, layout.facing, a)

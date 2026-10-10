@@ -110,5 +110,5 @@ Example: A fountain (`theme_bonus: ["CITY", "TROPICAL", "RESORT"]`) on a Resort 
 ## Related
 
 - [Course Rating](course-rating.md) uses this rating as one of five categories.
-- [Garden Catalog](../course-design/garden-catalog.md) lists the decorations that score.
+- [Improvement Catalog](../course-design/garden-catalog.md) lists the improvements that score.
 - [Path Furniture](../course-design/path-furniture.md) places benches and signs beside walks.

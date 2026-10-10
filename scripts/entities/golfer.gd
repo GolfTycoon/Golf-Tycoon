@@ -3361,7 +3361,7 @@ func _check_building_proximity() -> void:
 			reach = float(candidate.building_data.get("effect_radius",5))
 			if candidate.building_data.get("effect_type", "").is_empty(): continue
 		else:
-			if candidate.decoration_type not in ["park_bench","picnic_table","patio_table"] or needs.energy >= .7: continue
+			if candidate.decoration_type != "park_bench" or needs.energy >= .7: continue
 			service = "bench"
 		if Vector2(current).distance_to(Vector2(candidate.grid_position)) > reach: continue
 		_declined_at_hole[id] = current_hole

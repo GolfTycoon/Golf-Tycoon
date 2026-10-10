@@ -14,7 +14,7 @@ Weather affects three things:
 
 1. **Golfer arrivals.** Rain keeps some golfers at home. Heavy rain cuts arrivals to 30% of normal.
 2. **Shot accuracy.** Rain makes shots less precise. Light rain costs 5% accuracy and heavy rain costs 15%.
-3. **Look and feel.** Each state tints the sky and dims the light a little. Weather also affects butterflies, fireflies and ducks. See [Course Wildlife](../course-design/course-wildlife.md).
+3. **Look and feel.** Each state tints the sky and dims the light a little. Weather also affects butterflies and ducks. See [Course Wildlife](../course-design/course-wildlife.md).
 
 The weather you see is blended over time. Intensity eases from one state to the next instead of jumping.
 

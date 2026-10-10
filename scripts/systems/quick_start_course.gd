@@ -192,16 +192,16 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 				var p := position + Vector2i(dx,dy)
 				grid.set_tile(p,TerrainTypes.Type.GRASS)
 		entities.place_building(kind, position, buildings)
-	# The same player-placeable items compose a legible entrance, terrace and garden.
-	var dry := GameManager.current_theme in [CourseTheme.Type.DESERT,CourseTheme.Type.LINKS,CourseTheme.Type.HEATHLAND]
-	for item in [["rose_arch",Vector2i(57,67)],["patio_table",Vector2i(59,65)],["patio_table",Vector2i(60,66)],["park_bench",Vector2i(54,66)],["lily_pool",Vector2i(54,68)],["garden_lamp",Vector2i(53,65)],["garden_lamp",Vector2i(60,67)],["course_clock",Vector2i(58,67)],["terracotta_planters",Vector2i(58,65)],["pergola",Vector2i(53,67)]]:
+	# The improvements the player can buy compose a legible entrance and terrace:
+	# benches line the arrival walk, ball washers stand beside it, and wild
+	# flowers carry the planting along both edges of the garden.
+	for item in [["park_bench",Vector2i(54,66)],["park_bench",Vector2i(59,65)],["park_bench",Vector2i(60,66)],["ball_washer",Vector2i(56,66)],["ball_washer",Vector2i(58,66)]]:
 		entities.place_decoration(item[0],item[1],decor)
 	for x in range(53,61):
 		for y in [59,69]:
 			var p := Vector2i(x,y)
 			if grid.get_tile(p) in [TerrainTypes.Type.FAIRWAY,TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX]: continue
-			grid.set_tile(p,TerrainTypes.Type.GRASS)
-			entities.place_decoration("ornamental_grass" if dry else ("lavender_bed" if x%2 else "rose_border"),p,decor)
+			grid.set_tile(p,TerrainTypes.Type.FLOWER_BED)
 	for item in [[Vector2i(50,69),"park_bench"],[Vector2i(70,58),"park_bench"],[Vector2i(65,74),"park_bench"]]:
 		var p: Vector2i = item[0]
 		if grid.get_tile(p) in [TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX]: continue

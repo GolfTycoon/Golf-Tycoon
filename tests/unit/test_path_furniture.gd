@@ -26,9 +26,9 @@ func test_horizontal_and_vertical_walks_keep_furniture_off_center() -> void:
 	assert_eq(bench.get_node("Visual/PathFurniture").facing, Vector2i.DOWN)
 	for y in range(8):
 		grid.set_tile(Vector2i(1, y), TerrainTypes.Type.PATH)
-	var bin := entities.place_decoration("waste_bin", Vector2i(1, 5), registry)
-	assert_eq(bin.get_node("Visual").position, Vector2(-23, 0))
-	assert_eq(bin.get_node("Visual/PathFurniture").facing, Vector2i.RIGHT)
+	var washer := entities.place_decoration("ball_washer", Vector2i(1, 5), registry)
+	assert_eq(washer.get_node("Visual").position, Vector2(-23, 0))
+	assert_eq(washer.get_node("Visual/PathFurniture").facing, Vector2i.RIGHT)
 
 func test_edge_choice_avoids_water_and_map_boundary() -> void:
 	grid.set_tile(Vector2i(0, 0), TerrainTypes.Type.PATH)
@@ -62,15 +62,15 @@ func test_plazas_and_large_decorations_retain_their_anchor() -> void:
 			grid.set_tile(Vector2i(x, y), TerrainTypes.Type.PATH)
 	assert_eq(PathFurniture.layout(grid, Vector2i(3, 3), "park_bench").offset, Vector2.ZERO)
 	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "fountain").offset, Vector2.ZERO)
-	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "gazebo").offset, Vector2.ZERO)
+	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "golfer_statue").offset, Vector2.ZERO)
 
 func test_sprite_feet_and_animated_details_use_the_same_anchor() -> void:
-	for type in ["fountain", "bird_bath", "gazebo", "flower_garden", "topiary"]:
+	for type in ["fountain", "golfer_statue", "sundial"]:
 		var dec := entities.place_decoration(type, Vector2i(3, 3), registry)
 		var sprite: Sprite2D = dec.get_node("Visual/DecorationSprite")
 		var bottom := sprite.texture.get_image().get_used_rect().end.y
 		assert_almost_eq(sprite.position.y + bottom - sprite.texture.get_height() * 0.5, 0.0, 0.01, "%s base meets its anchor" % type)
-		if type in ["fountain", "bird_bath"]:
-			assert_eq(dec.get_node("Visual/Atmosphere").position.y, -5.0 if type == "fountain" else -3.0)
+		if type == "fountain":
+			assert_eq(dec.get_node("Visual/Atmosphere").position.y, -5.0)
 		entities.remove_decoration(Vector2i(3, 3))
 		await get_tree().process_frame

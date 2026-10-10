@@ -1,8 +1,8 @@
 # Course Wildlife
 
-> Cosmetic residents that live on the course: duck families on ponds, butterflies and fireflies in gardens, and a robin at the bird bath. They are purely decorative.
+> Cosmetic residents that live on the course: duck families on ponds and butterflies over the wild flowers. They are purely decorative.
 
-**Source:** `scripts/terrain/course_wildlife.gd` (habitat indexing, `_spaced_homes()`, family orbit, draw loop), `scripts/effects/decoration_atmosphere.gd` (fountain beads, ripples, robin), `scripts/entities/decoration.gd`, `scripts/course/entity_layer.gd` (habitat invalidation)
+**Source:** `scripts/terrain/course_wildlife.gd` (habitat indexing, `_spaced_homes()`, family orbit, draw loop), `scripts/effects/decoration_atmosphere.gd` (fountain beads and ripples), `scripts/entities/decoration.gd`
 **Tests:** `tests/unit/test_course_wildlife.gd`
 
 ---
@@ -10,13 +10,11 @@
 ## Plain English
 
 - **Ducks.** A connected pond can host a family: an adult and two ducklings that swim in a small loop.
-- **Butterflies.** Flower beds and placed flower gardens attract butterflies in daylight, outside winter and when it is not raining.
-- **Fireflies.** Warm-season gardens have fireflies at dusk.
-- **Robins.** A bird bath gets an occasional robin, which dips its head now and then.
-- **Fountains and bird baths.** These have moving droplets and ripples in the basin.
+- **Butterflies.** Wild Flower tiles attract butterflies in daylight, outside winter and when it is not raining.
+- **Fountains.** The fountain has moving droplets and ripples in the basin.
 - **Seasons.** Flower-bed foliage and blooms change with the season. Tropical and resort gardens stay colourful in winter.
 
-These are cosmetic. They do not block shots, cost upkeep, add rating bonuses or change the simulation's randomness. They are not saved. The existing costs, unlocks and aesthetic values of decorations still apply.
+These are cosmetic. They do not block shots, cost upkeep, add rating bonuses or change the simulation's randomness. They are not saved. The existing costs, unlocks and aesthetic values of the improvements still apply.
 
 ---
 
@@ -28,7 +26,7 @@ These are cosmetic. They do not block shots, cost upkeep, add rating bonuses or 
 
 **Duck homes.** A duck home needs at least three cardinal water neighbours. Candidates are sorted by distance to the centre of the playable map, with a stable coordinate tie-break. Up to **12** homes are accepted, spaced at least **5** tiles apart.
 
-**Garden homes.** Flower gardens use the same method, with up to **24** homes spaced at least **2** tiles apart. Placed flower gardens and bird baths also count as garden homes.
+**Garden homes.** Wild Flower tiles use the same method, with up to **24** homes spaced at least **2** tiles apart.
 
 Resident lists do not depend on dictionary order, and they do not use random numbers.
 
@@ -50,10 +48,8 @@ Before drawing, the game checks the current terrain. If the home's water has bee
 
 | Resident | Visible when |
 | --- | --- |
-| Butterflies | 07:00 to 18:00, outside winter, when not raining |
-| Fireflies | 17:30 to 21:00, spring or summer, when not raining |
+| Butterflies | Outside winter, when not raining |
 | Ducks | Shelter during heavy rain |
-| Robin | Leaves the bird bath at 18:00 or when rain starts |
 
 These conditions use the existing weather and season systems.
 
@@ -67,10 +63,9 @@ These conditions use the existing weather and season systems.
 
 ### 5. Decoration atmosphere
 
-`DecorationAtmosphere` attaches to the visual node of a fountain or bird bath, so rebuilding or removing the decoration removes its effect too.
+`DecorationAtmosphere` attaches to the visual node of a fountain, so rebuilding or removing the fountain removes its effect too.
 
 - Fountain droplets fall along a quadratic curve from the jet to the basin. Ripples stay inside the basin.
-- The robin visits a bird bath for **8** seconds of every **16**-second cycle.
 - The course surface uses the same weather lighting, so water, turf and residents match.
 
 ---
@@ -80,7 +75,7 @@ These conditions use the existing weather and season systems.
 | Lever | Location | Current value | Effect |
 | --- | --- | --- | --- |
 | Duck families | `course_wildlife.gd` `MAX_DUCK_FAMILIES` | `12` | Duck population cap |
-| Garden homes | `course_wildlife.gd` `MAX_GARDENS` | `24` | Butterfly and firefly population cap |
+| Garden homes | `course_wildlife.gd` `MAX_GARDENS` | `24` | Butterfly population cap |
 | Duck spacing | `_spaced_homes()` call | `5` tiles | How close duck families can be |
 | Garden spacing | `_spaced_homes()` call | `2` tiles | How close garden homes can be |
 | Habitat refresh | `course_wildlife.gd` | `0.25` s | How often edits are coalesced |
@@ -88,12 +83,11 @@ These conditions use the existing weather and season systems.
 | Duck orbit | `course_wildlife.gd` | `17 × 5.5` px | Keeps the waterline inside its tile |
 | Adult speed | `course_wildlife.gd` | `0.32` rad/s | Speed of the duck family |
 | Duckling trail | `course_wildlife.gd` | `0.65` rad | Spacing of ducklings |
-| Robin cycle | `decoration_atmosphere.gd` | `8` of `16` s | How long the robin stays |
 
 ---
 
 ## Related
 
-- [Garden Catalog](garden-catalog.md) lists the decorations that attract wildlife.
-- [Path Furniture](path-furniture.md) covers how bird baths are placed beside walks.
+- [Improvement Catalog](garden-catalog.md) lists the improvements you can place.
+- [Path Furniture](path-furniture.md) covers how benches and ball washers are placed beside walks.
 - [Weather System](../environment-and-time/weather-system.md) and [Seasonal Calendar](../environment-and-time/seasonal-calendar.md) cover the rules that control visibility.

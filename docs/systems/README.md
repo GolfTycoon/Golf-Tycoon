@@ -35,11 +35,11 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | [Elevation Tools](course-design/elevation-tools.md) | Raising, lowering and smoothing ground |
 | [Multiple Tee Boxes](course-design/multiple-tee-boxes.md) | Forward, middle and back tees |
 | [Stroke Index](course-design/stroke-index.md) | Hole ranking by difficulty |
-| [Garden Catalog](course-design/garden-catalog.md) | Decorations and facilities you can place |
+| [Improvement Catalog](course-design/garden-catalog.md) | Improvements and facilities you can place |
 | [Path Furniture](course-design/path-furniture.md) | Benches, signs and other items beside walks |
 | [Routing Overlay](course-design/routing-overlay.md) | Walking distance between holes |
 | [Course Themes](course-design/course-themes.md) | The ten course themes and their effects |
-| [Course Wildlife](course-design/course-wildlife.md) | Ducks, butterflies, fireflies and robins |
+| [Course Wildlife](course-design/course-wildlife.md) | Ducks, butterflies and fountain spray |
 | [Hole Creation](course-design/hole-creation.md) | Tee boxes, cups and opening a hole |
 | [Buildings on the Grid](course-design/isometric-buildings.md) | How buildings are drawn in isometric view |
 | [Tee Aim Arrow](course-design/tee-aim-arrow.md) | The aiming arrow on each tee |

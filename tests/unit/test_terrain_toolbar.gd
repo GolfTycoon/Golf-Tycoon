@@ -1336,8 +1336,8 @@ func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:
 
 func test_decoration_tiles_use_the_course_tile_design() -> void:
 	var registry := {
-		"rose_border": {"name": "Rose Border", "category": "landscaping", "cost": 120,
-			"daily_upkeep": 3, "description": "Roses for the walks."},
+		"park_bench": {"name": "Park Bench", "category": "furniture", "cost": 80,
+			"daily_upkeep": 0, "description": "A shady seat for the walks."},
 		"fountain": {"name": "Fountain", "category": "water", "cost": 500,
 			"daily_upkeep": 15, "description": "A sparkling water feature.",
 			"unlock": {"type": "reputation", "value": 99}},
@@ -1363,15 +1363,15 @@ func test_decoration_tiles_use_the_course_tile_design() -> void:
 		assert_not_null(button._decoration_art, "Each tile previews the artwork used on the course")
 		assert_false(button.accessibility_description.is_empty())
 
-	var roses: DecorationTileButton = toolbar._decoration_tiles["rose_border"]
-	assert_eq(roses.cost, 120)
-	assert_eq(roses.maintenance, 3, "Daily upkeep reaches the tooltip footer")
-	assert_string_contains(roses.tool_description, "Landscaping")
-	assert_string_contains(roses.tool_description, "Roses for the walks.")
+	var bench: DecorationTileButton = toolbar._decoration_tiles["park_bench"]
+	assert_eq(bench.cost, 80)
+	assert_eq(bench.maintenance, 0, "Daily upkeep reaches the tooltip footer")
+	assert_string_contains(bench.tool_description, "Furniture")
+	assert_string_contains(bench.tool_description, "A shady seat for the walks.")
 
 	watch_signals(toolbar)
-	roses.pressed.emit()
-	assert_signal_emitted_with_parameters(toolbar, "decoration_selected", ["rose_border"])
+	bench.pressed.emit()
+	assert_signal_emitted_with_parameters(toolbar, "decoration_selected", ["park_bench"])
 
 func test_decoration_shelf_keeps_the_garden_shed_category_order() -> void:
 	var registry := {
@@ -1393,13 +1393,13 @@ func test_decoration_shelf_keeps_the_garden_shed_category_order() -> void:
 
 func test_locked_decorations_stay_on_the_shelf_until_earned() -> void:
 	var registry := {
-		"topiary": {"name": "Topiary", "category": "landscaping", "cost": 200, "daily_upkeep": 8},
+		"park_bench": {"name": "Park Bench", "category": "furniture", "cost": 80, "daily_upkeep": 0},
 		"statue": {"name": "Golfer Statue", "category": "sculptures", "cost": 1000,
 			"daily_upkeep": 10, "unlock": {"type": "star_rating", "value": 5}},
 	}
 	toolbar.set_decoration_registry(registry)
 
-	var open_tile: DecorationTileButton = toolbar._decoration_tiles["topiary"]
+	var open_tile: DecorationTileButton = toolbar._decoration_tiles["park_bench"]
 	var locked_tile: DecorationTileButton = toolbar._decoration_tiles["statue"]
 	assert_false(open_tile.disabled, "Decorations without a requirement are selectable")
 	assert_true(locked_tile.disabled, "Locked decorations stay on the shelf, greyed out")
@@ -1445,7 +1445,7 @@ func test_improvements_decorations_fill_the_page_without_overflowing() -> void:
 	var two_rows := tile.y * 1.5 + TerrainToolbar.TILE_V_SEPARATION \
 			+ 2.0 * TerrainToolbar.TILE_V_PADDING
 	assert_almost_eq(toolbar._decoration_shelf.get_combined_minimum_size().y, two_rows, 0.01,
-		"28 decorations plus the path should fill exactly two interlocking rows")
+		"The five remaining decorations plus the path fill exactly two interlocking rows")
 	assert_eq(toolbar._decoration_shelf.columns,
 		ceili(float(registry.size() + TerrainToolbar.IMPROVEMENTS_LEAD_TILES) / 2.0))
 	assert_lte(toolbar.get_combined_minimum_size().y, float(UIConstants.BOTTOM_BAR_HEIGHT),

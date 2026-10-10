@@ -1,6 +1,6 @@
 extends Node2D
 class_name Decoration
-## Decoration - Represents a decorative object on the course (fountain, gazebo, statue, etc.)
+## Decoration - Represents a decorative object on the course (fountain, ball washer, bench, statue, sundial)
 ## Decorations contribute to the Aesthetics rating in CourseRatingSystem.
 
 var grid_position: Vector2i = Vector2i(0, 0)
@@ -27,72 +27,42 @@ signal decoration_destroyed(decoration: Decoration)
 
 ## Sprite textures for decorations that have pixel art assets
 const SPRITE_PATHS: Dictionary = {
-	"flower_garden": "res://assets/sprites/decorations/flower_garden.png",
-	"ornamental_grass": "res://assets/sprites/decorations/ornamental_grass.png",
-	"topiary": "res://assets/sprites/decorations/topiary.png",
 	"fountain": "res://assets/sprites/decorations/fountain.png",
-	"bird_bath": "res://assets/sprites/decorations/bird_bath.png",
-	"gazebo": "res://assets/sprites/decorations/gazebo.png",
-	"course_signage": "res://assets/sprites/decorations/course_signage.png",
 	"ball_washer": "res://assets/sprites/decorations/ball_washer.png",
 	"park_bench": "res://assets/sprites/decorations/park_bench.png",
-	"waste_bin": "res://assets/sprites/decorations/waste_bin.png",
 	"golfer_statue": "res://assets/sprites/decorations/golfer_statue.png",
 	"sundial": "res://assets/sprites/decorations/sundial.png",
 }
 
 ## Sprite foot anchors, measured from the visible base (not the padded canvas).
 const SPRITE_BASE_OFFSETS: Dictionary = {
-	"flower_garden": 29.0, "ornamental_grass": 17.0, "topiary": 20.0,
-	"fountain": 25.0, "bird_bath": 17.0, "gazebo": 27.0,
-	"course_signage": 19.0, "ball_washer": 20.0, "park_bench": 21.0,
-	"waste_bin": 20.0, "golfer_statue": 22.0, "sundial": 20.0,
+	"fountain": 25.0, "ball_washer": 20.0, "park_bench": 21.0,
+	"golfer_statue": 22.0, "sundial": 20.0,
 }
 
 ## Visual dimensions for shadow configuration
 const DECORATION_VISUALS: Dictionary = {
-	"flower_garden": {"visual_height": 16.0, "base_width": 40.0},
-	"ornamental_grass": {"visual_height": 14.0, "base_width": 18.0},
-	"topiary": {"visual_height": 28.0, "base_width": 18.0},
 	"fountain": {"visual_height": 36.0, "base_width": 40.0},
-	"bird_bath": {"visual_height": 20.0, "base_width": 16.0},
-	"gazebo": {"visual_height": 36.0, "base_width": 44.0},
-	"course_signage": {"visual_height": 24.0, "base_width": 10.0},
 	"ball_washer": {"visual_height": 18.0, "base_width": 10.0},
 	"park_bench": {"visual_height": 14.0, "base_width": 22.0},
-	"waste_bin": {"visual_height": 16.0, "base_width": 10.0},
 	"golfer_statue": {"visual_height": 36.0, "base_width": 16.0},
 	"sundial": {"visual_height": 24.0, "base_width": 18.0},
 }
 
 ## Variation parameters per decoration type
 const DECORATION_VARIATION: Dictionary = {
-	"flower_garden": {"scale": Vector2(0.90, 1.10), "rotation": Vector2(-3.0, 3.0), "hue": Vector2(-0.06, 0.06)},
-	"ornamental_grass": {"scale": Vector2(0.85, 1.15), "rotation": Vector2(-8.0, 8.0), "hue": Vector2(-0.04, 0.04)},
-	"topiary": {"scale": Vector2(0.90, 1.10), "rotation": Vector2(-2.0, 2.0), "hue": Vector2(-0.03, 0.03)},
 	"fountain": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(0.0, 0.0), "hue": Vector2(-0.02, 0.02)},
-	"bird_bath": {"scale": Vector2(0.90, 1.10), "rotation": Vector2(-5.0, 5.0), "hue": Vector2(-0.02, 0.02)},
-	"gazebo": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(0.0, 0.0), "hue": Vector2(-0.02, 0.02)},
-	"course_signage": {"scale": Vector2(0.90, 1.10), "rotation": Vector2(-5.0, 5.0), "hue": Vector2(-0.02, 0.02)},
 	"ball_washer": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(-3.0, 3.0), "hue": Vector2(-0.01, 0.01)},
 	"park_bench": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(-3.0, 3.0), "hue": Vector2(-0.02, 0.02)},
-	"waste_bin": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(-5.0, 5.0), "hue": Vector2(-0.02, 0.02)},
 	"golfer_statue": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(0.0, 0.0), "hue": Vector2(-0.01, 0.01)},
 	"sundial": {"scale": Vector2(0.95, 1.05), "rotation": Vector2(-3.0, 3.0), "hue": Vector2(-0.01, 0.01)},
 }
 
 ## Procedural fallback colors per decoration type
 const DECORATION_COLORS: Dictionary = {
-	"flower_garden": Color(0.85, 0.30, 0.45),
-	"ornamental_grass": Color(0.45, 0.60, 0.30),
-	"topiary": Color(0.20, 0.50, 0.20),
 	"fountain": Color(0.50, 0.65, 0.80),
-	"bird_bath": Color(0.65, 0.65, 0.65),
-	"gazebo": Color(0.55, 0.35, 0.20),
-	"course_signage": Color(0.30, 0.50, 0.20),
 	"ball_washer": Color(0.50, 0.50, 0.55),
 	"park_bench": Color(0.45, 0.30, 0.18),
-	"waste_bin": Color(0.35, 0.45, 0.35),
 	"golfer_statue": Color(0.60, 0.50, 0.30),
 	"sundial": Color(0.70, 0.65, 0.55),
 }
@@ -158,7 +128,7 @@ static func visual_variation(type: String, pos: Vector2i) -> PropVariation.Varia
 	return PropVariation.generate_custom_variation(
 		pos,
 		var_params["scale"],
-		var_params["rotation"] if type in ["flower_garden", "ornamental_grass", "topiary"] else Vector2.ZERO,
+		var_params["rotation"],
 		var_params["hue"],
 		Vector2(-0.03, 0.03),  # Saturation
 		Vector2(-0.05, 0.05)   # Value
@@ -246,11 +216,6 @@ func _update_visuals() -> void:
 	_shadow_config = null
 	var layout := PathFurniture.layout(terrain_grid, grid_position, decoration_type)
 	visual.position = layout.offset
-	if GardenArt.has_art(decoration_type):
-		var garden := GardenArt.new()
-		garden.kind = decoration_type
-		visual.add_child(garden)
-		return
 	if PathFurniture.has_art(decoration_type):
 		var furniture := PathFurniture.new()
 		furniture.name = "PathFurniture"
@@ -299,13 +264,12 @@ func _update_visuals() -> void:
 		_draw_procedural(visual, color)
 
 	# Apply scale and rotation variation
-	if decoration_type in ["fountain", "bird_bath"]:
+	if decoration_type == "fountain":
 		var atmosphere := DecorationAtmosphere.new()
 		atmosphere.name = "Atmosphere"
-		atmosphere.kind = decoration_type
 		atmosphere.terrain_grid = terrain_grid
-		# Keep moving details aligned with the newly grounded sprite.
-		atmosphere.position.y = -5.0 if decoration_type == "fountain" else -3.0
+		# Keep the falling beads aligned with the newly grounded sprite.
+		atmosphere.position.y = -5.0
 		visual.add_child(atmosphere)
 
 	if _variation:
@@ -316,8 +280,6 @@ func _update_visuals() -> void:
 func _draw_procedural(visual: Node2D, color: Color) -> void:
 	"""Draw a simple procedural representation based on decoration type"""
 	match category:
-		"landscaping":
-			_draw_landscaping(visual, color)
 		"water":
 			_draw_water_feature(visual, color)
 		"structures":
@@ -330,211 +292,79 @@ func _draw_procedural(visual: Node2D, color: Color) -> void:
 			_draw_generic(visual, color)
 
 
-func _draw_landscaping(visual: Node2D, color: Color) -> void:
-	"""Draw landscaping decorations (flower garden, ornamental grass, topiary)"""
-	if decoration_type == "flower_garden":
-		# Cluster of colorful circles
-		for i in range(5):
-			var flower = Polygon2D.new()
-			var offset = Vector2(
-				(i % 3 - 1) * 10.0,
-				(int(i / 3.0) - 0.5) * 8.0 - 6.0
-			)
-			var flower_color = color
-			if i % 2 == 1:
-				flower_color = Color(color.r * 0.8, color.g * 1.2, color.b * 0.9)
-			flower.color = flower_color
-			flower.polygon = _make_circle_polygon(5.0, 6, offset)
-			visual.add_child(flower)
-		# Green base
-		var base = Polygon2D.new()
-		base.color = Color(0.25, 0.50, 0.20)
-		base.polygon = PackedVector2Array([
-			Vector2(-16, 2), Vector2(-14, -4), Vector2(14, -4), Vector2(16, 2), Vector2(12, 6), Vector2(-12, 6)
-		])
-		visual.add_child(base)
-	elif decoration_type == "topiary":
-		# Sphere on short trunk
-		var trunk = Polygon2D.new()
-		trunk.color = Color(0.35, 0.25, 0.15)
-		trunk.polygon = PackedVector2Array([
-			Vector2(-2, 0), Vector2(2, 0), Vector2(2, 8), Vector2(-2, 8)
-		])
-		visual.add_child(trunk)
-		var sphere = Polygon2D.new()
-		sphere.color = color
-		sphere.polygon = _make_circle_polygon(10.0, 8, Vector2(0, -8))
-		visual.add_child(sphere)
-		# Highlight
-		var highlight = Polygon2D.new()
-		highlight.color = Color(color.r * 1.3, color.g * 1.3, color.b * 1.3)
-		highlight.polygon = _make_circle_polygon(5.0, 6, Vector2(-3, -11))
-		visual.add_child(highlight)
-	else:
-		# Ornamental grass - wispy lines
-		for i in range(4):
-			var blade = Polygon2D.new()
-			blade.color = color
-			var x_off = (i - 1.5) * 5.0
-			blade.polygon = PackedVector2Array([
-				Vector2(x_off - 1, 4), Vector2(x_off + 1, 4),
-				Vector2(x_off + 2 + i, -8 - i * 2), Vector2(x_off + i, -8 - i * 2)
-			])
-			visual.add_child(blade)
-
-
 func _draw_water_feature(visual: Node2D, color: Color) -> void:
-	"""Draw water feature decorations (fountain, bird bath)"""
-	if decoration_type == "fountain":
-		# Basin
-		var basin = Polygon2D.new()
-		basin.color = Color(0.55, 0.55, 0.60)
-		basin.polygon = PackedVector2Array([
-			Vector2(-16, 4), Vector2(-14, -2), Vector2(14, -2), Vector2(16, 4),
-			Vector2(14, 8), Vector2(-14, 8)
-		])
-		visual.add_child(basin)
-		# Water surface
-		var water = Polygon2D.new()
-		water.color = Color(color.r, color.g, color.b, 0.7)
-		water.polygon = PackedVector2Array([
-			Vector2(-12, 2), Vector2(-10, -1), Vector2(10, -1), Vector2(12, 2),
-			Vector2(10, 5), Vector2(-10, 5)
-		])
-		visual.add_child(water)
-		# Center pillar
-		var pillar = Polygon2D.new()
-		pillar.color = Color(0.60, 0.60, 0.65)
-		pillar.polygon = PackedVector2Array([
-			Vector2(-2, 2), Vector2(2, 2), Vector2(2, -14), Vector2(-2, -14)
-		])
-		visual.add_child(pillar)
-		# Water spray highlight
-		var spray = Polygon2D.new()
-		spray.color = Color(0.7, 0.85, 1.0, 0.6)
-		spray.polygon = _make_circle_polygon(4.0, 5, Vector2(0, -16))
-		visual.add_child(spray)
-	else:
-		# Bird bath - small bowl on pedestal
-		var pedestal = Polygon2D.new()
-		pedestal.color = Color(0.55, 0.55, 0.55)
-		pedestal.polygon = PackedVector2Array([
-			Vector2(-3, 4), Vector2(3, 4), Vector2(2, -4), Vector2(-2, -4)
-		])
-		visual.add_child(pedestal)
-		var bowl = Polygon2D.new()
-		bowl.color = Color(0.60, 0.60, 0.65)
-		bowl.polygon = PackedVector2Array([
-			Vector2(-8, -4), Vector2(-6, -8), Vector2(6, -8), Vector2(8, -4)
-		])
-		visual.add_child(bowl)
-		var water = Polygon2D.new()
-		water.color = Color(color.r, color.g, color.b, 0.5)
-		water.polygon = PackedVector2Array([
-			Vector2(-6, -5), Vector2(-4, -7), Vector2(4, -7), Vector2(6, -5)
-		])
-		visual.add_child(water)
+	"""Draw the fountain: a basin, a water surface, a pillar and its spray"""
+	# Basin
+	var basin = Polygon2D.new()
+	basin.color = Color(0.55, 0.55, 0.60)
+	basin.polygon = PackedVector2Array([
+		Vector2(-16, 4), Vector2(-14, -2), Vector2(14, -2), Vector2(16, 4),
+		Vector2(14, 8), Vector2(-14, 8)
+	])
+	visual.add_child(basin)
+	# Water surface
+	var water = Polygon2D.new()
+	water.color = Color(color.r, color.g, color.b, 0.7)
+	water.polygon = PackedVector2Array([
+		Vector2(-12, 2), Vector2(-10, -1), Vector2(10, -1), Vector2(12, 2),
+		Vector2(10, 5), Vector2(-10, 5)
+	])
+	visual.add_child(water)
+	# Center pillar
+	var pillar = Polygon2D.new()
+	pillar.color = Color(0.60, 0.60, 0.65)
+	pillar.polygon = PackedVector2Array([
+		Vector2(-2, 2), Vector2(2, 2), Vector2(2, -14), Vector2(-2, -14)
+	])
+	visual.add_child(pillar)
+	# Water spray highlight
+	var spray = Polygon2D.new()
+	spray.color = Color(0.7, 0.85, 1.0, 0.6)
+	spray.polygon = _make_circle_polygon(4.0, 5, Vector2(0, -16))
+	visual.add_child(spray)
 
 
 func _draw_structure(visual: Node2D, color: Color) -> void:
-	"""Draw structure decorations (gazebo, signage, ball washer)"""
-	if decoration_type == "gazebo":
-		# Roof
-		var roof = Polygon2D.new()
-		roof.color = Color(0.45, 0.25, 0.15)
-		roof.polygon = PackedVector2Array([
-			Vector2(0, -24), Vector2(-18, -10), Vector2(-16, -8),
-			Vector2(0, -20), Vector2(16, -8), Vector2(18, -10)
-		])
-		visual.add_child(roof)
-		# Posts
-		for x_off in [-12, 12]:
-			var post = Polygon2D.new()
-			post.color = color
-			post.polygon = PackedVector2Array([
-				Vector2(x_off - 1, -8), Vector2(x_off + 1, -8),
-				Vector2(x_off + 1, 6), Vector2(x_off - 1, 6)
-			])
-			visual.add_child(post)
-		# Base platform
-		var base = Polygon2D.new()
-		base.color = Color(0.60, 0.55, 0.45)
-		base.polygon = PackedVector2Array([
-			Vector2(-16, 6), Vector2(16, 6), Vector2(14, 10), Vector2(-14, 10)
-		])
-		visual.add_child(base)
-	elif decoration_type == "course_signage":
-		# Sign post
-		var post = Polygon2D.new()
-		post.color = Color(0.40, 0.30, 0.18)
-		post.polygon = PackedVector2Array([
-			Vector2(-1, 4), Vector2(1, 4), Vector2(1, -10), Vector2(-1, -10)
-		])
-		visual.add_child(post)
-		# Sign board
-		var board = Polygon2D.new()
-		board.color = color
-		board.polygon = PackedVector2Array([
-			Vector2(-8, -10), Vector2(8, -10), Vector2(8, -18), Vector2(-8, -18)
-		])
-		visual.add_child(board)
-	else:
-		# Ball washer - small post with mechanism
-		var post = Polygon2D.new()
-		post.color = Color(0.40, 0.40, 0.45)
-		post.polygon = PackedVector2Array([
-			Vector2(-1, 4), Vector2(1, 4), Vector2(1, -6), Vector2(-1, -6)
-		])
-		visual.add_child(post)
-		var washer = Polygon2D.new()
-		washer.color = color
-		washer.polygon = PackedVector2Array([
-			Vector2(-4, -6), Vector2(4, -6), Vector2(4, -12), Vector2(-4, -12)
-		])
-		visual.add_child(washer)
+	"""Draw the ball washer: a small post with its mechanism"""
+	var post = Polygon2D.new()
+	post.color = Color(0.40, 0.40, 0.45)
+	post.polygon = PackedVector2Array([
+		Vector2(-1, 4), Vector2(1, 4), Vector2(1, -6), Vector2(-1, -6)
+	])
+	visual.add_child(post)
+	var washer = Polygon2D.new()
+	washer.color = color
+	washer.polygon = PackedVector2Array([
+		Vector2(-4, -6), Vector2(4, -6), Vector2(4, -12), Vector2(-4, -12)
+	])
+	visual.add_child(washer)
 
 
 func _draw_furniture(visual: Node2D, color: Color) -> void:
-	"""Draw furniture decorations (park bench, waste bin)"""
-	if decoration_type == "park_bench":
-		# Bench seat
-		var seat = Polygon2D.new()
-		seat.color = color
-		seat.polygon = PackedVector2Array([
-			Vector2(-12, 0), Vector2(12, 0), Vector2(12, 3), Vector2(-12, 3)
+	"""Draw the park bench: a seat, a back rest and its legs"""
+	# Bench seat
+	var seat = Polygon2D.new()
+	seat.color = color
+	seat.polygon = PackedVector2Array([
+		Vector2(-12, 0), Vector2(12, 0), Vector2(12, 3), Vector2(-12, 3)
+	])
+	visual.add_child(seat)
+	# Back rest
+	var back = Polygon2D.new()
+	back.color = Color(color.r * 0.85, color.g * 0.85, color.b * 0.85)
+	back.polygon = PackedVector2Array([
+		Vector2(-12, 0), Vector2(12, 0), Vector2(12, -6), Vector2(-12, -6)
+	])
+	visual.add_child(back)
+	# Legs
+	for x_off in [-10, 10]:
+		var leg = Polygon2D.new()
+		leg.color = Color(0.30, 0.30, 0.30)
+		leg.polygon = PackedVector2Array([
+			Vector2(x_off - 1, 3), Vector2(x_off + 1, 3),
+			Vector2(x_off + 1, 7), Vector2(x_off - 1, 7)
 		])
-		visual.add_child(seat)
-		# Back rest
-		var back = Polygon2D.new()
-		back.color = Color(color.r * 0.85, color.g * 0.85, color.b * 0.85)
-		back.polygon = PackedVector2Array([
-			Vector2(-12, 0), Vector2(12, 0), Vector2(12, -6), Vector2(-12, -6)
-		])
-		visual.add_child(back)
-		# Legs
-		for x_off in [-10, 10]:
-			var leg = Polygon2D.new()
-			leg.color = Color(0.30, 0.30, 0.30)
-			leg.polygon = PackedVector2Array([
-				Vector2(x_off - 1, 3), Vector2(x_off + 1, 3),
-				Vector2(x_off + 1, 7), Vector2(x_off - 1, 7)
-			])
-			visual.add_child(leg)
-	else:
-		# Waste bin - cylindrical shape
-		var body = Polygon2D.new()
-		body.color = color
-		body.polygon = PackedVector2Array([
-			Vector2(-5, -8), Vector2(5, -8), Vector2(6, 4), Vector2(-6, 4)
-		])
-		visual.add_child(body)
-		# Lid
-		var lid = Polygon2D.new()
-		lid.color = Color(color.r * 1.2, color.g * 1.2, color.b * 1.2)
-		lid.polygon = PackedVector2Array([
-			Vector2(-6, -10), Vector2(6, -10), Vector2(5, -8), Vector2(-5, -8)
-		])
-		visual.add_child(lid)
+		visual.add_child(leg)
 
 
 func _draw_sculpture(visual: Node2D, color: Color) -> void:

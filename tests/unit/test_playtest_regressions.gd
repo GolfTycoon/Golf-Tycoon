@@ -50,13 +50,16 @@ func test_loading_blocks_rewards_even_when_event_is_received() -> void:
 	assert_false(manager.milestones[0].is_completed)
 	manager.free()
 
-func test_expanded_catalog_has_valid_services_and_shared_garden_art() -> void:
+func test_catalog_has_valid_services_and_artwork() -> void:
 	var buildings: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json")).buildings
 	var decorations: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json")).decorations
 	assert_eq(buildings.size(), 16)
-	assert_eq(decorations.size(), 28)
-	for type in GardenArt.KINDS:
+	# The Improvements tab keeps the path, the ball washer, the park bench, the
+	# fountain, the golfer statue and the sundial.
+	assert_eq(decorations.size(), 5)
+	for type in ["ball_washer", "park_bench", "fountain", "golfer_statue", "sundial"]:
 		assert_true(decorations.has(type), type)
+		assert_true(DecorationTileArt.has_art(type), "%s has catalogue artwork" % type)
 	for type in buildings:
 		var item: Dictionary = buildings[type]
 		if item.has("needs_service"):

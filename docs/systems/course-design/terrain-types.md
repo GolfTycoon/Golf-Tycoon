@@ -16,7 +16,7 @@
 | Top | Tee Box, Green, Bunker, Rough, Pot Bunker, Stream, Water, Out of Bounds |
 | Bottom | Fairway, Firm Fairway, Deep Rough, Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders |
 
-The woodland tiles follow, and their number depends on the theme. **Open Hole** is a small cell nestled between the Tee Box and Green tiles. Its ring is gold when a tee and a cup are waiting to be paired, and grey when they are not. The Bulldozer is not a course tool. It lives on the Improvements and Buildings tabs, and it removes paths, decorations and buildings, never course terrain. The Path is an improvement, shown on the Improvements tab (see [Garden Catalog](garden-catalog.md)).
+The woodland tiles follow, and their number depends on the theme. **Open Hole** is a small cell nestled between the Tee Box and Green tiles. Its ring is gold when a tee and a cup are waiting to be paired, and grey when they are not. The Bulldozer is not a course tool. It lives on the Improvements and Buildings tabs, and it removes paths, decorations and buildings, never course terrain. The Path is an improvement, shown on the Improvements tab (see [Improvement Catalog](garden-catalog.md)).
 
 **Natural grass.** Natural Grass is only the blank canvas a fresh grid starts from. Terrain generation turns it into Rough, the zero-upkeep base turf of generated courses. Heavy Rough, the woodland tiles and Empty are placed by generation. The stony grounds and tree species are ordinary painted tiles, so generation can scatter them like any other zero-upkeep terrain. A tree is simply a tile, not a separate object.
 

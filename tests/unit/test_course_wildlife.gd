@@ -66,19 +66,15 @@ func test_season_and_weather_control_visitors() -> void:
 	assert_false(CourseWildlife.butterflies_active(SeasonSystem.Season.SPRING, true))
 	assert_true(CourseWildlife.butterflies_active(SeasonSystem.Season.FALL, false))
 
-func test_placed_and_removed_garden_updates_visitors() -> void:
-	var entities := EntityLayer.new()
-	entities.map_seed = 9123
-	add_child_autofree(entities)
-	entities.set_terrain_grid(grid)
-	GameManager.entity_layer = entities
-	var registry: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json"))["decorations"]
+func test_painting_and_clearing_wild_flowers_updates_visitors() -> void:
+	# Wild Flowers are the only garden habitat now that the ornamental
+	# decorations have left the Improvements tab.
 	var pos := Vector2i(8, 8)
-	entities.place_decoration("flower_garden", pos, registry)
-	assert_true(grid._wildlife._habitats_dirty, "Placement invalidates the habitat cache")
+	grid.set_tile(pos, TerrainTypes.Type.FLOWER_BED)
+	assert_true(grid._wildlife._habitats_dirty, "Painting flowers invalidates the habitat cache")
 	grid._wildlife._process(0.3 * Engine.time_scale)
-	assert_true(grid._wildlife._garden_homes.has(pos))
-	entities.remove_decoration(pos)
-	assert_true(grid._wildlife._habitats_dirty, "Removal invalidates the habitat cache")
+	assert_true(grid._wildlife._garden_homes.has(pos), "Wild Flowers attract a garden resident")
+	grid.set_tile(pos, TerrainTypes.Type.GRASS)
+	assert_true(grid._wildlife._habitats_dirty, "Paving the bed over invalidates the habitat cache")
 	grid._wildlife._process(0.3 * Engine.time_scale)
 	assert_false(grid._wildlife._garden_homes.has(pos))

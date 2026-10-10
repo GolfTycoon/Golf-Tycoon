@@ -1,8 +1,7 @@
 extends Node2D
 class_name DecorationAtmosphere
-## Animated details attached to existing decorative sprites; no simulation effects.
+## Animated water details attached to the fountain sprite; no simulation effects.
 
-var kind := ""
 var terrain_grid: TerrainGrid
 var _time := 0.0
 var _redraw_elapsed := 0.0
@@ -20,11 +19,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if terrain_grid and not terrain_grid.get_visible_world_rect().grow(64).has_point(global_position):
 		return
-	var phase := _time + global_position.x * 0.017
-	if kind == "fountain":
-		_draw_fountain(phase)
-	elif kind == "bird_bath":
-		_draw_bird_bath(phase)
+	_draw_fountain(_time + global_position.x * 0.017)
 
 func _draw_fountain(phase: float) -> void:
 	var water := Color(0.78, 0.94, 1.0, 0.65)
@@ -40,22 +35,3 @@ func _draw_fountain(phase: float) -> void:
 	draw_arc(Vector2.ZERO, 5.0 + ripple * 15.0, 0, TAU, 20,
 		Color(0.85, 0.97, 1.0, (1.0 - ripple) * 0.55), 1.0)
 	draw_set_transform(Vector2.ZERO)
-
-func _draw_bird_bath(phase: float) -> void:
-	var weather := GameManager.weather_system
-	# Only rain keeps the birds from the bird bath now.
-	if is_instance_valid(weather) and weather.is_raining():
-		return
-	var visit := fposmod(phase, 16.0)
-	if visit > 8.0:
-		return
-	# A little robin pauses on the lip, dips its head, then leaves between visits.
-	var p := Vector2(10.0, -23.0)
-	var dip := maxf(0.0, sin(visit * 2.4)) * 3.0
-	draw_line(p + Vector2(0, 4), p + Vector2(0, 7), Color("655140"), 1.0)
-	draw_colored_polygon(PackedVector2Array([p + Vector2(2, 0), p + Vector2(8, -2), p + Vector2(4, 3)]), Color("746858"))
-	draw_circle(p, 4.0, Color("81775f"))
-	draw_circle(p + Vector2(-1, 1), 2.5, Color("d88653"))
-	draw_circle(p + Vector2(-3, -3 + dip), 2.5, Color("9a8868"))
-	draw_line(p + Vector2(-4, -2 + dip), p + Vector2(-7, -1 + dip), Color("ddb86e"), 1.0)
-	draw_circle(p + Vector2(-4, -3 + dip), 0.65, Color("282f29"))

@@ -399,8 +399,13 @@ func deserialize(data: Dictionary) -> void:
 				var dec_type = ""
 				if dec_data_saved is Dictionary:
 					dec_type = dec_data_saved.get("type", "")
-				if not dec_type.is_empty() and not decoration_registry.is_empty():
-					place_decoration(dec_type, pos, decoration_registry)
+				if dec_type.is_empty() or not decoration_registry.has(dec_type):
+					# A save from before an improvement left the catalogue simply
+					# drops it, instead of logging an error per vanished item.
+					if not dec_type.is_empty():
+						push_warning("Skipping saved decoration not in the catalogue: %s" % dec_type)
+					continue
+				place_decoration(dec_type, pos, decoration_registry)
 
 func _on_building_selected(building: Building) -> void:
 	building_selected.emit(building)

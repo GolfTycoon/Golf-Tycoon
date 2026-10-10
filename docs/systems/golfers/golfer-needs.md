@@ -46,13 +46,13 @@ Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoi
 
 ### Amenities
 
-Nearby park benches, picnic tables and patio tables restore energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
+A nearby park bench restores energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
 
 ### Physical amenity visits and traffic
 
 Normal turns within a golfer's own group no longer drain pace. The golfer manager marks a group as traffic-blocked only when its next player is ready but an earlier group prevents a safe shot. Those waiting seconds reduce pace; normal play restores pace at 0.0008 per simulation second. A marshal reduces the effective waiting penalty by the ratio `0.6 / staff_pace_modifier` (20% reduction with one marshal).
 
-A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Benches, picnic tables and patio tables use the same visit path for rest. Service counts and income are recorded separately from green fees.
+A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Park benches use the same visit path for rest. Service counts and income are recorded separately from green fees.
 
 The golfer panel converts accumulated waiting seconds to game-clock minutes using `seconds * 60 / SECONDS_PER_GAME_HOUR`. Raw playtest `traffic_minutes` telemetry remains simulation seconds divided by 60; it is not wall time at accelerated speed.
 
@@ -188,4 +188,4 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 - [Golfer Spawning](golfer-spawning.md) covers who arrives.
 - [Satisfaction and Feedback](satisfaction-feedback.md) turns needs into thoughts and ratings.
 - [Staff and Weeds](../economy-and-land/staff-and-weeds.md) covers the staff who serve golfers.
-- [Garden Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.
+- [Improvement Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.

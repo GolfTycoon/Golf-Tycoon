@@ -176,9 +176,9 @@ func _run() -> void:
 	# ------------------------------------------------------------------
 	var deco_pos := Vector2i(48, 62)
 	_prep(deco_pos, TerrainTypes.Type.GRASS)
-	main.entity_layer.place_decoration("topiary", deco_pos, main.decoration_registry)
+	main.entity_layer.place_decoration("park_bench", deco_pos, main.decoration_registry)
 	await _frames(2)
-	_check(main.entity_layer.get_decoration_at(deco_pos) != null, "topiary placed")
+	_check(main.entity_layer.get_decoration_at(deco_pos) != null, "bench placed")
 	money = GameManager.money  # re-snapshot: the day simulation keeps earning
 	main._handle_bulldozer_click(deco_pos)
 	await _frames(2)

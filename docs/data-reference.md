@@ -12,7 +12,7 @@
 | File | Entries | Read at runtime | What it holds |
 | --- | --- | --- | --- |
 | `data/buildings.json` | 16, keyed by id | Yes | Facilities: size, cost, daily operating cost, upgrades, and whether the facility is required |
-| `data/decorations.json` | 28, keyed by id | Yes | Decorations: category, size, cost, upkeep, aesthetic value, allowed terrain, theme bonuses |
+| `data/decorations.json` | 5, keyed by id | Yes | Improvements: category, size, cost, upkeep, aesthetic value, allowed terrain, theme bonuses |
 | `data/terrain_types.json` | 33 | No | Mirror of terrain ids, names, `playable`, `placement_cost` and `blocks_shots`, for tools |
 | `data/golfer_traits.json` | Two sections | No | `golfer_archetypes` and `mood_states`. No runtime code reads them. |
 | `data/visiting_golfers/<location>.json` | 27 files | Yes | Visiting golfers for each World Map location |
@@ -33,22 +33,23 @@
 
 The clubhouse is the only required building. See [Clubhouse](systems/course-design/clubhouse.md).
 
-## Decorations
+## Improvements
 
-`decorations.json` is an object keyed by decoration id. Each entry has:
+`decorations.json` is an object keyed by improvement id (the ball washer, park
+bench, fountain, golfer statue and sundial). Each entry has:
 
 | Field | Meaning |
 | --- | --- |
-| `category` | Group, such as `landscaping` |
+| `category` | Group: `water`, `structures`, `furniture` or `sculptures` |
 | `size` | Footprint in tiles |
 | `cost`, `daily_upkeep` | Build cost and daily upkeep |
 | `aesthetics_value` | Contribution to the aesthetics rating |
-| `placeable_terrain` | Terrain the decoration can be placed on |
+| `placeable_terrain` | Terrain the improvement can be placed on |
 | `unlock` | Requirement to unlock it, if any |
 | `theme_bonus` | Themes that get a bonus from it |
 | `description` | Short text shown in the catalogue |
 
-See [Garden Catalog](systems/course-design/garden-catalog.md).
+See [Improvement Catalog](systems/course-design/garden-catalog.md).
 
 ## Terrain
 

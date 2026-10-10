@@ -95,6 +95,6 @@ A storey is about 20 to 30 pixels, and a door is 14 to 17 pixels. Windows sit on
 ## Related
 
 - [Clubhouse](clubhouse.md) covers the one building that is always present.
-- [Garden Catalog](garden-catalog.md) lists all facilities and decorations.
+- [Improvement Catalog](garden-catalog.md) lists all facilities and improvements.
 - [Course Architecture](course-character.md) covers landforms and the redraw timer.
 - [Path Furniture](path-furniture.md) covers the bench exception.
