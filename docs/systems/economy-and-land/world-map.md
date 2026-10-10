@@ -86,7 +86,7 @@ The globe is drawn in two layers. Splitting the drawing keeps it smooth and chea
 
 ### 6. Generated first course
 
-What a new site starts with depends on **Generated Holes** on the Start New Game screen.
+What a new site starts with depends on **Generated Holes** on the Start New Game screen. Quick Start uses 3 generated holes and buys a random affordable location (`WorldMap.pick_random_affordable_location()`), so it starts playing at once.
 
 | Holes | Layout | Par |
 | --- | --- | --- |

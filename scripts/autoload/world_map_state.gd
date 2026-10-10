@@ -62,7 +62,16 @@ func _ready() -> void:
 		# run (legacy flows and tests start a course directly).
 		new_world(default_options())
 
-## The options Quick Start uses, and the fallback for a legacy game start.
+## Generated holes Quick Start lays out on its first course.
+const QUICK_START_HOLES: int = 3
+
+## The options Quick Start uses: the defaults, with a 3-hole generated course.
+static func quick_start_options() -> Dictionary:
+	var options := default_options()
+	options["generated_holes"] = QUICK_START_HOLES
+	return options
+
+## The fallback options for a legacy game start.
 static func default_options() -> Dictionary:
 	return {
 		"company_name": WorldLocations.random_company_name(),
@@ -223,6 +232,23 @@ func buy_location(location_id: String) -> bool:
 		get_unlocked_parcels(location_id).size()], "success")
 	location_purchased.emit(location_id)
 	return true
+
+## Pick a random location the company can afford right now (not yet owned).
+## Returns its id, or an empty string when nothing is affordable.
+func pick_random_affordable_location(rng_seed: int = -1) -> String:
+	var affordable: Array[String] = []
+	for def in WorldLocations.get_all():
+		var id := str(def["id"])
+		if not is_owned(id) and can_afford(id):
+			affordable.append(id)
+	if affordable.is_empty():
+		return ""
+	var rng := RandomNumberGenerator.new()
+	if rng_seed >= 0:
+		rng.seed = rng_seed
+	else:
+		rng.randomize()
+	return affordable[rng.randi_range(0, affordable.size() - 1)]
 
 ## The location currently being played, or an empty dictionary.
 func get_active_location() -> Dictionary:

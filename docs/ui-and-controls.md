@@ -11,7 +11,7 @@
 
 - **Main menu.** Headed by the game logo (`assets/ui/logo.png`). Start New Game, Quick Start, Continue, Load Game, Settings and Quit.
 - **Start New Game.** Company name (or roll for a random one), difficulty (Easy, Normal or Hard), starting money ($100K, $150K, $200K or Unlimited), generated holes, and the Weather, Wind and Seasons options.
-- **Quick Start.** Jumps to the World Map with the defaults.
+- **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features on, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
 - **World Map.** A spinning globe with a pin for each destination, a list of locations, Buy and Play, and Reset World. See [World Map](systems/economy-and-land/world-map.md).
 - **Pause menu.** Resume, Settings, Save and Quit. The camera still moves while paused.
 - **Settings.** Display, audio and gameplay options.

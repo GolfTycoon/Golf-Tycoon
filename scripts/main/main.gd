@@ -710,11 +710,19 @@ func _on_menu_start_new_game() -> void:
 	_set_gameplay_ui_visible(false)
 
 ## Quick Start: the agreed defaults (random company name, Normal, $100,000,
-## 0 generated holes, every feature on) and straight to the world map.
+## 3 generated holes, every feature on), then a random location the company can
+## afford is bought and its course is started straight away.
 func _on_menu_quick_start() -> void:
 	_hide_main_menu()
-	WorldMap.new_world(WorldMapStateScript.default_options())
-	_show_world_map_screen(true)
+	WorldMap.new_world(WorldMapStateScript.quick_start_options())
+	var location_id := WorldMap.pick_random_affordable_location()
+	if location_id.is_empty() or not WorldMap.buy_location(location_id):
+		# Nothing affordable (or the purchase failed): let the player choose.
+		EventBus.notify("No location is affordable right now. Choose one on the World Map.", "info")
+		_show_world_map_screen(true)
+		return
+	WorldMap.set_active_location(location_id)
+	_start_new_course_at_location(location_id, true)
 
 func _on_menu_continue(save_name: String) -> void:
 	if save_name.is_empty():
