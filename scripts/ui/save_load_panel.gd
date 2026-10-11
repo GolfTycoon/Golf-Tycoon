@@ -208,14 +208,14 @@ func _build_header(mode: int) -> Control:
 	_header_title = _label("", 20 if compact else 28, COLOR_TEXT)
 	_header_title.name = "Title"
 	title_row.add_child(_header_title)
-	var subtitle_size := 10 if compact else 13
-	_header_subtitle = _label("", subtitle_size, COLOR_MUTED)
-	_header_subtitle.name = "Subtitle"
-	_header_subtitle.text = "A little care now makes it easy to pick up the perfect round later."
-	_header_subtitle.visible = not compact
 	title_box.add_child(kicker)
 	title_box.add_child(title_row)
+	# The compact arrangements have no room for the subtitle, so it is only
+	# built where it is shown: a label left out of the tree is never freed.
 	if not compact:
+		_header_subtitle = _label("A little care now makes it easy to pick up the perfect round later.",
+			13, COLOR_MUTED)
+		_header_subtitle.name = "Subtitle"
 		title_box.add_child(_header_subtitle)
 	header.add_child(title_box)
 

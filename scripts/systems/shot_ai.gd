@@ -426,6 +426,12 @@ static func _evaluate_all_candidates(
 	var distance_to_hole: float = Vector2(ball_pos).distance_to(Vector2(hole_position))
 	var direction_to_hole: Vector2 = Vector2(hole_position - ball_pos).normalized()
 	var candidates: Array = []
+	# Thousands of samples below round to a few hundred landing tiles. Within one
+	# decision a tile's landing score depends on nothing but the tile, and its
+	# miss risk on nothing but the tile and the club, so each is worked out once
+	# and reused: the same scores, a fraction of the work.
+	var zone_scores: Dictionary = {}
+	var miss_risks: Dictionary = {}
 
 	# --- Build candidate club list ---
 	var club_list: Array = _get_candidate_clubs(gd, distance_to_hole, target_distance)
@@ -509,15 +515,21 @@ static func _evaluate_all_candidates(
 							aim_point = test_pos
 
 					# --- Score the landing zone ---
-					var score: float = _score_landing_zone(
+					var score: float = _cached_landing_score(zone_scores,
 						gd, ball_pos, wind_adjusted_landing, hole_position,
 						terrain_grid, club, shots_remaining
 					)
 
 					# --- Risk analysis: sample miss distribution against hazards ---
-					var risk_penalty: float = _assess_miss_risk(
-						gd, ball_pos, wind_adjusted_landing, terrain_grid, club
-					)
+					var risk_key := Vector3i(wind_adjusted_landing.x, wind_adjusted_landing.y, club)
+					var risk_penalty: float
+					if miss_risks.has(risk_key):
+						risk_penalty = miss_risks[risk_key]
+					else:
+						risk_penalty = _assess_miss_risk(
+							gd, ball_pos, wind_adjusted_landing, terrain_grid, club
+						)
+						miss_risks[risk_key] = risk_penalty
 					score -= risk_penalty
 
 					# --- Club accuracy preference for approach shots ---
@@ -592,7 +604,7 @@ static func _evaluate_all_candidates(
 									aim_point = test_pos
 
 							# Score landing zone but skip risk analysis (just finding fairway)
-							var score: float = _score_landing_zone(
+							var score: float = _cached_landing_score(zone_scores,
 								gd, ball_pos, wind_adjusted_landing, hole_position,
 								terrain_grid, club, shots_remaining
 							)
@@ -648,6 +660,19 @@ static func _get_candidate_clubs(gd: GolferData, distance_to_hole: float, target
 # ============================================================================
 
 ## Score a landing zone considering terrain, distance, next-shot setup, and personality.
+## _score_landing_zone(), remembered in `scores` by landing tile: within one
+## decision the score depends on nothing else (the club does not enter into it).
+static func _cached_landing_score(scores: Dictionary,
+	gd: GolferData, ball_pos: Vector2i, landing: Vector2i,
+	hole_position: Vector2i, terrain_grid: TerrainGrid,
+	club: int, shots_remaining: int
+) -> float:
+	if scores.has(landing):
+		return scores[landing]
+	var score := _score_landing_zone(gd, ball_pos, landing, hole_position, terrain_grid, club, shots_remaining)
+	scores[landing] = score
+	return score
+
 static func _score_landing_zone(
 	gd: GolferData, ball_pos: Vector2i, landing: Vector2i,
 	hole_position: Vector2i, terrain_grid: TerrainGrid,

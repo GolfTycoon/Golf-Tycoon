@@ -222,13 +222,39 @@ func _draw() -> void:
 		for cmd in tile_draw_commands(pos, _upgraded_tiles.has(pos), not _is_web):
 			match cmd.kind:
 				"polygon":
-					draw_colored_polygon(cmd.points, cmd.color)
+					_draw_outline(cmd.points, cmd.color)
 				"line":
 					draw_line(cmd.a, cmd.b, cmd.color, cmd.width)
 				"polyline":
 					draw_polyline(cmd.points, cmd.color, cmd.width)
 				"circle":
 					draw_circle(cmd.center, cmd.radius, cmd.color)
+
+## Fill one projected outline. Every outline is convex in tile units (a band,
+## a taper or a pad), but sculpted ground lifts its corners by different heights,
+## and on a steep enough slope the projected outline folds over itself. The
+## engine cannot triangulate a folded polygon (draw_colored_polygon() then draws
+## nothing and logs an error), so such an outline is filled as the fan of
+## triangles it is made of in tile units instead.
+func _draw_outline(points: PackedVector2Array, color: Color) -> void:
+	var indices := triangulate_outline(points)
+	if indices.is_empty():
+		return
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, points,
+			PackedColorArray([color]))
+
+## Triangle indices that fill `points`: the engine's own triangulation where it
+## succeeds, otherwise the fan from the first point (exact for the convex tile-
+## unit outlines this overlay draws). Empty for fewer than three points.
+static func triangulate_outline(points: PackedVector2Array) -> PackedInt32Array:
+	if points.size() < 3:
+		return PackedInt32Array()
+	var indices := Geometry2D.triangulate_polygon(points)
+	if not indices.is_empty():
+		return indices
+	for i in range(1, points.size() - 1):
+		indices.append_array([0, i, i + 1])
+	return indices
 
 # =============================================================================
 # Geometry — computed outside the draw cycle so it can be unit-tested.

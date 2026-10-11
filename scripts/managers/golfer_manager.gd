@@ -32,6 +32,12 @@ var _groups_dirty: bool = true  # Rebuild groups when golfers are added/removed
 ## True while clear_all_golfers() empties the course (see _on_golfer_left_course).
 var _clearing_golfers: bool = false
 
+## Bumped by clear_all_golfers(). Work that waits between steps — a group still
+## arriving one golfer at a time, a finished group about to be taken off — checks
+## it after each wait and stops if the course was emptied meanwhile (a new game or
+## a load), so it never reaches into the next course.
+var _course_generation: int = 0
+
 ## Throttle visual offset recalculation (O(n²) distance checks)
 var _visual_offset_timer: float = 0.0
 const VISUAL_OFFSET_INTERVAL: float = 0.2  # Recalculate every 200ms
@@ -1006,15 +1012,20 @@ func spawn_initial_group() -> void:
 
 	print("New group %d: %d golfers (Fee: $%d)" % [new_group_id, group_size, GameManager.green_fee])
 
+	var generation := _course_generation
 	for i in range(group_size):
 		# Try the location's visiting golfer pool first.
 		var visitor := spawn_visiting_golfer(new_group_id)
 		if visitor == null:
 			spawn_random_golfer(new_group_id)
+		if i == group_size - 1:
+			break
 		# Small delay between spawns in the same group
 		# (Timer-node delay: a pending SceneTreeTimer await would leak at quit.)
 		await Delay.seconds(self, 0.5)
-		if not is_instance_valid(self):
+		# The course was emptied while the group was arriving (a new game or a
+		# load): the rest of the group belongs to a course that no longer exists.
+		if not is_instance_valid(self) or generation != _course_generation:
 			return
 
 func _select_weighted_group_size() -> int:
@@ -1174,20 +1185,29 @@ func _on_golfer_left_course(golfer_id: int) -> void:
 	var golfer := get_golfer(golfer_id)
 	if golfer == null or golfer.is_owner_round:
 		return
-	var group_id := golfer.group_id
-	var group: Array[Golfer] = []
+	for member in active_golfers:
+		if member.group_id == golfer.group_id and member.current_state != Golfer.State.FINISHED:
+			return  # Somebody is still walking home; wait for them
+	_remove_group_after_a_moment(golfer.group_id)
+
+## Take a group that has left off the course, a moment later so players can see
+## it finish. The wait holds nothing but numbers: an object (or a typed array of
+## golfers) held across an await would leak if the manager were freed before
+## the wait ended — quitting, or a test tearing the course down.
+func _remove_group_after_a_moment(group_id: int) -> void:
+	var generation := _course_generation
+	# Timer-node delay: a pending SceneTreeTimer await would leak at quit.
+	await Delay.seconds(self, 1.0)
+	# A save/load or a new game emptied the course meanwhile: golfer ids restart
+	# from zero there, so removing by id now could take a newcomer off instead.
+	if not is_instance_valid(self) or generation != _course_generation:
+		return
+	var leaving: Array[int] = []
 	for member in active_golfers:
 		if member.group_id == group_id:
-			group.append(member)
-			if member.current_state != Golfer.State.FINISHED:
-				return  # Somebody is still walking home; wait for them
-	# Wait a moment so players can see the group finish
-	# (Timer-node delay: a pending SceneTreeTimer await would leak at quit.)
-	await Delay.seconds(self, 1.0)
-	# Remove all golfers in the group (check validity — golfers may have been freed by a save/load)
-	for member in group:
-		if is_instance_valid(member):
-			remove_golfer(member.golfer_id)
+			leaving.append(member.golfer_id)
+	for leaving_id in leaving:
+		remove_golfer(leaving_id)
 
 ## Get all active golfers
 func get_active_golfers() -> Array[Golfer]:
@@ -1210,6 +1230,7 @@ func clear_all_golfers() -> void:
 	# watches golfers still hears about each one leaving, but the group-removal
 	# handler must not fire for golfers that are already on their way out.
 	_clearing_golfers = true
+	_course_generation += 1
 	for golfer in active_golfers:
 		EventBus.golfer_left_course.emit(golfer.golfer_id)
 		golfer.queue_free()

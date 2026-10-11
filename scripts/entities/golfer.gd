@@ -331,6 +331,8 @@ signal golfer_selected(golfer: Golfer)
 ## The swing coroutine awaits this node signal instead of `tween.finished`
 ## so a pending swing at quit can't leak the Tween instance.
 signal _swing_anim_done
+## Fired when a swing animation that had to wait ends (see _swing_pending).
+signal _swing_finished
 
 func _ready() -> void:
 	# Set up collision layers
@@ -971,6 +973,12 @@ func _process_preparing_shot(delta: float) -> void:
 		_take_ai_shot()
 
 var swing_animation_playing: bool = false
+## True while _play_swing_animation() waits for its animation to end; it emits
+## _swing_finished when it does. A shot waits on that signal rather than
+## awaiting the swing coroutine itself: a coroutine awaiting another one leaks
+## its suspended frame when the golfer is freed mid-swing (a load, a new game,
+## quitting).
+var _swing_pending: bool = false
 
 func _process_swinging(_delta: float) -> void:
 	# Play swing animation once
@@ -990,6 +998,7 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 		var anim = "swing_%s" % _current_direction
 		if _animated_sprite.sprite_frames.has_animation(anim):
 			_animated_sprite.play(anim)
+			_swing_pending = true
 			await _animated_sprite.animation_finished
 			if not is_instance_valid(self):
 				return
@@ -998,13 +1007,16 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 			if _animated_sprite.sprite_frames.has_animation(idle_anim):
 				_animated_sprite.play(idle_anim)
 			swing_animation_playing = false
+			_end_swing_wait()
 			return
 		else:
 			# No swing sprite — just pause briefly as placeholder
+			_swing_pending = true
 			await Delay.seconds(self, 0.5)
 			if not is_instance_valid(self):
 				return
 			swing_animation_playing = false
+			_end_swing_wait()
 			return
 
 	if not arms:
@@ -1018,10 +1030,18 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 	# holds a Tween reference — that would leak the Tween instance if the
 	# game quits mid-swing. Completion is relayed through the node signal.
 	_start_swing_tween(is_putt)
+	_swing_pending = true
 	await _swing_anim_done
 	if not is_instance_valid(self):
 		return
 	swing_animation_playing = false
+	_end_swing_wait()
+
+
+## The swing has ended: release the shot waiting on it (see _swing_pending).
+func _end_swing_wait() -> void:
+	_swing_pending = false
+	_swing_finished.emit()
 
 
 ## Build and start the procedural swing tween.
@@ -1550,8 +1570,11 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 	var current_terrain = terrain_grid.get_tile(terrain_check_pos) if terrain_grid else -1
 	var is_putt = current_terrain == TerrainTypes.Type.GREEN
 
-	# Play swing animation before the ball leaves
-	await _play_swing_animation(is_putt)
+	# Play swing animation before the ball leaves (waiting on its signal, not
+	# on the coroutine: see _swing_pending).
+	_play_swing_animation(is_putt)
+	if _swing_pending:
+		await _swing_finished
 	if not is_instance_valid(self):
 		return
 
@@ -1705,7 +1728,16 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 	_change_state(State.WATCHING)
 	var flight_time = _estimate_flight_duration(shot_result.distance)
 	var rollout_time = _estimate_rollout_duration(shot_result.get("rollout_tiles", 0.0))
-	await Delay.seconds(self, flight_time + rollout_time + 0.5)
+	_watch_ball_then_walk(flight_time + rollout_time + 0.5, ball_holed, previous_position)
+
+
+## Watch the ball for `watch_seconds`, take any hazard penalty, then walk to it.
+## A coroutine of its own that waits holding nothing but plain values: the
+## shot's hole data and results, held across these waits by take_shot_precise(),
+## would leak if the golfer were freed while watching (a load, a new game,
+## quitting).
+func _watch_ball_then_walk(watch_seconds: float, ball_holed: bool, previous_position: Vector2i) -> void:
+	await Delay.seconds(self, watch_seconds)
 	if not is_instance_valid(self):
 		return
 

@@ -432,7 +432,9 @@ func refresh_all_overlays() -> void:
 	if _tee_aim_overlay:
 		_tee_aim_overlay.rebuild()
 	if _heightmap:
-		_heightmap.rebuild_from_grids(self)
+		# Deferred to the next frame's flush: a run of generation passes that
+		# each refresh the overlays rebuilds the texture once.
+		_heightmap.request_rebuild(self)
 	if _shot_heatmap_overlay:
 		_shot_heatmap_overlay.queue_redraw()
 	queue_redraw()
@@ -945,8 +947,9 @@ func _setup_elevation_shader() -> void:
 	_heightmap.initialize(self)
 	tile_changed.connect(_on_tile_changed_heightmap)
 
-	# Build initial heightmap from current grid state
-	_heightmap.rebuild_from_grids(self)
+	# Build initial heightmap from current grid state (at the first flush, so a
+	# grid that is regenerated straight away is only built once).
+	_heightmap.request_rebuild(self)
 
 func _on_tile_changed_heightmap(pos: Vector2i, _old: int, _new_type: int) -> void:
 	if _heightmap:
@@ -1406,7 +1409,7 @@ func _after_elevation_bulk_load() -> void:
 		_elevation_overlay.invalidate()
 		_elevation_overlay.queue_redraw()
 	if _heightmap:
-		_heightmap.rebuild_from_grids(self)
+		_heightmap.request_rebuild(self)
 
 func deserialize_bunker_depth(data: Dictionary) -> void:
 	_bunker_depth_grid.clear()

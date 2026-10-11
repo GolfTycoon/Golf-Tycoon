@@ -23,18 +23,23 @@ func _init(p_hole_data: GameManager.HoleData, p_terrain_grid: TerrainGrid) -> vo
 	_build_ui()
 
 func _ready() -> void:
-	# Style the panel background
+	# The style is built in a function of its own: a local still alive across
+	# the await below would leak if the menu were freed before it resumes.
+	add_theme_stylebox_override("panel", _panel_style())
+
+	# Clear the just_opened flag after one frame so clicks can close the menu
+	await get_tree().process_frame
+	_just_opened = false
+
+## The panel background.
+func _panel_style() -> StyleBoxFlat:
 	var panel_style = StyleBoxFlat.new()
 	panel_style.bg_color = UIConstants.COLOR_BG_PANEL
 	panel_style.set_border_width_all(1)
 	panel_style.border_color = UIConstants.COLOR_BORDER
 	panel_style.set_corner_radius_all(6)
 	panel_style.set_content_margin_all(8)
-	add_theme_stylebox_override("panel", panel_style)
-
-	# Clear the just_opened flag after one frame so clicks can close the menu
-	await get_tree().process_frame
-	_just_opened = false
+	return panel_style
 
 func _input(event: InputEvent) -> void:
 	if _just_opened:
