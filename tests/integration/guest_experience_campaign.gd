@@ -37,7 +37,7 @@ func run() -> void:
 				var hole = gm.current_course.holes[hn-1]
 				buy_near("park_bench",hole.tee_position,true)
 			buy_near("snack_bar",gm.current_course.holes[3].tee_position)
-			buy_near("restroom",gm.current_course.holes[5].tee_position)
+			buy_near("pro_shop",gm.current_course.holes[5].tee_position)
 			gm.staff_manager.hire_staff(gm.staff_manager.StaffType.GROUNDSKEEPER)
 			gm.staff_manager.hire_staff(gm.staff_manager.StaffType.MARSHAL)
 		# Hold weather steady to make operational changes easier to interpret.

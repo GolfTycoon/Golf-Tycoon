@@ -50,7 +50,7 @@
 | 3 | Tee or cup surface | A hole's tee is not a tee box, or its cup is not a green. The first hole that fails stops the loop. | "Finish hole N": restore a tee box and putting green | Locate |
 | 4 | Direct corridor | Less than **65%** of the tee-to-green corridor is short turf (fairway, firm fairway, green or tee box), sampled 3 tiles wide | "Improve hole N's landing area" for the worst hole | Locate |
 | 5 | Course value | Golfer value rating below **2.8 / 5** | "Review your green fee" | — |
-| 6 | Food service | A hole 4 or later has no snack bar, restaurant or clubhouse within reach of its tee | "Add a refreshment stop near hole N" | Locate |
+| 6 | Food service | A hole 4 or later has no snack bar, pub or clubhouse within reach of its tee | "Add a refreshment stop near hole N" | Locate |
 | 7 | Operating loss | Operating costs above zero and profit below zero | "Close the operating gap" | Finance |
 | 8 | Aesthetics | Aesthetics rating below **2.5 / 5** | "Give the course a sense of place" | — |
 | — | Nothing flagged | None of the above | "Watch a round before expanding" | — |

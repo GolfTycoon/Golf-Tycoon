@@ -19,7 +19,7 @@ Three things use the same drawing code, so they always match:
 
 Comparing the picture with the footprint under the cursor shows the same geometry, only at a different scale.
 
-Buildings used to be pixel-art sprites. Those assets have been removed. Window glow, lit windows and chimney smoke are now part of the drawing. A bench is the only exception: it is a ground fixture, so it uses [Path Furniture](path-furniture.md).
+Buildings used to be pixel-art sprites. Those assets have been removed. Window glow, lit windows and chimney smoke are now part of the drawing. The park bench is not a building at all: it is a ground fixture on the Improvements tab, drawn by [Path Furniture](path-furniture.md).
 
 ---
 
@@ -66,18 +66,21 @@ A storey is about 20 to 30 pixels, and a door is 14 to 17 pixels. Windows sit on
 | Building | Distinguishing features |
 | --- | --- |
 | Clubhouse | Paved terrace, stone plinth, hipped roof, chimney, entrance canopy. Tier 2 adds a front range. Tier 3 adds a storey and a clock tower. |
+| Putting Green | Manicured practice green, fringe, cup with a flag, stray practice balls |
+| Snack Bar | Serving hatch, striped awning, menu board |
+| Pub | Stone inn with a smoking chimney, hanging sign, barrel by the door |
 | Pro Shop | Display window with merchandise, striped awning, bag stand |
-| Restaurant | Lit windows with flower boxes, awning, chimney with smoke, terrace table |
-| Snack Bar | Serving hatch, menu board, cup badge |
 | Driving Range | A row of covered bays with padded dividers and ball baskets |
-| Cart Shed | Open bays with parked carts, roof vent, wheel stops |
-| Restroom | Two labelled doors, trellis and roses |
-| Conservatory | Glazed, mullioned walls and a glass lantern roof |
-| Tea Pavilion | Corner posts holding a wide shade roof, tea tables |
-| Garden Spa | Bathing pool ringed by loungers |
-| Golf Academy | Teaching bays with netting and a sign board |
-| Locker Room | Twin doors, club rack, benches |
-| Coffee House, Halfway House, Ice Cream Kiosk | A counter, a striped awning, and a landmark: a chimney, a scoop sign or a steam cup |
+| Cart Garage | Open bays with parked carts, roof vent, wheel stops |
+| Tennis Court | Blue hard court, white lines, net across the middle, corner fence posts |
+| Stable | Timber barn with split doors, hay-loft hatch, paddock fence |
+| Spa | Treatment hut beside a bathing pool ringed by loungers |
+| Swim Club | Changing hut beside a bright pool with a diving board and ladder |
+| Resort Hotel | Low-rise block with storey lines, guest-room windows and an entrance canopy |
+| Airstrip | Tarmac strip with a dashed centreline, windsock and a parked light plane |
+| Castle | Stone keep with crenellated walls and corner towers, gate and pennant |
+| Casino | Wide hall with glowing windows, a marquee of chasing lights, flanking palms |
+| Theme Park | A turning ferris wheel over a midway, striped ticket tent |
 
 ---
 

@@ -120,26 +120,24 @@ static func wall_colour(kind_name: String) -> Color:
 			return Color("e7dbb7")
 		"pro_shop":
 			return Color("e3dcc0")
-		"restaurant":
-			return Color("efdcbb")
 		"snack_bar":
 			return Color("f0e2c0")
-		"driving_range", "cart_shed":
+		"pub":
+			return Color("e2cda6")
+		"driving_range", "cart_garage":
 			return Color("dccfa8")
-		"restroom":
-			return Color("e6e0cc")
-		"conservatory":
-			return Color("d8e2cf")
-		"tea_pavilion":
-			return Color("f1e7c6")
-		"garden_spa":
+		"spa":
 			return Color("efe3c6")
-		"golf_academy":
-			return Color("e4d9b8")
-		"ice_cream_kiosk":
-			return Color("f4e6c8")
-		"coffee_house", "halfway_house":
-			return Color("e9d8b4")
+		"stable":
+			return Color("c9a276")
+		"swim_club":
+			return Color("f1e7c6")
+		"resort_hotel":
+			return Color("ead9b8")
+		"casino":
+			return Color("e8d3ac")
+		"castle":
+			return Color("b9b3a0")
 		_:
 			return Color("e3d7b4")
 
@@ -147,32 +145,26 @@ static func roof_colour(kind_name: String, tier: int) -> Color:
 	match kind_name:
 		"clubhouse":
 			return [Color("a8543f"), Color("8a5a3c"), Color("6b6f74")][clampi(tier, 1, 3) - 1]
-		"restaurant":
-			return Color("7d5a4b")
 		"pro_shop":
 			return Color("4e6b53")
 		"snack_bar":
 			return Color("8c5b48")
-		"cart_shed", "driving_range":
+		"pub":
+			return Color("6d4a3c")
+		"cart_garage", "driving_range":
 			return Color("526a49")
-		"restroom":
-			return Color("4d6273")
-		"conservatory":
-			return Color("7fa596")
-		"tea_pavilion":
-			return Color("587966")
-		"garden_spa":
+		"spa":
 			return Color("7d6a86")
-		"golf_academy":
-			return Color("5c6f57")
-		"coffee_house":
-			return Color("6d5a48")
-		"halfway_house":
-			return Color("77604a")
-		"locker_room":
-			return Color("5a6b80")
-		"ice_cream_kiosk":
-			return Color("b8707a")
+		"stable":
+			return Color("8c5a44")
+		"swim_club":
+			return Color("4d8a93")
+		"resort_hotel":
+			return Color("7d5a4b")
+		"casino":
+			return Color("5c4a6e")
+		"castle":
+			return Color("8a8577")
 		_:
 			return Color("7a5f4b")
 
@@ -619,28 +611,36 @@ static func draw_building(c: CanvasItem, kind_name: String, size: Vector2, tier 
 	match kind_name:
 		"clubhouse":
 			draw_clubhouse(sk, size, clampi(tier, 1, 3), time, gloomy)
+		"putting_green":
+			draw_putting_green(sk, size)
 		"pro_shop":
 			draw_pro_shop(sk, size, gloomy)
-		"restaurant":
-			draw_restaurant(sk, size, time, gloomy)
 		"snack_bar":
 			draw_snack_bar(sk, size, gloomy)
+		"pub":
+			draw_pub(sk, size, time, gloomy)
 		"driving_range":
 			draw_driving_range(sk, size, gloomy)
-		"cart_shed":
-			draw_cart_shed(sk, size, gloomy)
-		"restroom":
-			draw_restroom(sk, size, gloomy)
-		"conservatory":
-			draw_conservatory(sk, size, gloomy)
-		"tea_pavilion":
-			draw_tea_pavilion(sk, size, gloomy)
-		"garden_spa":
-			draw_garden_spa(sk, size, gloomy)
-		"golf_academy":
-			draw_golf_academy(sk, size, gloomy)
-		"locker_room":
-			draw_locker_room(sk, size, gloomy)
+		"cart_garage":
+			draw_cart_garage(sk, size, gloomy)
+		"tennis_court":
+			draw_tennis_court(sk, size)
+		"stable":
+			draw_stable(sk, size, gloomy)
+		"spa":
+			draw_spa(sk, size, gloomy)
+		"swim_club":
+			draw_swim_club(sk, size, gloomy)
+		"resort_hotel":
+			draw_resort_hotel(sk, size, gloomy)
+		"airstrip":
+			draw_airstrip(sk, size, time)
+		"castle":
+			draw_castle(sk, size, time, gloomy)
+		"casino":
+			draw_casino(sk, size, time, gloomy)
+		"theme_park":
+			draw_theme_park(sk, size, time, gloomy)
 		_:
 			draw_kiosk(sk, kind_name, size, time, gloomy)
 	return sk.extent
@@ -893,36 +893,6 @@ static func draw_pro_shop(sk: Sketch, size: Vector2, gloomy: bool) -> void:
 	sk.climbing_roses("v", rect.end.x, rect.position.y + 0.35, 20.0)
 
 
-static func draw_restaurant(sk: Sketch, size: Vector2, _time: float, gloomy: bool) -> void:
-	var wall := wall_colour("restaurant")
-	var roof := roof_colour("restaurant", 1)
-	var rect := _hall(sk, size, 28.0, 14.0, wall, roof, 0.36)
-	var v := rect.end.y
-	var u := rect.end.x
-	sk.window_at("u", v, rect.position.x + rect.size.x * 0.26, 7.0, 0.5, 12.0, gloomy)
-	sk.window_at("u", v, rect.position.x + rect.size.x * 0.74, 7.0, 0.5, 12.0, gloomy)
-	sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 7.0, 0.5, 12.0, gloomy)
-	sk.flower_box("u", v, rect.position.x + rect.size.x * 0.26, 5.0, 0.36)
-	sk.flower_box("u", v, rect.position.x + rect.size.x * 0.74, 5.0, 0.36)
-	sk.door_at("u", v, u - 0.5, 0.46, 17.0, gloomy)
-	sk.doorstep(u - 0.5, v)
-	# Awning over the dining windows, chimney with a plume of smoke.
-	sk.awning(rect.position.x + 0.06, u - 0.86, v, 22.5, Color("38583e"), Color("e1c98f"),
-		0.34, 4.0, 0.14, false)
-	sk.face([Vector3(u - 0.32, v + 0.05, 23.0), Vector3(u + 0.32, v + 0.05, 23.0),
-		Vector3(u + 0.32, v + 0.05, 27.0), Vector3(u - 0.32, v + 0.05, 27.0)], Color("38583e"))
-	sk.edge(Vector3(u - 0.20, v + 0.06, 25.0), Vector3(u - 0.06, v + 0.06, 25.0), Color("e1c98f"), 1.0)
-	sk.edge(Vector3(u + 0.06, v + 0.06, 25.0), Vector3(u + 0.20, v + 0.06, 25.0), Color("e1c98f"), 1.0)
-	sk.lantern("u", v, u - 0.72, 17.0, gloomy)
-	_planter(sk, rect.position.x + 0.30, v + 0.16)
-	_planter(sk, u - 0.20, v + 0.20)
-	# Table and chairs on the terrace corner.
-	sk.box(Rect2(rect.position.x + 0.02, v + 0.30, 0.26, 0.26), 2.0, 9.0, Color("e8dabc"))
-	for side in [-1.0, 1.0]:
-		sk.edge(Vector3(rect.position.x + 0.15 + side * 0.24, v + 0.43, 2.0),
-			Vector3(rect.position.x + 0.15 + side * 0.24, v + 0.43, 7.0), Color("8c6847"), 2.0)
-
-
 static func draw_snack_bar(sk: Sketch, size: Vector2, _gloomy: bool) -> void:
 	var wall := wall_colour("snack_bar")
 	var roof := roof_colour("snack_bar", 1)
@@ -982,9 +952,9 @@ static func draw_driving_range(sk: Sketch, size: Vector2, gloomy: bool) -> void:
 	sk.disc(Vector3(mid, v + 0.07, 20.0), 1.8, Color("eee4bf"))
 
 
-static func draw_cart_shed(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var wall := wall_colour("cart_shed")
-	var roof := roof_colour("cart_shed", 1)
+static func draw_cart_garage(sk: Sketch, size: Vector2, gloomy: bool) -> void:
+	var wall := wall_colour("cart_garage")
+	var roof := roof_colour("cart_garage", 1)
 	var tiles := tiles_of(size)
 	var rect := Rect2(0.34, 0.4, tiles.x - 0.68, tiles.y - 0.8)
 	sk.plinth(rect, 0.0, 2.0, Color("b6ad87"))
@@ -1011,83 +981,9 @@ static func draw_cart_shed(sk: Sketch, size: Vector2, gloomy: bool) -> void:
 	_golf_bag(sk, rect.position.x + 0.02, v + 0.14)
 
 
-static func draw_restroom(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var wall := wall_colour("restroom")
-	var roof := roof_colour("restroom", 1)
-	var tiles := tiles_of(size)
-	var rect := Rect2(0.17, 0.17, tiles.x - 0.34, tiles.y - 0.34)
-	sk.plinth(rect, 0.0, 2.0, Color("b6ad87"))
-	sk.walls(rect, 2.0, 21.0, wall)
-	sk.hip_roof(Rect2(rect.position - Vector2(0.12, 0.12), rect.size + Vector2(0.24, 0.24)),
-		21.0, 12.0, roof, 0.2)
-	var v := rect.end.y
-	var u := rect.end.x
-	# Two doors, apiece with a small sign, and a trellis on the side wall.
-	for side in [-0.22, 0.22]:
-		sk.door_at("u", v, (rect.position.x + u) * 0.5 + side, 0.26, 14.0, gloomy, 0.0, "4e6b58")
-		sk.disc(Vector3((rect.position.x + u) * 0.5 + side, v + 0.06, 17.0), 1.6, Color("eee1bf"))
-	sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 8.0, 0.3, 6.0, gloomy)
-	for i in range(4):
-		sk.edge(Vector3(u, v - 0.1 - i * 0.1, 3.0), Vector3(u, v - 0.1 - i * 0.1, 15.0),
-			Color("a3946e"), 1.0)
-	sk.climbing_roses("u", rect.position.y, rect.position.x + 0.2, 16.0)
-
-
-static func draw_conservatory(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var tiles := tiles_of(size)
-	var rect := Rect2(0.34, 0.34, tiles.x - 0.68, tiles.y - 0.68)
-	sk.plinth(rect, 0.0, 2.5, Color("b6ad87"))
-	# A glasshouse: mullioned walls, a light frame and a glazed lantern roof.
-	sk.walls(rect, 2.5, 22.0, Color("9dc0b2"))
-	var v := rect.end.y
-	var u := rect.end.x
-	for i in range(1, 6):
-		var z := 2.5 + i * 3.4
-		sk.edge(Vector3(rect.position.x, v + 0.02, z), Vector3(u, v + 0.02, z), Color("e7dfbb"), 1.0)
-	for i in range(1, 5):
-		var along := rect.position.x + rect.size.x * i / 5.0
-		sk.edge(Vector3(along, v + 0.02, 2.5), Vector3(along, v + 0.02, 22.0), Color("e7dfbb"), 2.0)
-	for i in range(1, 4):
-		var along_v := rect.position.y + rect.size.y * i / 4.0
-		sk.edge(Vector3(u + 0.02, along_v, 2.5), Vector3(u + 0.02, along_v, 22.0), Color("e7dfbb"), 2.0)
-	sk.face([Vector3(rect.position.x, v + 0.03, 6.0), Vector3(rect.position.x + 0.3, v + 0.03, 6.0),
-		Vector3(rect.position.x + 0.3, v + 0.03, 18.0), Vector3(rect.position.x, v + 0.03, 18.0)],
-		Color("3e6957"))
-	sk.window_at("u", v, rect.position.x + rect.size.x * 0.7, 7.0, 0.36, 10.0, gloomy)
-	sk.hip_roof(Rect2(rect.position - Vector2(0.16, 0.16), rect.size + Vector2(0.32, 0.32)),
-		22.0, 13.0, roof_colour("conservatory", 1), 0.55)
-	for i in range(3):
-		sk.edge(Vector3(rect.position.x, v - 0.16, 22.0 + i * 2.0),
-			Vector3(u, v - 0.16, 22.0 + i * 2.0), Color("cfe0d2"), 1.0)
-	sk.lantern("u", v, rect.position.x + 0.18, 19.0, gloomy)
-
-
-static func draw_tea_pavilion(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var wall := wall_colour("tea_pavilion")
-	var roof := roof_colour("tea_pavilion", 1)
-	var tiles := tiles_of(size)
-	var rect := Rect2(0.36, 0.36, tiles.x - 0.72, tiles.y - 0.72)
-	sk.plinth(rect, 0.0, 2.5, Color("b6ad87"))
-	sk.walls(rect, 2.5, 22.0, wall)
-	sk.hip_roof(Rect2(rect.position - Vector2(0.2, 0.2), rect.size + Vector2(0.4, 0.4)),
-		22.0, 12.0, roof, 0.45)
-	# A wide shade roof carried on corner posts, tea tables underneath.
-	var v := rect.end.y
-	var u := rect.end.x
-	for corner in [[rect.position.x - 0.2, v + 0.2], [u + 0.2, v + 0.2],
-			[rect.position.x - 0.2, rect.position.y - 0.2], [u + 0.2, rect.position.y - 0.2]]:
-		sk.post(corner[0], corner[1], 2.5, 22.0, "ece0bd")
-	sk.door_at("u", v, (rect.position.x + u) * 0.5, 0.42, 15.0, gloomy)
-	for side in [-0.5, 0.5]:
-		sk.box(Rect2((rect.position.x + u) * 0.5 + side - 0.16, v + 0.22, 0.32, 0.22),
-			2.5, 8.0, Color("b0855c"))
-	sk.climbing_roses("v", u, rect.position.y + 0.3, 19.0)
-	sk.lantern("u", v, rect.position.x + 0.22, 19.0, gloomy)
-
-
-static func draw_garden_spa(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var wall := wall_colour("garden_spa")
-	var roof := roof_colour("garden_spa", 1)
+static func draw_spa(sk: Sketch, size: Vector2, gloomy: bool) -> void:
+	var wall := wall_colour("spa")
+	var roof := roof_colour("spa", 1)
 	var tiles := tiles_of(size)
 	var rect := Rect2(0.34, 0.34, tiles.x - 0.68, tiles.y * 0.52)
 	sk.plinth(rect, 0.0, 2.5, Color("b6ad87"))
@@ -1107,58 +1003,399 @@ static func draw_garden_spa(sk: Sketch, size: Vector2, gloomy: bool) -> void:
 	sk.lantern("v", rect.end.x, rect.end.y - 0.3, 18.0, gloomy)
 
 
-static func draw_golf_academy(sk: Sketch, size: Vector2, _gloomy: bool) -> void:
-	var wall := wall_colour("golf_academy")
-	var roof := roof_colour("golf_academy", 1)
+static func draw_putting_green(sk: Sketch, size: Vector2) -> void:
+	## A manicured practice green: fringe, a brighter putting surface, the cup
+	## with its flag, and a few balls that never stop one short.
 	var tiles := tiles_of(size)
-	var rect := Rect2(0.3, 0.4, tiles.x - 0.6, tiles.y - 0.8)
-	sk.plinth(rect, 0.0, 2.5, Color("b6ad87"))
-	sk.walls(rect, 2.5, 21.0, wall)
-	sk.hip_roof(Rect2(rect.position - Vector2(0.22, 0.18), rect.size + Vector2(0.44, 0.36)),
-		21.0, 11.0, roof, 0.6)
-	# Teaching bays with netting, a sign and a bag stand.
-	var v := rect.end.y
-	var count := 3
-	for i in range(count):
-		var u0 := rect.position.x + 0.14 + i * ((rect.size.x - 0.28) / count)
-		var u1 := u0 + (rect.size.x - 0.28) / count - 0.08
-		sk.bay(u0, u1, v, 16.0, "527b49")
-		sk.post(u0, v, 2.5, 16.0, "f0e3bf")
-		sk.post(u1, v, 2.5, 16.0, "f0e3bf")
-		sk.edge(Vector3((u0 + u1) * 0.5, v + 0.06, 3.0), Vector3((u0 + u1) * 0.5, v + 0.06, 15.0),
-			Color("a0b39a"), 1.0)
-		sk.disc(Vector3((u0 + u1) * 0.5, v + 0.07, 4.0), 1.6, Color("faf0d0"))
-	sk.face([Vector3(rect.position.x + 0.06, v + 0.05, 18.0), Vector3(rect.position.x + 0.62, v + 0.05, 18.0),
-		Vector3(rect.position.x + 0.62, v + 0.05, 24.0), Vector3(rect.position.x + 0.06, v + 0.05, 24.0)],
-		Color("31563e"))
-	sk.face([Vector3(rect.position.x + 0.1, v + 0.06, 19.0), Vector3(rect.position.x + 0.58, v + 0.06, 19.0),
-		Vector3(rect.position.x + 0.58, v + 0.06, 23.0), Vector3(rect.position.x + 0.1, v + 0.06, 23.0)],
-		Color("e6d9b5"))
-	_golf_bag(sk, rect.end.x - 0.06, v + 0.16)
+	sk.contact_shadow(Rect2(0.14, 0.14, tiles.x - 0.28, tiles.y - 0.28))
+	sk.terrace(Rect2(0.1, 0.1, tiles.x - 0.2, tiles.y - 0.2), 1.6,
+		Color("8fbf5f"), Color("6f9d4c"))
+	var green := Rect2(0.32, 0.32, tiles.x - 0.64, tiles.y - 0.64)
+	sk.slab(green, 2.2, Color("a6d957"))
+	sk.slab(green.grow(-0.1), 2.4, Color("b4e26a"))
+	# The cup and its flag.
+	var cu := lerpf(green.position.x, green.end.x, 0.62)
+	var cv := lerpf(green.position.y, green.end.y, 0.42)
+	sk.disc(Vector3(cu, cv, 2.6), 2.6, Color("2f4d33"))
+	sk.edge(Vector3(cu, cv, 2.6), Vector3(cu, cv, 27.0), Color("e8dabc"), 1.5)
+	sk.face([Vector3(cu, cv, 27.0), Vector3(cu + 0.42, cv + 0.1, 24.6),
+		Vector3(cu, cv, 21.5)], Color("d65f5f"))
+	# Practice balls lying about the surface.
+	for ball in [Vector3(green.position.x + 0.35, green.end.y - 0.3, 3.0),
+			Vector3(green.position.x + 0.6, green.position.y + 0.35, 3.0),
+			Vector3(green.end.x - 0.4, green.end.y - 0.42, 3.0)]:
+		sk.disc(ball, 1.6, Color("f6f2df"))
 
 
-static func draw_locker_room(sk: Sketch, size: Vector2, gloomy: bool) -> void:
-	var wall := wall_colour("locker_room")
-	var roof := roof_colour("locker_room", 1)
-	var rect := _hall(sk, size, 23.0, 10.0, wall, roof, 0.36)
+static func draw_pub(sk: Sketch, size: Vector2, time: float, gloomy: bool) -> void:
+	## The links answer to the snack bar: a stone inn with warm windows, a
+	## smoking chimney, a hanging sign and a barrel by the door.
+	var wall := wall_colour("pub")
+	var roof := roof_colour("pub", 1)
+	var rect := _hall(sk, size, 27.0, 13.0, wall, roof, 0.36)
 	var v := rect.end.y
 	var u := rect.end.x
-	sk.door_at("u", v, (rect.position.x + u) * 0.5 - 0.2, 0.4, 14.0, gloomy)
-	sk.door_at("u", v, (rect.position.x + u) * 0.5 + 0.4, 0.4, 14.0, gloomy)
-	sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 7.0, 0.32, 8.0, gloomy)
-	# A pair of benches under the veranda, and a club rack outside.
-	for side in [-0.6, 0.35]:
-		sk.box(Rect2((rect.position.x + u) * 0.5 + side, v + 0.2, 0.44, 0.16), 2.5, 5.0,
-			Color("b98956"))
-	for i in range(3):
-		sk.edge(Vector3(rect.position.x + 0.16 + i * 0.07, v + 0.24, 2.5),
-			Vector3(rect.position.x + 0.16 + i * 0.07, v + 0.24, 14.0), Color("a6b4ab"), 1.0)
-	sk.lantern("u", v, u - 0.3, 13.0, gloomy)
+	sk.window_at("u", v, rect.position.x + rect.size.x * 0.28, 7.0, 0.4, 11.0, gloomy)
+	sk.window_at("u", v, rect.position.x + rect.size.x * 0.72, 7.0, 0.4, 11.0, gloomy)
+	sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 7.0, 0.36, 10.0, gloomy)
+	sk.door_at("u", v, u - 0.5, 0.46, 17.0, gloomy)
+	sk.doorstep(u - 0.5, v)
+	# Timber lintel band over the frontage, the way a coaching inn wears it.
+	sk.face([Vector3(rect.position.x + 0.05, v + 0.04, 20.0), Vector3(u - 0.05, v + 0.04, 20.0),
+		Vector3(u - 0.05, v + 0.04, 22.5), Vector3(rect.position.x + 0.05, v + 0.04, 22.5)],
+		Color("6d4a3c"))
+	# The chimney smokes; the sign swings; the barrel waits by the door.
+	sk.box(Rect2(rect.position.x + 0.18, rect.position.y + 0.18, 0.26, 0.26), 27.0, 41.0,
+		Color("8c6852"))
+	sk.smoke(rect.position.x + 0.31, rect.position.y + 0.31, 41.0, time)
+	sk.edge(Vector3(u - 1.06, v + 0.08, 19.0), Vector3(u - 0.62, v + 0.08, 19.0),
+		Color("5a4632"), 2.0)
+	sk.face([Vector3(u - 1.0, v + 0.09, 12.5), Vector3(u - 0.68, v + 0.09, 12.5),
+		Vector3(u - 0.68, v + 0.09, 18.5), Vector3(u - 1.0, v + 0.09, 18.5)], Color("3f5c3a"))
+	sk.disc(Vector3(u - 0.84, v + 0.1, 15.5), 1.9, Color("e3c26e"))
+	sk.box(Rect2(u - 0.3, v + 0.12, 0.22, 0.22), 2.0, 9.5, Color("8c5f42"))
+	sk.lantern("u", v, u - 1.22, 16.5, gloomy)
 
 
-static func draw_kiosk(sk: Sketch, kind_name: String, size: Vector2, time: float, gloomy: bool) -> void:
-	## Coffee house, halfway house and ice-cream kiosk: one small hut with a
-	## counter, an awning and whatever landmark the kind is known for.
+static func draw_tennis_court(sk: Sketch, size: Vector2) -> void:
+	## A hard court with its white lines, a net across the middle and fence
+	## posts at the corners.
+	var tiles := tiles_of(size)
+	sk.contact_shadow(Rect2(0.12, 0.18, tiles.x - 0.24, tiles.y - 0.36))
+	sk.terrace(Rect2(0.08, 0.14, tiles.x - 0.16, tiles.y - 0.28), 1.4,
+		Color("5f8a55"), Color("4c7245"))
+	var court := Rect2(0.26, 0.3, tiles.x - 0.52, tiles.y - 0.6)
+	sk.slab(court, 2.0, Color("4f7fb0"))
+	sk.slab(court.grow(-0.06), 2.1, Color("5a8cbe"))
+	# White boundary and centre service lines.
+	var z := 2.3
+	var line := Color("f2efe2")
+	sk.edge(Vector3(court.position.x + 0.06, court.position.y + 0.06, z),
+		Vector3(court.end.x - 0.06, court.position.y + 0.06, z), line, 1.5)
+	sk.edge(Vector3(court.position.x + 0.06, court.end.y - 0.06, z),
+		Vector3(court.end.x - 0.06, court.end.y - 0.06, z), line, 1.5)
+	sk.edge(Vector3(court.position.x + 0.06, court.position.y + 0.06, z),
+		Vector3(court.position.x + 0.06, court.end.y - 0.06, z), line, 1.5)
+	sk.edge(Vector3(court.end.x - 0.06, court.position.y + 0.06, z),
+		Vector3(court.end.x - 0.06, court.end.y - 0.06, z), line, 1.5)
+	var mid_u := (court.position.x + court.end.x) * 0.5
+	sk.edge(Vector3(mid_u, court.position.y + 0.06, z),
+		Vector3(mid_u, court.end.y - 0.06, z), line, 1.0)
+	# The net: posts either side and a pale mesh between them.
+	sk.post(mid_u, court.position.y + 0.04, 2.0, 12.0, "e8dbb7")
+	sk.post(mid_u, court.end.y - 0.04, 2.0, 12.0, "e8dbb7")
+	sk.face([Vector3(mid_u, court.position.y + 0.04, 3.0), Vector3(mid_u, court.end.y - 0.04, 3.0),
+		Vector3(mid_u, court.end.y - 0.04, 11.0), Vector3(mid_u, court.position.y + 0.04, 11.0)],
+		Color(0.93, 0.93, 0.9, 0.75))
+	sk.edge(Vector3(mid_u, court.position.y + 0.04, 11.0),
+		Vector3(mid_u, court.end.y - 0.04, 11.0), Color("faf7ea"), 1.5)
+	# Fence posts around the court.
+	for corner in [Vector2(court.position.x - 0.08, court.position.y - 0.08),
+			Vector2(court.end.x + 0.08, court.position.y - 0.08),
+			Vector2(court.position.x - 0.08, court.end.y + 0.08),
+			Vector2(court.end.x + 0.08, court.end.y + 0.08)]:
+		sk.post(corner.x, corner.y, 1.4, 14.0, "b9c2a2")
+
+
+static func draw_stable(sk: Sketch, size: Vector2, gloomy: bool) -> void:
+	## A timber barn with split stable doors and a paddock fence running round
+	## the front of the footprint.
+	var wall := wall_colour("stable")
+	var roof := roof_colour("stable", 1)
+	var tiles := tiles_of(size)
+	var rect := Rect2(0.4, 0.34, tiles.x - 0.8, tiles.y * 0.62)
+	sk.contact_shadow(Rect2(0.3, 0.26, tiles.x - 0.6, tiles.y - 0.5))
+	sk.plinth(Rect2(rect.position - Vector2(0.05, 0.05), rect.size + Vector2(0.1, 0.1)),
+		0.0, 2.5, Color("9c8d6d"))
+	sk.walls(rect, 2.5, 25.0, wall)
+	sk.hip_roof(Rect2(rect.position - Vector2(0.16, 0.16), rect.size + Vector2(0.32, 0.32)),
+		25.0, 12.0, roof, 0.5)
+	var v := rect.end.y
+	# Two split stable doors, the top halves ajar in daylight.
+	for side in [-0.42, 0.42]:
+		var du: float = (rect.position.x + rect.end.x) * 0.5 + float(side)
+		sk.door_at("u", v, du, 0.38, 15.0, gloomy)
+	# A hay-loft hatch under the eaves and a stack of hay by the door.
+	sk.face([Vector3((rect.position.x + rect.end.x) * 0.5 - 0.18, v + 0.05, 19.0),
+		Vector3((rect.position.x + rect.end.x) * 0.5 + 0.18, v + 0.05, 19.0),
+		Vector3((rect.position.x + rect.end.x) * 0.5 + 0.18, v + 0.05, 23.5),
+		Vector3((rect.position.x + rect.end.x) * 0.5 - 0.18, v + 0.05, 23.5)], Color("4a3a2c"))
+	sk.box(Rect2(rect.end.x - 0.42, v + 0.14, 0.3, 0.24), 2.0, 8.0, Color("c9a24e"))
+	# The paddock fence across the front of the square.
+	var fence_v := tiles.y - 0.24
+	var fence_u0 := 0.24
+	var fence_u1 := tiles.x - 0.24
+	var rails := 5
+	for i in range(rails):
+		var fu := lerpf(fence_u0, fence_u1, float(i) / float(rails - 1))
+		sk.post(fu, fence_v, 1.0, 10.0, "c9b98f")
+	for rail in [4.5, 8.5]:
+		sk.edge(Vector3(fence_u0, fence_v, rail), Vector3(fence_u1, fence_v, rail),
+			Color("a08d66"), 1.5)
+
+
+static func draw_swim_club(sk: Sketch, size: Vector2, gloomy: bool) -> void:
+	## A changing hut beside a bright pool with a diving board and a ladder.
+	var wall := wall_colour("swim_club")
+	var roof := roof_colour("swim_club", 1)
+	var tiles := tiles_of(size)
+	var rect := Rect2(0.3, 0.24, tiles.x - 0.6, tiles.y * 0.38)
+	sk.contact_shadow(Rect2(0.2, 0.16, tiles.x - 0.4, tiles.y - 0.3))
+	sk.plinth(Rect2(rect.position - Vector2(0.05, 0.05), rect.size + Vector2(0.1, 0.1)),
+		0.0, 2.5, Color("b6ad87"))
+	sk.walls(rect, 2.5, 21.0, wall)
+	sk.hip_roof(Rect2(rect.position - Vector2(0.14, 0.14), rect.size + Vector2(0.28, 0.28)),
+		21.0, 10.0, roof, 0.5)
+	var v := rect.end.y
+	sk.door_at("u", v, (rect.position.x + rect.end.x) * 0.5, 0.42, 15.0, gloomy)
+	sk.window_at("v", rect.end.x, rect.position.y + rect.size.y * 0.5, 7.0, 0.34, 9.0, gloomy)
+	# Pool deck and the water itself.
+	var pool := Rect2(rect.position.x + 0.3, rect.end.y + 0.3,
+		tiles.x - rect.position.x * 2.0 - 0.6, tiles.y - rect.end.y - 0.6)
+	sk.terrace(pool.grow(0.12), 2.2, Color("f0e3c0"), Color("c9bb98"))
+	sk.slab(pool, 2.6, Color("2f8fc0"))
+	sk.slab(pool.grow(-0.12), 2.7, Color("63c3de"))
+	# Ripples, the diving board and its stand, and a chrome ladder.
+	sk.edge(Vector3(pool.position.x + 0.3, (pool.position.y + pool.end.y) * 0.5, 2.9),
+		Vector3(pool.end.x - 0.5, (pool.position.y + pool.end.y) * 0.5, 2.9),
+		Color("9adcee"), 1.0)
+	sk.box(Rect2(pool.end.x - 0.42, pool.position.y + 0.1, 0.24, 0.24), 2.2, 14.0,
+		Color("d8d4c2"))
+	sk.face([Vector3(pool.end.x - 0.4, pool.position.y + 0.22, 14.0),
+		Vector3(pool.end.x - 1.0, pool.position.y + 0.22, 14.0),
+		Vector3(pool.end.x - 1.0, pool.position.y + 0.22, 12.6),
+		Vector3(pool.end.x - 0.4, pool.position.y + 0.22, 12.6)], Color("e8e2cc"))
+	for rung in [5.0, 8.0, 11.0]:
+		sk.edge(Vector3(pool.position.x + 0.14, pool.end.y - 0.3, rung),
+			Vector3(pool.position.x + 0.3, pool.end.y - 0.3, rung), Color("c8ccd0"), 1.5)
+
+
+static func draw_resort_hotel(sk: Sketch, size: Vector2, gloomy: bool) -> void:
+	## A low-rise hotel block: storey lines, rows of balcony windows and a
+	## canopy over the entrance.
+	var wall := wall_colour("resort_hotel")
+	var roof := roof_colour("resort_hotel", 1)
+	var tiles := tiles_of(size)
+	var rect := Rect2(0.34, 0.34, tiles.x - 0.68, tiles.y - 0.68)
+	sk.contact_shadow(Rect2(0.24, 0.24, tiles.x - 0.48, tiles.y - 0.48))
+	sk.plinth(Rect2(rect.position - Vector2(0.06, 0.06), rect.size + Vector2(0.12, 0.12)),
+		0.0, 3.0, Color("b6ad87"))
+	sk.walls(rect, 3.0, 56.0, wall, 3)
+	var v := rect.end.y
+	var u := rect.end.x
+	# Two rows of guest-room windows on each visible wall.
+	for storey in range(2):
+		var z := 10.0 + storey * 20.0
+		for t in [0.28, 0.72]:
+			sk.window_at("u", v, lerpf(rect.position.x, u, t), z, 0.3, 10.0, gloomy)
+		sk.window_at("v", u, lerpf(rect.position.y, rect.end.y, 0.5), z, 0.3, 10.0, gloomy)
+	# The entrance with its canopy, then the parapet cap on top.
+	sk.door_at("u", v, (rect.position.x + u) * 0.5, 0.5, 18.0, gloomy)
+	sk.doorstep((rect.position.x + u) * 0.5, v)
+	sk.awning((rect.position.x + u) * 0.5 - 0.55, (rect.position.x + u) * 0.5 + 0.55,
+		v, 21.0, Color("7d5a4b"), Color("eadbbb"), 0.4, 4.0, 0.22, true)
+	sk.box(rect, 56.0, 59.0, roof)
+
+
+static func draw_airstrip(sk: Sketch, size: Vector2, _time: float) -> void:
+	## A mown strip of tarmac with a dashed centreline, a windsock and a
+	## parked light plane.
+	var tiles := tiles_of(size)
+	sk.contact_shadow(Rect2(0.1, 0.2, tiles.x - 0.2, tiles.y - 0.4))
+	sk.terrace(Rect2(0.06, 0.16, tiles.x - 0.12, tiles.y - 0.32), 1.2,
+		Color("9aa06b"), Color("7d855a"))
+	var strip := Rect2(0.14, tiles.y * 0.34, tiles.x - 0.28, tiles.y * 0.32)
+	sk.slab(strip, 1.8, Color("5b5f57"))
+	# Threshold bars and the dashed centreline.
+	var mid_v := (strip.position.y + strip.end.y) * 0.5
+	for side in [strip.position.x + 0.14, strip.end.x - 0.3]:
+		for bar in range(3):
+			var bv := strip.position.y + 0.05 + bar * (strip.size.y - 0.1) / 3.0
+			sk.face([Vector3(side, bv, 2.0), Vector3(side + 0.16, bv, 2.0),
+				Vector3(side + 0.16, bv + (strip.size.y - 0.1) / 3.0 - 0.05, 2.0),
+				Vector3(side, bv + (strip.size.y - 0.1) / 3.0 - 0.05, 2.0)],
+				Color("d8d4c2"))
+	for dash in range(5):
+		var du := lerpf(strip.position.x + 0.6, strip.end.x - 0.8, float(dash) / 4.0)
+		sk.edge(Vector3(du, mid_v, 2.0), Vector3(du + 0.3, mid_v, 2.0),
+			Color("d8d4c2"), 2.0)
+	# The windsock on its pole, streaming downwind.
+	var sock_u := strip.end.x - 0.5
+	var sock_v := strip.position.y - 0.12
+	sk.edge(Vector3(sock_u, sock_v, 1.2), Vector3(sock_u, sock_v, 30.0), Color("8f8b76"), 2.0)
+	sk.face([Vector3(sock_u, sock_v, 30.0), Vector3(sock_u - 0.42, sock_v + 0.08, 28.4),
+		Vector3(sock_u - 0.42, sock_v + 0.08, 26.8), Vector3(sock_u, sock_v, 27.6)],
+		Color("e0784a"))
+	# A parked light plane: fuselage, wing and tail.
+	var plane_u := strip.position.x + 0.75
+	var plane_v := mid_v
+	sk.box(Rect2(plane_u - 0.42, plane_v - 0.12, 0.84, 0.24), 2.0, 8.0, Color("e8e2cc"))
+	sk.face([Vector3(plane_u - 0.1, plane_v - 0.62, 8.0), Vector3(plane_u + 0.24, plane_v - 0.62, 8.0),
+		Vector3(plane_u + 0.24, plane_v + 0.62, 8.0), Vector3(plane_u - 0.1, plane_v + 0.62, 8.0)],
+		Color("d6cfb4"))
+	sk.face([Vector3(plane_u - 0.42, plane_v - 0.2, 8.0), Vector3(plane_u - 0.6, plane_v - 0.2, 14.0),
+		Vector3(plane_u - 0.6, plane_v + 0.02, 14.0), Vector3(plane_u - 0.42, plane_v + 0.02, 8.0)],
+		Color("d6cfb4"))
+	sk.disc(Vector3(plane_u + 0.44, plane_v, 5.5), 2.2, Color("4a4f47"))
+
+
+static func _battlement(sk: Sketch, u: float, v: float, z: float, stone: Color) -> void:
+	## One merlon of a crenellated parapet.
+	sk.box(Rect2(u - 0.09, v - 0.09, 0.18, 0.18), z, z + 4.5, stone)
+
+
+static func draw_castle(sk: Sketch, size: Vector2, time: float, gloomy: bool) -> void:
+	## A landmark keep on a links coast: stone walls, four corner towers with
+	## crenellated tops, a gate and a pennant snapping in the wind.
+	var tiles := tiles_of(size)
+	var stone := wall_colour("castle")
+	sk.contact_shadow(Rect2(0.16, 0.16, tiles.x - 0.32, tiles.y - 0.32))
+	sk.terrace(Rect2(0.12, 0.12, tiles.x - 0.24, tiles.y - 0.24), 1.8,
+		Color("b3ad97"), Color("948e7a"))
+	var keep := Rect2(0.52, 0.52, tiles.x - 1.04, tiles.y - 1.04)
+	var keep_top := 38.0
+	sk.walls(keep, 1.8, keep_top, stone)
+	# Merlons along each wall of the keep.
+	for t in [0.12, 0.5, 0.88]:
+		var mu := lerpf(keep.position.x, keep.end.x, t)
+		var mv := lerpf(keep.position.y, keep.end.y, t)
+		_battlement(sk, mu, keep.position.y, keep_top, stone)
+		_battlement(sk, mu, keep.end.y, keep_top, stone)
+		_battlement(sk, keep.position.x, mv, keep_top, stone)
+		_battlement(sk, keep.end.x, mv, keep_top, stone)
+	# Corner towers, drawn back to front so they stand proud of the walls.
+	var tower_top := 52.0
+	var corners := [
+		Vector2(keep.position.x, keep.position.y), Vector2(keep.end.x, keep.position.y),
+		Vector2(keep.position.x, keep.end.y), Vector2(keep.end.x, keep.end.y)]
+	corners.sort_custom(func(a, b):
+		return CourseArchitecture.depth_of(a.x, a.y, sk.facing) \
+			< CourseArchitecture.depth_of(b.x, b.y, sk.facing))
+	for corner in corners:
+		sk.box(Rect2(corner.x - 0.3, corner.y - 0.3, 0.6, 0.6), 1.8, tower_top,
+			CourseArchitecture.tint(stone, 0.94))
+		for offset in [Vector2(-0.2, -0.2), Vector2(0.2, -0.2), Vector2(-0.2, 0.2), Vector2(0.2, 0.2)]:
+			_battlement(sk, corner.x + offset.x, corner.y + offset.y, tower_top, stone)
+	# The gate, lit from within after dark.
+	var gate_u := (keep.position.x + keep.end.x) * 0.5
+	sk.face([Vector3(gate_u - 0.32, keep.end.y + 0.06, 1.8), Vector3(gate_u + 0.32, keep.end.y + 0.06, 1.8),
+		Vector3(gate_u + 0.32, keep.end.y + 0.06, 20.0), Vector3(gate_u, keep.end.y + 0.06, 24.0),
+		Vector3(gate_u - 0.32, keep.end.y + 0.06, 20.0)],
+		Color("e7c77f") if gloomy else Color("4a423a"))
+	for port in range(4):
+		sk.edge(Vector3(gate_u - 0.24 + port * 0.16, keep.end.y + 0.07, 1.8),
+			Vector3(gate_u - 0.24 + port * 0.16, keep.end.y + 0.07, 20.0),
+			Color("2f2a24"), 1.5)
+	# A pennant on the nearest tower, snapping in the course wind.
+	var front: Vector2 = corners[corners.size() - 1]
+	var flutter := sin(time * 2.6) * 1.6
+	sk.edge(Vector3(front.x, front.y, tower_top + 4.5),
+		Vector3(front.x, front.y, tower_top + 16.0), Color("8f8b76"), 1.5)
+	var mast := sk.at(front.x, front.y, tower_top + 16.0)
+	var mast_tip := sk.at(front.x, front.y, tower_top + 11.0)
+	sk.canvas.draw_colored_polygon(PackedVector2Array([
+		mast, mast + Vector2(12.0, 2.5 + flutter), mast_tip]), Color("c25b52"))
+
+
+static func draw_casino(sk: Sketch, size: Vector2, time: float, gloomy: bool) -> void:
+	## A desert showplace: low and wide, windows glowing, a marquee band of
+	## chasing lights over the entrance.
+	var wall := wall_colour("casino")
+	var roof := roof_colour("casino", 1)
+	var rect := _hall(sk, size, 30.0, 11.0, wall, roof, 0.3)
+	var v := rect.end.y
+	var u := rect.end.x
+	# Rows of tinted windows, lit long after sundown.
+	for t in [0.22, 0.5, 0.78]:
+		sk.window_at("u", v, lerpf(rect.position.x, u, t), 9.0, 0.36, 12.0, true)
+	sk.window_at("v", u, lerpf(rect.position.y, rect.end.y, 0.5), 9.0, 0.36, 12.0, true)
+	sk.door_at("u", v, (rect.position.x + u) * 0.5, 0.5, 18.0, gloomy)
+	sk.doorstep((rect.position.x + u) * 0.5, v)
+	# The marquee: a dark band carrying bulbs that chase each other.
+	sk.face([Vector3(rect.position.x + 0.08, v + 0.05, 22.0), Vector3(u - 0.08, v + 0.05, 22.0),
+		Vector3(u - 0.08, v + 0.05, 28.0), Vector3(rect.position.x + 0.08, v + 0.05, 28.0)],
+		Color("3c2f4e"))
+	var bulbs := 6
+	for i in range(bulbs):
+		var bu := lerpf(rect.position.x + 0.24, u - 0.24, float(i) / float(bulbs - 1))
+		var lit := fmod(time * 1.8 + i * 0.5, 2.0) < 1.0
+		sk.disc(Vector3(bu, v + 0.06, 25.0), 1.8,
+			Color("ffd98a") if lit else Color("7a6a4e"))
+	# Palms stand well enough in the desert to flank the door.
+	for side in [-0.85, 0.85]:
+		var pu: float = (rect.position.x + u) * 0.5 + float(side)
+		sk.edge(Vector3(pu, v + 0.24, 2.0), Vector3(pu + 0.06, v + 0.24, 18.0),
+			Color("8c6847"), 2.5)
+		for frond in range(4):
+			var angle := frond * 1.6 + 0.4
+			sk.edge(Vector3(pu + 0.06, v + 0.24, 18.0),
+				Vector3(pu + 0.06 + cos(angle) * 0.34, v + 0.24 + sin(angle) * 0.2, 17.0),
+				Color("53744a"), 2.0)
+
+
+static func draw_theme_park(sk: Sketch, size: Vector2, time: float, gloomy: bool) -> void:
+	## The island landmark: a ferris wheel turning over a midway, with a
+	## striped ticket tent in front.
+	var tiles := tiles_of(size)
+	sk.contact_shadow(Rect2(0.1, 0.1, tiles.x - 0.2, tiles.y - 0.2))
+	sk.terrace(Rect2(0.06, 0.06, tiles.x - 0.12, tiles.y - 0.12), 1.4,
+		Color("d8c49c"), Color("b9a67f"))
+	# The ferris wheel: legs, a rim and rotating cabins, drawn in screen space
+	# around the hub's grid point.
+	var wu := tiles.x * 0.5
+	var wv := tiles.y * 0.3
+	var hub_z := 44.0
+	var radius := 25.0
+	sk.edge(Vector3(wu - 0.4, wv, 0.0), Vector3(wu, wv, hub_z), Color("8a6f4e"), 3.0)
+	sk.edge(Vector3(wu + 0.4, wv, 0.0), Vector3(wu, wv, hub_z), Color("8a6f4e"), 3.0)
+	var hub := sk.at(wu, wv, hub_z)
+	# Mark the wheel's reach so the drawing keeps to its square.
+	sk.at(wu, wv, hub_z + radius + 3.0)
+	sk.at(wu - radius / TILE_W, wv, hub_z)
+	sk.at(wu + radius / TILE_W, wv, hub_z)
+	var cabins := 8
+	for i in range(cabins):
+		var angle := time * 0.5 + i * TAU / cabins
+		var rim := hub + Vector2(cos(angle), sin(angle)) * radius
+		sk.canvas.draw_line(hub, rim, Color("c9a86a"), 1.5)
+		var cabin_colours := [Color("c25b52"), Color("4f7fb0"), Color("e0a33f"), Color("5f9e63")]
+		sk.canvas.draw_circle(rim, 3.2, cabin_colours[i % cabin_colours.size()])
+	sk.canvas.draw_arc(hub, radius, 0.0, TAU, 36, Color("c9a86a"), 2.0)
+	sk.canvas.draw_circle(hub, 2.6, Color("8a6f4e"))
+	# The ticket tent: striped walls under a cone, with a flag on top.
+	var tent := Rect2(tiles.x * 0.16, tiles.y * 0.6, minf(1.2, tiles.x * 0.3), tiles.y * 0.24)
+	sk.walls(tent, 1.4, 15.0, Color("e8e0c8"))
+	var tent_u0 := tent.position.x
+	var tent_u1 := tent.end.x
+	for stripe in range(3):
+		var su0 := lerpf(tent_u0, tent_u1, float(stripe) / 3.0)
+		var su1 := lerpf(tent_u0, tent_u1, float(stripe) / 3.0 + 1.0 / 6.0)
+		sk.face([Vector3(su0, tent.end.y + 0.04, 1.4), Vector3(su1, tent.end.y + 0.04, 1.4),
+			Vector3(su1, tent.end.y + 0.04, 15.0), Vector3(su0, tent.end.y + 0.04, 15.0)],
+			Color("c25b52"))
+	var apex := Vector3((tent_u0 + tent_u1) * 0.5, (tent.position.y + tent.end.y) * 0.5, 26.0)
+	var cone: Array = [Vector3(tent_u0, tent.position.y, 15.0), Vector3(tent_u1, tent.position.y, 15.0),
+		Vector3(tent_u1, tent.end.y, 15.0), Vector3(tent_u0, tent.end.y, 15.0)]
+	for i in range(cone.size()):
+		var edge_normal := Vector2(
+			(cone[i].y + cone[(i + 1) % 4].y) * 0.5 - apex.y,
+			apex.x - (cone[i].x + cone[(i + 1) % 4].x) * 0.5).normalized()
+		sk.face([cone[i], cone[(i + 1) % 4], apex],
+			CourseArchitecture.tint(Color("c25b52"), CourseArchitecture.face_shade(edge_normal)))
+	sk.edge(apex, Vector3(apex.x, apex.y, 32.0), Color("8f8b76"), 1.5)
+	var flag := sk.at(apex.x, apex.y, 32.0)
+	sk.canvas.draw_colored_polygon(PackedVector2Array([
+		flag, flag + Vector2(8.0, 2.0 + sin(time * 2.4)), flag + Vector2(0, 5.0)]),
+		Color("e0a33f"))
+	# A string of lamps along the midway, glowing after dark.
+	for i in range(4):
+		var lu := lerpf(tiles.x * 0.2, tiles.x * 0.8, float(i) / 3.0)
+		sk.lantern("u", tent.position.y - 0.14, lu, 13.0, gloomy)
+
+
+static func draw_kiosk(sk: Sketch, kind_name: String, size: Vector2, _time: float, gloomy: bool) -> void:
+	## Fallback for any kind without its own routine: one small hut with a
+	## counter and an awning, so an unknown facility never draws as nothing.
 	var wall := wall_colour(kind_name)
 	var roof := roof_colour(kind_name, 1)
 	var tiles := tiles_of(size)
@@ -1173,20 +1410,8 @@ static func draw_kiosk(sk: Sketch, kind_name: String, size: Vector2, time: float
 		Color("3e5645"))
 	sk.awning(rect.position.x + 0.1, u - 0.1, v, 18.5, Color("3e7866"), Color("f3e3bd"),
 		0.28, 3.5, 0.17, false)
-	if kind_name == "halfway_house":
-		# Its chimney and the tray of drinks by the hatch mark the half-way hut.
-		sk.box(Rect2(u - 0.5, rect.position.y + 0.1, 0.22, 0.22), 21.0, 32.0, Color("a87959"))
-		sk.smoke(u - 0.39, rect.position.y + 0.21, 32.0, time)
-		sk.box(Rect2(u - 0.9, v + 0.3, 0.3, 0.2), 2.0, 6.0, Color("e8dabc"))
-	elif kind_name == "ice_cream_kiosk":
-		# A scoop sign on a post, and the cone board above the hatch.
-		sk.edge(Vector3(u - 0.6, v + 0.22, 2.0), Vector3(u - 0.6, v + 0.22, 24.0), Color("c9b98f"), 2.0)
-		sk.disc(Vector3(u - 0.6, v + 0.22, 26.0), 5.0, Color("eab3bd"))
-		sk.face([Vector3(u - 0.42, v + 0.04, 18.0), Vector3(u - 0.12, v + 0.04, 18.0),
-			Vector3(u - 0.12, v + 0.04, 23.0), Vector3(u - 0.42, v + 0.04, 23.0)], Color("d8a660"))
-	else:
-		sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 8.0, 0.3, 8.0, gloomy)
-		sk.lantern("u", v, rect.position.x + 0.2, 16.0, gloomy)
+	sk.window_at("v", u, rect.position.y + rect.size.y * 0.5, 8.0, 0.3, 8.0, gloomy)
+	sk.lantern("u", v, rect.position.x + 0.2, 16.0, gloomy)
 	sk.hip_roof(Rect2(rect.position - Vector2(0.18, 0.18), rect.size + Vector2(0.36, 0.36)),
 		21.0, 12.0, roof, 0.4)
 

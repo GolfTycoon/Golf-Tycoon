@@ -184,9 +184,18 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 			# Painting the tile is the clearing: any tree that grew here goes
 			# with the ground it stood on.
 			grid.set_tile(p, TerrainTypes.Type.PATH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
-	for item in [["clubhouse",CLUBHOUSE_TILE],["coffee_house",Vector2i(59,61)],["restroom",Vector2i(56,68)],["snack_bar",Vector2i(66,74)]]:
+	# Starter amenities for the arrival garden. The food stop comes in two
+	# theme-dependent flavours (a Snack Bar almost everywhere, a Pub on a Links
+	# course), so the first candidate the theme allows takes the spot.
+	for item in [["clubhouse",[CLUBHOUSE_TILE]],["pro_shop",[Vector2i(59,61)]],["putting_green",[Vector2i(56,68)]],["snack_bar",[Vector2i(66,74)]],["pub",[Vector2i(66,74)]]]:
 		var kind: String = item[0]
-		var position: Vector2i = item[1]
+		if not buildings.has(kind):
+			continue
+		if not BuildingAvailability.is_available(buildings[kind], GameManager.current_theme):
+			continue
+		var position: Vector2i = item[1][0]
+		if entities.get_building_at(position):
+			continue
 		for dx in range(buildings[kind].size[0]):
 			for dy in range(buildings[kind].size[1]):
 				var p := position + Vector2i(dx,dy)

@@ -188,19 +188,19 @@ func _run() -> void:
 
 	# ------------------------------------------------------------------
 	# 4. The Bulldozer demolishes Buildings from any footprint tile: a
-	#    2x3 cart shed falls to a click on its far corner, flat $20 fee.
+	#    3x2 cart garage falls to a click on its far corner, flat $20 fee.
 	# ------------------------------------------------------------------
 	var shed_pos := Vector2i(48, 56)
 	_prep(shed_pos, TerrainTypes.Type.GRASS)
-	for offset in [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1),
-			Vector2i(0, 2), Vector2i(1, 2)]:
+	for offset in [Vector2i(1, 0), Vector2i(2, 0), Vector2i(0, 1),
+			Vector2i(1, 1), Vector2i(2, 1)]:
 		_prep(shed_pos + offset, TerrainTypes.Type.GRASS)
-	main.entity_layer.place_building("cart_shed", shed_pos, main.building_registry)
+	main.entity_layer.place_building("cart_garage", shed_pos, main.building_registry)
 	await _frames(2)
-	_check(main.entity_layer.is_tile_occupied_by_building(shed_pos + Vector2i(1, 2)),
-			"cart shed covers its 2x3 footprint")
+	_check(main.entity_layer.is_tile_occupied_by_building(shed_pos + Vector2i(2, 1)),
+			"cart garage covers its 3x2 footprint")
 	money = GameManager.money  # re-snapshot: the day simulation keeps earning
-	main._handle_bulldozer_click(shed_pos + Vector2i(1, 2))
+	main._handle_bulldozer_click(shed_pos + Vector2i(2, 1))
 	await _frames(2)
 	_check(not main.entity_layer.is_tile_occupied_by_building(shed_pos),
 			"clicking a footprint tile demolished the whole building")

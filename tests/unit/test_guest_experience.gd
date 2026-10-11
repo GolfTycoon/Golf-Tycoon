@@ -57,8 +57,8 @@ func test_service_and_value_improvements_raise_visit_score_and_return_intent() -
 	var poor: Dictionary = FeedbackManager.visits[0].duplicate()
 	FeedbackManager.visits.clear()
 	golfer.needs.apply_building_effect("bench")
-	golfer.needs.apply_building_effect("restaurant")
-	golfer.needs.apply_building_effect("restroom")
+	golfer.needs.apply_building_effect("pub")
+	golfer.needs.apply_building_effect("clubhouse")
 	golfer.paid_round_fee = 10
 	FeedbackManager.record_visit(golfer)
 	assert_gt(FeedbackManager.visits[0].score, poor.score)

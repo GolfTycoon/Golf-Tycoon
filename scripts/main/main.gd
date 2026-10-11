@@ -1904,6 +1904,11 @@ func _on_building_type_selected_from_toolbar(building_type: String) -> void:
 	if building_registry[building_type].get("required", false) and entity_layer.has_building_of_type(building_type):
 		EventBus.notify("That required facility is already placed.", "info")
 		return
+	if not BuildingAvailability.is_available(building_registry[building_type], GameManager.current_theme):
+		var facility_name = building_registry[building_type].get("name", building_type)
+		EventBus.notify("%s can't be built on a %s course." % [
+			facility_name, CourseTheme.get_theme_name(GameManager.current_theme)], "error")
+		return
 	if terrain_toolbar:
 		terrain_toolbar.clear_selection()
 	placement_manager.start_building_placement(building_type, building_registry[building_type])
@@ -2271,6 +2276,14 @@ func _place_building(grid_pos: Vector2i, cost: int) -> void:
 	# Check if this is a unique building that already exists
 	if building_data.get("required", false) and entity_layer.has_building_of_type(building_type):
 		EventBus.notify("Only one %s allowed!" % building_name, "error")
+		placement_manager.cancel_placement()
+		return
+
+	# The Buildings tab only offers facilities this location allows, but keep
+	# the check here too so scripted flows can't bypass the location rules.
+	if not BuildingAvailability.is_available(building_data, GameManager.current_theme):
+		EventBus.notify("%s can't be built on a %s course." % [
+			building_name, CourseTheme.get_theme_name(GameManager.current_theme)], "error")
 		placement_manager.cancel_placement()
 		return
 

@@ -11,7 +11,7 @@
 
 | File | Entries | Read at runtime | What it holds |
 | --- | --- | --- | --- |
-| `data/buildings.json` | 16, keyed by id | Yes | Facilities: size, cost, daily operating cost, upgrades, and whether the facility is required |
+| `data/buildings.json` | 16, keyed by id | Yes | Facilities: size, cost, daily operating cost, effect, location availability, upgrades, and whether the facility is required |
 | `data/decorations.json` | 5, keyed by id | Yes | Improvements: category, size, cost, upkeep, aesthetic value, allowed terrain, theme bonuses |
 | `data/terrain_types.json` | 33 | No | Mirror of terrain ids, names, `playable`, `placement_cost` and `blocks_shots`, for tools |
 | `data/golfer_traits.json` | Two sections | No | `golfer_archetypes` and `mood_states`. No runtime code reads them. |
@@ -30,8 +30,50 @@
 | `operating_cost` | Daily operating cost |
 | `required` | Whether the course must have it. The clubhouse is required. |
 | `upgradeable`, `upgrades` | Upgrade levels, with costs, unlocks and bonuses |
+| `description` | The blurb shown on the building's tile tooltip |
+| `availability` | Which course themes may build it (see below) |
+| `effect` | Structured effect metadata: `skill_training`, `food_service`, `walking_speed`, `starting_attitude`, `starting_stamina` or `green_fee` |
 
 The clubhouse is the only required building. See [Clubhouse](systems/course-design/clubhouse.md).
+
+### The fifteen location facilities
+
+Beside the clubhouse, the Buildings tab offers exactly these facilities:
+
+| Building | What it does | Where it is offered |
+| --- | --- | --- |
+| Putting Green | Boosts the imagination skill of visiting golfers | All locations |
+| Snack Bar | Food stop for hungry golfers | All locations except the Links theme |
+| Pub | Food stop for hungry golfers | Links theme only |
+| Pro Shop | Boosts the accuracy skill of visiting golfers | All locations |
+| Driving Range | Boosts the length skill of visiting golfers | All locations |
+| Cart Garage | Boosts the walking speed of visiting golfers | All locations |
+| Tennis Court | Starts every golfer with a more positive attitude | All locations except Links, Desert and Tropical |
+| Stable | Starts every golfer with a more positive attitude | Links theme only |
+| Spa | Starts every golfer with a more positive attitude | Desert theme only |
+| Swim Club | Starts every golfer with a more positive attitude | Tropical theme only |
+| Resort Hotel | Starts every golfer with more stamina for the round | All locations |
+| Airstrip | Boosts green fees per hole, scaled by the hole's rating | All locations except Links, Desert and Tropical |
+| Castle | Boosts green fees per hole, scaled by the hole's rating | Links theme only |
+| Casino | Boosts green fees per hole, scaled by the hole's rating | Desert theme only |
+| Theme Park | Boosts green fees per hole, scaled by the hole's rating | Tropical theme only |
+
+### Availability rules
+
+The `availability` block names the course themes (by their `CourseTheme`
+string names) a facility is offered at. `BuildingAvailability`
+(`scripts/systems/building_availability.gd`) reads it; the Buildings tab,
+the placement flow and the course generators all go through that class.
+
+| Block | Meaning |
+| --- | --- |
+| `{ "all": true }` | Offered at every location |
+| `{ "all": true, "excluded_themes": ["links"] }` | Everywhere except the listed themes |
+| `{ "only_themes": ["desert"] }` | Only the listed themes |
+
+A building with no `availability` block is treated as available everywhere.
+Every theme therefore gets exactly one food stop (Snack Bar or Pub), one
+attitude facility and one green-fee landmark.
 
 ## Improvements
 

@@ -8,6 +8,7 @@
 			"operating_cost": 100,
 			"required": true,
 			"upgradeable": true,
+			"description": "The heart of every course. Guests arrive at its door, freshen up inside, and set off for the first tee. Supplied with the course; it can be moved, never demolished.",
 			"upgrades": [
 				{
 					"level": 1,
@@ -29,12 +30,60 @@
 					"level": 3,
 					"name": "Full Service Clubhouse",
 					"upgrade_cost": 15000,
-					"unlocks": ["pro_shop", "restaurant"],
+					"unlocks": ["pro_shop", "pub"],
 					"income_per_golfer": 40,
 					"satisfaction_bonus": 0.1,
 					"visual": "full_service"
 				}
 			]
+		},
+		"putting_green": {
+			"id": "putting_green",
+			"name": "Putting Green",
+			"size": [3, 3],
+			"cost": 6000,
+			"operating_cost": 30,
+			"effect_type": "revenue",
+			"income_per_golfer": 8,
+			"effect_radius": 6,
+			"effect": {
+				"type": "skill_training",
+				"skill": "imagination",
+				"scales_with_skill": true,
+				"max_boost": 0.2
+			},
+			"availability": { "all": true },
+			"description": "Putting Greens boost the imagination skill of golfers who visit, with a greater boost based on that golfer's imagination skill up to a max boost. Available on all locations."
+		},
+		"snack_bar": {
+			"id": "snack_bar",
+			"name": "Snack Bar",
+			"size": [2, 2],
+			"cost": 2500,
+			"operating_cost": 15,
+			"effect_type": "revenue",
+			"income_per_golfer": 5,
+			"effect_radius": 5,
+			"effect": {
+				"type": "food_service"
+			},
+			"availability": { "all": true, "excluded_themes": ["links"] },
+			"description": "Snack Bars offer a place where hungry golfers may stop and eat. Available on all locations unless it uses the Links Course Theme."
+		},
+		"pub": {
+			"id": "pub",
+			"name": "Pub",
+			"size": [3, 2],
+			"cost": 4000,
+			"operating_cost": 25,
+			"effect_type": "revenue",
+			"income_per_golfer": 12,
+			"effect_radius": 6,
+			"effect": {
+				"type": "food_service"
+			},
+			"availability": { "only_themes": ["links"] },
+			"description": "Pubs offer a place where hungry golfers may stop and eat. Available on all locations that use the Links Course Theme."
 		},
 		"pro_shop": {
 			"id": "pro_shop",
@@ -42,179 +91,171 @@
 			"size": [2, 2],
 			"cost": 5000,
 			"operating_cost": 40,
+			"effect_type": "revenue",
 			"income_per_golfer": 15,
-			"effect_type": "revenue",
-			"effect_radius": 8
-		},
-		"restaurant": {
-			"id": "restaurant",
-			"name": "Restaurant",
-			"size": [3, 3],
-			"cost": 15000,
-			"operating_cost": 60,
-			"income_per_golfer": 25,
-			"effect_type": "revenue",
-			"effect_radius": 8
-		},
-		"snack_bar": {
-			"id": "snack_bar",
-			"name": "Snack Bar",
-			"size": [1, 1],
-			"cost": 2000,
-			"operating_cost": 15,
-			"placeable_on_course": true,
-			"income_per_golfer": 5,
-			"effect_type": "revenue",
-			"effect_radius": 5
+			"effect_radius": 8,
+			"effect": {
+				"type": "skill_training",
+				"skill": "accuracy",
+				"scales_with_skill": true,
+				"max_boost": 0.2
+			},
+			"availability": { "all": true },
+			"description": "Pro Shops boost the accuracy skill of golfers who visit, with a greater boost based on that golfer's accuracy skill up to a max boost. Available on all locations."
 		},
 		"driving_range": {
 			"id": "driving_range",
 			"name": "Driving Range",
 			"size": [6, 3],
 			"cost": 8000,
-			"operating_cost": 35
-		},
-		"cart_shed": {
-			"id": "cart_shed",
-			"name": "Cart Shed",
-			"size": [2, 3],
-			"cost": 4000,
-			"operating_cost": 20,
-			"enables_cart_rental": true
-		},
-		"restroom": {
-			"id": "restroom",
-			"name": "Restroom",
-			"size": [1, 1],
-			"cost": 1500,
-			"operating_cost": 10,
-			"placeable_on_course": true,
-			"effect_type": "satisfaction",
-			"satisfaction_bonus": 0.05,
-			"effect_radius": 8
-		},
-		"bench": {
-			"id": "bench",
-			"name": "Bench",
-			"size": [1, 1],
-			"cost": 200,
-			"operating_cost": 0,
-			"placeable_on_course": true,
-			"effect_type": "satisfaction",
-			"satisfaction_bonus": 0.02,
-			"effect_radius": 3
-		},
-		"coffee_house": {
-			"id": "coffee_house",
-			"name": "Coffee House",
-			"size": [2, 2],
-			"cost": 3500,
-			"operating_cost": 25,
-			"income_per_golfer": 7,
+			"operating_cost": 35,
 			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "snack_bar",
-			"description": "Fresh coffee and a shaded stop along the walk."
+			"income_per_golfer": 12,
+			"effect_radius": 8,
+			"effect": {
+				"type": "skill_training",
+				"skill": "length",
+				"scales_with_skill": true,
+				"max_boost": 0.2
+			},
+			"availability": { "all": true },
+			"description": "Driving Ranges boost the length skill of golfers who visit, with a greater boost based on that golfer's length skill up to a max boost. Available on all locations."
 		},
-		"halfway_house": {
-			"id": "halfway_house",
-			"name": "Halfway House",
+		"cart_garage": {
+			"id": "cart_garage",
+			"name": "Cart Garage",
 			"size": [3, 2],
+			"cost": 4500,
+			"operating_cost": 20,
+			"effect_type": "utility",
+			"effect_radius": 6,
+			"walk_speed_multiplier": 1.3,
+			"effect": {
+				"type": "walking_speed"
+			},
+			"availability": { "all": true },
+			"description": "Cart Garages boost the walking speed of golfers who visit. Available on all locations."
+		},
+		"tennis_court": {
+			"id": "tennis_court",
+			"name": "Tennis Court",
+			"size": [4, 2],
+			"cost": 7000,
+			"operating_cost": 30,
+			"attitude_bonus": 0.08,
+			"effect": {
+				"type": "starting_attitude"
+			},
+			"availability": { "all": true, "excluded_themes": ["links", "desert", "tropical"] },
+			"description": "Owning a Tennis Court starts every golfer with a more positive attitude before playing your course. Available on all locations unless it uses the Links, Desert, or Tropical Course Themes."
+		},
+		"stable": {
+			"id": "stable",
+			"name": "Stable",
+			"size": [3, 3],
 			"cost": 6500,
 			"operating_cost": 35,
-			"income_per_golfer": 12,
-			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "restaurant",
-			"description": "Lunch and refreshments between the nines."
+			"attitude_bonus": 0.08,
+			"effect": {
+				"type": "starting_attitude"
+			},
+			"availability": { "only_themes": ["links"] },
+			"description": "Owning a Stable starts every golfer with a more positive attitude before playing your course. Available on all locations that use the Links Course Theme."
 		},
-		"tea_pavilion": {
-			"id": "tea_pavilion",
-			"name": "Tea Pavilion",
-			"size": [2, 2],
-			"cost": 2800,
-			"operating_cost": 18,
-			"income_per_golfer": 4,
-			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "bench",
-			"description": "An open garden pavilion for a restful break."
-		},
-		"ice_cream_kiosk": {
-			"id": "ice_cream_kiosk",
-			"name": "Ice Cream Kiosk",
-			"size": [1, 1],
-			"cost": 1800,
-			"operating_cost": 12,
-			"income_per_golfer": 4,
-			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "snack_bar",
-			"description": "A cheerful striped kiosk beside the course."
-		},
-		"locker_room": {
-			"id": "locker_room",
-			"name": "Locker Room",
-			"size": [3, 2],
-			"cost": 5500,
-			"operating_cost": 30,
-			"income_per_golfer": 0,
-			"effect_type": "satisfaction",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "restroom",
-			"description": "Changing rooms and showers restore comfort."
-		},
-		"garden_spa": {
-			"id": "garden_spa",
-			"name": "Garden Spa",
+		"spa": {
+			"id": "spa",
+			"name": "Spa",
 			"size": [3, 3],
 			"cost": 12000,
-			"operating_cost": 65,
-			"income_per_golfer": 18,
-			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "clubhouse",
-			"description": "A pool terrace and lounge restore several needs."
+			"operating_cost": 60,
+			"attitude_bonus": 0.08,
+			"effect": {
+				"type": "starting_attitude"
+			},
+			"availability": { "only_themes": ["desert"] },
+			"description": "Owning a Spa starts every golfer with a more positive attitude before playing your course. Available on all locations that use the Desert Course Theme."
 		},
-		"conservatory": {
-			"id": "conservatory",
-			"name": "Conservatory",
-			"size": [3, 2],
-			"cost": 7500,
-			"operating_cost": 35,
-			"income_per_golfer": 0,
-			"effect_type": "satisfaction",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "bench",
-			"description": "A glasshouse garden with sheltered seating."
+		"swim_club": {
+			"id": "swim_club",
+			"name": "Swim Club",
+			"size": [4, 3],
+			"cost": 11000,
+			"operating_cost": 55,
+			"attitude_bonus": 0.08,
+			"effect": {
+				"type": "starting_attitude"
+			},
+			"availability": { "only_themes": ["tropical"] },
+			"description": "Owning a Swim Club starts every golfer with a more positive attitude before playing your course. Available on all locations that use the Tropical Course Theme."
 		},
-		"golf_academy": {
-			"id": "golf_academy",
-			"name": "Golf Academy",
-			"size": [4, 2],
-			"cost": 9000,
-			"operating_cost": 45,
-			"income_per_golfer": 10,
-			"effect_type": "revenue",
-			"satisfaction_bonus": 0.03,
-			"effect_radius": 6,
-			"placeable_on_course": true,
-			"needs_service": "pro_shop",
-			"description": "Practice bays and an equipment counter."
+		"resort_hotel": {
+			"id": "resort_hotel",
+			"name": "Resort Hotel",
+			"size": [4, 4],
+			"cost": 25000,
+			"operating_cost": 120,
+			"energy_decay_multiplier": 0.6,
+			"effect": {
+				"type": "starting_stamina"
+			},
+			"availability": { "all": true },
+			"description": "Owning a Resort Hotel starts every golfer with more stamina before playing your course. At higher levels of difficulty, golfers tire as they play through a course and may need to combat the fatigue of playing to stay happier longer. Available on all locations."
+		},
+		"airstrip": {
+			"id": "airstrip",
+			"name": "Airstrip",
+			"size": [5, 3],
+			"cost": 15000,
+			"operating_cost": 80,
+			"green_fee_bonus": { "base": 0.04, "per_rating": 0.01, "max": 0.15 },
+			"effect": {
+				"type": "green_fee",
+				"scales_with_hole_rating": true
+			},
+			"availability": { "all": true, "excluded_themes": ["links", "desert", "tropical"] },
+			"description": "Owning an Airstrip boosts green fees per hole, with a greater boost based on that hole's rating. Available on all locations unless it uses the Links, Desert, or Tropical Course Themes."
+		},
+		"castle": {
+			"id": "castle",
+			"name": "Castle",
+			"size": [5, 4],
+			"cost": 30000,
+			"operating_cost": 150,
+			"green_fee_bonus": { "base": 0.05, "per_rating": 0.01, "max": 0.18 },
+			"effect": {
+				"type": "green_fee",
+				"scales_with_hole_rating": true
+			},
+			"availability": { "only_themes": ["links"] },
+			"description": "Owning a Castle boosts green fees per hole, with a greater boost based on that hole's rating. Available on all locations that use the Links Course Theme."
+		},
+		"casino": {
+			"id": "casino",
+			"name": "Casino",
+			"size": [4, 3],
+			"cost": 28000,
+			"operating_cost": 140,
+			"green_fee_bonus": { "base": 0.05, "per_rating": 0.01, "max": 0.18 },
+			"effect": {
+				"type": "green_fee",
+				"scales_with_hole_rating": true
+			},
+			"availability": { "only_themes": ["desert"] },
+			"description": "Owning a Casino boosts green fees per hole, with a greater boost based on that hole's rating. Available on all locations that use the Desert Course Theme."
+		},
+		"theme_park": {
+			"id": "theme_park",
+			"name": "Theme Park",
+			"size": [5, 4],
+			"cost": 32000,
+			"operating_cost": 160,
+			"green_fee_bonus": { "base": 0.06, "per_rating": 0.01, "max": 0.2 },
+			"effect": {
+				"type": "green_fee",
+				"scales_with_hole_rating": true
+			},
+			"availability": { "only_themes": ["tropical"] },
+			"description": "Owning a Theme Park boosts green fees per hole, with a greater boost based on that hole's rating. Available on all locations that use the Tropical Course Theme."
 		}
 	}
 }

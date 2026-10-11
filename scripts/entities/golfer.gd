@@ -207,6 +207,9 @@ var _shot_strategy: String = "normal"
 
 ## Movement
 @export var walk_speed: float = 100.0
+## A Cart Garage visit rents this golfer a cart, boosting their walking speed
+## for the rest of the round. One rental per golfer.
+var has_cart: bool = false
 var path: Array[Vector2] = []
 var path_index: int = 0
 
@@ -3433,6 +3436,8 @@ func _process_amenity_visit(delta: float) -> void:
 func _serve_amenity() -> void:
 	var boost := needs.apply_building_effect(_amenity_service)
 	_adjust_mood(boost)
+	if _amenity_service == "cart_garage":
+		_rent_cart()
 	amenities_used += 1
 	FeedbackManager.service_visits += 1
 	var income := 0
@@ -3444,7 +3449,14 @@ func _serve_amenity() -> void:
 			_amenity_node.total_revenue += income
 			FeedbackManager.service_revenue += income
 			_show_building_revenue_notification(income, _amenity_service)
-	activity_text = "Resting" if _amenity_service == "bench" else "Visiting " + _amenity_service.replace("_"," ")
+	if _amenity_service == "bench":
+		activity_text = "Resting"
+	elif _amenity_service == "cart_garage":
+		activity_text = "Renting a cart"
+	elif _amenity_service in ["putting_green", "pro_shop", "driving_range"]:
+		activity_text = "Practising at the " + _amenity_service.replace("_", " ")
+	else:
+		activity_text = "Visiting " + _amenity_service.replace("_"," ")
 	_amenity_caption = Label.new()
 	_amenity_caption.text = activity_text
 	_amenity_caption.position = Vector2(-32,-53)
@@ -3453,6 +3465,18 @@ func _serve_amenity() -> void:
 	_amenity_caption.add_theme_color_override("font_outline_color",Color(.1,.2,.1))
 	_amenity_caption.add_theme_constant_override("outline_size",3)
 	add_child(_amenity_caption)
+
+## Rent a cart at the Cart Garage. Boosts this golfer's walking speed for the
+## rest of the round. The multiplier comes from the building's data, and a
+## golfer only ever rents one cart.
+func _rent_cart() -> void:
+	if has_cart:
+		return
+	has_cart = true
+	var multiplier := 1.3
+	if _amenity_node is Building:
+		multiplier = float(_amenity_node.building_data.get("walk_speed_multiplier", 1.3))
+	walk_speed = walk_speed * maxf(multiplier, 1.0)
 
 ## Show floating notification for building revenue
 func _show_building_revenue_notification(amount: int, _building_type: String) -> void:

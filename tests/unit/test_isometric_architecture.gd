@@ -172,7 +172,7 @@ func test_the_projection_matches_the_grids_own_away_from_the_corners() -> void:
 
 
 func test_rotating_the_view_turns_the_building_with_the_course() -> void:
-	var building := entities.place_building("restaurant", POS, registry)
+	var building := entities.place_building("pub", POS, registry)
 	var architecture: CourseArchitecture = building.get_node("Visual/Architecture")
 	for facing in range(4):
 		grid.set_view_orientation(facing)
@@ -234,11 +234,9 @@ func test_the_clubhouse_grows_without_leaving_its_square() -> void:
 func test_every_building_type_has_its_own_architecture() -> void:
 	# A kind with no branch falls through to the kiosk routine, which would
 	# silently give a clubhouse the wrong building.
-	var named := ["clubhouse", "pro_shop", "restaurant", "snack_bar", "driving_range",
-		"cart_shed", "restroom", "conservatory", "tea_pavilion", "garden_spa",
-		"golf_academy", "locker_room"]
-	var kiosks := ["coffee_house", "halfway_house", "ice_cream_kiosk"]
+	var named := ["clubhouse", "putting_green", "pro_shop", "snack_bar", "pub",
+		"driving_range", "cart_garage", "tennis_court", "stable", "spa",
+		"swim_club", "resort_hotel", "airstrip", "castle", "casino", "theme_park"]
 	for building_type in registry:
-		assert_true(building_type in named or building_type in kiosks
-				or building_type == "bench",
+		assert_true(building_type in named,
 			"%s has an architecture routine" % building_type)

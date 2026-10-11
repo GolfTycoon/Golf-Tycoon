@@ -90,6 +90,9 @@ const SNAPSHOT_PATH: String = "user://economic_snapshots.json"
 var green_fee: int = 10  # Default $10/hole (auto-clamped by hole count)
 const MIN_GREEN_FEE: int = 1
 const MAX_GREEN_FEE: int = 200
+## Landmark facilities (Airstrip, Castle, Casino, Theme Park) boost green fees
+## per hole; the combined bonus from all of them is capped at +50%.
+const MAX_GREEN_FEE_BONUS: float = 0.5
 
 # Bankruptcy threshold - dynamic based on difficulty preset
 var bankruptcy_threshold: int = -1000
@@ -538,17 +541,43 @@ func clamp_green_fee_to_max() -> void:
 
 func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	"""Process a golfer's green fee payment and return success.
-	Revenue = per-hole fee x number of open holes."""
+	Revenue = per-hole fee x number of open holes, boosted by any landmark
+	facilities (Airstrip, Castle, Casino, Theme Park) the course owns."""
 	var holes = get_open_hole_count()
-	var total = green_fee * max(holes, 1)
+	var fee_bonus := get_green_fee_bonus()
+	var per_hole := int(round(green_fee * (1.0 + fee_bonus)))
+	var total = per_hole * max(holes, 1)
 
 	if current_course:
 		for hole in current_course.get_open_holes():
-			hole.total_revenue += green_fee
+			hole.total_revenue += per_hole
 	modify_money(total)
-	EventBus.log_transaction("%s paid green fee (%d holes x $%d)" % [golfer_name, holes, green_fee], total)
+	if fee_bonus > 0.0:
+		EventBus.log_transaction("%s paid green fee (%d holes x $%d, +%d%% facilities)" % [
+			golfer_name, holes, per_hole, int(round(fee_bonus * 100.0))], total)
+	else:
+		EventBus.log_transaction("%s paid green fee (%d holes x $%d)" % [golfer_name, holes, green_fee], total)
 	EventBus.green_fee_paid.emit(golfer_id, golfer_name, total)
 	return true
+
+## The combined green-fee bonus from the landmark facilities the course owns
+## (Airstrip, Castle, Casino and Theme Park). Each one boosts fees per hole,
+## and the boost grows with the course's rating. Returns 0.0 when the course
+## owns none of them.
+func get_green_fee_bonus() -> float:
+	if entity_layer == null or not entity_layer.has_method("get_all_buildings"):
+		return 0.0
+	var rating := float(course_rating.get("overall", 3.0))
+	var bonus := 0.0
+	for building in entity_layer.get_all_buildings():
+		var data: Dictionary = building.building_data
+		var fee_bonus = data.get("green_fee_bonus")
+		if not fee_bonus is Dictionary:
+			continue
+		var own_bonus := float(fee_bonus.get("base", 0.0)) \
+			+ float(fee_bonus.get("per_rating", 0.0)) * rating
+		bonus += minf(own_bonus, float(fee_bonus.get("max", own_bonus)))
+	return minf(bonus, MAX_GREEN_FEE_BONUS)
 
 ## Check and update hole records (call when golfer finishes a hole)
 ## Returns array of record types broken

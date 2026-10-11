@@ -33,9 +33,9 @@ const GHOST := Color(0.91, 0.89, 0.81, 0.42)
 ## the first holes. Mirrors data/buildings.json; only used for drawing.
 const AMENITY_SIZES := {
 	"clubhouse": Vector2i(4, 4),
-	"coffee_house": Vector2i(2, 2),
-	"snack_bar": Vector2i(1, 1),
-	"restroom": Vector2i(1, 1),
+	"pro_shop": Vector2i(2, 2),
+	"snack_bar": Vector2i(2, 2),
+	"pub": Vector2i(3, 2),
 }
 
 ## Seconds the draw-in takes, plus a little per hole so 18 do not rush.

@@ -20,6 +20,10 @@ var pace: float = 1.0         # Decreases when waiting, affected by patience tra
 var patience: float = 0.5     # 0.0 = impatient, 1.0 = very patient
 var golfer_tier: int = 1      # GolferTier.Tier value — higher tiers are more demanding
 
+## Fatigue resistance: the Resort Hotel sends golfers out rested, slowing the
+## energy decay they suffer as they play (1.0 = normal fatigue).
+var energy_decay_modifier: float = 1.0
+
 ## Track which needs have triggered feedback (prevent spam)
 var _triggered_low_energy: bool = false
 var _triggered_low_comfort: bool = false
@@ -56,14 +60,21 @@ const INTERACT_CHANCE_BASE: float = 0.30        # Fallback for buildings with no
 
 ## Satisfaction amounts from buildings
 const BENCH_ENERGY_RESTORE: float = 0.20
-const RESTROOM_COMFORT_RESTORE: float = 0.35
 const SNACK_BAR_HUNGER_RESTORE: float = 0.30
-const RESTAURANT_HUNGER_RESTORE: float = 0.50
+const PUB_HUNGER_RESTORE: float = 0.50
 const CLUBHOUSE_ALL_RESTORE: float = 0.15     # Small boost to all needs
 
-## Snack bars and restaurants also serve drinks, so they take the edge off thirst.
+## Snack bars and pubs also serve drinks, so they take the edge off thirst.
 const SNACK_BAR_THIRST_RESTORE: float = 0.20
-const RESTAURANT_THIRST_RESTORE: float = 0.25
+const PUB_THIRST_RESTORE: float = 0.25
+
+## Practice facilities (Putting Green, Pro Shop, Driving Range) train a
+## golfer's skills. A visit always leaves them a little happier about their
+## game, whatever their need levels were.
+const PRACTICE_MOOD_BOOST: float = 0.03
+## A Cart Garage visit hands out a cart: a small morale bump on top of the
+## walking-speed boost the golfer applies itself.
+const CART_GARAGE_MOOD_BOOST: float = 0.02
 
 ## Thirst's drag on overall satisfaction. Fully quenched (1.0) leaves the
 ## weighted four-need score untouched; bone dry (0.0) scales it to 85%.
@@ -93,7 +104,7 @@ func setup(tier: int, patience_trait: float) -> void:
 ## Called after each hole is completed — decay needs based on play
 func on_hole_completed() -> void:
 	var tier_modifier = _get_tier_decay_modifier()
-	energy = maxf(energy - ENERGY_DECAY_PER_HOLE * tier_modifier, 0.0)
+	energy = maxf(energy - ENERGY_DECAY_PER_HOLE * tier_modifier * energy_decay_modifier, 0.0)
 	comfort = maxf(comfort - COMFORT_DECAY_PER_HOLE * tier_modifier, 0.0)
 	hunger = maxf(hunger - HUNGER_DECAY_PER_HOLE * tier_modifier, 0.0)
 	thirst = maxf(thirst - THIRST_DECAY_PER_HOLE * tier_modifier, 0.0)
@@ -116,11 +127,9 @@ func get_interaction_chance(building_type: String) -> float:
 	match building_type:
 		"bench":
 			relevant_need = energy
-		"restroom":
-			relevant_need = comfort
 		"snack_bar":
 			relevant_need = hunger
-		"restaurant":
+		"pub":
 			relevant_need = hunger
 		_:
 			# Buildings with no need mapping (pro_shop, etc.) use a flat base chance
@@ -146,12 +155,6 @@ func apply_building_effect(building_type: String) -> float:
 			if energy > old_energy:
 				mood_boost = 0.02
 			_reset_energy_flags_if_recovered()
-		"restroom":
-			var old_comfort = comfort
-			comfort = minf(comfort + RESTROOM_COMFORT_RESTORE, 1.0)
-			if comfort > old_comfort:
-				mood_boost = 0.05
-			_reset_comfort_flags_if_recovered()
 		"snack_bar":
 			var old_hunger = hunger
 			hunger = minf(hunger + SNACK_BAR_HUNGER_RESTORE, 1.0)
@@ -160,14 +163,20 @@ func apply_building_effect(building_type: String) -> float:
 			_reset_hunger_flags_if_recovered()
 			thirst = minf(thirst + SNACK_BAR_THIRST_RESTORE, 1.0)
 			_reset_thirst_flags_if_recovered()
-		"restaurant":
+		"pub":
 			var old_hunger = hunger
-			hunger = minf(hunger + RESTAURANT_HUNGER_RESTORE, 1.0)
+			hunger = minf(hunger + PUB_HUNGER_RESTORE, 1.0)
 			if hunger > old_hunger:
 				mood_boost = 0.05
 			_reset_hunger_flags_if_recovered()
-			thirst = minf(thirst + RESTAURANT_THIRST_RESTORE, 1.0)
+			thirst = minf(thirst + PUB_THIRST_RESTORE, 1.0)
 			_reset_thirst_flags_if_recovered()
+		"putting_green", "pro_shop", "driving_range":
+			# Practice facilities train imagination, accuracy and length. The
+			# training itself is the reward golfers talk about afterwards.
+			mood_boost = PRACTICE_MOOD_BOOST
+		"cart_garage":
+			mood_boost = CART_GARAGE_MOOD_BOOST
 		"clubhouse":
 			energy = minf(energy + CLUBHOUSE_ALL_RESTORE, 1.0)
 			comfort = minf(comfort + CLUBHOUSE_ALL_RESTORE, 1.0)

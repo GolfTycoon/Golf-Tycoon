@@ -222,10 +222,10 @@ func test_golfers_heading_home_free_up_the_course() -> void:
 func test_golfers_walking_home_do_not_start_amenity_visits() -> void:
 	var registry: Dictionary = JSON.parse_string(
 			FileAccess.get_file_as_string("res://data/buildings.json"))["buildings"]
-	entities.place_building("coffee_house", Vector2i(30, 24), registry)
+	entities.place_building("snack_bar", Vector2i(30, 24), registry)
 	var golfer := golfers.spawn_golfer("Snack seeker")
 	golfer.global_position = grid.grid_to_screen_center(Vector2i(30, 24))
 	golfer._change_state(Golfer.State.LEAVING)
 	golfer._check_building_proximity()
 	assert_eq(golfer._amenity_phase, 0,
-		"A golfer on the way home keeps walking past the coffee house")
+		"A golfer on the way home keeps walking past the snack bar")

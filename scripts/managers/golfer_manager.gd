@@ -4,6 +4,10 @@ class_name GolferManager
 
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 
+## Several attitude facilities can stack, but the starting-mood bonus they
+## grant is capped so a course full of them can't start every guest ecstatic.
+const MAX_ATTITUDE_BONUS: float = 0.2
+
 @export var min_spawn_cooldown_seconds: float = 90.0  # Minimum cooldown between group spawns
 
 var active_golfers: Array[Golfer] = []
@@ -864,6 +868,11 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	_groups_dirty = true
 	golfer.golfer_selected.connect(_on_golfer_selected)
 
+	# Owning the right facilities shapes the round before it starts: attitude
+	# facilities start every guest in a better mood, and the Resort Hotel
+	# starts them rested enough to shrug off fatigue longer.
+	_apply_facility_bonuses(golfer)
+
 	# Guests arrive through the clubhouse: they appear at its door and walk to
 	# the first tee before the turn system can pick them (only an IDLE golfer
 	# plays, and the arrival walk leaves them WALKING until they get there).
@@ -876,6 +885,27 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer_spawned.emit(golfer)
 
 	return golfer
+
+## Facilities that work on every guest before they even tee off:
+##  - Attitude facilities (Tennis Court, Stable, Spa, Swim Club) start each
+##    golfer with a more positive attitude — a bonus to their starting mood.
+##  - The Resort Hotel starts each golfer with more stamina: their energy
+##    drains more slowly as they play, so they stay happier deeper into the
+##    round (matters most on higher difficulties, where fatigue bites).
+func _apply_facility_bonuses(golfer: Golfer) -> void:
+	var entities = GameManager.entity_layer
+	if entities == null:
+		return
+	var attitude_bonus := 0.0
+	for building in entities.get_all_buildings():
+		var data: Dictionary = building.building_data
+		attitude_bonus += float(data.get("attitude_bonus", 0.0))
+		var stamina_multiplier: float = float(data.get("energy_decay_multiplier", 1.0))
+		if stamina_multiplier < golfer.needs.energy_decay_modifier:
+			golfer.needs.energy_decay_modifier = stamina_multiplier
+	if attitude_bonus > 0.0:
+		golfer.current_mood = clampf(
+			golfer.current_mood + minf(attitude_bonus, MAX_ATTITUDE_BONUS), 0.0, 1.0)
 
 ## Start a newly spawned guest on the walk from the clubhouse door to the first
 ## open tee. Without a clubhouse (or terrain) the golfer is left where the old

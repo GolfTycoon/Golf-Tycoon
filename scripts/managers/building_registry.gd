@@ -82,3 +82,12 @@ func get_building_name(building_type: String) -> String:
 
 func can_place_on_course(building_type: String) -> bool:
 	return buildings.get(building_type, {}).get("placeable_on_course", false)
+
+func is_available_for_theme(building_type: String, theme_type: int) -> bool:
+	return BuildingAvailability.is_available(buildings.get(building_type, {}), theme_type)
+
+func get_available_buildings(theme_type: int) -> Dictionary:
+	var available: Dictionary = {}
+	for building_type in BuildingAvailability.available_types(buildings, theme_type):
+		available[building_type] = buildings[building_type]
+	return available
