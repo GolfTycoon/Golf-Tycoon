@@ -102,7 +102,7 @@ Because only walkers are tested, the check cannot deadlock. A partner whose ball
 | `LANDING_ZONE_VARIANCE` | `golfer_manager.gd` | `0.3` | Fraction of shot distance added to the cone radius |
 | `LANDING_CONE_HALF_ANGLE` | `golfer_manager.gd` | `π / 4` | Wider cone makes walkers block from further off the line |
 | `PREPARATION_DURATION` | `golfer.gd` | `1.0` s | Time the golfer whose turn it is takes to address the ball |
-| `walk_speed` | `golfer.gd` | `100` px/s | How quickly a blocked walker steps clear (about one tile per 0.3–0.6 s) |
+| `walk_speed` | `golfer.gd` | `100` px/s | How quickly a blocked walker steps clear (about one tile per 0.3–0.6 s). A walking trail multiplies it by 1.25, or 1.5 once paved — see [Walking Paths](../course-design/walking-paths.md) |
 
 ---
 

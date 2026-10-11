@@ -47,6 +47,8 @@ The golfer's patience trait (set by tier) directly affects how fast pace satisfa
 
 Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. Clamping the step prevents an accelerated frame from overshooting and oscillating across a waypoint. Reaching the final waypoint returns immediately after the state transition so walking animation cannot overwrite the arrival state.
 
+The step is taken at `walk_speed` times the rate of the ground underfoot: `TerrainGrid.walk_speed_modifier_at()` folds the terrain's own rate together with any walking path laid on it (dirt 1.25x, 1.5x once the trail reaches the clubhouse), so a golfer sent across the course on a trail arrives sooner and drains pace over a shorter walk. Routes prefer a trail whenever it is no more than a moment slower than walking straight there — see [Walking Paths](../course-design/walking-paths.md).
+
 ### Amenities
 
 A nearby park bench restores energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
@@ -194,3 +196,4 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 - [Satisfaction and Feedback](satisfaction-feedback.md) turns needs into thoughts and ratings.
 - [Staff and Weeds](../economy-and-land/staff-and-weeds.md) covers the staff who serve golfers.
 - [Improvement Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.
+- [Walking Paths](../course-design/walking-paths.md) covers the trails that shorten the walk between shots.

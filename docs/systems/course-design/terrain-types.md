@@ -123,7 +123,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 
 ### 5. Painting
 
-- Painting a course tile replaces whatever is there, including trees, sand, greens and paths. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep. Painting costs only the new tile's placement cost. There is no clearing fee.
+- Painting a course tile replaces whatever is there, including trees, sand, greens and walking paths. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep. Painting costs only the new tile's placement cost. There is no clearing fee. Cart-path terrain counts as a node of the walking network, so painting or removing one re-paves the trails that touch it.
 - Buildings and decorations are not course terrain. A course tile will not paint over them. The Bulldozer removes them.
 - Stream strokes are 4-connected (`TerrainBrush.centers_4_connected()`), so the channel never breaks at a diagonal step.
 - A species tile draws its own canopy on its own ground, wherever it is placed.
@@ -145,6 +145,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 | Rolling-ball catchers | `golf_rules.gd` `catches_rolling_ball()` | Water, stream, OB, bunkers, deep rough, brush | Where a rolling ball stops |
 | AI terrain scores | `shot_ai.gd` `TERRAIN_SCORES` | See the shot table | Where AI golfers aim |
 | Walk speed | `terrain_types.gd` `speed_modifier` | Deep rough 0.85×, brush 0.75×, cart path 1.5× | Pace through long grass, scrub and paths |
+| Walk speed with a trail | `terrain_grid.gd` `walk_speed_modifier_at()` | The tile's own rate × 1.25 dirt or 1.5 paved | A laid trail quickens the walk over any hostable ground — see [Walking Paths](walking-paths.md) |
 | Hotkeys | `terrain_toolbar.gd` | `9`, `0`, Shift+2/5/6/7/8/9/0 | Keyboard access to the tiles (Shift+9 Small Boulders, Shift+0 Large Boulders) |
 | Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | Litter, needles, sand, silt, peat, straw | What each species grows in |
 | Species per theme | `course_theme.gd` `get_tree_types()` | 4 to 6 per theme | Which tree tiles the tab shows |
@@ -154,6 +155,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 ## Related
 
 - [Course Surface](course-surface.md) draws each terrain type.
+- [Walking Paths](walking-paths.md) covers the trail laid on this ground, and the pace it buys.
 - [Bunker Depth](bunker-depth.md) covers the two bunker depths.
 - [Shot Accuracy](../golf-play/shot-accuracy.md) uses the lie and distance values.
 - [Ball Physics](../golf-play/ball-physics.md) uses the roll-out values.

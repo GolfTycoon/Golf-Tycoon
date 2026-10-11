@@ -608,6 +608,59 @@ func set_walking_path(pos: Vector2i, enabled: bool) -> bool:
 	walking_paths_changed.emit()
 	return true
 
+## What a walker needs to know about a box of the course to plan a route: the
+## walk rate of every tile in it (row by row, `width` tiles per row), and the
+## quickest rate anything in the box is walked at — which is 0.0 when the box
+## carries no walking surface at all (no tile with the Path improvement, and no
+## cart path), meaning there is nothing quicker to walk on and no route to plan.
+##
+## Rates are 0.0 for a tile no walker enters — water, out of bounds or ground
+## outside the property, the same tiles Golfer._path_crosses_obstacle refuses —
+## and they already fold in the terrain's own rate and the walking path laid on
+## it.
+class WalkField:
+	var width: int = 0
+	var rate := PackedFloat32Array()
+	var best: float = 0.0
+
+func walk_field(bounds: Rect2i) -> WalkField:
+	var area := bounds.intersection(Rect2i(Vector2i.ZERO, Vector2i(grid_width, grid_height)))
+	var field := WalkField.new()
+	field.width = area.size.x
+	field.rate.resize(area.size.x * area.size.y)
+	var overlay := _walking_path_overlay
+	for y in range(area.size.y):
+		for x in range(field.width):
+			var pos := Vector2i(area.position.x + x, area.position.y + y)
+			var type: int = get_tile(pos)
+			if type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS,
+					TerrainTypes.Type.EMPTY]:
+				continue
+			var rate: float = TerrainTypes.get_speed_modifier(type)
+			var laid := _walking_paths.has(pos)
+			if laid:
+				# A laid trail is walked quicker than the ground it crosses, and
+				# quicker still once its network reaches the clubhouse.
+				rate *= overlay.speed_modifier_at(pos) if overlay else WalkingPathOverlay.DIRT_SPEED_MODIFIER
+			if laid or type == TerrainTypes.Type.PATH:
+				field.best = maxf(field.best, rate)
+			field.rate[y * field.width + x] = rate
+	return field
+
+## How quickly this tile is walked, as a multiplier on a golfer's own walking
+## speed: the terrain's own rate (cart paths 1.5x, deep rough 0.85x, brush
+## 0.75x — see TerrainTypes.PROPERTIES) times the walking path laid on it (a
+## dirt trail 1.25x, and 1.5x once its network reaches the clubhouse and the
+## trail is paved). Off a trail the terrain's rate is returned unchanged, so a
+## trail through long grass is still the quickest way through it.
+func walk_speed_modifier_at(pos: Vector2i) -> float:
+	var modifier := TerrainTypes.get_speed_modifier(get_tile(pos))
+	if not _walking_paths.has(pos):
+		return modifier
+	if _walking_path_overlay:
+		return modifier * _walking_path_overlay.speed_modifier_at(pos)
+	return modifier * WalkingPathOverlay.DIRT_SPEED_MODIFIER
+
 ## Every tile carrying a walking path.
 func get_walking_paths() -> Array[Vector2i]:
 	var paths: Array[Vector2i] = []

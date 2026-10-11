@@ -37,6 +37,7 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | [Stroke Index](course-design/stroke-index.md) | Hole ranking by difficulty |
 | [Improvement Catalog](course-design/garden-catalog.md) | Improvements and facilities you can place |
 | [Path Furniture](course-design/path-furniture.md) | Benches, signs and other items beside walks |
+| [Walking Paths](course-design/walking-paths.md) | Trails, the dirt-to-paved upgrade and quicker walking |
 | [Routing Overlay](course-design/routing-overlay.md) | Walking distance between holes |
 | [Course Themes](course-design/course-themes.md) | The ten course themes and their effects |
 | [Course Wildlife](course-design/course-wildlife.md) | Ducks, butterflies and fountain spray |

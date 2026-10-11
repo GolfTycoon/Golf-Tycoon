@@ -1317,22 +1317,32 @@ func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:
 	assert_eq(roundi(image.get_pixel(2, 2).r * 255.0), TerrainTypes.Type.ROUGH,
 		"The whole tile is ground the trail crosses")
 
+	# The tile wears the same three passes the overlay draws: a trodden verge,
+	# the packed earth and its worn centre, tied together by a pad in the middle.
 	var art: Node2D = path_tile.get_node("WalkingPathPreviewArt")
-	assert_eq(art.get_child_count(), 3, "A rim, the dirt, and a paler centre line")
-	var band: Polygon2D = art.get_child(1)
+	assert_eq(art.get_child_count(), 5, "Verge and pad, earth and pad, then the centre")
 	var center := TerrainTileButton.BUTTON_SIZE * 0.5
 	var along := Vector2(TerrainTileButton.TILE_SIZE.x * 0.5, TerrainTileButton.TILE_SIZE.y * 0.5)
+	for child in art.get_children():
+		for corner in (child as Polygon2D).polygon:
+			assert_true(TerrainTileButton.point_on_tile(corner),
+				"The trail stays inside the diamond: %s" % corner)
+	var verge: Polygon2D = art.get_child(0)
+	assert_eq(verge.color, WalkingPathOverlay.DIRT_VERGE,
+		"The trodden verge is laid first, so the trail sits on it")
+	var band: Polygon2D = art.get_child(2)
 	# The ribbon's ends are the midpoints of the two tile edges it joins, so a
 	# lone tile reads as a piece of one continuous trail.
 	assert_eq((band.polygon[0] + band.polygon[3]) * 0.5, center - along * 0.5,
 		"The trail starts at the shared edge with the neighbour up-left")
 	assert_eq((band.polygon[1] + band.polygon[2]) * 0.5, center + along * 0.5,
 		"and ends at the shared edge with the neighbour down-right")
-	for corner in band.polygon:
-		assert_true(TerrainTileButton.point_on_tile(corner),
-			"The trail stays inside the diamond: %s" % corner)
 	assert_eq(band.color, WalkingPathOverlay.DIRT_COLOR,
 		"The preview uses the overlay's own dirt colours")
+	assert_eq((art.get_child(3) as Polygon2D).color, WalkingPathOverlay.DIRT_COLOR,
+		"The pad is drawn in the same earth as the ribbon")
+	assert_eq((art.get_child(4) as Polygon2D).color, WalkingPathOverlay.DIRT_LIGHT,
+		"and the worn centre line ends up on top")
 
 func test_decoration_tiles_use_the_course_tile_design() -> void:
 	var registry := {

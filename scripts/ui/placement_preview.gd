@@ -431,28 +431,26 @@ func _draw_vertex_marker(vertex: Vector2i, color: Color, marker_scale: float) ->
 		center - axis_x, center - axis_y, center + axis_x, center + axis_y,
 	]), color)
 
-## Ghost of the dirt dot the Path tool would lay on the hovered tile.
+## Ghost of the trodden dirt dot the Path tool would lay on the hovered tile:
+## the same trodden patch the overlay draws for a trail head, so the cursor
+## shows what gets laid.
 func _draw_path_ghost(alpha_mod: float) -> void:
 	if current_preview_positions.is_empty():
 		return
 	var pos: Vector2i = current_preview_positions[0]
 	if not terrain_grid.is_valid_position(pos) or not terrain_grid.can_place_walking_path(pos):
 		return
-	var c := OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(0.5, 0.5))
-	var xd := OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(1.5, 0.5)) - c
-	var yd := OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(0.5, 1.5)) - c
-	var diamond_scale := WalkingPathOverlay.DIRT_DOT
-	var dot := PackedVector2Array([
-		c + (xd + yd) * diamond_scale,
-		c + (-xd + yd) * diamond_scale,
-		c + (-xd - yd) * diamond_scale,
-		c + (xd - yd) * diamond_scale,
-	])
-	var fill := WalkingPathOverlay.DIRT_COLOR
+	var across := (OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(1.5, 0.5))
+			- OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(0.5, 0.5))).length()
+	var centre := OverlayGeometry.point_in_tile(terrain_grid, self, pos, Vector2(0.5, 0.5))
+	var verge := Color(WalkingPathOverlay.DIRT_VERGE)
+	verge.a *= alpha_mod
+	var fill := Color(WalkingPathOverlay.DIRT_COLOR)
 	fill.a *= alpha_mod
-	draw_colored_polygon(dot, fill)
-	dot.append(dot[0])
-	draw_polyline(dot, Color(1.0, 1.0, 1.0, 0.8 * alpha_mod), 1.5)
+	draw_circle(centre, WalkingPathOverlay.DIRT_VERGE_DOT * across, verge)
+	draw_circle(centre, WalkingPathOverlay.DIRT_LONE_DOT * across, fill)
+	draw_arc(centre, WalkingPathOverlay.DIRT_LONE_DOT * across, 0.0, TAU, 20,
+			Color(1.0, 1.0, 1.0, 0.8 * alpha_mod), 1.5)
 
 func _is_tile_valid_for_placement(_grid_pos: Vector2i) -> bool:
 	# The preview and click use one footprint-level validation result.

@@ -101,6 +101,7 @@ The golfer state machine gained one state, `LEAVING`, appended last so saved sta
 
 ## Related
 
+- [Walking Paths](walking-paths.md) covers the trails the clubhouse paves.
 - [Isometric Buildings](isometric-buildings.md) covers how buildings are drawn.
 - [Course Architecture](course-character.md) covers facade and landform rendering.
 - [Golfer Needs](../golfers/golfer-needs.md) covers how the visit restores needs.
