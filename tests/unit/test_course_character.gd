@@ -30,7 +30,7 @@ func after_each() -> void:
 
 func test_sculpted_brush_tapers_preserves_surfaces_and_can_be_undone() -> void:
 	grid.set_tile(Vector2i(8, 7), TerrainTypes.Type.WATER)
-	grid.set_tile(Vector2i(7, 8), TerrainTypes.Type.PATH)
+	grid.set_tile(Vector2i(7, 8), TerrainTypes.Type.OUT_OF_BOUNDS)
 	var saved := grid.serialize()
 	# A 9-wide brush centred on tile (8, 8) stamps around vertex (9, 9) with a
 	# 4-vertex radius and a 3-step centre (the Rolling Hill/Hollow math, now

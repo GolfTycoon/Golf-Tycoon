@@ -74,13 +74,6 @@ const PROFILES: Dictionary = {
 		[ -0.01,  0.01, -0.02,  0.00 ],
 	],
 
-	# PATH: Flat (paved/maintained)
-	TerrainTypes.Type.PATH: [
-		[  0.00,  0.00,  0.00,  0.00 ],
-		[  0.00,  0.00,  0.00,  0.00 ],
-		[  0.00,  0.00,  0.00,  0.00 ],
-		[  0.00,  0.00,  0.00,  0.00 ],
-	],
 
 	# ROCKS: Jagged, raised prominently. The boulder fields share the profile:
 	# all three are the same stony ground.

@@ -183,7 +183,12 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 			if grid.get_tile(p) in [TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX,TerrainTypes.Type.FAIRWAY]: continue
 			# Painting the tile is the clearing: any tree that grew here goes
 			# with the ground it stood on.
-			grid.set_tile(p, TerrainTypes.Type.PATH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
+			grid.set_tile(p, TerrainTypes.Type.ROUGH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
+			# The arrival walk is the Path improvement's trail over the rough,
+			# not a surface of its own: laid quiet, because the whole garden is
+			# painted inside one batch and the overlay rebuilds at the end.
+			if y >= 65 and y <= 67:
+				grid.set_walking_path_quiet(p, true)
 	# Starter amenities for the arrival garden. The food stop comes in two
 	# theme-dependent flavours (a Snack Bar almost everywhere, a Pub on a Links
 	# course), so the first candidate the theme allows takes the spot.
@@ -215,7 +220,8 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 		var p: Vector2i = item[0]
 		if grid.get_tile(p) in [TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX]: continue
 		if entities.get_decoration_at(p) or entities.is_tile_occupied_by_building(p): continue
-		grid.set_tile(p,TerrainTypes.Type.PATH)
+		grid.set_tile(p, TerrainTypes.Type.ROUGH)
+		grid.set_walking_path_quiet(p, true)
 		entities.place_decoration(item[1],p,decor)
 
 ## Small layered planting groups keep the entrance from reading as isolated props.

@@ -1,7 +1,7 @@
 extends GutTest
-## Golfers prefer to walk on the paths: a laid trail (and a cart path) is
-## walked quicker than the ground around it, and route planning pulls a walk
-## onto the quickest surface whenever that is genuinely faster — see
+## Golfers prefer to walk on the paths: a laid trail is walked quicker than the
+## ground around it, and route planning pulls a walk onto the quickest surface
+## whenever that is genuinely faster — see
 ## Golfer._find_path_to() / _find_quickest_route() and
 ## TerrainGrid.walk_speed_modifier_at().
 
@@ -85,11 +85,6 @@ func test_a_trail_through_long_grass_is_the_quickest_way_through_it() -> void:
 	assert_gt(trail, brush, "A trail through the brush beats ploughing through it")
 	assert_lt(trail, 1.0, "and the brush still costs the walker time")
 
-func test_a_cart_path_keeps_its_own_rate() -> void:
-	grid.set_tile(Vector2i(9, 9), TerrainTypes.Type.PATH)
-	assert_almost_eq(grid.walk_speed_modifier_at(Vector2i(9, 9)),
-			TerrainTypes.get_speed_modifier(TerrainTypes.Type.PATH), 0.001)
-
 func test_the_walk_field_reads_a_box_of_the_course_for_a_walker() -> void:
 	var empty := grid.walk_field(Rect2i(0, 0, 10, 10))
 	assert_eq(empty.best, 0.0, "No walk in the box, no rate to walk at")
@@ -103,10 +98,10 @@ func test_the_walk_field_reads_a_box_of_the_course_for_a_walker() -> void:
 	assert_almost_eq(with_trail.rate[4 * 10 + 4], WalkingPathOverlay.DIRT_SPEED_MODIFIER, 0.001,
 			"and its tiles are read at the trail's rate")
 	assert_eq(grid.walk_field(Rect2i(20, 20, 10, 10)).best, 0.0, "Nothing over here")
-	grid.set_tile(Vector2i(25, 25), TerrainTypes.Type.PATH)
+	_lay_trail(25, 25, 25)
 	assert_almost_eq(grid.walk_field(Rect2i(20, 20, 10, 10)).best,
-			TerrainTypes.get_speed_modifier(TerrainTypes.Type.PATH), 0.001,
-			"A cart path is a walking surface too")
+			WalkingPathOverlay.DIRT_SPEED_MODIFIER, 0.001,
+			"A trail laid over ordinary ground is read at its own rate")
 
 func test_the_walk_field_marks_what_a_walker_cannot_cross() -> void:
 	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.WATER)

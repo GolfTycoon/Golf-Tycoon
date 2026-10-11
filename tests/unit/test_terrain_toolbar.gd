@@ -315,7 +315,7 @@ func test_terrain_paint_tools_are_isometric_course_tiles() -> void:
 	# as a tile too — it just lives in the Improvements honeycomb.
 	var paint_tools := [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.ROUGH,
 		TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
-		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.PATH]
+		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.WALKING_PATH_TOOL]
 	for tool_type in paint_tools:
 		var button: ToolButton = toolbar._tool_buttons[tool_type]
 		assert_true(button is TerrainTileButton, "%s should be a tile button" % button.tool_name)
@@ -492,7 +492,7 @@ func test_every_course_terrain_tile_says_it_replaces_the_others() -> void:
 		assert_string_contains(toolbar._tool_buttons[tree_type].tool_description, sentence,
 			"%s replaces any other Course Terrain tile" % TerrainTypes.get_type_name(tree_type))
 	# The Path tool is an improvement laid over ground, not a Course Terrain tile.
-	assert_false(toolbar._tool_buttons[TerrainTypes.Type.PATH].tool_description.contains(sentence),
+	assert_false(toolbar._tool_buttons[TerrainTypes.WALKING_PATH_TOOL].tool_description.contains(sentence),
 		"The walking path does not replace course terrain")
 	toolbar.set_green_placement_state(false)
 	assert_string_contains(toolbar._tool_buttons[TerrainTypes.Type.GREEN].tool_description, sentence,
@@ -1276,7 +1276,7 @@ func test_path_tile_leads_the_improvements_honeycomb() -> void:
 	assert_true(path_tile is TerrainTileButton, "The path is drawn as a course tile")
 	assert_eq(path_tile.get_parent(), shelf, "The path belongs to the improvements honeycomb")
 	assert_eq(path_tile.get_index(), 0, "The path is the honeycomb's first tile")
-	assert_same(toolbar._tool_buttons[TerrainTypes.Type.PATH], path_tile,
+	assert_same(toolbar._tool_buttons[TerrainTypes.WALKING_PATH_TOOL], path_tile,
 		"The path tile is what the toolbar highlights when the tool is selected")
 
 	toolbar.set_decoration_registry({"bench": {"name": "Bench", "category": "furniture"},
@@ -1301,8 +1301,8 @@ func test_path_tile_leads_the_improvements_honeycomb() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.BUILDINGS)
 	watch_signals(toolbar)
 	path_tile.pressed.emit()
-	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.Type.PATH])
-	assert_eq(toolbar.get_current_tool(), TerrainTypes.Type.PATH)
+	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.WALKING_PATH_TOOL])
+	assert_eq(toolbar.get_current_tool(), TerrainTypes.WALKING_PATH_TOOL)
 	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS)
 
 func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:

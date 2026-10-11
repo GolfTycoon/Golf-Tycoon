@@ -25,7 +25,6 @@ const NOISE_AMPLITUDES: Dictionary = {
 	TerrainTypes.Type.TEE_BOX: 0.02,
 	TerrainTypes.Type.BUNKER: 0.06,
 	TerrainTypes.Type.WATER: 0.0,
-	TerrainTypes.Type.PATH: 0.02,
 	TerrainTypes.Type.OUT_OF_BOUNDS: 0.10,
 	TerrainTypes.Type.TREES: 0.14,
 	TerrainTypes.Type.OAK: 0.14,

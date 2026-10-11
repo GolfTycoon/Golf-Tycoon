@@ -1,42 +1,46 @@
 # Walking Paths
 
-> A walking path is a slim trail golfers can see and walk on. It is laid as a trodden dirt ribbon, and the whole network turns into a paved stone promenade once it reaches the clubhouse. Golfers walk quicker on it than on the ground it crosses, so planned routes step onto it whenever that saves them time.
+> A walking path is a slim trail golfers can see and walk on. It is laid over the ground rather than instead of it — a trodden dirt ribbon that leaves the turf, the lie and the upkeep exactly as they were — and the whole network turns into a paved stone promenade once it reaches the clubhouse. Golfers walk quicker on it than on the ground it crosses, so planned routes step onto it whenever that saves them time. It is also what a generated course arrives with.
 
-**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_grid.gd` (`walk_speed_modifier_at()`, `walk_field()`, `WalkField`), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
+**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_types.gd` (`WALKING_PATH_TERRAINS`, `can_host_walking_path()`, `WALKING_PATH_TOOL`, `WALKING_PATH_COST`), `scripts/terrain/terrain_grid.gd` (`set_walking_path()`, `can_place_walking_path()`, `walk_speed_modifier_at()`, `walk_field()`, `WalkField`), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
 **Tests:** `tests/unit/test_walking_paths.gd`, `tests/unit/test_golfer_walking_routes.gd`, `tests/unit/test_terrain_toolbar.gd`, `tests/unit/test_path_furniture.gd`; `tests/harness/walking_path_harness.tscn`
 
 ---
 
 ## Plain English
 
-The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not a building: click or drag and each tile costs **$8**, the same as a cart path tile, and it adds no upkeep. A tile a building or a decoration already occupies cannot take one.
+The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not a building: click or drag and each tile costs **$8**, and it adds no upkeep. A tile a building or a decoration already occupies cannot take one, and neither can ground the trail cannot be trodden on — the mown playing line above all.
 
 - **Dirt:** a freshly laid trail is a trodden ribbon over the ground it crosses — packed earth at the middle, trodden grass at the verges, a paler strip down the centre that boots have polished, and dry patches, pebbles and grass blades scattered along it. Each tile carries a pad, and pads on edge-adjacent tiles join into one continuous walk, so a trail reads as a trail rather than a row of tiles.
 - **Paved:** the moment the connected trail network touches a clubhouse tile, **every** trail in that network is paved — light flagstones with joints across the walk, a kerb of dressed darker stone either side, gravel bedded into the grass, and a few slabs catching the light. Take the link away — bulldoze a tile of it, paint over the ground, or move the clubhouse — and the trail is dirt again.
 - **Walking quicker:** a golfer on a dirt trail walks **1.25×** as fast as the same ground without it, and **1.5×** on paving. The ground's own rate still counts, so a trail through brush is quicker than ploughing through the brush but slower than a trail over rough.
 - **Preferring the walk:** a planned walk steps onto the trail when that gets the golfer there no more than **a moment slower** than walking straight there, and never crosses the course to reach a distant trail. Water and out of bounds are still walked around.
-- Trails are also carried across **cart paths** (`TerrainTypes.Type.PATH`) and vice versa: painting the course terrain joins the network, so a trail can be paved by connecting to a cart path that already reaches the clubhouse.
+- **Nothing but the walk changes.** A trail is a flag on a tile, not a terrain: the ball lies on the ground underneath, rolls as it did, and the tile keeps its own build cost and upkeep. Painting the ground with a course tile that cannot host a trail — fairway, say — takes the trail with it.
+- **A generated course arrives with its trails already laid:** out of the clubhouse door, beside every fairway, from each green to the next tee and home again. They are laid by the same rule as a brush stroke, so a network that reaches the clubhouse is paved, and a trail the player paints onto it joins the same network and paves with it. See [Generated Walking Paths](generated-walking-paths.md), including where a course's walks stop short and stay dirt.
 - **Under the golfers:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it.
-- The bulldozer removes a trail for **$5** a tile, leaving rough ground. Its tooltip says so, and undo and redo put the trail back.
+- The bulldozer removes a trail for **$5** a tile, leaving the ground it crossed untouched. Its tooltip says so, and undo and redo put the trail back.
 
 ## Algorithm
 
 ### 1. What the trail can be laid on
 
-`TerrainTypes.can_host_walking_path()` allows the flag on `WALKING_PATH_TERRAINS`: rough and deep rough, waste bunkers, brush, rocks and boulders, streams, wild flowers, and every woodland tile. Fairway, green, the playable bunkers, water, out of bounds and cart paths themselves do not take one. The placement is refused with a message and no charge; painting the ground with a course tile afterwards drops the flag, as course terrain always replaces what is there.
+`TerrainTypes.can_host_walking_path()` allows the flag on `WALKING_PATH_TERRAINS`: rough and deep rough, waste bunkers, brush, rocks and boulders, streams, wild flowers, and every woodland tile. Fairway and firm fairway, green, tee box, the playable bunkers, water, out of bounds, natural grass, heavy rough and empty ground do not take one. The placement is refused with a message and no charge; painting the ground with a course tile afterwards drops the flag, as course terrain always replaces what is there (`TerrainGrid.set_tile()` erases it and emits `walking_paths_changed`).
+
+One list serves the whole game: the player's brush stroke, `TerrainGrid.can_place_walking_path()`, and the paths a generated course is laid out with all read `can_host_walking_path()`. There is no generation-only allowance, so no trail anywhere sits on ground the player could not have trodden themselves.
 
 ### 2. Dirt or paved
 
 `WalkingPathOverlay.rebuild()` collects the flagged tiles, then asks `upgraded_component_tiles()` which of them are paved. It is a static function so the rule is unit-testable without a scene:
 
 ```
-flood the trail network 4-connected, treating a tile as a node when
-    it carries the walking-path flag, or its terrain is Type.PATH
+flood the trail network 4-connected over the tiles that carry the walking-path flag
 a component is paved when any of its tiles is orthogonally adjacent
     to a clubhouse footprint tile
 ```
 
-The rebuild listens to `walking_paths_changed`, `elevation_changed`, a `terrain_tile_changed` on a cart path (both old and new type), `load_completed`, and a clubhouse being placed, removed or moved. Sculpting elevation only reprojects the trail; it does not re-decide the paving.
+The rebuild listens to `walking_paths_changed`, `elevation_changed`, `load_completed`, and a clubhouse being placed, removed or moved. Sculpting elevation only reprojects the trail; it does not re-decide the paving.
+
+A network that never touches the clubhouse stays dirt, and that is a normal outcome: the ground between two holes may be all fairway, so a generated course can arrive with its walks in several pieces (see [Generated Walking Paths](generated-walking-paths.md)).
 
 ### 3. Drawing
 
@@ -59,7 +63,7 @@ Widths and radii are authored in tile units along the tile's isometric axes, so 
 Two functions answer "how quick is this tile for a walker?":
 
 ```
-TerrainTypes.get_speed_modifier(type)          # cart path 1.5x, deep rough 0.85x, brush 0.75x
+TerrainTypes.get_speed_modifier(type)          # deep rough 0.85x, brush 0.75x
 WalkingPathOverlay.speed_modifier_at(pos)      # 1.0 off the trail, 1.25 dirt, 1.5 paved
 TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 ```
@@ -80,7 +84,7 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 
 | Setting | Location | Current value | Effect |
 | --- | --- | --- | --- |
-| Build cost and upkeep | `terrain_types.gd` `PROPERTIES` (Type.PATH) | `$8`, no upkeep | Price of a trail tile, and of painting a cart path |
+| Build cost and upkeep | `terrain_types.gd` `WALKING_PATH_COST` | `$8`, no upkeep | Price of a trail tile |
 | Bulldozer fee | `main.gd` `BULLDOZER_COSTS` | `$5` per path tile | Cost of removing a trail |
 | Dirt walk rate | `walking_path_overlay.gd` `DIRT_SPEED_MODIFIER` | `1.25` | Speed multiplier on an unpaved trail |
 | Paved walk rate | `walking_path_overlay.gd` `PAVED_SPEED_MODIFIER` | `1.5` | Speed multiplier once the trail reaches the clubhouse |
@@ -97,8 +101,9 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 
 - [Improvement Catalog](garden-catalog.md) lists the tile in the Improvements honeycomb.
 - [Path Furniture](path-furniture.md) covers the benches and ball washers placed beside a walk.
+- [Generated Walking Paths](generated-walking-paths.md) covers the network a generated course is laid out with.
 - [Clubhouse](clubhouse.md) is what a trail has to reach to be paved.
-- [Terrain Types](terrain-types.md) has the walking rates of the terrain under the trail, including the cart path.
+- [Terrain Types](terrain-types.md) has the walking rates of the ground under the trail, and the retired id 9.
 - [Golfer Needs](../golfers/golfer-needs.md) covers pace satisfaction while walking.
 - [Group Turn Order](../golf-play/group-turn-order.md) covers walkers stepping clear of a partner's shot.
 - [Architecture](../../architecture.md) lists the draw bands the trail and the golfers paint in.

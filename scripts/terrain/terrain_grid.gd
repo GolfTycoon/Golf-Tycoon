@@ -43,6 +43,9 @@ var _cup_tiles: Dictionary = {}  # Vector2i -> true
 ## the terrain underneath. Repainting a tile to non-hostable ground removes
 ## the path. See set_walking_path().
 var _walking_paths: Dictionary = {}  # Vector2i -> true
+## Tiles an older save stored as cart path terrain (id 9, now retired). Filled by
+## deserialize() and folded into the trail layer by deserialize_walking_paths().
+var _retired_cart_paths: Dictionary = {}  # Vector2i -> true
 ## Index of TEE_BOX tiles, kept in step with _grid so the tee placement rule
 ## ("no waiting tee box on the course") is a dictionary lookup, not a grid scan.
 var _tee_box_tiles: Dictionary = {}  # Vector2i -> true
@@ -78,7 +81,6 @@ var _grass_overlay: GrassOverlay = null
 var _fairway_overlay: FairwayOverlay = null
 var _tree_overlay: TreeOverlay = null
 var _flower_overlay: FlowerOverlay = null
-var _path_overlay: PathOverlay = null
 var _walking_path_overlay: WalkingPathOverlay = null
 var _debug_overlay: TerrainDebugOverlay = null
 var _land_boundary_overlay: LandBoundaryOverlay = null
@@ -158,8 +160,6 @@ func _redraw_all_overlays() -> void:
 		_tree_overlay.queue_redraw()
 	if _flower_overlay:
 		_flower_overlay.queue_redraw()
-	if _path_overlay:
-		_path_overlay.queue_redraw()
 	if _walking_path_overlay:
 		_walking_path_overlay.queue_redraw()
 	if _shot_heatmap_overlay:
@@ -423,9 +423,6 @@ func refresh_all_overlays() -> void:
 	if _flower_overlay and _flower_overlay.has_method("_scan_flower_tiles"):
 		_flower_overlay._scan_flower_tiles()
 		_flower_overlay.queue_redraw()
-	if _path_overlay and _path_overlay.has_method("_scan_path_tiles"):
-		_path_overlay._scan_path_tiles()
-		_path_overlay.queue_redraw()
 	if _walking_path_overlay:
 		_walking_path_overlay.rebuild()
 	if _ob_markers_overlay and _ob_markers_overlay.has_method("_calculate_boundaries"):
@@ -608,11 +605,27 @@ func set_walking_path(pos: Vector2i, enabled: bool) -> bool:
 	walking_paths_changed.emit()
 	return true
 
+## Lay a trail without announcing it: course generation lays a whole network,
+## and the overlay only needs rebuilding once at the end (see
+## refresh_all_overlays). Returns true when the layer actually changed.
+func set_walking_path_quiet(pos: Vector2i, enabled: bool) -> bool:
+	if not is_valid_position(pos):
+		return false
+	if enabled == _walking_paths.has(pos):
+		return false
+	if enabled and not TerrainTypes.can_host_walking_path(get_tile(pos)):
+		return false
+	if enabled:
+		_walking_paths[pos] = true
+	else:
+		_walking_paths.erase(pos)
+	return true
+
 ## What a walker needs to know about a box of the course to plan a route: the
 ## walk rate of every tile in it (row by row, `width` tiles per row), and the
 ## quickest rate anything in the box is walked at — which is 0.0 when the box
-## carries no walking surface at all (no tile with the Path improvement, and no
-## cart path), meaning there is nothing quicker to walk on and no route to plan.
+## carries no walking surface at all (no tile with the Path improvement),
+## meaning there is nothing quicker to walk on and no route to plan.
 ##
 ## Rates are 0.0 for a tile no walker enters — water, out of bounds or ground
 ## outside the property, the same tiles Golfer._path_crosses_obstacle refuses —
@@ -642,14 +655,14 @@ func walk_field(bounds: Rect2i) -> WalkField:
 				# A laid trail is walked quicker than the ground it crosses, and
 				# quicker still once its network reaches the clubhouse.
 				rate *= overlay.speed_modifier_at(pos) if overlay else WalkingPathOverlay.DIRT_SPEED_MODIFIER
-			if laid or type == TerrainTypes.Type.PATH:
+			if laid:
 				field.best = maxf(field.best, rate)
 			field.rate[y * field.width + x] = rate
 	return field
 
 ## How quickly this tile is walked, as a multiplier on a golfer's own walking
-## speed: the terrain's own rate (cart paths 1.5x, deep rough 0.85x, brush
-## 0.75x — see TerrainTypes.PROPERTIES) times the walking path laid on it (a
+## speed: the terrain's own rate (deep rough 0.85x, brush 0.75x — see
+## TerrainTypes.PROPERTIES) times the walking path laid on it (a
 ## dirt trail 1.25x, and 1.5x once its network reaches the clubhouse and the
 ## trail is paved). Off a trail the terrain's rate is returned unchanged, so a
 ## trail through long grass is still the quickest way through it.
@@ -682,16 +695,21 @@ func serialize_walking_paths() -> Array:
 
 func deserialize_walking_paths(data) -> void:
 	_walking_paths.clear()
-	if data == null:
-		return
-	for key in data:
-		var parts = str(key).split(",")
-		if parts.size() == 2:
-			var pos = Vector2i(int(parts[0]), int(parts[1]))
-			# Only keep paths whose ground still hosts them (a tree may have
-			# been cleared, a fairway painted over, ...).
-			if is_valid_position(pos) and TerrainTypes.can_host_walking_path(get_tile(pos)):
-				_walking_paths[pos] = true
+	if data != null:
+		for key in data:
+			var parts = str(key).split(",")
+			if parts.size() == 2:
+				var pos = Vector2i(int(parts[0]), int(parts[1]))
+				# Only keep paths whose ground still hosts them (a tree may have
+				# been cleared, a fairway painted over, ...).
+				if is_valid_position(pos) and TerrainTypes.can_host_walking_path(get_tile(pos)):
+					_walking_paths[pos] = true
+	# The gravel tiles an older save carried (see deserialize): they are rough
+	# now, and rough hosts the trail that replaced them.
+	for pos in _retired_cart_paths:
+		if TerrainTypes.can_host_walking_path(get_tile(pos)):
+			_walking_paths[pos] = true
+	_retired_cart_paths.clear()
 	walking_paths_changed.emit()
 
 ## Reset to bare land so a new course starts clean: every tile back to GRASS and
@@ -848,12 +866,6 @@ func _setup_flower_overlay() -> void:
 	_flower_overlay.name = "FlowerOverlay"
 	add_child(_flower_overlay)
 	_flower_overlay.initialize(self)
-
-func _setup_path_overlay() -> void:
-	_path_overlay = PathOverlay.new()
-	_path_overlay.name = "PathOverlay"
-	add_child(_path_overlay)
-	_path_overlay.initialize(self)
 
 func _setup_walking_path_overlay() -> void:
 	_walking_path_overlay = WalkingPathOverlay.new()
@@ -1186,7 +1198,7 @@ func is_vertex_editable(vertex: Vector2i, entity_layer: EntityLayer = null,
 		return false
 	for tile in tiles_around_vertex(vertex):
 		if protect_surfaces and get_tile(tile) in [TerrainTypes.Type.WATER,
-				TerrainTypes.Type.PATH, TerrainTypes.Type.OUT_OF_BOUNDS]:
+				TerrainTypes.Type.OUT_OF_BOUNDS]:
 			return false
 		if entity_layer and entity_layer.is_tile_occupied_by_building(tile):
 			return false
@@ -1319,13 +1331,22 @@ func serialize_bunker_depth() -> Dictionary:
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
 	_player_placed_tiles.clear()
+	_retired_cart_paths.clear()
 	# First pass: set all terrain types
 	for key in data:
 		var parts = key.split(",")
 		if parts.size() == 2:
 			var pos = Vector2i(int(parts[0]), int(parts[1]))
 			if is_valid_position(pos):
-				_grid[pos] = int(data[key])
+				var type := int(data[key])
+				# A save from before the cart path terrain was retired: its
+				# gravel becomes the rough it was laid over, carrying the trail
+				# the Path improvement lays now (applied by
+				# deserialize_walking_paths, which owns the trail layer).
+				if type == TerrainTypes.Type.RETIRED_PATH:
+					type = TerrainTypes.Type.ROUGH
+					_retired_cart_paths[pos] = true
+				_grid[pos] = type
 	terrain_revision += 1
 	_reindex_tee_boxes()
 	if _course_surface:

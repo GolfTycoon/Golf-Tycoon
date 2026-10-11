@@ -218,7 +218,7 @@ func _update_preview(delta: float) -> void:
 		if current_terrain_tool == TerrainTypes.Type.TEE_BOX:
 			current_preview_valid = current_preview_valid \
 					and HoleLayout.can_place_tee_box(terrain_grid, course)
-		elif current_terrain_tool == TerrainTypes.Type.PATH:
+		elif current_terrain_tool == TerrainTypes.WALKING_PATH_TOOL:
 			# The trail only sits on hostable ground (see TerrainTypes.
 			# WALKING_PATH_TERRAINS), so validity is per ground type.
 			current_preview_valid = terrain_grid.can_place_walking_path(grid_pos)
@@ -305,7 +305,7 @@ func _draw() -> void:
 
 	# The Path tool paints a thin trail over hostable ground, so its preview
 	# shows per-tile validity colors plus a ghost dot instead of a paint fill.
-	var path_tool := is_terrain_mode and current_terrain_tool == TerrainTypes.Type.PATH
+	var path_tool := is_terrain_mode and current_terrain_tool == TerrainTypes.WALKING_PATH_TOOL
 
 	# Draw generic entity/terrain footprint tiles. Elevation selectors render
 	# their own footprint: Vertex is vertex-only, while the square tools draw
@@ -502,8 +502,6 @@ func _get_terrain_preview_color() -> Color:
 			return Color(0.9, 0.85, 0.6, 0.5)  # Sand color
 		TerrainTypes.Type.WATER:
 			return Color(0.3, 0.5, 0.9, 0.5)  # Blue
-		TerrainTypes.Type.PATH:
-			return Color(0.6, 0.55, 0.5, 0.5)  # Brown/gray
 		TerrainTypes.Type.OUT_OF_BOUNDS:
 			return Color(0.9, 0.3, 0.3, 0.5)  # Red
 		TerrainTypes.Type.FLOWER_BED:

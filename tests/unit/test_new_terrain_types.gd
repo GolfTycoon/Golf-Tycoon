@@ -237,7 +237,11 @@ func test_roll_multipliers_keep_existing_values_and_rank_the_new_ground() -> voi
 	assert_eq(GolfRules.get_roll_multiplier(T.FAIRWAY), 1.0)
 	assert_eq(GolfRules.get_roll_multiplier(T.ROUGH), 0.3)
 	assert_eq(GolfRules.get_roll_multiplier(T.HEAVY_ROUGH), 0.12)
-	assert_eq(GolfRules.get_roll_multiplier(T.PATH), 1.4)
+	# The retired cart path's id keeps its slot in the enum, but nothing is
+	# painted with it any more and it has no rules of its own: a saved course that
+	# still carries one is migrated to the rough it becomes.
+	assert_eq(GolfRules.get_roll_multiplier(T.RETIRED_PATH), GolfRules.get_roll_multiplier(T.ROUGH),
+			"The retired id plays as the rough a migrated tile becomes")
 	assert_eq(GolfRules.get_roll_multiplier(T.ROCKS), 0.15)
 	assert_eq(GolfRules.get_roll_multiplier(T.SMALL_BOULDERS), 0.15, "Boulder patches kill roll like Rocks")
 	assert_eq(GolfRules.get_roll_multiplier(T.LARGE_BOULDERS), 0.15)
@@ -315,6 +319,14 @@ func test_stream_penalty_drops_at_the_point_of_entry_on_dry_ground() -> void:
 
 func test_shot_ai_scores_every_terrain_type() -> void:
 	for type in T.values():
+		if type == T.RETIRED_PATH:
+			# The retired cart path keeps its id so that no other id moves, but
+			# nothing is painted with it any more: a saved course still carrying
+			# one is migrated to rough on load. There is no score for ground that
+			# cannot exist, and ShotAI's own fallback covers a tile that somehow
+			# still reads as one.
+			assert_false(ShotAI.TERRAIN_SCORES.has(type), "The retired id is not scored")
+			continue
 		assert_true(ShotAI.TERRAIN_SCORES.has(type), "ShotAI scores %s" % TerrainTypes.get_type_name(type))
 	assert_eq(ShotAI.TERRAIN_SCORES[T.STREAM], ShotAI.TERRAIN_SCORES[T.WATER])
 	assert_lt(ShotAI.TERRAIN_SCORES[T.POT_BUNKER], ShotAI.TERRAIN_SCORES[T.BUNKER])

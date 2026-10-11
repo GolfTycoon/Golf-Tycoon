@@ -3,7 +3,7 @@
 > How the test suites are organised, how to run them, and which harness scenes to use for manual checks. Unit tests use GUT, and a separate warnings scan keeps GDScript clean.
 
 **Source:** `test.sh`, `check-warnings.sh`, `gutconfig.json`, `tools/warning_scan.gd`, `Makefile`, `.github/workflows/test.yml`
-**Tests:** `tests/unit/` (73 files), `tests/integration/` (17 scripts), `tests/harness/` (12 scenes and 2 preview scripts)
+**Tests:** `tests/unit/` (79 files), `tests/integration/` (17 scripts), `tests/harness/` (13 scenes and 3 preview scripts)
 
 ---
 
@@ -55,7 +55,7 @@ godot --headless --path . -s tests/integration/world_map_flow.gd
 | `hole_path_preview.gd` | The potential hole preview and its route |
 | `hole_tab_context_menu.gd` | The Course Holes tab and its context menu |
 | `new_game_resets_course.gd` | A second new game starts from a clean grid |
-| `generated_course_hole_layout.gd` | Quick Start and the prebuilt packages deliver every hole |
+| `generated_course_hole_layout.gd` | Quick Start and the prebuilt packages deliver every hole, and arrive with their walking paths |
 | `staff_on_course.gd` | Hiring staff, moving an area, and pulling a weed |
 | `world_map_flow.gd` | Menu, setup, globe, buy, play, switch and quick start |
 | `clubhouse_lifecycle.gd` | The clubhouse is created and kept |
@@ -81,10 +81,11 @@ Run a harness with `godot --headless --path . res://tests/harness/<name>.tscn`. 
 | `sim_harness.tscn` | Hires one of each staff type, moves areas daily, and runs a save and load across several days |
 | `elevation_tools_harness.tscn`, `inspect_harness.tscn` | Elevation tools and the inspect tool |
 
-Two preview scripts write images to `tmp_preview/`. Run them with `-s`:
+Three preview scripts run with `-s` instead of as a scene:
 
-- `tests/harness/globe_preview.gd` writes the globe's land mask and a view.
-- `tests/harness/planet_preview.gd` writes the planet views from a CPU port of the globe shader, for checking the look without a GPU.
+- `tests/harness/globe_preview.gd` writes the globe's land mask and a view to `tmp_preview/`.
+- `tests/harness/planet_preview.gd` writes the planet views from a CPU port of the globe shader to `tmp_preview/`, for checking the look without a GPU.
+- `tests/harness/course_path_preview.gd` prints an ASCII plan of a generated course before and after its paths are laid, plus the tiles laid, the time taken, the playing surfaces and woodland the paths took (always none), how many networks the trails fall into, how much of them the clubhouse paves, and how far each tee and green stands off the nearest trail. Pass a layout after `--`: `quickstart` (the default), `generated3`, `generated6`, `generated9`, `generated18`, `starter`, `executive`, `standard9` or `championship18`.
 
 ## Tuning Levers
 

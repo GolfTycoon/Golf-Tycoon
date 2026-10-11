@@ -105,7 +105,7 @@ const TOOL_TAB_MAP := {
 	TerrainTypes.Type.DEAD_TREE: Tab.TERRAIN,
 	TerrainTypes.Type.HEATHER: Tab.TERRAIN,
 	"open_hole": Tab.TERRAIN,
-	TerrainTypes.Type.PATH: Tab.IMPROVEMENTS,
+	TerrainTypes.WALKING_PATH_TOOL: Tab.IMPROVEMENTS,
 	TerrainTypes.Type.FLOWER_BED: Tab.TERRAIN,
 	"decoration": Tab.IMPROVEMENTS,
 	"building": Tab.BUILDINGS,
@@ -603,7 +603,7 @@ func _add_path_tile() -> void:
 	if is_instance_valid(_path_tile):
 		return
 	_path_tile = _add_tool_button(_decoration_shelf, {
-		"type": TerrainTypes.Type.PATH,
+		"type": TerrainTypes.WALKING_PATH_TOOL,
 		"name": "Path",
 		"hotkey": "8",
 		"desc": "Thin dirt walking path laid over rough, deep rough, waste bunker, brush, rocks, boulders, streams, wild flowers and trees. Each tile is a dot; edge-adjacent dots join into one trail, and a trail that reaches the clubhouse is paved.",
@@ -1734,7 +1734,7 @@ func _input(event: InputEvent) -> void:
 			KEY_7:
 				_on_tool_button_pressed(TerrainTypes.Type.OUT_OF_BOUNDS)
 			KEY_8:
-				_on_tool_button_pressed(TerrainTypes.Type.PATH)
+				_on_tool_button_pressed(TerrainTypes.WALKING_PATH_TOOL)
 			KEY_9:
 				_on_tool_button_pressed(TerrainTypes.Type.FIRM_FAIRWAY)
 			KEY_0:

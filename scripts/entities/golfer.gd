@@ -4,7 +4,7 @@ class_name Golfer
 ##
 ## A golfer is drawn in the entity band (z 2, carried by the scene root and its
 ## offset children): over the course surface and over every detail the terrain
-## grid paints on it - the walking trail, the cart paths, water, trees - so the
+## grid paints on it - the walking trail, water, trees - so the
 ## ground art never hides a golfer standing on it. See scenes/entities/golfer.tscn
 ## and the Draw Order section of docs/architecture.md.
 
@@ -887,8 +887,8 @@ func _process_walking(delta: float) -> void:
 			_on_reached_destination()
 		return
 
-	# How quickly this ground is walked: the terrain's own rate (cart paths
-	# 1.5x, deep rough 0.85x, brush 0.75x) times the walking path laid on it,
+	# How quickly this ground is walked: the terrain's own rate (deep rough
+	# 0.85x, brush 0.75x) times the walking path laid on it,
 	# so a golfer is quicker on a trail and quicker still on one that reaches
 	# the clubhouse (see TerrainGrid.walk_speed_modifier_at).
 	var effective_speed := walk_speed
@@ -2749,7 +2749,7 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 		result.append(target_pos)
 		return result
 
-	# A route over the walk (trails, cart paths) when one is genuinely quicker.
+	# A route over the walk (the trail network) when one is genuinely quicker.
 	if path_distance >= MIN_ROUTE_DISTANCE:
 		var trail_route = _find_quickest_route(start_grid, end_grid, path_distance, direct_clear)
 		if not trail_route.is_empty():
@@ -2924,8 +2924,8 @@ func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
 ## The quickest way to walk between two tiles, or [] when walking straight
 ## there is already quickest. The search runs over the grid with each step
 ## costing its walking time rather than its length, so the side that walks
-## quicker — a trodden trail, a paved promenade or a cart path — pulls the
-## route onto it. It is bounded to the neighbourhood of the two points, so a
+## quicker — a trodden trail, or a paved promenade once it reaches the
+## clubhouse — pulls the route onto it. It is bounded to the neighbourhood of the two points, so a
 ## golfer never crosses the course to pick up a distant path.
 ##
 ## This runs for every walk a golfer takes (thousands of them a round), so it

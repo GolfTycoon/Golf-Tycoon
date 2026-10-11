@@ -104,7 +104,7 @@ rebuilds itself can never swallow another:
 
 | Band | What paints there |
 | --- | --- |
-| 0 | The course surface (`CourseSurface`): turf, cart paths, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
+| 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
 | 1 | Ground detail painted over the surface: the walking trail (`WalkingPathOverlay`), trees, flowers, fairway, water, wildlife, and a golfer's shadow and active-shot highlight ring (`-1`) |
 | 2 | Entities: golfers (`scenes/entities/golfer.tscn`) and the buildings and decorations layer (`entity_layer.gd`) |
 | 3 | On-course staff and weeds |

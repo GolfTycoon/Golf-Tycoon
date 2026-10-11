@@ -58,7 +58,7 @@ static func calculate_carries(hole_data: GameManager.HoleData, terrain_grid: Ter
 			# Only update last_safe_pos from fairway-quality terrain — carry measures
 			# from where a golfer would reasonably land, not from rough/trees
 			if TerrainTypes.is_fairway(terrain) or terrain in [TerrainTypes.Type.TEE_BOX,
-						   TerrainTypes.Type.GREEN, TerrainTypes.Type.PATH]:
+						   TerrainTypes.Type.GREEN]:
 				last_safe_pos = sample_pos
 
 	return segments

@@ -5,11 +5,10 @@ class_name WalkingPathOverlay
 ## A walking path is a trodden dirt trail laid ON TOP of hostable ground (see
 ## TerrainTypes.WALKING_PATH_TERRAINS): each tile carries a trodden pad, and
 ## pads on edge-adjacent tiles join with a ribbon, so a trail reads as one
-## continuous walk. Old full-tile cart paths (TerrainTypes.Type.PATH) count as
-## walkable too — a dirt trail touching a cart path continues along it. A trail
-## whose connected network reaches the clubhouse is rendered as a paved stone
-## promenade instead of dirt, and golfers walk quicker on a trail than off it
-## (see speed_modifier_at()).
+## continuous walk. A trail whose connected network reaches the clubhouse is
+## rendered as a paved stone promenade instead of dirt, and golfers walk quicker
+## on a trail than off it (see speed_modifier_at()). A generated course arrives
+## with its trails already laid (see CoursePathGenerator).
 
 ## Orthogonal sides, also used by the component search below.
 const SIDES := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
@@ -81,7 +80,6 @@ func initialize(grid: TerrainGrid) -> void:
 	if grid:
 		grid.walking_paths_changed.connect(rebuild)
 		grid.elevation_changed.connect(_on_elevation_changed)
-	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
 	rebuild()
 
@@ -97,19 +95,11 @@ func _exit_tree() -> void:
 			el.building_removed.disconnect(_on_entity_building_changed)
 		if el.has_signal("building_placed") and el.building_placed.is_connected(_on_entity_building_placed):
 			el.building_placed.disconnect(_on_entity_building_placed)
-	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
-		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
 	if EventBus.load_completed.is_connected(_on_load_completed):
 		EventBus.load_completed.disconnect(_on_load_completed)
 
 func _on_load_completed(_success: bool) -> void:
 	rebuild()
-
-## Cart-path terrain is a walkable node in the network, so painting or
-## removing it changes which trails connect (and which reach the clubhouse).
-func _on_terrain_tile_changed(_pos: Vector2i, old_type: int, new_type: int) -> void:
-	if old_type == TerrainTypes.Type.PATH or new_type == TerrainTypes.Type.PATH:
-		rebuild()
 
 ## Trails follow the ground, so sculpted elevation must reproject them.
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
@@ -151,17 +141,13 @@ func rebuild() -> void:
 	for pos in terrain_grid.get_walking_paths():
 		_path_tiles[pos] = true
 	if not _path_tiles.is_empty():
-		var is_walkable := func(p: Vector2i) -> bool: return _is_walkable(p)
-		_upgraded_tiles = upgraded_component_tiles(
-				_path_tiles, is_walkable, _clubhouse_edge_tiles())
+		_upgraded_tiles = upgraded_component_tiles(_path_tiles, _clubhouse_edge_tiles())
 	queue_redraw()
 
-## True when a tile is a node of the walking network: it carries the
-## walking-path flag, or it is an old full-tile cart path.
+## True when a tile is a node of the walking network: it carries the trail the
+## Path improvement lays.
 func _is_walkable(pos: Vector2i) -> bool:
-	if not terrain_grid or not terrain_grid.is_valid_position(pos):
-		return false
-	return _path_tiles.has(pos) or terrain_grid.get_tile(pos) == TerrainTypes.Type.PATH
+	return _path_tiles.has(pos)
 
 ## Speed modifier for a golfer standing on `pos`: a laid trail is walked more
 ## quickly than the ground around it, and a paved promenade (a trail whose
@@ -196,7 +182,7 @@ func _clubhouse_edge_tiles() -> Dictionary:
 ## belong to components touching any tile in `clubhouse_edges`. Kept static
 ## so the connection rule is unit-testable without a scene.
 static func upgraded_component_tiles(path_tiles: Dictionary,
-		is_walkable: Callable, clubhouse_edges: Dictionary) -> Dictionary:
+		clubhouse_edges: Dictionary) -> Dictionary:
 	var upgraded: Dictionary = {}
 	var visited: Dictionary = {}
 	for start in path_tiles.keys():
@@ -210,7 +196,7 @@ static func upgraded_component_tiles(path_tiles: Dictionary,
 			component.append(node)
 			for side in SIDES:
 				var neighbor: Vector2i = node + side
-				if not is_walkable.call(neighbor) or visited.has(neighbor):
+				if not path_tiles.has(neighbor) or visited.has(neighbor):
 					continue
 				visited[neighbor] = true
 				frontier.append(neighbor)

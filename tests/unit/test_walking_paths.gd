@@ -33,7 +33,7 @@ func test_walking_paths_only_lay_on_hostable_ground() -> void:
 		TerrainTypes.Type.FIRM_FAIRWAY, TerrainTypes.Type.HEAVY_ROUGH,
 		TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
 		TerrainTypes.Type.POT_BUNKER, TerrainTypes.Type.WATER,
-		TerrainTypes.Type.PATH, TerrainTypes.Type.OUT_OF_BOUNDS,
+		TerrainTypes.Type.RETIRED_PATH, TerrainTypes.Type.OUT_OF_BOUNDS,
 	]
 	for t in unhostable:
 		grid.set_tile(Vector2i(2, 2), t)
@@ -120,46 +120,27 @@ func test_reset_for_new_course_clears_walking_paths() -> void:
 # Clubhouse connection (the paved look)
 # ---------------------------------------------------------------------------
 
-## is_walkable over a plain dictionary of walkable tiles.
-static func _walkable_of(walkable: Dictionary) -> Callable:
-	return func(p: Vector2i) -> bool: return walkable.has(p)
-
 func test_component_touching_clubhouse_is_upgraded() -> void:
 	var paths := {Vector2i(0, 0): true, Vector2i(1, 0): true, Vector2i(2, 0): true}
-	var walkable := _walkable_of(paths)
 	var edges := {Vector2i(2, 0): true}  # Clubhouse footprint at (3, 0).
-	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, walkable, edges)
+	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, edges)
 	assert_eq(upgraded.size(), 3, "The whole trail reaches the clubhouse")
 	for pos in paths:
 		assert_true(upgraded.has(pos), "Trail tile %s should be paved" % pos)
 
 func test_disconnected_trail_stays_dirt() -> void:
 	var paths := {Vector2i(0, 0): true, Vector2i(5, 5): true}
-	var walkable := _walkable_of(paths)
 	var edges := {Vector2i(5, 5): true}  # Clubhouse footprint at (6, 5).
-	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, walkable, edges)
+	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, edges)
 	assert_false(upgraded.has(Vector2i(0, 0)))
 	assert_true(upgraded.has(Vector2i(5, 5)))
 
 func test_diagonal_contact_does_not_reach_the_clubhouse() -> void:
 	var paths := {Vector2i(0, 0): true}
-	var walkable := _walkable_of(paths)
 	# Clubhouse footprint at (1, 1): its edge ring never includes (0, 0).
 	var edges := {Vector2i(0, 1): true, Vector2i(1, 0): true}
-	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, walkable, edges)
+	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, edges)
 	assert_eq(upgraded, {})
-
-func test_cart_path_terrain_extends_the_connection() -> void:
-	# Trail (0,0)-(0,1), then a full-tile cart path (0,2) touching the
-	# clubhouse at (0,3): the dirt trail must be paved all the way back.
-	var walkable := {
-		Vector2i(0, 0): true, Vector2i(0, 1): true, Vector2i(0, 2): true,
-	}
-	var paths := {Vector2i(0, 0): true, Vector2i(0, 1): true}
-	var edges := {Vector2i(0, 2): true}
-	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, _walkable_of(walkable), edges)
-	assert_true(upgraded.has(Vector2i(0, 0)))
-	assert_true(upgraded.has(Vector2i(0, 1)))
 
 func test_only_the_trail_that_reaches_the_clubhouse_is_paved() -> void:
 	# Two parallel trails; only one touches the clubhouse footprint at (2, 0).
@@ -167,9 +148,8 @@ func test_only_the_trail_that_reaches_the_clubhouse_is_paved() -> void:
 		Vector2i(0, 0): true, Vector2i(1, 0): true,   # Trail A (reaches the clubhouse)
 		Vector2i(0, 3): true, Vector2i(1, 3): true,   # Trail B (no contact)
 	}
-	var walkable := _walkable_of(paths)
 	var edges := {Vector2i(1, 0): true}
-	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, walkable, edges)
+	var upgraded := WalkingPathOverlay.upgraded_component_tiles(paths, edges)
 	assert_true(upgraded.has(Vector2i(0, 0)))
 	assert_true(upgraded.has(Vector2i(1, 0)))
 	assert_false(upgraded.has(Vector2i(0, 3)))

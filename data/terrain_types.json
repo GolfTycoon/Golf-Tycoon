@@ -9,7 +9,7 @@
     "tee_box": {"id": 6, "name": "Tee Box", "playable": true, "placement_cost": 12, "maintenance_cost": 2},
     "bunker": {"id": 7, "name": "Sand Bunker", "playable": true, "placement_cost": 10, "is_hazard": true},
     "water": {"id": 8, "name": "Water Hazard", "playable": false, "placement_cost": 20, "maintenance_cost": 0, "is_hazard": true, "penalty_strokes": 1},
-    "path": {"id": 9, "name": "Cart Path", "playable": true, "placement_cost": 8},
+    "retired_path": {"id": 9, "name": "Retired Cart Path", "playable": true, "placement_cost": 0},
     "out_of_bounds": {"id": 10, "name": "Out of Bounds", "playable": false, "placement_cost": 0, "penalty_strokes": 1},
     "trees": {"id": 11, "name": "Trees", "playable": true, "placement_cost": 10, "blocks_shots": true},
     "flower_bed": {"id": 12, "name": "Wild Flowers", "playable": false, "placement_cost": 15, "maintenance_cost": 0},

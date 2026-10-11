@@ -11,13 +11,13 @@
 
 Path furniture used to sit at a fixed diagonal angle, and sometimes on a patch of grass under its feet. Now it follows the walk:
 
-- **Benches and ball washers** are small fixtures. A fixture on a path tile sits just inside its exposed edge, facing back into the tile.
+- **Benches and ball washers** are small fixtures. A fixture on a tile the walk crosses sits just inside its exposed edge, facing back into the tile.
 - **Benches on grass** beside a walk face the walk.
 - Furniture is drawn on the same ground layout as the placement ghost, so what you see while placing is what gets built.
 
 The tile you placed the item on is still the anchor for selection, removal and saving. Furniture never moves into a neighbouring tile. It does not change pathfinding, costs or terrain.
 
-Existing fixtures realign after path painting, undo and redo, or any bulk refresh.
+Existing fixtures realign after a trail is painted or bulldozed, after undo and redo, or on any bulk refresh.
 
 ---
 
@@ -25,15 +25,15 @@ Existing fixtures realign after path painting, undo and redo, or any bulk refres
 
 ### 1. Choosing the edge
 
-`PathFurniture.layout()` checks the four cardinal neighbours of the tile. For a path tile, it picks the first exposed edge in this order:
+`PathFurniture.layout()` checks the four cardinal neighbours of the tile. For a tile carrying a trail, it picks the first exposed edge in this order:
 
 ```
 north → west → east → south
 ```
 
-An edge counts as exposed only if the neighbour is land. Water, bunkers, invalid positions and other paths are excluded. The visual is offset toward that edge, and it faces inward. Its footprint stays within the tile.
+An edge counts as exposed only if the neighbour is land. Water, bunkers, invalid positions and a neighbour carrying the same walk are excluded. The trail is a flag over the ground rather than a terrain of its own, so the neighbour beside it has to be ruled out by the flag and not by the ground under it. The visual is offset toward that edge, and it faces inward. Its footprint stays within the tile.
 
-For furniture off the path, it faces the first adjacent path tile and is not offset.
+For furniture off the walk, it faces the first adjacent tile carrying a trail and is not offset.
 
 Plaza and intersection tiles, which are surrounded on every side, keep the tile centre. Large improvements such as the fountain keep their placement centre.
 

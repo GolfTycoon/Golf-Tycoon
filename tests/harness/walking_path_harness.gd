@@ -39,9 +39,9 @@ func _run() -> void:
 	#    of four tiles west of the quick-start clubhouse (footprint 54..57,
 	#    61..64). (53, 62) is the tile that touches the clubhouse.
 	# ------------------------------------------------------------------
-	main.terrain_toolbar._on_tool_button_pressed(TerrainTypes.Type.PATH)
+	main.terrain_toolbar._on_tool_button_pressed(TerrainTypes.WALKING_PATH_TOOL)
 	await _frames(2)
-	_check(main.current_tool == TerrainTypes.Type.PATH, "Path tool selected (8)")
+	_check(main.current_tool == TerrainTypes.WALKING_PATH_TOOL, "Path tool selected (8)")
 
 	var trail := [Vector2i(50, 62), Vector2i(51, 62), Vector2i(52, 62), Vector2i(53, 62)]
 	# Prep the ground without polluting the undo stack (harness choreography,
@@ -49,6 +49,10 @@ func _run() -> void:
 	main._suppress_tile_undo = true
 	for pos in trail:
 		grid.set_tile(pos, TerrainTypes.Type.ROUGH)
+		# The course arrives with its own paths, and one of them may already run
+		# through here: a tile that carries a trail is not charged for again, so
+		# start from bare rough and let the stamp below be the player's own.
+		grid.set_walking_path_quiet(pos, false)
 		_check(grid.is_valid_position(pos), "trail tile %s is on the course" % pos)
 		_check(GameManager.land_manager.is_tile_owned(pos), "trail tile %s is owned land" % pos)
 	main._suppress_tile_undo = false

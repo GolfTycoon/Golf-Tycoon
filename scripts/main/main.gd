@@ -1286,7 +1286,7 @@ func _paint_at_mouse() -> void:
 func _paint_terrain_stamp(grid_pos: Vector2i) -> void:
 	# The Path improvement is laid on top of the terrain instead of replacing
 	# it, so it has its own stamp.
-	if current_tool == TerrainTypes.Type.PATH:
+	if current_tool == TerrainTypes.WALKING_PATH_TOOL:
 		_paint_walking_path_stamp(grid_pos)
 		return
 
@@ -1415,7 +1415,7 @@ func _paint_walking_path_stamp(grid_pos: Vector2i) -> void:
 		return
 	if terrain_grid.has_walking_path(grid_pos):
 		return  # Already has a trail — no double charge.
-	var cost := TerrainTypes.get_placement_cost(TerrainTypes.Type.PATH)
+	var cost := TerrainTypes.WALKING_PATH_COST
 	if cost > 0 and not GameManager.can_afford(cost):
 		if GameManager.is_bankrupt():
 			EventBus.notify(GameManager.spending_blocked_message(), "error")
@@ -2141,6 +2141,23 @@ func _on_new_game_started() -> void:
 	_suppress_tile_undo = true
 	var clubhouse := _ensure_course_clubhouse(clubhouse_preferred)
 	_suppress_tile_undo = false
+
+	# A course that arrives with its holes arrives with its paths: the walk out of
+	# the clubhouse door to the first tee, a path beside every fairway, the link
+	# from each green to the next tee, and the walk home from the last green. What
+	# is laid is the Improvements tab's Path, so golfers walk it at 1.25x, and at
+	# 1.5x where the network reaches the clubhouse and the trail is paved (see
+	# WalkingPathOverlay). Laid here rather than inside each generator so every
+	# layout — Quick Start, a Start New Game course and the prebuilt packages
+	# alike — gets the paths that belong to the clubhouse it was actually given.
+	if clubhouse != null and GameManager.get_open_hole_count() > 0:
+		_suppress_tile_undo = true
+		terrain_grid.begin_batch()
+		CoursePathGenerator.generate(terrain_grid, GameManager.current_course.holes,
+				entity_layer, clubhouse.grid_position)
+		terrain_grid.end_batch_quiet()
+		terrain_grid.refresh_all_overlays()
+		_suppress_tile_undo = false
 
 	if is_quick_start:
 		camera.focus_on(terrain_grid.grid_to_screen_center(Vector2i(57,64)), true)

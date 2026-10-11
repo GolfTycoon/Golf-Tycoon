@@ -58,7 +58,6 @@ static func building_terrain_ok(tile_type: int) -> bool:
 		TerrainTypes.Type.DEEP_ROUGH,
 		TerrainTypes.Type.FAIRWAY,
 		TerrainTypes.Type.FIRM_FAIRWAY,
-		TerrainTypes.Type.PATH,
 	]
 
 func get_placement_error(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> String:
@@ -111,8 +110,8 @@ func _can_place_building(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> bool:
 			if not terrain_grid.is_valid_position(check_pos):
 				return false
 			
-			# Buildings stand on grass-type terrain or a cart path; greens,
-			# tees, sand and water stay clear (shared with the clubhouse move).
+			# Buildings stand on grass-type terrain; greens, tees, sand and water
+			# stay clear (shared with the clubhouse move).
 			if not building_terrain_ok(terrain_grid.get_tile(check_pos)):
 				return false
 	
@@ -127,8 +126,11 @@ func _can_place_decoration(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> boo
 	var height = int(sz[1])
 	var placeable = selected_decoration_data.get("placeable_terrain", ["grass"])
 
-	# Map terrain name strings to TerrainTypes
+	# Map terrain name strings to TerrainTypes. "path" is the trail the Path
+	# improvement lays: a flag over the ground it crosses rather than a terrain
+	# of its own, so it is checked beside the tile's type.
 	var valid_types: Array = []
+	var allows_trail := false
 	for terrain_name in placeable:
 		match terrain_name:
 			# "grass" ground includes Rough: terrain generation opens every
@@ -138,7 +140,7 @@ func _can_place_decoration(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> boo
 			"fairway": valid_types.append_array([TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.FIRM_FAIRWAY])
 			"rough": valid_types.append_array([TerrainTypes.Type.ROUGH, TerrainTypes.Type.DEEP_ROUGH])
 			"heavy_rough": valid_types.append(TerrainTypes.Type.HEAVY_ROUGH)
-			"path": valid_types.append(TerrainTypes.Type.PATH)
+			"path": allows_trail = true
 
 	for x in range(width):
 		for y in range(height):
@@ -146,8 +148,11 @@ func _can_place_decoration(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> boo
 			if not terrain_grid.is_valid_position(check_pos):
 				return false
 			var tile_type = terrain_grid.get_tile(check_pos)
-			if not (tile_type in valid_types):
-				return false
+			if tile_type in valid_types:
+				continue
+			if allows_trail and terrain_grid.has_walking_path(check_pos):
+				continue
+			return false
 
 	return true
 

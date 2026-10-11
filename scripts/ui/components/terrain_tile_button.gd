@@ -158,7 +158,7 @@ func _build_tile() -> void:
 		add_child(flowers)
 		if _name_label:
 			move_child(flowers, _name_label.get_index())
-	elif tool_type is int and tool_type == TerrainTypes.Type.PATH:
+	elif tool_type is int and tool_type == TerrainTypes.WALKING_PATH_TOOL:
 		var trail := _make_walking_path_art()
 		add_child(trail)
 		if _name_label:
@@ -319,7 +319,7 @@ func _make_surface_material() -> ShaderMaterial:
 	# a surface a player paints, so its tile shows a stretch of the rough a
 	# trail is usually cut through — filled edge to edge instead of inset like a
 	# patch — with the trail itself drawn on top (see _make_walking_path_art).
-	if preview_terrain == TerrainTypes.Type.PATH:
+	if preview_terrain == TerrainTypes.WALKING_PATH_TOOL:
 		terrain_data.fill(Color(float(TerrainTypes.Type.ROUGH) / 255.0, 0, 0.5, 1))
 	# A stream is drawn as a channel between neighbouring stream tiles, so its
 	# preview runs one through the tile instead of showing a lone spring pool.

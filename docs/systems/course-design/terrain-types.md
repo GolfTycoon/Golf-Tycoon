@@ -50,9 +50,11 @@ Saves store terrain as raw integers. New types are therefore only ever appended 
 | 6 | Tee Box | 11 | Trees (generic) |
 | 7 | Bunker | 12 | Flower Bed |
 | 8 | Water | 13 | Rocks |
-| 9 | Path | 14 | Firm Fairway |
+| 9 | *(retired)* | 14 | Firm Fairway |
 | 10 | Out of Bounds | 15 | Pot Bunker |
 | | | 16 | Stream |
+
+Id 9 is retired: the cart path is no longer a terrain. It was replaced by the Path improvement, which lays a walking trail *over* the ground rather than being ground of its own (see [Walking Paths](walking-paths.md)). The id is kept, never reused and never renumbered, because saves store raw integers. `Type.RETIRED_PATH` still exists so the palette, the shader and the toolbar's hotkey numbering keep their indexes; its properties mirror Rough, so a stray 9 read anywhere answers like rough. An older save that stored one becomes Rough carrying a walking trail on load (see [Save & Load](../../save-and-load.md)), and nothing in the game paints the id any more.
 
 The three stony grounds share one palette key, so they share one base colour. The eleven species share the `trees` key. Each theme needs a palette colour for every id, from `CourseTheme.get_terrain_colors()`.
 
@@ -87,7 +89,6 @@ Walking is the exception. Golfers path around water, out of bounds and off-prope
 | Green | $20 | $2 | No | — | 1.0× |
 | Tee Box | $12 | $1 | No | — | 1.0× |
 | Flower Bed (Wild Flowers) | $15 | $0 | No | — | 1.0× |
-| Path (Cart Path) | $8 | $0 | No | — | 1.5× |
 | Bunker | $10 | $1 | Yes | — | 1.0× |
 | Pot Bunker | $18 | $2 | Yes | — | 1.0× |
 | Waste Bunker | $6 | $0 | No | — | 1.0× |
@@ -99,6 +100,8 @@ Walking is the exception. Golfers path around water, out of bounds and off-prope
 | Out of Bounds | $0 | $0 | Yes | 1 stroke and distance | — |
 
 Upkeep is summed over player-placed tiles. See [Economy](../economy-and-land/economy.md).
+
+The Path improvement is not in this table because it is not a terrain: it costs **$8** a tile to lay, carries no upkeep, and leaves the ground underneath with its own cost, upkeep and walk rate — a trail quickens the walk over it instead (see the walk-speed rows in Tuning Levers, and [Walking Paths](walking-paths.md)).
 
 ### 4. Shot rules
 
@@ -123,7 +126,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 
 ### 5. Painting
 
-- Painting a course tile replaces whatever is there, including trees, sand, greens and walking paths. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep. Painting costs only the new tile's placement cost. There is no clearing fee. Cart-path terrain counts as a node of the walking network, so painting or removing one re-paves the trails that touch it.
+- Painting a course tile replaces whatever is there, including trees, sand and greens. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep — painting fairway over a trail erases it, painting rough over one leaves it trodden. Painting costs only the new tile's placement cost. There is no clearing fee. Taking a trail away re-paves the network it belonged to, because the paving is decided over the whole network each time (see [Walking Paths](walking-paths.md)).
 - Buildings and decorations are not course terrain. A course tile will not paint over them. The Bulldozer removes them.
 - Stream strokes are 4-connected (`TerrainBrush.centers_4_connected()`), so the channel never breaks at a diagonal step.
 - A species tile draws its own canopy on its own ground, wherever it is placed.
@@ -144,7 +147,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 | Roll-out multipliers | `golf_rules.gd` `get_roll_multiplier()` | See the shot table | How far a ball runs after landing |
 | Rolling-ball catchers | `golf_rules.gd` `catches_rolling_ball()` | Water, stream, OB, bunkers, deep rough, brush | Where a rolling ball stops |
 | AI terrain scores | `shot_ai.gd` `TERRAIN_SCORES` | See the shot table | Where AI golfers aim |
-| Walk speed | `terrain_types.gd` `speed_modifier` | Deep rough 0.85×, brush 0.75×, cart path 1.5× | Pace through long grass, scrub and paths |
+| Walk speed | `terrain_types.gd` `speed_modifier` | Deep rough 0.85×, brush 0.75× | Pace through long grass and scrub |
 | Walk speed with a trail | `terrain_grid.gd` `walk_speed_modifier_at()` | The tile's own rate × 1.25 dirt or 1.5 paved | A laid trail quickens the walk over any hostable ground — see [Walking Paths](walking-paths.md) |
 | Hotkeys | `terrain_toolbar.gd` | `9`, `0`, Shift+2/5/6/7/8/9/0 | Keyboard access to the tiles (Shift+9 Small Boulders, Shift+0 Large Boulders) |
 | Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | Litter, needles, sand, silt, peat, straw | What each species grows in |
@@ -156,6 +159,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 
 - [Course Surface](course-surface.md) draws each terrain type.
 - [Walking Paths](walking-paths.md) covers the trail laid on this ground, and the pace it buys.
+- [Generated Walking Paths](generated-walking-paths.md) covers the trail network a generated course arrives with.
 - [Bunker Depth](bunker-depth.md) covers the two bunker depths.
 - [Shot Accuracy](../golf-play/shot-accuracy.md) uses the lie and distance values.
 - [Ball Physics](../golf-play/ball-physics.md) uses the roll-out values.

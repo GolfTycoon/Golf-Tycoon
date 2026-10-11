@@ -14,12 +14,15 @@ static func layout(grid: TerrainGrid, pos: Vector2i, type: String) -> Dictionary
 	var result := {"offset": Vector2.ZERO, "facing": Vector2i.DOWN}
 	if not grid or type not in SMALL_FIXTURES:
 		return result
-	if grid.get_tile(pos) == TerrainTypes.Type.PATH:
+	if grid.has_walking_path(pos):
 		# Stay inside the selected tile, along an exposed edge. Never put a
-		# fixture against a neighboring path tile, into water, or off the map.
+		# fixture against a neighboring tile of the same walk, into water, or off
+		# the map: the walk is a flag over the ground now, so the neighboring
+		# trail has to be ruled out by the flag and not by the terrain under it.
 		for side in EDGE_ORDER:
 			var neighbor: Vector2i = pos + side
-			if grid.is_valid_position(neighbor) and grid.get_tile(neighbor) in [
+			if grid.is_valid_position(neighbor) and not grid.has_walking_path(neighbor) \
+					and grid.get_tile(neighbor) in [
 				TerrainTypes.Type.GRASS, TerrainTypes.Type.ROUGH,
 				TerrainTypes.Type.HEAVY_ROUGH, TerrainTypes.Type.FAIRWAY,
 				TerrainTypes.Type.FLOWER_BED, TerrainTypes.Type.GREEN,
@@ -31,7 +34,7 @@ static func layout(grid: TerrainGrid, pos: Vector2i, type: String) -> Dictionary
 	else:
 		# Furniture on the verge faces the adjacent walk without moving tiles.
 		for side in EDGE_ORDER:
-			if grid.get_tile(pos + side) == TerrainTypes.Type.PATH:
+			if grid.has_walking_path(pos + side):
 				result.facing = side
 				return result
 	return result # A plaza/intersection has no exposed edge: retain its anchor.

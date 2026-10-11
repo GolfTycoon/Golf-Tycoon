@@ -131,7 +131,7 @@ Routes are cached by tee, cup, par and extra tees. The cache is cleared whenever
 
 ### 5. New game
 
-Tee and cup rules count tiles on the current course, so a new game starts from an empty grid. `_on_new_game_started()` clears entities and hole flags first. Removing an entity restores the terrain beneath it. Then `TerrainGrid.reset_for_new_course()` sets every tile back to grass and clears the player-placed marks, bunker depths, sculpted elevation and waiting cups. Finally, the undo stack is cleared.
+Tee and cup rules count tiles on the current course, so a new game starts from an empty grid. `_on_new_game_started()` clears entities and hole flags first. Removing an entity restores the terrain beneath it. Then `TerrainGrid.reset_for_new_course()` sets every tile back to grass and clears the player-placed marks, bunker depths, sculpted elevation, waiting cups and walking trails. Finally, the undo stack is cleared.
 
 ---
 
@@ -160,3 +160,4 @@ Tee and cup rules count tiles on the current course, so a new game starts from a
 - [Stroke Index](stroke-index.md) and [Difficulty Calculator](difficulty-calculator.md) are updated when a hole opens.
 - [Forced Carry](forced-carry.md) covers the carry shown on the open hole.
 - [Clubhouse](clubhouse.md) covers the required building that is never sold.
+- [Generated Walking Paths](generated-walking-paths.md) covers the paths laid once a generated course's holes exist.

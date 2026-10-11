@@ -4,7 +4,15 @@ class_name TerrainTypes
 
 enum Type {
 	EMPTY = 0, GRASS = 1, FAIRWAY = 2, ROUGH = 3, HEAVY_ROUGH = 4,
-	GREEN = 5, TEE_BOX = 6, BUNKER = 7, WATER = 8, PATH = 9,
+	GREEN = 5, TEE_BOX = 6, BUNKER = 7, WATER = 8,
+	## Retired ground: the Cart Path tile. Id 9 stays in the enum because saves
+	## store terrain as raw ints and the course surface indexes its palette by
+	## id, so the later ids must not shift. Nothing paints it any more — the
+	## Path on the Improvements tab lays a walking trail over the ground it
+	## crosses (see can_host_walking_path), which is also what a generated
+	## course arrives with — and a 9 read from an older save becomes Rough
+	## carrying that trail (see TerrainGrid.deserialize).
+	RETIRED_PATH = 9,
 	OUT_OF_BOUNDS = 10, TREES = 11, FLOWER_BED = 12, ROCKS = 13,
 	# Later additions are appended: saves store these ids as raw ints.
 	FIRM_FAIRWAY = 14, POT_BUNKER = 15, STREAM = 16, DEEP_ROUGH = 17,
@@ -31,7 +39,11 @@ const PROPERTIES: Dictionary = {
 	Type.TEE_BOX: {"name": "Tee Box", "color": Color(0.45, 0.75, 0.42), "playable": true, "placement_cost": 12, "maintenance_cost": 1, "shot_difficulty": 0.0},
 	Type.BUNKER: {"name": "Bunker", "color": Color(0.95, 0.88, 0.65), "playable": true, "placement_cost": 10, "maintenance_cost": 1, "shot_difficulty": 0.6, "is_hazard": true},
 	Type.WATER: {"name": "Water", "color": Color(0.25, 0.55, 0.85), "playable": false, "placement_cost": 20, "maintenance_cost": 0, "is_hazard": true, "penalty_strokes": 1},
-	Type.PATH: {"name": "Cart Path", "color": Color(0.78, 0.75, 0.68), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.1, "speed_modifier": 1.5},
+	# Id 9 is retired (see the enum). Its properties mirror Rough, the ground a
+	# legacy cart path becomes on load, so a stray 9 read anywhere answers like
+	# rough rather than like a surface that no longer exists. Nothing can paint
+	# it: it has no placement cost and no toolbar tile of its own.
+	Type.RETIRED_PATH: {"name": "Retired Cart Path", "color": Color(0.38, 0.55, 0.32), "playable": true, "placement_cost": 0, "maintenance_cost": 0, "shot_difficulty": 0.2},
 	Type.OUT_OF_BOUNDS: {"name": "Out of Bounds", "color": Color(0.42, 0.35, 0.32), "playable": false, "placement_cost": 0, "maintenance_cost": 0, "penalty_strokes": 1},
 	Type.TREES: {"name": "Trees", "color": Color(0.22, 0.45, 0.22), "playable": true, "placement_cost": 10, "maintenance_cost": 0, "shot_difficulty": 0.7, "blocks_shots": true},
 	# One tile per species. Like the boulder fields beside Rocks, each copies
@@ -231,10 +243,12 @@ static func is_natural_generation_type(type: int) -> bool:
 	var is_course_tab_tile := type in COURSE_PAINT_TYPES or type in COURSE_LANDSCAPE_TERRAIN_TYPES
 	return is_course_tab_tile and get_maintenance_cost(type) == 0
 
-## Ground the walking-path improvement can be laid over (the Path tool in the
-## Improvements tab): the rough and scrubby Course Terrain tiles, painted
-## Rocks and the boulder fields, streams and wild flowers, plus tree tiles.
-## The path sits on top of these tiles without replacing the terrain.
+## Ground the Path improvement can be laid over: the rough and scrubby Course
+## Terrain tiles, painted Rocks and the boulder fields, streams and wild flowers,
+## plus tree tiles. A trail sits on top of these tiles without replacing them, so
+## the ground keeps its lie, its bounce and its upkeep and the walk is what
+## changes. The mown playing line is not here — no fairway, green or tee box
+## takes a trail — nor is sand, water, out of bounds or natural grass.
 const WALKING_PATH_TERRAINS: Array[int] = [
 	Type.ROUGH, Type.DEEP_ROUGH, Type.WASTE_BUNKER, Type.BRUSH,
 	Type.ROCKS, Type.SMALL_BOULDERS, Type.LARGE_BOULDERS, Type.STREAM,
@@ -246,3 +260,14 @@ const WALKING_PATH_TERRAINS: Array[int] = [
 ## Can a walking path be laid on this terrain?
 static func can_host_walking_path(type: int) -> bool:
 	return type in WALKING_PATH_TERRAINS
+
+## The Improvements tab's Path tool. It is a painting tool like any Course
+## Terrain tile, so it is selected by a number (main.gd's current_tool is an int)
+## — but what it lays is a walking trail over hostable ground, not a terrain tile
+## of its own. The number is the retired cart path's id, which is the id the tool
+## has always been selected by, and which no tile is painted with any more.
+const WALKING_PATH_TOOL: Type = Type.RETIRED_PATH
+
+## What one tile of the Path improvement costs to lay. It carries no upkeep:
+## a trail is trodden ground, not a surface anyone rebuilds.
+const WALKING_PATH_COST := 8

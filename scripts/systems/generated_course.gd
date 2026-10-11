@@ -202,7 +202,7 @@ static func _can_place_footprint(terrain_grid: TerrainGrid, entity_layer: Entity
 			if terrain_grid.get_tile(pos) in [
 				TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GREEN,
 				TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
-				TerrainTypes.Type.WATER, TerrainTypes.Type.PATH,
+				TerrainTypes.Type.WATER,
 			]:
 				return false
 			if entity_layer.is_tile_occupied_by_building(pos):
