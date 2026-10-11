@@ -10,6 +10,8 @@ extends MainSceneTest
 ##
 ## The tests follow one company through that road, in order.
 
+const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
+
 const SAVE_NAME := "integration_world_map_flow"
 const FIRST_SITE := "monterey"
 const SECOND_SITE := "florida"
@@ -336,6 +338,6 @@ func test_quick_start_buys_and_plays_a_location_of_its_own() -> void:
 	assert_eq(WorldMap.difficulty, DifficultyPresets.Preset.NORMAL, "Quick Start plays on Normal")
 	assert_eq(WorldMap.starting_money_option, 100000, "with $100,000")
 	assert_eq(WorldMap.generated_holes, 3, "and a 3-hole course")
-	for feature in WorldMap.quick_start_options()["features"]:
+	for feature in WorldMapStateScript.quick_start_options()["features"]:
 		assert_true(bool(WorldMap.features[feature]), "Quick Start turns on %s" % feature)
 	assert_gt(WorldMap.company_name.length(), 0, "Quick Start picks a company name")

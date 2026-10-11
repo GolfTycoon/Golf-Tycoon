@@ -3,6 +3,8 @@ extends MainSceneTest
 ## Screen, the camera's world scale, the compact HUD, the clamped popup panels,
 ## the touch gestures and the world map — all follow the live window size.
 
+const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
+
 class GestureSentinel:
 	extends Node
 	var mouse_events: Array = []
@@ -137,7 +139,7 @@ func test_a_tap_clicks_and_a_drag_pans_the_camera() -> void:
 
 
 func test_the_world_map_fits_every_window() -> void:
-	WorldMap.new_world(WorldMap.default_options())
+	WorldMap.new_world(WorldMapStateScript.default_options())
 	await set_window(Vector2i(1600, 1000))
 	main._show_world_map_screen(false)
 	await process_frames(3)

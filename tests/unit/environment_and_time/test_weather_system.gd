@@ -19,7 +19,7 @@ func before_each() -> void:
 
 
 ## Settle the weather on `kind`, mid-spell.
-func _settle(kind: int, spell_days: int = 100) -> void:
+func _settle(kind: WeatherSystem.WeatherType, spell_days: int = 100) -> void:
 	weather.weather_type = kind
 	weather._target_weather = kind
 	weather.intensity = weather._get_base_intensity(kind)
@@ -122,12 +122,12 @@ func test_worse_weather_keeps_golfers_away_and_spoils_their_shots() -> void:
 	var previous := {"spawn": INF, "accuracy": INF, "light": INF, "tint": -INF}
 	for kind in KINDS:
 		_settle(kind)
-		var name := weather.get_weather_text()
-		assert_lte(weather.get_spawn_rate_modifier(), previous.spawn, "%s keeps as many golfers away or more" % name)
-		assert_lte(weather.get_accuracy_modifier(), previous.accuracy, "%s makes shots no easier" % name)
-		assert_lte(weather.get_light_modifier(), previous.light, "%s is no brighter" % name)
-		assert_gte(weather.get_sky_tint().a, previous.tint, "%s tints the sky as much or more" % name)
-		assert_eq(weather.is_raining(), kind >= WeatherSystem.WeatherType.LIGHT_RAIN, "%s is rain or not" % name)
+		var weather_name := weather.get_weather_text()
+		assert_lte(weather.get_spawn_rate_modifier(), previous.spawn, "%s keeps as many golfers away or more" % weather_name)
+		assert_lte(weather.get_accuracy_modifier(), previous.accuracy, "%s makes shots no easier" % weather_name)
+		assert_lte(weather.get_light_modifier(), previous.light, "%s is no brighter" % weather_name)
+		assert_gte(weather.get_sky_tint().a, previous.tint, "%s tints the sky as much or more" % weather_name)
+		assert_eq(weather.is_raining(), kind >= WeatherSystem.WeatherType.LIGHT_RAIN, "%s is rain or not" % weather_name)
 		previous = {"spawn": weather.get_spawn_rate_modifier(), "accuracy": weather.get_accuracy_modifier(),
 			"light": weather.get_light_modifier(), "tint": weather.get_sky_tint().a}
 	assert_eq(previous.spawn, 0.3, "Heavy rain keeps seven golfers in ten away")
