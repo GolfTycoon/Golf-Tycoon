@@ -76,7 +76,7 @@ enum ReliefType {
 	NONE,               ## No relief needed (playable lie)
 	DROP_AT_ENTRY,      ## 1 stroke penalty, drop at point of entry (water/penalty area)
 	STROKE_AND_DISTANCE,## 1 stroke penalty, replay from previous position (OB)
-	FREE_RELIEF,        ## No penalty, nearest point of relief (cart path, GUR)
+	FREE_RELIEF,        ## No penalty, nearest point of relief (ground under repair)
 }
 
 ## Get penalty strokes for a terrain type (USGA Rules 17-18).
@@ -101,8 +101,6 @@ static func get_relief_type(terrain_type: int) -> ReliefType:
 			return ReliefType.FREE_RELIEF  # Ground under repair
 		TerrainTypes.Type.EMPTY:
 			return ReliefType.FREE_RELIEF  # Ground under repair
-		TerrainTypes.Type.PATH:
-			return ReliefType.NONE  # Playable (simplified — real rules offer free relief)
 		_:
 			return ReliefType.NONE
 
@@ -328,8 +326,6 @@ static func get_roll_multiplier(terrain_type: int) -> float:
 			return 0.3   # Firm sand lets the ball skid a little
 		TerrainTypes.Type.BRUSH:
 			return 0.05  # Swallowed by the scrub
-		TerrainTypes.Type.PATH:
-			return 1.4   # Hard surface — extra bounce/roll
 		_:
 			return 0.3   # Unknown terrain — conservative
 

@@ -30,7 +30,7 @@ func after_each() -> void:
 
 func test_sculpted_brush_tapers_preserves_surfaces_and_can_be_undone() -> void:
 	grid.set_tile(Vector2i(8, 7), TerrainTypes.Type.WATER)
-	grid.set_tile(Vector2i(7, 8), TerrainTypes.Type.PATH)
+	grid.set_tile(Vector2i(7, 8), TerrainTypes.Type.OUT_OF_BOUNDS)
 	var saved := grid.serialize()
 	# A 9-wide brush centred on tile (8, 8) stamps around vertex (9, 9) with a
 	# 4-vertex radius and a 3-step centre (the Rolling Hill/Hollow math, now
@@ -132,16 +132,16 @@ func test_golfer_expression_does_not_move_actor_or_delay_next_shot() -> void:
 
 func test_building_ghost_matches_facility_and_clears_when_preview_ends() -> void:
 	var manager = autofree(PlacementManager.new())
-	manager.selected_building_type = "restaurant"
+	manager.selected_building_type = "resort_hotel"
 	manager.placement_mode = PlacementManager.PlacementMode.BUILDING
-	manager.current_placement_data = {"size": [3, 3]}
+	manager.current_placement_data = {"size": [4, 4]}
 	var preview := PlacementPreview.new()
 	add_child_autofree(preview)
 	preview.set_process(false)
 	preview.placement_manager = manager
 	preview.terrain_grid = null
 	preview._draw_building_ghost(Vector2i(120, 80), Color(0.3, 0.9, 0.3, 0.4))
-	assert_eq(preview._building_ghost.kind, "restaurant")
+	assert_eq(preview._building_ghost.kind, "resort_hotel")
 	assert_eq(preview._building_ghost.position, Vector2(120, 80))
 	assert_almost_eq(preview._building_ghost.modulate.a, 0.4, 0.001)
 	assert_true(preview._building_ghost.visible)

@@ -158,7 +158,7 @@ func _build_tile() -> void:
 		add_child(flowers)
 		if _name_label:
 			move_child(flowers, _name_label.get_index())
-	elif tool_type is int and tool_type == TerrainTypes.Type.PATH:
+	elif tool_type is int and tool_type == TerrainTypes.WALKING_PATH_TOOL:
 		var trail := _make_walking_path_art()
 		add_child(trail)
 		if _name_label:
@@ -247,10 +247,11 @@ func _make_flower_bed_art() -> Node2D:
 	return art
 
 ## The walking path as `WalkingPathOverlay` draws it on the course: a slim dirt
-## ribbon with a darker rim and a paler centre, running from one edge of the
-## tile to the other so neighbouring tiles read as one trail. The offsets are
-## half-widths in grid units along the tile's isometric axes, which puts the
-## ends of the ribbon exactly on the corners' shared edges.
+## ribbon with trodden verges, running from one edge of the tile to the other so
+## neighbouring tiles read as one trail. The offsets are half-widths in tile
+## units along the tile's isometric axes, which puts the ends of the ribbon
+## exactly on the corners' shared edges — the same widths and colours the
+## overlay lays on the course (see WalkingPathOverlay._dirt_commands).
 func _make_walking_path_art() -> Node2D:
 	var art := Node2D.new()
 	art.name = "WalkingPathPreviewArt"
@@ -259,11 +260,28 @@ func _make_walking_path_art() -> Node2D:
 	var across := Vector2(-TILE_SIZE.x * 0.5, TILE_SIZE.y * 0.5)  # +y grid axis
 	var from := center - along * 0.5
 	var to := center + along * 0.5
-	var half_width := WalkingPathOverlay.DIRT_HALF_W
-	_add_trail_band(art, from, to, across * (half_width + 0.03), WalkingPathOverlay.DIRT_DARK)
-	_add_trail_band(art, from, to, across * half_width, WalkingPathOverlay.DIRT_COLOR)
-	_add_trail_band(art, from, to, across * half_width * 0.3, WalkingPathOverlay.DIRT_LIGHT)
+	# The trodden verge first, then the trail on top of it: the ribbon, the pad
+	# at the tile centre that ties it to its neighbours, and the paler centre
+	# line — the same passes, in the same order, the overlay lays on the course.
+	_add_trail_band(art, from, to, across * WalkingPathOverlay.DIRT_VERGE_W, WalkingPathOverlay.DIRT_VERGE)
+	_add_trail_dot(art, center, across.length() * WalkingPathOverlay.DIRT_VERGE_DOT, WalkingPathOverlay.DIRT_VERGE)
+	_add_trail_band(art, from, to, across * WalkingPathOverlay.DIRT_HALF_W, WalkingPathOverlay.DIRT_COLOR)
+	_add_trail_dot(art, center, across.length() * WalkingPathOverlay.DIRT_DOT, WalkingPathOverlay.DIRT_COLOR)
+	_add_trail_band(art, from, to, across * WalkingPathOverlay.DIRT_CENTRE_W, WalkingPathOverlay.DIRT_LIGHT)
 	return art
+
+## The trodden pad at the middle of the tile: a circle in the tile's own
+## projection, so it reads as a worn spot rather than a diamond.
+static func _add_trail_dot(art: Node2D, center: Vector2, radius: float, color: Color) -> void:
+	var dot := Polygon2D.new()
+	var points := PackedVector2Array()
+	for i in 20:
+		var angle := TAU * float(i) / 20.0
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	dot.polygon = points
+	dot.color = color
+	dot.antialiased = true
+	art.add_child(dot)
 
 ## One parallelogram of trail between two tile-edge midpoints.
 static func _add_trail_band(art: Node2D, from: Vector2, to: Vector2, half_width: Vector2, color: Color) -> void:
@@ -301,7 +319,7 @@ func _make_surface_material() -> ShaderMaterial:
 	# a surface a player paints, so its tile shows a stretch of the rough a
 	# trail is usually cut through — filled edge to edge instead of inset like a
 	# patch — with the trail itself drawn on top (see _make_walking_path_art).
-	if preview_terrain == TerrainTypes.Type.PATH:
+	if preview_terrain == TerrainTypes.WALKING_PATH_TOOL:
 		terrain_data.fill(Color(float(TerrainTypes.Type.ROUGH) / 255.0, 0, 0.5, 1))
 	# A stream is drawn as a channel between neighbouring stream tiles, so its
 	# preview runs one through the tile instead of showing a lone spring pool.

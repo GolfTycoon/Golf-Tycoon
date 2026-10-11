@@ -83,8 +83,8 @@ func run() -> void:
 			"rotation %d moved the drawing" % rotation)
 
 	# The placement ghost: the same routine, on the course's current view.
-	main.placement_preview._draw_building_ghost_shape(Vector2i(10, 10), "restaurant",
-		Vector2i(3, 3), Color(0.3, 0.9, 0.3, 0.6))
+	main.placement_preview._draw_building_ghost_shape(Vector2i(10, 10), "resort_hotel",
+		Vector2i(4, 4), Color(0.3, 0.9, 0.3, 0.6))
 	check(main.placement_preview._building_ghost.visible, "the ghost is visible")
 	check(main.placement_preview._building_ghost.facing == grid.get_view_orientation(),
 		"the ghost follows the view")

@@ -14,7 +14,7 @@ You start with money on your books, and every day the course earns and spends. K
 ### Money in
 
 1. **Green fees.** The main income. Each golfer pays a fee for each open hole. You set the fee from **$1 to $200**, but the most you can charge is **$10 per open hole**. A 3-hole course can charge at most $30.
-2. **Buildings.** Amenities such as restaurants, pro shops and snack bars earn money from golfers who use them. Use depends on how close the golfer is and on their need.
+2. **Buildings.** Amenities such as snack bars, pubs, pro shops and driving ranges earn money from golfers who use them. Use depends on how close the golfer is and on their need. Landmark facilities (the Airstrip, Castle, Casino and Theme Park) raise the green fee per hole instead.
 3. **Tournaments.** Hosting one brings in gate money and sponsorships. Tournaments mostly build reputation. Most tiers break even or lose money. See [Tournament System](../events/tournament-system.md).
 4. **Construction milestones.** One-off rewards for building holes. See construction milestones (section 7 of the algorithm).
 

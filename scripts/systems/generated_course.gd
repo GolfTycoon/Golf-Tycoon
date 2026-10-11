@@ -161,10 +161,13 @@ const CLUBHOUSE_OFFSET: Vector2i = Vector2i(1, 6)
 ## (offsets (1,6)..(8,11) from the anchor) and gives a generated course a
 ## revenue stream from day one. A footprint that would sit on a playing surface
 ## or another building is skipped rather than bulldozed into the course.
+## Several candidates can share a spot: the first one the course's theme
+## allows wins it (a Links course gets its Pub where the others get a
+## Snack Bar).
 const AMENITY_SPOTS: Array = [
-	["coffee_house", Vector2i(6, 6)],
+	["pro_shop", Vector2i(6, 6)],
 	["snack_bar", Vector2i(6, 9)],
-	["restroom", Vector2i(8, 9)],
+	["pub", Vector2i(6, 9)],
 ]
 
 static func _place_starter_amenity(terrain_grid: TerrainGrid, entity_layer: EntityLayer, anchor: Vector2i) -> void:
@@ -175,13 +178,19 @@ static func _place_starter_amenity(terrain_grid: TerrainGrid, entity_layer: Enti
 	var raw = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json"))
 	if raw is Dictionary and raw.has("buildings"):
 		buildings = raw["buildings"]
+	var taken_spots: Dictionary = {}
 	for item in AMENITY_SPOTS:
 		var kind: String = item[0]
 		if not buildings.has(kind):
 			continue
+		if not BuildingAvailability.is_available(buildings[kind], GameManager.current_theme):
+			continue
 		var pos: Vector2i = anchor + Vector2i(item[1])
+		if taken_spots.has(pos):
+			continue
 		if _can_place_footprint(terrain_grid, entity_layer, buildings[kind], pos):
 			entity_layer.place_building(kind, pos, buildings)
+			taken_spots[pos] = true
 
 static func _can_place_footprint(terrain_grid: TerrainGrid, entity_layer: EntityLayer, data: Dictionary, origin: Vector2i) -> bool:
 	var size: Array = data.get("size", [1, 1])
@@ -193,7 +202,7 @@ static func _can_place_footprint(terrain_grid: TerrainGrid, entity_layer: Entity
 			if terrain_grid.get_tile(pos) in [
 				TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GREEN,
 				TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
-				TerrainTypes.Type.WATER, TerrainTypes.Type.PATH,
+				TerrainTypes.Type.WATER,
 			]:
 				return false
 			if entity_layer.is_tile_occupied_by_building(pos):

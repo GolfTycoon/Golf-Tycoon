@@ -100,7 +100,7 @@ What a new site starts with depends on **Generated Holes** on the Start New Game
 
 The back nine is a counter-clockwise loop around the front nine. All its offsets stay within ±27 tiles of the anchor, so it fits the 3 × 3 block. `GeneratedCourse.get_anchor()` returns the tile the layout is built around: `(63, 63)` for up to 9 holes and `(53, 53)` for 18. The camera focuses on that tile when the site loads.
 
-The generator then places the starter amenities (clubhouse, coffee house, snack bar and restroom) into the pocket beside the first fairway. Any spot that would overlap a play surface or a building is skipped.
+The generator then places the starter amenities (clubhouse, pro shop and a food stop — a Snack Bar, or a Pub on a links course) into the pocket beside the first fairway. Any spot that would overlap a play surface or a building is skipped, and a facility the site's theme does not allow is never placed.
 
 ### 7. Company and site state
 

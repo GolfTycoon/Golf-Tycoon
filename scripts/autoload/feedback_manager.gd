@@ -190,8 +190,8 @@ func incident_guidance(trigger: int) -> String:
 	match trigger:
 		FeedbackTriggers.TriggerType.SLOW_PACE: return "Groups ahead blocked play. Reduce tee-time frequency or improve the congested landing area. Normal turns within a group do not count as traffic."
 		FeedbackTriggers.TriggerType.TIRED: return "Add reachable seating beside the route. Rest restores energy and helps golfers keep walking comfortably."
-		FeedbackTriggers.TriggerType.HUNGRY: return "Add a snack bar or coffee house beside the route. Food restores hunger and earns service income."
-		FeedbackTriggers.TriggerType.NEEDS_RESTROOM: return "Add a restroom beside the route to restore comfort."
+		FeedbackTriggers.TriggerType.HUNGRY: return "Add a Snack Bar (or a Pub on a links course) beside the route. Food restores hunger and earns service income."
+		FeedbackTriggers.TriggerType.NEEDS_RESTROOM: return "Golfers freshen up at the clubhouse. Keep the clubhouse within reach of the back nine so comfort recovers."
 		FeedbackTriggers.TriggerType.THIRSTY: return "Hire a drinks vendor (Soda Vendor or Cart Refresher) and set their area over this stretch so thirsty golfers get served on the course."
 		FeedbackTriggers.TriggerType.OVERPRICED: return "The fee exceeded this course's fair-price reference. Poor value reduces return intent."
 	return "Inspect this hole's scores and hazards. An occasional bad shot does not by itself mean the design needs changing."

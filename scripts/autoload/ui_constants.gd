@@ -124,7 +124,7 @@ const TOOL_ICONS := {
 	"bunker": "[:]",
 	"water": "[w]",
 	"out_of_bounds": "[X]",
-	"path": "[.]",
+	"walking_path": "[.]",
 	"tree": "[^]",
 	"rock": "[*]",
 	"flower": "[f]",
@@ -188,7 +188,7 @@ func get_tool_icon(tool_type) -> String:
 			6: return TOOL_ICONS.get("tee_box", "[T]")
 			7: return TOOL_ICONS.get("bunker", "[:]")
 			8: return TOOL_ICONS.get("water", "[w]")
-			9: return TOOL_ICONS.get("path", "[.]")
+			9: return TOOL_ICONS.get("walking_path", "[.]")  # The Path improvement
 			10: return TOOL_ICONS.get("out_of_bounds", "[X]")
 			12: return TOOL_ICONS.get("flower", "[f]")
 			13, 20, 21: return TOOL_ICONS.get("rock", "[*]")  # ROCKS, SMALL_BOULDERS, LARGE_BOULDERS

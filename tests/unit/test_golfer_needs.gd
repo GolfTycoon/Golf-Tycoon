@@ -18,6 +18,8 @@ func _make_needs(overrides: Dictionary = {}) -> GolferNeeds:
 		n.hunger = overrides["hunger"]
 	if overrides.has("pace"):
 		n.pace = overrides["pace"]
+	if overrides.has("thirst"):
+		n.thirst = overrides["thirst"]
 	return n
 
 
@@ -216,20 +218,20 @@ func test_bench_restores_energy() -> void:
 	n.apply_building_effect("bench")
 	assert_almost_eq(n.energy, 0.7, 0.001, "Bench should restore +0.20 energy")
 
-func test_restroom_restores_comfort() -> void:
-	var n = _make_needs({"comfort": 0.4})
-	n.apply_building_effect("restroom")
-	assert_almost_eq(n.comfort, 0.75, 0.001, "Restroom should restore +0.35 comfort")
-
 func test_snack_bar_restores_hunger() -> void:
 	var n = _make_needs({"hunger": 0.4})
 	n.apply_building_effect("snack_bar")
 	assert_almost_eq(n.hunger, 0.7, 0.001, "Snack bar should restore +0.30 hunger")
 
-func test_restaurant_restores_hunger() -> void:
+func test_pub_restores_hunger() -> void:
 	var n = _make_needs({"hunger": 0.3})
-	n.apply_building_effect("restaurant")
-	assert_almost_eq(n.hunger, 0.8, 0.001, "Restaurant should restore +0.50 hunger")
+	n.apply_building_effect("pub")
+	assert_almost_eq(n.hunger, 0.8, 0.001, "Pub should restore +0.50 hunger")
+
+func test_pub_restores_thirst_too() -> void:
+	var n = _make_needs({"thirst": 0.4})
+	n.apply_building_effect("pub")
+	assert_almost_eq(n.thirst, 0.65, 0.001, "A pub meal and a drink restore +0.25 thirst")
 
 func test_clubhouse_restores_all() -> void:
 	var n = _make_needs({"energy": 0.5, "comfort": 0.5, "hunger": 0.5})
@@ -243,23 +245,37 @@ func test_building_returns_mood_boost() -> void:
 	var boost = n.apply_building_effect("bench")
 	assert_almost_eq(boost, 0.02, 0.001, "Bench mood boost should be 0.02")
 
-func test_restroom_mood_boost() -> void:
-	var n = _make_needs({"comfort": 0.5})
-	var boost = n.apply_building_effect("restroom")
-	assert_almost_eq(boost, 0.05, 0.001, "Restroom mood boost should be 0.05")
+func test_pub_mood_boost() -> void:
+	var n = _make_needs({"hunger": 0.5})
+	var boost = n.apply_building_effect("pub")
+	assert_almost_eq(boost, 0.05, 0.001, "Pub mood boost should be 0.05")
+
+func test_practice_facilities_lift_mood() -> void:
+	for facility in ["putting_green", "pro_shop", "driving_range"]:
+		var n = _make_needs({"energy": 0.5, "comfort": 0.5, "hunger": 0.5})
+		var boost = n.apply_building_effect(facility)
+		assert_almost_eq(boost, GolferNeeds.PRACTICE_MOOD_BOOST, 0.001,
+			"%s practice visit should lift mood" % facility)
+		assert_almost_eq(n.energy, 0.5, 0.001, "%s leaves needs untouched" % facility)
+
+func test_cart_garage_visit_lifts_mood() -> void:
+	var n = _make_needs()
+	var boost = n.apply_building_effect("cart_garage")
+	assert_almost_eq(boost, GolferNeeds.CART_GARAGE_MOOD_BOOST, 0.001,
+		"Renting a cart should lift mood a little")
 
 func test_unknown_building_no_effect() -> void:
 	var n = _make_needs({"energy": 0.5, "comfort": 0.5, "hunger": 0.5})
-	var boost = n.apply_building_effect("pro_shop")
-	assert_eq(boost, 0.0, "Unknown building should return 0 mood boost")
-	assert_almost_eq(n.energy, 0.5, 0.001, "Energy unchanged by unknown building")
+	var boost = n.apply_building_effect("castle")
+	assert_eq(boost, 0.0, "A building golfers never visit should return 0 mood boost")
+	assert_almost_eq(n.energy, 0.5, 0.001, "Energy unchanged by such a building")
 
-func test_restaurant_better_than_snack_bar() -> void:
+func test_pub_better_than_snack_bar() -> void:
 	var n1 = _make_needs({"hunger": 0.3})
 	var n2 = _make_needs({"hunger": 0.3})
 	n1.apply_building_effect("snack_bar")
-	n2.apply_building_effect("restaurant")
-	assert_gt(n2.hunger, n1.hunger, "Restaurant should restore more hunger than snack bar")
+	n2.apply_building_effect("pub")
+	assert_gt(n2.hunger, n1.hunger, "Pub should restore more hunger than snack bar")
 
 
 # --- Section 7: Interaction Chance Logic ---
@@ -289,15 +305,15 @@ func test_interaction_chance_bench_maps_to_energy() -> void:
 	assert_eq(n.get_interaction_chance("bench"), 1.0,
 		"Bench should check energy, not other needs")
 
-func test_interaction_chance_restroom_maps_to_comfort() -> void:
-	var n = _make_needs({"comfort": 0.1, "energy": 1.0, "hunger": 1.0})
-	assert_eq(n.get_interaction_chance("restroom"), 1.0,
-		"Restroom should check comfort, not other needs")
-
-func test_interaction_chance_restaurant_maps_to_hunger() -> void:
+func test_interaction_chance_pub_maps_to_hunger() -> void:
 	var n = _make_needs({"hunger": 0.1, "energy": 1.0, "comfort": 1.0})
-	assert_eq(n.get_interaction_chance("restaurant"), 1.0,
-		"Restaurant should check hunger")
+	assert_eq(n.get_interaction_chance("pub"), 1.0,
+		"Pub should check hunger")
+
+func test_interaction_chance_snack_bar_maps_to_hunger() -> void:
+	var n = _make_needs({"hunger": 0.1, "energy": 1.0, "comfort": 1.0})
+	assert_eq(n.get_interaction_chance("snack_bar"), 1.0,
+		"Snack bar should check hunger")
 
 func test_interaction_chance_boundary_at_threshold() -> void:
 	# 0.3 is NOT < 0.3, so should get mid chance (0.50)
@@ -405,7 +421,7 @@ func test_pace_trigger_fires_for_slow_pace() -> void:
 	assert_true(triggers.has(FeedbackTriggers.TriggerType.SLOW_PACE),
 		"Should fire SLOW_PACE trigger when pace is low")
 
-func test_comfort_trigger_fires_for_restroom() -> void:
+func test_comfort_trigger_fires_when_comfort_low() -> void:
 	var n = _make_needs({"comfort": 0.2})
 	var triggers = n.check_need_triggers()
 	assert_true(triggers.has(FeedbackTriggers.TriggerType.NEEDS_RESTROOM),
@@ -491,7 +507,8 @@ func test_setup_can_be_called_multiple_times() -> void:
 	assert_eq(n.energy, 1.0, "Energy should be 1.0 after re-setup")
 
 func test_all_building_types_produce_valid_results() -> void:
-	var building_types = ["bench", "restroom", "snack_bar", "restaurant", "clubhouse", "pro_shop", "driving_range"]
+	var building_types = ["bench", "snack_bar", "pub", "clubhouse", "pro_shop",
+		"putting_green", "driving_range", "cart_garage"]
 	for btype in building_types:
 		var n = _make_needs({"energy": 0.5, "comfort": 0.5, "hunger": 0.5})
 		var boost = n.apply_building_effect(btype)
@@ -580,3 +597,34 @@ func test_thirst_drags_overall_satisfaction() -> void:
 func test_to_dict_includes_thirst() -> void:
 	var n = _make_needs()
 	assert_true(n.to_dict().has("thirst"))
+
+
+# --- Section 14: Resort Hotel stamina (fatigue resistance) ---
+
+func test_energy_decay_modifier_starts_normal() -> void:
+	var n = _make_needs()
+	assert_eq(n.energy_decay_modifier, 1.0, "No facility means normal fatigue")
+
+func test_resort_hotel_slows_energy_decay() -> void:
+	var rested = _make_needs({"tier": 1})
+	rested.energy_decay_modifier = 0.6
+	var normal = _make_needs({"tier": 1})
+	rested.on_hole_completed()
+	normal.on_hole_completed()
+	assert_gt(rested.energy, normal.energy,
+		"A rested golfer loses less energy per hole than a normal one")
+
+func test_resort_hotel_exact_energy_after_hole() -> void:
+	var n = _make_needs({"tier": 1})
+	n.energy_decay_modifier = 0.6
+	n.on_hole_completed()
+	# Casual tier modifier is 1.0, so: 1.0 - 0.08 * 1.0 * 0.6 = 0.952
+	assert_almost_eq(n.energy, 1.0 - GolferNeeds.ENERGY_DECAY_PER_HOLE * 0.6, 0.001,
+		"Energy decay should be scaled by the stamina modifier")
+
+func test_resort_hotel_only_affects_energy() -> void:
+	var n = _make_needs({"tier": 1})
+	n.energy_decay_modifier = 0.6
+	n.on_hole_completed()
+	assert_almost_eq(n.hunger, 1.0 - GolferNeeds.HUNGER_DECAY_PER_HOLE, 0.001,
+		"Hunger still decays at the normal rate")

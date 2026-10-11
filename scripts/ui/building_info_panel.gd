@@ -47,6 +47,16 @@ func _update_display() -> void:
 
 	_vbox.add_child(HSeparator.new())
 
+	# What the facility does and where it can be built.
+	var description := str(_building.building_data.get("description", ""))
+	if not description.is_empty():
+		var desc_label = Label.new()
+		desc_label.text = description
+		desc_label.add_theme_font_size_override("font_size", 12)
+		desc_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_vbox.add_child(desc_label)
+
 	# Current stats
 	var income = _building.get_income_per_golfer()
 	if income > 0:

@@ -68,13 +68,13 @@ func run() -> void:
 	gm.course_rating["stars"] = 5
 	toolbar.refresh_decoration_unlocks()
 	check(not locked.disabled, "Meeting the requirement unlocks the tile")
-	var tile = toolbar._decoration_tiles["rose_border"]
+	var tile = toolbar._decoration_tiles["ball_washer"]
 
 	# An unlocked tile starts placement on the catalogue's terms.
 	tile.pressed.emit()
 	check(placements.placement_mode == placements.PlacementMode.DECORATION,
 		"Pressing a decoration tile starts decoration placement")
-	check(placements.selected_decoration_type == "rose_border",
+	check(placements.selected_decoration_type == "ball_washer",
 		"Placement uses the tile's decoration type")
 	check(toolbar._tab_bar.current_tab == toolbar.Tab.IMPROVEMENTS,
 		"Picking a tile keeps the Improvements tab open")
@@ -86,8 +86,8 @@ func run() -> void:
 		var cash_before: int = gm.money
 		main._handle_placement_click(pos)
 		check(main.entity_layer.get_decoration_at(pos) != null, "The clicked tile carries the decoration")
-		check(gm.money == cash_before - int(registry["rose_border"]["cost"]),
-			"Rose Border is charged at the catalogue price")
+		check(gm.money == cash_before - int(registry["ball_washer"]["cost"]),
+			"The Ball Washer is charged at the catalogue price")
 
 	if failures == 0:
 		print("DECORATION_SHELF_FLOW_PASS: shelf tiles, locks and placement from the Improvements tab")

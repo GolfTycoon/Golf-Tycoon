@@ -183,30 +183,45 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 			if grid.get_tile(p) in [TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX,TerrainTypes.Type.FAIRWAY]: continue
 			# Painting the tile is the clearing: any tree that grew here goes
 			# with the ground it stood on.
-			grid.set_tile(p, TerrainTypes.Type.PATH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
-	for item in [["clubhouse",CLUBHOUSE_TILE],["coffee_house",Vector2i(59,61)],["restroom",Vector2i(56,68)],["snack_bar",Vector2i(66,74)]]:
+			grid.set_tile(p, TerrainTypes.Type.ROUGH if y >= 65 and y <= 67 else TerrainTypes.Type.GRASS)
+			# The arrival walk is the Path improvement's trail over the rough,
+			# not a surface of its own: laid quiet, because the whole garden is
+			# painted inside one batch and the overlay rebuilds at the end.
+			if y >= 65 and y <= 67:
+				grid.set_walking_path_quiet(p, true)
+	# Starter amenities for the arrival garden. The food stop comes in two
+	# theme-dependent flavours (a Snack Bar almost everywhere, a Pub on a Links
+	# course), so the first candidate the theme allows takes the spot.
+	for item in [["clubhouse",[CLUBHOUSE_TILE]],["pro_shop",[Vector2i(59,61)]],["putting_green",[Vector2i(56,68)]],["snack_bar",[Vector2i(66,74)]],["pub",[Vector2i(66,74)]]]:
 		var kind: String = item[0]
-		var position: Vector2i = item[1]
+		if not buildings.has(kind):
+			continue
+		if not BuildingAvailability.is_available(buildings[kind], GameManager.current_theme):
+			continue
+		var position: Vector2i = item[1][0]
+		if entities.get_building_at(position):
+			continue
 		for dx in range(buildings[kind].size[0]):
 			for dy in range(buildings[kind].size[1]):
 				var p := position + Vector2i(dx,dy)
 				grid.set_tile(p,TerrainTypes.Type.GRASS)
 		entities.place_building(kind, position, buildings)
-	# The same player-placeable items compose a legible entrance, terrace and garden.
-	var dry := GameManager.current_theme in [CourseTheme.Type.DESERT,CourseTheme.Type.LINKS,CourseTheme.Type.HEATHLAND]
-	for item in [["rose_arch",Vector2i(57,67)],["patio_table",Vector2i(59,65)],["patio_table",Vector2i(60,66)],["park_bench",Vector2i(54,66)],["lily_pool",Vector2i(54,68)],["garden_lamp",Vector2i(53,65)],["garden_lamp",Vector2i(60,67)],["course_clock",Vector2i(58,67)],["terracotta_planters",Vector2i(58,65)],["pergola",Vector2i(53,67)]]:
+	# The improvements the player can buy compose a legible entrance and terrace:
+	# benches line the arrival walk, ball washers stand beside it, and wild
+	# flowers carry the planting along both edges of the garden.
+	for item in [["park_bench",Vector2i(54,66)],["park_bench",Vector2i(59,65)],["park_bench",Vector2i(60,66)],["ball_washer",Vector2i(56,66)],["ball_washer",Vector2i(58,66)]]:
 		entities.place_decoration(item[0],item[1],decor)
 	for x in range(53,61):
 		for y in [59,69]:
 			var p := Vector2i(x,y)
 			if grid.get_tile(p) in [TerrainTypes.Type.FAIRWAY,TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX]: continue
-			grid.set_tile(p,TerrainTypes.Type.GRASS)
-			entities.place_decoration("ornamental_grass" if dry else ("lavender_bed" if x%2 else "rose_border"),p,decor)
+			grid.set_tile(p,TerrainTypes.Type.FLOWER_BED)
 	for item in [[Vector2i(50,69),"park_bench"],[Vector2i(70,58),"park_bench"],[Vector2i(65,74),"park_bench"]]:
 		var p: Vector2i = item[0]
 		if grid.get_tile(p) in [TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX]: continue
 		if entities.get_decoration_at(p) or entities.is_tile_occupied_by_building(p): continue
-		grid.set_tile(p,TerrainTypes.Type.PATH)
+		grid.set_tile(p, TerrainTypes.Type.ROUGH)
+		grid.set_walking_path_quiet(p, true)
 		entities.place_decoration(item[1],p,decor)
 
 ## Small layered planting groups keep the entrance from reading as isolated props.

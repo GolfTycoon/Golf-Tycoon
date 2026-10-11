@@ -28,7 +28,7 @@
 | Area | Saved |
 | --- | --- |
 | Company | Money, reputation, calendar, milestones, the unlimited-money flag, owned locations and unlocked land |
-| Active site | Terrain tiles (including paths), elevation, bunker depths, cups waiting for holes |
+| Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, bunker depths, cups waiting for holes |
 | Entities | Buildings, decorations, path furniture, trees placed as entities |
 | Holes | Tee and cup positions, par, yardage, forward and middle tees |
 
@@ -49,6 +49,8 @@ Each owned location is a separate **site**. The company state lives in a shared 
 ## Versions
 
 The current format is version **5** (`SAVE_VERSION`). Older saves are read with defaults for any missing field. For example, saves from before daily accounts existed start with empty daily counters.
+
+Terrain ids are stored raw and are only ever appended, never renumbered, so a saved course always reads back as the ground it was painted with. The one id that has changed meaning is **9**, the retired cart path: `TerrainGrid.deserialize()` turns each stored 9 into Rough and remembers the tile, and `deserialize_walking_paths()` — which `SaveManager` always calls after it — lays the Path improvement's trail over each of those tiles. An older course therefore loads as the rough its gravel was bedded into, with the walk still on it, and saving it again writes Rough and the trail. See [Terrain Types](systems/course-design/terrain-types.md) and [Walking Paths](systems/course-design/walking-paths.md).
 
 ## Related
 

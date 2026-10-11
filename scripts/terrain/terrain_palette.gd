@@ -18,7 +18,6 @@ const TERRAIN_COLORS := {
 	"empty": Color(0.18, 0.22, 0.18),
 	"tee_box_light": Color("96ba5e"),
 	"tee_box_dark": Color("85a650"),
-	"path": Color("c9bc98"),
 	"oob": Color(0.40, 0.33, 0.30),
 	"trees": Color(0.20, 0.42, 0.20),
 	"flower_bed": Color(0.45, 0.32, 0.22),

@@ -315,7 +315,7 @@ func test_terrain_paint_tools_are_isometric_course_tiles() -> void:
 	# as a tile too — it just lives in the Improvements honeycomb.
 	var paint_tools := [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.ROUGH,
 		TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
-		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.PATH]
+		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.WALKING_PATH_TOOL]
 	for tool_type in paint_tools:
 		var button: ToolButton = toolbar._tool_buttons[tool_type]
 		assert_true(button is TerrainTileButton, "%s should be a tile button" % button.tool_name)
@@ -492,7 +492,7 @@ func test_every_course_terrain_tile_says_it_replaces_the_others() -> void:
 		assert_string_contains(toolbar._tool_buttons[tree_type].tool_description, sentence,
 			"%s replaces any other Course Terrain tile" % TerrainTypes.get_type_name(tree_type))
 	# The Path tool is an improvement laid over ground, not a Course Terrain tile.
-	assert_false(toolbar._tool_buttons[TerrainTypes.Type.PATH].tool_description.contains(sentence),
+	assert_false(toolbar._tool_buttons[TerrainTypes.WALKING_PATH_TOOL].tool_description.contains(sentence),
 		"The walking path does not replace course terrain")
 	toolbar.set_green_placement_state(false)
 	assert_string_contains(toolbar._tool_buttons[TerrainTypes.Type.GREEN].tool_description, sentence,
@@ -1276,7 +1276,7 @@ func test_path_tile_leads_the_improvements_honeycomb() -> void:
 	assert_true(path_tile is TerrainTileButton, "The path is drawn as a course tile")
 	assert_eq(path_tile.get_parent(), shelf, "The path belongs to the improvements honeycomb")
 	assert_eq(path_tile.get_index(), 0, "The path is the honeycomb's first tile")
-	assert_same(toolbar._tool_buttons[TerrainTypes.Type.PATH], path_tile,
+	assert_same(toolbar._tool_buttons[TerrainTypes.WALKING_PATH_TOOL], path_tile,
 		"The path tile is what the toolbar highlights when the tool is selected")
 
 	toolbar.set_decoration_registry({"bench": {"name": "Bench", "category": "furniture"},
@@ -1301,8 +1301,8 @@ func test_path_tile_leads_the_improvements_honeycomb() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.BUILDINGS)
 	watch_signals(toolbar)
 	path_tile.pressed.emit()
-	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.Type.PATH])
-	assert_eq(toolbar.get_current_tool(), TerrainTypes.Type.PATH)
+	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.WALKING_PATH_TOOL])
+	assert_eq(toolbar.get_current_tool(), TerrainTypes.WALKING_PATH_TOOL)
 	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS)
 
 func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:
@@ -1317,27 +1317,37 @@ func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:
 	assert_eq(roundi(image.get_pixel(2, 2).r * 255.0), TerrainTypes.Type.ROUGH,
 		"The whole tile is ground the trail crosses")
 
+	# The tile wears the same three passes the overlay draws: a trodden verge,
+	# the packed earth and its worn centre, tied together by a pad in the middle.
 	var art: Node2D = path_tile.get_node("WalkingPathPreviewArt")
-	assert_eq(art.get_child_count(), 3, "A rim, the dirt, and a paler centre line")
-	var band: Polygon2D = art.get_child(1)
+	assert_eq(art.get_child_count(), 5, "Verge and pad, earth and pad, then the centre")
 	var center := TerrainTileButton.BUTTON_SIZE * 0.5
 	var along := Vector2(TerrainTileButton.TILE_SIZE.x * 0.5, TerrainTileButton.TILE_SIZE.y * 0.5)
+	for child in art.get_children():
+		for corner in (child as Polygon2D).polygon:
+			assert_true(TerrainTileButton.point_on_tile(corner),
+				"The trail stays inside the diamond: %s" % corner)
+	var verge: Polygon2D = art.get_child(0)
+	assert_eq(verge.color, WalkingPathOverlay.DIRT_VERGE,
+		"The trodden verge is laid first, so the trail sits on it")
+	var band: Polygon2D = art.get_child(2)
 	# The ribbon's ends are the midpoints of the two tile edges it joins, so a
 	# lone tile reads as a piece of one continuous trail.
 	assert_eq((band.polygon[0] + band.polygon[3]) * 0.5, center - along * 0.5,
 		"The trail starts at the shared edge with the neighbour up-left")
 	assert_eq((band.polygon[1] + band.polygon[2]) * 0.5, center + along * 0.5,
 		"and ends at the shared edge with the neighbour down-right")
-	for corner in band.polygon:
-		assert_true(TerrainTileButton.point_on_tile(corner),
-			"The trail stays inside the diamond: %s" % corner)
 	assert_eq(band.color, WalkingPathOverlay.DIRT_COLOR,
 		"The preview uses the overlay's own dirt colours")
+	assert_eq((art.get_child(3) as Polygon2D).color, WalkingPathOverlay.DIRT_COLOR,
+		"The pad is drawn in the same earth as the ribbon")
+	assert_eq((art.get_child(4) as Polygon2D).color, WalkingPathOverlay.DIRT_LIGHT,
+		"and the worn centre line ends up on top")
 
 func test_decoration_tiles_use_the_course_tile_design() -> void:
 	var registry := {
-		"rose_border": {"name": "Rose Border", "category": "landscaping", "cost": 120,
-			"daily_upkeep": 3, "description": "Roses for the walks."},
+		"park_bench": {"name": "Park Bench", "category": "furniture", "cost": 80,
+			"daily_upkeep": 0, "description": "A shady seat for the walks."},
 		"fountain": {"name": "Fountain", "category": "water", "cost": 500,
 			"daily_upkeep": 15, "description": "A sparkling water feature.",
 			"unlock": {"type": "reputation", "value": 99}},
@@ -1363,15 +1373,15 @@ func test_decoration_tiles_use_the_course_tile_design() -> void:
 		assert_not_null(button._decoration_art, "Each tile previews the artwork used on the course")
 		assert_false(button.accessibility_description.is_empty())
 
-	var roses: DecorationTileButton = toolbar._decoration_tiles["rose_border"]
-	assert_eq(roses.cost, 120)
-	assert_eq(roses.maintenance, 3, "Daily upkeep reaches the tooltip footer")
-	assert_string_contains(roses.tool_description, "Landscaping")
-	assert_string_contains(roses.tool_description, "Roses for the walks.")
+	var bench: DecorationTileButton = toolbar._decoration_tiles["park_bench"]
+	assert_eq(bench.cost, 80)
+	assert_eq(bench.maintenance, 0, "Daily upkeep reaches the tooltip footer")
+	assert_string_contains(bench.tool_description, "Furniture")
+	assert_string_contains(bench.tool_description, "A shady seat for the walks.")
 
 	watch_signals(toolbar)
-	roses.pressed.emit()
-	assert_signal_emitted_with_parameters(toolbar, "decoration_selected", ["rose_border"])
+	bench.pressed.emit()
+	assert_signal_emitted_with_parameters(toolbar, "decoration_selected", ["park_bench"])
 
 func test_decoration_shelf_keeps_the_garden_shed_category_order() -> void:
 	var registry := {
@@ -1393,13 +1403,13 @@ func test_decoration_shelf_keeps_the_garden_shed_category_order() -> void:
 
 func test_locked_decorations_stay_on_the_shelf_until_earned() -> void:
 	var registry := {
-		"topiary": {"name": "Topiary", "category": "landscaping", "cost": 200, "daily_upkeep": 8},
+		"park_bench": {"name": "Park Bench", "category": "furniture", "cost": 80, "daily_upkeep": 0},
 		"statue": {"name": "Golfer Statue", "category": "sculptures", "cost": 1000,
 			"daily_upkeep": 10, "unlock": {"type": "star_rating", "value": 5}},
 	}
 	toolbar.set_decoration_registry(registry)
 
-	var open_tile: DecorationTileButton = toolbar._decoration_tiles["topiary"]
+	var open_tile: DecorationTileButton = toolbar._decoration_tiles["park_bench"]
 	var locked_tile: DecorationTileButton = toolbar._decoration_tiles["statue"]
 	assert_false(open_tile.disabled, "Decorations without a requirement are selectable")
 	assert_true(locked_tile.disabled, "Locked decorations stay on the shelf, greyed out")
@@ -1445,7 +1455,7 @@ func test_improvements_decorations_fill_the_page_without_overflowing() -> void:
 	var two_rows := tile.y * 1.5 + TerrainToolbar.TILE_V_SEPARATION \
 			+ 2.0 * TerrainToolbar.TILE_V_PADDING
 	assert_almost_eq(toolbar._decoration_shelf.get_combined_minimum_size().y, two_rows, 0.01,
-		"28 decorations plus the path should fill exactly two interlocking rows")
+		"The five remaining decorations plus the path fill exactly two interlocking rows")
 	assert_eq(toolbar._decoration_shelf.columns,
 		ceili(float(registry.size() + TerrainToolbar.IMPROVEMENTS_LEAD_TILES) / 2.0))
 	assert_lte(toolbar.get_combined_minimum_size().y, float(UIConstants.BOTTOM_BAR_HEIGHT),

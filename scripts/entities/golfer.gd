@@ -1,6 +1,12 @@
 extends CharacterBody2D
 class_name Golfer
 ## Golfer - Base class for AI golfers playing the course
+##
+## A golfer is drawn in the entity band (z 2, carried by the scene root and its
+## offset children): over the course surface and over every detail the terrain
+## grid paints on it - the walking trail, water, trees - so the
+## ground art never hides a golfer standing on it. See scenes/entities/golfer.tscn
+## and the Draw Order section of docs/architecture.md.
 
 enum State {
 	IDLE,           # Waiting to start or for turn
@@ -197,6 +203,19 @@ var target_position: Vector2i = Vector2i.ZERO
 ## Shot preparation
 var preparation_time: float = 0.0
 const PREPARATION_DURATION: float = 1.0  # 1 second to prepare shot
+## Route planning over the walking paths. Below MIN_ROUTE_DISTANCE (tiles) a
+## golfer just walks straight there. The search is bounded to the bounding box
+## of the two points, grown by a fraction of the walk's length and capped at
+## ROUTE_MAX_SLACK, and abandoned after ROUTE_NODE_BUDGET tiles. Golfers like
+## the paths, so a route over the walk is taken even when it is up to
+## TRAIL_PREFERENCE_TIME (tile-times of walking) slower than the straight line.
+const MIN_ROUTE_DISTANCE: float = 5.0
+const ROUTE_SLACK_FRACTION: float = 0.35
+const ROUTE_MIN_SLACK: int = 1
+const ROUTE_MAX_SLACK: int = 5
+const ROUTE_MAX_BOX: int = 1200
+const ROUTE_NODE_BUDGET: int = 2500
+const TRAIL_PREFERENCE_TIME: float = 1.0
 
 ## Club chosen by decide_shot_target() — used by _calculate_shot() to avoid mismatch
 var _chosen_club: Club = Club.DRIVER
@@ -207,6 +226,9 @@ var _shot_strategy: String = "normal"
 
 ## Movement
 @export var walk_speed: float = 100.0
+## A Cart Garage visit rents this golfer a cart, boosting their walking speed
+## for the rest of the round. One rental per golfer.
+var has_cart: bool = false
 var path: Array[Vector2] = []
 var path_index: int = 0
 
@@ -215,7 +237,9 @@ var _visited_buildings: Dictionary = {}  # instance_id -> true
 var _building_check_timer: float = 0.0
 const BUILDING_CHECK_INTERVAL: float = 0.5
 
-## Z-ordering: visual offset to prevent stacking when golfers share a tile
+## Z-ordering: visual offset to prevent stacking when golfers share a tile.
+## (The golfer's own draw band is the entity band - see the class doc - so the
+## offset only shifts the art within it.)
 var visual_offset: Vector2 = Vector2.ZERO
 var _expression: GolferExpression
 
@@ -863,13 +887,15 @@ func _process_walking(delta: float) -> void:
 			_on_reached_destination()
 		return
 
-	# Apply terrain speed modifier (cart paths are faster)
-	var effective_speed = walk_speed
+	# How quickly this ground is walked: the terrain's own rate (deep rough
+	# 0.85x, brush 0.75x) times the walking path laid on it,
+	# so a golfer is quicker on a trail and quicker still on one that reaches
+	# the clubhouse (see TerrainGrid.walk_speed_modifier_at).
+	var effective_speed := walk_speed
 	var terrain_grid = GameManager.terrain_grid
 	if terrain_grid:
 		var current_grid_pos = terrain_grid.screen_to_grid(global_position)
-		var terrain_type = terrain_grid.get_tile(current_grid_pos)
-		effective_speed *= TerrainTypes.get_speed_modifier(terrain_type)
+		effective_speed *= terrain_grid.walk_speed_modifier_at(current_grid_pos)
 
 	velocity = direction * effective_speed
 	var step := minf(effective_speed * delta, distance)
@@ -2691,7 +2717,10 @@ func _walk_to_ball() -> void:
 	path_index = 0
 	_change_state(State.WALKING)
 
-## Pathfinding with terrain awareness and obstacle avoidance
+## Pathfinding with terrain awareness and obstacle avoidance. Golfers prefer
+## the laid trails, because they walk quicker on them (see walk_speed_modifier_at):
+## a route over the trail network is taken whenever it beats walking straight,
+## and never when it does not.
 func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
@@ -2712,15 +2741,22 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 		return result
 
 	# Check for obstacles first, then decide routing strategy
-	var has_obstacles = _path_crosses_obstacle(start_grid, end_grid, true)
+	var direct_clear = not _path_crosses_obstacle(start_grid, end_grid, true)
 
-	if not has_obstacles:
-		# Direct path is clear — optionally use cart path if it's genuinely faster
-		if path_distance >= 5.0:
-			var cart_path_route = _find_cart_path_route(start_grid, end_grid)
-			if not cart_path_route.is_empty():
-				return cart_path_route
-		# Go direct
+	if direct_clear and path_distance < MIN_ROUTE_DISTANCE:
+		# Nothing to plan over this short a walk.
+		var result: Array[Vector2] = []
+		result.append(target_pos)
+		return result
+
+	# A route over the walk (the trail network) when one is genuinely quicker.
+	if path_distance >= MIN_ROUTE_DISTANCE:
+		var trail_route = _find_quickest_route(start_grid, end_grid, path_distance, direct_clear)
+		if not trail_route.is_empty():
+			trail_route[trail_route.size() - 1] = target_pos
+			return trail_route
+
+	if direct_clear:
 		var result: Array[Vector2] = []
 		result.append(target_pos)
 		return result
@@ -2885,83 +2921,218 @@ func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
 	result.append(terrain_grid.grid_to_screen_center(grid_path[grid_path.size() - 1]))
 	return result
 
-## Find a route through nearby cart paths for speed bonus.
-## Only returns a route if it's genuinely faster than walking directly.
-func _find_cart_path_route(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+## The quickest way to walk between two tiles, or [] when walking straight
+## there is already quickest. The search runs over the grid with each step
+## costing its walking time rather than its length, so the side that walks
+## quicker — a trodden trail, or a paved promenade once it reaches the
+## clubhouse — pulls the route onto it. It is bounded to the neighbourhood of the two points, so a
+## golfer never crosses the course to pick up a distant path.
+##
+## This runs for every walk a golfer takes (thousands of them a round), so it
+## works on flat arrays over the search box with a binary heap rather than on
+## the grid itself: the rates are read once per tile, and a step costs an array
+## look-up rather than a method call.
+func _find_quickest_route(start: Vector2i, end: Vector2i, direct_time: float,
+		direct_clear: bool) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
-		return []
+		return [] as Array[Vector2]
 
-	# Search for cart path tiles near the direct path
-	var distance = Vector2(start).distance_to(Vector2(end))
-	var search_radius: int = 4  # How far from direct path to search
+	# Keep a walk on the best surface it can find within this slack of the
+	# straight line between the two points. The box is capped, and long walks
+	# are given less slack rather than a bigger search: this runs for every walk
+	# every golfer takes.
+	var slack: int = clampi(int(direct_time * ROUTE_SLACK_FRACTION), ROUTE_MIN_SLACK, ROUTE_MAX_SLACK)
+	var low := Vector2i.ZERO
+	var high := Vector2i.ZERO
+	while true:
+		low = Vector2i(maxi(mini(start.x, end.x) - slack, 0),
+				maxi(mini(start.y, end.y) - slack, 0))
+		high = Vector2i(mini(maxi(start.x, end.x) + slack, terrain_grid.grid_width - 1),
+				mini(maxi(start.y, end.y) + slack, terrain_grid.grid_height - 1))
+		var box := high - low + Vector2i.ONE
+		if box.x * box.y <= ROUTE_MAX_BOX or slack <= ROUTE_MIN_SLACK:
+			break
+		slack -= 1
+		if high.x <= low.x or high.y <= low.y:
+			return [] as Array[Vector2]
+	# Nothing quicker to find unless there is a walk to follow. The best rate in
+	# the box is also the ceiling for the search's estimate of the walk
+	# remaining: an estimate that knew only the distance would swamp the speed a
+	# trail adds, and the golfer would never step onto it.
+	var area := Rect2i(low, high - low + Vector2i.ONE)
+	var field: TerrainGrid.WalkField = terrain_grid.walk_field(area)
+	if field.best <= 1.0:
+		return [] as Array[Vector2]
+	var time_per_tile: float = 1.0 / field.best
+	var rate := field.rate
+	# If even the best surface in the box cannot get the golfer there in time,
+	# there is no route worth planning.
+	var ideal: float = _route_estimate(start, end, time_per_tile)
+	if direct_clear and ideal > direct_time + TRAIL_PREFERENCE_TIME:
+		return [] as Array[Vector2]
+	var width: int = field.width
+	var size: int = rate.size()
+	var start_cell: int = (start.y - low.y) * width + (start.x - low.x)
+	var end_cell: int = (end.y - low.y) * width + (end.x - low.x)
+	if rate[start_cell] <= 0.0 or rate[end_cell] <= 0.0:
+		return [] as Array[Vector2]
 
-	var cart_path_tiles: Array[Vector2i] = []
+	var goal := Vector2i(end - low)
+	var distance := PackedFloat32Array()
+	distance.resize(size)
+	distance.fill(INF)
+	var came_from := PackedInt32Array()
+	came_from.resize(size)
+	came_from.fill(-1)
+	var settled := PackedByteArray()
+	settled.resize(size)
+	var frontier := _RouteFrontier.new()
+	distance[start_cell] = 0.0
+	frontier.push(start_cell, ideal)
+	var reached := false
+	var visited: int = 0
 
-	# Sample along the path and search nearby for cart paths
-	var num_samples = int(distance / 3) + 1
-	for i in range(num_samples):
-		var t = float(i) / float(num_samples)
-		var sample = Vector2(start).lerp(Vector2(end), t)
-
-		# Search in a box around the sample point
-		for dx in range(-search_radius, search_radius + 1):
-			for dy in range(-search_radius, search_radius + 1):
-				var check_pos = Vector2i(int(sample.x) + dx, int(sample.y) + dy)
-				if not terrain_grid.is_valid_position(check_pos):
+	while not frontier.is_empty() and visited < ROUTE_NODE_BUDGET:
+		var cell: int = frontier.pop()
+		if cell == end_cell:
+			reached = true
+			break
+		if settled[cell] == 1:
+			continue  # A cheaper way in was found after this cell was queued.
+		settled[cell] = 1
+		visited += 1
+		# Integer division is exact here: cell is a row-major index.
+		@warning_ignore("integer_division")
+		var here := Vector2i(cell % width, cell / width)
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if dx == 0 and dy == 0:
 					continue
-				if terrain_grid.get_tile(check_pos) == TerrainTypes.Type.PATH:
-					if not cart_path_tiles.has(check_pos):
-						cart_path_tiles.append(check_pos)
+				var there := here + Vector2i(dx, dy)
+				if there.x < 0 or there.y < 0 or there.x >= width or there.y >= area.size.y:
+					continue
+				var next: int = there.y * width + there.x
+				if rate[next] <= 0.0 or settled[next] == 1:
+					continue
+				if dx != 0 and dy != 0:
+					# A walker may not cut a blocked corner.
+					if rate[here.y * width + there.x] <= 0.0 \
+							or rate[there.y * width + here.x] <= 0.0:
+						continue
+				var step: float = 1.414 if (dx != 0 and dy != 0) else 1.0
+				var tentative: float = distance[cell] + step / rate[next]
+				if tentative < distance[next]:
+					came_from[next] = cell
+					distance[next] = tentative
+					var to_go_x: int = absi(there.x - goal.x)
+					var to_go_y: int = absi(there.y - goal.y)
+					frontier.push(next, tentative + (float(to_go_x + to_go_y)
+							+ (1.414 - 2.0) * float(mini(to_go_x, to_go_y))) * time_per_tile)
 
-	if cart_path_tiles.is_empty():
-		return []
+	if not reached:
+		return [] as Array[Vector2]
 
-	# Find cart path tiles closest to start and end
-	var closest_to_start: Vector2i = cart_path_tiles[0]
-	var closest_to_end: Vector2i = cart_path_tiles[0]
-	var min_dist_start: float = Vector2(start).distance_to(Vector2(closest_to_start))
-	var min_dist_end: float = Vector2(end).distance_to(Vector2(closest_to_end))
+	# Golfers prefer the walk over the turf, so the detour is taken while it is
+	# no more than a moment slower than walking straight there.
+	if distance[end_cell] > direct_time + TRAIL_PREFERENCE_TIME:
+		if direct_clear:
+			return [] as Array[Vector2]
+		# The straight line is blocked, so any clear route is better than none.
+		var blocked := false
+		var at: int = end_cell
+		while at != -1:
+			if rate[at] <= 0.0:
+				blocked = true
+				break
+			at = came_from[at]
+		if blocked:
+			return [] as Array[Vector2]
 
-	for tile in cart_path_tiles:
-		var dist_start = Vector2(start).distance_to(Vector2(tile))
-		var dist_end = Vector2(end).distance_to(Vector2(tile))
-		if dist_start < min_dist_start:
-			min_dist_start = dist_start
-			closest_to_start = tile
-		if dist_end < min_dist_end:
-			min_dist_end = dist_end
-			closest_to_end = tile
+	var grid_path: Array[Vector2i] = []
+	var cursor: int = end_cell
+	while cursor != -1:
+		# Integer division is exact here: cursor is a row-major cell index.
+		@warning_ignore("integer_division")
+		grid_path.push_front(low + Vector2i(cursor % width, cursor / width))
+		cursor = came_from[cursor]
+	return _corner_waypoints(grid_path)
 
-	# Entry/exit must be reasonably close to start/end
-	if min_dist_start > 6 or min_dist_end > 6:
-		return []
+## How long the walk left could take at best: the distance to the goal at the
+## quickest rate anything in the search box offers.
+static func _route_estimate(from: Vector2i, goal: Vector2i, time_per_tile: float) -> float:
+	var dx: int = absi(from.x - goal.x)
+	var dy: int = absi(from.y - goal.y)
+	return (float(dx + dy) + (1.414 - 2.0) * float(mini(dx, dy))) * time_per_tile
 
-	# Check that the cart path route doesn't cross obstacles
-	if _path_crosses_obstacle(start, closest_to_start, true):
-		return []
-	if _path_crosses_obstacle(closest_to_end, end, true):
-		return []
+## The walker's search frontier: a binary heap of tile indices keyed by the
+## estimated time to the destination. Small and hot, so it keeps its own typed
+## arrays rather than a dictionary of Vector2i keys.
+class _RouteFrontier:
+	var _cells := PackedInt32Array()
+	var _keys := PackedFloat32Array()
 
-	# Compare travel time: cart path route vs direct walk
-	# PATH tiles give 1.5x speed, so time on path = distance / 1.5
-	var direct_time = distance  # direct distance at 1.0x speed
-	var entry_dist = Vector2(start).distance_to(Vector2(closest_to_start))
-	var path_dist = Vector2(closest_to_start).distance_to(Vector2(closest_to_end))
-	var exit_dist = Vector2(closest_to_end).distance_to(Vector2(end))
-	var cart_time = entry_dist + (path_dist / 1.5) + exit_dist
+	func is_empty() -> bool:
+		return _cells.is_empty()
 
-	if cart_time >= direct_time:
-		return []  # Cart path detour is slower than walking directly
+	func push(cell: int, key: float) -> void:
+		_cells.append(cell)
+		_keys.append(key)
+		var child := _cells.size() - 1
+		while child > 0:
+			# Integer division is exact here: halving a heap index truncates nothing.
+			@warning_ignore("integer_division")
+			var parent := (child - 1) / 2
+			if _keys[parent] <= _keys[child]:
+				break
+			_swap(parent, child)
+			child = parent
 
-	# Build the route: start -> cart path entry -> cart path exit -> end
+	func pop() -> int:
+		var top := _cells[0]
+		var last := _cells.size() - 1
+		_cells[0] = _cells[last]
+		_keys[0] = _keys[last]
+		_cells.remove_at(last)
+		_keys.remove_at(last)
+		var parent := 0
+		while true:
+			var left := parent * 2 + 1
+			if left >= _cells.size():
+				break
+			var smallest := left
+			var right := left + 1
+			if right < _cells.size() and _keys[right] < _keys[left]:
+				smallest = right
+			if _keys[parent] <= _keys[smallest]:
+				break
+			_swap(parent, smallest)
+			parent = smallest
+		return top
+
+	func _swap(a: int, b: int) -> void:
+		var cell := _cells[a]
+		_cells[a] = _cells[b]
+		_cells[b] = cell
+		var key := _keys[a]
+		_keys[a] = _keys[b]
+		_keys[b] = key
+
+## Reduce a planned route to the corners the walker turns at. Line-of-sight
+## simplification (see _simplify_grid_path) is wrong here: it would flatten the
+## trail's own bends away and send the golfer straight across the grass.
+func _corner_waypoints(grid_path: Array[Vector2i]) -> Array[Vector2]:
 	var result: Array[Vector2] = []
-	if closest_to_start != closest_to_end:
-		result.append(terrain_grid.grid_to_screen_center(closest_to_start))
-		result.append(terrain_grid.grid_to_screen_center(closest_to_end))
-	else:
-		result.append(terrain_grid.grid_to_screen_center(closest_to_start))
-	result.append(terrain_grid.grid_to_screen_center(end))
+	var terrain_grid = GameManager.terrain_grid
+	if grid_path.size() < 2 or not terrain_grid:
+		return result
+	var previous_dir: Vector2i = grid_path[1] - grid_path[0]
+	for i in range(2, grid_path.size()):
+		var dir: Vector2i = grid_path[i] - grid_path[i - 1]
+		if dir != previous_dir:
+			result.append(terrain_grid.grid_to_screen_center(grid_path[i - 1]))
+			previous_dir = dir
+	result.append(terrain_grid.grid_to_screen_center(grid_path[grid_path.size() - 1]))
 	return result
 
 ## Called when golfer reaches destination
@@ -3361,7 +3532,7 @@ func _check_building_proximity() -> void:
 			reach = float(candidate.building_data.get("effect_radius",5))
 			if candidate.building_data.get("effect_type", "").is_empty(): continue
 		else:
-			if candidate.decoration_type not in ["park_bench","picnic_table","patio_table"] or needs.energy >= .7: continue
+			if candidate.decoration_type != "park_bench" or needs.energy >= .7: continue
 			service = "bench"
 		if Vector2(current).distance_to(Vector2(candidate.grid_position)) > reach: continue
 		_declined_at_hole[id] = current_hole
@@ -3433,6 +3604,8 @@ func _process_amenity_visit(delta: float) -> void:
 func _serve_amenity() -> void:
 	var boost := needs.apply_building_effect(_amenity_service)
 	_adjust_mood(boost)
+	if _amenity_service == "cart_garage":
+		_rent_cart()
 	amenities_used += 1
 	FeedbackManager.service_visits += 1
 	var income := 0
@@ -3444,7 +3617,14 @@ func _serve_amenity() -> void:
 			_amenity_node.total_revenue += income
 			FeedbackManager.service_revenue += income
 			_show_building_revenue_notification(income, _amenity_service)
-	activity_text = "Resting" if _amenity_service == "bench" else "Visiting " + _amenity_service.replace("_"," ")
+	if _amenity_service == "bench":
+		activity_text = "Resting"
+	elif _amenity_service == "cart_garage":
+		activity_text = "Renting a cart"
+	elif _amenity_service in ["putting_green", "pro_shop", "driving_range"]:
+		activity_text = "Practising at the " + _amenity_service.replace("_", " ")
+	else:
+		activity_text = "Visiting " + _amenity_service.replace("_"," ")
 	_amenity_caption = Label.new()
 	_amenity_caption.text = activity_text
 	_amenity_caption.position = Vector2(-32,-53)
@@ -3453,6 +3633,18 @@ func _serve_amenity() -> void:
 	_amenity_caption.add_theme_color_override("font_outline_color",Color(.1,.2,.1))
 	_amenity_caption.add_theme_constant_override("outline_size",3)
 	add_child(_amenity_caption)
+
+## Rent a cart at the Cart Garage. Boosts this golfer's walking speed for the
+## rest of the round. The multiplier comes from the building's data, and a
+## golfer only ever rents one cart.
+func _rent_cart() -> void:
+	if has_cart:
+		return
+	has_cart = true
+	var multiplier := 1.3
+	if _amenity_node is Building:
+		multiplier = float(_amenity_node.building_data.get("walk_speed_multiplier", 1.3))
+	walk_speed = walk_speed * maxf(multiplier, 1.0)
 
 ## Show floating notification for building revenue
 func _show_building_revenue_notification(amount: int, _building_type: String) -> void:

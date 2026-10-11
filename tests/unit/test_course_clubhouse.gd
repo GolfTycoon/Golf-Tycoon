@@ -275,8 +275,8 @@ func test_move_errors_explain_why_not() -> void:
 	grid.set_tile(Vector2i(24, 8), TerrainTypes.Type.GRASS)
 	var registry: Dictionary = JSON.parse_string(
 			FileAccess.get_file_as_string("res://data/buildings.json"))["buildings"]
-	var restroom = entities.place_building("restroom", Vector2i(25, 9), registry)
-	assert_not_null(restroom, "The fixture's other building is placed")
+	var snack = entities.place_building("snack_bar", Vector2i(25, 9), registry)
+	assert_not_null(snack, "The fixture's other building is placed")
 	assert_eq(CourseClubhouse.move_error(grid, entities, clubhouse, Vector2i(24, 8)),
 		"Move the footprint clear of the other building.")
 
@@ -327,6 +327,6 @@ func test_destroy_refuses_a_required_building_but_force_still_clears_it() -> voi
 func test_optional_buildings_are_still_demolishable() -> void:
 	var registry: Dictionary = JSON.parse_string(
 			FileAccess.get_file_as_string("res://data/buildings.json"))["buildings"]
-	var coffee = entities.place_building("coffee_house", Vector2i(30, 4), registry)
-	entities.remove_building(coffee.grid_position)
-	assert_true(coffee.is_queued_for_deletion(), "Only the clubhouse is protected")
+	var shop = entities.place_building("pro_shop", Vector2i(30, 4), registry)
+	entities.remove_building(shop.grid_position)
+	assert_true(shop.is_queued_for_deletion(), "Only the clubhouse is protected")

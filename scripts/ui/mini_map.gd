@@ -48,15 +48,24 @@ const FALLBACK_TERRAIN_COLORS: Dictionary = {
 	21: Color(0.44, 0.41, 0.38),  # LARGE_BOULDERS
 }
 
+## A laid trail, drawn on the map as the walk it is. The trail is a flag over
+## the ground it crosses rather than a terrain of its own, so it is read beside
+## the tile's colour. Each theme brings its own walk colour ("path"): packed
+## earth on Parkland, white shell on Resort, crushed coral on Tropical.
+const TRAIL_COLOR := Color("c9bc98")
+
 # Cached theme-aware terrain colors (rebuilt on theme change)
 var _terrain_colors: Dictionary = {}
+var _trail_color: Color = TRAIL_COLOR
 
 func _build_terrain_colors() -> void:
 	"""Build mini-map colors from current course theme"""
 	var theme_colors = CourseTheme.get_terrain_colors(GameManager.current_theme)
 	if theme_colors.is_empty():
 		_terrain_colors = FALLBACK_TERRAIN_COLORS.duplicate()
+		_trail_color = TRAIL_COLOR
 		return
+	_trail_color = theme_colors.get("path", TRAIL_COLOR)
 
 	_terrain_colors = {
 		TerrainTypes.Type.EMPTY: theme_colors.get("empty", Color(0.18, 0.22, 0.18)),
@@ -68,7 +77,6 @@ func _build_terrain_colors() -> void:
 		TerrainTypes.Type.TEE_BOX: theme_colors.get("tee_box_light", Color(0.5, 0.8, 0.5)),
 		TerrainTypes.Type.BUNKER: theme_colors.get("bunker", Color(0.9, 0.85, 0.6)),
 		TerrainTypes.Type.WATER: theme_colors.get("water", Color(0.3, 0.5, 0.9)),
-		TerrainTypes.Type.PATH: theme_colors.get("path", Color(0.7, 0.7, 0.7)),
 		TerrainTypes.Type.OUT_OF_BOUNDS: theme_colors.get("oob", Color(0.15, 0.15, 0.15)),
 		TerrainTypes.Type.TREES: theme_colors.get("trees", Color(0.15, 0.35, 0.15)),
 		TerrainTypes.Type.FLOWER_BED: theme_colors.get("flower_bed", Color(0.45, 0.32, 0.22)),
@@ -192,6 +200,8 @@ func _regenerate_map_texture() -> void:
 			var terrain_type = _terrain_grid.get_tile(Vector2i(gx, gy))
 
 			var color = _terrain_color(terrain_type)
+			if _terrain_grid.has_walking_path(Vector2i(gx, gy)):
+				color = _trail_color
 			img.set_pixel(px, py, color)
 
 	_map_texture = ImageTexture.create_from_image(img)

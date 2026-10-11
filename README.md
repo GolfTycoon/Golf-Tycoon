@@ -117,7 +117,7 @@ make test       # unit tests (GUT): tests/unit/
 make warnings   # fails if any project script has a GDScript warning
 ```
 
-- **Unit tests** (`tests/unit/`) cover the rules and calculations: 73 test files.
+- **Unit tests** (`tests/unit/`) cover the rules and calculations: 79 test files.
 - **Integration tests** (`tests/integration/`) run flows through `main.gd`, such as hole creation, tournaments and saves. There are 17 scripts.
 - **Harnesses** (`tests/harness/`) are scenes for manual checks, simulations and previews. They include `ready_golf_harness`, `tournament_harness` and `sim_harness`.
 

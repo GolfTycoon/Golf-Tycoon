@@ -100,7 +100,7 @@ func _run() -> void:
 		main.inspect_btn.button_pressed = true
 		match tool:
 			"terrain": main._on_tool_selected(TerrainTypes.Type.ROUGH)
-			"building": main._on_building_type_selected_from_toolbar("restroom")
+			"building": main._on_building_type_selected_from_toolbar("snack_bar")
 			"tree": main._on_tool_selected(TerrainTypes.Type.OAK)
 			"decoration": main._on_decoration_type_selected_from_toolbar("fountain")
 			"elevation": main._on_elevation_tool_pressed(ElevationTool.TOOL_VERTEX)

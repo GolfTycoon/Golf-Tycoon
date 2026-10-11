@@ -37,14 +37,14 @@ static func review(grid, course, entities, rating: Dictionary, stats) -> Array[D
 		if entities:
 			for building in entities.get_all_buildings():
 				var service: String = building.building_data.get("needs_service", building.building_type)
-				if service not in ["snack_bar","restaurant","clubhouse"]: continue
+				if service not in ["snack_bar","pub","clubhouse"]: continue
 				var reach: float = building.building_data.get("effect_radius",5)
 				if Vector2(building.grid_position).distance_to(Vector2(hole.tee_position)) <= reach: has_food = true
 		if not has_food and hole.hole_number >= 4:
 			unserved = hole
 			break
 	if unserved:
-		advice.append({"title":"Add a refreshment stop near hole %d" % unserved.hole_number, "detail":"There is no food service within reach of this tee. A nearby snack bar or coffee house can restore hunger and earn revenue.", "position":unserved.tee_position, "action":"locate"})
+		advice.append({"title":"Add a refreshment stop near hole %d" % unserved.hole_number, "detail":"There is no food service within reach of this tee. A nearby Snack Bar (or Pub on a links course) can restore hunger and earn revenue.", "position":unserved.tee_position, "action":"locate"})
 	if stats and stats.operating_costs > 0 and stats.get_profit() < 0:
 		advice.append({"title":"Close the operating gap", "detail":"Today's operations lost $%d before construction and milestones. Review staffing, amenities and fees against actual demand." % -stats.get_profit(), "action":"finance"})
 	if rating.get("aesthetics",5.0) < 2.5:

@@ -22,24 +22,14 @@ func initialize(grid: TerrainGrid) -> void:
 	z_index = 1 # Water residents sit below the trees, golfers, and UI.
 	grid.tile_changed.connect(_on_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
-	EventBus.decoration_placed.connect(_on_decoration_placed)
-	EventBus.decoration_removed.connect(_on_decoration_removed)
 	rebuild()
 
 func _exit_tree() -> void:
 	EventBus.load_completed.disconnect(_on_load_completed)
-	EventBus.decoration_placed.disconnect(_on_decoration_placed)
-	EventBus.decoration_removed.disconnect(_on_decoration_removed)
 
 func _on_load_completed(success: bool) -> void:
 	if success:
 		rebuild()
-
-func _on_decoration_placed(_type: String, _pos: Vector2i) -> void:
-	_habitats_dirty = true
-
-func _on_decoration_removed(_pos: Vector2i) -> void:
-	_habitats_dirty = true
 
 func _on_tile_changed(pos: Vector2i, _old: int, type: int) -> void:
 	_track_tile(pos, type)
@@ -76,11 +66,6 @@ func _refresh_residents() -> void:
 	var gardens: Array[Vector2i] = []
 	for pos in _flower_tiles:
 		gardens.append(pos)
-	var entities = GameManager.entity_layer
-	if is_instance_valid(entities):
-		for decoration in entities.decorations.values():
-			if decoration.decoration_type in ["flower_garden", "bird_bath"]:
-				gardens.append(decoration.grid_position)
 	_garden_homes = _spaced_homes(gardens, MAX_GARDENS, 2.0)
 	_habitats_dirty = false
 	_refresh_elapsed = 0.0

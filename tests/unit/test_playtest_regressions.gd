@@ -50,17 +50,26 @@ func test_loading_blocks_rewards_even_when_event_is_received() -> void:
 	assert_false(manager.milestones[0].is_completed)
 	manager.free()
 
-func test_expanded_catalog_has_valid_services_and_shared_garden_art() -> void:
+func test_catalog_has_valid_services_and_artwork() -> void:
 	var buildings: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json")).buildings
 	var decorations: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json")).decorations
 	assert_eq(buildings.size(), 16)
-	assert_eq(decorations.size(), 28)
-	for type in GardenArt.KINDS:
+	# The Buildings tab keeps the clubhouse plus the fifteen location facilities.
+	for type in ["clubhouse", "putting_green", "snack_bar", "pub", "pro_shop",
+			"driving_range", "cart_garage", "tennis_court", "stable", "spa",
+			"swim_club", "resort_hotel", "airstrip", "castle", "casino", "theme_park"]:
+		assert_true(buildings.has(type), "%s is in the catalogue" % type)
+	# The Improvements tab keeps the path, the ball washer, the park bench, the
+	# fountain, the golfer statue and the sundial.
+	assert_eq(decorations.size(), 5)
+	for type in ["ball_washer", "park_bench", "fountain", "golfer_statue", "sundial"]:
 		assert_true(decorations.has(type), type)
+		assert_true(DecorationTileArt.has_art(type), "%s has catalogue artwork" % type)
 	for type in buildings:
 		var item: Dictionary = buildings[type]
+		assert_true(item.has("description"), "%s describes itself on its tile" % type)
 		if item.has("needs_service"):
-			assert_true(item.needs_service in ["snack_bar", "restaurant", "bench", "restroom", "clubhouse", "pro_shop"], type)
+			assert_true(item.needs_service in ["snack_bar", "pub", "bench", "clubhouse", "pro_shop"], type)
 
 func test_fast_brush_drag_has_no_gaps_and_includes_endpoints() -> void:
 	var points := TerrainBrush.centers(Vector2i(3, 4), Vector2i(32, 19))

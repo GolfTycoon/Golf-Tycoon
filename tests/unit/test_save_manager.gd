@@ -194,6 +194,34 @@ func test_legacy_tile_elevation_migrates_around_the_base_level() -> void:
 			var h: int = grid.get_vertex_elevation(Vector2i(x, y))
 			assert_between(h, TerrainGrid.MIN_ELEVATION, TerrainGrid.MAX_ELEVATION)
 
+func test_a_legacy_cart_path_save_loads_as_rough_carrying_a_trail() -> void:
+	# Saves from before the cart path terrain was retired stored its gravel as tile
+	# id 9. The id keeps its slot in the enum — no other id may move, and the
+	# course surface's palette is indexed by id — but nothing is painted with it
+	# any more, so loading one migrates each gravel tile to the rough it was laid
+	# over and gives it the trail the Path improvement lays now.
+	var grid := TerrainGrid.new()
+	grid.grid_width = 8
+	grid.grid_height = 8
+	add_child_autofree(grid)
+	grid.deserialize({"3,3": TerrainTypes.Type.RETIRED_PATH,
+			"4,3": TerrainTypes.Type.ROUGH, "6,6": TerrainTypes.Type.ROUGH})
+	# SaveManager hands the trail layer to the grid once the terrain is in.
+	grid.deserialize_walking_paths(["6,6"])
+
+	assert_eq(grid.get_tile(Vector2i(3, 3)), TerrainTypes.Type.ROUGH,
+			"The gravel becomes the rough it was laid over")
+	assert_true(grid.has_walking_path(Vector2i(3, 3)), "and carries the walk it was")
+	assert_false(grid.has_walking_path(Vector2i(4, 3)),
+			"Ordinary rough the save carried keeps no trail")
+	assert_true(grid.has_walking_path(Vector2i(6, 6)),
+			"A trail the same save stored as a trail is still one")
+
+	assert_eq(grid.serialize()["3,3"], TerrainTypes.Type.ROUGH,
+			"Saving again writes rough: the retired id never goes back to disk")
+	assert_true(grid.serialize_walking_paths().has("3,3"),
+			"The migrated walk is saved as a walk")
+
 
 # --- Helper functions (mirror SaveManager's serialization logic) ---
 

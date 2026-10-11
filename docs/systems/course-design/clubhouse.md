@@ -35,7 +35,7 @@ Each anchor is searched in two passes. The first pass uses only ground that need
 A footprint is legal only if all of these hold:
 
 - Every tile is owned and free of other buildings and decorations.
-- Every tile is buildable: grass, rough (all grades), deep rough, flower bed, firm fairway or path.
+- Every tile is buildable (`PlacementManager.building_terrain_ok()`): grass, rough in all its grades, fairway or firm fairway. A trail laid on the plot is no obstacle — the clubhouse stands on the ground, and the walk runs on underneath it.
 - No tile is a green, tee, fairway, bunker, water, stream or out-of-bounds tile (`FORBIDDEN_TERRAINS`).
 
 Trees, brush and stony ground inside the chosen footprint are cleared and re-laid as grass. This is landscaping, not a player edit, so it does not enter the undo history or the maintenance books. The door tile is also cleared so guests have somewhere to stand.
@@ -101,6 +101,8 @@ The golfer state machine gained one state, `LEAVING`, appended last so saved sta
 
 ## Related
 
+- [Walking Paths](walking-paths.md) covers the trails the clubhouse paves.
+- [Generated Walking Paths](generated-walking-paths.md) covers the network planned out of the clubhouse door.
 - [Isometric Buildings](isometric-buildings.md) covers how buildings are drawn.
 - [Course Architecture](course-character.md) covers facade and landform rendering.
 - [Golfer Needs](../golfers/golfer-needs.md) covers how the visit restores needs.

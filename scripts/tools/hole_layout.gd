@@ -96,7 +96,7 @@ static func max_brush_size(tool_type: int, grid: TerrainGrid,
 			return 1
 		TerrainTypes.Type.GREEN:
 			return 1 if green_places_cup(grid, course) else UNLIMITED_BRUSH
-		TerrainTypes.Type.PATH:
+		TerrainTypes.WALKING_PATH_TOOL:
 			return 1
 	return UNLIMITED_BRUSH
 

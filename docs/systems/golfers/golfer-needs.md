@@ -12,7 +12,7 @@ Needs decay naturally as golfers play:
 - **Energy** drops after each hole (walking the course is tiring)
 - **Comfort** drops after each hole (need for restroom facilities)
 - **Hunger** drops after each hole (the slowest decay)
-- **Thirst** drops after each hole; snack bars and restaurants take the edge off, but drinks vendors are the real answer
+- **Thirst** drops after each hole; snack bars and pubs take the edge off, but drinks vendors are the real answer
 - **Pace** drops when golfers are idle waiting for their turn, modified by their patience trait
 
 When a need drops below the **low threshold** (0.30), the golfer may show a thought bubble complaint (e.g., "Getting tired...", "Need a restroom!"). When a need drops below the **critical threshold** (0.15), the golfer takes a one-time mood penalty. Both feedback triggers and mood penalties reset when a building visit restores the need above the respective threshold, allowing them to fire again if the need drops again.
@@ -20,11 +20,14 @@ When a need drops below the **low threshold** (0.30), the golfer may show a thou
 ### Buildings Satisfy Needs
 
 Buildings placed on the course restore specific needs when a golfer walks within range:
-- **Bench**: Restores energy (+0.20)
-- **Restroom**: Restores comfort (+0.35)
-- **Snack Bar**: Restores hunger (+0.30)
-- **Restaurant**: Restores hunger (+0.50)
+- **Bench** (park bench improvement): Restores energy (+0.20)
+- **Snack Bar**: Restores hunger (+0.30) and a little thirst (+0.20)
+- **Pub**: Restores hunger (+0.50) and a little thirst (+0.25)
+- **Putting Green, Pro Shop, Driving Range**: Practice visits lift mood (+0.03)
+- **Cart Garage**: Renting a cart lifts mood (+0.02) and boosts the golfer's walking speed for the round
 - **Clubhouse**: Small boost to all needs (+0.15 each) at end of round
+
+Other facilities work before the round starts: the **Tennis Court, Stable, Spa and Swim Club** start every golfer in a better mood, the **Resort Hotel** starts every golfer with more stamina (energy drains 0.6x as fast), and the **Airstrip, Castle, Casino and Theme Park** boost the green fee per hole.
 
 This creates a strategic incentive: players must place amenity buildings along the course to keep golfers happy during long rounds. On-course staff do the rest: **greeters** lift mood, **marshals** restore pace, and **drinks vendors** quench thirst — see [staff-and-weeds.md](../economy-and-land/staff-and-weeds.md).
 
@@ -44,15 +47,17 @@ The golfer's patience trait (set by tier) directly affects how fast pace satisfa
 
 Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. Clamping the step prevents an accelerated frame from overshooting and oscillating across a waypoint. Reaching the final waypoint returns immediately after the state transition so walking animation cannot overwrite the arrival state.
 
+The step is taken at `walk_speed` times the rate of the ground underfoot: `TerrainGrid.walk_speed_modifier_at()` folds the terrain's own rate together with any walking path laid on it (dirt 1.25x, 1.5x once the trail reaches the clubhouse), so a golfer sent across the course on a trail arrives sooner and drains pace over a shorter walk. Routes prefer a trail whenever it is no more than a moment slower than walking straight there — see [Walking Paths](../course-design/walking-paths.md).
+
 ### Amenities
 
-Nearby park benches, picnic tables and patio tables restore energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
+A nearby park bench restores energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
 
 ### Physical amenity visits and traffic
 
 Normal turns within a golfer's own group no longer drain pace. The golfer manager marks a group as traffic-blocked only when its next player is ready but an earlier group prevents a safe shot. Those waiting seconds reduce pace; normal play restores pace at 0.0008 per simulation second. A marshal reduces the effective waiting penalty by the ratio `0.6 / staff_pace_modifier` (20% reduction with one marshal).
 
-A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Benches, picnic tables and patio tables use the same visit path for rest. Service counts and income are recorded separately from green fees.
+A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Park benches use the same visit path for rest. Service counts and income are recorded separately from green fees.
 
 The golfer panel converts accumulated waiting seconds to game-clock minutes using `seconds * 60 / SECONDS_PER_GAME_HOUR`. Raw playtest `traffic_minutes` telemetry remains simulation seconds divided by 60; it is not wall time at accelerated speed.
 
@@ -90,13 +95,13 @@ Pace is checked in 5-second chunks during the golfer's `_process()` loop to avoi
 When a golfer walks within a building's `effect_radius`, they don't automatically stop — they roll against an **interaction chance** based on how much they need that building. This prevents revenue spam from placing many buildings and makes need levels matter for building placement strategy.
 
 ```
-relevant_need = need mapped to building type (bench→energy, restroom→comfort, etc.)
+relevant_need = need mapped to building type (bench→energy, snack_bar/pub→hunger)
 
 if relevant_need < 0.30:  interaction_chance = 1.00   # Desperate — always stop
 elif relevant_need < 0.70: interaction_chance = 0.50   # Could use it — coin flip
 else:                      interaction_chance = 0.20   # Doing fine — usually walk past
 
-# Buildings with no need mapping (pro_shop): flat 0.30 base chance
+# Buildings with no need mapping (pro_shop, practice facilities): flat 0.30 base chance
 ```
 
 Golfers do NOT pathfind to buildings — they only interact when they happen to walk within proximity range. The interaction check is one-time-per-round per building (tracked via `_visited_buildings`).
@@ -170,10 +175,12 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 | LOW_NEED_THRESHOLD | `golfer_needs.gd` | 0.30 | Higher = complaints start sooner |
 | CRITICAL_NEED_THRESHOLD | `golfer_needs.gd` | 0.15 | Higher = mood penalties start sooner |
 | BENCH_ENERGY_RESTORE | `golfer_needs.gd` | 0.20 | Higher = benches more effective |
-| RESTROOM_COMFORT_RESTORE | `golfer_needs.gd` | 0.35 | Higher = restrooms more effective |
 | SNACK_BAR_HUNGER_RESTORE | `golfer_needs.gd` | 0.30 | Higher = snack bars more effective |
-| RESTAURANT_HUNGER_RESTORE | `golfer_needs.gd` | 0.50 | Higher = restaurants more effective |
+| PUB_HUNGER_RESTORE | `golfer_needs.gd` | 0.50 | Higher = pubs more effective |
 | CLUBHOUSE_ALL_RESTORE | `golfer_needs.gd` | 0.15 | Higher = clubhouse more effective |
+| PRACTICE_MOOD_BOOST | `golfer_needs.gd` | 0.03 | Mood lift from visiting the putting green, pro shop or driving range |
+| CART_GARAGE_MOOD_BOOST | `golfer_needs.gd` | 0.02 | Mood lift when a golfer rents a cart |
+| energy_decay_modifier | `GolferNeeds` field | 1.0 (0.6 with a Resort Hotel) | Scales per-hole energy decay; lower = golfers stay fresh longer |
 | INTERACT_CHANCE_HIGH_NEED | `golfer_needs.gd` | 0.20 | Chance of stopping when need > 0.7. Lower = buildings less useful when golfer is satisfied |
 | INTERACT_CHANCE_MID_NEED | `golfer_needs.gd` | 0.50 | Chance of stopping when need is 0.3–0.7 |
 | INTERACT_CHANCE_LOW_NEED | `golfer_needs.gd` | 1.00 | Chance of stopping when need < 0.3 (guaranteed) |
@@ -188,4 +195,5 @@ overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
 - [Golfer Spawning](golfer-spawning.md) covers who arrives.
 - [Satisfaction and Feedback](satisfaction-feedback.md) turns needs into thoughts and ratings.
 - [Staff and Weeds](../economy-and-land/staff-and-weeds.md) covers the staff who serve golfers.
-- [Garden Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.
+- [Improvement Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.
+- [Walking Paths](../course-design/walking-paths.md) covers the trails that shorten the walk between shots.

@@ -93,7 +93,6 @@ const TERRAIN_SCORES: Dictionary = {
 	TerrainTypes.Type.FIRM_FAIRWAY: 145.0,  # Great lie, but the ball may run on
 	TerrainTypes.Type.TEE_BOX: 130.0,
 	TerrainTypes.Type.GRASS: 40.0,
-	TerrainTypes.Type.PATH: 35.0,
 	TerrainTypes.Type.ROUGH: 10.0,
 	TerrainTypes.Type.WASTE_BUNKER: -10.0,  # Playable sandy lie, no hazard
 	TerrainTypes.Type.HEAVY_ROUGH: -20.0,
@@ -879,8 +878,6 @@ static func _assess_lie_quality(terrain_type: int) -> float:
 			return 1.0
 		TerrainTypes.Type.GRASS:
 			return 0.8
-		TerrainTypes.Type.PATH:
-			return 0.7
 		TerrainTypes.Type.WASTE_BUNKER:
 			return 0.6
 		TerrainTypes.Type.ROUGH:
