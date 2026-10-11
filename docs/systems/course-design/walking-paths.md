@@ -16,6 +16,7 @@ The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not 
 - **Walking quicker:** a golfer on a dirt trail walks **1.25×** as fast as the same ground without it, and **1.5×** on paving. The ground's own rate still counts, so a trail through brush is quicker than ploughing through the brush but slower than a trail over rough.
 - **Preferring the walk:** a planned walk steps onto the trail when that gets the golfer there no more than **a moment slower** than walking straight there, and never crosses the course to reach a distant trail. Water and out of bounds are still walked around.
 - Trails are also carried across **cart paths** (`TerrainTypes.Type.PATH`) and vice versa: painting the course terrain joins the network, so a trail can be paved by connecting to a cart path that already reaches the clubhouse.
+- **Under the golfers:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it.
 - The bulldozer removes a trail for **$5** a tile, leaving rough ground. Its tooltip says so, and undo and redo put the trail back.
 
 ## Algorithm
@@ -100,3 +101,4 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 - [Terrain Types](terrain-types.md) has the walking rates of the terrain under the trail, including the cart path.
 - [Golfer Needs](../golfers/golfer-needs.md) covers pace satisfaction while walking.
 - [Group Turn Order](../golf-play/group-turn-order.md) covers walkers stepping clear of a partner's shot.
+- [Architecture](../../architecture.md) lists the draw bands the trail and the golfers paint in.

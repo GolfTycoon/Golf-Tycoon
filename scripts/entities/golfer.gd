@@ -1,6 +1,12 @@
 extends CharacterBody2D
 class_name Golfer
 ## Golfer - Base class for AI golfers playing the course
+##
+## A golfer is drawn in the entity band (z 2, carried by the scene root and its
+## offset children): over the course surface and over every detail the terrain
+## grid paints on it - the walking trail, the cart paths, water, trees - so the
+## ground art never hides a golfer standing on it. See scenes/entities/golfer.tscn
+## and the Draw Order section of docs/architecture.md.
 
 enum State {
 	IDLE,           # Waiting to start or for turn
@@ -231,7 +237,9 @@ var _visited_buildings: Dictionary = {}  # instance_id -> true
 var _building_check_timer: float = 0.0
 const BUILDING_CHECK_INTERVAL: float = 0.5
 
-## Z-ordering: visual offset to prevent stacking when golfers share a tile
+## Z-ordering: visual offset to prevent stacking when golfers share a tile.
+## (The golfer's own draw band is the entity band - see the class doc - so the
+## offset only shifts the art within it.)
 var visual_offset: Vector2 = Vector2.ZERO
 var _expression: GolferExpression
 

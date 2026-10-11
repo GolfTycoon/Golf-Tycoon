@@ -166,5 +166,65 @@ func _run() -> void:
 	await _frames(2)
 	_check(grid.has_walking_path(Vector2i(50, 62)), "redo re-laid the trail")
 
+	# ------------------------------------------------------------------
+	# 7. A golfer on the trail is drawn over it: the sprite belongs to the
+	#    entity band (z 2), over the surface and every overlay the grid
+	#    paints on it, and the shadow and rings ride that band.
+	# ------------------------------------------------------------------
+	var golfers_container: Node2D = main.get_node("Entities/Golfers")
+	var packed: PackedScene = load("res://scenes/entities/golfer.tscn")
+	var golfer: Golfer = packed.instantiate() as Golfer
+	golfers_container.add_child(golfer)
+	golfer.set_process(false)
+	golfer.set_physics_process(false)
+	golfer.global_position = grid.grid_to_screen_center(Vector2i(51, 62))
+	await _frames(2)
+
+	var sprite := golfer.sprite_node() as CanvasItem
+	if sprite == null:
+		sprite = golfer.visual as CanvasItem
+	var surface := grid.get_node("CourseSurface") as CanvasItem
+	var sprite_z := _effective_z(sprite)
+	var trail_z := _effective_z(overlay)
+	_check(sprite_z > _effective_z(surface),
+			"the golfer's sprite is drawn over the course surface (z %d vs %d)"
+					% [sprite_z, _effective_z(surface)])
+	_check(sprite_z > trail_z,
+			"a golfer standing on the walking trail is drawn over it (z %d vs %d)"
+					% [sprite_z, trail_z])
+	var shadow_z := _effective_z(golfer.visual.get_node("Shadow") as CanvasItem)
+	_check(shadow_z >= trail_z, "the golfer's shadow lies on the trail, not under it")
+	_check(sprite_z > shadow_z, "the shadow stays under the golfer who casts it")
+	var buried: Array[String] = []
+	for item in _canvas_items(golfer):
+		if _effective_z(item) < _effective_z(surface):
+			buried.append("%s (z %d)" % [item.name, _effective_z(item)])
+	_check(buried.is_empty(),
+			"no part of the golfer is buried behind the opaque surface%s"
+					% ("" if buried.is_empty() else ": " + ", ".join(buried)))
+
 	print("HARNESS: done, %d failure(s)" % failures)
 	get_tree().quit(1 if failures > 0 else 0)
+
+## The z an item is actually drawn at: its own band, plus the bands of the
+## relative parents above it, the way Godot resolves it.
+func _effective_z(item: CanvasItem) -> int:
+	var z := 0
+	var node: Node = item
+	while node is CanvasItem:
+		var canvas_item := node as CanvasItem
+		if canvas_item.z_as_relative:
+			z += canvas_item.z_index
+		else:
+			z = canvas_item.z_index
+		node = canvas_item.get_parent()
+	return z
+
+## Every canvas item a node draws with, its own children first.
+func _canvas_items(node: Node) -> Array[CanvasItem]:
+	var items: Array[CanvasItem] = []
+	for child in node.get_children():
+		if child is CanvasItem:
+			items.append(child)
+		items.append_array(_canvas_items(child))
+	return items
