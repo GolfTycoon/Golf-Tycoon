@@ -27,7 +27,6 @@ func before_all() -> void:
 
 
 func after_each() -> void:
-	GameManager.multi_tee_enabled = false
 	await super()
 
 
@@ -135,8 +134,7 @@ func test_the_green_tool_previews_the_hole_and_opens_the_route_it_drew() -> void
 	assert_true(preview.waiting_hole.is_empty(), "Opening the hole clears the waiting path")
 
 
-func test_a_multi_tee_par_five_opens_with_the_tees_it_previewed() -> void:
-	GameManager.multi_tee_enabled = true
+func test_a_par_five_opens_with_the_route_it_previewed() -> void:
 	var next_number := GameManager.current_course.holes.size() + 1
 	var tee := Vector2i(52, 66)
 	paint(TerrainTypes.Type.TEE_BOX, tee)
@@ -147,7 +145,7 @@ func test_a_multi_tee_par_five_opens_with_the_tees_it_previewed() -> void:
 	var hole: Dictionary = preview.potential_hole
 	assert_eq(hole.get("hole_number", 0), next_number, "The preview numbers the next hole")
 	assert_eq(hole.get("par", 0), 5, "A 26-tile pair is a par 5")
-	assert_eq(hole.get("extra_tees", {}).size(), 2, "Multi-tee previews the forward and middle tees")
+	assert_false(hole.has("extra_tees"), "One tee per hole: the preview paints no extras")
 	await _await_route()
 	var previewed: Array = preview.potential_hole_route.duplicate()
 	# Two landings usually; one when a lay-up already reaches a green nearby.
@@ -160,9 +158,6 @@ func test_a_multi_tee_par_five_opens_with_the_tees_it_previewed() -> void:
 	main._on_open_hole_pressed()
 	assert_eq(GameManager.current_course.holes.size(), next_number, "Open Hole created the par 5")
 	var opened: GameManager.HoleData = GameManager.current_course.holes[-1]
-	assert_eq(opened.tee_positions.get("forward"), hole.get("extra_tees", {}).get("forward"),
-		"The forward tee is where the preview put it")
-	assert_eq(opened.tee_positions.get("middle"), hole.get("extra_tees", {}).get("middle"),
-		"The middle tee is where the preview put it")
+	assert_eq(opened.tee_position, tee, "The hole's tee is the tile that was painted")
 	assert_eq(ShotPathCalculator.calculate_waypoints(opened, grid), previewed,
 		"The opened par 5's route matches the preview")

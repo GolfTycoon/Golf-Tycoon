@@ -15,7 +15,7 @@ A hole is built from its two ends with the ordinary terrain brushes, then opened
 2. **Green** paints a **Green With Hole** when no cup is waiting. This is a single tile with a cup cut into it, shown with a **gold pin** so it stands apart from the red pins of open holes. Once a cup is waiting, the Green tool switches to a normal green brush, so you can widen the putting surface around the cup.
 3. **Open Hole** (`H`, or the tile between the tee and green tools on the Course Terrain tab) pairs the waiting tee with the waiting cup and creates the hole. It is enabled only when there is exactly one tee and one cup ready.
 
-Opening a hole sets its yardage, par, forward and middle tees, and difficulty rating. The cup stays on its tile for the life of the hole. It moves only when you move the whole green. Opening a hole also clears the waiting cup, so the next green you paint starts the next hole.
+Opening a hole sets its yardage, par, and difficulty rating. The cup stays on its tile for the life of the hole. It moves only when you move the whole green. Opening a hole also clears the waiting cup, so the next green you paint starts the next hole.
 
 ### The potential hole preview
 
@@ -37,7 +37,7 @@ The preview disappears when the cup is cut, when you switch tool, or when no tee
 
 ### Other rules
 
-- **Unused** means not already claimed by a hole. Automatically generated forward and middle tees belong to their hole, so they never block a new tee box.
+- **Unused** means not already claimed by a hole. A hole's tee box belongs to it, so it never counts as unused.
 - **Deleting a hole** returns its tee box to the unused pool, so you can pair it with a new cup instead of bulldozing it.
 - **Painting over** a Green With Hole with any other terrain removes its cup.
 - **Undo and redo** restore cups with their tiles. Waiting cups are saved in the save file.
@@ -52,7 +52,7 @@ The preview disappears when the cup is cut, when you switch tool, or when no tee
 `HoleLayout` is the one source of truth. The toolbar, the placement preview and the paint path all use the same functions.
 
 ```
-used_tee_tiles(course)  = { hole.tee_position } ∪ { hole.tee_positions[*] }   for every hole
+used_tee_tiles(course)  = { hole.tee_position }                              for every hole
 used_cup_tiles(course)  = { hole.hole_position }                               for every hole
 unused_tee_boxes(grid)  = grid tee-box tiles − used_tee_tiles
 unused_cups(grid)       = grid cup tiles − used_cup_tiles
@@ -83,8 +83,7 @@ max_brush_size(other)   = UNLIMITED_BRUSH
 `HoleCreationTool.open_hole(tee, cup)` checks the same preconditions and then builds the `HoleData`:
 
 - yardage from `calculate_distance_yards()`;
-- par from `GolfRules.calculate_par()`;
-- forward and middle tees from `auto_generate_tee_positions()`, when multiple tees are on.
+- par from `GolfRules.calculate_par()`.
 
 `hole_position` is the Green With Hole tile itself, so golfers always putt to the cup you cut.
 
@@ -116,7 +115,7 @@ ready          = can_cut_cup and exactly one tee waiting and distance ≥ MIN_HO
 `HolePathPlanner` returns the route for a tee and cup pair. It calls `ShotPathCalculator.calculate_route()`, the same function that `HoleVisualizer` uses for an open hole, so the preview and the opened hole show the same waypoints. Two adjustments make them match:
 
 - **`hole_index = −1`.** The pair is not in `course.holes` yet. Without this flag, ShotAI's green-centre bias would read `holes[0]` and bend the approach toward another hole's green.
-- **Preview terrain.** The route is planned on a copy of the terrain painted the way it will look once the hole opens. That means the cup tile is green, and forward and middle tees are included on multi-tee courses.
+- **Preview terrain.** The route is planned on a copy of the terrain painted the way it will look once the hole opens: the cup tile is green.
 
 ShotAI takes about 0.2 s for a par 4 and 0.4 s for a par 5. That is too slow for the main thread on every tile the cursor crosses, so the planner works as follows:
 
@@ -156,7 +155,6 @@ Tee and cup rules count tiles on the current course, so a new game starts from a
 ## Related
 
 - [Tee Aim Arrow](tee-aim-arrow.md) covers the aiming arrow drawn on each tee.
-- [Multiple Tee Boxes](multiple-tee-boxes.md) covers the forward and middle tees.
 - [Stroke Index](stroke-index.md) and [Difficulty Calculator](difficulty-calculator.md) are updated when a hole opens.
 - [Forced Carry](forced-carry.md) covers the carry shown on the open hole.
 - [Clubhouse](clubhouse.md) covers the required building that is never sold.

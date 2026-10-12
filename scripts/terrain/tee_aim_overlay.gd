@@ -18,7 +18,9 @@ class_name TeeAimOverlay
 ## inside the shape its grass covers, which is the tile's projected outline: a 2:1
 ## diamond in the isometric view, leaning with the terrain's elevation. A tile whose
 ## grass folds to a sliver cannot hold a readable arrow at all, so the marker stops
-## shrinking at MIN_FIT_SCALE and laps a pixel or two over the edge instead.
+## shrinking at MIN_FIT_SCALE — but never leaves the tile: what is left is held
+## inside the tile's bounding box, shrinking further only when the box itself
+## cannot hold the minimum.
 ##
 ## Like CupOverlay this is a terrain overlay: it redraws when the view rotates or
 ## the camera moves, and rebuilds when the terrain or the holes change.
@@ -62,8 +64,9 @@ const BALL_ANCHOR_FRACTION: float = 0.5
 const SAFE_INSET: float = 2.6
 ## Smallest the marker is ever drawn. A tile whose grass folds to a sliver — a tee
 ## perched on a cliff edge — has no room for a readable arrow, so the marker is
-## drawn at this size and laps a pixel or two over the tile edge rather than
-## shrinking into an unreadable speck.
+## drawn at this size rather than shrinking into an unreadable speck. When even
+## this does not fit, the marker shrinks to what the tile's bounding box holds:
+## however steep the ground, the arrow never leaves its tee.
 const MIN_FIT_SCALE: float = 0.45
 const MIN_SEGMENT: float = 0.25
 
@@ -163,15 +166,13 @@ func rebuild() -> void:
 			_markers[tee] = route
 	queue_redraw()
 
-## Tee tile -> the cup of the hole that owns it (back, forward and middle tees).
+## Tee tile -> the cup of the hole that owns it.
 func _hole_cups_by_tee(course: GameManager.CourseData) -> Dictionary:
 	var cups: Dictionary = {}
 	if not course:
 		return cups
 	for hole in course.holes:
 		cups[hole.tee_position] = hole.hole_position
-		for tee_key in hole.tee_positions:
-			cups[hole.tee_positions[tee_key]] = hole.hole_position
 	return cups
 
 ## The single green with a hole that is still waiting for its tee box, or
@@ -270,6 +271,22 @@ func marker_layout(tee: Vector2i) -> Dictionary:
 		head[i] += centre
 	for i in range(balls.size()):
 		balls[i] += centre
+
+	# 6. Keep the marker over its tile, whatever the ground did. A sliver tile
+	# cannot hold even the minimum-size marker, and its folded outline has no
+	# interior to fit into — so there the promise drops to the tile's bounding
+	# box: shrink around the box's own centre until every painted point stays
+	# inside it. A tile the fit already served holds its marker with room to
+	# spare, so this never moves a flat tile's arrow.
+	var box := _tile_box(tee)
+	var anchor := box.get_center()
+	var box_scale := _box_fit_scale(box, anchor, [shaft, head, balls])
+	if box_scale < 1.0:
+		marker_scale *= box_scale
+		for part in [shaft, head, balls]:
+			for i in range(part.size()):
+				part[i] = anchor + (part[i] - anchor) * box_scale
+
 	return {
 		"shaft": trim_to_head(shaft, HEAD_LENGTH * HEAD_OVERLAP * marker_scale),
 		"head": head,
@@ -448,6 +465,36 @@ func _tile_edges(tee: Vector2i, centre: Vector2) -> Array:
 			offset = -offset
 		edges.append({"normal": normal, "offset": offset})
 	return edges
+
+## The tee tile's bounding box in this overlay's local space: the screen-space
+## rectangle its projected grass covers. Even a tile whose outline folds over
+## itself — no dependable inside for the fit — stays inside its own box, so
+## this is what a floored marker is held to.
+func _tile_box(tee: Vector2i) -> Rect2:
+	var box := Rect2()
+	var first := true
+	for point in terrain_grid.tile_polygon(tee):
+		var local := to_local(point)
+		box = Rect2(local, Vector2.ZERO) if first else box.expand(local)
+		first = false
+	return box
+
+## The largest scale ≤ 1 that keeps every point of `parts` inside `box` when
+## scaled around `anchor` — 1.0 when they already fit. `anchor` is the box's
+## own centre, so shrinking always converges onto the box: the scale at which
+## a point lands on an edge is the distance from the anchor to that edge over
+## the distance from the anchor to the point.
+static func _box_fit_scale(box: Rect2, anchor: Vector2, parts: Array) -> float:
+	var limit := 1.0
+	for part in parts:
+		for point: Vector2 in part:
+			var offset := point - anchor
+			for axis in 2:
+				if absf(offset[axis]) < 0.001:
+					continue
+				var edge := box.position[axis] if offset[axis] < 0.0 else box.end[axis]
+				limit = minf(limit, (edge - anchor[axis]) / offset[axis])
+	return clampf(limit, 0.0, 1.0)
 
 ## A local copy of the shaft, cut back to where the arrow head covers it.
 static func trim_to_head(shaft: PackedVector2Array, overlap: float) -> PackedVector2Array:

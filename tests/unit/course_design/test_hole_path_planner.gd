@@ -77,28 +77,6 @@ func test_route_matches_the_opened_hole() -> void:
 	assert_eq(par5.size(), 4, "tee, two landings, cup")
 	assert_eq(par5, _opened_hole_route(TEE, PAR5_CUP), "Par 5 preview = HoleVisualizer route")
 
-func test_route_accounts_for_the_tees_open_hole_will_paint() -> void:
-	# With multi-tee on, Open Hole paints forward/middle TEE_BOX tiles along the
-	# line before HoleVisualizer routes the hole; the preview plans with them too.
-	planner.threaded = true
-	var extra_tees: Array = [Vector2i(10, 21), Vector2i(8, 20)]
-	var route := await _await_route_with(TEE, PAR5_CUP, 5, extra_tees)
-	for pos in extra_tees:
-		grid._grid[pos] = TerrainTypes.Type.TEE_BOX
-	var opened := _opened_hole_route(TEE, PAR5_CUP)
-	for pos in extra_tees:
-		grid._grid[pos] = TerrainTypes.Type.GRASS
-	assert_eq(route, opened, "Preview with the extra tees = opened hole route")
-	assert_eq(grid.get_tile(extra_tees[0]), TerrainTypes.Type.GRASS, "Only painted in the copy")
-
-func _await_route_with(tee: Vector2i, cup: Vector2i, par: int, extra_tees: Array) -> Array[Vector2i]:
-	var route: Array[Vector2i] = planner.route_for(grid, tee, cup, par, extra_tees)
-	var deadline := Time.get_ticks_msec() + int(WAIT_SECONDS * 1000.0)
-	while route.is_empty() and Time.get_ticks_msec() < deadline:
-		await process_frames(1)
-		route = planner.route_for(grid, tee, cup, par, extra_tees)
-	return route
-
 func test_finished_routes_are_cached() -> void:
 	planner.threaded = true
 	var route := await _await_route(TEE, PAR4_CUP, 4)

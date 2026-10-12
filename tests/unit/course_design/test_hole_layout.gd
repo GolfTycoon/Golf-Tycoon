@@ -27,7 +27,6 @@ func _make_hole(tee: Vector2i, cup: Vector2i) -> GameManager.HoleData:
 	hole.tee_position = tee
 	hole.green_position = cup
 	hole.hole_position = cup
-	hole.tee_positions = {"back": tee, "middle": tee, "forward": tee}
 	course.add_hole(hole)
 	return hole
 
@@ -79,16 +78,15 @@ func test_a_waiting_tee_still_blocks_even_after_another_hole_opens() -> void:
 	assert_eq(HoleLayout.unused_tee_boxes(grid, course), [Vector2i(6, 6)])
 	assert_false(HoleLayout.can_place_tee_box(grid, course))
 
-func test_auto_generated_forward_and_middle_tees_stay_claimed() -> void:
+func test_a_holes_tee_stays_claimed() -> void:
 	_paint_tee(Vector2i(2, 2))
 	_paint_tee(Vector2i(4, 2))
-	_paint_tee(Vector2i(6, 2))
-	var hole := _make_hole(Vector2i(2, 2), Vector2i(10, 2))
-	hole.tee_positions = {"back": Vector2i(2, 2), "middle": Vector2i(4, 2), "forward": Vector2i(6, 2)}
+	_make_hole(Vector2i(2, 2), Vector2i(10, 2))
 
-	assert_eq(HoleLayout.unused_tee_boxes(grid, course), [],
-			"Forward and middle tees belong to the hole, so they are not unused")
-	assert_true(HoleLayout.can_place_tee_box(grid, course))
+	assert_eq(HoleLayout.unused_tee_boxes(grid, course), [Vector2i(4, 2)],
+			"The hole's own tee is claimed; the spare tee box stays unused")
+	assert_false(HoleLayout.can_place_tee_box(grid, course),
+			"The leftover tee box is still waiting to be opened")
 
 func test_a_cup_claimed_by_a_hole_is_not_unused() -> void:
 	_paint_green_with_cup(Vector2i(10, 2))

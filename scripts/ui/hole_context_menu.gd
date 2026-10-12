@@ -8,8 +8,6 @@ var terrain_grid: TerrainGrid
 var _just_opened: bool = true
 
 signal move_tee_requested(hole_number: int)
-signal move_forward_tee_requested(hole_number: int)
-signal move_middle_tee_requested(hole_number: int)
 signal move_green_requested(hole_number: int)
 signal toggle_hole_requested(hole_number: int)
 signal view_stats_requested(hole_number: int)
@@ -91,20 +89,6 @@ func _build_ui() -> void:
 		tee_btn.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	tee_btn.pressed.connect(func(): move_tee_requested.emit(hole_data.hole_number); _close())
 	vbox.add_child(tee_btn)
-
-	# Move Forward/Middle Tee buttons (only when multi-tee enabled)
-	if GameManager.multi_tee_enabled:
-		var fwd_tee_btn = _create_menu_button("  Move Forward Tee")
-		fwd_tee_btn.add_theme_font_size_override("font_size", 12)
-		fwd_tee_btn.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))  # Red tint
-		fwd_tee_btn.pressed.connect(func(): move_forward_tee_requested.emit(hole_data.hole_number); _close())
-		vbox.add_child(fwd_tee_btn)
-
-		var mid_tee_btn = _create_menu_button("  Move Middle Tee")
-		mid_tee_btn.add_theme_font_size_override("font_size", 12)
-		mid_tee_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))  # White tint
-		mid_tee_btn.pressed.connect(func(): move_middle_tee_requested.emit(hole_data.hole_number); _close())
-		vbox.add_child(mid_tee_btn)
 
 	# Move Green button
 	var green_label = "Place Green" if green_orphaned else "Move Green"

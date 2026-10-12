@@ -158,7 +158,7 @@ func _within(paths: Dictionary, centre: Vector2i, reach: int) -> bool:
 
 func _hole_of_tee(tee: Vector2i) -> GameManager.HoleData:
 	for hole in GameManager.current_course.holes:
-		if hole.tee_position == tee or hole.tee_positions.values().has(tee):
+		if hole.tee_position == tee:
 			return hole
 	return null
 

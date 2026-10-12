@@ -119,9 +119,6 @@ var player_profile: PlayerGolferProfile = null
 # 0 straight, 1 fade, 2 draw, 3 backspin, 4 low punch.
 var player_shape: int = 0
 
-## Which tee the golfer is playing from this round ("forward", "middle", or "back")
-var current_tee_key: String = "back"
-
 ## Per-hole score tracking for scorecard display
 var hole_scores: Array = []  # Array of {hole: int, strokes: int, par: int}
 

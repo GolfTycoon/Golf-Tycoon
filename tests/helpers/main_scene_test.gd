@@ -25,12 +25,20 @@ const DESIGN_WINDOW := Vector2i(1600, 1000)
 ## Frames a new course needs: the loading overlay paints for two, generation
 ## runs on the third, and Quick Start seats its first group a frame later.
 const NEW_COURSE_FRAMES := 8
+## Every course a script builds is the same course. Generation draws from the
+## clock and the global RNG otherwise, so a layout that trips one assert would
+## do it only on the runs whose random course happened to be awkward — flakes
+## that never reproduce. The seed pins the natural terrain, and the global RNG
+## pin makes everything drawn from it (the heightmap noise seed, golfer
+## variety) reproducible too.
+const COURSE_SEED := 20261012
 
 var main: Node
 
 
 func before_all() -> void:
 	_saved_state = GameState.capture()
+	seed(COURSE_SEED)
 	get_window().size = DESIGN_WINDOW
 	main = load(MAIN_SCENE_PATH).instantiate()
 	add_child(main)
@@ -66,14 +74,14 @@ func after_each() -> void:
 
 ## Start a game on an empty lot (the direct entry point, past the world map).
 func new_game(course_name: String = "Integration test", theme: int = CourseTheme.Type.PARKLAND) -> void:
-	main._on_main_menu_new_game(course_name, theme)
+	main._on_main_menu_new_game(course_name, theme, -1, {"terrain_seed": COURSE_SEED})
 	await process_frames(NEW_COURSE_FRAMES)
 
 
 ## Start the Quick Start course: nine landscaped holes, their paths and a
 ## clubhouse, with the first group on its way.
 func quick_start(course_name: String = "Integration test", theme: int = CourseTheme.Type.PARKLAND) -> void:
-	main._on_main_menu_quick_start(course_name, theme)
+	main._on_main_menu_quick_start(course_name, theme, {"terrain_seed": COURSE_SEED})
 	await process_frames(NEW_COURSE_FRAMES)
 
 

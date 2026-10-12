@@ -98,7 +98,7 @@ class TournamentMoment:
 ## course whose tee cards were adjusted separately, and then a round played on the
 ## course and a round filled in off the course are not the same measurement.
 static func _tournament_par(hole_data) -> int:
-	return int(hole_data.get_par_for_tee("back"))
+	return hole_data.par
 
 static func simulate_round(sim_golfer: SimulationGolfer, round_number: int = 1) -> RoundResult:
 	var course_data = GameManager.course_data

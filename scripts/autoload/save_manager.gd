@@ -331,16 +331,7 @@ func _serialize_holes(holes: Array) -> Array:
 			"difficulty_rating": hole.difficulty_rating,
 			"total_revenue": hole.total_revenue,
 			"par_override": hole.par_override,
-			"tee_positions": _serialize_tee_positions(hole.tee_positions),
-			"par_by_tee": hole.par_by_tee.duplicate(),
 		})
-	return result
-
-func _serialize_tee_positions(tee_positions: Dictionary) -> Dictionary:
-	var result: Dictionary = {}
-	for key in tee_positions:
-		var pos = tee_positions[key]
-		result[key] = {"x": pos.x, "y": pos.y}
 	return result
 
 ## Offset every height in a serialized elevation map ("x,y" -> int) by `shift`
@@ -584,23 +575,6 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.total_revenue = int(h.get("total_revenue", 0))
 		hole.par_override = int(h.get("par_override", -1))
 
-		# Multiple tee boxes (backward compat: generate from tee_position if absent)
-		var saved_tee_positions = h.get("tee_positions", {})
-		if saved_tee_positions.is_empty():
-			hole.tee_positions = {"forward": hole.tee_position, "middle": hole.tee_position, "back": hole.tee_position}
-		else:
-			for key in saved_tee_positions:
-				var tp = saved_tee_positions[key]
-				hole.tee_positions[key] = Vector2i(int(tp.get("x", 0)), int(tp.get("y", 0)))
-		hole.par_by_tee = {}
-		var saved_par_by_tee = h.get("par_by_tee", {})
-		if saved_par_by_tee.is_empty():
-			for key in hole.tee_positions:
-				hole.par_by_tee[key] = hole.par
-		else:
-			for key in saved_par_by_tee:
-				hole.par_by_tee[key] = int(saved_par_by_tee[key])
-
 		# Cup: the hole's single cup always lives on its Green With Hole tile.
 		# Older saves kept up to four rotating pin positions and could have the
 		# active pin elsewhere on the green; those collapse back onto the tile.
@@ -672,7 +646,9 @@ func _load_user_settings() -> void:
 	if config.has_section("controls"):
 		_apply_controls_settings(config)
 	if config.has_section("gameplay"):
-		_apply_gameplay_settings(config)
+		# The Golfer Skin the owner's golfer wears belongs to the player, not to
+		# a save (see GolferSkins.set_player_skin).
+		GameManager.player_skin_id = config.get_value("gameplay", "player_skin", "")
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -700,11 +676,6 @@ func _apply_display_settings(config: ConfigFile) -> void:
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
 
-func _apply_gameplay_settings(config: ConfigFile) -> void:
-	GameManager.multi_tee_enabled = config.get_value("gameplay", "multi_tee_enabled", false)
-	# The Golfer Skin the owner's golfer wears belongs to the player, not to a
-	# save (see GolferSkins.set_player_skin).
-	GameManager.player_skin_id = config.get_value("gameplay", "player_skin", "")
 
 ## Write one preference that belongs to the player rather than to a save -
 ## audio and display settings, the golfer skin the owner wears. Sections the

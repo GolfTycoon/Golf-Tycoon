@@ -750,18 +750,7 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 	# Start the hole or prepare for next shot
 	if golfer.current_strokes == 0:
-		# Select tee based on golfer tier (tournament golfers always use back tee)
-		var selected_tee: Vector2i
-		if golfer.is_tournament_golfer or hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
-			selected_tee = hole_data.tee_position
-			golfer.current_tee_key = "back"
-		else:
-			selected_tee = hole_data.get_tee_for_tier(golfer.golfer_tier)
-			# Determine which tee key was selected for par tracking
-			for tee_key in hole_data.tee_positions:
-				if hole_data.tee_positions[tee_key] == selected_tee:
-					golfer.current_tee_key = tee_key
-					break
+		var selected_tee: Vector2i = hole_data.tee_position
 
 		# For holes after the first, walk from previous green to the next tee
 		if next_hole_index > 0 and GameManager.terrain_grid:
@@ -793,12 +782,10 @@ func _advance_golfer(golfer: Golfer) -> void:
 
 		if ball_holed:
 			# Close enough to hole out
-			# Use per-tee par for the golfer's selected tee
-			var effective_par = hole_data.get_par_for_tee(golfer.current_tee_key)
-			var score_name = GolfRules.get_score_name(golfer.current_strokes, effective_par)
-			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d, %s tee) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, effective_par, golfer.current_tee_key, score_name])
+			var score_name = GolfRules.get_score_name(golfer.current_strokes, hole_data.par)
+			print("%s (ID:%d) holes out on hole %d: %d strokes (Par %d) - %s" % [golfer.golfer_name, golfer.golfer_id, golfer.current_hole + 1, golfer.current_strokes, hole_data.par, score_name])
 			EventBus.ball_in_hole.emit(golfer.golfer_id, hole_data.hole_number)
-			golfer.finish_hole(effective_par)
+			golfer.finish_hole(hole_data.par)
 			golfer.current_hole += 1
 			golfer.current_strokes = 0
 
@@ -813,12 +800,8 @@ func _advance_golfer(golfer: Golfer) -> void:
 			# Don't wait for turn - golfers should move off the green right away
 			if GameManager.terrain_grid and golfer.current_hole < course_data.holes.size():
 				var next_hole_data = course_data.holes[golfer.current_hole]
-				# Pre-select next tee for walk destination
-				var next_tee: Vector2i
-				if golfer.is_tournament_golfer or next_hole_data.tee_positions.is_empty() or not GameManager.multi_tee_enabled:
-					next_tee = next_hole_data.tee_position
-				else:
-					next_tee = next_hole_data.get_tee_for_tier(golfer.golfer_tier)
+				# The next hole's tee is where the walk goes.
+				var next_tee: Vector2i = next_hole_data.tee_position
 				# Update ball position to next tee immediately to prevent visual glitch
 				# where ball briefly appears at old hole position while walking
 				golfer.ball_position = next_tee

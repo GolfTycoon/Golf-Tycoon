@@ -11,7 +11,6 @@ func before_each() -> void:
 	# Unit grids have no land parcels or entities: every tile can take a cup.
 	GameManager.land_manager = null
 	GameManager.entity_layer = null
-	GameManager.multi_tee_enabled = false
 	grid = TerrainGrid.new()
 	grid.grid_width = 32
 	grid.grid_height = 32
@@ -31,7 +30,6 @@ func _make_hole(tee: Vector2i, cup: Vector2i) -> GameManager.HoleData:
 	hole.tee_position = tee
 	hole.green_position = cup
 	hole.hole_position = cup
-	hole.tee_positions = {"back": tee, "middle": tee, "forward": tee}
 	course.add_hole(hole)
 	return hole
 
@@ -184,24 +182,8 @@ func test_cup_site_blocker_on_open_ground() -> void:
 	assert_string_contains(HoleLayout.cup_site_blocker(null, Vector2i(8, 8)), "Off")
 
 
-# ---------------------------------------------------------------------------
-# Multi-tee: the forward/middle tees Open Hole will paint
-# ---------------------------------------------------------------------------
-
-func test_no_extra_tees_while_multi_tee_is_off() -> void:
+func test_the_preview_paints_no_extra_tees() -> void:
+	# A hole has one tee — the tile the player painted — so the preview has
+	# nothing beyond the pair itself to show.
 	_paint_tee(Vector2i(2, 2))
-	assert_eq(_potential(Vector2i(22, 2)).extra_tees, {})
-
-func test_extra_tees_match_what_open_hole_paints() -> void:
-	GameManager.multi_tee_enabled = true
-	_paint_tee(Vector2i(2, 2))
-	var hole := _potential(Vector2i(22, 2))
-	assert_eq(hole.extra_tees.get("forward"), Vector2i(10, 2), "40% of the way to the cup")
-	assert_eq(hole.extra_tees.get("middle"), Vector2i(7, 2), "25% of the way to the cup")
-
-	var built := GameManager.HoleData.new()
-	built.tee_position = Vector2i(2, 2)
-	built.green_position = Vector2i(22, 2)
-	built.auto_generate_tee_positions(grid)
-	assert_eq(hole.extra_tees.get("forward"), built.tee_positions.forward)
-	assert_eq(hole.extra_tees.get("middle"), built.tee_positions.middle)
+	assert_false(_potential(Vector2i(22, 2)).has("extra_tees"))

@@ -103,7 +103,7 @@ func _process(_delta: float) -> void:
 	waiting_hole_route = []
 	if not waiting_hole.is_empty():
 		waiting_hole_route = _hole_path_planner.route_for(terrain_grid, waiting_hole.tee,
-				waiting_hole.cup, waiting_hole.par, waiting_hole.extra_tees.values())
+				waiting_hole.cup, waiting_hole.par)
 		queue_redraw()
 
 	# Smooth alpha transition
@@ -241,8 +241,7 @@ func _update_potential_hole(grid_pos: Vector2i) -> void:
 		_clear_potential_hole()
 		return
 	potential_hole = hole
-	potential_hole_route = _hole_path_planner.route_for(terrain_grid, hole.tee, hole.cup, hole.par,
-			hole.extra_tees.values())
+	potential_hole_route = _hole_path_planner.route_for(terrain_grid, hole.tee, hole.cup, hole.par)
 
 func _clear_potential_hole() -> void:
 	if not potential_hole.is_empty() or not potential_hole_route.is_empty():
@@ -677,13 +676,6 @@ func _draw_potential_hole(alpha: float, hole: Dictionary, route: Array[Vector2i]
 	var pulse := 0.75 + sin(_pulse_time) * 0.25
 	draw_polyline(OverlayGeometry.tile_polyline(terrain_grid, self, tee),
 			Color(HOLE_PATH_TEE, HOLE_PATH_TEE.a * alpha * pulse), 2.0)
-	# Forward (red) / middle (white) tees Open Hole will add when multi-tee is on,
-	# in HoleVisualizer's tee-marker colours.
-	var extra_tees: Dictionary = hole.get("extra_tees", {})
-	for tee_key in extra_tees:
-		var marker_color := Color(0.9, 0.2, 0.2) if tee_key == "forward" else Color(0.9, 0.9, 0.9)
-		draw_colored_polygon(OverlayGeometry.tile_polygon(terrain_grid, self, extra_tees[tee_key]),
-				Color(marker_color, 0.3 * alpha * pulse))
 
 	# Route: a soft dark underlay keeps the dashes readable on any turf.
 	var line_color := HOLE_PATH_COLOR if hole_ready else HOLE_PATH_BLOCKED
@@ -781,17 +773,6 @@ func _draw_hole_move_preview() -> void:
 			is_valid = not TerrainTypes.is_water(tile) and tile != TerrainTypes.Type.OUT_OF_BOUNDS
 			preview_color = Color(0.3, 0.9, 0.5, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
 			label_text = "Green"
-		3:  # MOVING_FORWARD_TEE
-			var tile = terrain_grid.get_tile(hover_pos)
-			is_valid = not TerrainTypes.is_water(tile) and tile != TerrainTypes.Type.OUT_OF_BOUNDS
-			preview_color = Color(0.9, 0.3, 0.3, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
-			label_text = "Fwd Tee"
-		4:  # MOVING_MIDDLE_TEE
-			var tile = terrain_grid.get_tile(hover_pos)
-			is_valid = not TerrainTypes.is_water(tile) and tile != TerrainTypes.Type.OUT_OF_BOUNDS
-			preview_color = Color(0.85, 0.85, 0.85, 0.5) if is_valid else Color(0.9, 0.3, 0.3, 0.3)
-			label_text = "Mid Tee"
-
 	if not is_valid:
 		return
 

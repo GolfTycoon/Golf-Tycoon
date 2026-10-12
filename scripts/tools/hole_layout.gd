@@ -27,15 +27,13 @@ const MIN_HOLE_TILES: float = 5.0
 ## Yardage scale used for hole lengths (matches TerrainGrid.calculate_distance_yards()).
 const YARDS_PER_TILE: float = 22.0
 
-## Tiles claimed by existing holes as tees (back tee plus forward/middle tees).
+## Tiles claimed by existing holes as tees.
 static func used_tee_tiles(course: GameManager.CourseData) -> Dictionary:
 	var used: Dictionary = {}
 	if not course:
 		return used
 	for hole in course.holes:
 		used[hole.tee_position] = true
-		for tee_key in hole.tee_positions:
-			used[hole.tee_positions[tee_key]] = true
 	return used
 
 ## Tiles claimed by existing holes as the cup (one fixed cup per hole).
@@ -160,24 +158,6 @@ static func cup_site_blocker(grid: TerrainGrid, pos: Vector2i) -> String:
 		return "Clear the building or decoration first"
 	return ""
 
-## Forward and middle tee tiles Open Hole paints for a tee/cup pair when multi-tee
-## is on (HoleCreationTool._build_hole() via HoleData.auto_generate_tee_positions());
-## {} otherwise. Keys are "forward" / "middle"; tiles on the back tee are left out.
-static func extra_tee_tiles(grid: TerrainGrid, tee: Vector2i, cup: Vector2i) -> Dictionary:
-	var tiles: Dictionary = {}
-	if not grid or not GameManager.multi_tee_enabled:
-		return tiles
-	var probe := GameManager.HoleData.new()
-	probe.tee_position = tee
-	probe.green_position = cup
-	probe.hole_position = cup
-	probe.auto_generate_tee_positions(grid)
-	for tee_key in ["forward", "middle"]:
-		var pos: Vector2i = probe.tee_positions.get(tee_key, tee)
-		if pos != tee and grid.is_valid_position(pos):
-			tiles[tee_key] = pos
-	return tiles
-
 ## The hole the player would lay out by cutting a cup at `cup_pos` — the
 ## potential hole the placement preview draws while the Green tool hovers.
 ##
@@ -189,7 +169,6 @@ static func extra_tee_tiles(grid: TerrainGrid, tee: Vector2i, cup: Vector2i) -> 
 ## Returns {
 ##   "tee": Vector2i, "cup": Vector2i, "hole_number": int,
 ##   "distance_yards": int, "par": int  — the numbers open_hole() will use,
-##   "extra_tees": Dictionary — forward/middle tees Open Hole will paint (multi-tee),
 ##   "can_cut_cup": bool  — the Green tool would cut a cup on this tile,
 ##   "ready": bool        — Open Hole would accept the pair once the cup is cut,
 ##   "reason": String     — short label text for why not ("" when ready),
@@ -224,7 +203,6 @@ static func potential_hole(tool_type: int, grid: TerrainGrid, course: GameManage
 		"hole_number": (course.holes.size() if course else 0) + 1,
 		"distance_yards": distance_yards,
 		"par": GolfRules.calculate_par(distance_yards),
-		"extra_tees": extra_tee_tiles(grid, tee, cup_pos),
 		"can_cut_cup": site_blocker.is_empty(),
 		"ready": reason.is_empty(),
 		"reason": reason,
@@ -247,7 +225,6 @@ static func waiting_hole(grid: TerrainGrid, course: GameManager.CourseData) -> D
 		"tee": tee, "cup": cup,
 		"hole_number": (course.holes.size() if course else 0) + 1,
 		"distance_yards": yards, "par": GolfRules.calculate_par(yards),
-		"extra_tees": extra_tee_tiles(grid, tee, cup),
 		"ready": ready,
 		"reason": "" if ready else "Too short — a hole needs %d yds" % min_hole_yards(),
 	}

@@ -10,7 +10,7 @@ class_name SettingsMenu
 
 signal close_requested
 
-enum Category { AUDIO, DISPLAY, GAMEPLAY, CONTROLS }
+enum Category { AUDIO, DISPLAY, CONTROLS }
 enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
 
 const DESKTOP_MIN_WIDTH := 1180.0
@@ -343,7 +343,6 @@ func _build_category_cards(mode: int) -> Array[Control]:
 	match _category:
 		Category.AUDIO: return _build_audio_cards(mode)
 		Category.DISPLAY: return _build_display_cards(mode)
-		Category.GAMEPLAY: return _build_gameplay_cards(mode)
 		Category.CONTROLS: return _build_controls_cards(mode)
 	return []
 
@@ -420,26 +419,6 @@ func _build_display_cards(mode: int) -> Array[Control]:
 		_save_display_settings())
 	accessibility_body.add_child(color_options)
 	cards.append(accessibility["panel"])
-	return cards
-
-func _build_gameplay_cards(mode: int) -> Array[Control]:
-	var cards: Array[Control] = []
-	var course := _make_group("COURSE DESIGN", "Decide how tee positions are generated for new holes.", mode)
-	var course_body: VBoxContainer = course["body"]
-	_add_toggle_row(course_body, "Multiple Tee Boxes", "Auto-generates forward and middle tee boxes for each hole. Adds variety but makes course design more complex.",
-		GameManager.multi_tee_enabled, _on_multi_tee_toggled, mode)
-	cards.append(course["panel"])
-
-	var notes := _make_group("DESIGN NOTES", "A little more variety from the first tee.", mode)
-	var notes_body: VBoxContainer = notes["body"]
-	var tee_mark := MenuFlagMark.new()
-	tee_mark.mark_size = 42 if mode == LayoutMode.DESKTOP else 34
-	tee_mark.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	notes_body.add_child(tee_mark)
-	var note := _label("When enabled, each hole gets forward and middle tee positions alongside its main tee. You can still adjust the finished course as you build.", 12, COLOR_MUTED)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	notes_body.add_child(note)
-	cards.append(notes["panel"])
 	return cards
 
 func _build_controls_cards(mode: int) -> Array[Control]:
@@ -721,10 +700,6 @@ func _set_vsync(enabled: bool) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if enabled else DisplayServer.VSYNC_DISABLED)
 	_save_display_settings()
 
-func _on_multi_tee_toggled(enabled: bool) -> void:
-	GameManager.multi_tee_enabled = enabled
-	_save_gameplay_settings()
-
 func _on_invert_zoom_toggled(enabled: bool) -> void:
 	GameManager.invert_zoom_scroll = enabled
 	_save_controls_settings()
@@ -734,12 +709,6 @@ func _load_ui_scale() -> float:
 	if config.load(SaveManager.SETTINGS_PATH) == OK:
 		return clampf(float(config.get_value("display", "ui_scale", 1.0)), 0.8, 1.5)
 	return 1.0
-
-func _save_gameplay_settings() -> void:
-	var config := ConfigFile.new()
-	config.load(SaveManager.SETTINGS_PATH)
-	config.set_value("gameplay", "multi_tee_enabled", GameManager.multi_tee_enabled)
-	config.save(SaveManager.SETTINGS_PATH)
 
 func _save_controls_settings() -> void:
 	var config := ConfigFile.new()
@@ -758,10 +727,10 @@ func _save_display_settings() -> void:
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:
-	return ["audio", "display", "gameplay", "controls"][category]
+	return ["audio", "display", "controls"][category]
 
 func _category_name(category: int) -> String:
-	return ["Audio", "Display", "Gameplay", "Controls"][category]
+	return ["Audio", "Display", "Controls"][category]
 
 func _category_title(category: int) -> String:
 	return ["Sound & ambience", "Screen & accessibility", "Course preferences", "Your controls"][category]

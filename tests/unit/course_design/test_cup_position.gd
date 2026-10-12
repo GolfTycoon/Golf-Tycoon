@@ -22,7 +22,6 @@ func before_each() -> void:
 	course = GameManager.CourseData.new()
 	GameManager.current_course = course
 	GameManager.terrain_grid = grid
-	GameManager.multi_tee_enabled = false
 
 	tool = HoleCreationTool.new()
 	add_child_autofree(tool)

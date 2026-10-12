@@ -191,7 +191,7 @@ static func _get_course_par(course_data) -> int:
 	var total_par = 0
 	for hole in course_data.holes:
 		if hole.is_open:
-			total_par += int(hole.get_par_for_tee("back"))
+			total_par += hole.par
 	return max(total_par, 18)
 
 ## Get total tournament revenue (spectators + sponsorships)

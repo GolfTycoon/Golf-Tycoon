@@ -30,7 +30,7 @@
 | Company | Money, reputation, calendar, milestones, the unlimited-money flag, owned locations and unlocked land |
 | Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, bunker depths, cups waiting for holes |
 | Entities | Buildings, decorations, path furniture, trees placed as entities |
-| Holes | Tee and cup positions, par, yardage, forward and middle tees |
+| Holes | Tee and cup positions, par, yardage |
 
 The stroke index is not saved. It is recalculated after each load.
 | Economy | Green fee, daily accounts, loan balance, yearly totals and feedback totals |

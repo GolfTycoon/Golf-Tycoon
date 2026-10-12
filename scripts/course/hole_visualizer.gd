@@ -12,7 +12,6 @@ var info_label: Label
 var waypoint_markers: Array[Node2D] = []
 var carry_annotations: Array[Node2D] = []
 static var carry_annotations_visible: bool = false  # Toggled by J hotkey with fairway width
-var tee_markers: Array[Node2D] = []
 var _line_update_pending: bool = false
 
 signal hole_selected(hole_number: int)
@@ -38,9 +37,6 @@ func _create_visuals() -> void:
 
 	# Create forced carry annotations
 	_update_carry_annotations()
-
-	# Create tee box markers
-	_update_tee_markers()
 
 func _create_connection_line() -> void:
 	if line:
@@ -217,22 +213,12 @@ func _deferred_terrain_update() -> void:
 
 func update_tee_position(new_tee_pos: Vector2i) -> void:
 	hole_data.tee_position = new_tee_pos
-	hole_data.tee_positions["back"] = new_tee_pos
-	# Regenerate forward/middle tees relative to new back tee
-	if GameManager.multi_tee_enabled:
-		hole_data.auto_generate_tee_positions(terrain_grid)
-		for tee_key in ["forward", "middle"]:
-			var tee_pos: Vector2i = hole_data.tee_positions[tee_key]
-			if tee_pos != new_tee_pos and terrain_grid.is_valid_position(tee_pos):
-				terrain_grid.set_tile(tee_pos, TerrainTypes.Type.TEE_BOX)
 	hole_data.distance_yards = terrain_grid.calculate_distance_yards(new_tee_pos, hole_data.hole_position)
 	_recalculate_par_with_override()
-	hole_data.recalculate_par_by_tee(terrain_grid)
 	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 	_update_line()
 	_update_info_label()
 	_update_carry_annotations()
-	_update_tee_markers()
 	EventBus.hole_updated.emit(hole_data.hole_number)
 
 func update_green_position(new_green_pos: Vector2i) -> void:
@@ -241,21 +227,12 @@ func update_green_position(new_green_pos: Vector2i) -> void:
 	hole_data.hole_position = new_green_pos
 	if flag:
 		flag.set_position_in_grid(new_green_pos)
-	# Regenerate tee positions (forward/middle depend on green location)
-	if GameManager.multi_tee_enabled:
-		hole_data.auto_generate_tee_positions(terrain_grid)
-		for tee_key in ["forward", "middle"]:
-			var tee_pos: Vector2i = hole_data.tee_positions[tee_key]
-			if tee_pos != hole_data.tee_position and terrain_grid.is_valid_position(tee_pos):
-				terrain_grid.set_tile(tee_pos, TerrainTypes.Type.TEE_BOX)
 	hole_data.distance_yards = terrain_grid.calculate_distance_yards(hole_data.tee_position, hole_data.hole_position)
 	_recalculate_par_with_override()
-	hole_data.recalculate_par_by_tee(terrain_grid)
 	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 	_update_line()
 	_update_info_label()
 	_update_carry_annotations()
-	_update_tee_markers()
 	EventBus.hole_updated.emit(hole_data.hole_number)
 
 func _recalculate_par_with_override() -> void:
@@ -326,67 +303,10 @@ func _create_carry_annotation(seg: ForcedCarryCalculator.CarrySegment) -> Node2D
 
 	return ann
 
-func _update_tee_markers() -> void:
-	for marker in tee_markers:
-		if is_instance_valid(marker):
-			remove_child(marker)
-			marker.free()
-	tee_markers.clear()
-
-	if not hole_data or not terrain_grid or hole_data.tee_positions.is_empty():
-		return
-	if not GameManager.multi_tee_enabled:
-		return
-
-	# Draw markers for forward (red) and middle (white) tees only — back tee is implied by the shot line start
-	var tee_configs = [
-		{"key": "forward", "color": Color(0.9, 0.2, 0.2, 0.7)},  # Red
-		{"key": "middle", "color": Color(0.9, 0.9, 0.9, 0.7)},   # White
-	]
-	for config in tee_configs:
-		var tee_key: String = config["key"]
-		if not hole_data.tee_positions.has(tee_key):
-			continue
-		var tee_pos: Vector2i = hole_data.tee_positions[tee_key]
-		# Don't draw marker if same position as back tee
-		if tee_pos == hole_data.tee_position:
-			continue
-		var marker = _create_tee_marker(tee_pos, config["color"])
-		add_child(marker)
-		tee_markers.append(marker)
-
-func _create_tee_marker(grid_pos: Vector2i, color: Color) -> Node2D:
-	var marker := Node2D.new()
-	var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(grid_pos)
-	marker.position = to_local(screen_pos)
-	marker.z_index = -1
-
-	# Small filled rectangle to represent tee box
-	var rect := Polygon2D.new()
-	rect.polygon = PackedVector2Array([
-		Vector2(-4, -2), Vector2(4, -2), Vector2(4, 2), Vector2(-4, 2)
-	])
-	rect.color = color
-	marker.add_child(rect)
-
-	# Dark outline
-	var outline := Polygon2D.new()
-	outline.polygon = PackedVector2Array([
-		Vector2(-5, -3), Vector2(5, -3), Vector2(5, 3), Vector2(-5, 3)
-	])
-	outline.color = Color(0, 0, 0, 0.4)
-	outline.z_index = -1
-	marker.add_child(outline)
-	# Move outline behind fill
-	marker.move_child(outline, 0)
-
-	return marker
-
 func update_visualization() -> void:
 	_update_line()
 	_update_info_label()
 	_update_carry_annotations()
-	_update_tee_markers()
 
 func refresh_positions() -> void:
 	if flag and is_instance_valid(flag) and hole_data:

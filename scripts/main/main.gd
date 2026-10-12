@@ -141,7 +141,7 @@ var staff_area_overlay: StaffAreaOverlay = null
 var _staff_area_mode_index: int = -1
 
 # Hole context menu and move modes
-enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN, MOVING_FORWARD_TEE, MOVING_MIDDLE_TEE }
+enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN }
 var _hole_move_mode: int = HoleMoveMode.NONE
 var _hole_move_data: GameManager.HoleData = null
 var _hole_context_menu: HoleContextMenu = null
@@ -896,6 +896,7 @@ func _after_location_activated(origin: int) -> void:
 ## name and theme, bypassing the world map.
 func _on_main_menu_new_game(course_name: String, theme_type: int, difficulty: int = -1, options: Dictionary = {}) -> void:
 	var chosen_difficulty: int = difficulty if difficulty >= 0 else WorldMap.difficulty
+	_pending_terrain_seed = int(options.get("terrain_seed", 0))
 	_hide_main_menu()
 	WorldMap.ensure_legacy_world(theme_type)
 	WorldMap.apply_location_land(WorldMap.active_location_id)
@@ -915,6 +916,10 @@ func _on_main_menu_new_game(course_name: String, theme_type: int, difficulty: in
 var _quick_start_pending: bool = false
 var _prebuilt_pending: String = ""  # Package ID, empty = not pending
 var _prebuilt_money: int = 0  # Money to restore after new_game() resets it
+## Terrain seed for the next course's natural generation, stashed by the start
+## entry points (0 lets the generator pick one from the clock). Tests pin it so
+## every run builds the same course.
+var _pending_terrain_seed: int = 0
 
 func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package_id: String) -> void:
 	"""Legacy entry point: start a new game with a prebuilt course package."""
@@ -936,12 +941,14 @@ func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package
 	if placement_preview:
 		placement_preview.set_terrain_painting_enabled(false)
 
-func _on_main_menu_quick_start(course_name: String = "", theme_type: int = -1) -> void:
+func _on_main_menu_quick_start(course_name: String = "", theme_type: int = -1,
+		options: Dictionary = {}) -> void:
 	"""Legacy entry point (tests, harnesses and the Quick Start hotkey): start a
 	game right away on the landscaped nine-hole Quick Start course. The menu's
 	Quick Start button goes through the world map instead."""
 	var theme := theme_type if theme_type >= 0 else CourseTheme.Type.PARKLAND
 	var difficulty: int = WorldMap.difficulty
+	_pending_terrain_seed = int(options.get("terrain_seed", 0))
 	_hide_main_menu()
 	WorldMap.ensure_legacy_world(theme)
 	WorldMap.apply_location_land(WorldMap.active_location_id)
@@ -2073,7 +2080,8 @@ func _on_new_game_started() -> void:
 	# minimap, etc.) — with thousands of tiles this blocks the main thread for too long.
 	_suppress_tile_undo = true
 	terrain_grid.begin_batch()
-	NaturalTerrainGenerator.generate(terrain_grid, entity_layer)
+	NaturalTerrainGenerator.generate(terrain_grid, entity_layer, _pending_terrain_seed)
+	_pending_terrain_seed = 0
 	terrain_grid.end_batch_quiet()
 	terrain_grid.refresh_all_overlays()
 	_suppress_tile_undo = false
@@ -2786,8 +2794,6 @@ func _open_hole_context_menu(hole_data: GameManager.HoleData) -> void:
 
 	# Connect signals
 	_hole_context_menu.move_tee_requested.connect(_on_context_move_tee)
-	_hole_context_menu.move_forward_tee_requested.connect(_on_context_move_forward_tee)
-	_hole_context_menu.move_middle_tee_requested.connect(_on_context_move_middle_tee)
 	_hole_context_menu.move_green_requested.connect(_on_context_move_green)
 	_hole_context_menu.toggle_hole_requested.connect(_on_context_toggle_hole)
 	_hole_context_menu.view_stats_requested.connect(_on_context_view_stats)
@@ -2816,16 +2822,6 @@ func _on_context_move_tee(hole_number: int) -> void:
 	var hole = _find_hole_data(hole_number)
 	if hole:
 		_enter_hole_move_mode(HoleMoveMode.MOVING_TEE, hole)
-
-func _on_context_move_forward_tee(hole_number: int) -> void:
-	var hole = _find_hole_data(hole_number)
-	if hole:
-		_enter_hole_move_mode(HoleMoveMode.MOVING_FORWARD_TEE, hole)
-
-func _on_context_move_middle_tee(hole_number: int) -> void:
-	var hole = _find_hole_data(hole_number)
-	if hole:
-		_enter_hole_move_mode(HoleMoveMode.MOVING_MIDDLE_TEE, hole)
 
 func _on_context_move_green(hole_number: int) -> void:
 	var hole = _find_hole_data(hole_number)
@@ -2908,12 +2904,6 @@ func _handle_hole_move_click(grid_pos: Vector2i) -> void:
 		HoleMoveMode.MOVING_GREEN:
 			if _is_valid_green_position(grid_pos):
 				_execute_green_move(grid_pos)
-		HoleMoveMode.MOVING_FORWARD_TEE:
-			if _is_valid_secondary_tee_position(grid_pos):
-				_execute_forward_tee_move(grid_pos)
-		HoleMoveMode.MOVING_MIDDLE_TEE:
-			if _is_valid_secondary_tee_position(grid_pos):
-				_execute_middle_tee_move(grid_pos)
 
 func _is_valid_tee_position(pos: Vector2i) -> bool:
 	if not terrain_grid.is_valid_position(pos):
@@ -3043,50 +3033,6 @@ func _execute_green_move(new_pos: Vector2i) -> void:
 
 	var label = "placed" if not old_green_was_green else "moved"
 	EventBus.notify("Hole %d green %s" % [hole_number, label], "success")
-	_cancel_hole_move_mode()
-
-func _is_valid_secondary_tee_position(pos: Vector2i) -> bool:
-	if not terrain_grid.is_valid_position(pos):
-		return false
-	var tile = terrain_grid.get_tile(pos)
-	if TerrainTypes.is_water(tile) or tile == TerrainTypes.Type.OUT_OF_BOUNDS:
-		return false
-	if entity_layer and entity_layer.is_tile_occupied_by_building(pos):
-		return false
-	# Must be between back tee and green (no further back than back tee)
-	if pos == _hole_move_data.tee_position:
-		return false
-	# Not another hole's tee or green
-	for hole in GameManager.current_course.holes:
-		if hole.hole_number != _hole_move_data.hole_number:
-			if pos == hole.tee_position or pos == hole.green_position or pos == hole.hole_position:
-				return false
-	return true
-
-func _execute_forward_tee_move(new_pos: Vector2i) -> void:
-	var hole_number = _hole_move_data.hole_number
-	_hole_move_data.tee_positions["forward"] = new_pos
-	_hole_move_data.recalculate_par_by_tee(terrain_grid)
-
-	var visualizer = hole_manager.get_hole_visualizer(hole_number)
-	if visualizer:
-		visualizer.update_visualization()
-
-	EventBus.hole_updated.emit(hole_number)
-	EventBus.notify("Hole %d forward tee moved" % hole_number, "success")
-	_cancel_hole_move_mode()
-
-func _execute_middle_tee_move(new_pos: Vector2i) -> void:
-	var hole_number = _hole_move_data.hole_number
-	_hole_move_data.tee_positions["middle"] = new_pos
-	_hole_move_data.recalculate_par_by_tee(terrain_grid)
-
-	var visualizer = hole_manager.get_hole_visualizer(hole_number)
-	if visualizer:
-		visualizer.update_visualization()
-
-	EventBus.hole_updated.emit(hole_number)
-	EventBus.notify("Hole %d middle tee moved" % hole_number, "success")
 	_cancel_hole_move_mode()
 
 # --- Undo/Redo System ---

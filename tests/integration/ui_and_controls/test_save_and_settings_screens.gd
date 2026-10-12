@@ -142,7 +142,7 @@ func test_the_settings_office_fits_every_window() -> void:
 		for category in SettingsMenu.Category.values():
 			if menu.find_child("Category_%s" % menu._category_key(category), true, false):
 				categories += 1
-		assert_eq(categories, 4, "%s: all four categories are in reach" % tag)
+		assert_eq(categories, 3, "%s: all three categories are in reach" % tag)
 		_assert_targets(tag, menu, size)
 		_assert_fits(tag, menu.get_node_or_null("SettingsFrame"), size,
 			layout == SettingsMenu.LayoutMode.DESKTOP or layout == SettingsMenu.LayoutMode.LANDSCAPE)

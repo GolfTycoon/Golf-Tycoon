@@ -28,8 +28,14 @@ func before_all() -> void:
 	open_holes = GameManager.get_open_hole_count()
 	for hole in GameManager.current_course.holes:
 		if hole.is_open:
-			circuit_par += int(hole.get_par_for_tee("back"))
+			circuit_par += hole.par
 	field_size = TournamentSystem.get_field_size(REGIONAL, open_holes)
+	# Hold the clock from here: the qualification the shelf reports and the
+	# qualification the host click reads must be the same one, and a day
+	# rolling between the two tests would re-rate the course out from under
+	# the click (pace and value follow the day's scores). The live tests
+	# below run their own clock.
+	GameManager.set_speed(GameManager.GameSpeed.PAUSED)
 
 
 func _tournament_golfers() -> Array[Golfer]:
@@ -71,6 +77,9 @@ func test_hosting_starts_the_event_on_the_click() -> void:
 	main.tournament_panel.get_host_button(REGIONAL).pressed.emit()
 	var fee: int = TournamentSystem.TIER_DATA[REGIONAL].entry_cost
 	assert_eq(GameManager.money, money_before_hosting - fee, "The entry fee is charged on the click")
+	# The event plays live from here: the field assembles and the pairs spread
+	# over the course while the day runs.
+	GameManager.set_speed(GameManager.GameSpeed.FAST)
 	await process_frames(2)
 	assert_eq(tournaments.current_tournament_state, TournamentSystem.TournamentState.IN_PROGRESS,
 		"The tournament is live straight away")

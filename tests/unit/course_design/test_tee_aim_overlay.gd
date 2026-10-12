@@ -15,7 +15,6 @@ const BASE := TerrainGrid.BASE_ELEVATION
 
 func before_each() -> void:
 	super()
-	GameManager.multi_tee_enabled = false
 	grid = TerrainGrid.new()
 	grid.grid_width = 40
 	grid.grid_height = 40
@@ -32,15 +31,12 @@ func _paint_waiting_pair(tee: Vector2i = TEE, cup: Vector2i = CUP) -> void:
 	grid.set_tile(cup, TerrainTypes.Type.GREEN)
 	grid.add_cup_tile(cup)
 
-func _add_hole(tee: Vector2i, cup: Vector2i, extra_tees: Array = []) -> GameManager.HoleData:
+func _add_hole(tee: Vector2i, cup: Vector2i) -> GameManager.HoleData:
 	var hole = GameManager.HoleData.new()
 	hole.hole_number = course.holes.size() + 1
 	hole.tee_position = tee
 	hole.green_position = cup
 	hole.hole_position = cup
-	hole.tee_positions = {"back": tee}
-	for i in range(extra_tees.size()):
-		hole.tee_positions[["forward", "middle"][i]] = extra_tees[i]
 	course.add_hole(hole)
 	return hole
 
@@ -68,22 +64,16 @@ func test_a_tee_box_waiting_for_its_green_aims_at_the_waiting_cup() -> void:
 	assert_eq(overlay.aimed_tees(), [TEE], "The waiting tee box gets an arrow")
 	assert_eq(overlay.route_for(TEE), [TEE, CUP], "It aims at the waiting cup")
 
-func test_an_open_hole_aims_every_one_of_its_tee_tiles_at_its_cup() -> void:
+func test_an_open_hole_aims_its_tee_tile_at_its_cup() -> void:
 	_paint_waiting_pair()
-	var middle := Vector2i(9, 20)
-	var forward := Vector2i(12, 20)
-	grid.set_tile(middle, TerrainTypes.Type.TEE_BOX)
-	grid.set_tile(forward, TerrainTypes.Type.TEE_BOX)
 	grid.remove_cup_tile(CUP)  # Opening a hole consumes the cup marker.
-	var hole := _add_hole(TEE, CUP, [forward, middle])
+	_add_hole(TEE, CUP)
 	overlay.rebuild()
 
-	assert_eq(hole.tee_positions.size(), 3)
-	assert_eq(overlay.aimed_tees(), [TEE, middle, forward], "Back, forward and middle tees all aim")
-	for tee in [TEE, middle, forward]:
-		var route := overlay.route_for(tee)
-		assert_eq(route[0], tee, "The route starts on its own tee tile")
-		assert_eq(route[route.size() - 1], CUP, "The arrow points at the hole's cup")
+	assert_eq(overlay.aimed_tees(), [TEE], "The hole's tee tile aims")
+	var route := overlay.route_for(TEE)
+	assert_eq(route[0], TEE, "The route starts on its own tee tile")
+	assert_eq(route[route.size() - 1], CUP, "The arrow points at the hole's cup")
 
 func test_a_tee_box_with_nothing_to_play_to_carries_no_arrow() -> void:
 	grid.set_tile(TEE, TerrainTypes.Type.TEE_BOX)
@@ -213,6 +203,28 @@ func test_a_tee_tile_folded_by_elevation_shrinks_its_marker() -> void:
 	assert_true(layout.floored, "A folded tile has no interior to fit into")
 	assert_almost_eq(layout.scale, TeeAimOverlay.MIN_FIT_SCALE, 0.001)
 	_assert_marker_inside_tile(TEE, "folded")
+
+func test_the_box_fit_scale_holds_a_marker_to_its_tile() -> void:
+	# The last-resort clamp that keeps a floored marker over a sliver tile: the
+	# scale at which everything painted lands inside the tile's bounding box.
+	var box := Rect2(-32, -16, 64, 32)
+	var anchor := box.get_center()
+	# A marker already inside the box keeps its size.
+	assert_almost_eq(TeeAimOverlay._box_fit_scale(box, anchor,
+			[PackedVector2Array([Vector2(-10, 0), Vector2(10, 4)])]), 1.0, 0.001,
+			"Points inside the box keep the full size")
+	# A point past the box's edge yields the scale that lands it on the edge.
+	var sticking_out := [PackedVector2Array([Vector2(40, 0)])]
+	var scale := TeeAimOverlay._box_fit_scale(box, anchor, sticking_out)
+	assert_almost_eq(scale, 32.0 / 40.0, 0.001,
+			"The point yields until it lands on the box edge")
+	# Scaled around the box's centre, the clamped point lands on the edge.
+	var clamped: Vector2 = anchor + (sticking_out[0][0] - anchor) * scale
+	assert_almost_eq(clamped.x, box.end.x, 0.001, "The clamped point rides the edge")
+	# An anchor outside its own box (a degenerate fold) clamps to nothing
+	# rather than flinging the marker further away.
+	assert_eq(TeeAimOverlay._box_fit_scale(box, Vector2(100, 0),
+			[PackedVector2Array([Vector2(140, 0)])]), 0.0)
 
 func test_the_marker_never_shrinks_below_the_readable_minimum() -> void:
 	# What the layout promises: everything above the minimum is fitted exactly,

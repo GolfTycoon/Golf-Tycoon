@@ -5,15 +5,41 @@ extends MainSceneTest
 ## instead.
 
 var grid: TerrainGrid
+# Where the next scenario tile is claimed from: the generated clubhouse's
+# search lands wherever the terrain allows, so the scenario paints next to
+# wherever it actually stands instead of on hardcoded lots.
+var _scenario_cursor := Vector2i.ZERO
 
 
 func before_all() -> void:
 	await super()
 	await new_game("Bulldozer")
 	grid = main.terrain_grid
+	var clubhouse: Building = main.entity_layer.get_building_containing(
+			GeneratedCourse.get_anchor(9) + GeneratedCourse.CLUBHOUSE_OFFSET)
+	if clubhouse == null:
+		clubhouse = CourseClubhouse.find(main.entity_layer)
+	assert_not_null(clubhouse, "The new course has a clubhouse")
+	_scenario_cursor = clubhouse.grid_position + Vector2i(0, clubhouse.height + 2)
 	# Hold the clock so green fees and day rollovers cannot move the balance
 	# between a demolition and the check of what it cost.
 	GameManager.set_speed(GameManager.GameSpeed.PAUSED)
+
+
+## The next tile of the clubhouse's grounds the scenario can paint: owned
+## ground with no building or decoration standing on it, claimed in order so
+## every call hands out a different tile.
+func _next_scenario_tile() -> Vector2i:
+	for row in range(6):
+		for col in range(12):
+			var tile := _scenario_cursor + Vector2i(col, row)
+			if GameManager.land_manager.is_tile_owned(tile) \
+					and not main.entity_layer.is_tile_occupied_by_building(tile) \
+					and not main.entity_layer.is_tile_occupied_by_decoration(tile):
+				_scenario_cursor = tile + Vector2i(1, 0)
+				return tile
+	push_error("The clubhouse grounds ran out of clear tiles after %s" % _scenario_cursor)
+	return _scenario_cursor
 
 
 func after_each() -> void:
@@ -37,30 +63,34 @@ func _paint_with_toolbar(terrain: int, tile: Vector2i) -> void:
 
 
 func test_course_terrain_tiles_replace_each_other() -> void:
-	# Tiles on owned land near the clubhouse.
-	_prep(Vector2i(50, 62), TerrainTypes.Type.BRUSH)
-	_prep(Vector2i(51, 62), TerrainTypes.Type.ROCKS)
-	_prep(Vector2i(49, 62), TerrainTypes.Type.FLOWER_BED)
-	_prep(Vector2i(60, 50), TerrainTypes.Type.WATER)
+	# Tiles on the clubhouse's owned grounds, wherever they stand.
+	var brush_tile := _next_scenario_tile()
+	var rocks_tile := _next_scenario_tile()
+	var flowers_tile := _next_scenario_tile()
+	var water_tile := _next_scenario_tile()
+	_prep(brush_tile, TerrainTypes.Type.BRUSH)
+	_prep(rocks_tile, TerrainTypes.Type.ROCKS)
+	_prep(flowers_tile, TerrainTypes.Type.FLOWER_BED)
+	_prep(water_tile, TerrainTypes.Type.WATER)
 	await process_frames(2)
-	_paint_with_toolbar(TerrainTypes.Type.ROUGH, Vector2i(50, 62))
-	assert_eq(grid.get_tile(Vector2i(50, 62)), TerrainTypes.Type.ROUGH, "Rough replaces Brush")
-	_paint_with_toolbar(TerrainTypes.Type.FAIRWAY, Vector2i(51, 62))
-	assert_eq(grid.get_tile(Vector2i(51, 62)), TerrainTypes.Type.FAIRWAY, "Fairway replaces Rocks")
-	_paint_with_toolbar(TerrainTypes.Type.BUNKER, Vector2i(49, 62))
-	assert_eq(grid.get_tile(Vector2i(49, 62)), TerrainTypes.Type.BUNKER, "Bunker replaces Wild Flowers")
-	_paint_with_toolbar(TerrainTypes.Type.STREAM, Vector2i(60, 50))
-	assert_eq(grid.get_tile(Vector2i(60, 50)), TerrainTypes.Type.STREAM, "Stream replaces Water")
+	_paint_with_toolbar(TerrainTypes.Type.ROUGH, brush_tile)
+	assert_eq(grid.get_tile(brush_tile), TerrainTypes.Type.ROUGH, "Rough replaces Brush")
+	_paint_with_toolbar(TerrainTypes.Type.FAIRWAY, rocks_tile)
+	assert_eq(grid.get_tile(rocks_tile), TerrainTypes.Type.FAIRWAY, "Fairway replaces Rocks")
+	_paint_with_toolbar(TerrainTypes.Type.BUNKER, flowers_tile)
+	assert_eq(grid.get_tile(flowers_tile), TerrainTypes.Type.BUNKER, "Bunker replaces Wild Flowers")
+	_paint_with_toolbar(TerrainTypes.Type.STREAM, water_tile)
+	assert_eq(grid.get_tile(water_tile), TerrainTypes.Type.STREAM, "Stream replaces Water")
 
 
 func test_woods_and_boulders_are_painted_like_any_other_ground() -> void:
 	# A wood is ground, so it is painted over like anything else, and the
 	# boulder terrains overwrite any tile they land on.
-	var tree_over_rough := Vector2i(52, 62)
-	var small_boulders := Vector2i(53, 62)
-	var tree_on_water := Vector2i(61, 50)
-	var large_boulders := Vector2i(62, 50)
-	var rocks_over_tree := Vector2i(63, 50)
+	var tree_over_rough := _next_scenario_tile()
+	var small_boulders := _next_scenario_tile()
+	var tree_on_water := _next_scenario_tile()
+	var large_boulders := _next_scenario_tile()
+	var rocks_over_tree := _next_scenario_tile()
 	_prep(tree_over_rough, TerrainTypes.Type.OAK)
 	_prep(small_boulders, TerrainTypes.Type.WATER)
 	_prep(tree_on_water, TerrainTypes.Type.WATER)
@@ -95,14 +125,11 @@ func test_woods_and_boulders_are_painted_like_any_other_ground() -> void:
 
 
 func test_the_bulldozer_never_touches_course_terrain() -> void:
-	var tiles := {
-		Vector2i(50, 64): TerrainTypes.Type.ROUGH,
-		Vector2i(51, 64): TerrainTypes.Type.FAIRWAY,
-		Vector2i(49, 64): TerrainTypes.Type.BUNKER,
-		Vector2i(60, 52): TerrainTypes.Type.STREAM,
-		Vector2i(59, 52): TerrainTypes.Type.OAK,
-		Vector2i(58, 52): TerrainTypes.Type.SMALL_BOULDERS,
-	}
+	var tiles := {}
+	for terrain in [TerrainTypes.Type.ROUGH, TerrainTypes.Type.FAIRWAY,
+			TerrainTypes.Type.BUNKER, TerrainTypes.Type.STREAM,
+			TerrainTypes.Type.OAK, TerrainTypes.Type.SMALL_BOULDERS]:
+		tiles[_next_scenario_tile()] = terrain
 	for tile in tiles:
 		_prep(tile, tiles[tile])
 	await process_frames(2)

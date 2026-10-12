@@ -57,7 +57,7 @@ func test_hole_serialization_defaults() -> void:
 	assert_eq(hole.par, 4, "Default par should be 4")
 	assert_true(hole.is_open, "Default should be open")
 	assert_almost_eq(hole.difficulty_rating, 1.0, 0.001, "Default difficulty should be 1.0")
-	assert_eq(hole.tee_positions.forward, hole.tee_position, "Older saves get all three tees on the one tile")
+	assert_eq(hole.tee_position, Vector2i.ZERO, "A hole record without a tee falls back to the origin")
 
 func test_hole_serialization_empty() -> void:
 	GameManager.current_course = GameManager.CourseData.new()

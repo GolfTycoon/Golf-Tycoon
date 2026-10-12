@@ -33,7 +33,6 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | [Difficulty Calculator](course-design/difficulty-calculator.md) | Hole difficulty from distance, terrain and layout |
 | [Forced Carry](course-design/forced-carry.md) | Hazards that must be carried, and their effect |
 | [Elevation Tools](course-design/elevation-tools.md) | Raising, lowering and smoothing ground |
-| [Multiple Tee Boxes](course-design/multiple-tee-boxes.md) | Forward, middle and back tees |
 | [Stroke Index](course-design/stroke-index.md) | Hole ranking by difficulty |
 | [Improvement Catalog](course-design/garden-catalog.md) | Improvements and facilities you can place |
 | [Path Furniture](course-design/path-furniture.md) | Benches, signs and other items beside walks |
