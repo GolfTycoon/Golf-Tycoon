@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/harness/save_settings_layout_harness.tscn`
+**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -28,6 +28,23 @@
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
+
+### Status column
+
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Its rows, top to bottom:
+
+| Row | Shows |
+| --- | --- |
+| Game mode | `PLAYING` or `PAUSED`, with the collapse toggle (`-` / `+`) beside it |
+| Funds | The balance, clickable for the financial dashboard |
+| Date | The calendar date |
+| Season | The current season |
+| Reputation | Course reputation, clickable for the rating details |
+| Rating | The star rating, clickable for details |
+| Weather | The current conditions |
+| Wind | Direction and speed |
+
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the divider that introduces the weather and wind pair goes with the last of the two rows. The column collapses to its header and Funds rows on compact windows, or when the player presses the collapse toggle; the full set of rows is still there, minus the features that are off.
 
 ## Keyboard
 

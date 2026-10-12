@@ -14,7 +14,7 @@
 - **Club matters.** Drivers catch the wind fully, while putters are not affected at all. Shots that fly longer are pushed more.
 - **Golfers compensate.** Golfers aim into the wind. Better golfers correct for about 80% of it, and beginners for about 20%.
 
-You can turn wind off when you start a new game, on the Start New Game screen. With wind off, the air stays calm all game.
+You can turn wind off when you start a new game, on the Start New Game screen. With wind off, the air stays calm all game, and the Wind row leaves the HUD status column (`scripts/ui/hud_status_column.gd`, `_update_feature_rows()`) rather than sitting there reading "Off".
 
 ---
 

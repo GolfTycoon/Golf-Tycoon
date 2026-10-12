@@ -26,6 +26,8 @@ Each season changes several things at once: how many golfers arrive, upkeep cost
 
 **Smooth transitions.** Modifiers blend into the next season on the last day of a season and the first day of the next. The blend is 34%, so the change does not jump overnight.
 
+**Turning it off.** Seasons are an option on the Start New Game screen. With seasons off the calendar still ticks and every modifier stays neutral, so the course plays as one year-round season. The Season row then leaves the HUD status column (`scripts/ui/hud_status_column.gd`, `_update_feature_rows()`) instead of reading "Year-round".
+
 ---
 
 ## Algorithm

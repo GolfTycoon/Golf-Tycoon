@@ -24,10 +24,14 @@ var _money_button: Button
 var _money_trend: Label
 var _date_label: Label
 var _time_label: Label
+var _season_row: Control
 var _reputation_button: Button
 var _weather_icon: Label
 var _weather_label: Label
+var _weather_row: Control
+var _environment_separator: HSeparator
 var _wind_label: Label
+var _wind_row: Control
 var _rating_button: Button
 
 # State
@@ -153,12 +157,14 @@ func _build_ui() -> void:
 	_details.visible = not _collapsed  # auto-collapsed on compact windows
 	column.add_child(_details)
 
-	# Date / season (no intra-day clock — the course never closes)
+	# Date / season (no intra-day clock — the course never closes). The Season
+	# row is hidden while the Seasons feature is off.
 	_date_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
 	_details.add_child(_create_row("Date", _date_label))
 
 	_time_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_details.add_child(_create_row("Season", _time_label))
+	_season_row = _create_row("Season", _time_label)
+	_details.add_child(_season_row)
 
 	_details.add_child(_create_separator())
 
@@ -186,6 +192,9 @@ func _build_ui() -> void:
 
 	_details.add_child(_create_separator())
 
+	_environment_separator = _create_separator()
+	_details.add_child(_environment_separator)
+
 	# Weather
 	var weather_value = HBoxContainer.new()
 	weather_value.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
@@ -200,11 +209,13 @@ func _build_ui() -> void:
 	_weather_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	weather_value.add_child(_weather_label)
 
-	_details.add_child(_create_row("Weather", weather_value))
+	_weather_row = _create_row("Weather", weather_value)
+	_details.add_child(_weather_row)
 
 	# Wind
 	_wind_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_details.add_child(_create_row("Wind", _wind_label))
+	_wind_row = _create_row("Wind", _wind_label)
+	_details.add_child(_wind_row)
 
 ## Build a "label ....... value" row. `value` may be any Control.
 func _create_row(title: String, value: Control) -> HBoxContainer:
@@ -293,6 +304,10 @@ func _connect_signals() -> void:
 	# Connect to EventBus signals
 	if has_node("/root/EventBus"):
 		var eb = get_node("/root/EventBus")
+		# A new game can switch Weather, Wind and Seasons on or off (Start New
+		# Game options, or the location that was just bought), so re-read the
+		# whole column: no feature signal carries that change.
+		eb.new_game_started.connect(_update_all)
 		eb.money_changed.connect(_on_money_changed)
 		eb.day_changed.connect(_on_day_changed)
 		eb.reputation_changed.connect(_on_reputation_changed)
@@ -307,6 +322,31 @@ func _update_all() -> void:
 	_update_reputation()
 	_update_weather()
 	_update_wind()
+	_update_feature_rows()
+
+## Show only the rows of the features this course plays with. A feature that is
+## off has no row at all rather than one reading "Off": leaving Weather, Wind or
+## Seasons out of the column says the same thing in less space. The divider that
+## introduces the weather/wind block goes with the last of the two rows.
+func _update_feature_rows() -> void:
+	if _season_row == null or _weather_row == null or _wind_row == null:
+		return
+	var seasons_on := _is_feature_on("seasons")
+	var weather_on := _is_feature_on("weather")
+	var wind_on := _is_feature_on("wind")
+	_season_row.visible = seasons_on
+	_weather_row.visible = weather_on
+	_wind_row.visible = wind_on
+	if _environment_separator:
+		_environment_separator.visible = weather_on or wind_on
+	_refresh_height()
+
+## Whether the course plays with a feature. Without a GameManager — a column
+## built on its own, as the layout tests do — every row is kept.
+func _is_feature_on(feature: String) -> bool:
+	if not has_node("/root/GameManager"):
+		return true
+	return GameManager.is_feature_enabled(feature)
 
 func _update_game_mode() -> void:
 	if not has_node("/root/GameManager"):
@@ -377,12 +417,11 @@ func _update_day_time() -> void:
 	if day == null:
 		day = 1
 
-	var season = SeasonSystem.get_season(day)
-	var season_name = SeasonSystem.get_season_name(season)
 	_date_label.text = GameCalendar.format_date(day)
 	# With the Seasons feature off the calendar still ticks, but the course
-	# plays as one year-round season.
-	_time_label.text = season_name if gm.get("seasons_enabled") else "Year-round"
+	# plays as one year-round season, so _update_feature_rows hides the row.
+	var season = SeasonSystem.get_season(day)
+	_time_label.text = SeasonSystem.get_season_name(season)
 
 func _update_reputation() -> void:
 	if not has_node("/root/GameManager"):
@@ -408,16 +447,11 @@ func _update_weather() -> void:
 		_weather_label.text = "Sunny"
 		return
 
-	var gm = get_node("/root/GameManager")
-	# The Weather feature can be turned off at setup: say so instead of
-	# pretending the course is watching conditions it no longer models.
-	if not gm.get("weather_enabled"):
-		_weather_icon.text = "* *"
-		_weather_icon.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-		_weather_label.text = "Off"
-		_weather_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	# The Weather feature can be turned off at setup: _update_feature_rows
+	# then hides the row, so there is nothing to show here.
+	if not GameManager.weather_enabled:
 		return
-	var weather_system = gm.get("weather_system")
+	var weather_system = GameManager.get("weather_system")
 	if weather_system == null:
 		_weather_icon.text = "* *"
 		_weather_label.text = "Sunny"
@@ -444,13 +478,11 @@ func _update_wind() -> void:
 		_wind_label.text = "0 mph"
 		return
 
-	var gm = get_node("/root/GameManager")
-	# The Wind feature can be turned off at setup: the air is dead calm.
-	if not gm.get("wind_enabled"):
-		_wind_label.text = "Off"
-		_wind_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	# The Wind feature can be turned off at setup: the air is dead calm and
+	# _update_feature_rows hides the row.
+	if not GameManager.wind_enabled:
 		return
-	var wind_system = gm.get("wind_system")
+	var wind_system = GameManager.get("wind_system")
 	if wind_system == null:
 		_wind_label.text = "0 mph"
 		return
