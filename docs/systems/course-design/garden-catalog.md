@@ -58,7 +58,7 @@ A golfer uses a facility when the needs check selects it. Revenue is paid only i
 | Facility cost and operating cost | `data/buildings.json` per entry | Per entry | Cost to build and daily operating cost |
 | Facility golfer service | `data/buildings.json` `needs_service` | Per entry | Which golfer need the facility restores |
 | Bench and ball washer artwork | `scripts/entities/path_furniture.gd` | Code | Look of the two drawn improvements |
-| Path tile preview | `scripts/terrain/walking_path_overlay.gd` | Code | Colours and widths of the dirt ribbon and of the paving |
+| Path tile preview | `scripts/terrain/walking_path_overlay.gd` | Code | Colours and widths of the dirt ribbon, of the paving, and of the thresholds where either meets a building |
 
 ---
 

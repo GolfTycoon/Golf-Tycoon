@@ -98,7 +98,7 @@ class TournamentMoment:
 ## course whose tee cards were adjusted separately, and then a round played on the
 ## course and a round filled in off the course are not the same measurement.
 static func _tournament_par(hole_data) -> int:
-	return int(hole_data.get_par_for_tee("back"))
+	return hole_data.par
 
 static func simulate_round(sim_golfer: SimulationGolfer, round_number: int = 1) -> RoundResult:
 	var course_data = GameManager.course_data
@@ -300,8 +300,7 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 	var distance_to_target = Vector2(from).distance_to(Vector2(target))
 
 	# Lie modifier
-	var bunker_depth = terrain_grid.get_bunker_depth(from) if current_terrain == TerrainTypes.Type.BUNKER else 0
-	var lie_modifier = GolfRules.get_lie_modifier(current_terrain, club, bunker_depth)
+	var lie_modifier = GolfRules.get_lie_modifier(current_terrain, club)
 
 	# Skill-based accuracy
 	var skill_accuracy = _get_shot_accuracy(sim_golfer, club)
@@ -326,7 +325,7 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 	var distance_modifier = _get_distance_modifier(club)
 
 	# Terrain distance penalty
-	var terrain_distance_modifier = GolfRules.get_terrain_distance_modifier(current_terrain, bunker_depth)
+	var terrain_distance_modifier = GolfRules.get_terrain_distance_modifier(current_terrain)
 	distance_modifier *= terrain_distance_modifier
 
 	# Wind effects

@@ -22,8 +22,9 @@ The woodland tiles follow, and their number depends on the theme. **Open Hole** 
 
 ### The newer tiles
 
+- **Bunker.** Every standard Bunker tile is shallow. Its depth cannot be changed, and course themes do not make it deeper. For a separate, harsher tile, use Pot Bunker.
 - **Firm Fairway.** Fast, firm turf. It has a full fairway lie for full swings, a slightly tighter lie for wedges, and a ball that lands on it runs **1.6×** as far as on a fairway.
-- **Pot Bunker.** A small, deep pit with a stacked-turf face. It is harsher than any bunker. Only a wedge gets out, and the ball barely advances. Balls rolling into it stop.
+- **Pot Bunker.** A separate small pit with a stacked-turf face. It is harsher than the standard shallow bunker. Only a wedge gets out, and the ball barely advances. Balls rolling into it stop.
 - **Stream.** Running water. It takes the same penalty and point-of-entry drop as Water, but it is narrow, and golfers can walk across it. It can cut through a hole. Paint it in lines, because the channel only joins edge-adjacent stream tiles and widens where it meets a pond.
 - **Deep Rough.** Knee-high unmown grass. It is harsher than Heavy Rough, and it stops a rolling ball dead. It costs $1 to paint and has no upkeep.
 - **Waste Bunker.** Natural sandy scrubland. It is **not** a hazard, so you can ground your club in it. It plays like sandy rough and has no upkeep.
@@ -116,7 +117,7 @@ The Path improvement is not in this table because it is not a terrain: it costs 
 | Deep Rough | 0.4 | 0.6 | 0.06× | Yes | −45 | Wedge, iron |
 | Waste Bunker | 0.8 / 0.7 | 0.85 | 0.3× | No | −10 | — |
 | Brush | 0.3 | 0.5 | 0.05× | Yes | −85 | Wedge |
-| Bunker | 0.6 / 0.4 (deep: 0.45 / 0.25) | 0.75 (deep: 0.60) | None | Yes | −50 | Wedge, iron |
+| Bunker (always shallow) | 0.6 / 0.4 | 0.75 | None | Yes | −50 | Wedge, iron |
 | Pot Bunker | 0.35 / 0.15 | 0.45 | None | Yes | −90 | Wedge |
 | Rocks and boulders | 0.25 | 0.5 | 0.15× | No | −100 | Wedge |
 | Trees and all species | 0.3 | 0.6 | 0.2× | No | −80 | Wedge, iron |
@@ -129,7 +130,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 - Painting a course tile replaces whatever is there, including trees, sand and greens. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep — painting fairway over a trail erases it, painting rough over one leaves it trodden. Painting costs only the new tile's placement cost. There is no clearing fee. Taking a trail away re-paves the network it belonged to, because the paving is decided over the whole network each time (see [Walking Paths](walking-paths.md)).
 - Buildings and decorations are not course terrain. A course tile will not paint over them. The Bulldozer removes them.
 - Stream strokes are 4-connected (`TerrainBrush.centers_4_connected()`), so the channel never breaks at a diagonal step.
-- A species tile draws its own canopy on its own ground, wherever it is placed.
+- A species tile draws its own canopy on its own ground, wherever it is placed — and over the ground art laid beside it. `TerrainGrid.GROUND_DETAIL_ORDER` ranks the trees last in the ground band, so a canopy always stands above the walking trail trodden through the wood.
 - Older saves that stored trees as entities are converted on load. `EntityLayer.deserialize` paints the matching species tile for each one, so a loaded course becomes ordinary painted woodland.
 
 ### 6. Rendering
@@ -160,7 +161,6 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 - [Course Surface](course-surface.md) draws each terrain type.
 - [Walking Paths](walking-paths.md) covers the trail laid on this ground, and the pace it buys.
 - [Generated Walking Paths](generated-walking-paths.md) covers the trail network a generated course arrives with.
-- [Bunker Depth](bunker-depth.md) covers the two bunker depths.
 - [Shot Accuracy](../golf-play/shot-accuracy.md) uses the lie and distance values.
 - [Ball Physics](../golf-play/ball-physics.md) uses the roll-out values.
 - [Economy](../economy-and-land/economy.md) uses the build and upkeep costs.

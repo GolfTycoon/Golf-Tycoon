@@ -29,7 +29,6 @@ var heightmap_noise_seed: int = 0
 var tee_booking_interval: int = 90
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
-var multi_tee_enabled: bool = false  # Feature toggle: auto-generate forward/middle tees
 # Default starting values (overridden by difficulty preset in new_game)
 const DEFAULT_STARTING_MONEY: int = 25000
 const DEFAULT_STARTING_REPUTATION: float = 50.0
@@ -42,9 +41,9 @@ const UNLIMITED_STARTING_BALANCE: int = 999999999
 ## Enabled game features, chosen on the Start New Game screen. Weather, wind
 ## and seasons all keep running when disabled — they simply stop producing any
 ## effect (see the feature guards in WeatherSystem, WindSystem and SeasonSystem).
-var weather_enabled: bool = true
-var wind_enabled: bool = true
-var seasons_enabled: bool = true
+var weather_enabled: bool = false
+var wind_enabled: bool = false
+var seasons_enabled: bool = false
 ## True while the company plays with unlimited funds: nothing can be spent.
 var unlimited_money: bool = false
 ## Holes the player asked the world map to lay out on their first course.
@@ -900,80 +899,6 @@ class HoleData:
 	var stroke_index: int = 0  # Handicap allocation ranking (1=hardest, N=easiest), derived from difficulty_rating
 	var total_revenue: int = 0  # Cumulative green fee revenue attributed to this hole
 	var par_override: int = -1  # -1 = auto par from distance, >0 = manual override
-
-	# Multiple tee boxes: forward (red), middle (white), back (blue)
-	var tee_positions: Dictionary = {}  # {"forward": Vector2i, "middle": Vector2i, "back": Vector2i}
-	var par_by_tee: Dictionary = {}     # {"forward": int, "middle": int, "back": int}
-
-	## Keep tee_position synced with back tee (backward compat for 30+ consumers)
-	func sync_tee_positions() -> void:
-		if tee_positions.has("back"):
-			tee_position = tee_positions["back"]
-
-	## Return the appropriate tee position for a golfer tier
-	func get_tee_for_tier(tier: int) -> Vector2i:
-		if tee_positions.is_empty():
-			return tee_position
-		match tier:
-			GolferTier.Tier.BEGINNER:
-				return tee_positions.get("forward", tee_position)
-			GolferTier.Tier.CASUAL:
-				if randf() < 0.5:
-					return tee_positions.get("forward", tee_position)
-				return tee_positions.get("middle", tee_position)
-			GolferTier.Tier.SERIOUS:
-				if randf() < 0.5:
-					return tee_positions.get("middle", tee_position)
-				return tee_positions.get("back", tee_position)
-			GolferTier.Tier.PRO:
-				return tee_positions.get("back", tee_position)
-			_:
-				return tee_position
-
-	## Auto-generate forward (60%) and middle (75%) tee positions along tee-to-green line
-	func auto_generate_tee_positions(grid: TerrainGrid) -> void:
-		if not grid:
-			return
-		var back_tee = tee_position
-		var green = green_position
-		var direction = Vector2(green - back_tee)
-		var length = direction.length()
-		if length < 2.0:
-			# Hole too short to differentiate tees
-			tee_positions = {"forward": back_tee, "middle": back_tee, "back": back_tee}
-			return
-
-		# Forward tee at 60% of distance, middle at 75%
-		var forward_t = 0.4  # 60% of distance means 40% along tee→green
-		var middle_t = 0.25  # 75% of distance means 25% along tee→green
-		var forward_pos = Vector2i(Vector2(back_tee) + direction * forward_t)
-		var middle_pos = Vector2i(Vector2(back_tee) + direction * middle_t)
-
-		# Ensure positions are valid grid positions
-		if grid.is_valid_position(forward_pos):
-			tee_positions["forward"] = forward_pos
-		else:
-			tee_positions["forward"] = back_tee
-		if grid.is_valid_position(middle_pos):
-			tee_positions["middle"] = middle_pos
-		else:
-			tee_positions["middle"] = back_tee
-		tee_positions["back"] = back_tee
-
-	## Recalculate par for each tee position based on distance
-	func recalculate_par_by_tee(grid: TerrainGrid) -> void:
-		if not grid or tee_positions.is_empty():
-			return
-		for tee_key in tee_positions:
-			var tee_pos = tee_positions[tee_key]
-			var dist = grid.calculate_distance_yards(tee_pos, green_position)
-			par_by_tee[tee_key] = GolfRules.calculate_par(dist)
-
-	## Get par for a specific tee key ("forward", "middle", "back")
-	func get_par_for_tee(tee_key: String) -> int:
-		if par_by_tee.has(tee_key):
-			return par_by_tee[tee_key]
-		return par
 
 ## DailyStatistics - Tracks statistics for the current day
 class DailyStatistics:

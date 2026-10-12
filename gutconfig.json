@@ -1,10 +1,11 @@
 {
-	"dirs": ["res://tests/unit/"],
+	"dirs": ["res://tests/unit/", "res://tests/integration/"],
 	"prefix": "test_",
 	"suffix": ".gd",
-	"should_maximize": false,
+	"include_subdirs": true,
 	"log_level": 1,
+	"paint_after": 0,
+	"should_maximize": false,
 	"compact_mode": false,
-	"opacity": 100,
-	"include_subdirs": true
+	"opacity": 100
 }

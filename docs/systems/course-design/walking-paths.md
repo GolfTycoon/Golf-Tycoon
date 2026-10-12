@@ -1,9 +1,9 @@
 # Walking Paths
 
-> A walking path is a slim trail golfers can see and walk on. It is laid over the ground rather than instead of it — a trodden dirt ribbon that leaves the turf, the lie and the upkeep exactly as they were — and the whole network turns into a paved stone promenade once it reaches the clubhouse. Golfers walk quicker on it than on the ground it crosses, so planned routes step onto it whenever that saves them time. It is also what a generated course arrives with.
+> A walking path is a slim trail golfers can see and walk on. It is laid over the ground rather than instead of it — a trodden dirt ribbon that leaves the turf, the lie and the upkeep exactly as they were — and the whole network turns into a paved stone promenade once it reaches the clubhouse. It joins whatever it comes up against: another trail tile, or the wall of a building. Golfers walk quicker on it than on the ground it crosses, so planned routes step onto it whenever that saves them time. It is also what a generated course arrives with.
 
-**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_types.gd` (`WALKING_PATH_TERRAINS`, `can_host_walking_path()`, `WALKING_PATH_TOOL`, `WALKING_PATH_COST`), `scripts/terrain/terrain_grid.gd` (`set_walking_path()`, `can_place_walking_path()`, `walk_speed_modifier_at()`, `walk_field()`, `WalkField`), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
-**Tests:** `tests/unit/test_walking_paths.gd`, `tests/unit/test_golfer_walking_routes.gd`, `tests/unit/test_terrain_toolbar.gd`, `tests/unit/test_path_furniture.gd`; `tests/harness/walking_path_harness.tscn`
+**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_types.gd` (`WALKING_PATH_TERRAINS`, `can_host_walking_path()`, `WALKING_PATH_TOOL`, `WALKING_PATH_COST`), `scripts/terrain/terrain_grid.gd` (`set_walking_path()`, `can_place_walking_path()`, `walk_speed_modifier_at()`, `walk_field()`, `WalkField`, and `GROUND_DETAIL_ORDER` with `_order_ground_detail()` for where the trail paints), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
+**Tests:** `tests/unit/test_walking_paths.gd`, `tests/unit/test_golfer_walking_routes.gd`, `tests/unit/test_terrain_toolbar.gd`, `tests/unit/test_path_furniture.gd`, `tests/unit/course_design/test_terrain_draw_order.gd`; `tests/harness/walking_path_harness.tscn`
 
 ---
 
@@ -11,13 +11,14 @@
 
 The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not a building: click or drag and each tile costs **$8**, and it adds no upkeep. A tile a building or a decoration already occupies cannot take one, and neither can ground the trail cannot be trodden on — the mown playing line above all.
 
-- **Dirt:** a freshly laid trail is a trodden ribbon over the ground it crosses — packed earth at the middle, trodden grass at the verges, a paler strip down the centre that boots have polished, and dry patches, pebbles and grass blades scattered along it. Each tile carries a pad, and pads on edge-adjacent tiles join into one continuous walk, so a trail reads as a trail rather than a row of tiles.
-- **Paved:** the moment the connected trail network touches a clubhouse tile, **every** trail in that network is paved — light flagstones with joints across the walk, a kerb of dressed darker stone either side, gravel bedded into the grass, and a few slabs catching the light. Take the link away — bulldoze a tile of it, paint over the ground, or move the clubhouse — and the trail is dirt again.
+- **Dirt:** a freshly laid trail is a slim trodden ribbon over the ground it crosses — packed earth at the middle, trodden grass at the verges, a paler crown wandering down it where the boots polish the ground, dry patches and pebbles trodden in, and grass blades leaning over the verges. Each tile carries a pad, and pads on edge-adjacent tiles join into one continuous walk, so a trail reads as a trail rather than a row of tiles.
+- **Paved:** the moment the connected trail network touches a clubhouse tile, **every** trail in that network is paved — light flagstones laid slab by slab with the joints crossing the whole walk, a kerb of dressed darker stone either side, gravel spilled over the grass, and every other slab a shade off its neighbours. Take the link away — bulldoze a tile of it, paint over the ground, or move the clubhouse — and the trail is dirt again.
+- **Up to the buildings:** a walk runs into whatever stands beside it. A trail tile against a building lays its arm right up to the shared edge and broadens there — swept earth at a dirt trail's door, a stone threshold where paving meets the wall — so the walk comes up to the clubhouse, the shop and the barns instead of stopping short of them. A building is where a walk ends, never a way through: it joins nothing, and only the clubhouse paves.
 - **Walking quicker:** a golfer on a dirt trail walks **1.25×** as fast as the same ground without it, and **1.5×** on paving. The ground's own rate still counts, so a trail through brush is quicker than ploughing through the brush but slower than a trail over rough.
 - **Preferring the walk:** a planned walk steps onto the trail when that gets the golfer there no more than **a moment slower** than walking straight there, and never crosses the course to reach a distant trail. Water and out of bounds are still walked around.
 - **Nothing but the walk changes.** A trail is a flag on a tile, not a terrain: the ball lies on the ground underneath, rolls as it did, and the tile keeps its own build cost and upkeep. Painting the ground with a course tile that cannot host a trail — fairway, say — takes the trail with it.
 - **A generated course arrives with its trails already laid:** out of the clubhouse door, beside every fairway, from each green to the next tee and home again. They are laid by the same rule as a brush stroke, so a network that reaches the clubhouse is paved, and a trail the player paints onto it joins the same network and paves with it. See [Generated Walking Paths](generated-walking-paths.md), including where a course's walks stop short and stay dirt.
-- **Under the golfers:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it.
+- **Under the golfers, and under the trees:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it. A wood the walk crosses is the one thing painted over it: the trail ranks below the tree sprites in the ground band, so a trunk and its crown stand on the ribbon rather than being cut in half by it.
 - The bulldozer removes a trail for **$5** a tile, leaving the ground it crossed untouched. Its tooltip says so, and undo and redo put the trail back.
 
 ## Algorithm
@@ -40,6 +41,8 @@ a component is paved when any of its tiles is orthogonally adjacent
 
 The rebuild listens to `walking_paths_changed`, `elevation_changed`, `load_completed`, and a clubhouse being placed, removed or moved. Sculpting elevation only reprojects the trail; it does not re-decide the paving.
 
+The same rebuild collects every tile a building stands on (`_occupied_tiles()`), because the drawing joins onto walls too. Those tiles are **not** walkable and never take a trail: a building is where a walk ends, so it never carries the network through itself, and two trails up against the same shop stay two networks. Only the clubhouse paves, and it paves through the flag, not through the walls.
+
 A network that never touches the clubhouse stays dirt, and that is a normal outcome: the ground between two holes may be all fairway, so a generated course can arrive with its walks in several pieces (see [Generated Walking Paths](generated-walking-paths.md)).
 
 ### 3. Drawing
@@ -51,12 +54,17 @@ A network that never touches the clubhouse stays dirt, and that is a normal outc
 | Verge | `DIRT_VERGE` band, half-width `DIRT_VERGE_W` | `PAVED_VERGE` band, half-width `PAVED_VERGE_W` |
 | Kerb | — | `PAVED_DARK` band, half-width `PAVED_OUTER_W` |
 | Body | `DIRT_COLOR` band, half-width `DIRT_HALF_W` | `PAVED_COLOR` band, half-width `PAVED_HALF_W` |
-| Detail | pale centre band, grain and blades | jittered joints across the walk, sheen on about 60% of slabs, grain and blades |
+| Detail | a crown that wanders (`_wavy_band`), pebbles on the tread, blades on the verges | slabs laid between jittered joints that cross the whole walk, every other slab in `PAVED_LIGHT`, gravel on the verges, blades |
 | Where arms meet | `_pad_shape` pad, octagon cut across the corners, aligned to `_walk_dir()` | kerb ring plus flagstone pad, the same way |
+| Against a wall | `DIRT_APRON` threshold, flaring to `DIRT_APRON_W` | kerb and flagstone thresholds, flaring to `PAVED_APRON_W` |
 | A trail end | `_taper` head pointing away from its one neighbour | kerb and flagstone heads pointing away |
 | On its own | verge and body circles plus a pale core | gravel, kerb and flagstone circles |
 
-Widths and radii are authored in tile units along the tile's isometric axes, so a trail is the same width on steep and shallow edges before projection; one tile edge is about 36 px on screen. `DIRT_END_REACH` and `PAVED_END_REACH` run a dead end past the tile centre so the walk dies away into the grass instead of being cut off at the tile line.
+Widths and radii are authored in tile units along the tile's isometric axes, so a trail is the same width on steep and shallow edges before projection; one tile edge is about 36 px on screen. Both walks are slimmer than the tile they cross — under the `0.155` half-width a dirt trail used to be — and paving is only a shade broader than the dirt it replaces. `DIRT_END_REACH` and `PAVED_END_REACH` run a dead end past the tile centre so the walk dies away into the grass instead of being cut off at the tile line; against a wall it is the far end that dies away, because the walk itself runs right up to the building.
+
+An arm is a dictionary — `dir`, `edge`, `axis` and whether it ends at a wall — so the same band, pad and taper geometry lays a walk to another trail tile and to a building. `APRON_REACH` is how far back from the wall a threshold starts; `_flare()` is the band that broadens from the walking width to the width at the door. Every decoration of the walk — the wandering crown, the pebbles, the blades, the slab rhythm — is seeded from `_deterministic_rng()` on the tile and the arm, so a trail looks the same every time it is drawn and no two tiles look stamped out alike.
+
+The trail is painted in the ground band (`z_index` 1), under the entities and — because `TerrainGrid.GROUND_DETAIL_ORDER` ranks it there — under `TreeOverlay`, which paints the standing trees last among the ground art. A walk laid through a wood is therefore drawn first and the sprites over it, so no ribbon crosses a trunk. Nothing is taken off the trail for it: a woodland tile still paints its ribbon in full, and the tree only covers the stretch its own art stands on.
 
 ### 4. The walk rate
 
@@ -88,8 +96,10 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 | Bulldozer fee | `main.gd` `BULLDOZER_COSTS` | `$5` per path tile | Cost of removing a trail |
 | Dirt walk rate | `walking_path_overlay.gd` `DIRT_SPEED_MODIFIER` | `1.25` | Speed multiplier on an unpaved trail |
 | Paved walk rate | `walking_path_overlay.gd` `PAVED_SPEED_MODIFIER` | `1.5` | Speed multiplier once the trail reaches the clubhouse |
-| Trail width | `walking_path_overlay.gd` `DIRT_HALF_W`, `DIRT_VERGE_W` | `0.155`, `0.23` tile units | Width of the ribbon and its trodden verge |
-| Pavement width | `walking_path_overlay.gd` `PAVED_HALF_W`, `PAVED_OUTER_W`, `PAVED_VERGE_W` | `0.23`, `0.28`, `0.31` | Width of the flagstones, kerb and gravel |
+| Trail width | `walking_path_overlay.gd` `DIRT_HALF_W`, `DIRT_VERGE_W` | `0.125`, `0.185` tile units | Width of the ribbon and its trodden verge |
+| Pavement width | `walking_path_overlay.gd` `PAVED_HALF_W`, `PAVED_OUTER_W`, `PAVED_VERGE_W` | `0.135`, `0.17`, `0.21` | Width of the flagstones, kerb and gravel |
+| Threshold at a wall | `walking_path_overlay.gd` `APRON_REACH`, `DIRT_APRON_W`, `PAVED_APRON_W` | `0.17`, `0.165`, `0.175` | How far back a threshold starts, and how wide the walk is at a door |
+| Crown and grain | `walking_path_overlay.gd` `DIRT_CENTRE_W`, `GRASS_BLADES` | `0.055`, see the constants | Width of the polished crown, and the blades over the verges |
 | Colours | `walking_path_overlay.gd` `DIRT_*`, `PAVED_*`, `GRASS_BLADES` | see the constants | Palette of both surfaces and their weather |
 | Shortest planned walk | `golfer.gd` `MIN_ROUTE_DISTANCE` | `5.0` tiles | Under this the golfer just walks straight there |
 | Trail preference | `golfer.gd` `TRAIL_PREFERENCE_TIME` | `1.0` tile-times | How much slower than the straight walk a trail route may be |

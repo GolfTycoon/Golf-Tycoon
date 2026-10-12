@@ -9,6 +9,11 @@ class_name WalkingPathOverlay
 ## rendered as a paved stone promenade instead of dirt, and golfers walk quicker
 ## on a trail than off it (see speed_modifier_at()). A generated course arrives
 ## with its trails already laid (see CoursePathGenerator).
+##
+## A walk joins onto whatever it runs into: another trail tile, or the wall of a
+## building. A tile beside a footprint lays its arm right up to the shared edge
+## and broadens into a swept threshold there, so a trail comes up to the
+## clubhouse door, the shop and the cart barn instead of stopping short of them.
 
 ## Orthogonal sides, also used by the component search below.
 const SIDES := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
@@ -24,42 +29,52 @@ const CONNECTORS := [
 const CENTRE := Vector2(0.5, 0.5)
 
 ## Dirt trail (the default walking path): trodden grass and packed earth at the
-## verges, the trail itself, a paler centre the boots polish in, and a scuffed
-## rim where the edges crumble.
+## verges, the trail itself, a wandering paler crown the boots polish in, and
+## swept earth where it meets a wall.
 const DIRT_COLOR := Color(0.62, 0.48, 0.32, 0.96)
 const DIRT_LIGHT := Color(0.78, 0.66, 0.47, 0.34)
 const DIRT_VERGE := Color(0.53, 0.47, 0.33, 0.32)
+const DIRT_APRON := Color(0.70, 0.56, 0.39, 0.95)
 ## Paved promenade (a trail whose network reaches the clubhouse): light
-## flagstones, a kerb of dressed darker stone either side, jointed across the
-## walk and bedded in gravel spilled onto the grass.
+## flagstones laid in slabs, a kerb of dressed darker stone either side, the
+## joints crossing the whole walk, gravel spilled onto the grass, and a stone
+## apron where it meets a wall.
 const PAVED_COLOR := Color(0.80, 0.77, 0.71, 1.0)
 const PAVED_LIGHT := Color(0.96, 0.94, 0.89, 0.20)
 const PAVED_DARK := Color(0.47, 0.45, 0.41, 0.95)
 const PAVED_JOINT := Color(0.55, 0.52, 0.47, 0.7)
 const PAVED_VERGE := Color(0.72, 0.68, 0.58, 0.22)
+const PAVED_GRAVEL := Color(0.66, 0.62, 0.55, 0.45)
 ## Grass blades overhanging the verges, whichever surface the walk is made of.
 const GRASS_BLADES := Color(0.42, 0.58, 0.32, 0.8)
 
 ## Sizes of the walk, in tile units along the tile's isometric axes (one unit
 ## is a tile edge; on a 64x32 tile that is about 36 px on screen). Widths and
-## radii are half-widths, so a band drawn with one is twice that wide. A dirt
-## trail is a slim trodden strip; a paved promenade is wider, kerbed and bedded
-## in gravel. The dot figures are the trodden pads where a tile's arms meet.
-const DIRT_HALF_W := 0.155
-const DIRT_CENTRE_W := 0.07
-const DIRT_VERGE_W := 0.23
-const DIRT_DOT := 0.20
-const DIRT_VERGE_DOT := 0.26
-const DIRT_LONE_DOT := 0.28      # A dot on its own, with nothing to join.
-const DIRT_END_REACH := 0.24     # How far past the centre a trail end runs on.
-const PAVED_HALF_W := 0.23
-const PAVED_OUTER_W := 0.28
-const PAVED_VERGE_W := 0.31
-const PAVED_DOT := 0.21
-const PAVED_KERB_DOT := 0.17
-const PAVED_VERGE_DOT := 0.33
-const PAVED_LONE_DOT := 0.30
-const PAVED_END_REACH := 0.30
+## radii are half-widths, so a band drawn with one is twice that wide. Both
+## surfaces are slimmer than a tile is wide: a dirt trail is the narrowest
+## tread of the two, and a paved promenade is a little broader than it, kerbed
+## and bedded in gravel. The dot figures are the pads where a tile's arms meet.
+const DIRT_HALF_W := 0.125
+const DIRT_CENTRE_W := 0.055
+const DIRT_VERGE_W := 0.185
+const DIRT_DOT := 0.165
+const DIRT_VERGE_DOT := 0.255    # The halo round a dot, wider than the dot.
+const DIRT_LONE_DOT := 0.225     # A dot on its own, with nothing to join.
+const DIRT_END_REACH := 0.22     # How far past the centre a trail end runs on.
+const PAVED_HALF_W := 0.135
+const PAVED_OUTER_W := 0.17
+const PAVED_VERGE_W := 0.21
+const PAVED_DOT := 0.15
+const PAVED_KERB_DOT := 0.175
+const PAVED_VERGE_DOT := 0.235
+const PAVED_LONE_DOT := 0.22
+const PAVED_END_REACH := 0.26
+## Where a walk meets a wall: how far back from the shared edge its threshold
+## starts, and how wide the walk is once it gets there. A trail broadens at a
+## door instead of butting against it at its walking width.
+const APRON_REACH := 0.17
+const DIRT_APRON_W := 0.165
+const PAVED_APRON_W := 0.175
 
 ## Walk rates. A laid trail is quicker than the ground it crosses, and a trail
 ## whose network reaches the clubhouse is a paved promenade and quicker still:
@@ -68,14 +83,20 @@ const DIRT_SPEED_MODIFIER := 1.25
 const PAVED_SPEED_MODIFIER := 1.5
 
 var terrain_grid: TerrainGrid
-## Tiles with the walking-path flag, and the subset rendered as paved stone.
+## Tiles with the walking-path flag, the subset rendered as paved stone, and
+## every tile a building stands on (a walk runs up to a wall it comes against).
 var _path_tiles: Dictionary = {}
 var _upgraded_tiles: Dictionary = {}
+var _building_tiles: Dictionary = {}
 var _is_web: bool = false
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
-	z_index = 1  # Above the terrain surface, below entities (z 2).
+	# The walk is a mark on the ground, not a thing standing on it: it paints over
+	# the surface and under the standing scenery and the entities (z 2). A wood the
+	# trail crosses keeps its trunks and crowns, drawn over the ribbon
+	# (see TerrainGrid.GROUND_DETAIL_ORDER).
+	z_index = 1
 	_is_web = OS.get_name() == "Web"
 	if grid:
 		grid.walking_paths_changed.connect(rebuild)
@@ -129,12 +150,14 @@ func _on_entity_building_placed(_building, _cost: int) -> void:
 func _on_entity_building_moved(_building, _from_pos: Vector2i, _to_pos: Vector2i) -> void:
 	rebuild()
 
-## Rescan the walking-path layer and the network it forms. Cheap: the walk
-## only visits path tiles, and the course carries few of them.
+## Rescan the walking-path layer, the buildings beside it and the network the
+## two form. Cheap: the walk only visits path tiles, and the course carries
+## few of them.
 func rebuild() -> void:
 	_ensure_entity_connections()
 	_path_tiles.clear()
 	_upgraded_tiles.clear()
+	_building_tiles = _occupied_tiles()
 	if not terrain_grid:
 		queue_redraw()
 		return
@@ -148,6 +171,10 @@ func rebuild() -> void:
 ## Path improvement lays.
 func _is_walkable(pos: Vector2i) -> bool:
 	return _path_tiles.has(pos)
+
+## True when a building stands on the tile: the walk it owns ends at its wall.
+func _is_building(pos: Vector2i) -> bool:
+	return _building_tiles.has(pos)
 
 ## Speed modifier for a golfer standing on `pos`: a laid trail is walked more
 ## quickly than the ground around it, and a paved promenade (a trail whose
@@ -177,6 +204,22 @@ func _clubhouse_edge_tiles() -> Dictionary:
 					if terrain_grid.is_valid_position(neighbor):
 						edges[neighbor] = true
 	return edges
+
+## Every tile a building stands on, whichever building it is. A trail laid
+## against one of these runs its arm up to the wall, so the walk comes right up
+## to the clubhouse, the shop and the barns rather than stopping at the tile
+## line. Nothing here is walkable — a building is where a walk ends, not a way
+## through — so these tiles never join two trails into one network.
+func _occupied_tiles() -> Dictionary:
+	var tiles: Dictionary = {}
+	if not GameManager or not GameManager.entity_layer:
+		return tiles
+	for building in GameManager.entity_layer.buildings.values():
+		var origin: Vector2i = building.grid_position
+		for x in range(building.width):
+			for y in range(building.height):
+				tiles[origin + Vector2i(x, y)] = true
+	return tiles
 
 ## Flood-fill the walking network (4-way) and return the path tiles that
 ## belong to components touching any tile in `clubhouse_edges`. Kept static
@@ -222,13 +265,39 @@ func _draw() -> void:
 		for cmd in tile_draw_commands(pos, _upgraded_tiles.has(pos), not _is_web):
 			match cmd.kind:
 				"polygon":
-					draw_colored_polygon(cmd.points, cmd.color)
+					_draw_outline(cmd.points, cmd.color)
 				"line":
 					draw_line(cmd.a, cmd.b, cmd.color, cmd.width)
 				"polyline":
 					draw_polyline(cmd.points, cmd.color, cmd.width)
 				"circle":
 					draw_circle(cmd.center, cmd.radius, cmd.color)
+
+## Fill one projected outline. Every outline is convex in tile units (a band,
+## a taper or a pad), but sculpted ground lifts its corners by different heights,
+## and on a steep enough slope the projected outline folds over itself. The
+## engine cannot triangulate a folded polygon (draw_colored_polygon() then draws
+## nothing and logs an error), so such an outline is filled as the fan of
+## triangles it is made of in tile units instead.
+func _draw_outline(points: PackedVector2Array, color: Color) -> void:
+	var indices := triangulate_outline(points)
+	if indices.is_empty():
+		return
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, points,
+			PackedColorArray([color]))
+
+## Triangle indices that fill `points`: the engine's own triangulation where it
+## succeeds, otherwise the fan from the first point (exact for the convex tile-
+## unit outlines this overlay draws). Empty for fewer than three points.
+static func triangulate_outline(points: PackedVector2Array) -> PackedInt32Array:
+	if points.size() < 3:
+		return PackedInt32Array()
+	var indices := Geometry2D.triangulate_polygon(points)
+	if not indices.is_empty():
+		return indices
+	for i in range(1, points.size() - 1):
+		indices.append_array([0, i, i + 1])
+	return indices
 
 # =============================================================================
 # Geometry — computed outside the draw cycle so it can be unit-tested.
@@ -259,16 +328,28 @@ func tile_draw_commands(pos: Vector2i, upgraded: bool, detail: bool) -> Array:
 		return _paved_commands(pos, detail)
 	return _dirt_commands(pos, detail)
 
-## Every walkable neighbour of this tile, as its CONNECTORS entry.
+## Every neighbour this tile's walk runs into, as an arm: `dir` is the step to
+## the neighbour, `edge` the middle of the edge the two share, `axis` the
+## direction across the walk, and `building` marks an arm that ends at a wall
+## rather than joining another trail tile.
 func _connections(pos: Vector2i) -> Array:
 	var connected: Array = []
 	for conn in CONNECTORS:
-		if _is_walkable(pos + conn[0]):
-			connected.append(conn)
+		var neighbour: Vector2i = pos + conn[0]
+		var at_wall := not _is_walkable(neighbour)
+		if at_wall and not _is_building(neighbour):
+			continue
+		connected.append({
+			"dir": conn[0],
+			"edge": conn[1],
+			"axis": conn[2],
+			"building": at_wall,
+		})
 	return connected
 
-## A trodden dirt trail: the trodden verge, the packed earth itself, the paler
-## centre the boots polish in, and a scatter of dry earth, pebbles and grass.
+## A trodden dirt trail: the trodden verge, the packed earth itself, a paler
+## crown wandering down it where the boots polish the ground, a scatter of dry
+## earth, pebbles and grass, and swept earth where it comes up to a wall.
 func _dirt_commands(pos: Vector2i, detail: bool) -> Array:
 	var connected := _connections(pos)
 	var verge: Array = []
@@ -280,25 +361,40 @@ func _dirt_commands(pos: Vector2i, detail: bool) -> Array:
 		body.append(_circle_at(pos, CENTRE, DIRT_LONE_DOT, DIRT_COLOR))
 		if detail:
 			extra.append(_circle_at(pos, CENTRE, DIRT_LONE_DOT * 0.45, DIRT_LIGHT))
-			extra.append_array(_trail_grain(pos, CENTRE, Vector2.RIGHT, Vector2i.ZERO))
+			extra.append_array(_speckles(pos, CENTRE, Vector2.RIGHT, Vector2i.ZERO,
+					0.0, DIRT_LONE_DOT * 0.8, DIRT_LIGHT))
+			extra.append_array(_blades(pos, CENTRE, Vector2.RIGHT, Vector2i.ZERO, DIRT_VERGE_W))
 		return verge + body + extra
 	for conn in connected:
-		var edge: Vector2 = conn[1]
-		var axis: Vector2 = conn[2]
+		var edge: Vector2 = conn["edge"]
+		var axis: Vector2 = conn["axis"]
+		var dir: Vector2i = conn["dir"]
 		verge.append(_tile_polygon(pos, _band(CENTRE, edge, axis, DIRT_VERGE_W), DIRT_VERGE))
 		body.append(_tile_polygon(pos, _band(CENTRE, edge, axis, DIRT_HALF_W), DIRT_COLOR))
+		if conn["building"]:
+			# The swept threshold: the earth broadens over the last stretch
+			# before a wall, the way it is worn by everyone turning in at a
+			# door, and reaches the stone rather than stopping short of it.
+			body.append(_tile_polygon(pos, _flare(_apron_start(dir), edge, axis,
+						DIRT_HALF_W, DIRT_APRON_W), DIRT_APRON))
 		if detail:
-			extra.append(_tile_polygon(pos, _band(CENTRE, edge, axis, DIRT_CENTRE_W), DIRT_LIGHT))
-			extra.append_array(_trail_grain(pos, CENTRE.lerp(edge, 0.55), axis, conn[0]))
+			# The pale crown: it wanders within the tread rather than running
+			# dead straight down it, so no two stretches of trail are alike.
+			extra.append(_tile_polygon(pos, _wavy_band(CENTRE, edge, axis, DIRT_CENTRE_W,
+						_deterministic_rng(pos + dir)), DIRT_LIGHT))
+			extra.append_array(_speckles(pos, CENTRE.lerp(edge, 0.55), axis, dir,
+					0.0, DIRT_HALF_W * 0.85, DIRT_LIGHT))
+			extra.append_array(_blades(pos, CENTRE.lerp(edge, 0.55), axis, dir, DIRT_VERGE_W))
 	if connected.size() == 1:
 		# A trail end: the walk comes to a point past the centre on the side
 		# away from its one neighbour, so it dies away into the grass instead
-		# of being cut off at the tile line.
-		var back := -Vector2(connected[0][0])
-		var axis: Vector2 = connected[0][2]
+		# of being cut off at the tile line. Against a wall it is the far end
+		# that dies away: the walk itself runs right up to the building.
+		var back := -Vector2(connected[0]["dir"])
+		var axis: Vector2 = connected[0]["axis"]
 		var tip := CENTRE + back * DIRT_END_REACH
 		verge.append(_tile_polygon(pos, _taper(CENTRE + back * (DIRT_END_REACH + 0.06),
-				CENTRE, axis, DIRT_VERGE_W), DIRT_VERGE))
+					CENTRE, axis, DIRT_VERGE_W), DIRT_VERGE))
 		body.append(_tile_polygon(pos, _taper(tip, CENTRE, axis, DIRT_HALF_W), DIRT_COLOR))
 		return verge + body + extra
 	# Where the arms meet: a trodden pad, cut across the corners, wide enough
@@ -309,7 +405,8 @@ func _dirt_commands(pos: Vector2i, detail: bool) -> Array:
 	return verge + body + extra
 
 ## The paved promenade: gravel bedded at the verges, a kerb of dressed stone,
-## flagstones jointed across the walk, and grass creeping over the edges.
+## flagstones laid in slabs with the joints crossing the whole walk, grass
+## creeping over the edges, and a stone apron where it comes up to a wall.
 func _paved_commands(pos: Vector2i, detail: bool) -> Array:
 	var connected := _connections(pos)
 	var verge: Array = []
@@ -319,38 +416,60 @@ func _paved_commands(pos: Vector2i, detail: bool) -> Array:
 		verge.append(_circle_at(pos, CENTRE, PAVED_VERGE_DOT, PAVED_VERGE))
 		body.append(_circle_at(pos, CENTRE, PAVED_LONE_DOT, PAVED_DARK))
 		body.append(_circle_at(pos, CENTRE, PAVED_LONE_DOT - (PAVED_OUTER_W - PAVED_HALF_W), PAVED_COLOR))
+		if detail:
+			extra.append_array(_speckles(pos, CENTRE, Vector2.RIGHT, Vector2i.ZERO,
+					PAVED_LONE_DOT * 0.55, PAVED_LONE_DOT * 0.95, PAVED_GRAVEL))
+			extra.append_array(_blades(pos, CENTRE, Vector2.RIGHT, Vector2i.ZERO, PAVED_VERGE_W))
 		return verge + body + extra
 	for conn in connected:
-		var edge: Vector2 = conn[1]
-		var axis: Vector2 = conn[2]
+		var edge: Vector2 = conn["edge"]
+		var axis: Vector2 = conn["axis"]
+		var dir: Vector2i = conn["dir"]
 		verge.append(_tile_polygon(pos, _band(CENTRE, edge, axis, PAVED_VERGE_W), PAVED_VERGE))
 		body.append(_tile_polygon(pos, _band(CENTRE, edge, axis, PAVED_OUTER_W), PAVED_DARK))
 		body.append(_tile_polygon(pos, _band(CENTRE, edge, axis, PAVED_HALF_W), PAVED_COLOR))
+		if conn["building"]:
+			# The doorstep: kerb and flagstones both broaden over the last
+			# stretch before the wall, so the paving arrives at the building
+			# as a threshold rather than ending at its walking width.
+			body.append(_tile_polygon(pos, _flare(_apron_start(dir), edge, axis,
+						PAVED_OUTER_W, PAVED_APRON_W + (PAVED_OUTER_W - PAVED_HALF_W)), PAVED_DARK))
+			body.append(_tile_polygon(pos, _flare(_apron_start(dir), edge, axis,
+						PAVED_HALF_W, PAVED_APRON_W), PAVED_COLOR))
 		if detail:
-			# Slabs, not bricks: the joints cross the walk at their own rhythm
-			# each tile, so no two stretches of paving look stamped out alike.
-			var rng := _deterministic_rng(pos + conn[0])
-			for t in [rng.randf_range(0.24, 0.42), rng.randf_range(0.6, 0.82)]:
+			# Slabs, not one grey ribbon: the joints cross the whole walk —
+			# flagstones and kerb alike — at their own rhythm on every tile,
+			# and every other slab is a shade off its neighbours, so no two
+			# stretches of paving look stamped out alike.
+			var rng := _deterministic_rng(pos + dir)
+			var joints := [rng.randf_range(0.24, 0.42), rng.randf_range(0.6, 0.82)]
+			var lit := rng.randf() < 0.5
+			var from := 0.0
+			for to in joints + [1.0]:
+				if lit:
+					extra.append(_tile_polygon(pos, _band(CENTRE.lerp(edge, from),
+								CENTRE.lerp(edge, to), axis, PAVED_HALF_W), PAVED_LIGHT))
+				lit = not lit
+				from = to
+			for t in joints:
 				var at := CENTRE.lerp(edge, t)
-				extra.append(_tile_line(pos, at + axis * PAVED_HALF_W,
-						at - axis * PAVED_HALF_W, PAVED_JOINT, 1.0))
-			# Some slabs catch the light and some do not, so the paving does
-			# not repeat one bright patch at every tile centre.
-			if rng.randf() < 0.6:
-				extra.append(_tile_polygon(pos,
-						_band(CENTRE, edge, axis, PAVED_HALF_W * rng.randf_range(0.25, 0.45)), PAVED_LIGHT))
-			extra.append_array(_trail_grain(pos, CENTRE.lerp(edge, 0.55), axis, conn[0]))
+				extra.append(_tile_line(pos, at + axis * PAVED_OUTER_W,
+							at - axis * PAVED_OUTER_W, PAVED_JOINT, 1.0))
+			extra.append_array(_speckles(pos, CENTRE.lerp(edge, 0.55), axis, dir,
+					PAVED_OUTER_W, PAVED_VERGE_W, PAVED_GRAVEL))
+			extra.append_array(_blades(pos, CENTRE.lerp(edge, 0.55), axis, dir, PAVED_VERGE_W))
 	if connected.size() == 1:
 		# A paved end: kerb and flagstones both come to their point away from
-		# the one neighbour, so the paving stops rather than running off the tile.
-		var back := -Vector2(connected[0][0])
-		var axis: Vector2 = connected[0][2]
+		# the one neighbour, so the paving stops rather than running off the
+		# tile. Against a wall it is the far end that comes to the point.
+		var back := -Vector2(connected[0]["dir"])
+		var axis: Vector2 = connected[0]["axis"]
 		var tip := CENTRE + back * PAVED_END_REACH
 		verge.append(_tile_polygon(pos, _taper(CENTRE + back * (PAVED_END_REACH + 0.06),
-				CENTRE, axis, PAVED_VERGE_W), PAVED_VERGE))
+					CENTRE, axis, PAVED_VERGE_W), PAVED_VERGE))
 		body.append(_tile_polygon(pos, _taper(tip, CENTRE, axis, PAVED_OUTER_W), PAVED_DARK))
-		body.append(_tile_polygon(pos, _taper(tip + Vector2(connected[0][0]) * 0.06,
-				CENTRE, axis, PAVED_HALF_W), PAVED_COLOR))
+		body.append(_tile_polygon(pos, _taper(tip + Vector2(connected[0]["dir"]) * 0.06,
+					CENTRE, axis, PAVED_HALF_W), PAVED_COLOR))
 		return verge + body + extra
 	# The paved apron where the arms meet: a kerb ring around flagstones, both
 	# cut across the corners so the paving stays as wide as the walk it joins.
@@ -361,24 +480,39 @@ func _paved_commands(pos: Vector2i, detail: bool) -> Array:
 		extra.append(_tile_polygon(pos, _pad_shape(PAVED_DOT * 0.5, PAVED_HALF_W * 0.38, along), PAVED_LIGHT))
 	return verge + body + extra
 
-## Dry patches, pebbles and grass blades along the tile's trail. `from` is a
-## point on the walk, `axis` the direction across it and `dir` the arm laid
-## through the tile (all in tile units), so every tile is weathered its own way.
-func _trail_grain(pos: Vector2i, from: Vector2, axis: Vector2, dir: Vector2i) -> Array:
+## Grit scattered along the walk: dry patches and pebbles trodden into the
+## dirt, gravel spilled over the verge of paving. `from` is a point on the
+## walk, `axis` the direction across it and `dir` the arm laid through the
+## tile; the grit falls in the strips between `inner` and `outer` either side
+## of the walk (all in tile units), so it lands where that surface is worn.
+func _speckles(pos: Vector2i, from: Vector2, axis: Vector2, dir: Vector2i,
+		inner: float, outer: float, color: Color) -> Array:
 	var cmds: Array = []
 	var rng := _deterministic_rng(pos + dir)
+	var unit := _unit(pos, from)
 	for i in range(2):
 		var t := rng.randf_range(-0.35, 0.35)
-		var side := rng.randf_range(-0.8, 0.8)
-		var at := _pt(pos, from + axis * side * DIRT_HALF_W + Vector2(dir) * t * 0.5)
-		cmds.append(_circle(at, rng.randf_range(0.5, 1.2), DIRT_LIGHT))
+		var side := 1.0 if rng.randf() < 0.5 else -1.0
+		var reach := lerpf(inner, outer, rng.randf_range(0.25, 1.0))
+		var at := _pt(pos, from + axis * side * reach + Vector2(dir) * t * 0.5)
+		cmds.append(_circle(at, rng.randf_range(0.022, 0.042) * unit, color))
+	return cmds
+
+## Grass blades leaning over the verges. `verge` is the half-width the blades
+## stand at, so they overhang the walk without ever standing on it.
+func _blades(pos: Vector2i, from: Vector2, axis: Vector2, dir: Vector2i,
+		verge: float) -> Array:
+	var cmds: Array = []
+	var rng := _deterministic_rng(pos + dir + Vector2i(7, 13))
+	var unit := _unit(pos, from)
 	for i in range(2):
 		var side := 1.0 if i == 0 else -1.0
 		var t := rng.randf_range(0.18, 0.75)
-		var at := _pt(pos, from + axis * side * (DIRT_VERGE_W + 0.04) + Vector2(dir) * t * 0.5)
-		var lean := rng.randf_range(-1.5, 1.5)
+		var at := _pt(pos, from + axis * side * (verge + 0.03) + Vector2(dir) * t * 0.5)
+		var lean := rng.randf_range(-0.05, 0.05)
 		# Blades lean away from the tile centre and lean with the walk.
-		cmds.append(_line(at, at + Vector2(lean, -rng.randf_range(1.6, 2.8)), GRASS_BLADES, 1.0))
+		cmds.append(_line(at, at + Vector2(lean, -rng.randf_range(0.05, 0.085)) * unit,
+					GRASS_BLADES, 1.0))
 	return cmds
 
 # =============================================================================
@@ -434,11 +568,40 @@ func _circle(center: Vector2, radius: float, color: Color) -> DrawCommand:
 ## direction across the walk (a grid axis), so adjoining tiles' bands meet on
 ## the shared edge without a seam.
 static func _band(from: Vector2, to: Vector2, axis: Vector2, half_width: float) -> Array[Vector2]:
+	return _flare(from, to, axis, half_width, half_width)
+
+## A band that broadens (or narrows) as it runs: `half_from` across at `from`,
+## `half_to` across at `to`. This is the threshold where a walk meets a wall,
+## and any other stretch of it that is wider at one end than the other.
+static func _flare(from: Vector2, to: Vector2, axis: Vector2,
+		half_from: float, half_to: float) -> Array[Vector2]:
 	var pts: Array[Vector2] = []
-	pts.append(from + axis * half_width)
-	pts.append(to + axis * half_width)
-	pts.append(to - axis * half_width)
-	pts.append(from - axis * half_width)
+	pts.append(from + axis * half_from)
+	pts.append(to + axis * half_to)
+	pts.append(to - axis * half_to)
+	pts.append(from - axis * half_from)
+	return pts
+
+## Where a walk's threshold begins: `APRON_REACH` back from the middle of the
+## edge it shares with the building, going `dir` towards that building.
+static func _apron_start(dir: Vector2i) -> Vector2:
+	return CENTRE + Vector2(dir) * (0.5 - APRON_REACH)
+
+## A band down the walk whose half width wanders between stations, so the
+## polished crown of a trail reads as trodden rather than printed. Both ends
+## keep the width they were given, so a crown still meets its neighbour's
+## across the shared edge without a step.
+static func _wavy_band(from: Vector2, to: Vector2, axis: Vector2, half_width: float,
+		rng: RandomNumberGenerator) -> Array[Vector2]:
+	var along := to - from
+	var stations := [0.0, 0.34, 0.68, 1.0]
+	var drift := [1.0, rng.randf_range(0.6, 1.4), rng.randf_range(0.6, 1.4), 1.0]
+	var shift := rng.randf_range(-0.3, 0.3) * half_width
+	var pts: Array[Vector2] = []
+	for i in stations.size():
+		pts.append(from + along * stations[i] + axis * (shift + half_width * drift[i]))
+	for i in range(stations.size() - 1, -1, -1):
+		pts.append(from + along * stations[i] + axis * (shift - half_width * drift[i]))
 	return pts
 
 ## The pad where a tile's arms meet: an octagon `reach` along the walk and
@@ -469,11 +632,12 @@ static func _taper(tip: Vector2, to: Vector2, axis: Vector2, half_width: float) 
 
 ## The direction the walk runs through a tile: the sum of its arms, so a corner
 ## runs along the bisector of its two arms. A crossroads, with as many arms each
-## way, has no single direction and keeps the plain tile centre.
+## way, has no single direction and keeps the plain tile centre. An arm into a
+## building counts as any other: a walk turning in at a door is still a corner.
 func _walk_dir(connected: Array) -> Vector2:
 	var sum := Vector2.ZERO
 	for conn in connected:
-		sum += Vector2(conn[0])
+		sum += Vector2(conn["dir"])
 	if sum.length_squared() < 0.01:
 		return Vector2.ZERO
 	return sum.normalized()

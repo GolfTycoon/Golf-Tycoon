@@ -44,12 +44,11 @@ func _generate_dots_for_tile(pos: Vector2i) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_val
 
-	var is_deep = terrain_grid.get_bunker_depth(pos) == 1
-	var min_dots = 5 if _is_web else (10 if is_deep else 6)
-	var max_dots = 8 if _is_web else (18 if is_deep else 12)
+	var min_dots = 5 if _is_web else 6
+	var max_dots = 8 if _is_web else 12
 	var dot_count = rng.randi_range(min_dots, max_dots)
-	var min_radius = 1.0 if is_deep else 0.8
-	var max_radius = 2.0 if is_deep else 1.5
+	var min_radius = 0.8
+	var max_radius = 1.5
 	for i in range(dot_count):
 		var dx = rng.randf_range(4.0, terrain_grid.tile_width - 4.0)
 		var dy = rng.randf_range(3.0, terrain_grid.tile_height - 3.0)
@@ -62,7 +61,7 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 	if new_type == TerrainTypes.Type.BUNKER:
 		if tile_pos not in _bunker_positions:
 			_bunker_positions.append(tile_pos)
-		# Always regenerate dots (depth may have changed)
+		# Regenerate the sand stipple when a bunker is painted.
 		_generate_dots_for_tile(tile_pos)
 	elif old_type == TerrainTypes.Type.BUNKER:
 		_bunker_positions.erase(tile_pos)
@@ -87,8 +86,7 @@ func _draw() -> void:
 		if not _dot_offsets.has(pos):
 			continue
 
-		var is_deep = terrain_grid.get_bunker_depth(pos) == 1
-		var dot_color = Color(0.60, 0.55, 0.35, 0.45) if is_deep else Color(0.75, 0.68, 0.45, 0.35)
+		var dot_color := Color(0.75, 0.68, 0.45, 0.35)
 		var dots = _dot_offsets[pos]
 		for dot in dots:
 			var dot_pos = local_pos + Vector2(dot.x, dot.y)

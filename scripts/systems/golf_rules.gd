@@ -211,9 +211,7 @@ static func get_putt_miss_characteristics(distance_tiles: float, putting_skill: 
 
 ## Get accuracy modifier for a given terrain type and club.
 ## Returns 0.0-1.05 where 1.0 = perfect lie, lower = harder.
-## bunker_depth: 0 = SHALLOW (default), 1 = DEEP. Only Bunker tiles have a
-## depth; a Pot Bunker is always steeper than a deep bunker.
-static func get_lie_modifier(terrain_type: int, club: int, bunker_depth: int = 0) -> float:
+static func get_lie_modifier(terrain_type: int, club: int) -> float:
 	# Rocks, Small Boulders and Large Boulders are one lie; only the stones
 	# drawn on them differ (they are not grouped in the match below, whose arms
 	# are single terrain ids).
@@ -241,9 +239,7 @@ static func get_lie_modifier(terrain_type: int, club: int, bunker_depth: int = 0
 		TerrainTypes.Type.DEEP_ROUGH:
 			return 0.4   # Ball sits down in knee-high grass
 		TerrainTypes.Type.BUNKER:
-			if bunker_depth == 1:  # DEEP
-				return 0.45 if club == Golfer.Club.WEDGE else 0.25
-			return 0.6 if club == Golfer.Club.WEDGE else 0.4
+			return 0.6 if club == Golfer.Club.WEDGE else 0.4  # Always shallow
 		TerrainTypes.Type.POT_BUNKER:
 			# Steep revetted face: only a lofted wedge gets out cleanly.
 			return 0.35 if club == Golfer.Club.WEDGE else 0.15
@@ -258,8 +254,7 @@ static func get_lie_modifier(terrain_type: int, club: int, bunker_depth: int = 0
 
 ## Get distance modifier for a given terrain type.
 ## Returns 0.0-1.0 where 1.0 = full distance.
-## bunker_depth: 0 = SHALLOW, 1 = DEEP
-static func get_terrain_distance_modifier(terrain_type: int, bunker_depth: int = 0) -> float:
+static func get_terrain_distance_modifier(terrain_type: int) -> float:
 	if TerrainTypes.is_rocks(terrain_type):
 		return 0.5   # 50% distance loss on any stony ground
 	if TerrainTypes.is_tree(terrain_type):
@@ -272,7 +267,7 @@ static func get_terrain_distance_modifier(terrain_type: int, bunker_depth: int =
 		TerrainTypes.Type.DEEP_ROUGH:
 			return 0.6   # 40% distance loss
 		TerrainTypes.Type.BUNKER:
-			return 0.60 if bunker_depth == 1 else 0.75  # Deep: 40%, Shallow: 25% loss
+			return 0.75  # Standard bunkers are always shallow
 		TerrainTypes.Type.POT_BUNKER:
 			return 0.45  # 55% distance loss — straight up over the face
 		TerrainTypes.Type.WASTE_BUNKER:

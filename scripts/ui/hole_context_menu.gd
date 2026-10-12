@@ -8,8 +8,6 @@ var terrain_grid: TerrainGrid
 var _just_opened: bool = true
 
 signal move_tee_requested(hole_number: int)
-signal move_forward_tee_requested(hole_number: int)
-signal move_middle_tee_requested(hole_number: int)
 signal move_green_requested(hole_number: int)
 signal toggle_hole_requested(hole_number: int)
 signal view_stats_requested(hole_number: int)
@@ -23,18 +21,23 @@ func _init(p_hole_data: GameManager.HoleData, p_terrain_grid: TerrainGrid) -> vo
 	_build_ui()
 
 func _ready() -> void:
-	# Style the panel background
+	# The style is built in a function of its own: a local still alive across
+	# the await below would leak if the menu were freed before it resumes.
+	add_theme_stylebox_override("panel", _panel_style())
+
+	# Clear the just_opened flag after one frame so clicks can close the menu
+	await get_tree().process_frame
+	_just_opened = false
+
+## The panel background.
+func _panel_style() -> StyleBoxFlat:
 	var panel_style = StyleBoxFlat.new()
 	panel_style.bg_color = UIConstants.COLOR_BG_PANEL
 	panel_style.set_border_width_all(1)
 	panel_style.border_color = UIConstants.COLOR_BORDER
 	panel_style.set_corner_radius_all(6)
 	panel_style.set_content_margin_all(8)
-	add_theme_stylebox_override("panel", panel_style)
-
-	# Clear the just_opened flag after one frame so clicks can close the menu
-	await get_tree().process_frame
-	_just_opened = false
+	return panel_style
 
 func _input(event: InputEvent) -> void:
 	if _just_opened:
@@ -86,20 +89,6 @@ func _build_ui() -> void:
 		tee_btn.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	tee_btn.pressed.connect(func(): move_tee_requested.emit(hole_data.hole_number); _close())
 	vbox.add_child(tee_btn)
-
-	# Move Forward/Middle Tee buttons (only when multi-tee enabled)
-	if GameManager.multi_tee_enabled:
-		var fwd_tee_btn = _create_menu_button("  Move Forward Tee")
-		fwd_tee_btn.add_theme_font_size_override("font_size", 12)
-		fwd_tee_btn.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))  # Red tint
-		fwd_tee_btn.pressed.connect(func(): move_forward_tee_requested.emit(hole_data.hole_number); _close())
-		vbox.add_child(fwd_tee_btn)
-
-		var mid_tee_btn = _create_menu_button("  Move Middle Tee")
-		mid_tee_btn.add_theme_font_size_override("font_size", 12)
-		mid_tee_btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))  # White tint
-		mid_tee_btn.pressed.connect(func(): move_middle_tee_requested.emit(hole_data.hole_number); _close())
-		vbox.add_child(mid_tee_btn)
 
 	# Move Green button
 	var green_label = "Place Green" if green_orphaned else "Move Green"

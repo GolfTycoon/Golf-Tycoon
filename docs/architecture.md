@@ -105,7 +105,7 @@ rebuilds itself can never swallow another:
 | Band | What paints there |
 | --- | --- |
 | 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
-| 1 | Ground detail painted over the surface: the walking trail (`WalkingPathOverlay`), trees, flowers, fairway, water, wildlife, and a golfer's shadow and active-shot highlight ring (`-1`) |
+| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: flowers, the walking trail (`WalkingPathOverlay`), the trees standing over both, and the wildlife that wanders through it all — plus a golfer's shadow and active-shot highlight ring (`-1`) |
 | 2 | Entities: golfers (`scenes/entities/golfer.tscn`) and the buildings and decorations layer (`entity_layer.gd`) |
 | 3 | On-course staff and weeds |
 | 4-6 | Course-editing helpers drawn over the ground: elevation preview (4), land boundary (5), cup (6) |
@@ -116,11 +116,15 @@ rebuilds itself can never swallow another:
 
 The UI is a `CanvasLayer`, so it always draws over the world whatever band it uses.
 
-Two rules keep it honest: **entities never paint in a ground band** (a golfer at
-z 0 would be covered by the first trail or flower bed painted over its tile), and
-**a golfer's art stays whole** — the sprite, the shadow, the rings and the label
-are all offsets of the one band on the scene root. `tests/unit/test_golfer_draw_order.gd`
-holds both.
+Three rules keep it honest: **entities never paint in a ground band** (a golfer at
+z 0 would be covered by the first trail or flower bed painted over its tile), **a
+golfer's art stays whole** — the sprite, the shadow, the rings and the label are
+all offsets of the one band on the scene root — and **whatever stands on the
+ground is ranked over the marks laid on it**: the layers sharing the ground band
+are ordered by sibling, not by z, so a walking trail runs under a wood's trunks
+and crowns instead of through them.
+`tests/unit/golfers/test_golfer_draw_order.gd` and
+`tests/unit/course_design/test_terrain_draw_order.gd` hold all three.
 
 ---
 

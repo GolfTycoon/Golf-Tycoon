@@ -76,7 +76,7 @@ price = (ring − 1) × RING_COST + (WRONG_SIDE_COST when the tile is on the sam
         side as the hole's other end)
 ```
 
-- A **tee's** targets are the back tee (`hole.tee_position` — the forward and middle tees of a multi-tee course lie along the corridor the path follows anyway), priced away from the green; a **green's** targets are the cup plus the ring of green around it (`_green_tiles()`), priced away from the tee. So a walk comes in behind the tee and past the green, never across the putting surface or in the line of play.
+- A **tee's** targets are the hole's tee (`hole.tee_position`), priced away from the green; a **green's** targets are the cup plus the ring of green around it (`_green_tiles()`), priced away from the tee. So a walk comes in behind the tee and past the green, never across the putting surface or in the line of play.
 - Both prices are dear against a tile of ordinary walking: a leg that could come in two rings closer for a detour of three tiles takes the detour. The search then settles on the *cheapest arrival* rather than the first goal it reaches, so a walk comes as close to the play as the ground lets it.
 - The **clubhouse end** is its door (`_clubhouse_door()`): the nearest layable tile orthogonally beside the footprint (`_clubhouse_arrival()`), else `CourseClubhouse.front_tile()`, else the nearest layable tile within `CLUBHOUSE_REACH`, or — when the course has no clubhouse yet — the tile below `clubhouse_hint`.
 
@@ -104,7 +104,7 @@ budget    = NODE_BUDGET cells; the frontier is _Frontier, a binary heap over fla
 
 The search settles the **cheapest arrival**, not the first goal it reaches: `_arrival()` prices a goal tile by its own hub price, keeps expanding through goal tiles, and stops when the frontier can no longer beat the best arrival found. Without that, a leg takes the first ground it can touch and leaves the tee or the green a long way off.
 
-Four directions only, never eight: `WalkingPathOverlay` floods the network 4-connected and draws a trail as one continuous band only where tiles share an edge, so a diagonal step would leave two tiles touching at a corner — a row of separate dots on screen, and a network split in two.
+Four directions only, never eight: `WalkingPathOverlay` floods the network 4-connected and draws a trail as one continuous band only where tiles share an edge, so a diagonal step would leave two tiles touching at a corner — a row of separate dots on screen, and a network split in two. A wall is not an edge to join across either: a trail that comes up against a building runs into it and stops there, and the building never carries the network through to the trail on its other side.
 
 A leg that cannot be planned is skipped silently and the rest of the network is still laid; a capped leg longer than `MAX_LINK_TILES` is left unlaid for the same reason, because a walk that long would snake across the property rather than read as a path.
 

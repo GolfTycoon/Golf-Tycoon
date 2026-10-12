@@ -12,10 +12,10 @@ class_name HolePathPlanner
 ##   * Par 4/5 routes are planned by a WorkerThreadPool task against a detached
 ##     copy of the terrain (TerrainGrid.create_analysis_copy()), never the live
 ##     grid, painted the way the course will look once the hole opens: the cup
-##     tile green, plus any forward/middle tee tiles Open Hole adds (multi-tee).
+##     tile green.
 ##     One task runs at a time; while it runs only the most recent request is
 ##     remembered, so the route catches up as soon as the cursor settles.
-##   * Finished routes are cached per (tee, cup, par, extra tees) until the terrain
+##   * Finished routes are cached per (tee, cup, par) until the terrain
 ##     changes (TerrainGrid.terrain_revision), so sweeping back over a tile is instant.
 ##   * Without thread support (the Web export) a route is planned on the main
 ##     thread, but only once the cursor has rested on the same tile for
@@ -32,7 +32,7 @@ var threaded: bool = OS.has_feature("threads")
 ## ShotAI then blocks the frame for a moment, so only plan where the player is looking.
 var inline_dwell_msec: int = 500
 
-var _cache: Dictionary = {}  # [tee, cup, par, extra_tees] -> Array[Vector2i]
+var _cache: Dictionary = {}  # [tee, cup, par] -> Array[Vector2i]
 var _cache_revision: int = -1
 var _cache_grid_id: int = 0
 
@@ -58,12 +58,8 @@ class _RouteJob:
 		var tee: Vector2i = key[0]
 		var cup: Vector2i = key[1]
 		var par: int = key[2]
-		var extra_tees: Array = key[3]
-		# Plan the course as it will be once the hole opens: the cup tile is green
-		# and Open Hole has painted the forward/middle tees.
+		# Plan the course as it will be once the hole opens: the cup tile is green.
 		var painted: Dictionary = {cup: TerrainTypes.Type.GREEN}
-		for extra_tee in extra_tees:
-			painted[extra_tee] = TerrainTypes.Type.TEE_BOX
 		var before: Dictionary = {}
 		for pos in painted:
 			before[pos] = grid.get_tile(pos)
@@ -73,10 +69,8 @@ class _RouteJob:
 			grid.set_analysis_tile(pos, before[pos])
 
 ## The planned route [tee, landing..., cup], or [] while it is still being planned
-## — draw the direct tee-to-cup line meanwhile. `extra_tees` are the forward/middle
-## tee tiles Open Hole will paint (HoleLayout.potential_hole().extra_tees).
-func route_for(grid: TerrainGrid, tee: Vector2i, cup: Vector2i, par: int,
-		extra_tees: Array = []) -> Array[Vector2i]:
+## — draw the direct tee-to-cup line meanwhile.
+func route_for(grid: TerrainGrid, tee: Vector2i, cup: Vector2i, par: int) -> Array[Vector2i]:
 	if par <= 3:
 		# ShotPathCalculator doesn't consult ShotAI for par 3s: one shot to the cup.
 		return [tee, cup]
@@ -84,9 +78,7 @@ func route_for(grid: TerrainGrid, tee: Vector2i, cup: Vector2i, par: int,
 		return []
 	_sync_cache(grid)
 	poll()
-	var sorted_tees := extra_tees.duplicate()
-	sorted_tees.sort()
-	var key: Array = [tee, cup, par, sorted_tees]
+	var key: Array = [tee, cup, par]
 	if _cache.has(key):
 		_wanted = {}  # The newest request is answered; anything older is moot.
 		return _cache[key]

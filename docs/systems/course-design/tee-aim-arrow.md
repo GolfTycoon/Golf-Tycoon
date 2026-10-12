@@ -14,7 +14,7 @@ Each tee tile shows a small arrow in its grass, with a red ball on each side of 
 - **Straight hole:** one straight arrow pointing down the tee-to-cup line.
 - **Dogleg:** a curved arrow. The tail leaves the tee along the drive line. The bend follows the turn of the hole. The tip points down the approach line toward the green.
 - **Waiting tee box:** a tee you have painted but not yet opened already aims at the waiting cup. It shows the same arrow the hole gets once you press **Open Hole**.
-- **Nothing to aim at:** a tee on a course with no waiting cup and no hole of its own stays bare. Automatic forward and middle tees each aim at the cup of their own hole.
+- **Nothing to aim at:** a tee on a course with no waiting cup and no hole of its own stays bare.
 
 The arrow is a fixed-size sign, not a miniature map, so every tee looks the same. Its direction comes from the flat map. Elevation lifts the tile the arrow sits on, but it does not bend the arrow. The arrow is then scaled to fit inside the tile's grass.
 
@@ -24,7 +24,7 @@ The arrow is a fixed-size sign, not a miniature map, so every tee looks the same
 
 ### 1. Which tee aims where
 
-`TeeAimOverlay.rebuild()` indexes each hole's cup by tee tile. It includes `hole.tee_position` and every entry of `hole.tee_positions` (back, forward and middle). It then walks `TerrainGrid.get_tee_box_tiles()`. Any tee not claimed by a hole aims at the single waiting cup from `HoleLayout.unused_cups()`. Opening a hole consumes that cup marker, so the two cases never overlap.
+`TeeAimOverlay.rebuild()` indexes each hole's cup by its tee tile (`hole.tee_position`). It then walks `TerrainGrid.get_tee_box_tiles()`. Any tee not claimed by a hole aims at the single waiting cup from `HoleLayout.unused_cups()`. Opening a hole consumes that cup marker, so the two cases never overlap.
 
 `TerrainGrid` runs this rebuild, deferred and coalesced, whenever a tile, a waiting cup or a hole changes. The overlay also redraws when the view rotates or the camera moves.
 
@@ -99,5 +99,4 @@ In these cases the marker may overlap a neighbouring tile by a pixel or two. Tha
 ## Related
 
 - [Hole Creation](hole-creation.md) explains when a waiting tee aims at a waiting cup.
-- [Multiple Tee Boxes](multiple-tee-boxes.md) covers the forward and middle tees, which each get an arrow.
 - [Course Surface](course-surface.md) covers the grass the arrow is painted on.

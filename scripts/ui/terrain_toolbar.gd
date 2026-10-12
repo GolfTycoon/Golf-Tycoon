@@ -535,7 +535,7 @@ func _build_terrain_tab(hbox: HBoxContainer) -> void:
 	# Top row: the tee and the green first, then the hazards and trouble.
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.TEE_BOX, "name": "Tee Box", "hotkey": "4", "desc": "Tee for one hole — a single tile (1x1). Only one tee box may wait on the course at a time", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.GREEN, "name": "Green", "hotkey": "3", "desc": "Next green placement is a Green With Hole (one tile with a cup). The flag on this tile shows when it will place a cup.", "tile_preview": true})
-	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.BUNKER, "name": "Bunker", "hotkey": "5", "desc": "Sand trap hazard", "tile_preview": true})
+	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.BUNKER, "name": "Bunker", "hotkey": "5", "desc": "Shallow sand-trap hazard", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.ROUGH, "name": "Rough", "hotkey": "2", "desc": "Longer grass bordering fairways", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.POT_BUNKER, "name": "Pot Bunker", "hotkey": "Shift+5", "desc": "Small, deep bunker with a steep stacked-turf face. Wedge only, and the ball barely advances", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.STREAM, "name": "Stream", "hotkey": "Shift+6", "desc": "Running water hazard with a one-stroke penalty. Paint it in lines; golfers can still walk across", "tile_preview": true})

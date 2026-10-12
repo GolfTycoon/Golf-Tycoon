@@ -64,17 +64,6 @@ func _build_hole(tee_position: Vector2i, cup_position: Vector2i) -> GameManager.
 	# Calculate par based on distance
 	hole.par = calculate_par(hole.distance_yards)
 
-	# Auto-generate multiple tee boxes
-	hole.tee_positions = {"back": hole.tee_position, "middle": hole.tee_position, "forward": hole.tee_position}
-	if GameManager.multi_tee_enabled:
-		hole.auto_generate_tee_positions(grid)
-		# Paint TEE_BOX terrain at forward/middle tee positions
-		for tee_key in ["forward", "middle"]:
-			var tee_pos: Vector2i = hole.tee_positions[tee_key]
-			if tee_pos != hole.tee_position and grid.is_valid_position(tee_pos):
-				grid.set_tile(tee_pos, TerrainTypes.Type.TEE_BOX)
-	hole.recalculate_par_by_tee(grid)
-
 	# Calculate difficulty rating based on surrounding terrain
 	hole.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole, grid)
 

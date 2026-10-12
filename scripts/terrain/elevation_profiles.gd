@@ -10,7 +10,7 @@ extends RefCounted
 ## Each value is an offset in elevation units from the tile's base elevation.
 ## Positive = raised, negative = depressed relative to base.
 const PROFILES: Dictionary = {
-	# BUNKER: Deep bowl-shaped depression, steep lip at edges
+	# BUNKER: Shallow bowl-shaped depression with a modest grass lip
 	TerrainTypes.Type.BUNKER: [
 		[ -0.25, -0.55, -0.55, -0.25 ],
 		[ -0.55, -0.90, -0.90, -0.55 ],
@@ -177,15 +177,17 @@ static func get_profile(terrain_type: int) -> Array:
 ## Uses the tile position as seed so it's deterministic (consistent across redraws).
 static func get_varied_profile(terrain_type: int, tile_pos: Vector2i) -> Array:
 	var base_profile: Array = get_profile(terrain_type)
-	var seed_val: int = tile_pos.x * 7919 + tile_pos.y * 6271  # Deterministic hash
-
 	var result: Array = []
 	for y in 4:
 		var row: Array = []
 		for x in 4:
-			var noise_seed: int = seed_val + y * 37 + x * 13
-			# Pseudo-random in [-0.10, +0.10] range
-			var noise: float = (fmod(abs(sin(float(noise_seed) * 43758.5453)), 1.0) - 0.5) * 0.20
-			row.append(base_profile[y][x] + noise)
+			row.append(base_profile[y][x] + variation(tile_pos, x, y))
 		result.append(row)
 	return result
+
+## The pseudo-random offset, in [-0.10, +0.10], that get_varied_profile() adds
+## to sub-tile (x, y) of the tile at `tile_pos`. It depends on the position
+## alone, so the heightmap can work it out once and keep it.
+static func variation(tile_pos: Vector2i, x: int, y: int) -> float:
+	var noise_seed: int = tile_pos.x * 7919 + tile_pos.y * 6271 + y * 37 + x * 13
+	return (fmod(abs(sin(float(noise_seed) * 43758.5453)), 1.0) - 0.5) * 0.20

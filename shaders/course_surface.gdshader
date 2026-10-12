@@ -157,10 +157,9 @@ float rocks_tallness(float id) {
 	return id == T_LARGE_BOULDERS ? 1.7 : 1.0;
 }
 
-vec2 tile_at(vec2 p) {
+float tile_at(vec2 p) {
 	vec4 data = texture(terrain_data, (clamp(p, vec2(0.0), grid_size - 1.0) + 0.5) / grid_size);
-	float id = floor(data.r * 255.0 + 0.5);
-	return vec2(id, data.g);
+	return floor(data.r * 255.0 + 0.5);
 }
 
 // Boundary class: terrain that reads as one material across tile borders. A
@@ -320,7 +319,7 @@ vec3 tree_ground(float id, vec3 base, vec2 g, float grain, float patch) {
 	return base;
 }
 
-vec3 surface(float id, float cover, float depth, vec2 world, float grain, float patch) {
+vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	vec3 base = palette_color(id);
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
 	float edge = 1.0 - smoothstep(0.50, 0.68, cover);
@@ -340,7 +339,6 @@ vec3 surface(float id, float cover, float depth, vec2 world, float grain, float 
 	} else if (id == 7.0) {
 		// Recessed sand with a grass lip, warm bowl, and fine rake marks.
 		base = mix(base * 1.12, vec3(0.35, 0.40, 0.24), edge * 0.78);
-		base *= 1.0 - depth * 0.12;
 		float rake = sin(world.y * 1.15 + sin(world.x * 0.022) * 3.0);
 		variation = (grain - 0.5) * 0.06 + rake * 0.012;
 	} else if (id == 8.0) {
@@ -457,7 +455,7 @@ float corner_filled(vec2 q, vec2 cell, float e, float s, float w, float n, float
 	if (side_x * side_y < 0.5) {
 		return 0.0;
 	}
-	float diagonal = tile_at(cell + quadrant * 2.0 - 1.0).x;
+	float diagonal = tile_at(cell + quadrant * 2.0 - 1.0);
 	float linked = self_id == T_STREAM ? is_wet(diagonal) : step(abs(diagonal - self_id), 0.5);
 	return linked;
 }
@@ -511,7 +509,7 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		water += vec3(0.14, 0.2, 0.2) * current * deep * 0.6;
 		float glint = smoothstep(0.93, 1.0, crest) * smoothstep(0.65, 0.85, noise(g * 3.0 + vec2(TIME * 0.2, 0.0)));
 		water += vec3(0.3, 0.35, 0.3) * glint * 0.35;
-		water = mix(water, surface(8.0, 1.0, 0.0, world, grain, patch), pond);
+		water = mix(water, surface(8.0, 1.0, world, grain, patch), pond);
 
 		vec3 bank = mix(own, outside, edge_mix);
 		vec3 mud = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.6);
@@ -614,11 +612,11 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 // anything it can't sit on (which never draw a band against it), so that is
 // what it contributes — except the sand a waste bunker runs under stones and
 // shrubs.
-vec3 neighbour_surface(vec2 tile, float cover, float self_id, vec2 world, float grain, float patch) {
-	if (is_inset(tile.x) && !carries(tile.x, self_id)) {
-		return surface(1.0, 1.0, 0.0, world, grain, patch);
+vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float grain, float patch) {
+	if (is_inset(tile) && !carries(tile, self_id)) {
+		return surface(1.0, 1.0, world, grain, patch);
 	}
-	return surface(tile.x, cover, tile.y, world, grain, patch);
+	return surface(tile, cover, world, grain, patch);
 }
 
 void fragment() {
@@ -639,11 +637,11 @@ void fragment() {
 		vec2 sample_pos = p + warp * 0.08;
 		vec2 cell = floor(sample_pos);
 		vec2 f = fract(sample_pos);
-		vec2 a = tile_at(cell);
-		vec2 t_e = tile_at(cell + vec2(1.0, 0.0));
-		vec2 t_s = tile_at(cell + vec2(0.0, 1.0));
-		vec2 t_w = tile_at(cell + vec2(-1.0, 0.0));
-		vec2 t_n = tile_at(cell + vec2(0.0, -1.0));
+		float a = tile_at(cell);
+		float t_e = tile_at(cell + vec2(1.0, 0.0));
+		float t_s = tile_at(cell + vec2(0.0, 1.0));
+		float t_w = tile_at(cell + vec2(-1.0, 0.0));
+		float t_n = tile_at(cell + vec2(0.0, -1.0));
 
 		// Material boundaries sit on the shared tile edges inside a narrow
 		// anti-aliased band. The old bilinear coverage field made the boundary
@@ -655,8 +653,8 @@ void fragment() {
 		float d_w = -f.x;
 		float d_s = f.y - 1.0;
 		float d_n = -f.y;
-		vec4 open_edges = vec4(edge_between(a.x, t_e.x), edge_between(a.x, t_s.x),
-			edge_between(a.x, t_w.x), edge_between(a.x, t_n.x));
+		vec4 open_edges = vec4(edge_between(a, t_e), edge_between(a, t_s),
+			edge_between(a, t_w), edge_between(a, t_n));
 		float m_e = open_edges.x * smoothstep(-AA, AA, d_e);
 		float m_w = open_edges.z * smoothstep(-AA, AA, d_w);
 		float m_s = open_edges.y * smoothstep(-AA, AA, d_s);
@@ -676,10 +674,10 @@ void fragment() {
 		float c_n = open_edges.w * smoothstep(-FRINGE, FRINGE, d_n);
 		float cov_c = (1.0 - c_e) * (1.0 - c_w) * (1.0 - c_s) * (1.0 - c_n);
 		// A neighbour's own edge treatment, as that tile sees this one.
-		float cov_e = 1.0 - edge_between(t_e.x, a.x) * (1.0 - smoothstep(-FRINGE, FRINGE, d_e));
-		float cov_s = 1.0 - edge_between(t_s.x, a.x) * (1.0 - smoothstep(-FRINGE, FRINGE, d_s));
-		float cov_w = 1.0 - edge_between(t_w.x, a.x) * (1.0 - smoothstep(-FRINGE, FRINGE, d_w));
-		float cov_n = 1.0 - edge_between(t_n.x, a.x) * (1.0 - smoothstep(-FRINGE, FRINGE, d_n));
+		float cov_e = 1.0 - edge_between(t_e, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_e));
+		float cov_s = 1.0 - edge_between(t_s, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_s));
+		float cov_w = 1.0 - edge_between(t_w, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_w));
+		float cov_n = 1.0 - edge_between(t_n, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_n));
 
 		float grain = hash(floor(tile_world));
 		float patch = noise(tile_world * 0.009) * 0.65 + noise(tile_world * 0.035) * 0.35;
@@ -688,31 +686,31 @@ void fragment() {
 		// skip them elsewhere: most pixels evaluate a single surface.
 		vec3 color = vec3(0.0);
 		if (w_c > 0.0) {
-			vec3 own = surface(a.x, cov_c, a.y, tile_world, grain, patch);
-			if (is_inset(a.x)) {
-				vec3 native = surface(1.0, 1.0, 0.0, tile_world, grain, patch);
+			vec3 own = surface(a, cov_c, tile_world, grain, patch);
+			if (is_inset(a)) {
+				vec3 native = surface(1.0, 1.0, tile_world, grain, patch);
 				// The turf around the patch, blended toward each open edge.
 				float e_e = open_edges.x * smoothstep(-0.5, 0.0, d_e);
 				float e_s = open_edges.y * smoothstep(-0.5, 0.0, d_s);
 				float e_w = open_edges.z * smoothstep(-0.5, 0.0, d_w);
 				float e_n = open_edges.w * smoothstep(-0.5, 0.0, d_n);
 				vec3 around = vec3(0.0);
-				if (e_e > 0.0) { around += (carries(t_e.x, a.x) ? surface(t_e.x, 1.0, t_e.y, tile_world, grain, patch) : native) * e_e; }
-				if (e_s > 0.0) { around += (carries(t_s.x, a.x) ? surface(t_s.x, 1.0, t_s.y, tile_world, grain, patch) : native) * e_s; }
-				if (e_w > 0.0) { around += (carries(t_w.x, a.x) ? surface(t_w.x, 1.0, t_w.y, tile_world, grain, patch) : native) * e_w; }
-				if (e_n > 0.0) { around += (carries(t_n.x, a.x) ? surface(t_n.x, 1.0, t_n.y, tile_world, grain, patch) : native) * e_n; }
+				if (e_e > 0.0) { around += (carries(t_e, a) ? surface(t_e, 1.0, tile_world, grain, patch) : native) * e_e; }
+				if (e_s > 0.0) { around += (carries(t_s, a) ? surface(t_s, 1.0, tile_world, grain, patch) : native) * e_s; }
+				if (e_w > 0.0) { around += (carries(t_w, a) ? surface(t_w, 1.0, tile_world, grain, patch) : native) * e_w; }
+				if (e_n > 0.0) { around += (carries(t_n, a) ? surface(t_n, 1.0, tile_world, grain, patch) : native) * e_n; }
 				float around_w = e_e + e_s + e_w + e_n;
 				vec3 outside = around_w > 0.0 ? around / around_w : native;
 				float edge_mix = clamp(max(max(e_e, e_s), max(e_w, e_n)), 0.0, 1.0);
-				own = inset_tile(a.x, own, outside, edge_mix, open_edges, f, cell,
-					t_e.x, t_s.x, t_w.x, t_n.x, tile_world, grain, patch);
+				own = inset_tile(a, own, outside, edge_mix, open_edges, f, cell,
+					t_e, t_s, t_w, t_n, tile_world, grain, patch);
 			}
 			color += own * w_c;
 		}
-		if (w_e > 0.0) { color += neighbour_surface(t_e, cov_e, a.x, tile_world, grain, patch) * w_e; }
-		if (w_s > 0.0) { color += neighbour_surface(t_s, cov_s, a.x, tile_world, grain, patch) * w_s; }
-		if (w_w > 0.0) { color += neighbour_surface(t_w, cov_w, a.x, tile_world, grain, patch) * w_w; }
-		if (w_n > 0.0) { color += neighbour_surface(t_n, cov_n, a.x, tile_world, grain, patch) * w_n; }
+		if (w_e > 0.0) { color += neighbour_surface(t_e, cov_e, a, tile_world, grain, patch) * w_e; }
+		if (w_s > 0.0) { color += neighbour_surface(t_s, cov_s, a, tile_world, grain, patch) * w_s; }
+		if (w_w > 0.0) { color += neighbour_surface(t_w, cov_w, a, tile_world, grain, patch) * w_w; }
+		if (w_n > 0.0) { color += neighbour_surface(t_n, cov_n, a, tile_world, grain, patch) * w_n; }
 		color /= max(w_sum, 0.0001);
 		// Elevation slopes & 3D relief normal
 		float left_h = elevation_at_grid(p - vec2(0.6, 0.0));

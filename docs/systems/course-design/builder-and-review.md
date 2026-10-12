@@ -78,5 +78,4 @@ The corridor check is a heuristic, not a routing solver. A deliberate dogleg or 
 ## Related
 
 - [Terrain Types](terrain-types.md) covers the terrain tiles these brushes paint.
-- [Bunker Depth](bunker-depth.md) covers the shallow and deep bunker settings.
 - [Difficulty Calculator](difficulty-calculator.md) covers the rating that the value and aesthetics checks read alongside.

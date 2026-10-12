@@ -49,8 +49,7 @@ static func _calculate_hazard_difficulty(corridor_tiles: Array, terrain_grid: Te
 			TerrainTypes.Type.WATER, TerrainTypes.Type.STREAM:
 				water_count += 1
 			TerrainTypes.Type.BUNKER:
-				var depth = terrain_grid.get_bunker_depth(tile_pos)
-				bunker_difficulty += 0.25 if depth == 1 else 0.15
+				bunker_difficulty += 0.15  # Standard bunkers are always shallow
 			TerrainTypes.Type.POT_BUNKER:
 				bunker_difficulty += 0.3
 			TerrainTypes.Type.OUT_OF_BOUNDS:

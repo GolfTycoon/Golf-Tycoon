@@ -1,7 +1,7 @@
 extends ColorRect
 class_name CourseSurface
 ## Continuous, world-anchored terrain. Two textures feed the surface shader:
-##   R = terrain ID / 255, G = bunker depth,
+##   R = terrain ID / 255, G = reserved (always 0),
 ##   B = (tile elevation - MIN_ELEVATION) / (MAX_ELEVATION - MIN_ELEVATION),
 ##   A = reserved (always 1).
 ## The vertex_elevation image packs levels the same way, so the shader's
@@ -125,7 +125,7 @@ func flush_elevation() -> void:
 
 func _write_tile(pos: Vector2i) -> void:
 	_data.set_pixel(pos.x, pos.y, Color(float(_grid.get_tile(pos)) / 255.0,
-		float(_grid.get_bunker_depth(pos)),
+		0.0,
 		float(_grid.get_elevation(pos) - _grid.MIN_ELEVATION)
 				/ float(_grid.MAX_ELEVATION - _grid.MIN_ELEVATION),
 		1.0))

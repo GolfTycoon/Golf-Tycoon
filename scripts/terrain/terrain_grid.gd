@@ -32,7 +32,6 @@ const ANCHOR_RIM_MARGIN: float = 0.5
 var _grid: Dictionary = {}
 var _vertex_elevation: PackedInt32Array = PackedInt32Array()  # (grid_width+1) * (grid_height+1)
 var _vertex_stride: int = 0  # Row length of _vertex_elevation (grid_width + 1)
-var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 ## Green tiles carrying a cup that is not yet part of a hole — a "Green With Hole" tile
 ## waiting to be paired with a tee box. Once a hole is opened the marker is consumed and
@@ -63,8 +62,8 @@ signal cup_tiles_changed
 ## Emitted whenever the Path improvement (walking path) layer changes.
 signal walking_paths_changed
 
-## Bumped on every terrain type, bunker depth or elevation write — including the
-## quiet bulk paths (load, generation) that emit no per-tile signals — so caches of
+## Bumped on every terrain type or elevation write — including the quiet bulk
+## paths (load, generation) that emit no per-tile signals — so caches of
 ## terrain-derived results (see HolePathPlanner) can tell when they went stale.
 var terrain_revision: int = 0
 
@@ -93,6 +92,21 @@ var _heightmap: Heightmap = null
 var _elevation_shader_controller: ElevationShaderController = null
 var _elevation_shader_rect: ColorRect = null
 
+## Ground detail painted on the surface, bottom-up. All of it shares the terrain
+## band (`z_index` 1): the entity band opens at 2, so no whole number is left to
+## rank a canopy against the trail it crosses, and Godot settles a tie inside one
+## band by the order the children sit in the tree. Sibling order decides who
+## covers whom, so this list is the ranking and `_order_ground_detail()` applies
+## it. A trail is trodden ground and a tree grows through it, so the standing
+## trees are painted last: woodland always covers the path graphics, and no
+## trunk is cut in half by a ribbon of paving. Whatever else the grid lays over
+## the ground — the wildlife, added after this band — keeps its place, and the
+## entities with their shadows ride their own bands above.
+## See docs/architecture.md, Draw Order.
+const GROUND_DETAIL_ORDER: Array[String] = [
+	"FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
+]
+
 ## Camera tracking for viewport-culling overlays — redraw when camera moves
 var _last_camera_pos: Vector2 = Vector2.ZERO
 var _last_camera_zoom: float = 1.0
@@ -110,9 +124,13 @@ func _ready() -> void:
 	# The continuous surface supplies turf, sand, water, stones, and paths on
 	# every platform; the overlays paint what stands on it. Keep the legacy
 	# overlay classes available for older tools, but don't double draw.
-	_setup_tree_overlay()
+	# The ground detail is added bottom-up and then ranked once, by
+	# `_order_ground_detail()`: flowers and the walking trail on the turf, the
+	# standing trees over both.
 	_setup_flower_overlay()
 	_setup_walking_path_overlay()
+	_setup_tree_overlay()
+	_order_ground_detail()
 	_setup_elevation_overlay()
 	_setup_debug_overlay()
 	_setup_land_boundary_overlay()
@@ -432,7 +450,9 @@ func refresh_all_overlays() -> void:
 	if _tee_aim_overlay:
 		_tee_aim_overlay.rebuild()
 	if _heightmap:
-		_heightmap.rebuild_from_grids(self)
+		# Deferred to the next frame's flush: a run of generation passes that
+		# each refresh the overlays rebuilds the texture once.
+		_heightmap.request_rebuild(self)
 	if _shot_heatmap_overlay:
 		_shot_heatmap_overlay.queue_redraw()
 	queue_redraw()
@@ -481,21 +501,6 @@ func get_brush_tiles(center: Vector2i, brush_size: int, round_shape: bool = true
 		var pos: Vector2i = center + offset
 		if is_valid_position(pos): tiles.append(pos)
 	return tiles
-
-func get_bunker_depth(pos: Vector2i) -> int:
-	return _bunker_depth_grid.get(pos, 0)
-
-func set_bunker_depth(pos: Vector2i, depth: int) -> void:
-	if not is_valid_position(pos):
-		return
-	terrain_revision += 1
-	if depth == 0:
-		_bunker_depth_grid.erase(pos)
-	else:
-		_bunker_depth_grid[pos] = depth
-	EventBus.terrain_tile_changed.emit(pos, TerrainTypes.Type.BUNKER, TerrainTypes.Type.BUNKER)
-	if _course_surface:
-		_course_surface.update_tile(pos)
 
 # =============================================================================
 # Cup tiles — "Green With Hole" markers waiting to be paired with a tee box
@@ -713,25 +718,22 @@ func deserialize_walking_paths(data) -> void:
 	walking_paths_changed.emit()
 
 ## Reset to bare land so a new course starts clean: every tile back to GRASS and
-## all per-tile state cleared (player-placed marks, bunker depths, sculpted
-## elevation, waiting cups). New Game paints natural terrain over the existing
-## grid, so without this the previous course leaks into the next one — and a
-## leftover tee box would block the player's very first tee.
+## all per-tile state cleared (player-placed marks, sculpted elevation, waiting
+## cups). New Game paints natural terrain over the existing grid, so without
+## this the previous course leaks into the next one — and a leftover tee box
+## would block the player's very first tee.
 func reset_for_new_course() -> void:
 	deserialize_elevation({})  # Zero the vertex field and refresh elevation dependents.
 	deserialize({})  # GRASS everywhere, clears player-placed marks and the tee index.
-	_bunker_depth_grid.clear()
-	terrain_revision += 1
 	clear_cup_tiles()
 	clear_walking_paths()
 	if _bunker_overlay:
 		_bunker_overlay.queue_redraw()
 
-## A detached copy of the terrain that shot planning reads — tile types, bunker
-## depths and vertex elevation — with no overlays, surface or children. It never
-## enters the scene tree, so ShotAI can query it from a worker thread while the
-## live grid keeps changing (see HolePathPlanner). The caller owns the copy and
-## must free() it.
+## A detached copy of the terrain that shot planning reads — tile types and
+## vertex elevation — with no overlays, surface or children. It never enters the
+## scene tree, so ShotAI can query it from a worker thread while the live grid
+## keeps changing (see HolePathPlanner). The caller owns the copy and must free() it.
 func create_analysis_copy() -> TerrainGrid:
 	var copy := TerrainGrid.new()
 	copy.grid_width = grid_width
@@ -739,7 +741,6 @@ func create_analysis_copy() -> TerrainGrid:
 	copy.tile_width = tile_width
 	copy.tile_height = tile_height
 	copy._grid = _grid.duplicate()
-	copy._bunker_depth_grid = _bunker_depth_grid.duplicate()
 	copy._walking_paths = _walking_paths.duplicate()
 	_ensure_vertex_storage()
 	copy._vertex_elevation = _vertex_elevation.duplicate()
@@ -873,6 +874,26 @@ func _setup_walking_path_overlay() -> void:
 	add_child(_walking_path_overlay)
 	_walking_path_overlay.initialize(self)
 
+## Rank the ground-detail overlays by `GROUND_DETAIL_ORDER`, the one laid lowest
+## first. They all paint in the terrain band, where Godot draws siblings in the
+## order they sit in the tree, so this is what keeps a wood over the walking
+## trail. The setups above already come bottom-up; ranking them here as well means
+## the canopies cannot be buried by an overlay added after them or by a call
+## reordered. The block is placed where its lowest overlay already lies, so
+## anything else the grid adds over the ground — the wildlife, next — keeps its
+## place.
+func _order_ground_detail() -> void:
+	var slot := -1
+	for overlay_name in GROUND_DETAIL_ORDER:
+		var overlay := get_node_or_null(overlay_name) as CanvasItem
+		if overlay == null or overlay.get_parent() != self:
+			continue
+		if slot < 0:
+			slot = overlay.get_index()
+		if overlay.get_index() != slot:
+			move_child(overlay, slot)
+		slot += 1
+
 func _setup_elevation_overlay() -> void:
 	_elevation_overlay = ElevationOverlay.new()
 	_elevation_overlay.name = "ElevationOverlay"
@@ -945,8 +966,9 @@ func _setup_elevation_shader() -> void:
 	_heightmap.initialize(self)
 	tile_changed.connect(_on_tile_changed_heightmap)
 
-	# Build initial heightmap from current grid state
-	_heightmap.rebuild_from_grids(self)
+	# Build initial heightmap from current grid state (at the first flush, so a
+	# grid that is regenerated straight away is only built once).
+	_heightmap.request_rebuild(self)
 
 func _on_tile_changed_heightmap(pos: Vector2i, _old: int, _new_type: int) -> void:
 	if _heightmap:
@@ -1322,12 +1344,6 @@ func serialize_elevation() -> Dictionary:
 				data["%d,%d" % [x, y]] = height
 	return data
 
-func serialize_bunker_depth() -> Dictionary:
-	var data: Dictionary = {}
-	for pos in _bunker_depth_grid:
-		data["%d,%d" % [pos.x, pos.y]] = _bunker_depth_grid[pos]
-	return data
-
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
 	_player_placed_tiles.clear()
@@ -1406,17 +1422,4 @@ func _after_elevation_bulk_load() -> void:
 		_elevation_overlay.invalidate()
 		_elevation_overlay.queue_redraw()
 	if _heightmap:
-		_heightmap.rebuild_from_grids(self)
-
-func deserialize_bunker_depth(data: Dictionary) -> void:
-	_bunker_depth_grid.clear()
-	for key in data:
-		var parts = key.split(",")
-		if parts.size() == 2:
-			var pos = Vector2i(int(parts[0]), int(parts[1]))
-			if is_valid_position(pos):
-				_bunker_depth_grid[pos] = int(data[key])
-	terrain_revision += 1
-
-	if _course_surface:
-		_course_surface.rebuild()
+		_heightmap.request_rebuild(self)

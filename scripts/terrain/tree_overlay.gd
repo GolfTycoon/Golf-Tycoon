@@ -61,7 +61,10 @@ static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	# Woodland is ground cover: it sits under the entities and their shadows, so
-	# a golfer walking past a tree is never hidden by its crown.
+	# a golfer walking past a tree is never hidden by its crown. It is the top of
+	# that ground band, painted over the walking trail and every other mark laid
+	# on the turf — a tree stands where it was planted, whatever was trodden
+	# through it (see TerrainGrid.GROUND_DETAIL_ORDER).
 	z_index = 1
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	rescan()

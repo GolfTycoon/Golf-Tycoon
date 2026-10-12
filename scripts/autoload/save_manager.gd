@@ -247,7 +247,6 @@ func _build_save_data() -> Dictionary:
 		# Heights live on grid vertices: (grid_width+1) x (grid_height+1) samples.
 		data["vertex_elevation"] = terrain_grid.serialize_elevation()
 		data["player_placed"] = terrain_grid.serialize_player_placed()
-		data["bunker_depth"] = terrain_grid.serialize_bunker_depth()
 		data["cup_tiles"] = terrain_grid.serialize_cup_tiles()
 		data["walking_paths"] = terrain_grid.serialize_walking_paths()
 		data["view"] = {
@@ -331,16 +330,7 @@ func _serialize_holes(holes: Array) -> Array:
 			"difficulty_rating": hole.difficulty_rating,
 			"total_revenue": hole.total_revenue,
 			"par_override": hole.par_override,
-			"tee_positions": _serialize_tee_positions(hole.tee_positions),
-			"par_by_tee": hole.par_by_tee.duplicate(),
 		})
-	return result
-
-func _serialize_tee_positions(tee_positions: Dictionary) -> Dictionary:
-	var result: Dictionary = {}
-	for key in tee_positions:
-		var pos = tee_positions[key]
-		result[key] = {"x": pos.x, "y": pos.y}
 	return result
 
 ## Offset every height in a serialized elevation map ("x,y" -> int) by `shift`
@@ -382,39 +372,43 @@ func _apply_save_data(data: Dictionary) -> void:
 	# The course being loaded is the live one: a stored copy of it is stale.
 	WorldMap.clear_snapshot(WorldMap.active_location_id)
 
-	# Game state (with fallbacks for older save versions)
-	var game = data.get("game_state", data)  # v1 had flat structure
-	GameManager.course_name = game.get("course_name", "Loaded Course")
+	# Game state (with fallbacks for older save versions). A field that is
+	# missing — or damaged, holding null or text where a number belongs — takes
+	# its default, so one bad value cannot stop the load half way.
+	var saved_game: Variant = data.get("game_state", data)  # v1 had flat structure
+	var game: Dictionary = saved_game if saved_game is Dictionary else {}
+	GameManager.course_name = _saved_text(game, "course_name", "Loaded Course")
 	var old_money = GameManager.money
-	GameManager.money = int(game.get("money", GameManager.DEFAULT_STARTING_MONEY))
+	GameManager.money = int(_saved_number(game, "money", GameManager.DEFAULT_STARTING_MONEY))
 	EventBus.money_changed.emit(old_money, GameManager.money)
-	GameManager.tee_booking_interval = clampi(int(game.get("tee_booking_interval",90)),60,180)
+	GameManager.tee_booking_interval = clampi(int(_saved_number(game, "tee_booking_interval", 90)), 60, 180)
 	var old_rep = GameManager.reputation
-	GameManager.reputation = clampf(float(game.get("reputation", GameManager.DEFAULT_STARTING_REPUTATION)), 0.0, 100.0)
+	GameManager.reputation = clampf(_saved_number(game, "reputation", GameManager.DEFAULT_STARTING_REPUTATION), 0.0, 100.0)
 	EventBus.reputation_changed.emit(old_rep, GameManager.reputation)
-	GameManager.current_day = max(1, int(game.get("current_day", 1)))
+	GameManager.current_day = maxi(1, int(_saved_number(game, "current_day", 1)))
 	GameManager._day_progress = 0.0
-	GameManager.green_fee = clamp(int(game.get("green_fee", 30)), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
-	GameManager.loan_balance = int(game.get("loan_balance", 0))
-	GameManager._stagnation_hole_count = int(game.get("stagnation_hole_count", 0))
-	GameManager._stagnation_day_started = int(game.get("stagnation_day_started", 1))
-	GameManager.heightmap_noise_seed = int(game.get("heightmap_noise_seed", 0))
+	GameManager.green_fee = clampi(int(_saved_number(game, "green_fee", 30)), GameManager.MIN_GREEN_FEE, GameManager.MAX_GREEN_FEE)
+	GameManager.loan_balance = int(_saved_number(game, "loan_balance", 0))
+	GameManager._stagnation_hole_count = int(_saved_number(game, "stagnation_hole_count", 0))
+	GameManager._stagnation_day_started = int(_saved_number(game, "stagnation_day_started", 1))
+	GameManager.heightmap_noise_seed = int(_saved_number(game, "heightmap_noise_seed", 0))
 
 	# Restore difficulty preset (defaults to Normal for older saves)
-	var diff_name = game.get("difficulty", "normal")
+	var diff_name := _saved_text(game, "difficulty", "normal")
 	GameManager.current_difficulty = DifficultyPresets.from_string(diff_name)
 	var diff_mods := DifficultyPresets.get_modifiers(GameManager.current_difficulty)
 	GameManager.bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
 
 	# Restore theme (defaults to parkland for saves without theme)
-	var theme_name = game.get("theme", "parkland")
+	var theme_name := _saved_text(game, "theme", "parkland")
 	GameManager.current_theme = CourseTheme.from_string(theme_name)
 	var base_colors := CourseTheme.get_terrain_colors(GameManager.current_theme)
 	var remapped := ColorblindMode.remap_colors(base_colors, GameManager.colorblind_mode)
 	TerrainPalette.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(GameManager.current_theme)
 
-	# Terrain
+	# Terrain. Older saves can include `bunker_depth`; ignore that retired
+	# field so every standard Bunker tile loads as shallow.
 	if terrain_grid and data.has("terrain"):
 		terrain_grid.deserialize(data["terrain"])
 	# Pre-v4 saves stored signed heights (-5..+5 with flat = 0); the levels now
@@ -432,7 +426,6 @@ func _apply_save_data(data: Dictionary) -> void:
 	if terrain_grid and data.has("player_placed"):
 		terrain_grid.deserialize_player_placed(data["player_placed"])
 	if terrain_grid:
-		terrain_grid.deserialize_bunker_depth(data.get("bunker_depth", {}))
 		# Greens that carry a cup but are not part of a hole yet.
 		terrain_grid.deserialize_cup_tiles(data.get("cup_tiles", []))
 		# Walking paths (the Path improvement) laid over hostable ground.
@@ -542,6 +535,23 @@ func _apply_save_data(data: Dictionary) -> void:
 	_is_loading = was_loading
 	# NOTE: load_completed is emitted by load_game() after _apply_save_data returns
 
+## A number read from a save's game state, or `fallback` when the field is
+## missing or holds something other than a number (JSON numbers arrive as
+## floats; a damaged or hand-edited save can hold null or text).
+static func _saved_number(game: Dictionary, key: String, fallback: float) -> float:
+	var value: Variant = game.get(key, fallback)
+	if value is int or value is float:
+		return float(value)
+	return fallback
+
+## Text read from a save's game state, or `fallback` when the field is missing
+## or is not text.
+static func _saved_text(game: Dictionary, key: String, fallback: String) -> String:
+	var value: Variant = game.get(key, fallback)
+	if value is String or value is StringName:
+		return String(value)
+	return fallback
+
 ## Deserialize holes into GameManager.current_course
 func _deserialize_holes(holes_data: Array) -> void:
 	if not GameManager.current_course:
@@ -563,23 +573,6 @@ func _deserialize_holes(holes_data: Array) -> void:
 		hole.difficulty_rating = float(h.get("difficulty_rating", 1.0))
 		hole.total_revenue = int(h.get("total_revenue", 0))
 		hole.par_override = int(h.get("par_override", -1))
-
-		# Multiple tee boxes (backward compat: generate from tee_position if absent)
-		var saved_tee_positions = h.get("tee_positions", {})
-		if saved_tee_positions.is_empty():
-			hole.tee_positions = {"forward": hole.tee_position, "middle": hole.tee_position, "back": hole.tee_position}
-		else:
-			for key in saved_tee_positions:
-				var tp = saved_tee_positions[key]
-				hole.tee_positions[key] = Vector2i(int(tp.get("x", 0)), int(tp.get("y", 0)))
-		hole.par_by_tee = {}
-		var saved_par_by_tee = h.get("par_by_tee", {})
-		if saved_par_by_tee.is_empty():
-			for key in hole.tee_positions:
-				hole.par_by_tee[key] = hole.par
-		else:
-			for key in saved_par_by_tee:
-				hole.par_by_tee[key] = int(saved_par_by_tee[key])
 
 		# Cup: the hole's single cup always lives on its Green With Hole tile.
 		# Older saves kept up to four rotating pin positions and could have the
@@ -652,7 +645,9 @@ func _load_user_settings() -> void:
 	if config.has_section("controls"):
 		_apply_controls_settings(config)
 	if config.has_section("gameplay"):
-		_apply_gameplay_settings(config)
+		# The Golfer Skin the owner's golfer wears belongs to the player, not to
+		# a save (see GolferSkins.set_player_skin).
+		GameManager.player_skin_id = config.get_value("gameplay", "player_skin", "")
 
 func _apply_audio_settings(config: ConfigFile) -> void:
 	if not SoundManager:
@@ -680,11 +675,6 @@ func _apply_display_settings(config: ConfigFile) -> void:
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
 
-func _apply_gameplay_settings(config: ConfigFile) -> void:
-	GameManager.multi_tee_enabled = config.get_value("gameplay", "multi_tee_enabled", false)
-	# The Golfer Skin the owner's golfer wears belongs to the player, not to a
-	# save (see GolferSkins.set_player_skin).
-	GameManager.player_skin_id = config.get_value("gameplay", "player_skin", "")
 
 ## Write one preference that belongs to the player rather than to a save -
 ## audio and display settings, the golfer skin the owner wears. Sections the

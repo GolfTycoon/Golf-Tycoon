@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/harness/save_settings_layout_harness.tscn`
+**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/main_menu.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -11,7 +11,7 @@
 
 - **Main menu.** Headed by the game logo (`assets/ui/logo.png`). Start New Game, Quick Start, Continue, Load Game, Settings and Quit.
 - **Start New Game.** Company name (or roll for a random one), difficulty (Easy, Normal or Hard), starting money ($100K, $150K, $200K or Unlimited), generated holes, and the Weather, Wind and Seasons options.
-- **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features on, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
+- **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features off, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
 - **World Map.** A spinning globe with a pin for each destination, a list of locations, Buy and Play, and Reset World. It opens from the **World Map** button on the **Club** tab, and from Start New Game / Quick Start. The course behind it freezes while the globe is up, so switching sites never loses a day's work. See [World Map](systems/economy-and-land/world-map.md).
 - **Pause menu.** Resume, Save Game, Load Game, Settings, Quit to Menu and Quit to Desktop. The camera still moves while paused.
 - **Settings.** Four categories (Audio, Display, Gameplay, Controls) laid out for each window size. Desktop uses a category rail, the control cards and an "at a glance" panel. Tablets keep the rail beside or above the cards. Phones use four equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category includes the keyboard shortcut reference.
@@ -28,6 +28,23 @@
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
+
+### Status column
+
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Its rows, top to bottom:
+
+| Row | Shows |
+| --- | --- |
+| Game mode | `PLAYING` or `PAUSED`, with the collapse toggle (`-` / `+`) beside it |
+| Funds | The balance, clickable for the financial dashboard |
+| Date | The calendar date |
+| Season | The current season |
+| Reputation | Course reputation, clickable for the rating details |
+| Rating | The star rating, clickable for details |
+| Weather | The current conditions |
+| Wind | Direction and speed |
+
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the divider that introduces the weather and wind pair goes with the last of the two rows. The column collapses to its header and Funds rows on compact windows, or when the player presses the collapse toggle; the full set of rows is still there, minus the features that are off.
 
 ## Keyboard
 

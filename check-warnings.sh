@@ -12,14 +12,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-GODOT_BIN="$("$ROOT/scripts/resolve-godot.sh")"
+GODOT_BIN="$(bash "$ROOT/scripts/resolve-godot.sh")"
 echo "Using Godot: $GODOT_BIN"
 
-# Scripts need the imported project (the class cache) to resolve each other.
-if [ ! -f "$ROOT/.godot/global_script_class_cache.cfg" ]; then
-    echo "Importing project (first run)..."
-    "$GODOT_BIN" --headless --path "$ROOT" --import --quit >/dev/null
-fi
+# Scripts need an up-to-date import (the class cache) to resolve each other.
+bash "$ROOT/scripts/ensure-imported.sh" "$GODOT_BIN"
 
 PROJECT_FILE="$ROOT/project.godot"
 PROJECT_BACKUP="$(mktemp)"

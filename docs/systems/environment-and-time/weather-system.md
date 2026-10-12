@@ -18,6 +18,8 @@ Weather affects three things:
 
 The weather you see is blended over time. Intensity eases from one state to the next instead of jumping.
 
+**Turning it off.** Weather is an option on the Start New Game screen. With weather off the course stays clear all game, and the Weather row leaves the HUD status column (`scripts/ui/hud_status_column.gd`, `_update_feature_rows()`) rather than sitting there reading "Off".
+
 ---
 
 ## Algorithm

@@ -12,7 +12,7 @@
 The course is no longer a grid of coloured squares. The ground is one connected landscape:
 
 - **Turf** has diagonal mower passes. Putting greens have fine turf and a collar around them.
-- **Bunkers** are recessed sand, and deep bunkers have a visible lip.
+- **Bunkers** are shallow recessed sand with a subtle grass lip. Pot Bunkers are a separate tile with a stacked-turf face.
 - **Water** moves gently.
 - **Trees** each have a ground painted under them, such as leaf litter, pine needles or sand.
 
@@ -59,7 +59,7 @@ A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 ### 1. Data flow
 
-`CourseSurface` listens for local tile changes and coalesces GPU uploads to one per frame. Quiet terrain generation rebuilds explicitly through `TerrainGrid.refresh_all_overlays()`. Deserializing terrain or depth data, and successful load events, rebuild the data. Theme changes replace only the palette.
+`CourseSurface` listens for local tile changes and coalesces GPU uploads to one per frame. Quiet terrain generation rebuilds explicitly through `TerrainGrid.refresh_all_overlays()`. Deserializing terrain or elevation data, and successful load events, rebuild the data. Theme changes replace only the palette.
 
 ### 2. Edges between materials
 
@@ -82,7 +82,7 @@ Pot bunkers and streams use `link_distance()`, which measures the distance to a 
 
 ### 4. Turf and water animation
 
-Noise and mower passes use world coordinates. Moving or zooming the camera therefore does not move the pattern. Water animates from GPU time and needs no per-tile script updates. Bunker lip depth increases with the bunker's depth setting (see [Bunker Depth](bunker-depth.md)). Greens blend into the theme's fringe colour at their edges.
+Noise and mower passes use world coordinates. Moving or zooming the camera therefore does not move the pattern. Water animates from GPU time and needs no per-tile script updates. Standard Bunkers always use the shallow sand treatment; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
 
 ### 5. Foliage
 
@@ -118,6 +118,5 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 ## Related
 
 - [Terrain Types](terrain-types.md) lists every tile type and its look.
-- [Bunker Depth](bunker-depth.md) covers the shallow and deep bunker settings.
 - [Course Architecture](course-character.md) covers landforms and facility drawing.
 - [Builder Tools](builder-and-review.md) covers the paint tools.

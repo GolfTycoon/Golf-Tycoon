@@ -169,7 +169,7 @@ var _company_name := ""
 var _difficulty: int = DifficultyPresets.Preset.NORMAL
 var _money: int = 100000
 var _holes: int = 0
-var _features: Dictionary = {"weather": true, "wind": true, "seasons": true}
+var _features: Dictionary = {"weather": false, "wind": false, "seasons": false}
 
 # --- current build ---------------------------------------------------------
 var _layout_mode: int = Layout.WIDE
@@ -1036,7 +1036,7 @@ func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridConta
 					words.add_child(_make_label(str(feature[2]), caption_font, UIConstants.COLOR_TEXT_DIM))
 				line.add_child(words)
 				line.add_child(card.switch)
-		card.button.button_pressed = bool(_features.get(key, true))
+		card.button.button_pressed = bool(_features.get(key, false))
 		card.button.toggled.connect(_on_feature_toggled.bind(key))
 		_finish_choice(card, grid)
 		_feature_boxes[key] = card.button
@@ -1419,7 +1419,7 @@ func get_options() -> Dictionary:
 	var features: Dictionary = {}
 	for feature in FEATURES:
 		var key: String = feature[0]
-		features[key] = bool(_features.get(key, true))
+		features[key] = bool(_features.get(key, false))
 	return {
 		"company_name": company,
 		"difficulty": _difficulty,
