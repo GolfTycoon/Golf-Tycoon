@@ -3,6 +3,13 @@ extends GameTest
 ## HoleStatistics): what green fees, scores and finished rounds add, profit and
 ## averages, operating costs, and a reset.
 
+# Seasons are off by default on the Start New Game screen; the seasonal upkeep
+# these books are checked against needs them on.
+
+func before_each() -> void:
+	super()
+	GameManager.set_seasons_enabled(true)
+
 # ---------------------------------------------------------------------------
 # DailyStatistics
 # ---------------------------------------------------------------------------

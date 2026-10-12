@@ -724,7 +724,7 @@ func _on_menu_start_new_game() -> void:
 	_set_gameplay_ui_visible(false)
 
 ## Quick Start: the agreed defaults (random company name, Normal, $100,000,
-## 3 generated holes, every feature on), then a random location the company can
+## 3 generated holes, every feature off), then a random location the company can
 ## afford is bought and its course is started straight away.
 func _on_menu_quick_start() -> void:
 	_hide_main_menu()

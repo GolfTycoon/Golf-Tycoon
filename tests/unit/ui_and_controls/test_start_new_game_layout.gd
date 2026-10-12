@@ -149,7 +149,7 @@ func test_options_keep_the_world_map_contract() -> void:
 	assert_eq(options["difficulty"], DifficultyPresets.Preset.NORMAL)
 	assert_eq(options["starting_money"], 100000)
 	assert_eq(options["generated_holes"], 0)
-	assert_eq(options["features"], {"weather": true, "wind": true, "seasons": true})
+	assert_eq(options["features"], {"weather": false, "wind": false, "seasons": false}, "every feature starts off")
 	screen.free()
 
 

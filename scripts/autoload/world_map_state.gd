@@ -33,9 +33,9 @@ var difficulty: int = DifficultyPresets.Preset.NORMAL
 var starting_money_option: int = 100000  # UNLIMITED_MONEY for unlimited funds
 var generated_holes: int = 0
 var features: Dictionary = {
-	FEATURE_WEATHER: true,
-	FEATURE_WIND: true,
-	FEATURE_SEASONS: true,
+	FEATURE_WEATHER: false,
+	FEATURE_WIND: false,
+	FEATURE_SEASONS: false,
 }
 
 ## Location states: id -> { owned, unlocked: Array[Vector2i], price, seed }
@@ -79,9 +79,9 @@ static func default_options() -> Dictionary:
 		"starting_money": 100000,
 		"generated_holes": 0,
 		"features": {
-			FEATURE_WEATHER: true,
-			FEATURE_WIND: true,
-			FEATURE_SEASONS: true,
+			FEATURE_WEATHER: false,
+			FEATURE_WIND: false,
+			FEATURE_SEASONS: false,
 		},
 	}
 
@@ -104,7 +104,7 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	generated_holes = int(options.get("generated_holes", 0))
 	var saved_features: Dictionary = options.get("features", {})
 	for key in FEATURE_KEYS:
-		features[key] = bool(saved_features.get(key, true))
+		features[key] = bool(saved_features.get(key, false))
 
 	locations.clear()
 	location_snapshots.clear()

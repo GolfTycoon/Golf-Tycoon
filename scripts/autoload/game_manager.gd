@@ -41,9 +41,9 @@ const UNLIMITED_STARTING_BALANCE: int = 999999999
 ## Enabled game features, chosen on the Start New Game screen. Weather, wind
 ## and seasons all keep running when disabled — they simply stop producing any
 ## effect (see the feature guards in WeatherSystem, WindSystem and SeasonSystem).
-var weather_enabled: bool = true
-var wind_enabled: bool = true
-var seasons_enabled: bool = true
+var weather_enabled: bool = false
+var wind_enabled: bool = false
+var seasons_enabled: bool = false
 ## True while the company plays with unlimited funds: nothing can be spent.
 var unlimited_money: bool = false
 ## Holes the player asked the world map to lay out on their first course.

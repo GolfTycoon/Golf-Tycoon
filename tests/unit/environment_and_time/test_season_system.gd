@@ -2,6 +2,13 @@ extends GameTest
 ## Seasons (SeasonSystem): the season of each day, the theme-aware modifiers each
 ## season brings, and how they blend across a season's boundary.
 
+# Seasons are off by default on the Start New Game screen, so each test here
+# switches them on itself.
+
+func before_each() -> void:
+	super()
+	GameManager.set_seasons_enabled(true)
+
 # ---------------------------------------------------------------------------
 # Season Calculation (calendar quarters from GameCalendar)
 # ---------------------------------------------------------------------------

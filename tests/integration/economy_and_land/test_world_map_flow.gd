@@ -102,14 +102,14 @@ func test_start_new_game_captures_the_company_and_opens_the_world_map() -> void:
 	setup._select_difficulty(DifficultyPresets.Preset.HARD)
 	setup._select_money(200000)
 	setup._select_holes(6)
-	setup._feature_boxes["wind"].button_pressed = false
+	setup._feature_boxes["wind"].button_pressed = true
 	var options: Dictionary = setup.get_options()
 	assert_eq(options["company_name"], "Summit Golf Group", "The company name is captured")
 	assert_eq(options["difficulty"], DifficultyPresets.Preset.HARD, "The difficulty is captured")
 	assert_eq(options["starting_money"], 200000, "The starting money is captured")
 	assert_eq(options["generated_holes"], 6, "The generated hole count is captured")
-	assert_false(options["features"]["wind"], "The wind can be turned off")
-	assert_true(options["features"]["weather"], "The weather stays on by default")
+	assert_true(options["features"]["wind"], "The wind can be turned on")
+	assert_false(options["features"]["weather"], "The weather stays off by default")
 
 	setup._on_next_pressed()
 	await process_frames(3)
@@ -188,8 +188,8 @@ func test_buying_and_playing_a_location_builds_its_first_course() -> void:
 	assert_null(_world_map_screen(), "Pressing Play closes the world map")
 	assert_eq(GameManager.company_name, "Summit Golf Group", "The company name reaches the game")
 	assert_eq(GameManager.current_difficulty, DifficultyPresets.Preset.HARD, "and the difficulty")
-	assert_false(GameManager.wind_enabled, "The wind is off in the new game")
-	assert_false(SeasonSystem.disabled, "Seasons stay on by default")
+	assert_true(GameManager.wind_enabled, "The wind chosen on the setup screen is on in the new game")
+	assert_true(SeasonSystem.disabled, "Seasons stay off by default")
 	assert_eq(GameManager.current_course.holes.size(), 6, "The first course starts with its 6 generated holes")
 	assert_true(GameManager.course_name.begins_with("Monterey"), "The course is named for its location")
 	assert_eq(GameManager.current_theme, int(WorldLocations.get_definition(FIRST_SITE)["theme"]),
@@ -339,5 +339,5 @@ func test_quick_start_buys_and_plays_a_location_of_its_own() -> void:
 	assert_eq(WorldMap.starting_money_option, 100000, "with $100,000")
 	assert_eq(WorldMap.generated_holes, 3, "and a 3-hole course")
 	for feature in WorldMapStateScript.quick_start_options()["features"]:
-		assert_true(bool(WorldMap.features[feature]), "Quick Start turns on %s" % feature)
+		assert_false(bool(WorldMap.features[feature]), "Quick Start leaves %s off" % feature)
 	assert_gt(WorldMap.company_name.length(), 0, "Quick Start picks a company name")

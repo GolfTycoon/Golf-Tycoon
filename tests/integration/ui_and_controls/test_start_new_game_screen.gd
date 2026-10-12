@@ -186,12 +186,12 @@ func test_the_picks_reach_the_summary_and_the_plan() -> void:
 	assert_eq(screen._plan_caption.text, "18 holes · par 72", "Its caption reads 18 holes, par 72")
 
 	await click(screen._feature_boxes["wind"])
-	assert_eq(screen.get_options()["features"], {"weather": true, "wind": false, "seasons": true},
-		"Clicking Wind turns the wind off and leaves the rest on")
-	assert_eq(screen._summary_values["features"].text, "Weather · Seasons", "The summary lists the features left on")
+	assert_eq(screen.get_options()["features"], {"weather": false, "wind": true, "seasons": false},
+		"Clicking Wind turns the wind on and leaves the rest off")
+	assert_eq(screen._summary_values["features"].text, "Wind", "The summary lists the feature left on")
 	await click(screen._feature_boxes["wind"])
 	await click(screen._feature_boxes["wind"])
-	assert_false(screen.get_options()["features"]["wind"], "Wind toggles back on and off")
+	assert_true(screen.get_options()["features"]["wind"], "Wind toggles off and back on")
 
 	screen._company_input.text = "Integration Links"
 	screen._company_input.text_changed.emit("Integration Links")
@@ -210,6 +210,12 @@ func test_the_picks_reach_the_summary_and_the_plan() -> void:
 
 
 func test_the_picks_survive_the_window_being_resized() -> void:
+	# Set the feature picks this test checks (Wind off, Seasons on), whatever
+	# the earlier tests left behind.
+	if _screen()._feature_boxes["wind"].button_pressed:
+		await click(_screen()._feature_boxes["wind"])
+	if not _screen()._feature_boxes["seasons"].button_pressed:
+		await click(_screen()._feature_boxes["seasons"])
 	var picked: Dictionary = _screen().get_options()
 	for size in [Vector2i(390, 844), Vector2i(844, 390), Vector2i(768, 1024), Vector2i(1280, 720)]:
 		await _resize(size)

@@ -117,7 +117,7 @@ func test_quick_start_defaults_match_the_agreed_options() -> void:
 	assert_eq(options["starting_money"], 100000)
 	assert_eq(options["generated_holes"], 3, "Quick Start generates a 3-hole course")
 	for key in WorldMap.FEATURE_KEYS:
-		assert_true(bool(options["features"][key]), "%s is enabled by default" % key)
+		assert_false(bool(options["features"][key]), "%s is off by default" % key)
 	assert_ne(options["company_name"], "", "Quick Start picks a random company name")
 
 func test_reset_world_never_takes_owned_land_away() -> void:
