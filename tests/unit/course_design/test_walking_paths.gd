@@ -401,6 +401,229 @@ func test_a_paved_trail_is_kerbed_and_jointed() -> void:
 	GameManager.entity_layer = saved_entity_layer
 	GameManager.terrain_grid = saved_grid
 
+# ---------------------------------------------------------------------------
+# The look: both surfaces, and how slim they are
+# ---------------------------------------------------------------------------
+
+func test_both_surfaces_are_slimmer_than_the_dirt_trail_used_to_be() -> void:
+	# A walk is a slim way through the grass: narrower than the trodden dirt
+	# ribbon of old (a 0.155 half-width), and the paving that replaces it is
+	# only a shade broader than that trail is.
+	assert_lt(WalkingPathOverlay.DIRT_HALF_W, 0.155, "The dirt trail is slimmer")
+	assert_lt(WalkingPathOverlay.PAVED_HALF_W, 0.155, "and so is the paving")
+	assert_gt(WalkingPathOverlay.PAVED_HALF_W, WalkingPathOverlay.DIRT_HALF_W,
+			"but paving is still the broader walk of the two")
+	assert_lt(WalkingPathOverlay.PAVED_VERGE_W, 0.23,
+			"and its gravel is no wider than the trodden verge of old")
+
+func test_the_polished_crown_stays_inside_the_tread() -> void:
+	var overlay := _overlay()
+	for x in range(1, 7):
+		grid.set_tile(Vector2i(x, 3), TerrainTypes.Type.ROUGH)
+		grid.set_walking_path(Vector2i(x, 3), true)
+	# The pale crown wanders down the walk — every tile polishes its own — but
+	# it is trodden into the tread, never spilling past its edges.
+	var crown := _points_of(overlay, Vector2i(3, 3), WalkingPathOverlay.DIRT_LIGHT, false)
+	assert_gt(crown.size(), 0, "The tread carries a paler crown")
+	for point in crown:
+		assert_lte(absf(point.y - 3.5), WalkingPathOverlay.DIRT_HALF_W + 0.001,
+				"The crown stays on the walk: %s" % point)
+
+func test_the_paving_is_laid_in_slabs_with_joints_across_the_kerb() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	_paved_run(entities, 6)
+	assert_true(overlay._upgraded_tiles.has(Vector2i(3, 4)), "The walk is paved")
+
+	# A joint crosses the whole walk — flagstones and kerb alike — so the
+	# paving is laid slab by slab rather than extruded as one grey ribbon.
+	var joints := _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.PAVED_JOINT, true)
+	assert_gt(joints.size(), 0, "The paving is jointed")
+	var joint_widest := 0.0
+	for point in joints:
+		joint_widest = maxf(joint_widest, absf(point.y - 4.5))
+	assert_almost_eq(joint_widest, WalkingPathOverlay.PAVED_OUTER_W, 0.01,
+			"The joint runs out to the far edge of the kerb")
+
+	# Every other slab is a shade off its neighbours.
+	var slabs := _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.PAVED_LIGHT, true)
+	assert_gt(slabs.size(), 0, "Some slabs take the light and some do not")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+
+# ---------------------------------------------------------------------------
+# The walk reaching a building
+# ---------------------------------------------------------------------------
+
+func test_a_trail_runs_right_up_to_a_building_wall() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	_place_building(entities, "pro_shop", Vector2i(4, 4))
+	grid.set_tile(Vector2i(3, 4), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 4), true)
+
+	# The walk reaches the edge it shares with the shop rather than stopping
+	# short of it, and never spills onto the building's own tile.
+	var earth := _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.DIRT_COLOR, false)
+	var east := 0.0
+	for point in earth:
+		assert_lte(point.x, 4.0 + 0.001, "The walk never crosses the wall")
+		east = maxf(east, point.x)
+	assert_almost_eq(east, 4.0, 0.001, "The walk reaches the shop's wall")
+
+	# Where it arrives it is swept wider than the tread out on the grass: a
+	# threshold worn by everyone turning in at the door.
+	var threshold := _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.DIRT_APRON, false)
+	assert_gt(threshold.size(), 0, "The walk broadens where it meets the wall")
+	var widest := 0.0
+	for point in threshold:
+		widest = maxf(widest, absf(point.y - 4.5))
+	assert_gt(widest, WalkingPathOverlay.DIRT_HALF_W, "The threshold is wider than the tread")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+func test_a_single_tile_beside_a_building_is_a_walk_not_a_dot() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	_place_building(entities, "cart_barn", Vector2i(4, 4), 2, 2)
+	grid.set_tile(Vector2i(3, 4), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 4), true)
+
+	# One tile on its own would be a round trodden patch. Against a wall it is
+	# the last yard of a walk: a ribbon to the building, not a dot in the grass.
+	var circles := 0
+	for cmd in overlay.tile_draw_commands(Vector2i(3, 4), false, false):
+		if cmd.kind == "circle":
+			circles += 1
+	assert_eq(circles, 0, "The tile lays a ribbon up to the wall instead")
+	var earth := _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.DIRT_COLOR, false)
+	var east := 0.0
+	var west := 5.0
+	for point in earth:
+		east = maxf(east, point.x)
+		west = minf(west, point.x)
+	assert_almost_eq(east, 4.0, 0.001, "It reaches the wall")
+	assert_lt(west, 3.5, "and dies away into the grass at its other end")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+func test_the_paving_meets_a_building_with_a_stone_threshold() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	_paved_run(entities, 6)
+
+	# The flagstones reach the clubhouse wall, and broaden into a doorstep
+	# there instead of butting against it at their walking width.
+	var stones := _points_of(overlay, Vector2i(5, 4), WalkingPathOverlay.PAVED_COLOR, true)
+	var east := 0.0
+	var at_wall := 0.0
+	for point in stones:
+		assert_lte(point.x, 6.0 + 0.001, "The paving never crosses the wall")
+		east = maxf(east, point.x)
+		if is_equal_approx(point.x, 6.0):
+			at_wall = maxf(at_wall, absf(point.y - 4.5))
+	assert_almost_eq(east, 6.0, 0.001, "The paving reaches the clubhouse")
+	assert_gt(at_wall, WalkingPathOverlay.PAVED_HALF_W, "and broadens at its door")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+func test_a_building_never_carries_the_network_through_it() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	# A clubhouse with a walk at its door, a shop, and a second walk the far
+	# side of the shop. Both walks come up against a wall; only one of them
+	# touches the clubhouse, so only that one is paved.
+	_place_building(entities, "clubhouse", Vector2i(3, 5))
+	_place_building(entities, "pro_shop", Vector2i(5, 5))
+	for x in [4, 6]:
+		grid.set_tile(Vector2i(x, 5), TerrainTypes.Type.ROUGH)
+		grid.set_walking_path(Vector2i(x, 5), true)
+
+	assert_true(overlay._upgraded_tiles.has(Vector2i(4, 5)),
+			"The walk at the clubhouse door is paved")
+	assert_false(overlay._upgraded_tiles.has(Vector2i(6, 5)),
+			"A wall joins nothing: the walk the far side of the shop stays dirt")
+	assert_eq(overlay.speed_modifier_at(Vector2i(5, 5)), 1.0,
+			"A building is where a walk ends, never a way through")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+func test_moving_a_building_moves_the_walk_that_reaches_it() -> void:
+	var overlay := _overlay()
+	var saved_entity_layer = GameManager.entity_layer
+	var saved_grid = GameManager.terrain_grid
+	var entities := _entities()
+	var shop = _place_building(entities, "pro_shop", Vector2i(4, 4))
+	grid.set_tile(Vector2i(3, 4), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 4), true)
+	var with_shop := overlay.tile_draw_commands(Vector2i(3, 4), false, false).size()
+
+	# Take the building away and the walk stops at the tile line again.
+	entities.buildings.erase(Vector2i(4, 4))
+	entities.building_removed.emit(Vector2i(4, 4))
+	assert_lt(overlay.tile_draw_commands(Vector2i(3, 4), false, false).size(), with_shop,
+			"Without the shop there is no threshold to sweep")
+
+	# Put it back on another side and the walk turns to meet it there.
+	shop.grid_position = Vector2i(3, 3)
+	entities.buildings[Vector2i(3, 3)] = shop
+	entities.building_placed.emit(shop, 0)
+	var north := 0.0
+	for point in _points_of(overlay, Vector2i(3, 4), WalkingPathOverlay.DIRT_COLOR, false):
+		north = minf(north, point.y - 4.0)
+	assert_almost_eq(north, 0.0, 0.001, "The walk now runs up to the shop's south wall")
+
+	GameManager.entity_layer = saved_entity_layer
+	GameManager.terrain_grid = saved_grid
+
+## A fresh entity layer on the test grid, with the game pointed at it. The
+## caller puts GameManager back when it is done.
+func _entities() -> EntityLayer:
+	var entities := EntityLayer.new()
+	entities.set_terrain_grid(grid)
+	add_child_autofree(entities)
+	GameManager.terrain_grid = grid
+	GameManager.entity_layer = entities
+	# The overlay hooks a layer's signals on its next rebuild, so a layer it
+	# has never seen is hooked here rather than by the first building placed.
+	_overlay().rebuild()
+	return entities
+
+## Stand `type` at `pos`, the way the placement tool does.
+func _place_building(entities: EntityLayer, type: String, pos: Vector2i,
+		width: int = 1, height: int = 1) -> Building:
+	var building: Building = autofree(Building.new())
+	building.building_type = type
+	building.grid_position = pos
+	building.width = width
+	building.height = height
+	entities.buildings[pos] = building
+	entities.building_placed.emit(building, 0)
+	return building
+
+## A straight walk along y=4 from x=2 that ends against a clubhouse at `door`.
+func _paved_run(entities: EntityLayer, door: int) -> void:
+	for x in range(2, door):
+		grid.set_tile(Vector2i(x, 4), TerrainTypes.Type.ROUGH)
+		grid.set_walking_path(Vector2i(x, 4), true)
+	_place_building(entities, "clubhouse", Vector2i(door, 4))
+
 func test_the_web_build_draws_the_trail_without_the_weathering() -> void:
 	var overlay := _overlay()
 	for x in range(2, 6):

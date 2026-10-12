@@ -104,7 +104,7 @@ budget    = NODE_BUDGET cells; the frontier is _Frontier, a binary heap over fla
 
 The search settles the **cheapest arrival**, not the first goal it reaches: `_arrival()` prices a goal tile by its own hub price, keeps expanding through goal tiles, and stops when the frontier can no longer beat the best arrival found. Without that, a leg takes the first ground it can touch and leaves the tee or the green a long way off.
 
-Four directions only, never eight: `WalkingPathOverlay` floods the network 4-connected and draws a trail as one continuous band only where tiles share an edge, so a diagonal step would leave two tiles touching at a corner — a row of separate dots on screen, and a network split in two.
+Four directions only, never eight: `WalkingPathOverlay` floods the network 4-connected and draws a trail as one continuous band only where tiles share an edge, so a diagonal step would leave two tiles touching at a corner — a row of separate dots on screen, and a network split in two. A wall is not an edge to join across either: a trail that comes up against a building runs into it and stops there, and the building never carries the network through to the trail on its other side.
 
 A leg that cannot be planned is skipped silently and the rest of the network is still laid; a capped leg longer than `MAX_LINK_TILES` is left unlaid for the same reason, because a walk that long would snake across the property rather than read as a path.
 
