@@ -2,8 +2,8 @@
 
 > A walking path is a slim trail golfers can see and walk on. It is laid over the ground rather than instead of it — a trodden dirt ribbon that leaves the turf, the lie and the upkeep exactly as they were — and the whole network turns into a paved stone promenade once it reaches the clubhouse. Golfers walk quicker on it than on the ground it crosses, so planned routes step onto it whenever that saves them time. It is also what a generated course arrives with.
 
-**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_types.gd` (`WALKING_PATH_TERRAINS`, `can_host_walking_path()`, `WALKING_PATH_TOOL`, `WALKING_PATH_COST`), `scripts/terrain/terrain_grid.gd` (`set_walking_path()`, `can_place_walking_path()`, `walk_speed_modifier_at()`, `walk_field()`, `WalkField`), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
-**Tests:** `tests/unit/test_walking_paths.gd`, `tests/unit/test_golfer_walking_routes.gd`, `tests/unit/test_terrain_toolbar.gd`, `tests/unit/test_path_furniture.gd`; `tests/harness/walking_path_harness.tscn`
+**Source:** `scripts/terrain/walking_path_overlay.gd` (art, the connection rule and `speed_modifier_at()`), `scripts/terrain/terrain_types.gd` (`WALKING_PATH_TERRAINS`, `can_host_walking_path()`, `WALKING_PATH_TOOL`, `WALKING_PATH_COST`), `scripts/terrain/terrain_grid.gd` (`set_walking_path()`, `can_place_walking_path()`, `walk_speed_modifier_at()`, `walk_field()`, `WalkField`, and `GROUND_DETAIL_ORDER` with `_order_ground_detail()` for where the trail paints), `scripts/entities/golfer.gd` (`_process_walking()`, `_find_path_to()`, `_find_quickest_route()`), `scripts/main/main.gd` (`_paint_walking_path_stamp()` and the bulldozer), `scripts/ui/placement_preview.gd`, `scripts/ui/components/terrain_tile_button.gd`
+**Tests:** `tests/unit/test_walking_paths.gd`, `tests/unit/test_golfer_walking_routes.gd`, `tests/unit/test_terrain_toolbar.gd`, `tests/unit/test_path_furniture.gd`, `tests/unit/course_design/test_terrain_draw_order.gd`; `tests/harness/walking_path_harness.tscn`
 
 ---
 
@@ -17,7 +17,7 @@ The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not 
 - **Preferring the walk:** a planned walk steps onto the trail when that gets the golfer there no more than **a moment slower** than walking straight there, and never crosses the course to reach a distant trail. Water and out of bounds are still walked around.
 - **Nothing but the walk changes.** A trail is a flag on a tile, not a terrain: the ball lies on the ground underneath, rolls as it did, and the tile keeps its own build cost and upkeep. Painting the ground with a course tile that cannot host a trail — fairway, say — takes the trail with it.
 - **A generated course arrives with its trails already laid:** out of the clubhouse door, beside every fairway, from each green to the next tee and home again. They are laid by the same rule as a brush stroke, so a network that reaches the clubhouse is paved, and a trail the player paints onto it joins the same network and paves with it. See [Generated Walking Paths](generated-walking-paths.md), including where a course's walks stop short and stay dirt.
-- **Under the golfers:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it.
+- **Under the golfers, and under the trees:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it. A wood the walk crosses is the one thing painted over it: the trail ranks below the tree sprites in the ground band, so a trunk and its crown stand on the ribbon rather than being cut in half by it.
 - The bulldozer removes a trail for **$5** a tile, leaving the ground it crossed untouched. Its tooltip says so, and undo and redo put the trail back.
 
 ## Algorithm
@@ -57,6 +57,8 @@ A network that never touches the clubhouse stays dirt, and that is a normal outc
 | On its own | verge and body circles plus a pale core | gravel, kerb and flagstone circles |
 
 Widths and radii are authored in tile units along the tile's isometric axes, so a trail is the same width on steep and shallow edges before projection; one tile edge is about 36 px on screen. `DIRT_END_REACH` and `PAVED_END_REACH` run a dead end past the tile centre so the walk dies away into the grass instead of being cut off at the tile line.
+
+The trail is painted in the ground band (`z_index` 1), under the entities and — because `TerrainGrid.GROUND_DETAIL_ORDER` ranks it there — under `TreeOverlay`, which paints the standing trees last among the ground art. A walk laid through a wood is therefore drawn first and the sprites over it, so no ribbon crosses a trunk. Nothing is taken off the trail for it: a woodland tile still paints its ribbon in full, and the tree only covers the stretch its own art stands on.
 
 ### 4. The walk rate
 

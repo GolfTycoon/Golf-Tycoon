@@ -75,7 +75,11 @@ var _is_web: bool = false
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
-	z_index = 1  # Above the terrain surface, below entities (z 2).
+	# The walk is a mark on the ground, not a thing standing on it: it paints over
+	# the surface and under the standing scenery and the entities (z 2). A wood the
+	# trail crosses keeps its trunks and crowns, drawn over the ribbon
+	# (see TerrainGrid.GROUND_DETAIL_ORDER).
+	z_index = 1
 	_is_web = OS.get_name() == "Web"
 	if grid:
 		grid.walking_paths_changed.connect(rebuild)

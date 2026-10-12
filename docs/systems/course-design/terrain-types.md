@@ -129,7 +129,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 - Painting a course tile replaces whatever is there, including trees, sand and greens. `TerrainGrid.set_tile()` swaps the ground, and drops any cup, tee or walking-path state the new ground cannot keep — painting fairway over a trail erases it, painting rough over one leaves it trodden. Painting costs only the new tile's placement cost. There is no clearing fee. Taking a trail away re-paves the network it belonged to, because the paving is decided over the whole network each time (see [Walking Paths](walking-paths.md)).
 - Buildings and decorations are not course terrain. A course tile will not paint over them. The Bulldozer removes them.
 - Stream strokes are 4-connected (`TerrainBrush.centers_4_connected()`), so the channel never breaks at a diagonal step.
-- A species tile draws its own canopy on its own ground, wherever it is placed.
+- A species tile draws its own canopy on its own ground, wherever it is placed — and over the ground art laid beside it. `TerrainGrid.GROUND_DETAIL_ORDER` ranks the trees last in the ground band, so a canopy always stands above the walking trail trodden through the wood.
 - Older saves that stored trees as entities are converted on load. `EntityLayer.deserialize` paints the matching species tile for each one, so a loaded course becomes ordinary painted woodland.
 
 ### 6. Rendering

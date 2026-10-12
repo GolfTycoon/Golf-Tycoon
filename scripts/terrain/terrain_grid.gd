@@ -93,6 +93,21 @@ var _heightmap: Heightmap = null
 var _elevation_shader_controller: ElevationShaderController = null
 var _elevation_shader_rect: ColorRect = null
 
+## Ground detail painted on the surface, bottom-up. All of it shares the terrain
+## band (`z_index` 1): the entity band opens at 2, so no whole number is left to
+## rank a canopy against the trail it crosses, and Godot settles a tie inside one
+## band by the order the children sit in the tree. Sibling order decides who
+## covers whom, so this list is the ranking and `_order_ground_detail()` applies
+## it. A trail is trodden ground and a tree grows through it, so the standing
+## trees are painted last: woodland always covers the path graphics, and no
+## trunk is cut in half by a ribbon of paving. Whatever else the grid lays over
+## the ground — the wildlife, added after this band — keeps its place, and the
+## entities with their shadows ride their own bands above.
+## See docs/architecture.md, Draw Order.
+const GROUND_DETAIL_ORDER: Array[String] = [
+	"FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
+]
+
 ## Camera tracking for viewport-culling overlays — redraw when camera moves
 var _last_camera_pos: Vector2 = Vector2.ZERO
 var _last_camera_zoom: float = 1.0
@@ -110,9 +125,13 @@ func _ready() -> void:
 	# The continuous surface supplies turf, sand, water, stones, and paths on
 	# every platform; the overlays paint what stands on it. Keep the legacy
 	# overlay classes available for older tools, but don't double draw.
-	_setup_tree_overlay()
+	# The ground detail is added bottom-up and then ranked once, by
+	# `_order_ground_detail()`: flowers and the walking trail on the turf, the
+	# standing trees over both.
 	_setup_flower_overlay()
 	_setup_walking_path_overlay()
+	_setup_tree_overlay()
+	_order_ground_detail()
 	_setup_elevation_overlay()
 	_setup_debug_overlay()
 	_setup_land_boundary_overlay()
@@ -874,6 +893,26 @@ func _setup_walking_path_overlay() -> void:
 	_walking_path_overlay.name = "WalkingPathOverlay"
 	add_child(_walking_path_overlay)
 	_walking_path_overlay.initialize(self)
+
+## Rank the ground-detail overlays by `GROUND_DETAIL_ORDER`, the one laid lowest
+## first. They all paint in the terrain band, where Godot draws siblings in the
+## order they sit in the tree, so this is what keeps a wood over the walking
+## trail. The setups above already come bottom-up; ranking them here as well means
+## the canopies cannot be buried by an overlay added after them or by a call
+## reordered. The block is placed where its lowest overlay already lies, so
+## anything else the grid adds over the ground — the wildlife, next — keeps its
+## place.
+func _order_ground_detail() -> void:
+	var slot := -1
+	for overlay_name in GROUND_DETAIL_ORDER:
+		var overlay := get_node_or_null(overlay_name) as CanvasItem
+		if overlay == null or overlay.get_parent() != self:
+			continue
+		if slot < 0:
+			slot = overlay.get_index()
+		if overlay.get_index() != slot:
+			move_child(overlay, slot)
+		slot += 1
 
 func _setup_elevation_overlay() -> void:
 	_elevation_overlay = ElevationOverlay.new()
