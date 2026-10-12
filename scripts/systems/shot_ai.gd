@@ -812,8 +812,7 @@ static func _assess_miss_risk(
 	# Calculate accuracy for spread estimation
 	var skill_accuracy: float = _get_shot_accuracy(gd, club)
 	var ball_terrain = terrain_grid.get_tile(ball_pos)
-	var bunker_depth = terrain_grid.get_bunker_depth(ball_pos) if ball_terrain == TerrainTypes.Type.BUNKER else 0
-	var lie_modifier: float = GolfRules.get_lie_modifier(ball_terrain, club, bunker_depth)
+	var lie_modifier: float = GolfRules.get_lie_modifier(ball_terrain, club)
 	var total_accuracy: float = stats["accuracy_modifier"] * skill_accuracy * lie_modifier
 
 	# Angular spread (same model as _calculate_shot)

@@ -137,4 +137,4 @@ Contributions are welcome. Read [Contributing](docs/development/contributing.md)
 
 ## License
 
-Golf Tycoon is free software released under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
+Golf Tycoon is software released under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.

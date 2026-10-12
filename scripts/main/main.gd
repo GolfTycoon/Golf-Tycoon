@@ -1242,18 +1242,6 @@ func _start_painting() -> void:
 		_handle_placement_click(grid_pos)
 		return
 
-	# Shift+click on bunker tile toggles depth (shallow/deep)
-	if Input.is_key_pressed(KEY_SHIFT):
-		var mouse_world = camera.get_mouse_world_position()
-		var grid_pos = terrain_grid.screen_to_grid(mouse_world)
-		if terrain_grid.is_valid_position(grid_pos) and terrain_grid.get_tile(grid_pos) == TerrainTypes.Type.BUNKER:
-			var current_depth = terrain_grid.get_bunker_depth(grid_pos)
-			var new_depth = 0 if current_depth == 1 else 1
-			terrain_grid.set_bunker_depth(grid_pos, new_depth)
-			var depth_name = "Deep" if new_depth == 1 else "Shallow"
-			EventBus.notify("Bunker set to %s" % depth_name, "info")
-			return
-
 	is_painting = true
 	_tee_block_notified = false
 	_path_block_notified = false
@@ -1362,9 +1350,8 @@ func _paint_terrain_stamp(grid_pos: Vector2i) -> void:
 			blocked_by_money = true
 			continue
 		var original_type: int = terrain_grid.get_tile(tile_pos)
-		var metadata := {"old_depth":terrain_grid.get_bunker_depth(tile_pos), "old_player_placed":terrain_grid._player_placed_tiles.has(tile_pos), "old_cup":terrain_grid.has_cup_tile(tile_pos)}
+		var metadata := {"old_player_placed":terrain_grid._player_placed_tiles.has(tile_pos), "old_cup":terrain_grid.has_cup_tile(tile_pos)}
 		if terrain_changes:
-			metadata["new_depth"] = CourseTheme.get_gameplay_modifiers(GameManager.current_theme).get("default_bunker_depth", 0) if current_tool == TerrainTypes.Type.BUNKER else 0
 			# A green painted while no cup is waiting becomes a Green With Hole.
 			var will_place_cup := places_cup and current_tool == TerrainTypes.Type.GREEN
 			metadata["new_cup"] = will_place_cup
@@ -1372,12 +1359,6 @@ func _paint_terrain_stamp(grid_pos: Vector2i) -> void:
 			terrain_grid.set_tile(tile_pos, current_tool)
 			if will_place_cup and terrain_grid.add_cup_tile(tile_pos):
 				places_cup = false  # One cup per course, so this stroke is done.
-			# Apply theme-default bunker depth for newly placed bunkers
-			if current_tool == TerrainTypes.Type.BUNKER:
-				var modifiers = CourseTheme.get_gameplay_modifiers(GameManager.current_theme)
-				var default_depth = modifiers.get("default_bunker_depth", 0)
-				if default_depth > 0:
-					terrain_grid.set_bunker_depth(tile_pos, default_depth)
 			total_cost += cost
 
 	if tiles_to_paint.size() > 1:
@@ -3095,7 +3076,6 @@ func _execute_undo_action(action: Dictionary) -> void:
 			for i in range(changes.size() - 1, -1, -1):
 				var change = changes[i]
 				terrain_grid.set_tile(change["position"], change["old_type"])
-				if change.has("old_depth"): terrain_grid.set_bunker_depth(change.position, change.old_depth)
 				if not change.get("old_player_placed", true): terrain_grid._player_placed_tiles.erase(change.position)
 				if change.has("old_cup"):
 					if change.old_cup: terrain_grid.add_cup_tile(change.position)
@@ -3171,7 +3151,6 @@ func _execute_redo_action(action: Dictionary) -> void:
 			var cost = 0
 			for change in changes:
 				terrain_grid.set_tile(change["position"], change["new_type"])
-				if change.has("new_depth"): terrain_grid.set_bunker_depth(change.position, change.new_depth)
 				if change.has("new_cup"):
 					if change.new_cup: terrain_grid.add_cup_tile(change.position)
 					else: terrain_grid.remove_cup_tile(change.position)

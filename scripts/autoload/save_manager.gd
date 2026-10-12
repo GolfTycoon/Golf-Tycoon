@@ -247,7 +247,6 @@ func _build_save_data() -> Dictionary:
 		# Heights live on grid vertices: (grid_width+1) x (grid_height+1) samples.
 		data["vertex_elevation"] = terrain_grid.serialize_elevation()
 		data["player_placed"] = terrain_grid.serialize_player_placed()
-		data["bunker_depth"] = terrain_grid.serialize_bunker_depth()
 		data["cup_tiles"] = terrain_grid.serialize_cup_tiles()
 		data["walking_paths"] = terrain_grid.serialize_walking_paths()
 		data["view"] = {
@@ -408,7 +407,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	TerrainPalette.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(GameManager.current_theme)
 
-	# Terrain
+	# Terrain. Older saves can include `bunker_depth`; ignore that retired
+	# field so every standard Bunker tile loads as shallow.
 	if terrain_grid and data.has("terrain"):
 		terrain_grid.deserialize(data["terrain"])
 	# Pre-v4 saves stored signed heights (-5..+5 with flat = 0); the levels now
@@ -426,7 +426,6 @@ func _apply_save_data(data: Dictionary) -> void:
 	if terrain_grid and data.has("player_placed"):
 		terrain_grid.deserialize_player_placed(data["player_placed"])
 	if terrain_grid:
-		terrain_grid.deserialize_bunker_depth(data.get("bunker_depth", {}))
 		# Greens that carry a cup but are not part of a hole yet.
 		terrain_grid.deserialize_cup_tiles(data.get("cup_tiles", []))
 		# Walking paths (the Path improvement) laid over hostable ground.

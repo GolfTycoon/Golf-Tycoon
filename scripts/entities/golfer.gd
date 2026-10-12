@@ -2378,19 +2378,11 @@ func _gaussian_random() -> float:
 
 ## Get lie modifier based on terrain type and club — delegates to GolfRules
 func _get_lie_modifier(terrain_type: int, club: Club) -> float:
-	var depth = _get_bunker_depth_at_ball()
-	return GolfRules.get_lie_modifier(terrain_type, club, depth)
+	return GolfRules.get_lie_modifier(terrain_type, club)
 
 ## Get distance modifier based on terrain — delegates to GolfRules
 func _get_terrain_distance_modifier(terrain_type: int) -> float:
-	var depth = _get_bunker_depth_at_ball()
-	return GolfRules.get_terrain_distance_modifier(terrain_type, depth)
-
-func _get_bunker_depth_at_ball() -> int:
-	var tg = GameManager.terrain_grid
-	if tg and tg.get_tile(ball_position) == TerrainTypes.Type.BUNKER:
-		return tg.get_bunker_depth(ball_position)
-	return 0
+	return GolfRules.get_terrain_distance_modifier(terrain_type)
 
 ## Calculate rollout after ball lands. Returns Dictionary with final_position,
 ## rollout_distance (tiles), is_backspin flag, and roll_path — the walked

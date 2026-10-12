@@ -87,5 +87,5 @@ The total is capped at **2.0**.
 ## Related
 
 - [Difficulty Calculator](difficulty-calculator.md) combines carries with the other factors.
-- [Bunker Depth](bunker-depth.md) covers the bunker types that count as carries.
+- [Terrain Types](terrain-types.md) describes the Bunker and Pot Bunker tiles that count as carries.
 - [Hole Creation](hole-creation.md) covers how holes are laid out.

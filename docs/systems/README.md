@@ -26,7 +26,6 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | Doc | What it covers |
 | --- | --- |
 | [Builder Tools and Review](course-design/builder-and-review.md) | Building tools, undo and the course review |
-| [Bunker Depth](course-design/bunker-depth.md) | Shallow and deep bunkers and how they play |
 | [Clubhouse](course-design/clubhouse.md) | The required building and where golfers arrive and leave |
 | [Landforms and Golfer Expressions](course-design/course-character.md) | Landforms, architecture and how golfers react to them |
 | [Course Surface](course-design/course-surface.md) | How the course surface is drawn |

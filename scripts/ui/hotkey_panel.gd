@@ -119,7 +119,6 @@ func _build_ui() -> void:
 		["Ctrl+S", "Quick save"],
 		["Ctrl+Z", "Undo"],
 		["Ctrl+Shift+Z", "Redo"],
-		["Shift+Click", "Toggle bunker depth"],
 		["Esc", "Cancel / Deselect tool"],
 		["F1", "This help panel"],
 		["F2", "Weather debug"],

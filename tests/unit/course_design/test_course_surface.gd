@@ -1,7 +1,7 @@
 extends GameTest
-## The course surface: painted terrain and bunker depth reach the surface
-## texture, quiet generation and loads refresh it, theme changes repaint it, and
-## Quick Start's fairways replace any generated water they cross.
+## The course surface: painted terrain reaches the surface texture, bunkers
+## always use the shallow surface, quiet generation and loads refresh it, theme
+## changes repaint it, and Quick Start's fairways replace generated water.
 
 var grid: TerrainGrid
 
@@ -16,15 +16,13 @@ func after_each() -> void:
 	TerrainPalette.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
 	super()
 
-func test_paint_and_bunker_depth_reach_surface_without_changing_save_schema() -> void:
+func test_bunker_uses_the_shallow_surface_data() -> void:
 	var pos := Vector2i(3, 3)
 	grid.set_tile(pos, TerrainTypes.Type.BUNKER)
-	grid.set_bunker_depth(pos, 1)
 	var data := grid._course_surface._data.get_pixel(3, 3)
 	assert_eq(roundi(data.r * 255.0), TerrainTypes.Type.BUNKER)
-	assert_eq(data.g, 1.0)
+	assert_eq(data.g, 0.0, "The reserved surface channel no longer carries bunker depth")
 	assert_eq(grid.serialize()["3,3"], TerrainTypes.Type.BUNKER)
-	assert_eq(grid.serialize_bunker_depth()["3,3"], 1)
 
 func test_quiet_generation_and_deserialize_refresh_surface() -> void:
 	grid.begin_batch()

@@ -189,12 +189,12 @@ func test_new_playable_ground_needs_no_relief() -> void:
 		assert_eq(GolfRules.get_penalty_strokes(type), 0)
 		assert_eq(GolfRules.get_relief_type(type), GolfRules.ReliefType.NONE)
 
-func test_pot_bunker_is_harsher_than_a_deep_bunker() -> void:
+func test_pot_bunker_is_harsher_than_a_standard_bunker() -> void:
 	for club in [Golfer.Club.WEDGE, Golfer.Club.IRON]:
 		assert_lt(GolfRules.get_lie_modifier(T.POT_BUNKER, club),
-			GolfRules.get_lie_modifier(T.BUNKER, club, 1))
+			GolfRules.get_lie_modifier(T.BUNKER, club))
 	assert_lt(GolfRules.get_terrain_distance_modifier(T.POT_BUNKER),
-		GolfRules.get_terrain_distance_modifier(T.BUNKER, 1))
+		GolfRules.get_terrain_distance_modifier(T.BUNKER))
 
 func test_deep_rough_is_harsher_than_heavy_rough() -> void:
 	assert_lt(GolfRules.get_lie_modifier(T.DEEP_ROUGH, Golfer.Club.IRON),
@@ -358,6 +358,7 @@ func test_hole_difficulty_counts_the_new_hazards() -> void:
 	grid._grid[bunkers[0]] = T.BUNKER
 	grid._grid[bunkers[1]] = T.BUNKER
 	var plain := DifficultyCalculator._calculate_hazard_difficulty(bunkers, grid)
+	assert_almost_eq(plain, 0.3, 0.001, "Standard shallow bunkers have a fixed 0.15 weight each")
 	grid._grid[bunkers[0]] = T.POT_BUNKER
 	grid._grid[bunkers[1]] = T.POT_BUNKER
 	assert_gt(DifficultyCalculator._calculate_hazard_difficulty(bunkers, grid), plain)

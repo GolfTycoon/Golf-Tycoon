@@ -479,6 +479,10 @@ func test_brush_size_controls() -> void:
 	toolbar._on_brush_increase()
 	assert_eq(toolbar.get_brush_size(), 9, "9×9 is the largest terrain brush")
 
+func test_standard_bunker_tool_is_described_as_shallow() -> void:
+	var button: TerrainTileButton = toolbar._tool_buttons[TerrainTypes.Type.BUNKER]
+	assert_string_contains(button.tool_description, "Shallow sand-trap hazard")
+
 func test_green_tile_flag_tracks_the_next_green_type() -> void:
 	var button: TerrainTileButton = toolbar._tool_buttons[TerrainTypes.Type.GREEN]
 	assert_true(toolbar.green_will_place_cup(), "A new course's first green carries a cup")

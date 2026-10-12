@@ -28,7 +28,7 @@
 | Area | Saved |
 | --- | --- |
 | Company | Money, reputation, calendar, milestones, the unlimited-money flag, owned locations and unlocked land |
-| Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, bunker depths, cups waiting for holes |
+| Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
 | Entities | Buildings, decorations, path furniture, trees placed as entities |
 | Holes | Tee and cup positions, par, yardage |
 
@@ -39,6 +39,8 @@ The stroke index is not saved. It is recalculated after each load.
 | Weeds | Each weed clump and how far it has grown |
 | Tournaments | Tournament state (a live round cannot be resumed, so it is cleared on load) |
 | Golfers | **Not saved.** They respawn when the simulation resumes. |
+
+Older saves may still contain bunker-depth metadata. It is ignored on load: every standard Bunker tile is shallow, and new saves omit that retired field.
 
 ## Locations and Company State
 

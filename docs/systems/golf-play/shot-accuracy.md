@@ -39,7 +39,7 @@ Independently of the angular error, each shot has a small chance of losing dista
 ```
 skill_accuracy = blend of driving, accuracy and recovery skill (depends on club)
 base_accuracy  = club accuracy modifier
-lie_modifier   = GolfRules.get_lie_modifier(terrain, club, bunker_depth)
+lie_modifier   = GolfRules.get_lie_modifier(terrain, club)
 
 total_accuracy = base_accuracy × skill_accuracy × lie_modifier
 ```
@@ -74,7 +74,7 @@ The headless tournament simulator (`tournament_simulator.gd`) applies the same w
 | Waste bunker | 0.8 / 0.7 | 0.85 | Firm sand; the club may be grounded, so not a hazard |
 | Heavy rough | 0.5 | 0.70 | |
 | Deep rough | 0.4 | 0.60 | Ball sits down in knee-high grass |
-| Bunker | 0.6 / 0.4 (deep: 0.45 / 0.25) | 0.75 (deep: 0.60) | See [Bunker Depth](../course-design/bunker-depth.md) |
+| Bunker | 0.6 / 0.4 | 0.75 | Always shallow |
 | Pot bunker | 0.35 / 0.15 | 0.45 | Steep revetted face; ShotAI only takes a wedge |
 | Trees | 0.3 | 0.60 | One lie for the whole tree family |
 | Brush | 0.3 | 0.50 | ShotAI only takes a wedge |

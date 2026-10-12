@@ -2,7 +2,7 @@ extends MainSceneTest
 ## The terrain brush on a course: it leaves unowned land and decorations alone
 ## and free of charge, charges exactly what undo refunds and redo charges again,
 ## refuses a redo the player cannot afford, keeps a stroke cancelled mid-drag,
-## restores natural bunker depth on undo — and a save keeps the day's accounts.
+## restores natural terrain on undo — and a save keeps the day's accounts.
 
 var grid: TerrainGrid
 
@@ -72,16 +72,14 @@ func test_undo_refunds_exactly_and_redo_must_be_affordable() -> void:
 	assert_eq(GameManager.money, cash - paid, "for the same price")
 
 
-func test_undo_restores_natural_bunker_depth() -> void:
+func test_undo_restores_natural_bunker_terrain() -> void:
 	var tile := Vector2i(62, 54)
 	main._suppress_tile_undo = true
-	grid.set_tile(tile, TerrainTypes.Type.BUNKER)
+	grid.set_tile_natural(tile, TerrainTypes.Type.BUNKER)
 	main._suppress_tile_undo = false
-	grid._player_placed_tiles.erase(tile)
-	grid.set_bunker_depth(tile, 1)
 	stroke(tile)
 	main._perform_undo()
-	assert_eq(grid.get_bunker_depth(tile), 1, "Undo restores the natural bunker's depth")
+	assert_eq(grid.get_tile(tile), TerrainTypes.Type.BUNKER, "Undo restores the natural bunker")
 	assert_false(grid._player_placed_tiles.has(tile), "and the bunker is natural again")
 
 

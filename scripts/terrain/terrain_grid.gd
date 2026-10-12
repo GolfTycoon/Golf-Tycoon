@@ -32,7 +32,6 @@ const ANCHOR_RIM_MARGIN: float = 0.5
 var _grid: Dictionary = {}
 var _vertex_elevation: PackedInt32Array = PackedInt32Array()  # (grid_width+1) * (grid_height+1)
 var _vertex_stride: int = 0  # Row length of _vertex_elevation (grid_width + 1)
-var _bunker_depth_grid: Dictionary = {}  # Vector2i -> 0 (SHALLOW) or 1 (DEEP)
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 ## Green tiles carrying a cup that is not yet part of a hole — a "Green With Hole" tile
 ## waiting to be paired with a tee box. Once a hole is opened the marker is consumed and
@@ -63,8 +62,8 @@ signal cup_tiles_changed
 ## Emitted whenever the Path improvement (walking path) layer changes.
 signal walking_paths_changed
 
-## Bumped on every terrain type, bunker depth or elevation write — including the
-## quiet bulk paths (load, generation) that emit no per-tile signals — so caches of
+## Bumped on every terrain type or elevation write — including the quiet bulk
+## paths (load, generation) that emit no per-tile signals — so caches of
 ## terrain-derived results (see HolePathPlanner) can tell when they went stale.
 var terrain_revision: int = 0
 
@@ -503,21 +502,6 @@ func get_brush_tiles(center: Vector2i, brush_size: int, round_shape: bool = true
 		if is_valid_position(pos): tiles.append(pos)
 	return tiles
 
-func get_bunker_depth(pos: Vector2i) -> int:
-	return _bunker_depth_grid.get(pos, 0)
-
-func set_bunker_depth(pos: Vector2i, depth: int) -> void:
-	if not is_valid_position(pos):
-		return
-	terrain_revision += 1
-	if depth == 0:
-		_bunker_depth_grid.erase(pos)
-	else:
-		_bunker_depth_grid[pos] = depth
-	EventBus.terrain_tile_changed.emit(pos, TerrainTypes.Type.BUNKER, TerrainTypes.Type.BUNKER)
-	if _course_surface:
-		_course_surface.update_tile(pos)
-
 # =============================================================================
 # Cup tiles — "Green With Hole" markers waiting to be paired with a tee box
 # =============================================================================
@@ -734,25 +718,22 @@ func deserialize_walking_paths(data) -> void:
 	walking_paths_changed.emit()
 
 ## Reset to bare land so a new course starts clean: every tile back to GRASS and
-## all per-tile state cleared (player-placed marks, bunker depths, sculpted
-## elevation, waiting cups). New Game paints natural terrain over the existing
-## grid, so without this the previous course leaks into the next one — and a
-## leftover tee box would block the player's very first tee.
+## all per-tile state cleared (player-placed marks, sculpted elevation, waiting
+## cups). New Game paints natural terrain over the existing grid, so without
+## this the previous course leaks into the next one — and a leftover tee box
+## would block the player's very first tee.
 func reset_for_new_course() -> void:
 	deserialize_elevation({})  # Zero the vertex field and refresh elevation dependents.
 	deserialize({})  # GRASS everywhere, clears player-placed marks and the tee index.
-	_bunker_depth_grid.clear()
-	terrain_revision += 1
 	clear_cup_tiles()
 	clear_walking_paths()
 	if _bunker_overlay:
 		_bunker_overlay.queue_redraw()
 
-## A detached copy of the terrain that shot planning reads — tile types, bunker
-## depths and vertex elevation — with no overlays, surface or children. It never
-## enters the scene tree, so ShotAI can query it from a worker thread while the
-## live grid keeps changing (see HolePathPlanner). The caller owns the copy and
-## must free() it.
+## A detached copy of the terrain that shot planning reads — tile types and
+## vertex elevation — with no overlays, surface or children. It never enters the
+## scene tree, so ShotAI can query it from a worker thread while the live grid
+## keeps changing (see HolePathPlanner). The caller owns the copy and must free() it.
 func create_analysis_copy() -> TerrainGrid:
 	var copy := TerrainGrid.new()
 	copy.grid_width = grid_width
@@ -760,7 +741,6 @@ func create_analysis_copy() -> TerrainGrid:
 	copy.tile_width = tile_width
 	copy.tile_height = tile_height
 	copy._grid = _grid.duplicate()
-	copy._bunker_depth_grid = _bunker_depth_grid.duplicate()
 	copy._walking_paths = _walking_paths.duplicate()
 	_ensure_vertex_storage()
 	copy._vertex_elevation = _vertex_elevation.duplicate()
@@ -1364,12 +1344,6 @@ func serialize_elevation() -> Dictionary:
 				data["%d,%d" % [x, y]] = height
 	return data
 
-func serialize_bunker_depth() -> Dictionary:
-	var data: Dictionary = {}
-	for pos in _bunker_depth_grid:
-		data["%d,%d" % [pos.x, pos.y]] = _bunker_depth_grid[pos]
-	return data
-
 func deserialize(data: Dictionary) -> void:
 	_initialize_grid()
 	_player_placed_tiles.clear()
@@ -1449,16 +1423,3 @@ func _after_elevation_bulk_load() -> void:
 		_elevation_overlay.queue_redraw()
 	if _heightmap:
 		_heightmap.request_rebuild(self)
-
-func deserialize_bunker_depth(data: Dictionary) -> void:
-	_bunker_depth_grid.clear()
-	for key in data:
-		var parts = key.split(",")
-		if parts.size() == 2:
-			var pos = Vector2i(int(parts[0]), int(parts[1]))
-			if is_valid_position(pos):
-				_bunker_depth_grid[pos] = int(data[key])
-	terrain_revision += 1
-
-	if _course_surface:
-		_course_surface.rebuild()

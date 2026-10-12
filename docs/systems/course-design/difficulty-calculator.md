@@ -52,7 +52,7 @@ base = par − 2.0        # par 3 → 1.0, par 4 → 2.0, par 5 → 3.0
 difficulty  = water_count × 0.30
             + ob_count × 0.20
             + tree_count × 0.10
-            + bunker_difficulty         # 0.15 shallow, 0.25 deep, 0.30 pot bunker, per tile
+            + bunker_difficulty         # 0.15 standard bunker, 0.30 pot bunker, per tile
             + trouble_difficulty        # per tile, see table
 ```
 
@@ -60,9 +60,8 @@ difficulty  = water_count × 0.30
 | --- | --- | --- |
 | Water, stream | 0.30 | Penalty stroke and a drop |
 | Pot bunker | 0.30 | Wedge-only escape, barely advances |
-| Deep bunker | 0.25 | See [Bunker Depth](bunker-depth.md) |
 | Out of bounds | 0.20 | Stroke and distance penalty |
-| Shallow bunker | 0.15 | Hard to escape, no penalty |
+| Bunker (always shallow) | 0.15 | Hard to escape, no penalty |
 | Trees (any species) | 0.10 | Blocked shots, little recovery |
 | Brush, rocks, small and large boulders | 0.08 | Wedge-only hack-outs |
 | Deep rough | 0.04 | Poor lie, ball snags |
@@ -150,7 +149,7 @@ These are approximate, to show the scale of each term.
 | --- | --- | --- | --- |
 | Corridor width | `calculate()` | `10` (5 tiles either side of centre) | Wider counts more hazards |
 | Water weight | `_calculate_hazard_difficulty()` | `0.30` | Higher makes water scarier |
-| Bunker weights | `_calculate_hazard_difficulty()` | `0.15` / `0.25` / `0.30` | Shallow / deep / pot bunker |
+| Bunker weights | `_calculate_hazard_difficulty()` | `0.15` / `0.30` | Standard bunker / pot bunker |
 | OB weight | `_calculate_hazard_difficulty()` | `0.20` | Higher makes OB scarier |
 | Tree weight | `_calculate_hazard_difficulty()` | `0.10` | Higher makes trees scarier |
 | Elevation multiplier and cap | `_calculate_elevation_difficulty()` | `0.15` per unit, cap `1.5` | How much hills matter |
@@ -167,6 +166,5 @@ These are approximate, to show the scale of each term.
 ## Related
 
 - [Forced Carry](forced-carry.md) covers the carry segments that feed into this rating.
-- [Bunker Depth](bunker-depth.md) explains the deep and pot bunker weights.
+- [Terrain Types](terrain-types.md) lists the tiles classified here and their bunker weights.
 - [Course Rating](../ratings-and-reputation/course-rating.md) covers how holes average into the slope rating.
-- [Terrain Types](terrain-types.md) lists the tiles that are classified here.

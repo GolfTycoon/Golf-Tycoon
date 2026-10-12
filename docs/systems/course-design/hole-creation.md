@@ -123,14 +123,14 @@ ShotAI takes about 0.2 s for a par 4 and 0.4 s for a par 5. That is too slow for
 | --- | --- |
 | Par 3 | Returns `[tee, cup]` immediately. ShotAI is not used. |
 | Par 4 or 5, cached | Returns the cached route immediately. |
-| Par 4 or 5, not cached | Returns `[]`, so the preview draws a faded straight line. A `WorkerThreadPool` task plans the route on `TerrainGrid.create_analysis_copy()`, a detached copy of tiles, bunker depths and elevation that is not in the scene tree. One task runs at a time. Only the newest request is kept, so the route catches up once the cursor settles. |
+| Par 4 or 5, not cached | Returns `[]`, so the preview draws a faded straight line. A `WorkerThreadPool` task plans the route on `TerrainGrid.create_analysis_copy()`, a detached copy of tiles and elevation that is not in the scene tree. One task runs at a time. Only the newest request is kept, so the route catches up once the cursor settles. |
 | No thread support (Web export) | Plans on the main thread after the cursor has rested on the tile for `inline_dwell_msec` (500 ms). |
 
-Routes are cached by tee, cup, par and extra tees. The cache is cleared whenever `TerrainGrid.terrain_revision` changes. That counter increases on every write to tiles, bunker depths or elevation, including loads and generation. A route planned while the terrain changed is thrown away.
+Routes are cached by tee, cup, par and extra tees. The cache is cleared whenever `TerrainGrid.terrain_revision` changes. That counter increases on every write to tiles or elevation, including loads and generation. A route planned while the terrain changed is thrown away.
 
 ### 5. New game
 
-Tee and cup rules count tiles on the current course, so a new game starts from an empty grid. `_on_new_game_started()` clears entities and hole flags first. Removing an entity restores the terrain beneath it. Then `TerrainGrid.reset_for_new_course()` sets every tile back to grass and clears the player-placed marks, bunker depths, sculpted elevation, waiting cups and walking trails. Finally, the undo stack is cleared.
+Tee and cup rules count tiles on the current course, so a new game starts from an empty grid. `_on_new_game_started()` clears entities and hole flags first. Removing an entity restores the terrain beneath it. Then `TerrainGrid.reset_for_new_course()` sets every tile back to grass and clears the player-placed marks, sculpted elevation, waiting cups and walking trails. Finally, the undo stack is cleared.
 
 ---
 

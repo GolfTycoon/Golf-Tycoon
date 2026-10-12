@@ -438,7 +438,11 @@ func deserialize(data: Dictionary) -> void:
 	for id in saved_snapshots:
 		var snapshot = saved_snapshots[id]
 		if snapshot is Dictionary:
-			location_snapshots[id] = snapshot
+			var restored_snapshot: Dictionary = snapshot.duplicate(true)
+			# Pre-change site snapshots stored bunker depth separately. Standard
+			# Bunker terrain is always shallow now, so retire that legacy field.
+			restored_snapshot.erase("bunker_depth")
+			location_snapshots[id] = restored_snapshot
 	active_location_id = str(data.get("active_location", ""))
 	# Difficulty, budget option and the enabled features travel with the world.
 	# The balance itself comes from the save file, not the budget option.

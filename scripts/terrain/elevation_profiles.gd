@@ -10,7 +10,7 @@ extends RefCounted
 ## Each value is an offset in elevation units from the tile's base elevation.
 ## Positive = raised, negative = depressed relative to base.
 const PROFILES: Dictionary = {
-	# BUNKER: Deep bowl-shaped depression, steep lip at edges
+	# BUNKER: Shallow bowl-shaped depression with a modest grass lip
 	TerrainTypes.Type.BUNKER: [
 		[ -0.25, -0.55, -0.55, -0.25 ],
 		[ -0.55, -0.90, -0.90, -0.55 ],

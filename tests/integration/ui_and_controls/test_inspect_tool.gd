@@ -143,7 +143,6 @@ func test_hovering_shows_tile_details_without_changing_anything() -> void:
 
 	var money := GameManager.money
 	main.terrain_grid.set_tile(hovered, TerrainTypes.Type.BUNKER)
-	var depth: int = main.terrain_grid.get_bunker_depth(hovered)
 	for modifier in ["none", "shift", "ctrl"]:
 		var press := InputEventMouseButton.new()
 		press.position = motion.position
@@ -156,7 +155,8 @@ func test_hovering_shows_tile_details_without_changing_anything() -> void:
 		get_viewport().push_input(press, true)
 	assert_false(main.is_painting or main._measuring, "Clicks in Inspect neither paint nor measure")
 	assert_eq(GameManager.money, money, "nor spend")
-	assert_eq(main.terrain_grid.get_bunker_depth(hovered), depth, "and Shift-click leaves the bunker's depth alone")
+	assert_eq(main.terrain_grid.get_tile(hovered), TerrainTypes.Type.BUNKER,
+		"and even Shift-click cannot edit terrain while Inspect is active")
 
 	main._on_view_rotate_cw()
 	main.camera.force_update_scroll()

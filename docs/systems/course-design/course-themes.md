@@ -79,14 +79,12 @@ The theme is saved as a string and restored with `CourseTheme.from_string()`. On
 | Distance modifier | `course_theme.gd` `distance_modifier` | Shot distance change for the theme |
 | Maintenance multiplier | `course_theme.gd` `maintenance_cost_multiplier` | Daily upkeep for landscaping |
 | Fee baseline | `course_theme.gd` `green_fee_baseline` | Starting green fee |
-| Default bunker depth | `course_theme.gd` `default_bunker_depth` | Links and Heathland default to deep bunkers. See [Bunker Depth](bunker-depth.md). |
 | Terrain palette | `course_theme.gd` `get_terrain_colors()` | Colours for each terrain type |
 
 ---
 
 ## Related
 
-- [Bunker Depth](bunker-depth.md) sets the default bunker style for each theme.
 - [Terrain Types](terrain-types.md) lists the terrain each theme paints.
 - [Course Surface](course-surface.md) draws the theme palette.
 - [Seasonal Calendar](../environment-and-time/seasonal-calendar.md) adds the seasonal modifiers for each theme.

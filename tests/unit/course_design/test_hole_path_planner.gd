@@ -146,11 +146,9 @@ func test_shutdown_waits_for_the_running_task() -> void:
 
 func test_analysis_copy_is_detached() -> void:
 	grid.set_tile(Vector2i(5, 5), TerrainTypes.Type.BUNKER)
-	grid.set_bunker_depth(Vector2i(5, 5), 1)
 	grid.set_vertex_elevation(Vector2i(6, 6), grid.BASE_ELEVATION + 3)
 	var copy := grid.create_analysis_copy()
 	assert_eq(copy.get_tile(Vector2i(5, 5)), TerrainTypes.Type.BUNKER)
-	assert_eq(copy.get_bunker_depth(Vector2i(5, 5)), 1)
 	assert_eq(copy.get_vertex_elevation(Vector2i(6, 6)), grid.BASE_ELEVATION + 3)
 	assert_eq(copy.terrain_revision, grid.terrain_revision)
 	assert_false(copy.is_inside_tree())
@@ -167,9 +165,6 @@ func test_every_kind_of_terrain_write_bumps_the_revision() -> void:
 	r = grid.terrain_revision
 	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.FAIRWAY)
 	assert_eq(grid.terrain_revision, r, "A no-op paint is not a change")
-	grid.set_bunker_depth(Vector2i(3, 3), 1)
-	assert_gt(grid.terrain_revision, r, "set_bunker_depth")
-	r = grid.terrain_revision
 	grid.set_vertex_elevation(Vector2i(3, 3), grid.BASE_ELEVATION + 2)
 	assert_gt(grid.terrain_revision, r, "set_vertex_elevation")
 	r = grid.terrain_revision
@@ -178,6 +173,3 @@ func test_every_kind_of_terrain_write_bumps_the_revision() -> void:
 	r = grid.terrain_revision
 	grid.deserialize_elevation({})
 	assert_gt(grid.terrain_revision, r, "deserialize_elevation (load)")
-	r = grid.terrain_revision
-	grid.deserialize_bunker_depth({})
-	assert_gt(grid.terrain_revision, r, "deserialize_bunker_depth (load)")

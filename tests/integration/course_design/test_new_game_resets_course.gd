@@ -1,6 +1,6 @@
 extends MainSceneTest
 ## Starting a new game leaves no trace of the course played before it: no tee
-## boxes, greens, fairways or bunker depths, no waiting cups or sculpted
+## boxes, greens, fairways or bunkers, no waiting cups or sculpted
 ## elevation, no hole flags, golfers or undo history. A leftover tee box would
 ## be worse than cosmetic — it would block the player's very first tee.
 
@@ -55,7 +55,6 @@ func test_a_new_game_starts_from_a_clean_lot() -> void:
 	# vegetation with set_tile_natural(), so the only marks a generated course
 	# leaves are the ones its buildings set. reset_for_new_course() clearing them
 	# is covered by the unit tests in course_design/test_cup_tiles.gd.
-	assert_true(grid.serialize_bunker_depth().is_empty(), "No bunker depth survives")
 	assert_true(main.hole_manager.get_all_hole_visualizers().is_empty(), "The old hole flag is gone")
 	assert_false(main.undo_manager.can_undo(), "Undo history does not cross into the second course")
 	assert_true(main.golfer_manager.get_active_golfers().is_empty(), "No golfer survives into the second course")

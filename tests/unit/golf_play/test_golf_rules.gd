@@ -257,6 +257,11 @@ func test_heavy_rough_worse_than_rough() -> void:
 	var heavy = GolfRules.get_lie_modifier(TerrainTypes.Type.HEAVY_ROUGH, Golfer.Club.IRON)
 	assert_lt(heavy, rough, "Heavy rough should be harder than rough")
 
+func test_bunker_is_always_shallow() -> void:
+	assert_eq(GolfRules.get_lie_modifier(TerrainTypes.Type.BUNKER, Golfer.Club.WEDGE), 0.6)
+	assert_eq(GolfRules.get_lie_modifier(TerrainTypes.Type.BUNKER, Golfer.Club.IRON), 0.4)
+	assert_eq(GolfRules.get_terrain_distance_modifier(TerrainTypes.Type.BUNKER), 0.75)
+
 func test_bunker_wedge_easier() -> void:
 	var wedge = GolfRules.get_lie_modifier(TerrainTypes.Type.BUNKER, Golfer.Club.WEDGE)
 	var iron = GolfRules.get_lie_modifier(TerrainTypes.Type.BUNKER, Golfer.Club.IRON)

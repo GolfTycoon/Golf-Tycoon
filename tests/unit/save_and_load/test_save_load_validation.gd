@@ -6,14 +6,17 @@ extends GameTest
 
 var _saved_world: Dictionary
 var _saved_experience: Dictionary
+var _saved_terrain_grid: TerrainGrid
 
 func before_each() -> void:
 	super()
 	_saved_world = WorldMap.serialize()
 	_saved_experience = FeedbackManager.serialize_experience()
+	_saved_terrain_grid = SaveManager.terrain_grid
 
 func after_each() -> void:
 	SaveManager._is_loading = false
+	SaveManager.terrain_grid = _saved_terrain_grid
 	WorldMap.deserialize(_saved_world)
 	FeedbackManager.restore_experience(_saved_experience)
 	super()
@@ -123,6 +126,30 @@ func test_saved_values_survive_a_json_round_trip() -> void:
 	assert_eq(GameManager.current_difficulty, DifficultyPresets.Preset.HARD)
 	assert_eq(GameManager.bankruptcy_threshold, 0, "The difficulty brings its overdraft limit")
 	assert_eq(GameManager.current_theme, CourseTheme.Type.LINKS)
+
+func test_legacy_deep_bunker_data_is_ignored_and_not_saved_again() -> void:
+	var grid := make_grid(8, 8)
+	SaveManager.terrain_grid = grid
+	GameManager.current_course = GameManager.CourseData.new()
+	var legacy_world := WorldMap.serialize()
+	legacy_world["snapshots"] = {
+		"legacy-site": {"terrain": {"3,3": TerrainTypes.Type.BUNKER}, "bunker_depth": {"3,3": 1}},
+	}
+	SaveManager._apply_save_data({
+		"version": SaveManager.SAVE_VERSION,
+		"game_state": {},
+		"world_map": legacy_world,
+		"terrain": {"3,3": TerrainTypes.Type.BUNKER},
+		"bunker_depth": {"3,3": 1},
+	})
+
+	assert_eq(grid.get_tile(Vector2i(3, 3)), TerrainTypes.Type.BUNKER)
+	assert_eq(grid._course_surface._data.get_pixel(3, 3).g, 0.0,
+		"Legacy deep metadata cannot change the shallow bunker surface")
+	var saved := SaveManager._build_save_data()
+	assert_false(saved.has("bunker_depth"), "New saves no longer write the retired field")
+	assert_false(saved["world_map"]["snapshots"]["legacy-site"].has("bunker_depth"),
+		"Old site snapshots discard the retired field too")
 
 func test_a_version_one_save_keeps_its_state_at_the_top_level() -> void:
 	GameManager.current_course = GameManager.CourseData.new()
