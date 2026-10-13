@@ -246,6 +246,48 @@ func test_the_club_tab_opens_the_world_map_over_a_frozen_course() -> void:
 	assert_true(main.bottom_bar.is_visible_in_tree(), "The gameplay UI comes back after Back")
 
 
+func test_the_globe_turns_when_the_map_opens_from_the_club_tab() -> void:
+	# The Club tab freezes the course behind the map, and a frozen simulation
+	# (Engine.time_scale 0) used to stop the globe mid-flight and write its
+	# frozen centre over every frame of a drag: the atlas looked stuck.
+	_tool_button(main.terrain_toolbar, "world_map").pressed.emit()
+	await process_frames(3)
+	var screen := _world_map_screen()
+	assert_not_null(screen, "The Club tab opens the world map")
+	if screen == null:
+		return
+	assert_true(GameManager.is_paused, "The course behind the map is frozen")
+	var globe: GlobeMap = screen.globe
+	var before := globe.get_view_state()
+	await drag(globe, Vector2(90.0, 30.0))
+	var after := globe.get_view_state()
+	assert_true(absf(float(after["center_lon"]) - float(before["center_lon"])) > 5.0,
+		"Dragging turns the globe over a frozen course")
+	assert_gt(float(after["center_lat"]), float(before["center_lat"]),
+		"and tilts it the way the pointer moved")
+
+	# The zoom buttons answer over a frozen course too.
+	var radius: float = globe.get_view_state()["radius_scale"]
+	var zoom_in := screen.find_child("ZoomIn", true, false) as Button
+	assert_not_null(zoom_in, "The map has a zoom-in button")
+	if zoom_in:
+		zoom_in.pressed.emit()
+	await process_frames(8)
+	assert_gt(globe.get_view_state()["radius_scale"], radius, "Zooming in eases the globe closer")
+
+	# ...and so does choosing a destination, which flies the globe round to it.
+	var centre: float = globe.get_view_state()["center_lon"]
+	globe.location_clicked.emit("japan")
+	await process_frames(8)
+	assert_true(absf(globe.get_view_state()["center_lon"] - centre) > 0.01,
+		"Choosing a destination flies the globe towards it")
+
+	screen.back_requested.emit()
+	await process_frames(3)
+	assert_null(_world_map_screen(), "Back closes the world map")
+	assert_false(GameManager.is_paused, "Back hands the running course back")
+
+
 func test_switching_locations_keeps_each_course_and_the_company_money() -> void:
 	_tool_button(main.terrain_toolbar, "world_map").pressed.emit()
 	await process_frames(3)

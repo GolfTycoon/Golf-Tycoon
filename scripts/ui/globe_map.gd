@@ -23,7 +23,10 @@ class_name GlobeMap
 ## the menu screens' pixel frames, sprites and Pixelify type.
 ##
 ## Drag to spin (with a little inertia), scroll or pinch to zoom, click a
-## marker (or the list beside it) to select. Public API: `set_locations`,
+## marker (or the list beside it) to select. The globe animates on wall-clock
+## time rather than the simulation's, so it still turns when the screen hosting
+## it has frozen the course behind it — and taking hold of it cancels any
+## fly-to still in flight, so a drag always wins. Public API: `set_locations`,
 ## `set_selected`, `look_at_location`, `set_view_state` / `get_view_state`,
 ## `set_land_style`, `location_clicked(id)`, static `project_point`,
 ## `is_land`, `build_land_points`, `build_land_mask`, `mask_uv`.
@@ -143,6 +146,12 @@ var _anim_to_lon: float = 0.0
 var _anim_to_lat: float = 0.0
 var _anim_time: float = 0.0
 var _animating: bool = false
+## Wall-clock stamp of the previous animation frame, in microseconds. The
+## globe keeps its own clock (see `_frame_seconds`) because the screens that
+## host it — above all the Club tab's World Map, which freezes the course it
+## opened over — hand it frames worth zero seconds. Negative means "no
+## previous frame": the next one starts from nothing.
+var _frame_usec: int = -1
 static var _land_points: Array = []
 static var _land_polygon_cache: Array = []
 static var _land_polygon_cache_loaded: bool = false
@@ -163,7 +172,7 @@ func _ready() -> void:
 	_build_layers()
 	_sync_planet()
 	resized.connect(_on_resized)
-	set_process(false)
+	_stop_animating()
 
 ## The two drawing layers: the shader planet underneath, the markers on top.
 func _build_layers() -> void:
@@ -275,18 +284,18 @@ func set_view_state(state: Dictionary) -> void:
 	_animating = false
 	_spin_lon = 0.0
 	_spin_lat = 0.0
-	set_process(false)
+	_stop_animating()
 	_redraw_view()
 
 ## Zoom steps ease to their target instead of jumping, which reads as the
 ## globe being pulled towards the player.
 func zoom_in() -> void:
 	_zoom_target = clampf(_zoom_target * ZOOM_STEP, MIN_RADIUS_SCALE, MAX_RADIUS_SCALE)
-	set_process(true)
+	_start_animating()
 
 func zoom_out() -> void:
 	_zoom_target = clampf(_zoom_target / ZOOM_STEP, MIN_RADIUS_SCALE, MAX_RADIUS_SCALE)
-	set_process(true)
+	_start_animating()
 
 ## Give the globe the locations to pin: array of dictionaries with
 ## id/name/lat/lon (plus any extra state the marker colour needs).
@@ -321,7 +330,7 @@ func _center_on(lon: float, lat: float) -> void:
 	_animating = true
 	_spin_lon = 0.0
 	_spin_lat = 0.0
-	set_process(true)
+	_start_animating()
 
 ## Smoothly unwrap a longitude so animations can cross the antimeridian
 ## without a jump.
@@ -332,13 +341,42 @@ static func _unwrap_lon(lon: float, reference: float) -> float:
 		lon += 360.0
 	return lon
 
+## Start the animation loop. The clock restarts with it, so the first frame
+## after the globe has been sitting idle is not charged for the idle time.
+func _start_animating() -> void:
+	_frame_usec = -1
+	set_process(true)
+
+## Nothing left to animate: stop the loop, so an idle globe costs nothing.
+func _stop_animating() -> void:
+	_frame_usec = -1
+	set_process(false)
+
+## How many seconds this frame is worth. The engine's own delta, unless the
+## simulation behind the map is frozen: the Club tab opens the World Map over a
+## course it has paused, a paused simulation runs on `Engine.time_scale` 0, and
+## a frozen clock hands out frames worth nothing at all. The globe is an
+## interface rather than part of the simulation, so it keeps its own clock and
+## turns at the same rate whatever the course behind it is doing.
+func _frame_seconds(delta: float) -> float:
+	if delta > 0.0:
+		_frame_usec = -1
+		return delta
+	var now := Time.get_ticks_usec()
+	var seconds := 0.0
+	if _frame_usec > 0:
+		seconds = float(now - _frame_usec) * 1e-6
+	_frame_usec = now
+	return maxf(seconds, 0.0)
+
 ## Flies the centring animation, settles the zoom and keeps a flicked globe
 ## spinning until it slows down.
 func _process(delta: float) -> void:
+	var step := _frame_seconds(delta)
 	var changed := false
 
 	if _animating:
-		_anim_time = minf(_anim_time + delta / CENTER_DURATION, 1.0)
+		_anim_time = minf(_anim_time + step / CENTER_DURATION, 1.0)
 		# Ease out cubic: quick off the mark, gentle on arrival.
 		var t := 1.0 - pow(1.0 - _anim_time, 3.0)
 		_center_lon = lerpf(_anim_from_lon, _anim_to_lon, t)
@@ -350,16 +388,16 @@ func _process(delta: float) -> void:
 		changed = true
 
 	if absf(_radius_scale - _zoom_target) > 0.0005:
-		_radius_scale = lerpf(_radius_scale, _zoom_target, minf(1.0, ZOOM_SETTLE_RATE * delta))
+		_radius_scale = lerpf(_radius_scale, _zoom_target, minf(1.0, ZOOM_SETTLE_RATE * step))
 		if absf(_radius_scale - _zoom_target) <= 0.0005:
 			_radius_scale = _zoom_target
 		changed = true
 
 	# Inertia, but never while the player is still holding the globe.
 	if not _dragging and (absf(_spin_lon) > 0.05 or absf(_spin_lat) > 0.05):
-		_center_lon = fposmod(_center_lon + _spin_lon * delta, 360.0)
-		_center_lat = clampf(_center_lat + _spin_lat * delta, -MAX_CENTER_LAT, MAX_CENTER_LAT)
-		var decay := pow(SPIN_DECAY, delta)
+		_center_lon = fposmod(_center_lon + _spin_lon * step, 360.0)
+		_center_lat = clampf(_center_lat + _spin_lat * step, -MAX_CENTER_LAT, MAX_CENTER_LAT)
+		var decay := pow(SPIN_DECAY, step)
 		_spin_lon *= decay
 		_spin_lat *= decay
 		changed = true
@@ -367,7 +405,7 @@ func _process(delta: float) -> void:
 	if not changed:
 		_spin_lon = 0.0
 		_spin_lat = 0.0
-		set_process(false)
+		_stop_animating()
 		return
 	_redraw_view()
 
@@ -849,6 +887,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 			return
 		if _touch_index == -1:
 			_touch_index = event.index
+			_take_hold()
 			_dragging = true
 			_drag_start = local_pos
 			_drag_last = local_pos
@@ -865,7 +904,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 				location_clicked.emit(hit)
 		else:
 			# Let go mid-flick: the globe keeps the spin and coasts.
-			set_process(true)
+			_start_animating()
 		_touch_index = -1
 		get_viewport().set_input_as_handled()
 	elif inside:
@@ -874,6 +913,15 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 
 func _screen_to_local(screen_pos: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * screen_pos
+
+## The player has taken hold of the globe: whatever it was doing — flying to a
+## destination or coasting off a flick — is theirs to overrule from here. A
+## fly-to left in flight would otherwise write its own centre over every frame
+## of the drag, and the globe would refuse to follow the hand on it.
+func _take_hold() -> void:
+	_animating = false
+	_spin_lon = 0.0
+	_spin_lat = 0.0
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -884,6 +932,7 @@ func _gui_input(event: InputEvent) -> void:
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			_take_hold()
 			_dragging = true
 			_drag_start = event.position
 			_drag_last = event.position
@@ -897,7 +946,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				if not hit.is_empty():
 					location_clicked.emit(hit)
 			else:
-				set_process(true)
+				_start_animating()
 		accept_event()
 	elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 		zoom_in()

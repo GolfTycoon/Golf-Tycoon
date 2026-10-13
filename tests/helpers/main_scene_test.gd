@@ -147,6 +147,43 @@ func click(control: Control) -> void:
 	await process_frames(1)
 
 
+## A real left-button drag from the middle of `control` by `delta` pixels,
+## through the viewport: like the player's, it only reaches the control when
+## nothing is drawn over it, and it is spread over a few frames so the control
+## sees a drag rather than a jump.
+func drag(control: Control, delta: Vector2) -> void:
+	assert_not_null(control, "There is a control to drag")
+	if control == null:
+		return
+	var start := control.get_global_rect().get_center()
+	var vp := get_viewport()
+	var hover := InputEventMouseMotion.new()
+	hover.position = start
+	hover.global_position = start
+	vp.push_input(hover)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = start
+	press.global_position = start
+	vp.push_input(press)
+	for step in range(1, 7):
+		var at := start + delta * (float(step) / 6.0)
+		var motion := InputEventMouseMotion.new()
+		motion.position = at
+		motion.global_position = at
+		motion.relative = delta / 6.0
+		vp.push_input(motion)
+		await process_frames(1)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = start + delta
+	release.global_position = start + delta
+	vp.push_input(release)
+	await process_frames(1)
+
+
 ## Press a key through the viewport, as the player would.
 func press_key(keycode: Key) -> void:
 	var event := InputEventKey.new()

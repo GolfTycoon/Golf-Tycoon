@@ -191,6 +191,60 @@ func test_centring_animation_is_smooth_and_monotonic() -> void:
 	assert_almost_eq(globe._center_lon, 90.0, 0.001, "it lands exactly on the destination")
 	assert_gt(steps, 2, "the move is interpolated over several frames, not snapped")
 
+func test_a_frozen_simulation_does_not_freeze_the_globe() -> void:
+	# The Club tab opens the World Map over a course it has paused, and a paused
+	# simulation runs on Engine.time_scale 0: every frame it hands out is worth
+	# no time at all. The atlas is an interface rather than part of the
+	# simulation, so it measures its own time and keeps turning.
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "east", "name": "East", "lon": 90.0, "lat": 0.0}])
+	globe.look_at_location("east")
+	Engine.time_scale = 0.0
+	# The frame already in flight still carries the last of the running clock,
+	# so let the frozen clock settle before watching the globe.
+	await process_frames(2)
+	var progress: float = globe._anim_time
+	var centre: float = globe._center_lon
+	await process_frames(6)
+	assert_gt(globe._anim_time, progress, "the fly-to keeps its own time while the course is frozen")
+	assert_gt(globe._center_lon, centre, "and carries the globe towards the destination")
+
+	var radius: float = globe.get_view_state()["radius_scale"]
+	globe.zoom_in()
+	await process_frames(6)
+	assert_gt(globe.get_view_state()["radius_scale"], radius,
+		"zooming eases towards its target over a frozen course too")
+
+
+func test_taking_hold_of_the_globe_stops_a_fly_to_in_flight() -> void:
+	# A hand on the globe overrules whatever it was doing: a fly-to left in
+	# flight writes its own centre over every frame of the drag, and the globe
+	# seems to refuse to follow the pointer.
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "east", "name": "East", "lon": 90.0, "lat": 0.0}])
+	globe.look_at_location("east")
+	assert_true(globe._animating, "the globe is flying towards the destination")
+
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(200.0, 180.0)
+	globe._gui_input(press)
+	assert_false(globe._animating, "taking hold of the globe cancels the fly-to")
+
+	var before := globe._center_lon
+	var motion := InputEventMouseMotion.new()
+	motion.position = press.position + Vector2(60.0, 0.0)
+	globe._gui_input(motion)
+	var dragged := globe._center_lon
+	assert_true(absf(dragged - before) > 10.0, "the drag turns the globe")
+	await process_frames(3)
+	assert_almost_eq(globe._center_lon, dragged, 0.001,
+		"and the globe stays where the drag left it")
+
+
 func test_zoom_eases_to_its_target_and_stops_processing() -> void:
 	var globe := _make_globe()
 	var start: float = globe.get_view_state()["radius_scale"]
