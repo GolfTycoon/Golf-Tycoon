@@ -7,9 +7,9 @@ extends MainSceneTest
 ## Then real clicks and keys play it: the picks reach the summary and the course
 ## plan, survive the window being resized, and Esc and Choose Location leave it.
 
-## 3 difficulties + 4 budgets + 5 hole counts + 3 features + random name +
-## Back + Choose Location.
-const BUTTON_COUNT := 18
+## 3 difficulties + 4 budgets + 5 hole counts + 3 features + the tutorial
+## switch + random name + Back + Choose Location.
+const BUTTON_COUNT := 19
 const MIN_TARGET := 44.0
 const SIZES := [
 	[Vector2i(390, 844), StartNewGameScreen.Layout.PHONE, "phone portrait"],
@@ -91,6 +91,12 @@ func _assert_layout(tag: String, size: Vector2i, layout: int) -> void:
 	assert_true(screen._difficulty_buttons.size() == 3 and screen._money_buttons.size() == 4 \
 		and screen._hole_buttons.size() == 5 and screen._feature_boxes.size() == 3,
 		"%s: three difficulties, four budgets, five hole counts and three features" % tag)
+	assert_true(screen._tutorial_card != null and screen._tutorial_card.button.is_visible_in_tree(),
+		"%s: the tutorial switch is shown" % tag)
+	# Wide and landscape keep it in the title bar; the scrolling ones give it a section.
+	var in_title_bar := layout == StartNewGameScreen.Layout.WIDE or layout == StartNewGameScreen.Layout.LANDSCAPE
+	assert_eq(screen._tutorial_card.cell.get_parent().name, "Header" if in_title_bar else "TutorialBlock",
+		"%s: the tutorial switch sits in the title bar or its own section" % tag)
 
 	# Scrolling arrangements only promise the width; the rest sit wholly inside.
 	var scrolling := layout == StartNewGameScreen.Layout.PHONE or layout == StartNewGameScreen.Layout.TABLET
@@ -174,8 +180,20 @@ func test_the_picks_reach_the_summary_and_the_plan() -> void:
 	assert_eq(screen.get_options()["starting_money"], -1, "Clicking Unlimited picks an unlimited budget")
 	assert_eq(screen._summary_values["money"].text, "Unlimited", "The summary says Unlimited")
 
+	# The tutorial only applies to an empty course, so pick it while there are no holes.
+	await click(_button_for(screen._hole_buttons, 0))
+	var tutorial_before: bool = screen.get_options()["tutorial"]
+	await click(screen._tutorial_card.button)
+	assert_eq(screen.get_options()["tutorial"], not tutorial_before, "Clicking the tutorial switch turns the tutorial over")
+	assert_eq(screen._summary_values["tutorial"].text, "Off" if tutorial_before else "On", "The summary follows the switch")
+	assert_eq(screen._tutorial_card.button.button_pressed, not tutorial_before, "and the switch shows its state")
+	await click(screen._tutorial_card.button)
+	assert_eq(screen.get_options()["tutorial"], tutorial_before, "Clicking it again puts the choice back")
+
 	await click(_button_for(screen._hole_buttons, 18))
 	assert_eq(screen.get_options()["generated_holes"], 18, "Clicking 18 asks for an 18-hole course")
+	assert_true(screen._tutorial_card.button.disabled, "With holes generated the tutorial switch cannot be changed")
+	assert_eq(screen._summary_values["tutorial"].text, "Not used", "and the summary says the tutorial is not used")
 	assert_true(screen._course_plan.hole_count == 18 and screen._course_plan.is_revealing(),
 		"The course plan starts drawing the 18 holes in")
 	var waited := 0.0
@@ -192,6 +210,7 @@ func test_the_picks_reach_the_summary_and_the_plan() -> void:
 	await click(screen._feature_boxes["wind"])
 	await click(screen._feature_boxes["wind"])
 	assert_true(screen.get_options()["features"]["wind"], "Wind toggles off and back on")
+
 
 	screen._company_input.text = "Integration Links"
 	screen._company_input.text_changed.emit("Integration Links")
@@ -226,6 +245,7 @@ func test_the_picks_survive_the_window_being_resized() -> void:
 		assert_eq(_pressed_values(screen._hole_buttons), [18], "%s: 18 holes" % size)
 		assert_false(screen._feature_boxes["wind"].button_pressed, "%s: no wind" % size)
 		assert_true(screen._feature_boxes["seasons"].button_pressed, "%s: seasons" % size)
+		assert_eq(screen._tutorial_card.button.button_pressed, picked["tutorial"], "%s: the tutorial switch keeps its choice" % size)
 	# A small drag within one arrangement rebuilds once the window settles.
 	await _resize(Vector2i(1240, 700))
 	assert_eq(_screen()._built_size, Vector2(1240, 700), "A small resize is measured again once the window settles")
@@ -253,3 +273,71 @@ func test_esc_goes_back_and_choose_location_goes_on() -> void:
 		assert_eq(sent[0]["generated_holes"], 6, "and the hole count")
 	var world_map := main.get_node_or_null("UI/HUD/WorldMapScreen")
 	assert_true(world_map != null and world_map.visible, "Choose Location opens the world map")
+
+
+## The switch decides whether the empty first course is walked through: set
+## off it never starts, set on it starts once and then the choice is spent.
+func test_the_tutorial_switch_decides_whether_the_empty_course_gets_one() -> void:
+	var saved_world := WorldMap.serialize()
+
+	await _choose_location_with_tutorial(false)
+	await _play_first_site()
+	assert_true(GameManager.current_course != null, "Play starts the company's first course")
+	assert_false(_tutorial_running(), "Switched off, no tutorial starts on the empty course")
+	assert_null(main.get_node_or_null("UI/TutorialOverlay"), "and no tutorial panel is drawn")
+
+	await _choose_location_with_tutorial(true)
+	await _play_first_site()
+	assert_true(_tutorial_running(), "Switched on, the empty course starts the tutorial")
+	assert_not_null(main.get_node_or_null("UI/TutorialOverlay"), "whose panel is drawn over the course")
+	assert_false(WorldMap.tutorial_enabled, "The choice is spent once the tutorial has started")
+
+	_stop_tutorial()
+	WorldMap.deserialize(saved_world)
+
+
+## Start New Game with the tutorial switch set to `on`, then Choose Location on
+## an empty lot.
+func _choose_location_with_tutorial(on: bool) -> void:
+	main._on_menu_start_new_game()
+	await process_frames(4)
+	var screen := _screen()
+	assert_not_null(screen, "Start New Game opens the setup screen")
+	if screen == null:
+		return
+	await click(_button_for(screen._hole_buttons, 0))
+	if screen._tutorial_card.button.button_pressed != on:
+		await click(screen._tutorial_card.button)
+	assert_eq(screen.get_options()["tutorial"], on, "The switch is set to %s" % ("on" if on else "off"))
+	await click(screen._next_button)
+	await process_frames(3)
+
+
+## Buy a site the company can afford and play it, the way the world map's Play does.
+func _play_first_site() -> void:
+	var site := WorldMap.pick_random_affordable_location(7)
+	assert_ne(site, "", "A site is affordable")
+	if site.is_empty():
+		return
+	assert_true(WorldMap.buy_location(site), "The site is bought")
+	main._on_world_map_play_location(site)
+	await process_frames(12)
+
+
+func _tutorial_running() -> bool:
+	return main.tutorial_system != null and main.tutorial_system.is_active
+
+
+## Take the tutorial down without marking it finished: finishing it writes to
+## the settings file that every later run reads.
+func _stop_tutorial() -> void:
+	var tutorial: TutorialSystem = main.tutorial_system
+	if tutorial == null:
+		return
+	tutorial._disconnect_step_signals()
+	tutorial.is_active = false
+	var overlay := tutorial.get_overlay()
+	if overlay != null and is_instance_valid(overlay):
+		overlay.queue_free()
+	tutorial.queue_free()
+	main.tutorial_system = null

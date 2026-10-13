@@ -90,6 +90,10 @@ The globe is drawn in two layers. Splitting the drawing keeps it smooth and chea
 
 What a new site starts with depends on **Generated Holes** on the Start New Game screen. Quick Start uses 3 generated holes and buys a random affordable location (`WorldMap.pick_random_affordable_location()`), so it starts playing at once.
 
+### The guided tutorial
+
+The **Guided tutorial** switch on Start New Game is saved with the company (`WorldMap.tutorial_enabled`, the `tutorial` key of the world state). It is on by default until the tutorial has been completed (`WorldMap.default_tutorial_enabled()`, which reads `TutorialSystem.is_tutorial_completed()`). When a new game starts (`main.gd`, `_on_new_game_started()`), the tutorial runs only if all of these hold: the game was not a Quick Start or a prebuilt package, the course has no generated holes, and the switch is on. Starting the tutorial spends the choice (`tutorial_enabled` goes back to `false`), so every save made after that records it as used. Saves from before the switch existed keep the tutorial they would have had.
+
 | Holes | Layout | Par |
 | --- | --- | --- |
 | 0 | None: a bare plot | — |

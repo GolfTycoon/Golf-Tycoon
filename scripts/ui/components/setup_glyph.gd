@@ -2,7 +2,7 @@ extends Control
 class_name SetupGlyph
 ## Small drawn icons for the Start New Game screen: difficulty bars, coin
 ## stacks, the three game features, the random-name die, the selection check,
-## the on/off switch and the call-to-action arrow.
+## the on/off switch, the call-to-action arrow and the tutorial's open book.
 ##
 ## They are drawn, not typed, for the same reason as the Rotate buttons'
 ## arrows and the title screen's flag mark: the game's font has no check mark,
@@ -12,7 +12,7 @@ class_name SetupGlyph
 ## test can hand in a recorder and count what would be drawn; in the game the
 ## canvas is the control itself.
 
-enum Kind { DIFFICULTY, MONEY, WEATHER, WIND, SEASONS, DICE, CHECK, SWITCH, ARROW }
+enum Kind { DIFFICULTY, MONEY, WEATHER, WIND, SEASONS, DICE, CHECK, SWITCH, ARROW, TUTORIAL }
 
 ## MONEY level that draws the infinity sign (Unlimited) instead of coins.
 const MONEY_UNLIMITED := 4
@@ -90,6 +90,8 @@ func _paint(canvas) -> void:
 			_paint_check(canvas, origin, side)
 		Kind.ARROW:
 			_paint_arrow(canvas, origin, side)
+		Kind.TUTORIAL:
+			_paint_tutorial(canvas, origin, side)
 
 ## Three ascending bars, `level` of them lit: the familiar strength meter.
 func _paint_difficulty(canvas, o: Vector2, s: float) -> void:
@@ -215,6 +217,25 @@ func _paint_arrow(canvas, o: Vector2, s: float) -> void:
 		o + Vector2(s * 0.80, s * 0.5),
 		o + Vector2(s * 0.52, s * 0.74),
 	]), accent, width, true)
+
+## An open book: two pages either side of a spine, the lessons of the tutorial.
+func _paint_tutorial(canvas, o: Vector2, s: float) -> void:
+	var page := accent if on else MUTED
+	var left := PackedVector2Array([
+		o + Vector2(s * 0.06, s * 0.24),
+		o + Vector2(s * 0.47, s * 0.32),
+		o + Vector2(s * 0.47, s * 0.84),
+		o + Vector2(s * 0.06, s * 0.74),
+	])
+	var right := PackedVector2Array([
+		o + Vector2(s * 0.94, s * 0.24),
+		o + Vector2(s * 0.53, s * 0.32),
+		o + Vector2(s * 0.53, s * 0.84),
+		o + Vector2(s * 0.94, s * 0.74),
+	])
+	canvas.draw_colored_polygon(left, page)
+	canvas.draw_colored_polygon(right, page)
+	canvas.draw_line(o + Vector2(s * 0.5, s * 0.30), o + Vector2(s * 0.5, s * 0.86), INK, maxf(1.2, s * 0.06), true)
 
 ## A pill switch: lit track and knob on the right when on.
 func _paint_switch(canvas) -> void:

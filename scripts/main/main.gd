@@ -2179,9 +2179,13 @@ func _on_new_game_started() -> void:
 		if is_inside_tree() and GameManager.current_mode == GameManager.GameMode.SIMULATING:
 			golfer_manager.spawn_initial_group()
 
-	# Start tutorial for first-time players (skip when the course already has
-	# holes: Quick Start, Prebuilt, or a generated first course)
-	if not is_quick_start and not is_prebuilt and generated_holes == 0 and not TutorialSystem.is_tutorial_completed():
+	# The tutorial runs when the company chose it on Start New Game. It skips
+	# courses that already have holes (Quick Start, Prebuilt, or a generated
+	# first course). The choice is spent here, so later empty sites of the same
+	# company do not repeat it.
+	var tutorial_due := not is_quick_start and not is_prebuilt and generated_holes == 0 and WorldMap.tutorial_enabled
+	if tutorial_due:
+		WorldMap.tutorial_enabled = false
 		_start_tutorial()
 
 func _create_loading_overlay(message: String) -> CanvasLayer:

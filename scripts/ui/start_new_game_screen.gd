@@ -3,9 +3,10 @@ class_name StartNewGameScreen
 ## StartNewGameScreen - Company setup shown after "Start New Game".
 ##
 ## Collects the company name, difficulty, starting budget, how many holes the
-## first course should start with, and which game features are enabled. The
-## Choose Location button hands those options to the World Map screen, where
-## the player buys the location for their first course.
+## first course should start with, which game features are enabled and whether
+## the tutorial walks the player through an empty first course. The Choose
+## Location button hands those options to the World Map screen, where the
+## player buys the location for their first course.
 ##
 ## The screen sits on the title screen's shared background image, in the same
 ## dark translucent cards, and is built in one of four arrangements picked
@@ -84,6 +85,11 @@ const CTA_TEXT := "Choose Location"
 const NEXT_TOOLTIP := "Choose the location for your first course"
 const MONEY_TOOLTIP := "The company's opening balance. Location prices, land and buildings all come out of it."
 const NAME_PLACEHOLDER := "Your golf company"
+const TUTORIAL_TITLE := "Guided tutorial"
+const TUTORIAL_TOOLTIP := "Step-by-step help on your first empty course: paint the course, open a hole, place a building and set your green fee. It only runs on an empty course, so it is not used when holes are generated."
+## Under the switch where there is room for it (phones and tablets, which have
+## no tooltips).
+const TUTORIAL_CAPTION := "Step-by-step help on an empty first course. Not used when holes are generated."
 
 ## Accent per difficulty: green, gold, coral - easy to hard.
 const DIFFICULTY_ACCENTS := {
@@ -170,6 +176,9 @@ var _difficulty: int = DifficultyPresets.Preset.NORMAL
 var _money: int = 100000
 var _holes: int = 0
 var _features: Dictionary = {"weather": false, "wind": false, "seasons": false}
+## Starts as the company's choice would: on until the tutorial has been
+## finished, as it always was.
+var _tutorial_enabled: bool = true
 
 # --- current build ---------------------------------------------------------
 var _layout_mode: int = Layout.WIDE
@@ -185,6 +194,8 @@ var _money_buttons: Array = []
 var _hole_buttons: Array = []
 ## Feature key -> its toggle Button (button_pressed = enabled).
 var _feature_boxes: Dictionary = {}
+## The tutorial switch (its card holds the Button).
+var _tutorial_card: ChoiceCard = null
 var _choices: Array = []
 var _hole_hint: Label = null
 var _difficulty_hint: Label = null
@@ -198,6 +209,7 @@ var _back_button: Button = null
 
 func _init() -> void:
 	_company_name = WorldLocations.random_company_name()
+	_tutorial_enabled = WorldMap.default_tutorial_enabled()
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -437,6 +449,7 @@ func _reset_references() -> void:
 	_money_buttons = []
 	_hole_buttons = []
 	_feature_boxes = {}
+	_tutorial_card = null
 	_choices = []
 	_hole_hint = null
 	_difficulty_hint = null
@@ -459,7 +472,7 @@ func _build_wide(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m))
+	column.add_child(_make_header(m, true))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -518,6 +531,7 @@ func _build_tablet(m: Metrics) -> void:
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 4, width), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
 	form.add_child(_make_section("Game features", _make_feature_tiles(m, "card", width), m))
+	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, true)
 
 ## Landscape: two compact columns, everything (including Choose Location) on
@@ -531,7 +545,7 @@ func _build_landscape(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m))
+	column.add_child(_make_header(m, true))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -583,6 +597,7 @@ func _build_phone(m: Metrics) -> void:
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 2), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
 	form.add_child(_make_section("Game features", _make_feature_tiles(m, "stack", width), m))
+	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, false)
 
 # =============================================================================
@@ -647,7 +662,7 @@ func _make_section(title: String, content: Control, m: Metrics) -> VBoxContainer
 	return section
 
 ## Back button and the title lockup.
-func _make_header(m: Metrics) -> Control:
+func _make_header(m: Metrics, with_tutorial: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.name = "Header"
 	row.add_theme_constant_override("separation", m.gap)
@@ -682,6 +697,8 @@ func _make_header(m: Metrics) -> Control:
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_block.add_child(title)
 	row.add_child(title_block)
+	if with_tutorial:
+		_make_tutorial_chip(m, row)
 	return row
 
 # =============================================================================
@@ -1004,6 +1021,49 @@ func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridConta
 		_feature_boxes[key] = card.button
 	return grid
 
+## The tutorial switch as a card: glyph, name and the switch. `compact` is the
+## title-bar chip of the wide arrangements; otherwise it is a full-width row.
+func _make_tutorial_card(m: Metrics, compact: bool) -> ChoiceCard:
+	var card := _make_choice("tutorial", "tutorial", FEATURE_ACCENT, TUTORIAL_TOOLTIP, TUTORIAL_TITLE, m, null,
+		Vector2(0, m.back_height) if compact else Vector2(0, m.feature_height),
+		int(m.card_pad * 0.6) if compact else int(m.card_pad * 0.85))
+	if compact:
+		card.cell.size_flags_horizontal = Control.SIZE_SHRINK_END
+	card.glyph = SetupGlyph.make(SetupGlyph.Kind.TUTORIAL, float(m.glyph) * (0.8 if compact else 1.0), 1, FEATURE_ACCENT)
+	card.switch = SetupGlyph.make(SetupGlyph.Kind.SWITCH, float(m.glyph) * 0.62, 1, FEATURE_ACCENT)
+	var line := _content_row(card, int(m.item_gap * 0.6))
+	line.add_child(card.glyph)
+	card.title = _make_label(TUTORIAL_TITLE, m.option_font - (3 if compact else 2), UIConstants.COLOR_TEXT)
+	# The chip sizes to its words; the full-width row may trim them if it must.
+	if not compact:
+		card.title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		card.title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(card.title)
+	line.add_child(card.switch)
+	card.button.toggled.connect(_on_tutorial_toggled)
+	return card
+
+## The tutorial's place on the narrow arrangements: its switch with a caption
+## under it, inside the section.
+func _make_tutorial_block(m: Metrics, width: float) -> Control:
+	var block := VBoxContainer.new()
+	block.name = "TutorialBlock"
+	block.add_theme_constant_override("separation", int(m.item_gap * 0.8))
+	var card := _make_tutorial_card(m, false)
+	_tutorial_card = card
+	_finish_choice(card, block)
+	var caption := _make_label("", m.caption_font, UIConstants.COLOR_TEXT_DIM)
+	caption.name = "TutorialCaption"
+	_reserve_lines(caption, [TUTORIAL_CAPTION], width, 3)
+	block.add_child(caption)
+	return block
+
+## The tutorial switch as it sits in the title bar on the wide arrangements.
+func _make_tutorial_chip(m: Metrics, title_bar: Control) -> void:
+	var card := _make_tutorial_card(m, true)
+	_tutorial_card = card
+	_finish_choice(card, title_bar)
+
 ## WIDE: the company rail - name, course plan, summary, Choose Location.
 func _make_rail(m: Metrics) -> PanelContainer:
 	var rail := PanelContainer.new()
@@ -1025,7 +1085,7 @@ func _make_rail(m: Metrics) -> PanelContainer:
 	_plan_caption = _make_plan_caption(m)
 	column.add_child(_plan_caption)
 	column.add_child(_make_rule())
-	for row in [["difficulty", "Difficulty"], ["money", "Budget"], ["features", "Features"]]:
+	for row in [["difficulty", "Difficulty"], ["money", "Budget"], ["features", "Features"], ["tutorial", "Tutorial"]]:
 		column.add_child(_make_summary_row(row[0], row[1], m))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, m.item_gap * 0.5)
@@ -1110,9 +1170,14 @@ func _make_choice(group: String, value: Variant, accent: Color, tooltip: String,
 	for side in ["top", "bottom"]:
 		card.content.add_theme_constant_override("margin_" + side, int(float(inner) * 0.85))
 	card.cell.add_child(card.content)
-	if group != "feature":
+	if not _is_toggle_group(group):
 		card.button.pressed.connect(_on_choice_pressed.bind(card))
 	return card
+
+## Feature and tutorial cards are switches: they report their state through
+## `toggled` and are drawn lit or muted, rather than picked from a group.
+static func _is_toggle_group(group: String) -> bool:
+	return group == "feature" or group == "tutorial"
 
 ## Mouse input goes through the drawn content to the button underneath.
 func _finish_choice(card: ChoiceCard, parent: Control) -> void:
@@ -1303,6 +1368,10 @@ func _on_feature_toggled(enabled: bool, key: String) -> void:
 	_features[key] = enabled
 	_update_selection_styles()
 
+func _on_tutorial_toggled(enabled: bool) -> void:
+	_tutorial_enabled = enabled
+	_update_selection_styles()
+
 func _on_company_name_changed(text: String) -> void:
 	_company_name = text
 	_refresh_summary()
@@ -1320,7 +1389,7 @@ func _update_selection_styles() -> void:
 		card.button.set_pressed_no_signal(selected)
 		if card.title:
 			var lit := card.accent.lerp(Color.WHITE, 0.45)
-			if card.group == "feature":
+			if _is_toggle_group(card.group):
 				card.title.add_theme_color_override("font_color",
 					UIConstants.COLOR_TEXT if selected else UIConstants.COLOR_TEXT_MUTED)
 			else:
@@ -1329,9 +1398,19 @@ func _update_selection_styles() -> void:
 			card.check.modulate.a = 1.0 if selected else 0.0
 		if card.switch:
 			card.switch.on = selected
-		if card.glyph and card.group == "feature":
+		if card.glyph and _is_toggle_group(card.group):
 			card.glyph.on = selected
+	_sync_tutorial_availability()
 	_refresh_summary()
+
+## The tutorial only starts on an empty course. With holes generated its switch
+## keeps the company's choice but cannot be changed, and is drawn faded.
+func _sync_tutorial_availability() -> void:
+	if _tutorial_card == null:
+		return
+	var applies := tutorial_applies(_holes)
+	_tutorial_card.button.disabled = not applies
+	_tutorial_card.cell.modulate.a = 1.0 if applies else 0.5
 
 func _is_selected(card: ChoiceCard) -> bool:
 	match card.group:
@@ -1343,6 +1422,8 @@ func _is_selected(card: ChoiceCard) -> bool:
 			return int(card.value) == _holes
 		"feature":
 			return bool(_features.get(str(card.value), false))
+		"tutorial":
+			return _tutorial_enabled
 	return false
 
 func _refresh_summary() -> void:
@@ -1355,6 +1436,8 @@ func _refresh_summary() -> void:
 		_summary_values["money"].text = _money_label(_money)
 	if _summary_values.has("features"):
 		_summary_values["features"].text = features_summary(_features)
+	if _summary_values.has("tutorial"):
+		_summary_values["tutorial"].text = tutorial_summary(_tutorial_enabled, _holes)
 	if _plan_caption:
 		_plan_caption.text = plan_caption(_holes)
 	if _hole_hint:
@@ -1388,6 +1471,7 @@ func get_options() -> Dictionary:
 		"starting_money": _money,
 		"generated_holes": _holes,
 		"features": features,
+		"tutorial": _tutorial_enabled,
 	}
 
 func _on_next_pressed() -> void:
@@ -1435,7 +1519,7 @@ static func _group_digits(amount: int) -> String:
 ## The line under the hole picker.
 static func hole_hint(count: int) -> String:
 	if count == 0:
-		return "Build every hole yourself — the tutorial walks you through the first one."
+		return "Build every hole yourself. The tutorial can guide you through the first one."
 	return "%d holes (%d par) are laid out on the first location you buy. Later sites start empty so you build them yourself." % [
 		count, GeneratedCourse.get_par_for_count(count)]
 
@@ -1444,6 +1528,18 @@ static func hole_hint_short(count: int) -> String:
 	if count == 0:
 		return "An empty plot: you build every hole."
 	return "%d holes (par %d) on the first site you buy." % [count, GeneratedCourse.get_par_for_count(count)]
+
+## The tutorial only runs on an empty first course, so it applies only when no
+## holes are generated.
+static func tutorial_applies(holes: int) -> bool:
+	return holes == 0
+
+## The rail's line for the tutorial: "On", "Off", or "Not used" when the
+## course has generated holes (whatever the switch says).
+static func tutorial_summary(enabled: bool, holes: int) -> String:
+	if not tutorial_applies(holes):
+		return "Not used"
+	return "On" if enabled else "Off"
 
 ## The caption under the course plan: "9 holes · par 36" / "Empty plot".
 static func plan_caption(count: int) -> String:

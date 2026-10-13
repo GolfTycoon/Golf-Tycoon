@@ -157,6 +157,26 @@ func test_options_keep_the_world_map_contract() -> void:
 # Course plan
 # ---------------------------------------------------------------------------
 
+func test_tutorial_applies_only_to_an_empty_course() -> void:
+	assert_true(StartNewGameScreen.tutorial_applies(0), "It applies to a course with no generated holes")
+	assert_false(StartNewGameScreen.tutorial_applies(9), "It does not apply once holes are generated")
+
+func test_tutorial_summary_says_on_off_or_not_used() -> void:
+	assert_eq(StartNewGameScreen.tutorial_summary(true, 0), "On")
+	assert_eq(StartNewGameScreen.tutorial_summary(false, 0), "Off")
+	assert_eq(StartNewGameScreen.tutorial_summary(true, 9), "Not used", "Whatever the switch says, generated holes mean it is not used")
+	assert_string_contains(StartNewGameScreen.hole_hint(0), "can guide you")
+
+func test_tutorial_choice_is_part_of_the_options() -> void:
+	var screen: StartNewGameScreen = Screen.new()
+	assert_eq(screen.get_options()["tutorial"], WorldMap.default_tutorial_enabled(),
+		"It starts as the company would have it")
+	screen._on_tutorial_toggled(false)
+	assert_false(screen.get_options()["tutorial"], "Switching it off reaches the options")
+	screen._on_tutorial_toggled(true)
+	assert_true(screen.get_options()["tutorial"], "and switching it on again does too")
+	screen.free()
+
 func test_course_plan_lays_out_every_generated_hole_inside_the_plot() -> void:
 	for count in StartNewGameScreen.HOLE_OPTIONS:
 		var data := CoursePlanPreview.plan(count)
