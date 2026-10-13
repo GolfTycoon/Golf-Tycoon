@@ -38,10 +38,10 @@ func _initialize() -> void:
 	# a time, and with the pin sprites instead of the smooth dots.
 	_apply_uniforms(GlobeMap.PIXEL_PALETTE)
 	_apply_uniforms(GlobeMap.PIXEL_TUNING)
-	_uniforms["pixel_block"] = clampf(820.0 / 100.0,
+	_uniforms["pixel_block"] = clampf(820.0 / 125.0,
 		GlobeMap.PIXEL_BLOCK_MIN, GlobeMap.PIXEL_BLOCK_MAX)
 	_render(820, -40.0, 30.0, "planet_pixel_view.png", true)
-	_uniforms["pixel_block"] = clampf(600.0 / 100.0,
+	_uniforms["pixel_block"] = clampf(600.0 / 125.0,
 		GlobeMap.PIXEL_BLOCK_MIN, GlobeMap.PIXEL_BLOCK_MAX)
 	_render(600, 120.0, 25.0, "planet_pixel_asia.png", true)
 	print("wrote planet previews to res://tmp_preview")

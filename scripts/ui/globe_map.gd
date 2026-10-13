@@ -6,9 +6,9 @@ class_name GlobeMap
 ## pay for the continents:
 ##
 ##  * **the planet** (`_planet`, a ColorRect running
-##    `shaders/globe_planet.gdshader`): the hand-simplified lon/lat polygons
-##    below are rasterised once into an equirectangular land mask
-##    (`build_land_mask()`, cached for the whole run) and the shader turns that
+##    `shaders/globe_planet.gdshader`): Natural Earth 1:50m land rings in
+##    `data/world_land_polygons.json` are rasterised once into an equirectangular
+##    land mask (`build_land_mask()`, cached for the whole run) and the shader turns that
 ##    mask back into a shaded sphere — sea depth and coastal shelf, fbm relief,
 ##    an arid band around the tropics, polar ice, a warm sun with a soft
 ##    day/night terminator, a specular glint on open water and a soft
@@ -17,11 +17,10 @@ class_name GlobeMap
 ##    destination pins and their labels, repainted only when the marker set
 ##    changes — a hover or a new selection leaves the planet untouched.
 ##
-## `LandStyle.DOTS` keeps the earlier land-dot drawing (every land point as a
-## little disc) for callers that want the mask off; the planet is the
-## default, and `LandStyle.PIXEL` is the same planet quantised into chunky
-## hard-edged cells — the World Map screen's retro mode, matching the menu
-## screens' pixel frames, sprites and Pixelify type.
+## `LandStyle.DOTS` keeps a lightweight, shader-free land-dot fallback; the
+## planet is the default, and `LandStyle.PIXEL` is the same planet quantised
+## into chunky hard-edged cells — the World Map screen's retro mode, matching
+## the menu screens' pixel frames, sprites and Pixelify type.
 ##
 ## Drag to spin (with a little inertia), scroll or pinch to zoom, click a
 ## marker (or the list beside it) to select. Public API: `set_locations`,
@@ -31,8 +30,8 @@ class_name GlobeMap
 
 signal location_clicked(location_id: String)
 
-## How the continents are drawn: PLANET (baked mask + shader), DOTS (the old
-## rasterised land points, no shader needed) or PIXEL (the same shader planet
+## How the continents are drawn: PLANET (baked mask + shader), DOTS (a
+## shader-free rasterised land-dot fallback) or PIXEL (the same shader planet
 ## quantised into chunky hard-edged cells, with pixel-art pin sprites for the
 ## markers, to match the menu screens' 16-bit look).
 enum LandStyle { PLANET, DOTS, PIXEL }
@@ -43,12 +42,11 @@ const PLANET_SHADER := preload("res://shaders/globe_planet.gdshader")
 ## Pixelify Sans the menu screens use (SIL Open Font License 1.1).
 const MARKER_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 
-## Size of the baked equirectangular land mask. 2048x1024 is about 3.5 km per
-## texel at the equator — sharper than the globe is ever drawn — and bakes in
-## ~12 ms.
+## Size of the baked equirectangular land mask. 2048x1024 is about 20 km per
+## texel at the equator, still much sharper than the globe is drawn.
 const MASK_WIDTH := 2048
 const MASK_HEIGHT := 1024
-## Land mask resolution for the DOTS style: one point every LAND_STEP_DEG degrees.
+## Spacing of the shader-free land-dot fallback, in degrees.
 const LAND_STEP_DEG := 3.0
 const MIN_RADIUS_SCALE := 0.7
 const MAX_RADIUS_SCALE := 1.6
@@ -101,99 +99,17 @@ const PIXEL_TUNING: Dictionary = {
 	"coast_glow": 0.50,
 }
 ## Side of one pixel block on the PIXEL planet, per end of the clamp: the
-## globe quantises to roughly 100 cells across its smaller side.
-const PIXEL_BLOCK_MIN := 2.5
-const PIXEL_BLOCK_MAX := 4.5
+## finer grid resolves coastlines at roughly 115 cells across a typical globe.
+const PIXEL_BLOCK_MIN := 2.0
+const PIXEL_BLOCK_MAX := 3.5
 ## Side of the destination pin sprite (one multiple of the 16px grid) and how
 ## far it floats above its point, for depth.
 const PIN_SPRITE_SIDE := 16
 const PIN_SPRITE_RAISE := 2.0
 
-## Simplified continent outlines as [lon, lat] pairs (longitude first).
-## They are deliberately coarse — the globe is a navigation aid, not an atlas.
-const LAND_POLYGONS: Array = [
-	# North America
-	[
-		[-168, 66], [-158, 71], [-140, 70], [-125, 72], [-108, 73], [-95, 73],
-		[-82, 74], [-70, 68], [-58, 60], [-52, 48], [-66, 45], [-72, 41],
-		[-76, 35], [-81, 25], [-83, 25], [-90, 29], [-97, 26], [-105, 21],
-		[-110, 23], [-114, 28], [-117, 32], [-121, 35], [-124, 40], [-127, 49],
-		[-131, 54], [-139, 60], [-150, 60], [-160, 56],
-	],
-	# Central America
-	[
-		[-92, 16], [-87, 21], [-83, 15], [-78, 8], [-77, 7], [-83, 8], [-88, 14],
-	],
-	# South America
-	[
-		[-78, 8], [-72, 11], [-62, 10], [-52, 4], [-44, -2], [-35, -6], [-38, -16],
-		[-48, -25], [-58, -35], [-62, -40], [-65, -48], [-68, -55], [-75, -52],
-		[-73, -40], [-71, -30], [-70, -18], [-76, -14], [-81, -5], [-80, 2],
-	],
-	# Greenland
-	[
-		[-56, 60], [-42, 60], [-22, 70], [-20, 78], [-35, 84], [-58, 82], [-66, 72],
-	],
-	# Africa
-	[
-		[-17, 15], [-16, 22], [-10, 30], [0, 36], [10, 37], [20, 33], [33, 31],
-		[35, 25], [43, 12], [51, 12], [42, -2], [40, -10], [40, -25], [35, -25],
-		[26, -34], [18, -34], [13, -23], [9, -1], [9, 5], [3, 6], [-8, 5], [-13, 9],
-	],
-	# Madagascar
-	[
-		[43, -13], [50, -15], [50, -25], [44, -22],
-	],
-	# Eurasia
-	[
-		[-10, 36], [-9, 44], [0, 44], [3, 51], [-5, 58], [8, 63], [20, 70],
-		[35, 70], [60, 72], [90, 76], [120, 74], [150, 70], [180, 66], [180, 60],
-		[150, 52], [140, 42], [130, 34], [122, 30], [115, 22], [108, 15],
-		[100, 6], [98, 10], [92, 20], [85, 20], [80, 12], [75, 8], [70, 20],
-		[62, 25], [56, 20], [50, 27], [43, 37], [35, 42], [30, 45], [28, 41],
-		[20, 40], [13, 45], [18, 42], [10, 38], [3, 43], [-2, 40],
-	],
-	# British Isles
-	[
-		[-6, 50], [-2, 52], [0, 54], [-3, 58], [-6, 58], [-8, 53],
-	],
-	# Ireland
-	[
-		[-10.5, 51.5], [-6, 52], [-6, 55], [-10, 55],
-	],
-	# Japan
-	[
-		[130, 31], [136, 34], [141, 40], [146, 44], [143, 43], [138, 36],
-		[133, 33],
-	],
-	# Indonesia / New Guinea
-	[
-		[95, 5], [105, 0], [115, -5], [125, -3], [135, -3], [150, -6], [150, -10],
-		[140, -9], [130, -8], [120, -9], [110, -8], [100, -2],
-	],
-	# Philippines
-	[
-		[120, 6], [126, 8], [126, 18], [120, 16],
-	],
-	# Australia
-	[
-		[114, -22], [122, -18], [130, -12], [142, -11], [147, -20], [153, -28],
-		[150, -38], [140, -38], [129, -32], [115, -35], [113, -26],
-	],
-	# Tasmania
-	[
-		[145, -41], [148, -41], [148, -43], [145, -43],
-	],
-	# New Zealand
-	[
-		[173, -35], [178, -38], [174, -47], [166, -46], [170, -41],
-	],
-	# Antarctica (drawn as a polar band)
-	[
-		[-180, -63], [-140, -70], [-100, -73], [-60, -63], [-20, -70], [20, -68],
-		[60, -66], [100, -64], [140, -66], [180, -63], [180, -90], [-180, -90],
-	],
-]
+## Detailed Natural Earth 1:50m coastline rings (longitude, latitude),
+## simplified offline to fit the globe's screen resolution.
+const LAND_DATA_PATH := "res://data/world_land_polygons.json"
 
 var _center_lon: float = -40.0
 var _center_lat: float = 30.0
@@ -229,6 +145,7 @@ var _anim_time: float = 0.0
 var _animating: bool = false
 static var _land_points: Array = []
 static var _land_polygon_cache: Array = []
+static var _land_polygon_cache_loaded: bool = false
 ## How often the planet surface has been re-shaded. Hovering and selecting a
 ## destination must not touch it — they are the marker layer's business.
 var _view_syncs: int = 0
@@ -317,11 +234,11 @@ func _apply_pixel_palette() -> void:
 	for parameter in PIXEL_TUNING:
 		_planet_material.set_shader_parameter(parameter, PIXEL_TUNING[parameter])
 
-## Side of one retro cell on the PIXEL globe, in screen pixels: around a
-## hundred cells across the smaller side keeps the toy-globe silhouette
-## readable on a phone and crisp on a desktop.
+## Side of one retro cell on the PIXEL globe, in screen pixels: around 115
+## cells across a typical sphere give the coastlines more resolution while
+## keeping the toy-globe silhouette crisp on a phone and desktop.
 func _pixel_block_size() -> float:
-	return clampf(minf(size.x, size.y) / 100.0, PIXEL_BLOCK_MIN, PIXEL_BLOCK_MAX)
+	return clampf(minf(size.x, size.y) / 125.0, PIXEL_BLOCK_MIN, PIXEL_BLOCK_MAX)
 
 ## The view moved: the planet needs new shading and the markers new positions.
 func _redraw_view() -> void:
@@ -468,79 +385,91 @@ static func project_point(lon_deg: float, lat_deg: float, center_lon: float, cen
 	var y := cos(phi0) * sin(phi) - sin(phi0) * cos(phi) * cos(lam)
 	return Vector3(x, y, z)
 
-## Rasterise every land polygon into lon/lat points (computed once per run).
+## Rasterise the low-resolution land-dot fallback from the same coastline
+## geometry as the planet mask. Sampling the mask avoids testing thousands of
+## detailed coastline vertices for each display dot.
 static func build_land_points() -> Array:
 	var points: Array = []
-	var lat := -88.0
-	while lat <= 88.0:
-		var lon := -180.0
-		while lon < 180.0:
-			if is_land(lon, lat):
+	var columns := int(roundf(360.0 / LAND_STEP_DEG))
+	var rows := int(roundf(180.0 / LAND_STEP_DEG))
+	var mask := build_land_mask(columns, rows)
+	for y in range(rows):
+		var lat := 90.0 - (float(y) + 0.5) * LAND_STEP_DEG
+		for x in range(columns):
+			if mask.get_pixel(x, y).r > 0.5:
+				var lon := -180.0 + (float(x) + 0.5) * LAND_STEP_DEG
 				points.append(Vector2(lon, lat))
-			lon += LAND_STEP_DEG
-		lat += LAND_STEP_DEG
 	return points
 
+## Test whether a geographic point is land. Polygon holes (notably the Caspian
+## Sea) are excluded, and multiple land shapes are treated as a union.
 static func is_land(lon: float, lat: float) -> bool:
-	for polygon in _get_polygons():
-		if Geometry2D.is_point_in_polygon(Vector2(lon, lat), polygon):
+	var wrapped_lon := fposmod(lon + 180.0, 360.0) - 180.0
+	var point := Vector2(wrapped_lon, lat)
+	for polygon: Array in _get_polygons():
+		if not Geometry2D.is_point_in_polygon(point, polygon[0]):
+			continue
+		var in_hole := false
+		for hole_index in range(1, polygon.size()):
+			if Geometry2D.is_point_in_polygon(point, polygon[hole_index]):
+				in_hole = true
+				break
+		if not in_hole:
 			return true
 	return false
 
 ## ── Baked land mask (what the planet shader samples) ─────────────────────
 
-## Rasterise LAND_POLYGONS into an equirectangular coverage mask, white on
-## land, which is what `shaders/globe_planet.gdshader` samples. The bake uses
-## a scanline fill: a row's land spans are written in bulk with `fill_rect()`
+## Rasterise the Natural Earth rings into an equirectangular coverage mask,
+## white on land, which is what `shaders/globe_planet.gdshader` samples. Outer
+## coastlines and lake rings share the scanline parity fill, so the water holes
+## stay empty. A row's land spans are written in bulk with `fill_rect()`
 ## and only the two ends of each span are written pixel by pixel (with their
 ## analytic coverage, so coastlines get a soft texel instead of a staircase).
-## That keeps a 2048x1024 bake near 12 ms, where testing every texel with
-## Geometry2D.is_point_in_polygon would take seconds.
+## Edges are bucketed only into the rows they can cross; this avoids testing
+## every mask texel against thousands of polygon edges.
 static func build_land_mask(width: int = MASK_WIDTH, height: int = MASK_HEIGHT) -> Image:
 	var mask := Image.create(width, height, false, Image.FORMAT_R8)
 	mask.fill(Color(0, 0, 0, 1))
-	var edges := _get_mask_edges()
-	var coords: PackedFloat32Array = edges["coords"]
-	var edge_end: PackedInt32Array = edges["end"]
-	var lat_min: PackedFloat32Array = edges["lat_min"]
-	var lat_max: PackedFloat32Array = edges["lat_max"]
-	var polygon_count := edge_end.size()
+	var coords: PackedFloat32Array = _get_mask_edges()["coords"]
 	var deg_per_row := 180.0 / float(height)
 	var to_x := float(width) / 360.0
+	var crossings_by_row: Array[Array] = []
+	for _row in range(height):
+		crossings_by_row.append([])
+
+	# Bucket each coastline edge only into the rows it can cross. The old
+	# per-row polygon scan re-tested long shorelines hundreds of times; this
+	# keeps the detailed 1:50m geometry quick to bake at the full mask size.
+	@warning_ignore("integer_division")
+	var edge_count := coords.size() / 4
+	for edge in range(edge_count):
+		var ax := coords[edge * 4]
+		var ay := coords[edge * 4 + 1]
+		var bx := coords[edge * 4 + 2]
+		var by := coords[edge * 4 + 3]
+		var low := minf(ay, by)
+		var high := maxf(ay, by)
+		var first_row := maxi(0, floori((90.0 - high) / deg_per_row - 0.5) + 1)
+		var last_row := mini(height - 1, floori((90.0 - low) / deg_per_row - 0.5))
+		for y in range(first_row, last_row + 1):
+			var lat := 90.0 - (float(y) + 0.5) * deg_per_row
+			if not ((ay <= lat and by > lat) or (by <= lat and ay > lat)):
+				continue
+			var t := (lat - ay) / (by - ay)
+			var lon := ax + t * (bx - ax)
+			crossings_by_row[y].append(lon)
 
 	_mask_bake_count += 1
 	for y in range(height):
-		var lat := 90.0 - (float(y) + 0.5) * deg_per_row
-		# Longitude where this scanline enters (odd crossing) or leaves (even
-		# crossing) the land, kept in ascending order by an insertion sort —
-		# a row only ever has a handful of crossings.
-		var crossings := PackedFloat32Array()
-		var first_edge := 0
-		for polygon in range(polygon_count):
-			var last_edge: int = edge_end[polygon]
-			if lat >= lat_min[polygon] and lat <= lat_max[polygon]:
-				for e in range(first_edge, last_edge):
-					var ax := coords[e * 4]
-					var ay := coords[e * 4 + 1]
-					var bx := coords[e * 4 + 2]
-					var by := coords[e * 4 + 3]
-					if (ay <= lat and by > lat) or (by <= lat and ay > lat):
-						var t := (lat - ay) / (by - ay)
-						var lon := ax + t * (bx - ax)
-						var slot := crossings.size()
-						crossings.resize(slot + 1)
-						while slot > 0 and crossings[slot - 1] > lon:
-							crossings[slot] = crossings[slot - 1]
-							slot -= 1
-						crossings[slot] = lon
-			first_edge = last_edge
-
+		var crossings := crossings_by_row[y]
+		crossings.sort()
 		var i := 0
 		while i + 1 < crossings.size():
-			# Span from crossing i to i+1, in pixel edges. Pixel centres sit at
-			# half integers, hence the -0.5.
-			var x_start := (crossings[i] + 180.0) * to_x - 0.5
-			var x_end := (crossings[i + 1] + 180.0) * to_x - 0.5
+			# Longitude where this scanline enters (odd crossing) or leaves
+			# (even crossing) the land. Pixel centres sit at half integers.
+			var x_start := (float(crossings[i]) + 180.0) * to_x - 0.5
+			var x_end := (float(crossings[i + 1]) + 180.0) * to_x - 0.5
 			i += 2
 			if x_end <= 0.0 or x_start >= float(width - 1):
 				continue
@@ -591,8 +520,8 @@ static func mask_coverage(mask: Image, lon_deg: float, lat_deg: float) -> float:
 	var y := clampi(int(uv.y * float(mask.get_height())), 0, mask.get_height() - 1)
 	return mask.get_pixel(x, y).r
 
-## How many times the mask has been rasterised this run (tests assert the
-## bake is shared, so this only ever grows by one per process).
+## How many times the mask rasteriser has run (tests use this to verify the
+## full-resolution texture cache bakes just once).
 static func mask_bake_count() -> int:
 	return _mask_bake_count
 
@@ -601,51 +530,67 @@ static func clear_mask_cache() -> void:
 	_mask_texture = null
 	_mask_bake_count = 0
 
-## LAND_POLYGONS as one flat array of non-horizontal edges — four floats
-## [ax, ay, bx, by] per edge — plus each polygon's latitude range and where
-## its edges end in that array. Horizontal edges can never cross a scanline,
-## so they are dropped, and a polygon is only tested on rows inside its
-## latitude range.
+## All Natural Earth rings as one flat array of non-horizontal edges — four
+## floats [ax, ay, bx, by] per edge. Horizontal edges can never cross a
+## scanline, so they are omitted from the cached edge list.
 static func _get_mask_edges() -> Dictionary:
 	if _mask_edges.is_empty():
 		var coords := PackedFloat32Array()
-		var end := PackedInt32Array()
-		var lat_min := PackedFloat32Array()
-		var lat_max := PackedFloat32Array()
-		for polygon in _get_polygons():
-			var low := 90.0
-			var high := -90.0
-			var count: int = polygon.size()
-			for i in range(count):
-				var from: Vector2 = polygon[i]
-				var to: Vector2 = polygon[(i + 1) % count]
-				low = minf(low, minf(from.y, to.y))
-				high = maxf(high, maxf(from.y, to.y))
-				if absf(from.y - to.y) < 0.000001:
-					continue
-				coords.append_array(PackedFloat32Array([from.x, from.y, to.x, to.y]))
-			# Four floats per edge: whole-edge count is exact integer maths.
-			@warning_ignore("integer_division")
-			end.append(coords.size() / 4)
-			lat_min.append(low)
-			lat_max.append(high)
-		_mask_edges = {
-			"coords": coords,
-			"end": end,
-			"lat_min": lat_min,
-			"lat_max": lat_max,
-		}
+		for polygon: Array in _get_polygons():
+			for ring: PackedVector2Array in polygon:
+				var count := ring.size()
+				for i in range(count):
+					var from: Vector2 = ring[i]
+					var to: Vector2 = ring[(i + 1) % count]
+					if absf(from.y - to.y) < 0.000001:
+						continue
+					coords.append(from.x)
+					coords.append(from.y)
+					coords.append(to.x)
+					coords.append(to.y)
+		_mask_edges = {"coords": coords}
 	return _mask_edges
 
-## LAND_POLYGONS as PackedVector2Array, built once (the const form is a plain
-## array of [lon, lat] pairs, which PackedVector2Array() would not convert).
+## Load and convert the bundled Natural Earth polygons once. Each polygon is
+## an array of rings: the first ring is its coast, any remaining rings are holes.
 static func _get_polygons() -> Array:
-	if _land_polygon_cache.is_empty():
-		for polygon in LAND_POLYGONS:
+	if _land_polygon_cache_loaded:
+		return _land_polygon_cache
+	_land_polygon_cache_loaded = true
+
+	var file := FileAccess.open(LAND_DATA_PATH, FileAccess.READ)
+	if file == null:
+		push_error("Could not open globe land data at %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not parsed is Dictionary:
+		push_error("Globe land data is not a JSON object: %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+	var source_polygons: Variant = parsed.get("polygons", [])
+	if not source_polygons is Array:
+		push_error("Globe land data has no polygon array: %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+
+	for source_polygon: Variant in source_polygons:
+		if not source_polygon is Array or source_polygon.is_empty():
+			continue
+		var rings: Array = []
+		var valid_polygon := true
+		for source_ring: Variant in source_polygon:
+			if not source_ring is Array or source_ring.size() < 4:
+				valid_polygon = false
+				break
 			var points := PackedVector2Array()
-			for point in polygon:
-				points.append(Vector2(float(point[0]), float(point[1])))
-			_land_polygon_cache.append(points)
+			for source_point: Variant in source_ring:
+				if not source_point is Array or source_point.size() < 2:
+					valid_polygon = false
+					break
+				points.append(Vector2(float(source_point[0]), float(source_point[1])))
+			if not valid_polygon:
+				break
+			rings.append(points)
+		if valid_polygon and not rings.is_empty():
+			_land_polygon_cache.append(rings)
 	return _land_polygon_cache
 
 func _project(lon: float, lat: float) -> Vector3:

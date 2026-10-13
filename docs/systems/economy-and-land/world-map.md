@@ -78,13 +78,13 @@ The globe is drawn in two layers. Splitting the drawing keeps it smooth and chea
 | Planet (`globe_planet.gdshader` on a `ColorRect`) | The whole sphere: ocean, land, polar ice, a sun with a day and night terminator, the graticule and the atmosphere halo | When the view moves (drag, flick, zoom, centre, resize) |
 | Markers (`Control`) | One pin per destination, plus the selected and hovered labels | When the pins change (hover, selection, buying, list refresh) |
 
-**Land mask.** The continents are hand-tuned `[lon, lat]` polygons in `globe_map.gd`. They are rasterised once into a 2048 × 1024 equirectangular coverage mask (`build_land_mask()`). The mask is cached as an `ImageTexture` and shared by every `GlobeMap`. A scanline fill writes each row's land in bulk, and only the two ends of each span are drawn pixel by pixel, which gives soft coastlines. The bake takes about 15 ms in a debug build.
+**Land mask.** The globe uses the Natural Earth 1:50m land dataset, bundled as `data/world_land_polygons.json` and simplified to a 0.04° tolerance for display. A scanline rasterises those rings once into a 2048 × 1024 equirectangular coverage mask (`build_land_mask()`), with soft coverage at the coast. The mask is cached as an `ImageTexture` and shared by every `GlobeMap`. Coastline edges are bucketed only into rows they cross, so the more detailed geometry stays fast to bake.
 
 **Shading.** The shader inverts the orthographic projection to find the longitude and latitude under each pixel. This is the exact inverse of `GlobeMap.project_point()`, which places the pins, so the land and the pins always line up. The sphere depends only on four uniforms: view size, centre longitude, centre latitude and radius scale. Spinning the globe therefore costs four uniform writes and one draw call, with no per-frame CPU projection.
 
 **Hand feel.** A drag tracks the pointer one-to-one. Letting go mid-drag keeps the spin, which decays at `SPIN_DECAY` per second up to `MAX_SPIN_DEG_PER_SEC`. Zooming eases toward its target. `look_at_location()` flies the shortest way round, so Japan from Hawaii crosses the Pacific rather than the whole of Asia. The globe only updates while an animation or a flick is running, so an idle globe costs nothing.
 
-**Fallback.** `GlobeMap.LandStyle.DOTS` draws the original land dots with no shader, for platforms that cannot use a `ShaderMaterial`. The planet style is the default.
+**Fallback.** `GlobeMap.LandStyle.DOTS` samples the same detailed land data into a lightweight dotted rendering, without a `ShaderMaterial`. The planet style is the default.
 
 **Checking the look without a GPU.** `tests/harness/globe_preview.gd` renders the polygon mask, the baked mask and the dots fallback to PNG files. `tests/harness/planet_preview.gd` is a CPU port of the shader that renders the default view, the pole and the Pacific into `tmp_preview/`. It is a visual check only, not a replacement for compiling the shader.
 
