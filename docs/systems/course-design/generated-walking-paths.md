@@ -130,7 +130,7 @@ Measured with `tests/harness/course_path_preview.gd` on a 128×128 course, seed 
 | Prebuilt Standard 9 | 9 | 181 | 0.19 s | 2 | 17 | 9 tees, 9 greens |
 | Prebuilt Championship 18 | 18 | 217 | 0.44 s | 7 | 0 | 18 tees, 18 greens |
 
-`Playing surfaces a path was laid on: 0` on every one of those runs — of 202 to 1180 mown tiles and 114 to 386 greens, tees, sand and water, not one was walked on. All of the work happens inside the "Generating course..." loading screen.
+`Playing surfaces a path was laid on: 0` on every one of those runs — of 202 to 1180 mown tiles and 114 to 386 greens, tees, sand and water, not one was walked on. All of the work happens inside the Generating Course loading screen.
 
 How far a walk stands off the play, in Chebyshev rings from the tee or the cup to the nearest trail:
 
