@@ -459,7 +459,7 @@ func _build_wide(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, true))
+	column.add_child(_make_header(m))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -509,7 +509,7 @@ func _build_tablet(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, true))
+	column.add_child(_make_header(m))
 
 	var form := _make_sheet(column, m, "Sheet")
 	form.add_child(_make_section("Company name", _make_company_row(m), m))
@@ -531,7 +531,7 @@ func _build_landscape(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, m.view.x >= 760.0))
+	column.add_child(_make_header(m))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -571,7 +571,7 @@ func _build_phone(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, false))
+	column.add_child(_make_header(m))
 
 	var form := _make_sheet(column, m, "Sheet")
 	var width := _sheet_content_width(m)
@@ -646,8 +646,8 @@ func _make_section(title: String, content: Control, m: Metrics) -> VBoxContainer
 	section.add_child(content)
 	return section
 
-## Back, the title lockup and (where there is room) the two-step indicator.
-func _make_header(m: Metrics, with_steps: bool) -> Control:
+## Back button and the title lockup.
+func _make_header(m: Metrics) -> Control:
 	var row := HBoxContainer.new()
 	row.name = "Header"
 	row.add_theme_constant_override("separation", m.gap)
@@ -682,45 +682,7 @@ func _make_header(m: Metrics, with_steps: bool) -> Control:
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_block.add_child(title)
 	row.add_child(title_block)
-	if with_steps:
-		row.add_child(_make_stepper(m))
 	return row
-
-## "1 Company - 2 Location": where this screen sits in the new-game flow.
-func _make_stepper(m: Metrics) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.name = "Stepper"
-	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_theme_constant_override("separation", int(m.item_gap * 0.9))
-	var font := m.kicker_font + 2
-	row.add_child(_make_step_dot(1, true, m))
-	row.add_child(_make_label("Company", font, UIConstants.COLOR_TEXT))
-	var rule := ColorRect.new()
-	rule.color = MenuStyle.with_alpha(UIConstants.COLOR_TEXT_MUTED, 0.55)
-	rule.custom_minimum_size = Vector2(roundf(34.0 * m.u), 2.0)
-	rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(rule)
-	row.add_child(_make_step_dot(2, false, m))
-	row.add_child(_make_label("Location", font, UIConstants.COLOR_TEXT_MUTED))
-	return row
-
-func _make_step_dot(number: int, active: bool, m: Metrics) -> PanelContainer:
-	var side := roundf(float(m.kicker_font) * 2.0)
-	var dot := PanelContainer.new()
-	dot.name = "Step%d" % number
-	dot.custom_minimum_size = Vector2(side, side)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := MenuStyle.flat(MenuStyle.ACCENT_PRIMARY if active else Color(0, 0, 0, 0),
-		MenuStyle.ACCENT_PRIMARY if active else UIConstants.COLOR_TEXT_MUTED, 0 if active else 2,
-		int(side), 0, 0, 0)
-	dot.add_theme_stylebox_override("panel", style)
-	var label := _make_label(str(number), m.kicker_font, MenuStyle.INK if active else UIConstants.COLOR_TEXT_MUTED)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	dot.add_child(label)
-	return dot
 
 # =============================================================================
 # SECTIONS
