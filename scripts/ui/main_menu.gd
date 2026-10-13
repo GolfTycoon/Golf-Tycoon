@@ -478,7 +478,7 @@ func _make_status_line(centered: bool, font_size: int) -> Control:
 	var label := Label.new()
 	label.name = "Status"
 	label.text = text
-	label.add_theme_font_override("font", TITLE_FONT)
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if centered else Control.SIZE_SHRINK_BEGIN
