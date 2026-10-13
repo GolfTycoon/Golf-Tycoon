@@ -23,6 +23,19 @@ func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 	for expected in ACTIONS:
 		assert_has(labels, expected, "%s: has a %s action" % [tag, expected])
 
+	# Every word on the screen is set in Pixelify Sans, at every window size:
+	# the action titles in the bold weight, the captions, kicker and version
+	# line in the regular one (see test_main_menu_typography.gd).
+	for button in buttons:
+		var title_path := str((button as Button).get_theme_font("font").resource_path)
+		assert_true(title_path.ends_with("PixelifySans-Bold.ttf")
+				or title_path.ends_with("PixelifySans-SemiBold.ttf"),
+			"%s: the %s title is set in a Pixelify Sans title weight" % [tag, (button as Button).text])
+	for label in nodes_of_class(menu, "Label"):
+		assert_true(str((label as Label).get_theme_font("font").resource_path)
+				.ends_with("PixelifySans-Regular.ttf"),
+			"%s: the %s line is set in Pixelify Sans" % [tag, (label as Label).name])
+
 	var view := Rect2(Vector2.ZERO, Vector2(size))
 	var too_small: Array = []
 	var off_screen: Array = []
