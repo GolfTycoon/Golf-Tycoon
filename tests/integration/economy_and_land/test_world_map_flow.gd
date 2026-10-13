@@ -1,7 +1,7 @@
 extends MainSceneTest
 ## The company's road from the main menu to its courses: Start New Game captures
 ## the company options and opens the world map, which lists every location;
-## buying one from its row and pressing Play builds the generated first course
+## Buy & Play on a row buys that site and builds the generated first course
 ## there; the Club tab's World Map button freezes the course behind the globe
 ## and hands it back on Back or Esc; a second location can be bought and played
 ## and the first course is found as it was left; an 18-hole company builds and
@@ -39,7 +39,7 @@ func _tool_button(node: Node, tool_type: String) -> Button:
 	return null
 
 
-## The Buy / Play button in a location's row of the world map.
+## The Buy & Play / Play button in a location's row of the world map.
 func _row_button(screen: Node, location_id: String) -> Button:
 	var row = screen._rows.get(location_id)
 	if row == null:
@@ -169,23 +169,17 @@ func test_buying_and_playing_a_location_builds_its_first_course() -> void:
 	var screen := _world_map_screen()
 	assert_false(WorldMap.is_owned(FIRST_SITE), "Monterey starts unowned")
 	var price := WorldMap.get_price(FIRST_SITE)
-	var buy := _row_button(screen, FIRST_SITE)
-	assert_not_null(buy, "The Monterey row has an action button")
-	if buy == null:
+	var buy_and_play := _row_button(screen, FIRST_SITE)
+	assert_not_null(buy_and_play, "The Monterey row has an action button")
+	if buy_and_play == null:
 		return
-	assert_eq(buy.text, "Buy", "The unowned row offers Buy")
-	buy.pressed.emit()
-	await process_frames(2)
-	assert_true(WorldMap.is_owned(FIRST_SITE), "Pressing Buy buys Monterey")
-	assert_eq(GameManager.money, 200000 - price, "Buying deducts the price")
-	assert_true(screen._rows.has(FIRST_SITE), "The row is still listed after buying")
-
-	var play := _row_button(screen, FIRST_SITE)
-	assert_eq(play.text if play else "", "Play", "The owned row offers Play")
-	if play:
-		play.pressed.emit()
+	assert_eq(buy_and_play.text, "Buy & Play", "The unowned row offers Buy & Play")
+	buy_and_play.pressed.emit()
 	await process_frames(12)
-	assert_null(_world_map_screen(), "Pressing Play closes the world map")
+	assert_true(WorldMap.is_owned(FIRST_SITE), "Pressing Buy & Play buys Monterey")
+	assert_between(GameManager.money, 200000 - price, 200000 - price + 5000,
+		"Buying deducts the price; opening the course may add a little from fees and milestones")
+	assert_null(_world_map_screen(), "Pressing Buy & Play closes the world map")
 	assert_eq(GameManager.company_name, "Summit Golf Group", "The company name reaches the game")
 	assert_eq(GameManager.current_difficulty, DifficultyPresets.Preset.HARD, "and the difficulty")
 	assert_true(GameManager.wind_enabled, "The wind chosen on the setup screen is on in the new game")

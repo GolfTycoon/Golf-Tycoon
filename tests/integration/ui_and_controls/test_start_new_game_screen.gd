@@ -313,7 +313,7 @@ func _choose_location_with_tutorial(on: bool) -> void:
 	await process_frames(3)
 
 
-## Buy a site the company can afford and play it, the way the world map's Play does.
+## Buy a site the company can afford and play it, the way the world map's Buy & Play does.
 func _play_first_site() -> void:
 	var site := WorldMap.pick_random_affordable_location(7)
 	assert_ne(site, "", "A site is affordable")

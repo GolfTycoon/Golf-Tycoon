@@ -13,8 +13,10 @@ class_name WorldMapScreen
 ##  * Phone portrait: a scrollable travel journal with the globe and selected
 ##    site first, followed by the complete location directory.
 ##
-## All modes are built from the same location state and actions. The selected
-## site, search, filter, scroll position and globe view survive a resize.
+## All modes are built from the same location state and actions. Directory
+## cards offer Buy & Play. The selected-site dossier offers Buy (stay on the
+## map) beside Buy & Play, or Play once the site is owned. The selected site,
+## search, filter, scroll position and globe view survive a resize.
 ##
 ## The screen wears the same pixel-art look as the title screen and the Start
 ## New Game setup: PixelButtonStyle's notched nine-patch frames on every card,
@@ -41,6 +43,9 @@ const PHONE_ROW_HEIGHT := 60.0
 const LANDSCAPE_ROW_HEIGHT := 46.0
 const TABLET_CARD_WIDTH := 218.0
 const TABLET_CARD_HEIGHT := 112.0
+## Unowned sites buy the land and start that course in one press.
+const BUY_LABEL := "Buy"
+const BUY_AND_PLAY_LABEL := "Buy & Play"
 ## The out-of-game menus share one background image backdrop, one translucent
 ## card system and the same cream / golf-green / flag-gold accent palette.
 const COLOR_SURFACE := MenuStyle.SHEET_BG
@@ -77,6 +82,7 @@ var _featured_meta: Label = null
 var _featured_description: Label = null
 var _featured_stats: Label = null
 var _featured_status: Label = null
+var _featured_buy: Button = null
 var _featured_action: Button = null
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
@@ -167,6 +173,7 @@ func _build() -> void:
 	_featured_description = null
 	_featured_stats = null
 	_featured_status = null
+	_featured_buy = null
 	_featured_action = null
 	_money_label = null
 	_summary_label = null
@@ -393,7 +400,7 @@ func _build_phone_landscape_body(view: Vector2) -> Control:
 	rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rail.add_theme_constant_override("separation", 7)
 	var feature := _build_featured_panel(true, true)
-	feature.custom_minimum_size.y = 68.0
+	feature.custom_minimum_size.y = 102.0
 	rail.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_LANDSCAPE, false)
 	catalog.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -419,7 +426,7 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 	map_panel.custom_minimum_size.y = clampf(view.y * 0.28, 220.0, 252.0)
 	content.add_child(map_panel)
 	var feature := _build_featured_panel(true, false)
-	feature.custom_minimum_size.y = 104.0
+	feature.custom_minimum_size.y = 148.0
 	content.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_PORTRAIT, true)
 	content.add_child(catalog)
@@ -573,23 +580,13 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	margin.add_child(stack)
 
 	if micro:
-		var main_row := HBoxContainer.new()
-		main_row.add_theme_constant_override("separation", 7)
-		var info := VBoxContainer.new()
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_constant_override("separation", 1)
 		_featured_name = _make_title_label("", 15)
 		_featured_name.clip_text = true
-		info.add_child(_featured_name)
+		stack.add_child(_featured_name)
 		_featured_meta = _make_label("", 11, COLOR_TEXT_SECONDARY)
 		_featured_meta.clip_text = true
-		info.add_child(_featured_meta)
-		main_row.add_child(info)
-		_featured_action = _make_action_shell(false)
-		_featured_action.custom_minimum_size = Vector2(104, 42)
-		_featured_action.add_theme_font_size_override("font_size", 12)
-		main_row.add_child(_featured_action)
-		stack.add_child(main_row)
+		stack.add_child(_featured_meta)
+		stack.add_child(_build_featured_actions(true, true))
 		_featured_status = _make_label("", 10, COLOR_TEXT_QUIET)
 		_featured_status.clip_text = true
 		stack.add_child(_featured_status)
@@ -610,24 +607,12 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	cap_row.add_child(_featured_status)
 	stack.add_child(cap_row)
 
-	var detail_row := HBoxContainer.new()
-	detail_row.add_theme_constant_override("separation", 8)
-	var detail := VBoxContainer.new()
-	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail.add_theme_constant_override("separation", 2)
 	_featured_name = _make_title_label("", 22 if not compact else 18)
 	_featured_name.clip_text = true
-	detail.add_child(_featured_name)
+	stack.add_child(_featured_name)
 	_featured_meta = _make_label("", 12 if not compact else 11, COLOR_TEXT_SECONDARY)
 	_featured_meta.clip_text = true
-	detail.add_child(_featured_meta)
-	detail_row.add_child(detail)
-	if compact:
-		_featured_action = _make_action_shell(true)
-		_featured_action.custom_minimum_size = Vector2(98, 42)
-		_featured_action.add_theme_font_size_override("font_size", 11)
-		detail_row.add_child(_featured_action)
-	stack.add_child(detail_row)
+	stack.add_child(_featured_meta)
 
 	_featured_description = _make_label("", 12, COLOR_TEXT_SECONDARY)
 	_featured_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -640,12 +625,32 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	_featured_stats.clip_text = true
 	stack.add_child(_featured_stats)
 
-	if not compact:
-		_featured_action = _make_action_shell(true)
-		_featured_action.custom_minimum_size.y = 48
-		_featured_action.add_theme_font_size_override("font_size", 14)
-		stack.add_child(_featured_action)
+	stack.add_child(_build_featured_actions(compact, false))
 	return panel
+
+## Buy beside Buy & Play for an unowned site; Play alone once it is owned.
+func _build_featured_actions(compact: bool, micro: bool) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "FeaturedActions"
+	row.add_theme_constant_override("separation", 6 if not compact else 4)
+	var height := 34 if micro else (42 if compact else 48)
+	var font_size := 11 if micro else (12 if compact else 14)
+
+	_featured_buy = Button.new()
+	_featured_buy.name = "FeaturedBuy"
+	_featured_buy.custom_minimum_size = Vector2(64 if micro else (72 if compact else 96), height)
+	_featured_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_featured_buy.add_theme_font_size_override("font_size", font_size)
+	_featured_buy.pressed.connect(_on_featured_buy_pressed)
+	_paint_action_button(_featured_buy, false)
+	row.add_child(_featured_buy)
+
+	_featured_action = _make_action_shell(true)
+	_featured_action.custom_minimum_size = Vector2(88 if micro else (108 if compact else 140), height)
+	_featured_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_featured_action.add_theme_font_size_override("font_size", font_size)
+	row.add_child(_featured_action)
+	return row
 
 # =============================================================================
 # LOCATION CATALOGS
@@ -691,7 +696,7 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 		heading.name = "CatalogHeading"
 		heading.add_theme_font_override("font", SUBTITLE_FONT)
 		title_box.add_child(heading)
-		var caption := _make_label("Choose a site to buy or switch courses" if not compact else "27 places to build your next course",
+		var caption := _make_label("Choose a site to buy & play, or switch courses" if not compact else "27 places to build your next course",
 			10, COLOR_TEXT_QUIET)
 		title_box.add_child(caption)
 		title_row.add_child(title_box)
@@ -1068,9 +1073,10 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 func _make_row_action(state: Dictionary, compact: bool) -> Button:
 	var action := Button.new()
 	action.name = "LocationAction"
-	action.custom_minimum_size = Vector2(58 if _layout_mode == LayoutMode.PHONE_LANDSCAPE else (64 if compact else 76),
-		34 if _layout_mode == LayoutMode.PHONE_LANDSCAPE else (40 if compact else 38))
-	action.add_theme_font_size_override("font_size", 11 if compact else 12)
+	var landscape := _layout_mode == LayoutMode.PHONE_LANDSCAPE
+	action.custom_minimum_size = Vector2(88 if landscape else (96 if compact else 108),
+		34 if landscape else (40 if compact else 38))
+	action.add_theme_font_size_override("font_size", 10 if landscape else (11 if compact else 12))
 	if bool(state["owned"]):
 		if bool(state["active"]):
 			action.text = "Playing"
@@ -1081,13 +1087,24 @@ func _make_row_action(state: Dictionary, compact: bool) -> Button:
 			action.tooltip_text = "Switch to this course; the location you leave keeps its progress"
 			action.pressed.connect(func(): play_location_requested.emit(str(state["id"])))
 	else:
-		action.text = "Buy"
+		action.text = BUY_AND_PLAY_LABEL
 		action.disabled = not bool(state["affordable"])
-		action.tooltip_text = "Buy %s for %s" % [state["name"], _format_money(int(state["price"]))] \
-			if state["affordable"] else "You need %s to buy %s" % [_format_money(int(state["price"])), state["name"]]
-		action.pressed.connect(_on_buy_pressed.bind(str(state["id"])))
+		action.tooltip_text = _buy_and_play_tooltip(state)
+		action.pressed.connect(_on_buy_and_play_pressed.bind(str(state["id"])))
 	_paint_action_button(action, false)
 	return action
+
+func _buy_tooltip(state: Dictionary) -> String:
+	var price := _format_money(int(state["price"]))
+	if bool(state["affordable"]):
+		return "Buy %s for %s. You stay on the map to keep browsing." % [state["name"], price]
+	return "You need %s to buy %s" % [price, state["name"]]
+
+func _buy_and_play_tooltip(state: Dictionary) -> String:
+	var price := _format_money(int(state["price"]))
+	if bool(state["affordable"]):
+		return "Buy %s for %s and start playing there" % [state["name"], price]
+	return "You need %s to buy %s" % [price, state["name"]]
 
 func _location_tooltip(state: Dictionary) -> String:
 	return "%s — %s\n%s · %d-hole capacity · %d of %d plots ready\n%s" % [
@@ -1154,36 +1171,46 @@ func _update_featured() -> void:
 		else:
 			_featured_status.text = "OUT OF REACH"
 			_featured_status.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+	var owned := bool(state["owned"])
+	var active := bool(state["active"])
+	var affordable := bool(state["affordable"])
+	if is_instance_valid(_featured_buy):
+		_featured_buy.visible = not owned
+		if not owned:
+			_featured_buy.text = BUY_LABEL if (_featured_micro or _featured_compact) \
+				else ("BUY · %s" % _format_money(int(state["price"])))
+			_featured_buy.disabled = not affordable
+			_featured_buy.tooltip_text = _buy_tooltip(state)
+			_paint_action_button(_featured_buy, false)
+			_apply_featured_icon(_featured_buy, PixelIcon.Kind.COIN, _featured_buy.disabled)
 	if not is_instance_valid(_featured_action):
 		return
-	if state["active"]:
+	if active:
 		_featured_action.text = "Playing now" if _featured_compact else "CURRENT COURSE"
 		_featured_action.disabled = true
 		_featured_action.tooltip_text = "This is the course you are playing right now"
-	elif state["owned"]:
+	elif owned:
 		_featured_action.text = "Play" if _featured_micro else "PLAY THIS COURSE"
 		_featured_action.disabled = false
 		_featured_action.tooltip_text = "Switch to this course; the location you leave keeps its progress"
 	else:
-		_featured_action.text = "Buy" if _featured_micro else ("BUY · %s" % _format_money(int(state["price"])))
-		if not state["affordable"]:
-			_featured_action.text = "Need funds" if _featured_micro else "NEED %s MORE" % _format_money(int(state["price"]) - GameManager.money)
-		_featured_action.disabled = not bool(state["affordable"])
-		_featured_action.tooltip_text = "Buy this location for %s" % _format_money(int(state["price"]))
+		_featured_action.text = BUY_AND_PLAY_LABEL if (_featured_micro or _featured_compact) else "BUY & PLAY"
+		_featured_action.disabled = not affordable
+		_featured_action.tooltip_text = _buy_and_play_tooltip(state)
 	_paint_action_button(_featured_action, true)
-	# The slab's sprite: a play pennant to travel, a coin to buy - greyed with
-	# the button when it is just a status.
-	var dimmed := _featured_action.disabled
-	_featured_action.icon = PixelIcon.texture(
-		PixelIcon.Kind.PLAY if bool(state["owned"]) or bool(state["active"]) else PixelIcon.Kind.COIN,
+	_apply_featured_icon(_featured_action, PixelIcon.Kind.PLAY, _featured_action.disabled)
+
+func _apply_featured_icon(button: Button, kind: int, dimmed: bool) -> void:
+	button.icon = PixelIcon.texture(
+		kind,
 		16 if _featured_compact or _featured_micro else 32,
 		MenuStyle.INK if not dimmed else UIConstants.COLOR_TEXT_MUTED, dimmed)
-	_featured_action.add_theme_constant_override("h_separation", 8)
+	button.add_theme_constant_override("h_separation", 8)
 
 func _make_action_shell(primary: bool) -> Button:
 	var button := Button.new()
 	button.name = "FeaturedAction"
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not _featured_micro else Control.SIZE_SHRINK_END
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_size_override("font_size", 13)
 	button.pressed.connect(_on_featured_action_pressed)
@@ -1212,19 +1239,36 @@ func select_location(location_id: String) -> void:
 	_update_featured()
 	_update_row_styles()
 
+func _on_featured_buy_pressed() -> void:
+	_on_buy_pressed(_selected_id)
+
 func _on_featured_action_pressed() -> void:
 	if WorldMap.is_owned(_selected_id):
 		if _selected_id != WorldMap.active_location_id:
 			play_location_requested.emit(_selected_id)
 	else:
-		_on_buy_pressed(_selected_id)
+		_on_buy_and_play_pressed(_selected_id)
 
+## Buy an unowned site and stay on the map so more sites can be browsed.
 func _on_buy_pressed(location_id: String) -> void:
 	_selected_id = location_id
-	if WorldMap.buy_location(location_id):
-		if is_instance_valid(globe):
-			globe.look_at_location(location_id)
+	if not WorldMap.buy_location(location_id):
+		return
+	if is_instance_valid(globe):
+		globe.look_at_location(location_id)
 	refresh()
+
+## Buy an unowned site and start playing it in one step. Owned sites are a
+## no-op here: their rows already offer Play, and buying twice never charges.
+func _on_buy_and_play_pressed(location_id: String) -> void:
+	_selected_id = location_id
+	if not WorldMap.buy_location(location_id):
+		return
+	if is_instance_valid(globe):
+		globe.look_at_location(location_id)
+	if location_id == WorldMap.active_location_id:
+		return
+	play_location_requested.emit(location_id)
 
 func _on_search_changed(text: String) -> void:
 	_search_query = text
@@ -1361,7 +1405,7 @@ func _paint_filter_button(button: Button) -> void:
 	button.add_theme_color_override("font_focus_color", MenuStyle.TITLE_COLOR)
 	button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
 
-## Paint a Buy / Play action: the featured destination's gold slab (bold ink
+## Paint a Buy & Play / Play action: the featured destination's gold slab (bold ink
 ## type on the gold fill) or a row's quiet green card.
 func _paint_action_button(button: Button, primary: bool) -> void:
 	if primary:

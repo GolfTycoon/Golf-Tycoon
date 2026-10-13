@@ -2,14 +2,16 @@
 
 > The company grows by buying golf course **locations** around the world. Each location is a separate site, and the money, reputation and calendar carry over between them.
 
-**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/ui/world_map_screen.gd`, `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to, `LandStyle.PIXEL`), `shaders/globe_planet.gdshader` (`pixel_block`), `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
-**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/unit/ui_and_controls/test_world_map_visual_style.gd`, `tests/integration/world_map_flow.gd`
+**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/ui/world_map_screen.gd` (`BUY_LABEL`, `BUY_AND_PLAY_LABEL`, `_on_buy_pressed()`, `_on_buy_and_play_pressed()`), `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to, `LandStyle.PIXEL`), `shaders/globe_planet.gdshader` (`pixel_block`), `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
+**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/unit/ui_and_controls/test_world_map_visual_style.gd`, `tests/unit/ui_and_controls/test_world_map_actions.gd`, `tests/integration/world_map_flow.gd`
 
 ---
 
 ## Plain English
 
 The World Map is where you pick which course to build next. There are **27 destinations**, from Monterey and San Diego to Scotland, Spain, Jamaica, Dubai, Japan and Australia. Each has its own theme, size, position on the globe and price.
+
+Every destination card has a **Buy & Play** button. One press pays the asking price and starts that course. The selected-site dossier also offers **Buy**, which purchases the land but leaves you on the map so you can keep browsing, beside **Buy & Play**. Sites you already own offer **Play** instead, which switches without charging. The course you leave keeps its progress.
 
 Buying a location gives you a new **site**. A site has its own terrain, buildings, staff, holes and land. Your **company** keeps its money, reputation, calendar and milestones across every site.
 
@@ -86,7 +88,11 @@ The globe is drawn in two layers. Splitting the drawing keeps it smooth and chea
 
 **Checking the look without a GPU.** `tests/harness/globe_preview.gd` renders the polygon mask, the baked mask and the dots fallback to PNG files. `tests/harness/planet_preview.gd` is a CPU port of the shader that renders the default view, the pole and the Pacific into `tmp_preview/`. It is a visual check only, not a replacement for compiling the shader.
 
-### 6. Generated first course
+### 6. Buy & Play
+
+Each unowned location's directory card offers **Buy & Play** (`WorldMapScreen.BUY_AND_PLAY_LABEL`). The selected-site dossier offers **Buy** (`BUY_LABEL`) beside **Buy & Play**. Buy calls `WorldMap.buy_location()` and stays on the map (`_on_buy_pressed()`). Buy & Play then emits `play_location_requested` so the company starts that course (`main.gd` `_on_world_map_play_location()`). If the company cannot afford the site both buttons are disabled; `buy_location()` also refuses and never emits play. Owned sites hide Buy and offer **Play**; the course already being played shows **Playing**.
+
+### 7. Generated first course
 
 What a new site starts with depends on **Generated Holes** on the Start New Game screen. Quick Start uses 3 generated holes and buys a random affordable location (`WorldMap.pick_random_affordable_location()`), so it starts playing at once.
 
@@ -106,7 +112,7 @@ The back nine is a counter-clockwise loop around the front nine. All its offsets
 
 The generator then places the starter amenities (clubhouse, pro shop and a food stop — a Snack Bar, or a Pub on a links course) into the pocket beside the first fairway. Any spot that would overlap a play surface or a building is skipped, and a facility the site's theme does not allow is never placed.
 
-### 7. Company and site state
+### 8. Company and site state
 
 | Company-wide | Per site |
 | --- | --- |
@@ -117,7 +123,7 @@ The generator then places the starter amenities (clubhouse, pro shop and a food 
 
 `SaveManager.build_location_snapshot()` removes the `SNAPSHOT_COMPANY_KEYS` and keeps only the `SITE_STATE_KEYS`. `switch_to_location()` puts the company state back afterwards, so switching sites never resets the business. Saves use `SAVE_VERSION` 5.
 
-### 8. Reset World
+### 9. Reset World
 
 `WorldMap.reset_world()` seeds a new random generator. It keeps every location you already own, since you paid for that land. It re-rolls the cleared land and price for all other locations, then emits `world_reset`. It never changes your money, the active site or its saved state.
 

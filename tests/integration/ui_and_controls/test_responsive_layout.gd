@@ -34,7 +34,7 @@ func _view() -> Rect2:
 
 
 ## The location list stays readable and clickable: several rows, and the first
-## row's Buy / Play button, inside the list's clip and the window. A list panel
+## row's Buy & Play / Play button, inside the list's clip and the window. A list panel
 ## that collapses would still be "on screen" while hiding every row.
 func _assert_rows_visible(world_screen: Node, tag: String) -> void:
 	var clip: Rect2 = (world_screen._list_box.get_parent() as Control).get_global_rect()
