@@ -475,17 +475,11 @@ func _make_rule(width: float, thickness: float, centered: bool, color: Color = A
 func _make_status_line(centered: bool, font_size: int) -> Control:
 	var version := str(ProjectSettings.get_setting("application/config/version", "0.2.1"))
 	var text := "v%s" % version
-	if _saves.is_empty():
-		text += "  |  no saved courses yet"
-	else:
-		text += "  |  %d saved course%s" % [_saves.size(), "" if _saves.size() == 1 else "s"]
-
 	var label := Label.new()
 	label.name = "Status"
 	label.text = text
-	label.add_theme_font_override("font", BODY_FONT)
+	label.add_theme_font_override("font", TITLE_FONT)
 	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
-	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if centered else Control.SIZE_SHRINK_BEGIN
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -517,8 +511,8 @@ func _make_hero_row(height: float, title_font: int, caption_font: int) -> HBoxCo
 
 func _make_start_card(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_card("Start New Game",
-		"Set up your company, then buy the location for your first course.",
-		"Set up your golf company, then choose where to build your first course",
+		"Set up your game, then choose where to build your first course.",
+		"Customise your game settings, then buy the location for your first course and start playing",
 		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.FLAG)
 	button.name = "StartNewGameButton"
 	button.pressed.connect(func(): start_new_game_requested.emit())
