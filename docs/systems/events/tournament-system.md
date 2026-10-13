@@ -226,10 +226,13 @@ Out** action is an explicit player choice to settle the field early.
 _start_live_round():
     _total_groups = ceil(_live_count / GROUP_SIZE)     # one pairing per open hole
     _groups_spawned = 0, _spawn_timer = 0, _live_round_active = true
+    _first_group_pending = true                        # opening pair on the next tick
 
 process(delta):                                        # while the live round runs
-    _spawn_timer += delta
-    if _spawn_timer >= GROUP_SPAWN_INTERVAL: _spawn_next_group()
+    if _first_group_pending: _spawn_next_group()       # tees off off the host click
+    else:
+        _spawn_timer += delta
+        if _spawn_timer >= GROUP_SPAWN_INTERVAL: _spawn_next_group()
 ```
 
 `GROUP_SPAWN_INTERVAL = 0.5` game-seconds. That is a staggered tee sheet in fast
