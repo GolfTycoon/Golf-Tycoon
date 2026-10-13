@@ -5,7 +5,10 @@ class_name PixelIcon
 ## Each of the seven actions carries a 16x16 sprite: a pennant on its mound
 ## for Start New Game, a lightning bolt for Quick Start, the play triangle for
 ## Continue, a floppy disk for Load Game, a polo shirt for the Golfer Skins
-## studio, a cog for Settings and a doorway arrow for Quit. They are sprites
+## studio, a cog for Settings and a doorway arrow for Quit. The World Map
+## atlas reuses the same sprite kit for its own marks: a dollar coin for the
+## company treasury and a teardrop map pin for the destinations and legend.
+## They are sprites
 ## in the old sense - a grid of characters, one per pixel, painted from a
 ## palette derived from the card's own accent - so a gold card gets a gold
 ## pennant and the Quit tile gets its muted red arrow.
@@ -20,7 +23,7 @@ class_name PixelIcon
 ## because the menu rebuilds itself whenever the window crosses a layout
 ## breakpoint.
 
-enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR }
+enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR, COIN, PIN }
 
 ## Side of the sprite grid, in source pixels.
 const GRID := 16
@@ -158,6 +161,42 @@ const ART := {
 		"..CC............",
 		"..CCCCCC........",
 		"..CCCCCC........",
+		"................",
+		"................",
+	],
+	Kind.COIN: [
+		"................",
+		"................",
+		"......XXXX......",
+		"....XXLLLLXX....",
+		"...XLLLLLLAAX...",
+		"...XLLACCCAAX...",
+		"..XLLLLCAAAADX..",
+		"..XLLLACCCAADDX.",
+		"..XLLAAAACDDDX..",
+		"..XLAAAACCCDDDX.",
+		"...XAAAAADCDDX..",
+		"...XAAADDDDDX...",
+		"....XXDDDDXX....",
+		"......XXXX......",
+		"................",
+		"................",
+	],
+	Kind.PIN: [
+		"................",
+		"................",
+		"......XXXX......",
+		".....XLLAAX.....",
+		"....XLLLAADX....",
+		"....XLLAAADX....",
+		"...XLAA..ADDX...",
+		"...XLAA..ADDX...",
+		"....XAAAADDX....",
+		".....XAADDX.....",
+		".....XAAADX.....",
+		"......XADX......",
+		".......XX.......",
+		"................",
 		"................",
 		"................",
 	],

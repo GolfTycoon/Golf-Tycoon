@@ -13,6 +13,10 @@ shader_type canvas_item;
 //                  outside the silhouette
 //   * graticule  — 30° meridians and parallels that fade out near the poles
 //
+// With `pixel_block` set (GlobeMap's LandStyle.PIXEL) the same recipe is
+// computed on one chunky cell per block of screen pixels: the world map
+// globe wears the menu screens' pixel-art look.
+//
 // Everything is analytic (a couple of mask taps and a handful of noise
 // octaves per pixel), so the planet is one draw call with no texture assets
 // beyond the mask. Uniforms are driven from GlobeMap; the palette defaults
@@ -30,6 +34,12 @@ uniform float radius_scale = 1.0;
 uniform float sphere_fill = 0.92;
 // How far the halo reaches past the silhouette (1.0 = none).
 uniform float halo_scale = 1.06;
+// Side of one retro pixel block, in screen pixels (GlobeMap's PIXEL land
+// style; 0 = smooth shading). Positive values snap every fragment into a
+// square cell of this side, so the planet's silhouette, terrain, light and
+// halo all resolve in chunky hard-edged pixels — the same 16-bit look as the
+// menu cards, sprites and Pixelify type around it.
+uniform float pixel_block = 0.0;
 
 // ── Baked land mask ─────────────────────────────────────────────────────────
 uniform sampler2D land_mask : filter_linear_mipmap, repeat_enable;
@@ -137,6 +147,12 @@ float mask_at(vec2 uv) {
 void fragment() {
 	vec2 p = (UV - vec2(0.5)) * view_size;
 	float radius = max(min(view_size.x, view_size.y) * 0.5 * sphere_fill * radius_scale, 1.0);
+	// Pixel mode: the whole fragment runs on the centre of its block instead
+	// of its own position, so every cell of `pixel_block` screen pixels gets
+	// one flat colour with hard edges between cells.
+	if (pixel_block > 0.0) {
+		p = (floor(p / pixel_block) + vec2(0.5)) * pixel_block;
+	}
 	float r = length(p) / radius;
 	float px = 1.0 / radius;                       // one screen pixel in r units
 
@@ -162,6 +178,11 @@ void fragment() {
 	float land = mask_at(mask_uv);
 	vec2 texel = max(fwidth(mask_uv), vec2(1.0 / mask_size.x, 1.0 / mask_size.y));
 	float coast_aa = clamp(max(texel.x, texel.y) * 0.8, 1.0 / mask_size.x, 0.35);
+	if (pixel_block > 0.0) {
+		// Block edges otherwise see a huge fwidth where the snapped position
+		// jumps; keep the coastline's soften exactly one block wide instead.
+		coast_aa = pixel_block * px * 57.29578 / 180.0;
+	}
 	float land_a = smoothstep(0.5 - coast_aa, 0.5 + coast_aa, land);
 
 	// Probe about three pixels out (or two mask texels, whichever is further)
@@ -170,7 +191,9 @@ void fragment() {
 	// degrees(px) of latitude in mask v units.
 	float px_deg = px * 57.29578;
 	vec2 px_uv = vec2(px_deg / 360.0, px_deg / 180.0);
-	vec2 probe = max(texel * 2.0, px_uv * 3.0);
+	// The shelf probe reaches about three pixels out (or past one block in
+	// pixel mode), so the coastal shelf keeps a visible width either way.
+	vec2 probe = max(texel * 2.0, px_uv * max(3.0, pixel_block * 1.2));
 	// Longitude wraps in the sampler (the antimeridian) but latitude must be
 	// kept inside the mask, or a probe off the top of the map would wrap
 	// round to the Antarctic land and light up the Arctic with shelf water.
@@ -213,6 +236,10 @@ void fragment() {
 	land_rgb = mix(land_rgb, land_dry.rgb, arid);
 	land_rgb = mix(land_rgb, land_beach.rgb, clamp(near_water * land_a, 0.0, 1.0) * 0.35);
 	float ice = smoothstep(67.0, 78.0, abs_lat + (relief - 0.5) * 8.0) * ice_strength;
+	if (pixel_block > 0.0) {
+		// Snow falls a block at a time: the cap edge is stepped, never soft.
+		ice = step(0.5, ice);
+	}
 	land_rgb = mix(land_rgb, ice_color.rgb, clamp(ice, 0.0, 1.0));
 
 	vec3 albedo = mix(ocean, land_rgb, land_a);
@@ -222,6 +249,10 @@ void fragment() {
 	float ndl = dot(n, light);
 	float day = smoothstep(-terminator_softness, terminator_softness, ndl);
 	float luminance = ambient_floor + (1.0 - ambient_floor) * clamp(ndl, 0.0, 1.0);
+	if (pixel_block > 0.0) {
+		// Daylight lands in a handful of flat shades, not a smooth gradient.
+		luminance = floor(luminance * 5.0 + 0.5) / 5.0;
+	}
 	vec3 planet = albedo * luminance * mix(night_tint.rgb, day_tint.rgb, day);
 
 	vec3 half_vector = normalize(light + vec3(0.0, 0.0, 1.0));
@@ -246,6 +277,10 @@ void fragment() {
 		vec2 grid = vec2(lon_deg, lat_deg) / graticule_step_deg;
 		vec2 distance_deg = abs(fract(grid + 0.5) - 0.5) * graticule_step_deg;
 		float line_width = max(0.7 * max(fwidth(lon_deg), fwidth(lat_deg)), 0.02);
+		if (pixel_block > 0.0) {
+			// In pixel mode the graticule is a flat one-block-wide rule.
+			line_width = pixel_block * px * 57.29578;
+		}
 		float lines = 1.0 - smoothstep(0.0, line_width, min(distance_deg.x, distance_deg.y));
 		lines *= 1.0 - smoothstep(80.0, 88.0, abs_lat);
 		planet = mix(planet, vec3(1.0), lines * graticule_alpha * (0.3 + 0.7 * day));

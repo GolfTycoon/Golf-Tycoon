@@ -2,8 +2,8 @@
 
 > The company grows by buying golf course **locations** around the world. Each location is a separate site, and the money, reputation and calendar carry over between them.
 
-**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/ui/world_map_screen.gd`, `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to), `shaders/globe_planet.gdshader`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
-**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/integration/world_map_flow.gd`
+**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/ui/world_map_screen.gd`, `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to, `LandStyle.PIXEL`), `shaders/globe_planet.gdshader` (`pixel_block`), `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
+**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/unit/ui_and_controls/test_world_map_visual_style.gd`, `tests/integration/world_map_flow.gd`
 
 ---
 
@@ -15,7 +15,7 @@ Buying a location gives you a new **site**. A site has its own terrain, building
 
 Each location's land is partly cleared already. How much is cleared is rolled for each world. More cleared land costs more, so the same destination can be a bargain in one world and expensive in another. **Reset World** rolls the cleared land again for every location you do not own yet. It changes prices, but never makes a site unusable.
 
-The globe in the middle of the screen is an atlas you can spin and zoom. Pins mark each destination.
+The globe in the middle of the screen is an atlas you can spin and zoom. Sprite pins mark each destination, the selected one ringed in gold brackets. The whole screen wears the menu's pixel-art look: notched sprite frames, Pixelify Sans type, and the planet itself drawn in chunky cells (`LandStyle.PIXEL`, the shader's `pixel_block` mode) in the game's palette. The smooth-shaded planet remains the default for other callers.
 
 **How you reach it.** The **World Map** button leads the Club tab's operations, beside Land, Marketing, Milestones and Scorecard. Opening it there freezes the course — the day, the golfers and the daily costs all wait — so a site can be bought, browsed or switched without the club falling behind. **Back** (or Escape) hands the course back exactly as it was: the gameplay UI returns and the day resumes only if it was running before the map opened. Start New Game and Quick Start open the same screen before the company has a course.
 

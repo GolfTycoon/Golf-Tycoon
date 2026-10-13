@@ -18,7 +18,10 @@ class_name GlobeMap
 ##    changes — a hover or a new selection leaves the planet untouched.
 ##
 ## `LandStyle.DOTS` keeps the earlier land-dot drawing (every land point as a
-## little disc) for callers that want the mask off; the planet is the default.
+## little disc) for callers that want the mask off; the planet is the
+## default, and `LandStyle.PIXEL` is the same planet quantised into chunky
+## hard-edged cells — the World Map screen's retro mode, matching the menu
+## screens' pixel frames, sprites and Pixelify type.
 ##
 ## Drag to spin (with a little inertia), scroll or pinch to zoom, click a
 ## marker (or the list beside it) to select. Public API: `set_locations`,
@@ -28,12 +31,17 @@ class_name GlobeMap
 
 signal location_clicked(location_id: String)
 
-## How the continents are drawn: PLANET (baked mask + shader) or DOTS (the
-## old rasterised land points, no shader needed).
-enum LandStyle { PLANET, DOTS }
+## How the continents are drawn: PLANET (baked mask + shader), DOTS (the old
+## rasterised land points, no shader needed) or PIXEL (the same shader planet
+## quantised into chunky hard-edged cells, with pixel-art pin sprites for the
+## markers, to match the menu screens' 16-bit look).
+enum LandStyle { PLANET, DOTS, PIXEL }
 
 const DEFAULT_LAND_STYLE := LandStyle.PLANET
 const PLANET_SHADER := preload("res://shaders/globe_planet.gdshader")
+## The font the PIXEL globe's destination labels are set in: the same
+## Pixelify Sans the menu screens use (SIL Open Font License 1.1).
+const MARKER_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 
 ## Size of the baked equirectangular land mask. 2048x1024 is about 3.5 km per
 ## texel at the equator — sharper than the globe is ever drawn — and bakes in
@@ -64,6 +72,42 @@ const LAND_SHADE_COLOR := Color("3f5530")
 const GRATICULE_COLOR := Color(1.0, 1.0, 1.0, 0.10)
 const MARKER_RADIUS := 6.0
 const MARKER_HIT_RADIUS := 11.0
+
+## The PIXEL planet's palette: the planet shader's own tunables re-mixed into
+## the menu palette — a deep ink-teal sea with a pale shelf, golf greens for
+## the land and sandy tropics — so the atlas sits inside the pixel-art
+## screens instead of looking borrowed from a photograph.
+const PIXEL_PALETTE: Dictionary = {
+	"ocean_deep": Color("0e2430"),
+	"ocean_mid": Color("15384a"),
+	"ocean_shallow": Color("1f5468"),
+	"shore_color": Color("93c4ad"),
+	"land_low": Color("2b5c33"),
+	"land_mid": Color("4f8f49"),
+	"land_high": Color("7fb08a"),
+	"land_dry": Color("b7a066"),
+	"land_beach": Color("e0cf9d"),
+	"ice_color": Color("edf4ec"),
+	"atmosphere_color": Color("8fd0c2"),
+}
+## PIXEL light tuning: a higher ambient floor and a harder terminator keep the
+## chunky cells bold rather than muddy; clouds and the glint stay quiet so
+## the coastlines and pins carry the picture.
+const PIXEL_TUNING: Dictionary = {
+	"terminator_softness": 0.22,
+	"specular_strength": 0.22,
+	"cloud_amount": 0.10,
+	"graticule_alpha": 0.09,
+	"coast_glow": 0.50,
+}
+## Side of one pixel block on the PIXEL planet, per end of the clamp: the
+## globe quantises to roughly 100 cells across its smaller side.
+const PIXEL_BLOCK_MIN := 2.5
+const PIXEL_BLOCK_MAX := 4.5
+## Side of the destination pin sprite (one multiple of the 16px grid) and how
+## far it floats above its point, for depth.
+const PIN_SPRITE_SIDE := 16
+const PIN_SPRITE_RAISE := 2.0
 
 ## Simplified continent outlines as [lon, lat] pairs (longitude first).
 ## They are deliberately coarse — the globe is a navigation aid, not an atlas.
@@ -206,11 +250,13 @@ func _ready() -> void:
 
 ## The two drawing layers: the shader planet underneath, the markers on top.
 func _build_layers() -> void:
-	if _land_style == LandStyle.PLANET:
+	if _land_style == LandStyle.PLANET or _land_style == LandStyle.PIXEL:
 		_planet_material = ShaderMaterial.new()
 		_planet_material.shader = PLANET_SHADER
 		_planet_material.set_shader_parameter("land_mask", get_land_mask_texture())
 		_planet_material.set_shader_parameter("mask_size", Vector2(MASK_WIDTH, MASK_HEIGHT))
+		if _land_style == LandStyle.PIXEL:
+			_apply_pixel_palette()
 		_planet = ColorRect.new()
 		_planet.name = "PlanetSurface"
 		_planet.color = Color.WHITE
@@ -260,6 +306,22 @@ func _sync_planet() -> void:
 	_planet_material.set_shader_parameter("center_lon_deg", _center_lon)
 	_planet_material.set_shader_parameter("center_lat_deg", _center_lat)
 	_planet_material.set_shader_parameter("radius_scale", _radius_scale)
+	_planet_material.set_shader_parameter("pixel_block",
+		_pixel_block_size() if _land_style == LandStyle.PIXEL else 0.0)
+
+## The menu palette and the chunkier light, set once when the PIXEL planet's
+## material is made (see PIXEL_PALETTE / PIXEL_TUNING).
+func _apply_pixel_palette() -> void:
+	for parameter in PIXEL_PALETTE:
+		_planet_material.set_shader_parameter(parameter, PIXEL_PALETTE[parameter])
+	for parameter in PIXEL_TUNING:
+		_planet_material.set_shader_parameter(parameter, PIXEL_TUNING[parameter])
+
+## Side of one retro cell on the PIXEL globe, in screen pixels: around a
+## hundred cells across the smaller side keeps the toy-globe silhouette
+## readable on a phone and crisp on a desktop.
+func _pixel_block_size() -> float:
+	return clampf(minf(size.x, size.y) / 100.0, PIXEL_BLOCK_MIN, PIXEL_BLOCK_MAX)
 
 ## The view moved: the planet needs new shading and the markers new positions.
 func _redraw_view() -> void:
@@ -600,10 +662,11 @@ func _screen_for(v: Vector3, center: Vector2, radius: float) -> Vector2:
 
 ## ── Drawing ──────────────────────────────────────────────────────────────
 
-## The land-dot fallback (LandStyle.DOTS). The planet style is drawn by the
-## shader on its own layer, so there is nothing to do here.
+## The land-dot fallback (LandStyle.DOTS). The planet styles (PLANET and
+## PIXEL) are drawn by the shader on their own layer, so there is nothing to
+## do here.
 func _draw() -> void:
-	if _land_style == LandStyle.PLANET:
+	if _land_style == LandStyle.PLANET or _land_style == LandStyle.PIXEL:
 		return
 	var center := _sphere_center()
 	var radius := _sphere_radius()
@@ -696,15 +759,93 @@ func _draw_markers(canvas: CanvasItem, center: Vector2, radius: float) -> void:
 		_marker_positions[id] = pos
 		var selected: bool = id == _selected_id
 		var hovered := id == _hover_id
-		var marker_radius := MARKER_RADIUS + (2.0 if selected else 0.0)
 
-		canvas.draw_circle(pos + Vector2(1.5, 2.0), marker_radius + 1.0, Color(0.0, 0.0, 0.0, 0.35))
-		canvas.draw_circle(pos, marker_radius, marker_color(loc))
-		canvas.draw_arc(pos, marker_radius, 0.0, TAU, 24, Color(0.05, 0.08, 0.05, 0.9), 1.5, true)
-		if selected:
-			canvas.draw_arc(pos, marker_radius + 5.0, 0.0, TAU, 32, UIConstants.COLOR_GOLD, 2.0, true)
+		if _land_style == LandStyle.PIXEL:
+			_draw_pixel_pin(canvas, pos, loc, selected)
+		else:
+			_draw_smooth_marker(canvas, pos, loc, selected)
 		if selected or hovered:
-			_draw_marker_label(canvas, pos, str(loc.get("name", id)), selected)
+			if _land_style == LandStyle.PIXEL:
+				_draw_marker_label_pixel(canvas, pos, str(loc.get("name", id)), selected)
+			else:
+				_draw_marker_label(canvas, pos, str(loc.get("name", id)), selected)
+
+func _draw_smooth_marker(canvas: CanvasItem, pos: Vector2, loc: Dictionary, selected: bool) -> void:
+	var marker_radius := MARKER_RADIUS + (2.0 if selected else 0.0)
+	canvas.draw_circle(pos + Vector2(1.5, 2.0), marker_radius + 1.0, Color(0.0, 0.0, 0.0, 0.35))
+	canvas.draw_circle(pos, marker_radius, marker_color(loc))
+	canvas.draw_arc(pos, marker_radius, 0.0, TAU, 24, Color(0.05, 0.08, 0.05, 0.9), 1.5, true)
+	if selected:
+		canvas.draw_arc(pos, marker_radius + 5.0, 0.0, TAU, 32, UIConstants.COLOR_GOLD, 2.0, true)
+
+## A marker for the PIXEL globe: the same 16x16 pin sprite the screens use
+## (PixelIcon.Kind.PIN), tip on the destination, with chunky corner brackets
+## in gold when it is the selected site. The sprite is nearest-filtered and
+## placed on whole pixels, so the pin's cells stay crisp against the
+## quantised planet.
+func _draw_pixel_pin(canvas: CanvasItem, pos: Vector2, loc: Dictionary, selected: bool) -> void:
+	var tint := marker_color(loc)
+	var side := PixelIcon.snapped_side(PIN_SPRITE_SIDE)
+	var tip := (pos - Vector2(0.0, PIN_SPRITE_RAISE)).round()
+	# The sprite's pin tip sits at 13.5/16 of its height.
+	var base := tip - Vector2(side * 0.5, side * 0.84)
+	# A two-block cast shadow grounds the pin on the globe.
+	canvas.draw_rect(Rect2(tip + Vector2(2.0, 1.0), Vector2(side * 0.4, 2.0)),
+		Color(0.0, 0.0, 0.0, 0.30))
+	canvas.draw_texture(PixelIcon.texture(PixelIcon.Kind.PIN, side, tint), base)
+	if selected:
+		_draw_pin_brackets(canvas, tip, side)
+
+## Gold corner brackets around the selected pin — the atlas's way of saying
+## "you are here" without covering the pin itself.
+func _draw_pin_brackets(canvas: CanvasItem, tip: Vector2, side: float) -> void:
+	var gold := UIConstants.COLOR_GOLD
+	var frame := Rect2(tip - Vector2(side * 0.62, side * 0.96), Vector2(side * 1.24, side * 1.05))
+	var arm := maxf(2.0, side * 0.22)
+	var bar := 2.0
+	# Each corner is an L of two bars, snapped to whole pixels.
+	for corner in [frame.position, Vector2(frame.end.x, frame.position.y),
+			Vector2(frame.position.x, frame.end.y), frame.end]:
+		var sx: float = 1.0 if corner.x == frame.position.x else -1.0
+		var sy: float = 1.0 if corner.y == frame.position.y else -1.0
+		var h := Rect2(Vector2.ZERO, Vector2(arm, bar))
+		var v := Rect2(Vector2.ZERO, Vector2(bar, arm))
+		h.position = Vector2(corner.x, corner.y) if sx > 0.0 else Vector2(corner.x - arm, corner.y)
+		v.position = Vector2(corner.x, corner.y) if sy > 0.0 else Vector2(corner.x, corner.y - arm)
+		if sx < 0.0:
+			v.position.x = corner.x - bar
+		if sy < 0.0:
+			h.position.y = corner.y - bar
+		canvas.draw_rect(h, gold)
+		canvas.draw_rect(v, gold)
+
+## The destination's name as a pixel tag: a notched ink frame with an accent
+## trim (gold for the selected site), Pixelify type on top. The frame is the
+## same recipe as the screens' cards: outline, trim, fill — no rounded
+## corners, nothing anti-aliased.
+func _draw_marker_label_pixel(canvas: CanvasItem, pos: Vector2, text: String, selected: bool) -> void:
+	var font_size := 13
+	var accent := UIConstants.COLOR_GOLD if selected else Color(0.62, 0.72, 0.62, 0.85)
+	var text_size := MARKER_FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var pad := Vector2(6.0, 4.0)
+	var rect_size := (text_size + pad * 2.0).round()
+	var top := (pos + Vector2(10.0, -rect_size.y * 0.5)).round()
+	_draw_pixel_tag(canvas, Rect2(top, rect_size), accent,
+		Color(0.035, 0.075, 0.06, 0.92), Color("0b1a14"))
+	canvas.draw_string(MARKER_FONT, top + Vector2(pad.x, pad.y + MARKER_FONT.get_ascent(font_size)),
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
+		UIConstants.COLOR_GOLD if selected else UIConstants.COLOR_TEXT)
+
+## A small notched pixel frame: two overlapping rects per layer make the
+## 1-pixel corner cut, outside in — ink outline, accent trim, dark fill.
+func _draw_pixel_tag(canvas: CanvasItem, rect: Rect2, accent: Color, fill: Color, ink: Color) -> void:
+	for layer in [[rect, ink], [rect.grow(-1.0), accent], [rect.grow(-2.0), fill]]:
+		var layer_rect: Rect2 = layer[0]
+		var color: Color = layer[1]
+		canvas.draw_rect(Rect2(layer_rect.position + Vector2(1.0, 0.0),
+			layer_rect.size - Vector2(2.0, 0.0)), color)
+		canvas.draw_rect(Rect2(layer_rect.position + Vector2(0.0, 1.0),
+			layer_rect.size - Vector2(0.0, 2.0)), color)
 
 func _draw_marker_label(canvas: CanvasItem, pos: Vector2, text: String, selected: bool) -> void:
 	var font := ThemeDB.fallback_font

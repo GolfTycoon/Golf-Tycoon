@@ -8,7 +8,7 @@ extends GameTest
 const KINDS := [
 	PixelIcon.Kind.FLAG, PixelIcon.Kind.BOLT, PixelIcon.Kind.PLAY,
 	PixelIcon.Kind.FLOPPY, PixelIcon.Kind.SHIRT, PixelIcon.Kind.GEAR,
-	PixelIcon.Kind.DOOR,
+	PixelIcon.Kind.DOOR, PixelIcon.Kind.COIN, PixelIcon.Kind.PIN,
 ]
 
 const PALETTE_KEYS := ".XALDCMWGg"
