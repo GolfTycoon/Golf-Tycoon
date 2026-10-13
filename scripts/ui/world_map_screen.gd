@@ -319,6 +319,9 @@ func _build_header(mode: int) -> Control:
 	money_row.add_child(coin)
 	_money_label = _make_title_label("", 16 if not compact else 13, COLOR_GOLD)
 	_money_label.name = "Money"
+	# A clipped Label reports only a one-pixel minimum width; expand it into the
+	# space beside the coin so the balance itself remains visible.
+	_money_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_money_label.clip_text = true
 	money_row.add_child(_money_label)

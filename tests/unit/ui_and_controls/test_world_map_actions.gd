@@ -19,6 +19,32 @@ func _row_action(screen: WorldMapScreen, location_id: String) -> Button:
 	return row.find_child("LocationAction", true, false) as Button
 
 
+func test_company_cash_is_visible_and_updates_in_the_treasury() -> void:
+	WorldMap.new_world(WorldMapStateScript.default_options(), 90210)
+	GameManager.money = 123456
+	var screen := _screen()
+	await process_frames(2)
+
+	var cash := screen.find_child("Money", true, false) as Label
+	assert_not_null(cash, "the treasury has a company-cash label")
+	if cash == null:
+		return
+	var compact := (
+		screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_LANDSCAPE
+		or screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_PORTRAIT)
+	assert_eq(cash.text, "$123K" if compact else "$123,456",
+		"the World Map displays the current company balance")
+	var text_width := cash.get_theme_font("font").get_string_size(
+		cash.text, HORIZONTAL_ALIGNMENT_LEFT, -1, cash.get_theme_font_size("font_size")).x
+	assert_gte(cash.size.x, text_width,
+		"the treasury allocates enough space for the balance instead of clipping it")
+
+	GameManager.modify_money(1000)
+	await process_frames(2)
+	assert_eq(cash.text, "$124K" if compact else "$124,456",
+		"the displayed balance changes when company cash changes")
+
+
 func test_every_unowned_location_offers_buy_and_play() -> void:
 	WorldMap.new_world(WorldMapStateScript.default_options(), 20261013)
 	GameManager.money = 500000
