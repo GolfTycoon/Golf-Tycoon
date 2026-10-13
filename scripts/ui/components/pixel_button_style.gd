@@ -1,6 +1,7 @@
 extends RefCounted
 class_name PixelButtonStyle
-## Pixel-art button frames for the title screen.
+## Pixel-art button frames for the out-of-game screens (the title screen and
+## the Start New Game setup screen).
 ##
 ## The menu's cards and tiles used to be StyleBoxFlat panels with rounded
 ## corners. This style replaces them with the look of a 16-bit RPG window:
@@ -26,13 +27,19 @@ class_name PixelButtonStyle
 ##  * pressed swaps the bevel (dark on top and left, lit below) so the card
 ##    reads as physically pushed into the panel, and darkens the fill;
 ##  * focus is a bright notched ring floating just outside the frame;
-##  * disabled desaturates the accent and drops the sheen and bevel.
+##  * disabled desaturates the accent and drops the sheen and bevel;
+##  * inset is the same cross-section sunk the other way (dark above, lit
+##    below, no sheen), for the recessed surfaces a form sits on: a text
+##    field, a preview's frame.
 ##
 ## Generated images are cached on their palette, so a menu rebuild after a
-## window resize reuses the frames it drew before.
+## window resize reuses the frames it drew before. The StyleBoxes handed out
+## with content margins are copies, so one card's padding can never leak into
+## another card that shares its palette.
 
-## Frame states a button can ask for.
-enum State { NORMAL, HOVER, PRESSED, FOCUS, DISABLED }
+## Frame states a button can ask for. INSET is not a button state: it is the
+## recessed cross-section a field or a preview frame wears.
+enum State { NORMAL, HOVER, PRESSED, FOCUS, DISABLED, INSET }
 
 ## Width of the frame band, in texture pixels and on screen: the nine-patch
 ## margins are drawn 1:1. ink(1) + trim(2) + bevel(1) + a three-step hard
@@ -46,6 +53,15 @@ const TEXTURE_SIZE := MARGIN * 2 + CENTER
 ## the octagonal notch that makes the frame read as pixel art rather than a
 ## rectangle with the corners sanded down.
 const CORNER_CUT := 4
+
+## Trim strength of an unpicked option card, and of one under the pointer:
+## low enough that the picked card's full-strength trim stands out.
+const CHOICE_TRIM := 0.42
+const CHOICE_TRIM_HOVER := 0.85
+## Columns of the bottom bar's strip (all identical) and the flat rows below
+## its bands that stretch to fill the bar.
+const BAR_WIDTH := 4
+const BAR_STRETCH := 4
 
 ## The frame's own ink: a near-black green, in the family of the menu cards.
 const INK := Color("08130f")
@@ -108,11 +124,119 @@ static func paint_card(button: Button, accent: Color, caption_block: float, pad:
 		button.add_theme_color_override("font_color" if font_state == "normal" \
 			else "font_%s_color" % font_state, font_colors[font_state])
 
+## Paint a selectable (toggle) card: one option among a group, as on the
+## setup screen's difficulty, budget and hole pickers. Unpicked it is an
+## ordinary card with a trimmed-back accent; the picked one carries the full
+## accent, the sunken bevel and a wash of its own colour in the fill, so the
+## choice reads at a glance even without colour (the frame sinks and the trim
+## weight changes too). Hovering a picked card lifts its fill back up, which
+## is what "hover_pressed" is for.
+##
+## The card's own content is drawn by an overlay rather than by the button's
+## label, so the frames carry no content margins - the MarginContainer over
+## each button supplies the padding inside the frame band.
+static func paint_choice(button: Button, accent: Color) -> void:
+	var picked_fill := MenuStyle.CARD_BG.lerp(_opaque(accent), 0.15)
+	var picked_hover := MenuStyle.CARD_BG_HOVER.lerp(_opaque(accent), 0.20)
+	var styles := {
+		"normal": texture_style(_with_alpha(accent, CHOICE_TRIM), State.NORMAL, MenuStyle.CARD_BG),
+		"hover": texture_style(_with_alpha(accent, CHOICE_TRIM_HOVER), State.HOVER, MenuStyle.CARD_BG_HOVER),
+		"pressed": texture_style(accent, State.PRESSED, picked_fill),
+		"hover_pressed": texture_style(accent, State.HOVER, picked_hover),
+		"disabled": texture_style(_with_alpha(accent, CHOICE_TRIM), State.DISABLED, MenuStyle.CARD_BG_DISABLED),
+	}
+	for state in styles:
+		button.add_theme_stylebox_override(state, styles[state])
+	button.add_theme_stylebox_override("focus", focus_ring(accent))
+
+## Paint the screen's one solid call to action (Choose Location): the same
+## frame recipe with the fill itself in gold, so the button reads as a chunky
+## slab of the palette's "special" colour rather than a card with gold trim.
+static func paint_primary(button: Button, accent: Color = MenuStyle.ACCENT_PRIMARY) -> void:
+	var styles := {
+		"normal": texture_style(accent, State.NORMAL, accent),
+		"hover": texture_style(accent.lightened(0.12), State.HOVER, accent.lightened(0.12)),
+		"pressed": texture_style(accent.darkened(0.18), State.PRESSED, accent.darkened(0.12)),
+		"disabled": texture_style(_with_alpha(accent, 0.4), State.DISABLED, _with_alpha(accent, 0.35)),
+	}
+	for state in styles:
+		button.add_theme_stylebox_override(state, styles[state])
+	button.add_theme_stylebox_override("focus", focus_ring(accent))
+	for font_state in ["normal", "hover", "pressed", "focus"]:
+		button.add_theme_color_override("font_color" if font_state == "normal" \
+			else "font_%s_color" % font_state, MenuStyle.INK)
+	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
+
+## Paint a text field as a recessed pixel surface with the screen's focus
+## ring: the frame says "type here", and focus floats clear of it instead of
+## covering the trim.
+static func paint_field(field: LineEdit, accent: Color, fill: Color, pad: int) -> void:
+	field.add_theme_stylebox_override("normal", inset_style(accent, fill, pad))
+	field.add_theme_stylebox_override("read_only", inset_style(accent, fill, pad))
+	var focus := focus_ring(accent)
+	for side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+		focus.set_content_margin(side, float(pad))
+	field.add_theme_stylebox_override("focus", focus)
+
+## The focus ring on its own: the frame's notch drawn as a bright band, with
+## everything inside it air and the whole thing floated clear of the frame.
+static func focus_ring(accent: Color) -> StyleBoxTexture:
+	var style := _styled(accent, State.FOCUS, Color(0, 0, 0, 0))
+	style.set_expand_margin_all(3.0)
+	return style
+
+## A full-width strip of the frame's cross-section - ink, trim, bevel and the
+## hard sheen steps down into the fill - with no notches and no side bands,
+## for the bar a screen pins to its bottom edge.
+static func bar_style(accent: Color, fill: Color) -> StyleBoxTexture:
+	var key := _cache_key(accent, State.NORMAL, fill) + "|bar"
+	if _style_cache.has(key):
+		return _style_cache[key]
+	var style := StyleBoxTexture.new()
+	style.texture = ImageTexture.create_from_image(bar_image(accent, fill))
+	style.texture_margin_top = float(MARGIN)
+	style.texture_margin_left = 0.0
+	style.texture_margin_right = 0.0
+	style.texture_margin_bottom = 0.0
+	_style_cache[key] = style
+	return style
+
+## The strip's image: BAR_WIDTH identical columns of the frame's cross-section
+## (outside in) over a few rows of flat fill, which is what stretches.
+static func bar_image(accent: Color, fill: Color) -> Image:
+	var key := _cache_key(accent, State.NORMAL, fill) + "|bar"
+	if _image_cache.has(key):
+		return _image_cache[key]
+	var palette := _palette(accent, State.NORMAL, fill)
+	var bands: Array[Color] = [
+		palette["ink"], palette["trim"], palette["trim_inner"], palette["bevel_light"],
+		palette["sheen_top"], palette["sheen_mid"], palette["lip_top"], fill,
+	]
+	var image := Image.create_empty(BAR_WIDTH, MARGIN + BAR_STRETCH, false, Image.FORMAT_RGBA8)
+	for y in image.get_height():
+		var color: Color = bands[y] if y < bands.size() else fill
+		for x in BAR_WIDTH:
+			image.set_pixel(x, y, color)
+	_image_cache[key] = image
+	return image
+
+## A copy of the cached frame, so a caller can set content margins on it
+## without changing every other frame that shares the palette.
+static func _styled(accent: Color, state: int, fill: Color) -> StyleBoxTexture:
+	return (texture_style(accent, state, fill) as StyleBoxTexture).duplicate()
+
+static func _with_alpha(color: Color, alpha: float) -> Color:
+	return MenuStyle.with_alpha(color, alpha)
+
+static func _opaque(color: Color) -> Color:
+	return Color(color.r, color.g, color.b, 1.0)
+
 ## A pixel frame as a nine-patch StyleBoxTexture with explicit content
-## margins (a card's label and caption room, or a panel's padding).
+## margins (a card's label and caption room, or a panel's padding). The cached
+## frame is copied first: the margins belong to this caller alone.
 static func card_style(accent: Color, state: int, fill: Color,
 		pad_left: int, pad_top: int, pad_bottom: int) -> StyleBoxTexture:
-	var style := texture_style(accent, state, fill)
+	var style := _styled(accent, state, fill)
 	style.content_margin_left = float(pad_left)
 	style.content_margin_right = float(pad_left)
 	style.content_margin_top = float(pad_top)
@@ -120,14 +244,25 @@ static func card_style(accent: Color, state: int, fill: Color,
 	return style
 
 ## A static panel in the same frame recipe (the Continue rail on the title
-## screen): ink outline, trim in `accent`, no hover states and no bevel
-## drama - furniture, not a button.
+## screen, the setup screen's option sheet and its company rail): ink outline,
+## trim in `accent`, no hover states and no bevel drama - furniture, not a
+## button.
 static func panel_style(accent: Color, fill: Color, pad_x: int, pad_y: int) -> StyleBoxTexture:
-	var style := texture_style(accent, State.NORMAL, fill)
+	var style := _styled(accent, State.NORMAL, fill)
 	style.content_margin_left = float(pad_x)
 	style.content_margin_right = float(pad_x)
 	style.content_margin_top = float(pad_y)
 	style.content_margin_bottom = float(pad_y)
+	return style
+
+## A recessed surface in the same recipe, lit from below so it reads as sunk
+## into the panel around it: the frame a text field or a preview sits in.
+static func inset_style(accent: Color, fill: Color, pad: int) -> StyleBoxTexture:
+	var style := _styled(accent, State.INSET, fill)
+	style.content_margin_left = float(pad)
+	style.content_margin_right = float(pad)
+	style.content_margin_top = float(pad)
+	style.content_margin_bottom = float(pad)
 	return style
 
 ## The nine-patch StyleBoxTexture itself, from the cache when this palette has
@@ -291,6 +426,23 @@ static func _palette(accent: Color, state: int, fill: Color) -> Dictionary:
 			palette["trim_inner"] = Color(grey.r, grey.g, grey.b, grey.a * 0.4)
 			palette["bevel_light"] = Color(grey.r, grey.g, grey.b, grey.a * 0.35)
 			palette["bevel_dark"] = Color(ink.r, ink.g, ink.b, 0.5)
+			palette["sheen_top"] = fill
+			palette["sheen_mid"] = fill
+			palette["sheen_side"] = fill
+			palette["sheen_side_mid"] = fill
+			palette["shade_bottom"] = fill
+			palette["shade_mid"] = fill
+			palette["lip_top"] = fill
+			palette["lip_bottom"] = fill
+		State.INSET:
+			# Sunk the other way: the bevel is shaded along the top and left
+			# and lit along the bottom and right, the trim is inked rather
+			# than trimmed in the accent, and there is no sheen - a recessed
+			# surface catches no light from above.
+			palette["trim"] = _mix(accent.darkened(0.50), ink, 0.45)
+			palette["trim_inner"] = _mix(accent.darkened(0.30), ink, 0.35)
+			palette["bevel_light"] = _mix(ink, accent.darkened(0.62), 0.40)
+			palette["bevel_dark"] = _mix(fill.lightened(0.14), accent, 0.12)
 			palette["sheen_top"] = fill
 			palette["sheen_mid"] = fill
 			palette["sheen_side"] = fill

@@ -1,16 +1,14 @@
 extends Control
 class_name SetupGlyph
-## Small drawn icons for the Start New Game screen: difficulty bars, coin
-## stacks, the three game features, the random-name die, the selection check,
-## the on/off switch, the call-to-action arrow and the tutorial's open book.
+## Icons for the Start New Game screen: difficulty bars, coin stacks, the
+## three game features, the random-name die, the selection check, the on/off
+## switch, the call-to-action arrow and the tutorial's open book.
 ##
-## They are drawn, not typed, for the same reason as the Rotate buttons'
-## arrows and the title screen's flag mark: the game's font has no check mark,
-## arrow or weather glyphs, and drawn shapes look the same on every build.
-##
-## Drawing goes through `_paint(canvas)` rather than straight to `draw_*`, so a
-## test can hand in a recorder and count what would be drawn; in the game the
-## canvas is the control itself.
+## `make_pixel()` paints each symbol from an inspectable 16x16 character grid,
+## to match the title screen's pixel-art frames, sprite and Pixelify Sans type.
+## The original vector painter remains available through `make()` for callers
+## that need its drawing contract. Both paths go through `_paint(canvas)`, so
+## tests can hand in a recorder and the game can draw on the control itself.
 
 enum Kind { DIFFICULTY, MONEY, WEATHER, WIND, SEASONS, DICE, CHECK, SWITCH, ARROW, TUTORIAL }
 
@@ -25,6 +23,291 @@ const WIND_COLOR := Color("a9c9cf")
 const LEAF := Color("d9893d")
 const LEAF_VEIN := Color("8a4c1c")
 const SWITCH_OFF := Color("1a2c25")
+
+## 16x16 (or 16x8 for the switch) pixel grids. A dot is transparent; the
+## remaining letters are indexed into _pixel_color(). They deliberately
+## stay as character data so every source pixel is inspectable and the
+## render path never interpolates a smooth vector icon.
+const PIXEL_ART := {
+	Kind.DIFFICULTY: [
+		[
+			"................",
+			"................",
+			"................",
+			"..........XXXXXX",
+			"..........XMMMMX",
+			"..........XMMMMX",
+			".....XXXXXXMMMMX",
+			".....XMMMMXMMMMX",
+			".....XMMMMXMMMMX",
+			"XXXXXXMMMMXMMMMX",
+			"XLLLDXMMMMXMMMMX",
+			"XLAADXMMMMXMMMMX",
+			"XLAADXMMMMXMMMMX",
+			"XLDDDXMMMMXMMMMX",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+		[
+			"................",
+			"................",
+			"................",
+			"..........XXXXXX",
+			"..........XMMMMX",
+			"..........XMMMMX",
+			".....XXXXXXMMMMX",
+			".....XLLLDXMMMMX",
+			".....XLAADXMMMMX",
+			"XXXXXXLAADXMMMMX",
+			"XLLLDXLAADXMMMMX",
+			"XLAADXLAADXMMMMX",
+			"XLAADXLAADXMMMMX",
+			"XLDDDXLDDDXMMMMX",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+		[
+			"................",
+			"................",
+			"................",
+			"..........XXXXXX",
+			"..........XLLLDX",
+			"..........XLAADX",
+			".....XXXXXXLAADX",
+			".....XLLLDXLAADX",
+			".....XLAADXLAADX",
+			"XXXXXXLAADXLAADX",
+			"XLLLDXLAADXLAADX",
+			"XLAADXLAADXLAADX",
+			"XLAADXLAADXLAADX",
+			"XLDDDXLDDDXLDDDX",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+	],
+	Kind.MONEY: [
+		[
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			".....XXXXXX.....",
+			".....XXXXXX.....",
+			".....XLLLDX.....",
+			".....XLDDDX.....",
+			".....XLDDDX.....",
+			".....XLDDDX.....",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+		[
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			".........XXXXXX.",
+			".XXXXXX..XXXXXX.",
+			".XXXXXX..XLLLDX.",
+			".XLLLDX..XLDDDX.",
+			".XLDDDX..XLDDDX.",
+			".XLDDDX..XLDDDX.",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+		[
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"..........XXXXXX",
+			".....XXXXXXXXXXX",
+			"XXXXXXXXXXXLLLDX",
+			"XXXXXXLLLDXLDDDX",
+			"XLLLDXLDDDXLDDDX",
+			"XLDDDXLDDDXLDDDX",
+			"XLDDDXLDDDXLDDDX",
+			"XXXXXXXXXXXXXXXX",
+			"................",
+		],
+		[
+			"................",
+			"................",
+			"................",
+			".XXXXXXXXXXXXXX.",
+			"XXAAAAAXXAAAAAXX",
+			"XAAAAAAAAAAAAAAX",
+			"AAAXXXAAAAXXXAAA",
+			"AAXX.XXAAXX.XXAA",
+			"AAXX.XXAAXX.XXAA",
+			"AAAXXXAAAAXXXAAA",
+			"XAAAAAAAAAAAAAAX",
+			"XXAAAAAXXAAAAAXX",
+			".XXXXXXXXXXXXXX.",
+			"................",
+			"................",
+			"................",
+		],
+	],
+	Kind.WEATHER: [[
+		".......XXXXSXXXX",
+		".......XSXXXXXSX",
+		".......XXSSSSXXX",
+		"......XXXSSSSXXX",
+		"......XSSSSSSSXS",
+		"......XXXSSSSXXX",
+		"......XXXSSSSX..",
+		"...XXXXCXXXXXX..",
+		"..XXCCCCCCXXX...",
+		".XXCCCCCCCCCX...",
+		".XCCCCCCCCCCXX..",
+		".XXCCCCCCCCCCX..",
+		"..XCCCCCCCCCCX..",
+		"..XCCCCCCCCCCX..",
+		"..XXXXXXXXXXXX..",
+		"................",
+	]],
+	Kind.WIND: [[
+		"......BB..B.....",
+		"......B...B.....",
+		"......B.........",
+		".BBBBBBBB.......",
+		".XXXXXXXX.BBB...",
+		".........BB..B..",
+		".........B...B..",
+		".........B......",
+		"...BBBBBBBBB....",
+		"...XXXXXXXXX....",
+		"................",
+		"................",
+		".BBBBBBB........",
+		".XXXXXBB........",
+		".....B..........",
+		".....B...B......",
+	]],
+	Kind.SEASONS: [[
+		"................",
+		"................",
+		"..........XXXX..",
+		".......XXXXEEX..",
+		".....XXXEEEVVX..",
+		"....XXEEXXVVEX..",
+		"...XXEEXXVVXEX..",
+		"...XEEXXVVXEXX..",
+		"...XEXXVVXXEX...",
+		"..XXEXVVXXEEX...",
+		"..XEEVVXXEEXX...",
+		"..XEVVXEEEXX....",
+		"..XVVEEEXXX.....",
+		"..VXXXXXX.......",
+		".V..............",
+		"................",
+	]],
+	Kind.DICE: [[
+		"................",
+		".XXXXXXXXXXXXXX.",
+		".XLLLLLLLLLLLMX.",
+		".XLCCCCCCCCCCMX.",
+		".XLCCCCCCCCCCMX.",
+		".XLCCXXCCCXXCMX.",
+		".XLCCXXCCCXXCMX.",
+		".XLCCCCXXCCCCMX.",
+		".XLCCCCXXXCCCMX.",
+		".XLCCCCCXXCCCMX.",
+		".XLCCXXCCCXXCMX.",
+		".XLCCXXCCCXXCMX.",
+		".XLCCCCCCCCCCMX.",
+		".XMMMMMMMMMMMMX.",
+		".XXXXXXXXXXXXXX.",
+		"................",
+	]],
+	Kind.CHECK: [[
+		"XXXXXXXXXXXXXXXX",
+		"XLLLLLLLLLLLLLDX",
+		"XLAAAAAAAAAAAADX",
+		"XLAAAAAAAAAAAADX",
+		"XLAAAAAAAAAAAADX",
+		"XLAAAAAAAAAAXXDX",
+		"XLAAAAAAAAAXXXDX",
+		"XLAAAAAAAAXXXADX",
+		"XLAAXXAAAXXXAADX",
+		"XLAAXXXAXXXAAADX",
+		"XLAAAXXXXXAAAADX",
+		"XLAAAAXXXAAAAADX",
+		"XLAAAAAAAAAAAADX",
+		"XLAAAAAAAAAAAADX",
+		"XDDDDDDDDDDDDDDX",
+		"XXXXXXXXXXXXXXXX",
+	]],
+	Kind.SWITCH: [
+		[
+			".XXXXXXXXXXXXXX.",
+			"XLLLLLLLLLLLLLLX",
+			"XAAAAAAAAAWWWWAX",
+			"XAAAAAAAAACCCCAX",
+			"XAAAAAAAAACCCCAX",
+			"XAAAAAAAAAMMMMAX",
+			"XDDDDDDDDDDDDDDX",
+			".XXXXXXXXXXXXXX.",
+		],
+		[
+			".XXXXXXXXXXXXXX.",
+			"XTTTTTTTTTTTTTTX",
+			"XTWWWWTTTTTTTTTX",
+			"XTCCCCTTTTTTTTTX",
+			"XTCCCCTTTTTTTTTX",
+			"XTMMMMTTTTTTTTTX",
+			"XXXXXXXXXXXXXXXX",
+			".XXXXXXXXXXXXXX.",
+		],
+	],
+	Kind.ARROW: [[
+		"................",
+		".......XXX......",
+		".......XAXX.....",
+		".......XAAXX....",
+		".......XAAAXX...",
+		"XXXXXXXXAAAAXX..",
+		"XALLLLLLAAAAAXX.",
+		"XLAAAAAAAAAAAAXX",
+		"XLAAAAAAAAAAAAAX",
+		"XLAAAAAAAAAAAAXX",
+		"XXDDDDDDAAAAAXX.",
+		".XXXXXXXAAAAXX..",
+		".......XAAAXX...",
+		".......XAAXX....",
+		".......XAXX.....",
+		".......XXX......",
+	]],
+	Kind.TUTORIAL: [[
+		"................",
+		"................",
+		"......XXXX..XXX.",
+		".XXXXXXLLXXXXAX.",
+		".XAAAAAXXAAAAXX.",
+		".XAAAAAXXAAAAX..",
+		".XALLLLXXLLLLX..",
+		".XAAAAAXXAAAAX..",
+		".XALLLLXXLLLLX..",
+		".XAAAAAXXAAAAX..",
+		".XALLLLXXLLLLX..",
+		".XAAAAAXXAAAAX..",
+		".XAAAAAXXAAAAX..",
+		".XXXXXXXXXXXXX..",
+		"......XXXX......",
+		"................",
+	]],
+}
 
 @export var kind: Kind = Kind.DIFFICULTY:
 	set(value):
@@ -45,6 +328,13 @@ const SWITCH_OFF := Color("1a2c25")
 	set(value):
 		on = value
 		queue_redraw()
+## In the setup sheet the glyph is rendered from a hard-edged pixel grid.
+## Kept as an opt-in so callers/tests that use the older vector recorder still
+## get the original glyph drawing contract.
+var pixel_art := false:
+	set(value):
+		pixel_art = value
+		queue_redraw()
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -62,11 +352,23 @@ static func make(glyph_kind: int, side: float, glyph_level: int = 1,
 	glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return glyph
 
+## Build one of the same symbols as hard-edged sprite art for the Start New
+## Game screen, where its frame, type and glyphs all share the main menu's
+## pixel-art treatment.
+static func make_pixel(glyph_kind: int, side: float, glyph_level: int = 1,
+		glyph_accent: Color = Color("e5c57c")) -> SetupGlyph:
+	var glyph := make(glyph_kind, side, glyph_level, glyph_accent)
+	glyph.pixel_art = true
+	return glyph
+
 func _draw() -> void:
 	_paint(self)
 
 func _paint(canvas) -> void:
 	if size.x <= 1.0 or size.y <= 1.0:
+		return
+	if pixel_art:
+		_paint_pixel(canvas)
 		return
 	if kind == Kind.SWITCH:
 		_paint_switch(canvas)
@@ -92,6 +394,74 @@ func _paint(canvas) -> void:
 			_paint_arrow(canvas, origin, side)
 		Kind.TUTORIAL:
 			_paint_tutorial(canvas, origin, side)
+
+## Paint the character grid directly as non-antialiased rectangles. Rounding
+## each cell edge (rather than scaling a smooth CanvasItem shape) preserves the
+## hard edges when the responsive layout gives an icon a non-integer size.
+func _paint_pixel(canvas) -> void:
+	var rows := _pixel_rows()
+	if rows.is_empty():
+		return
+	var board_h := minf(size.x, size.y)
+	var board_w := board_h
+	if kind == Kind.SWITCH:
+		board_w = minf(size.x, board_h * 1.75)
+	var board := Vector2(board_w, board_h)
+	var origin := (size - board) * 0.5
+	var cell := Vector2(board.x / 16.0, board.y / float(rows.size()))
+	for y in rows.size():
+		var row: String = rows[y]
+		for x in mini(row.length(), 16):
+			var color := _pixel_color(row.substr(x, 1))
+			if color.a <= 0.0:
+				continue
+			var left := roundf(origin.x + float(x) * cell.x)
+			var top := roundf(origin.y + float(y) * cell.y)
+			var right := roundf(origin.x + float(x + 1) * cell.x)
+			var bottom := roundf(origin.y + float(y + 1) * cell.y)
+			if right > left and bottom > top:
+				canvas.draw_rect(Rect2(Vector2(left, top), Vector2(right - left, bottom - top)), color)
+
+func _pixel_rows() -> Array:
+	var variants: Array = PIXEL_ART.get(kind, [])
+	if variants.is_empty():
+		return []
+	match kind:
+		Kind.DIFFICULTY:
+			return variants[clampi(level - 1, 0, variants.size() - 1)]
+		Kind.MONEY:
+			return variants[clampi(level - 1, 0, variants.size() - 1)]
+		Kind.SWITCH:
+			return variants[0 if on else 1]
+	return variants[0]
+
+func _pixel_color(key: String) -> Color:
+	match key:
+		"X":
+			return INK
+		"A":
+			return accent if on else MUTED
+		"L":
+			return accent.lightened(0.42) if on else MUTED.lightened(0.25)
+		"D":
+			return accent.darkened(0.45) if on else MUTED.darkened(0.30)
+		"C":
+			return CREAM if on else MUTED.lightened(0.25)
+		"M":
+			return MUTED
+		"W":
+			return Color(0.98, 0.98, 0.96, 1.0) if on else MUTED.lightened(0.32)
+		"S":
+			return SUN if on else MUTED
+		"B":
+			return WIND_COLOR if on else MUTED
+		"E":
+			return LEAF if on else MUTED
+		"V":
+			return LEAF_VEIN if on else MUTED.darkened(0.25)
+		"T":
+			return SWITCH_OFF
+	return Color(0, 0, 0, 0)
 
 ## Three ascending bars, `level` of them lit: the familiar strength meter.
 func _paint_difficulty(canvas, o: Vector2, s: float) -> void:

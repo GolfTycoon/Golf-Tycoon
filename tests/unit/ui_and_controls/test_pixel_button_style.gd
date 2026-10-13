@@ -149,3 +149,55 @@ func test_panel_style_is_a_frame_without_button_states() -> void:
 	assert_eq(box.texture_margin_top, float(M), "the rail wears the same frame")
 	assert_eq(box.content_margin_left, 18.0, "with its own padding")
 	assert_eq(box.content_margin_top, 20.0, "top and bottom")
+
+
+func test_choice_cards_keep_pixel_frames_for_every_selection_state() -> void:
+	var button := Button.new()
+	add_child_autofree(button)
+	PixelButtonStyle.paint_choice(button, GOLD)
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		var box := button.get_theme_stylebox(state) as StyleBoxTexture
+		assert_not_null(box, "%s has a pixel frame" % state)
+		if box:
+			assert_eq(box.texture_margin_left, float(M), "%s edges stay 1:1" % state)
+	var normal := button.get_theme_stylebox("normal") as StyleBoxTexture
+	var selected := button.get_theme_stylebox("pressed") as StyleBoxTexture
+	assert_ne(normal.texture, selected.texture, "the selected card switches to its lit accent palette")
+	var focus := button.get_theme_stylebox("focus") as StyleBoxTexture
+	assert_not_null(focus, "choice cards keep the floating pixel focus ring")
+
+
+func test_inset_reverses_the_bevel_for_a_recessed_pixel_surface() -> void:
+	var img := PixelButtonStyle.frame_image(GOLD, PixelButtonStyle.State.INSET, MenuStyle.INSET_BG)
+	var mid := HALF
+	var top := _px(img, mid, PixelButtonStyle.RING_BEVEL)
+	var bottom := _px(img, mid, T - 1 - PixelButtonStyle.RING_BEVEL)
+	var left := _px(img, PixelButtonStyle.RING_BEVEL, mid)
+	var right := _px(img, T - 1 - PixelButtonStyle.RING_BEVEL, mid)
+	assert_lt(top.get_luminance(), bottom.get_luminance(), "the inset is shaded above and lit below")
+	assert_lt(left.get_luminance(), right.get_luminance(), "the inset is shaded left and lit right")
+	assert_eq(_px(img, mid, PixelButtonStyle.RING_SHEEN), _px(img, mid, M), "recesses do not carry a top-edge sheen")
+
+
+func test_content_margins_are_copied_per_pixel_frame() -> void:
+	var narrow := PixelButtonStyle.card_style(GOLD, PixelButtonStyle.State.NORMAL,
+		MenuStyle.CARD_BG, 12, 10, 14)
+	var wide := PixelButtonStyle.card_style(GOLD, PixelButtonStyle.State.NORMAL,
+		MenuStyle.CARD_BG, 24, 20, 28)
+	assert_eq(narrow.texture, wide.texture, "both cards reuse the same cached sprite frame")
+	assert_eq(narrow.content_margin_left, 12.0, "the first keeps its own left pad")
+	assert_eq(wide.content_margin_left, 24.0, "the second keeps its own left pad")
+	assert_eq(narrow.content_margin_bottom, 14.0, "the first keeps its caption room")
+	assert_eq(wide.content_margin_bottom, 28.0, "the second keeps its caption room")
+
+
+func test_footer_bar_is_a_pixel_frame_cross_section() -> void:
+	var image := PixelButtonStyle.bar_image(GOLD, MenuStyle.RAIL_BG)
+	assert_eq(image.get_width(), PixelButtonStyle.BAR_WIDTH, "the strip has a small repeatable width")
+	assert_eq(image.get_height(), M + PixelButtonStyle.BAR_STRETCH, "the cross-section has a flat stretch zone")
+	var first := image.get_pixel(0, 0)
+	for x in image.get_width():
+		assert_eq(image.get_pixel(x, 0), first, "bar pixel column %d repeats exactly" % x)
+	var box := PixelButtonStyle.bar_style(GOLD, MenuStyle.RAIL_BG)
+	assert_eq(box.texture_margin_top, float(M), "only the top frame bands stay 1:1")
+	assert_eq(box.texture_margin_bottom, 0.0, "the interior can stretch to the bar's height")
