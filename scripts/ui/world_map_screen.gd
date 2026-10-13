@@ -1221,9 +1221,13 @@ func _make_action_shell(primary: bool) -> Button:
 # INTERACTION
 # =============================================================================
 
+## Clicking a destination in the list selects it and flies the globe round to
+## centre on it, the same as clicking its pin on the map.
 func _on_row_input(event: InputEvent, location_id: String) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		select_location(location_id)
+		if WorldLocations.has_location(location_id) and is_instance_valid(globe):
+			globe.look_at_location(location_id)
 
 func _on_globe_location_clicked(location_id: String) -> void:
 	select_location(location_id)

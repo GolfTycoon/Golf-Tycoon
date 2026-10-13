@@ -170,3 +170,24 @@ func test_an_owned_site_dossier_offers_play_only() -> void:
 		or screen._featured_action.text == "PLAY THIS COURSE",
 		"an owned site offers Play")
 	assert_false(screen._featured_action.disabled)
+
+
+func test_clicking_a_list_row_centres_the_globe_on_that_location() -> void:
+	WorldMap.new_world(WorldMapStateScript.default_options(), 1357)
+	GameManager.money = 500000
+	var screen := _screen()
+	await process_frames(2)
+	var site := "wales"
+	var def := WorldLocations.get_definition(site)
+	var row = screen._rows.get(site)
+	assert_not_null(row, "Wales has a list row")
+	if row == null:
+		return
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	screen._on_row_input(click, site)
+	assert_eq(screen._selected_id, site, "the row click selects the site")
+	assert_true(screen.globe._animating, "and starts the globe flying towards it")
+	assert_almost_eq(screen.globe._anim_to_lat, float(def["lat"]), 0.001, "aimed at the site's latitude")
+	assert_almost_eq(screen.globe._anim_to_lon, float(def["lon"]), 0.001, "aimed at the site's longitude")
