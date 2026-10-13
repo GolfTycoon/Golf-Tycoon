@@ -55,6 +55,11 @@ var _tournament_scores: Dictionary = {}  # golfer_id -> {name, total_strokes, to
 var _groups_spawned: int = 0
 var _total_groups: int = 0
 var _spawn_timer: float = 0.0
+## The opening pairing waits for the event's first tick instead of spawning
+## inside the host click: the press charges the entry fee and nothing else,
+## while golfer arrivals - and the signals they carry, milestones among them -
+## land on the frame after, where a day or a bonus cannot corrupt a click.
+var _first_group_pending: bool = false
 var _live_round_active: bool = false  # True when live golfers are playing round 1
 
 ## Field id reserved for the owner, who always plays their own tournament.
@@ -124,12 +129,17 @@ func _process(delta: float) -> void:
 	if current_tournament_state != TournamentSystem.TournamentState.IN_PROGRESS:
 		return
 
-	# Stagger group spawning for live round
+	# Stagger group spawning for live round: the opening pairing tees off on
+	# the first tick of the event, the rest one interval apart.
 	if _live_round_active and _groups_spawned < _total_groups:
-		_spawn_timer += delta  # delta already scaled by Engine.time_scale
-		if _spawn_timer >= GROUP_SPAWN_INTERVAL:
-			_spawn_timer -= GROUP_SPAWN_INTERVAL
+		if _first_group_pending:
+			_first_group_pending = false
 			_spawn_next_group()
+		else:
+			_spawn_timer += delta  # delta already scaled by Engine.time_scale
+			if _spawn_timer >= GROUP_SPAWN_INTERVAL:
+				_spawn_timer -= GROUP_SPAWN_INTERVAL
+				_spawn_next_group()
 
 func _on_day_changed(_new_day: int) -> void:
 	# Keep compatibility with a saved tournament booking, but running events are
@@ -270,6 +280,7 @@ func _start_tournament() -> void:
 	_tournament_moments.clear()
 	_groups_spawned = 0
 	_spawn_timer = 0.0
+	_first_group_pending = false
 	_live_round_active = false
 
 	var tier_data = TournamentSystem.get_tier_data(current_tournament_tier)
@@ -394,8 +405,9 @@ func _start_live_round() -> void:
 	var live_field = _get_live_field()
 	_total_groups = ceili(float(live_field.size()) / float(GROUP_SIZE))
 
-	# Spawn first group immediately
-	_spawn_next_group()
+	# The opening pairing tees off on the event's first tick (see
+	# _first_group_pending), so hosting stays a light click.
+	_first_group_pending = true
 
 ## Course index of the hole whose published number is `hole_number`. Live scoring
 ## reports hole numbers; the fill logic works in indices, and the two are not the
@@ -880,6 +892,7 @@ func _complete_tournament() -> void:
 	_total_groups = 0
 	_groups_spawned = 0
 	_spawn_timer = 0.0
+	_first_group_pending = false
 	_live_round_active = false
 
 	var score_diff = standings[0].score_to_par if not standings.is_empty() else 0
