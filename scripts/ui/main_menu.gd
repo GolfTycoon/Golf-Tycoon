@@ -80,6 +80,14 @@ const TITLE_TEXT := "Golf Tycoon"
 ## Game-name heading. Transparent padding has already been trimmed off the file
 ## so the control's size is the lockup, not an empty square around it.
 const LOGO_TEXTURE: Texture2D = preload("res://assets/ui/logo.png")
+## The screen's typeface: Pixelify Sans, a chunky pixel face that matches the
+## pixel-art cards, sprites and logo. The bold weight carries the hero and
+## Continue card titles, the semibold weight the smaller utility tiles, and
+## the regular weight the captions and the quiet lines. (SIL Open Font
+## License 1.1 - see assets/fonts/OFL.txt.)
+const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
+const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
+const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 # The accent palette is shared with the other out-of-game screens (MenuStyle);
 # the card frames themselves come from PixelButtonStyle. The names stay here
 # so the builders below read as before.
@@ -475,6 +483,7 @@ func _make_status_line(centered: bool, font_size: int) -> Control:
 	var label := Label.new()
 	label.name = "Status"
 	label.text = text
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
 	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
@@ -486,6 +495,7 @@ func _make_kicker(text: String, font_size: int) -> Label:
 	var label := Label.new()
 	label.name = "Kicker"
 	label.text = text
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
 	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -516,7 +526,7 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 
 func _make_quick_card(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_card("Quick Start",
-		"Random company, Normal difficulty, $100,000, a 3-hole course on a random affordable location.",
+		"Normal difficulty, $100,000, a 3-hole course on a random location.",
 		"Jump straight in: random company name, Normal difficulty, $100,000, all features on, and a random affordable location bought and played with 3 generated holes",
 		height, title_font, caption_font, ACCENT_SECONDARY, PixelIcon.Kind.BOLT)
 	button.name = "QuickStartButton"
@@ -648,7 +658,7 @@ func _make_quit_tile(height: float, title_font: int, caption_font: int) -> Butto
 func _make_card(text: String, caption: String, tooltip: String, height: float,
 		title_font: int, caption_font: int, accent: Color,
 		icon_kind: int = -1, dimmed_icon: bool = false) -> Button:
-	var button := _make_button_shell(text, tooltip, title_font, UIConstants.COLOR_TEXT)
+	var button := _make_button_shell(text, tooltip, title_font, UIConstants.COLOR_TEXT, TITLE_FONT)
 	var block := _caption_block(caption_font, CAPTION_LINES)
 	button.custom_minimum_size.y = maxf(height, float(title_font) * 1.45 + block + 24.0)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -664,7 +674,7 @@ func _make_tile(text: String, caption: String, tooltip: String, height: float,
 		title_font: int, caption_font: int, accent: Color,
 		text_color: Color = UIConstants.COLOR_TEXT, icon_kind: int = -1,
 		dimmed_icon: bool = false) -> Button:
-	var button := _make_button_shell(text, tooltip, title_font, text_color)
+	var button := _make_button_shell(text, tooltip, title_font, text_color, SUBTITLE_FONT)
 	var show_caption := not caption.is_empty() and caption_font > 0
 	var block := _caption_block(caption_font, 1) if show_caption else 0.0
 	button.custom_minimum_size.y = maxf(height, float(title_font) * 1.45 + block + 24.0)
@@ -691,12 +701,14 @@ func _give_icon(button: Button, icon_kind: int, title_font: int, accent: Color,
 ## Shared Button set-up: full-width and pointing-hand, with the label's own
 ## width left in the minimum size - a card may be narrower than its text only
 ## where the layout has room to give it more (never inside a clipped strip).
-func _make_button_shell(text: String, tooltip: String, title_font: int, text_color: Color) -> Button:
+func _make_button_shell(text: String, tooltip: String, title_font: int,
+		text_color: Color, font: Font) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = tooltip
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.add_theme_font_override("font", font)
 	button.add_theme_font_size_override("font_size", title_font)
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
@@ -714,6 +726,7 @@ func _make_caption(text: String, font_size: int, lines: int, color: Color) -> La
 	label.max_lines_visible = lines
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.anchor_left = 0.0
