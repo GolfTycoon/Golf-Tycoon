@@ -23,6 +23,19 @@ func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 	for expected in ACTIONS:
 		assert_has(labels, expected, "%s: has a %s action" % [tag, expected])
 
+	# Every word on the screen is set in Pixelify Sans, at every window size:
+	# the action titles in the bold weight, the captions, kicker and version
+	# line in the regular one (see test_main_menu_typography.gd).
+	for button in buttons:
+		var title_path := str((button as Button).get_theme_font("font").resource_path)
+		assert_true(title_path.ends_with("PixelifySans-Bold.ttf")
+				or title_path.ends_with("PixelifySans-SemiBold.ttf"),
+			"%s: the %s title is set in a Pixelify Sans title weight" % [tag, (button as Button).text])
+	for label in nodes_of_class(menu, "Label"):
+		assert_true(str((label as Label).get_theme_font("font").resource_path)
+				.ends_with("PixelifySans-Regular.ttf"),
+			"%s: the %s line is set in Pixelify Sans" % [tag, (label as Label).name])
+
 	var view := Rect2(Vector2.ZERO, Vector2(size))
 	var too_small: Array = []
 	var off_screen: Array = []
@@ -50,10 +63,26 @@ func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 		assert_true(rect_within(title_rect, view) and title_rect.size.x > 48.0 and title_rect.size.y > 32.0,
 			"%s: the logo is on screen, at a readable size: %s" % [tag, title_rect])
 	assert_false("Golf Tycoon\n" in labels_text(menu), "%s: the game's name is not also typed out" % tag)
+	_assert_icons(tag, size)
 	var backdrop := menu.get_node_or_null("Backdrop") as Control
 	assert_not_null(backdrop, "%s: a drawn backdrop sits behind the menu" % tag)
 	if backdrop:
 		assert_eq(backdrop.get_global_rect().size, Vector2(size), "%s: the backdrop covers the window" % tag)
+
+
+## Every action wears its pixel sprite where the layout has room: the three
+## way-into-the-game cards always, and the utility tiles wherever they keep
+## their caption - the squat and phone layouts drop captions to save width,
+## and a tile too narrow for a sentence is too narrow for an emblem.
+func _assert_icons(tag: String, size: Vector2i) -> void:
+	var cards := ["Start New Game", "Quick Start", "Continue"]
+	var mode := MainMenu.layout_mode_for(Vector2(size))
+	var roomy := mode == MainMenu.Layout.WIDE or mode == MainMenu.Layout.TABLET
+	for button in nodes_of_class(_menu(), "Button"):
+		var expected := cards.has(button.text) or roomy
+		assert_eq(button.icon != null, expected,
+			"%s: the %s card %s" % [tag, button.text,
+			"carries its sprite" if expected else "drops its sprite with its caption"])
 
 
 ## Continue carries the newest save's course name when there is one; with no

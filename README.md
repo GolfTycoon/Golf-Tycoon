@@ -138,3 +138,5 @@ Contributions are welcome. Read [Contributing](docs/development/contributing.md)
 ## License
 
 Golf Tycoon is software released under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
+
+The Godot logo shown on the boot splash is [Godot Engine's logo](https://godotengine.org), © 2017 Andrea Calabró, used under [CC BY 4.0 International](https://creativecommons.org/licenses/by/4.0/). See [assets/ui/GODOT-LOGO-LICENSE.txt](assets/ui/GODOT-LOGO-LICENSE.txt).

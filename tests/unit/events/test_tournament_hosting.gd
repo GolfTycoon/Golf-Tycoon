@@ -99,6 +99,18 @@ func test_hosting_starts_live_play_immediately() -> void:
 	assert_true(tournaments._live_round_active, "Golfers are playing on the course already")
 	assert_gt(golfers.active_golfers.size(), 0, "Bodies appear on the course with the click")
 
+## The click that hosts the event charges the fee and assembles the field, but
+## spawns no golfer nodes: starting clears the course and the opening pairing
+## waits for the event's first tick. Golfer arrivals carry signals - the
+## milestone bonuses among them - and none of them may land inside the press,
+## or a host click's money trail stops being exactly the entry fee (the race
+## that made tests/integration/events/test_tournament_flow.gd flaky).
+func test_the_host_click_spawns_no_golfer_itself() -> void:
+	tournaments.host_tournament(LOCAL)
+	assert_eq(golfers.active_golfers.size(), 0, "The press itself spawns nobody")
+	await process_frames(1)
+	assert_gt(golfers.active_golfers.size(), 0, "The opening pairing tees off on the next tick")
+
 func test_tournament_does_not_end_on_a_calendar_deadline() -> void:
 	tournaments.host_tournament(LOCAL)
 	var later_day := GameManager.current_day + 500

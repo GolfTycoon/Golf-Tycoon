@@ -10,6 +10,7 @@ extends GameTest
 ## tests/harness/start_new_game_layout_harness.gd.
 
 const Screen := preload("res://scripts/ui/start_new_game_screen.gd")
+const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
 
 func _mode(size: Vector2) -> int:
 	return StartNewGameScreen.layout_mode_for(size)
@@ -157,6 +158,26 @@ func test_options_keep_the_world_map_contract() -> void:
 # Course plan
 # ---------------------------------------------------------------------------
 
+func test_tutorial_applies_only_to_an_empty_course() -> void:
+	assert_true(StartNewGameScreen.tutorial_applies(0), "It applies to a course with no generated holes")
+	assert_false(StartNewGameScreen.tutorial_applies(9), "It does not apply once holes are generated")
+
+func test_tutorial_summary_says_on_off_or_not_used() -> void:
+	assert_eq(StartNewGameScreen.tutorial_summary(true, 0), "On")
+	assert_eq(StartNewGameScreen.tutorial_summary(false, 0), "Off")
+	assert_eq(StartNewGameScreen.tutorial_summary(true, 9), "Not used", "Whatever the switch says, generated holes mean it is not used")
+	assert_string_contains(StartNewGameScreen.hole_hint(0), "can guide you")
+
+func test_tutorial_choice_is_part_of_the_options() -> void:
+	var screen: StartNewGameScreen = Screen.new()
+	assert_eq(screen.get_options()["tutorial"], WorldMapStateScript.default_tutorial_enabled(),
+		"It starts as the company would have it")
+	screen._on_tutorial_toggled(false)
+	assert_false(screen.get_options()["tutorial"], "Switching it off reaches the options")
+	screen._on_tutorial_toggled(true)
+	assert_true(screen.get_options()["tutorial"], "and switching it on again does too")
+	screen.free()
+
 func test_course_plan_lays_out_every_generated_hole_inside_the_plot() -> void:
 	for count in StartNewGameScreen.HOLE_OPTIONS:
 		var data := CoursePlanPreview.plan(count)
@@ -229,6 +250,40 @@ func test_difficulty_glyph_lights_one_bar_per_level() -> void:
 		lit.append(canvas.count_color(Color.RED))
 		glyph.free()
 	assert_eq(lit, [1, 2, 3])
+
+func test_setup_screen_pixel_glyphs_are_inspectable_hard_edge_grids() -> void:
+	for kind in SetupGlyph.Kind.values():
+		var variants: Array = SetupGlyph.PIXEL_ART[kind]
+		assert_gt(variants.size(), 0, "kind %d has pixel art" % kind)
+		for rows in variants:
+			var expected_height := 8 if kind == SetupGlyph.Kind.SWITCH else 16
+			assert_eq(rows.size(), expected_height, "kind %d has %d rows" % [kind, expected_height])
+			for row in rows:
+				assert_eq(str(row).length(), 16, "kind %d uses a 16-pixel grid" % kind)
+				for character in str(row):
+					assert_true(".XALDCMWSBEVT".contains(character),
+						"kind %d uses its known palette (saw %s)" % [kind, character])
+
+		var glyph := SetupGlyph.make_pixel(kind, 24.0, 1, Color.RED)
+		glyph.size = glyph.custom_minimum_size
+		assert_true(glyph.pixel_art, "kind %d opts into sprite rendering" % kind)
+		var canvas := RecordingCanvas.new()
+		glyph._paint(canvas)
+		assert_gt(canvas.calls, 0, "kind %d draws with hard-edged cells" % kind)
+		glyph.free()
+
+func test_pixel_weather_switches_to_the_muted_palette_when_off() -> void:
+	var glyph := SetupGlyph.make_pixel(SetupGlyph.Kind.WEATHER, 24.0, 1, Color.RED)
+	glyph.size = glyph.custom_minimum_size
+	var on_canvas := RecordingCanvas.new()
+	glyph._paint(on_canvas)
+	glyph.on = false
+	var off_canvas := RecordingCanvas.new()
+	glyph._paint(off_canvas)
+	assert_gt(on_canvas.count_color(SetupGlyph.SUN), 0, "the sunny sprite has a gold sun")
+	assert_eq(off_canvas.count_color(SetupGlyph.SUN), 0, "off replaces the sun with muted pixels")
+	assert_ne(on_canvas.colors, off_canvas.colors, "the sprite visibly changes state")
+	glyph.free()
 
 
 # ---------------------------------------------------------------------------

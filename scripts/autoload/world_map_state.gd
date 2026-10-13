@@ -5,7 +5,8 @@ extends Node
 ## Autoloaded as `WorldMap`. It owns three kinds of state:
 ##
 ##  * Company settings — company name, difficulty, starting-money option,
-##    generated-hole count and the enabled game features (weather/wind/seasons).
+##    generated-hole count, the enabled game features (weather/wind/seasons)
+##    and whether the tutorial walks the first empty course.
 ##  * Location states — for every catalog location: its price, how many parcels
 ##    of land came pre-cleared with the purchase ("already unlocked"), and
 ##    whether the player owns it. Prices rise with the amount of cleared land,
@@ -37,6 +38,10 @@ var features: Dictionary = {
 	FEATURE_WIND: false,
 	FEATURE_SEASONS: false,
 }
+## The Start New Game tutorial choice. It is spent once the tutorial has been
+## offered on an empty course (see main.gd), so later empty sites of the same
+## company do not repeat it.
+var tutorial_enabled: bool = false
 
 ## Location states: id -> { owned, unlocked: Array[Vector2i], price, seed }
 var locations: Dictionary = {}
@@ -83,7 +88,14 @@ static func default_options() -> Dictionary:
 			FEATURE_WIND: false,
 			FEATURE_SEASONS: false,
 		},
+		"tutorial": default_tutorial_enabled(),
 	}
+
+## Whether the tutorial is on when the company does not say: it runs for
+## players who have not finished it yet, as it always has. Start New Game
+## shows this as its starting choice.
+static func default_tutorial_enabled() -> bool:
+	return not TutorialSystem.is_tutorial_completed()
 
 ## Roll a brand new world from Start New Game options (or Quick Start defaults).
 ## Every location is re-priced and cleared of ownership; the player's choices
@@ -105,6 +117,7 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	var saved_features: Dictionary = options.get("features", {})
 	for key in FEATURE_KEYS:
 		features[key] = bool(saved_features.get(key, false))
+	tutorial_enabled = bool(options.get("tutorial", default_tutorial_enabled()))
 
 	locations.clear()
 	location_snapshots.clear()
@@ -385,6 +398,7 @@ func serialize() -> Dictionary:
 		"first_purchased_location": first_purchased_location_id,
 		"generated_holes_consumed": generated_holes_consumed,
 		"features": features.duplicate(),
+		"tutorial": tutorial_enabled,
 		"active_location": active_location_id,
 		"locations": location_data,
 		"snapshots": snapshots,
@@ -413,6 +427,8 @@ func deserialize(data: Dictionary) -> void:
 	var saved_features: Dictionary = data.get("features", {})
 	for key in FEATURE_KEYS:
 		features[key] = bool(saved_features.get(key, true))
+	# Saves from before the option existed keep the tutorial they always had.
+	tutorial_enabled = bool(data.get("tutorial", default_tutorial_enabled()))
 
 	var saved_locations: Dictionary = data.get("locations", {})
 	if saved_locations.is_empty():

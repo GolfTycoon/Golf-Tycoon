@@ -2025,10 +2025,26 @@ func _on_new_game_started() -> void:
 	_cancel_hole_move_mode()
 	_cancel_building_move()
 
+	# What this course is being built from, captured before the pending flags
+	# are spent below. The loading screen's checklist is worded from them.
+	var is_quick_start := _quick_start_pending
+	var is_prebuilt := not _prebuilt_pending.is_empty()
+	var holes_requested := _generated_holes_pending
+	var holes_stage := GeneratingCourseScreen.holes_stage_text(
+		is_quick_start, holes_requested, is_prebuilt)
+	var with_paths := is_quick_start or is_prebuilt or holes_requested > 0
+	var theme_name := CourseTheme.get_theme_name(GameManager.current_theme)
+
 	# Show loading screen and wait a frame so it actually renders
 	# before the synchronous generation blocks the main thread.
-	var loading_overlay := _create_loading_overlay("Generating course...")
+	var loading_overlay := GeneratingCourseScreen.new()
+	loading_overlay.setup(GameManager.course_name,
+		GeneratingCourseScreen.subtitle_for_job(
+			theme_name, is_quick_start, holes_requested, is_prebuilt),
+		GeneratingCourseScreen.stages_for_job(holes_stage, with_paths),
+		CourseTheme.get_description(GameManager.current_theme))
 	add_child(loading_overlay)
+	loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_TERRAIN)
 	await get_tree().process_frame
 	await get_tree().process_frame  # Two frames to ensure the overlay paints
 
@@ -2068,10 +2084,10 @@ func _on_new_game_started() -> void:
 	_suppress_tile_undo = false
 
 	# Build pre-made course if Quick Start was selected
-	var is_quick_start := _quick_start_pending
-	var is_prebuilt := not _prebuilt_pending.is_empty()
 	if _quick_start_pending:
 		_quick_start_pending = false
+		loading_overlay.set_stage_by_title(holes_stage)
+		await get_tree().process_frame
 		_suppress_tile_undo = true
 		terrain_grid.begin_batch()
 		QuickStartCourse.build(terrain_grid, entity_layer, hole_tool)
@@ -2083,9 +2099,10 @@ func _on_new_game_started() -> void:
 	# first location the player bought gets pre-generated holes (Start New Game:
 	# 0, 3, 6, 9 or 18); subsequent locations are built by the player.
 	var generated_holes := 0
-	var holes_requested := _generated_holes_pending
 	_generated_holes_pending = 0
 	if holes_requested > 0 and not is_quick_start and not is_prebuilt:
+		loading_overlay.set_stage_by_title(holes_stage)
+		await get_tree().process_frame
 		_suppress_tile_undo = true
 		terrain_grid.begin_batch()
 		generated_holes = GeneratedCourse.generate(holes_requested, terrain_grid, entity_layer, hole_tool)
@@ -2105,6 +2122,8 @@ func _on_new_game_started() -> void:
 		GameManager.money = _prebuilt_money
 		EventBus.money_changed.emit(0, _prebuilt_money)
 		_prebuilt_money = 0
+		loading_overlay.set_stage_by_title(holes_stage)
+		await get_tree().process_frame
 		_suppress_tile_undo = true
 		terrain_grid.begin_batch()
 		PrebuiltCourseGenerator.build(pkg_id, terrain_grid, hole_tool)
@@ -2127,6 +2146,8 @@ func _on_new_game_started() -> void:
 		clubhouse_preferred = CourseClubhouse.arrival_corner()
 	# Laying the grounds is the course's landscaping, not a player edit: keep
 	# it out of the undo history (and off the maintenance books).
+	loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_CLUBHOUSE)
+	await get_tree().process_frame
 	_suppress_tile_undo = true
 	var clubhouse := _ensure_course_clubhouse(clubhouse_preferred)
 	_suppress_tile_undo = false
@@ -2140,6 +2161,8 @@ func _on_new_game_started() -> void:
 	# layout — Quick Start, a Start New Game course and the prebuilt packages
 	# alike — gets the paths that belong to the clubhouse it was actually given.
 	if clubhouse != null and GameManager.get_open_hole_count() > 0:
+		loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_PATHS)
+		await get_tree().process_frame
 		_suppress_tile_undo = true
 		terrain_grid.begin_batch()
 		CoursePathGenerator.generate(terrain_grid, GameManager.current_course.holes,
@@ -2148,6 +2171,8 @@ func _on_new_game_started() -> void:
 		terrain_grid.refresh_all_overlays()
 		_suppress_tile_undo = false
 
+	loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_OPENING)
+	await get_tree().process_frame
 	if is_quick_start:
 		camera.focus_on(terrain_grid.grid_to_screen_center(Vector2i(57,64)), true)
 		camera.set_zoom_level(1.0, true)
@@ -2162,7 +2187,10 @@ func _on_new_game_started() -> void:
 		camera.focus_on(terrain_grid.grid_to_screen_center(clubhouse.grid_position), true)
 		camera.set_zoom_level(1.0, true)
 
-	# Remove loading screen
+	# The course is ready: complete the checklist, let the full bar paint for
+	# a beat, then remove the loading screen.
+	loading_overlay.finish()
+	await get_tree().process_frame
 	loading_overlay.queue_free()
 
 	# Day always starts automatically — ensure simulation is active even if a
@@ -2179,31 +2207,14 @@ func _on_new_game_started() -> void:
 		if is_inside_tree() and GameManager.current_mode == GameManager.GameMode.SIMULATING:
 			golfer_manager.spawn_initial_group()
 
-	# Start tutorial for first-time players (skip when the course already has
-	# holes: Quick Start, Prebuilt, or a generated first course)
-	if not is_quick_start and not is_prebuilt and generated_holes == 0 and not TutorialSystem.is_tutorial_completed():
+	# The tutorial runs when the company chose it on Start New Game. It skips
+	# courses that already have holes (Quick Start, Prebuilt, or a generated
+	# first course). The choice is spent here, so later empty sites of the same
+	# company do not repeat it.
+	var tutorial_due := not is_quick_start and not is_prebuilt and generated_holes == 0 and WorldMap.tutorial_enabled
+	if tutorial_due:
+		WorldMap.tutorial_enabled = false
 		_start_tutorial()
-
-func _create_loading_overlay(message: String) -> CanvasLayer:
-	"""Create a full-screen loading overlay that renders above everything."""
-	var canvas := CanvasLayer.new()
-	canvas.layer = 100  # Above all other UI
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.12, 0.08, 1.0)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	canvas.add_child(bg)
-
-	var label := Label.new()
-	label.text = message
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.add_theme_font_size_override("font_size", 28)
-	label.add_theme_color_override("font_color", Color(0.85, 0.92, 0.85))
-	canvas.add_child(label)
-
-	return canvas
 
 func _cancel_elevation_mode() -> void:
 	if elevation_tool.is_active():

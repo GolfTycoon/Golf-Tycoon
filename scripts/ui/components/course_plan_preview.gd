@@ -28,6 +28,7 @@ const FLAG := Color("e5c57c")
 const MARKER_BG := Color(0.035, 0.09, 0.07, 0.86)
 const MARKER_TEXT := Color("f4edd9")
 const GHOST := Color(0.91, 0.89, 0.81, 0.42)
+const PLAN_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 
 ## Footprints (tiles) of the starter amenities GeneratedCourse places beside
 ## the first holes. Mirrors data/buildings.json; only used for drawing.
@@ -205,7 +206,7 @@ func _paint(canvas) -> void:
 					pole_top, pole_top + Vector2(px * 1.7, px * 0.55), pole_top + Vector2(0.0, px * 1.1),
 				]), FLAG)
 	if show_numbers:
-		var font := get_theme_default_font()
+		var font: Font = PLAN_FONT
 		var font_size := int(clampf(px * 1.55, 9.0, 15.0))
 		for i in count:
 			if _hole_progress(i, count) <= 0.0:

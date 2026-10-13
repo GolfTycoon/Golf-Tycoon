@@ -120,6 +120,28 @@ func test_quick_start_defaults_match_the_agreed_options() -> void:
 		assert_false(bool(options["features"][key]), "%s is off by default" % key)
 	assert_ne(options["company_name"], "", "Quick Start picks a random company name")
 
+func test_quick_start_leaves_the_tutorial_at_its_default() -> void:
+	assert_eq(WorldMapStateScript.quick_start_options()["tutorial"], WorldMapStateScript.default_tutorial_enabled())
+
+func test_the_tutorial_choice_is_a_company_setting_that_survives_a_save() -> void:
+	var options := WorldMapStateScript.default_options()
+	options["tutorial"] = false
+	WorldMap.new_world(options, 2468)
+	assert_false(WorldMap.tutorial_enabled, "new_world takes the company's tutorial choice")
+	var data := WorldMap.serialize()
+	assert_false(bool(data["tutorial"]), "The save carries the choice")
+	options["tutorial"] = true
+	WorldMap.new_world(options, 2468)
+	assert_true(WorldMap.tutorial_enabled, "A new company can choose it on")
+	WorldMap.deserialize(data)
+	assert_false(WorldMap.tutorial_enabled, "Loading brings the saved choice back")
+
+func test_saves_from_before_the_option_keep_the_tutorial_they_had() -> void:
+	var data := WorldMap.serialize()
+	data.erase("tutorial")
+	WorldMap.deserialize(data)
+	assert_eq(WorldMap.tutorial_enabled, WorldMapStateScript.default_tutorial_enabled())
+
 func test_reset_world_never_takes_owned_land_away() -> void:
 	WorldMap.new_world(WorldMapStateScript.default_options(), 999)
 	GameManager.money = 10000000

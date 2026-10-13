@@ -3,13 +3,15 @@ class_name StartNewGameScreen
 ## StartNewGameScreen - Company setup shown after "Start New Game".
 ##
 ## Collects the company name, difficulty, starting budget, how many holes the
-## first course should start with, and which game features are enabled. The
-## Choose Location button hands those options to the World Map screen, where
-## the player buys the location for their first course.
+## first course should start with, which game features are enabled and whether
+## the tutorial walks the player through an empty first course. The Choose
+## Location button hands those options to the World Map screen, where the
+## player buys the location for their first course.
 ##
-## The screen sits on the title screen's shared background image, in the same
-## dark translucent cards, and is built in one of four arrangements picked
-## from the window size (see layout_mode_for):
+## The screen sits on the title screen's shared background image and uses its
+## notched nine-patch pixel frames, Pixelify Sans lettering and hard-edged
+## sprite icons. It is built in one of four arrangements picked from the
+## window size (see layout_mode_for):
 ##
 ##  * WIDE - desktops and landscape tablets: the choices as a sheet of option
 ##    cards, and beside it a "your company" rail with a live plan of the course
@@ -81,9 +83,15 @@ const MAX_WIDTH := {
 }
 const TITLE_TEXT := "Start New Game"
 const CTA_TEXT := "Choose Location"
+const WORLD_MAP_STATE_SCRIPT := preload("res://scripts/autoload/world_map_state.gd")
 const NEXT_TOOLTIP := "Choose the location for your first course"
 const MONEY_TOOLTIP := "The company's opening balance. Location prices, land and buildings all come out of it."
 const NAME_PLACEHOLDER := "Your golf company"
+const TUTORIAL_TITLE := "Guided tutorial"
+const TUTORIAL_TOOLTIP := "Step-by-step help on your first empty course: paint the course, open a hole, place a building and set your green fee. It only runs on an empty course, so it is not used when holes are generated."
+## Under the switch where there is room for it (phones and tablets, which have
+## no tooltips).
+const TUTORIAL_CAPTION := "Step-by-step help on an empty first course. Not used when holes are generated."
 
 ## Accent per difficulty: green, gold, coral - easy to hard.
 const DIFFICULTY_ACCENTS := {
@@ -94,6 +102,13 @@ const DIFFICULTY_ACCENTS := {
 const MONEY_ACCENT := Color("e5c57c")
 const HOLES_ACCENT := Color("8fc79b")
 const FEATURE_ACCENT := Color("8fc79b")
+
+## The company setup shares the title screen's chunky, readable Pixelify Sans
+## lettering: Bold for the heading and the next step, SemiBold for option
+## titles and kickers, Regular for the explanatory copy and entered name.
+const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
+const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
+const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 
 const MONEY_CAPTIONS := {
 	100000: "A lean start",
@@ -170,6 +185,9 @@ var _difficulty: int = DifficultyPresets.Preset.NORMAL
 var _money: int = 100000
 var _holes: int = 0
 var _features: Dictionary = {"weather": false, "wind": false, "seasons": false}
+## Starts as the company's choice would: on until the tutorial has been
+## finished, as it always was.
+var _tutorial_enabled: bool = true
 
 # --- current build ---------------------------------------------------------
 var _layout_mode: int = Layout.WIDE
@@ -185,6 +203,8 @@ var _money_buttons: Array = []
 var _hole_buttons: Array = []
 ## Feature key -> its toggle Button (button_pressed = enabled).
 var _feature_boxes: Dictionary = {}
+## The tutorial switch (its card holds the Button).
+var _tutorial_card: ChoiceCard = null
 var _choices: Array = []
 var _hole_hint: Label = null
 var _difficulty_hint: Label = null
@@ -198,6 +218,7 @@ var _back_button: Button = null
 
 func _init() -> void:
 	_company_name = WorldLocations.random_company_name()
+	_tutorial_enabled = WORLD_MAP_STATE_SCRIPT.default_tutorial_enabled()
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -437,6 +458,7 @@ func _reset_references() -> void:
 	_money_buttons = []
 	_hole_buttons = []
 	_feature_boxes = {}
+	_tutorial_card = null
 	_choices = []
 	_hole_hint = null
 	_difficulty_hint = null
@@ -509,7 +531,7 @@ func _build_tablet(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, true))
+	column.add_child(_make_header(m))
 
 	var form := _make_sheet(column, m, "Sheet")
 	form.add_child(_make_section("Company name", _make_company_row(m), m))
@@ -518,6 +540,7 @@ func _build_tablet(m: Metrics) -> void:
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 4, width), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
 	form.add_child(_make_section("Game features", _make_feature_tiles(m, "card", width), m))
+	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, true)
 
 ## Landscape: two compact columns, everything (including Choose Location) on
@@ -531,7 +554,7 @@ func _build_landscape(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, m.view.x >= 760.0))
+	column.add_child(_make_header(m, true))
 
 	var body := HBoxContainer.new()
 	body.name = "Body"
@@ -571,7 +594,7 @@ func _build_phone(m: Metrics) -> void:
 	column.add_theme_constant_override("separation", m.gap)
 	frame.add_child(column)
 	_column = column
-	column.add_child(_make_header(m, false))
+	column.add_child(_make_header(m))
 
 	var form := _make_sheet(column, m, "Sheet")
 	var width := _sheet_content_width(m)
@@ -583,6 +606,7 @@ func _build_phone(m: Metrics) -> void:
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 2), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
 	form.add_child(_make_section("Game features", _make_feature_tiles(m, "stack", width), m))
+	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, false)
 
 # =============================================================================
@@ -628,8 +652,9 @@ func _frame(page: MarginContainer, m: Metrics) -> MarginContainer:
 func _make_sheet(parent: Control, m: Metrics, sheet_name: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	panel.name = sheet_name
-	panel.add_theme_stylebox_override("panel", MenuStyle.panel(MenuStyle.SHEET_BG,
-		MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.45), m.radius + 4, m.panel_pad, m.panel_pad))
+	panel.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.72), MenuStyle.SHEET_BG,
+		m.panel_pad, m.panel_pad))
 	parent.add_child(panel)
 	var column := VBoxContainer.new()
 	column.name = "Sections"
@@ -646,8 +671,8 @@ func _make_section(title: String, content: Control, m: Metrics) -> VBoxContainer
 	section.add_child(content)
 	return section
 
-## Back, the title lockup and (where there is room) the two-step indicator.
-func _make_header(m: Metrics, with_steps: bool) -> Control:
+## Back button and the title lockup.
+func _make_header(m: Metrics, with_tutorial: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.name = "Header"
 	row.add_theme_constant_override("separation", m.gap)
@@ -657,8 +682,9 @@ func _make_header(m: Metrics, with_steps: bool) -> Control:
 	_back_button.tooltip_text = "Back to the title screen (Esc)"
 	_back_button.custom_minimum_size = Vector2(maxf(88.0, m.back_height * 2.1), m.back_height)
 	_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_back_button.add_theme_font_override("font", SUBTITLE_FONT)
 	_back_button.add_theme_font_size_override("font_size", m.back_font)
-	MenuStyle.paint_card(_back_button, MenuStyle.ACCENT_UTILITY, 0.0, int(m.back_height * 0.28),
+	PixelButtonStyle.paint_card(_back_button, MenuStyle.ACCENT_UTILITY, 0.0, int(m.back_height * 0.28),
 		UIConstants.COLOR_TEXT, MenuStyle.TITLE_COLOR)
 	_back_button.pressed.connect(func(): back_requested.emit())
 	row.add_child(_back_button)
@@ -667,60 +693,41 @@ func _make_header(m: Metrics, with_steps: bool) -> Control:
 	title_block.name = "TitleBlock"
 	title_block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_block.add_theme_constant_override("separation", int(float(m.title_font) * 0.3))
-	var mark := MenuFlagMark.new()
+	var mark := TextureRect.new()
 	mark.name = "Mark"
-	mark.mark_size = float(m.title_font) * 1.15
+	var mark_side := PixelIcon.snapped_side(int(roundf(float(m.title_font) * 1.15)))
+	mark.texture = PixelIcon.texture(PixelIcon.Kind.FLAG, mark_side, MenuStyle.ACCENT_PRIMARY)
+	mark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	mark.custom_minimum_size = Vector2(mark_side, mark_side)
 	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_block.add_child(mark)
+	var title_stack := VBoxContainer.new()
+	title_stack.name = "TitleStack"
+	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_stack.add_theme_constant_override("separation", maxi(0, int(m.kicker_gap * 0.25)))
+	var eyebrow := _make_kicker("Company setup", m.kicker_font)
+	eyebrow.name = "Eyebrow"
+	eyebrow.add_theme_color_override("font_color", MenuStyle.ACCENT_PRIMARY)
+	title_stack.add_child(eyebrow)
 	var title := Label.new()
 	title.name = "Title"
 	title.text = TITLE_TEXT
+	title.add_theme_font_override("font", TITLE_FONT)
 	title.add_theme_font_size_override("font_size", m.title_font)
 	title.add_theme_color_override("font_color", MenuStyle.TITLE_COLOR)
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_block.add_child(title)
+	title_stack.add_child(title)
+	title_block.add_child(title_stack)
 	row.add_child(title_block)
-	if with_steps:
-		row.add_child(_make_stepper(m))
+	if with_tutorial:
+		_make_tutorial_chip(m, row)
 	return row
-
-## "1 Company - 2 Location": where this screen sits in the new-game flow.
-func _make_stepper(m: Metrics) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.name = "Stepper"
-	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_theme_constant_override("separation", int(m.item_gap * 0.9))
-	var font := m.kicker_font + 2
-	row.add_child(_make_step_dot(1, true, m))
-	row.add_child(_make_label("Company", font, UIConstants.COLOR_TEXT))
-	var rule := ColorRect.new()
-	rule.color = MenuStyle.with_alpha(UIConstants.COLOR_TEXT_MUTED, 0.55)
-	rule.custom_minimum_size = Vector2(roundf(34.0 * m.u), 2.0)
-	rule.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(rule)
-	row.add_child(_make_step_dot(2, false, m))
-	row.add_child(_make_label("Location", font, UIConstants.COLOR_TEXT_MUTED))
-	return row
-
-func _make_step_dot(number: int, active: bool, m: Metrics) -> PanelContainer:
-	var side := roundf(float(m.kicker_font) * 2.0)
-	var dot := PanelContainer.new()
-	dot.name = "Step%d" % number
-	dot.custom_minimum_size = Vector2(side, side)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := MenuStyle.flat(MenuStyle.ACCENT_PRIMARY if active else Color(0, 0, 0, 0),
-		MenuStyle.ACCENT_PRIMARY if active else UIConstants.COLOR_TEXT_MUTED, 0 if active else 2,
-		int(side), 0, 0, 0)
-	dot.add_theme_stylebox_override("panel", style)
-	var label := _make_label(str(number), m.kicker_font, MenuStyle.INK if active else UIConstants.COLOR_TEXT_MUTED)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	dot.add_child(label)
-	return dot
 
 # =============================================================================
 # SECTIONS
@@ -740,22 +747,19 @@ func _make_company_row(m: Metrics) -> HBoxContainer:
 	_company_input.accessibility_name = "Company name"
 	_company_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_company_input.custom_minimum_size = Vector2(0, m.input_height)
+	_company_input.add_theme_font_override("font", BODY_FONT)
 	_company_input.add_theme_font_size_override("font_size", m.body_font)
 	_company_input.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	_company_input.add_theme_color_override("font_placeholder_color", UIConstants.COLOR_TEXT_MUTED)
 	_company_input.add_theme_color_override("caret_color", MenuStyle.ACCENT_PRIMARY)
 	_company_input.add_theme_color_override("selection_color", MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.35))
 	var field_pad := int(float(m.input_height) * 0.3)
-	var normal := MenuStyle.flat(MenuStyle.INSET_BG, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.7), 1,
-		m.radius - 2, field_pad, 0, 0)
-	var focus := MenuStyle.flat(Color(0, 0, 0, 0), MenuStyle.ACCENT_PRIMARY, 2, m.radius - 2, field_pad, 0, 0)
-	_company_input.add_theme_stylebox_override("normal", normal)
-	_company_input.add_theme_stylebox_override("read_only", normal)
-	_company_input.add_theme_stylebox_override("focus", focus)
+	PixelButtonStyle.paint_field(_company_input, MenuStyle.ACCENT_PRIMARY,
+		MenuStyle.INSET_BG, field_pad)
 	_company_input.text_changed.connect(_on_company_name_changed)
 	row.add_child(_company_input)
 
-	var dice := _make_shell_button("RandomNameButton", MenuStyle.ACCENT_UTILITY, m.radius - 2)
+	var dice := _make_shell_button("RandomNameButton", MenuStyle.ACCENT_UTILITY)
 	dice.tooltip_text = "Pick a random company name"
 	dice.accessibility_name = "Random company name"
 	dice.custom_minimum_size = Vector2(m.input_height, m.input_height)
@@ -764,7 +768,7 @@ func _make_company_row(m: Metrics) -> HBoxContainer:
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(SetupGlyph.make(SetupGlyph.Kind.DICE, float(m.input_height) * 0.62))
+	center.add_child(SetupGlyph.make_pixel(SetupGlyph.Kind.DICE, float(m.input_height) * 0.62))
 	dice.add_child(center)
 	dice.pressed.connect(_on_random_name_pressed)
 	row.add_child(dice)
@@ -790,12 +794,12 @@ func _make_difficulty_cards(m: Metrics, width: float) -> HBoxContainer:
 		var stack := _content_column(card, int(4.0 * m.u))
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", m.item_gap)
-		card.glyph = SetupGlyph.make(SetupGlyph.Kind.DIFFICULTY, float(m.glyph), preset + 1, accent)
+		card.glyph = SetupGlyph.make_pixel(SetupGlyph.Kind.DIFFICULTY, float(m.glyph), preset + 1, accent)
 		top.add_child(card.glyph)
-		card.title = _make_label(str(mods.get("name", "")), m.option_font, UIConstants.COLOR_TEXT)
+		card.title = _make_option_label(str(mods.get("name", "")), m.option_font, UIConstants.COLOR_TEXT)
 		card.title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		top.add_child(card.title)
-		card.check = SetupGlyph.make(SetupGlyph.Kind.CHECK, float(m.glyph) * 0.8, 1, accent)
+		card.check = SetupGlyph.make_pixel(SetupGlyph.Kind.CHECK, float(m.glyph) * 0.8, 1, accent)
 		top.add_child(card.check)
 		stack.add_child(top)
 		if not m.dense:
@@ -822,9 +826,9 @@ func _make_difficulty_segments(m: Metrics) -> HBoxContainer:
 		var card := _make_choice("difficulty", preset, accent, difficulty_tooltip(preset),
 			str(mods.get("name", "")), m, group, Vector2(0, m.segment_height), int(m.card_pad * 0.6))
 		var line := _content_row(card, int(m.item_gap * 0.8))
-		card.glyph = SetupGlyph.make(SetupGlyph.Kind.DIFFICULTY, float(m.glyph) * 0.75, preset + 1, accent)
+		card.glyph = SetupGlyph.make_pixel(SetupGlyph.Kind.DIFFICULTY, float(m.glyph) * 0.75, preset + 1, accent)
 		line.add_child(card.glyph)
-		card.title = _make_label(str(mods.get("name", "")), m.option_font - 2, UIConstants.COLOR_TEXT)
+		card.title = _make_option_label(str(mods.get("name", "")), m.option_font - 2, UIConstants.COLOR_TEXT)
 		line.add_child(card.title)
 		_finish_choice(card, row)
 		_difficulty_buttons.append(card.button)
@@ -837,7 +841,7 @@ func _make_money_cards(m: Metrics, columns: int, width: float = 0.0) -> GridCont
 	# failing that the cards go two by two.
 	var with_check := columns >= 4
 	if columns >= 4 and width > 0.0:
-		var font := get_theme_default_font()
+		var font := SUBTITLE_FONT
 		var widest := 0.0
 		for option in MONEY_OPTIONS:
 			widest = maxf(widest, font.get_string_size(_money_label(option), HORIZONTAL_ALIGNMENT_LEFT, -1,
@@ -862,14 +866,14 @@ func _make_money_cards(m: Metrics, columns: int, width: float = 0.0) -> GridCont
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", int(m.item_gap * 0.8))
 		var level := SetupGlyph.MONEY_UNLIMITED if option == -1 else i + 1
-		card.glyph = SetupGlyph.make(SetupGlyph.Kind.MONEY, float(m.glyph) * (0.8 if compact else 1.0), level, MONEY_ACCENT)
+		card.glyph = SetupGlyph.make_pixel(SetupGlyph.Kind.MONEY, float(m.glyph) * (0.8 if compact else 1.0), level, MONEY_ACCENT)
 		top.add_child(card.glyph)
-		card.title = _make_label(_money_label(option), m.option_font - (1 if compact else 0), UIConstants.COLOR_TEXT)
+		card.title = _make_option_label(_money_label(option), m.option_font - (1 if compact else 0), UIConstants.COLOR_TEXT)
 		card.title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		top.add_child(card.title)
 		if with_check:
-			card.check = SetupGlyph.make(SetupGlyph.Kind.CHECK, float(m.glyph) * 0.8, 1, MONEY_ACCENT)
+			card.check = SetupGlyph.make_pixel(SetupGlyph.Kind.CHECK, float(m.glyph) * 0.8, 1, MONEY_ACCENT)
 			top.add_child(card.check)
 		stack.add_child(top)
 		var caption := _make_label(MONEY_CAPTIONS[option], m.caption_font, UIConstants.COLOR_TEXT_DIM)
@@ -889,7 +893,7 @@ func _make_money_segments(m: Metrics) -> HBoxContainer:
 		var card := _make_choice("money", option, MONEY_ACCENT, "%s\n%s" % [MONEY_TOOLTIP, MONEY_CAPTIONS[option]],
 			_money_label(option), m, group, Vector2(0, m.segment_height), 4)
 		var line := _content_row(card, 4)
-		card.title = _make_label(_money_short_label(option), m.option_font - 3, UIConstants.COLOR_TEXT)
+		card.title = _make_option_label(_money_short_label(option), m.option_font - 3, UIConstants.COLOR_TEXT)
 		line.add_child(card.title)
 		_finish_choice(card, row)
 		_money_buttons.append(card.button)
@@ -913,7 +917,7 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 			"%d holes" % count, m, group, Vector2(0, m.hole_height), 2)
 		var stack := _content_column(card, 0)
 		stack.alignment = BoxContainer.ALIGNMENT_CENTER
-		card.title = _make_label(str(count), m.number_font if show_par else m.option_font, UIConstants.COLOR_TEXT)
+		card.title = _make_option_label(str(count), m.number_font if show_par else m.option_font, UIConstants.COLOR_TEXT)
 		card.title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stack.add_child(card.title)
 		if show_par:
@@ -943,7 +947,7 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 	var gap := float(m.section_gap if _layout_mode == Layout.TABLET else m.item_gap + 2)
 	_hole_hint = _make_hint(m, _hole_hint_texts(), width - m.plan_min - gap, 6)
 	words.add_child(_hole_hint)
-	var plan := _make_plan_frame(m, Vector2(m.plan_min, m.plan_min))
+	var plan := _make_plan_frame(Vector2(m.plan_min, m.plan_min))
 	if _layout_mode == Layout.TABLET:
 		# Picker over the words on the left, the plan square on the right.
 		block.remove_child(row)
@@ -989,14 +993,14 @@ func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridConta
 		var height := m.segment_height if variant == "chip" else (m.feature_height if variant != "card" else 0)
 		var card := _make_choice("feature", key, FEATURE_ACCENT, str(feature[3]), str(feature[1]), m, null,
 			Vector2(0, height), int(m.card_pad * (0.6 if variant == "chip" else 0.85)))
-		card.glyph = SetupGlyph.make(feature[4], float(m.glyph) * (0.8 if variant == "chip" else 1.0), 1, FEATURE_ACCENT)
-		card.title = _make_label(str(feature[1]), m.option_font - (2 if variant == "chip" or variant == "stack" else 1),
+		card.glyph = SetupGlyph.make_pixel(feature[4], float(m.glyph) * (0.8 if variant == "chip" else 1.0), 1, FEATURE_ACCENT)
+		card.title = _make_option_label(str(feature[1]), m.option_font - (2 if variant == "chip" or variant == "stack" else 1),
 			UIConstants.COLOR_TEXT)
 		if variant != "chip":
 			# (A chip's name sits in a centred row: trimmed, it would shrink to
 			# nothing but the ellipsis.)
 			card.title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			card.switch = SetupGlyph.make(SetupGlyph.Kind.SWITCH, float(m.glyph) * 0.62, 1, FEATURE_ACCENT)
+			card.switch = SetupGlyph.make_pixel(SetupGlyph.Kind.SWITCH, float(m.glyph) * 0.62, 1, FEATURE_ACCENT)
 		match variant:
 			"card":
 				var stack := _content_column(card, int(4.0 * m.u))
@@ -1042,28 +1046,72 @@ func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridConta
 		_feature_boxes[key] = card.button
 	return grid
 
+## The tutorial switch as a card: glyph, name and the switch. `compact` is the
+## title-bar chip of the wide arrangements; otherwise it is a full-width row.
+func _make_tutorial_card(m: Metrics, compact: bool) -> ChoiceCard:
+	var card := _make_choice("tutorial", "tutorial", FEATURE_ACCENT, TUTORIAL_TOOLTIP, TUTORIAL_TITLE, m, null,
+		Vector2(0, m.back_height) if compact else Vector2(0, m.feature_height),
+		int(m.card_pad * 0.6) if compact else int(m.card_pad * 0.85))
+	if compact:
+		card.cell.size_flags_horizontal = Control.SIZE_SHRINK_END
+	card.glyph = SetupGlyph.make_pixel(SetupGlyph.Kind.TUTORIAL, float(m.glyph) * (0.8 if compact else 1.0), 1, FEATURE_ACCENT)
+	card.switch = SetupGlyph.make_pixel(SetupGlyph.Kind.SWITCH, float(m.glyph) * 0.62, 1, FEATURE_ACCENT)
+	var line := _content_row(card, int(m.item_gap * 0.6))
+	line.add_child(card.glyph)
+	card.title = _make_option_label(TUTORIAL_TITLE, m.option_font - (3 if compact else 2), UIConstants.COLOR_TEXT)
+	# The chip sizes to its words; the full-width row may trim them if it must.
+	if not compact:
+		card.title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		card.title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(card.title)
+	line.add_child(card.switch)
+	card.button.toggled.connect(_on_tutorial_toggled)
+	return card
+
+## The tutorial's place on the narrow arrangements: its switch with a caption
+## under it, inside the section.
+func _make_tutorial_block(m: Metrics, width: float) -> Control:
+	var block := VBoxContainer.new()
+	block.name = "TutorialBlock"
+	block.add_theme_constant_override("separation", int(m.item_gap * 0.8))
+	var card := _make_tutorial_card(m, false)
+	_tutorial_card = card
+	_finish_choice(card, block)
+	var caption := _make_label("", m.caption_font, UIConstants.COLOR_TEXT_DIM)
+	caption.name = "TutorialCaption"
+	_reserve_lines(caption, [TUTORIAL_CAPTION], width, 3)
+	block.add_child(caption)
+	return block
+
+## The tutorial switch as it sits in the title bar on the wide arrangements.
+func _make_tutorial_chip(m: Metrics, title_bar: Control) -> void:
+	var card := _make_tutorial_card(m, true)
+	_tutorial_card = card
+	_finish_choice(card, title_bar)
+
 ## WIDE: the company rail - name, course plan, summary, Choose Location.
 func _make_rail(m: Metrics) -> PanelContainer:
 	var rail := PanelContainer.new()
 	rail.name = "Rail"
-	rail.add_theme_stylebox_override("panel", MenuStyle.panel(MenuStyle.SHEET_BG,
-		MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.35), m.radius + 4, m.panel_pad, m.panel_pad))
+	rail.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.68), MenuStyle.SHEET_BG,
+		m.panel_pad, m.panel_pad))
 	var column := VBoxContainer.new()
 	column.name = "RailColumn"
 	column.add_theme_constant_override("separation", int(m.item_gap * 1.1))
 	rail.add_child(column)
 	column.add_child(_make_kicker("Your company", m.kicker_font))
-	_summary_company = _make_label(_company_display_name(), m.option_font + 5, MenuStyle.TITLE_COLOR)
+	_summary_company = _make_option_label(_company_display_name(), m.option_font + 5, MenuStyle.TITLE_COLOR)
 	_summary_company.name = "CompanyName"
 	_summary_company.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	column.add_child(_summary_company)
-	var frame := _make_plan_frame(m, Vector2(0, m.plan_min))
+	var frame := _make_plan_frame(Vector2(0, m.plan_min))
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(frame)
 	_plan_caption = _make_plan_caption(m)
 	column.add_child(_plan_caption)
 	column.add_child(_make_rule())
-	for row in [["difficulty", "Difficulty"], ["money", "Budget"], ["features", "Features"]]:
+	for row in [["difficulty", "Difficulty"], ["money", "Budget"], ["features", "Features"], ["tutorial", "Tutorial"]]:
 		column.add_child(_make_summary_row(row[0], row[1], m))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, m.item_gap * 0.5)
@@ -1083,10 +1131,8 @@ func _make_footer(m: Metrics, with_summary: bool) -> void:
 	bar.name = "Footer"
 	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	bar.offset_top = -m.footer_height
-	var style := MenuStyle.flat(Color(0.024, 0.055, 0.045, 0.94), MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.5),
-		0, 0, 0, 0, 0)
-	style.border_width_top = 1
-	bar.add_theme_stylebox_override("panel", style)
+	bar.add_theme_stylebox_override("panel", PixelButtonStyle.bar_style(
+		MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.68), Color(0.024, 0.055, 0.045, 0.94)))
 	add_child(bar)
 	var margin := MarginContainer.new()
 	var side := int(maxf(float(m.pad), (m.view.x - m.max_width) * 0.5))
@@ -1138,7 +1184,7 @@ func _make_choice(group: String, value: Variant, accent: Color, tooltip: String,
 	card.button.accessibility_name = a11y_name
 	card.button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	card.button.set_meta("value", value)
-	MenuStyle.paint_choice(card.button, accent, m.radius)
+	PixelButtonStyle.paint_choice(card.button, accent)
 	card.cell.add_child(card.button)
 	card.content = MarginContainer.new()
 	card.content.name = "Content"
@@ -1148,9 +1194,14 @@ func _make_choice(group: String, value: Variant, accent: Color, tooltip: String,
 	for side in ["top", "bottom"]:
 		card.content.add_theme_constant_override("margin_" + side, int(float(inner) * 0.85))
 	card.cell.add_child(card.content)
-	if group != "feature":
+	if not _is_toggle_group(group):
 		card.button.pressed.connect(_on_choice_pressed.bind(card))
 	return card
+
+## Feature and tutorial cards are switches: they report their state through
+## `toggled` and are drawn lit or muted, rather than picked from a group.
+static func _is_toggle_group(group: String) -> bool:
+	return group == "feature" or group == "tutorial"
 
 ## Mouse input goes through the drawn content to the button underneath.
 func _finish_choice(card: ChoiceCard, parent: Control) -> void:
@@ -1178,12 +1229,12 @@ func _ignore_mouse(node: Node) -> void:
 		_ignore_mouse(child)
 
 ## A button that only provides the surface (its content is drawn on top).
-func _make_shell_button(button_name: String, accent: Color, radius: int) -> Button:
+func _make_shell_button(button_name: String, accent: Color) -> Button:
 	var button := Button.new()
 	button.name = button_name
 	button.focus_mode = Control.FOCUS_ALL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	MenuStyle.paint_choice(button, accent, radius)
+	PixelButtonStyle.paint_choice(button, accent)
 	return button
 
 ## The gold Choose Location button: label and drawn arrow over a gold fill.
@@ -1197,7 +1248,7 @@ func _make_cta(m: Metrics) -> MarginContainer:
 	_next_button.accessibility_name = CTA_TEXT
 	_next_button.focus_mode = Control.FOCUS_ALL
 	_next_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	MenuStyle.paint_primary(_next_button, m.radius)
+	PixelButtonStyle.paint_primary(_next_button, MenuStyle.ACCENT_PRIMARY)
 	_next_button.pressed.connect(_on_next_pressed)
 	cell.add_child(_next_button)
 	var center := CenterContainer.new()
@@ -1206,19 +1257,20 @@ func _make_cta(m: Metrics) -> MarginContainer:
 	row.add_theme_constant_override("separation", int(float(m.cta_font) * 0.45))
 	center.add_child(row)
 	var label := _make_label(CTA_TEXT, m.cta_font, MenuStyle.INK)
+	label.add_theme_font_override("font", TITLE_FONT)
 	row.add_child(label)
-	row.add_child(SetupGlyph.make(SetupGlyph.Kind.ARROW, float(m.cta_font) * 1.1, 1, MenuStyle.INK))
+	row.add_child(SetupGlyph.make_pixel(SetupGlyph.Kind.ARROW, float(m.cta_font) * 1.1, 1, MenuStyle.INK))
 	_ignore_mouse(center)
 	return cell
 
 ## The course plan in a recessed frame.
-func _make_plan_frame(m: Metrics, min_size: Vector2) -> PanelContainer:
+func _make_plan_frame(min_size: Vector2) -> PanelContainer:
 	var frame := PanelContainer.new()
 	frame.name = "PlanFrame"
 	frame.custom_minimum_size = min_size
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_theme_stylebox_override("panel", MenuStyle.panel(MenuStyle.INSET_BG,
-		MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.35), m.radius, 4, 4))
+	frame.add_theme_stylebox_override("panel", PixelButtonStyle.inset_style(
+		MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.62), MenuStyle.INSET_BG, 4))
 	_course_plan = CoursePlanPreview.new()
 	_course_plan.name = "CoursePlan"
 	_course_plan.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1228,7 +1280,7 @@ func _make_plan_frame(m: Metrics, min_size: Vector2) -> PanelContainer:
 	return frame
 
 func _make_plan_caption(m: Metrics) -> Label:
-	var label := _make_label("", m.kicker_font + 1, MenuStyle.ACCENT_PRIMARY)
+	var label := _make_option_label("", m.kicker_font + 1, MenuStyle.ACCENT_PRIMARY)
 	label.name = "PlanCaption"
 	label.uppercase = true
 	return label
@@ -1258,7 +1310,7 @@ func _make_hint(m: Metrics, texts: Array, width: float, max_lines: int) -> Label
 ## `width` (at most `max_lines`), so it keeps one height whichever text it
 ## shows and the layout's height is known before the first layout pass.
 func _reserve_lines(label: Label, texts: Array, width: float, max_lines: int) -> int:
-	var font := get_theme_default_font()
+	var font := label.get_theme_font("font")
 	var font_size := label.get_theme_font_size("font_size")
 	var lines := 1
 	for text in texts:
@@ -1298,12 +1350,19 @@ func _make_rule() -> ColorRect:
 func _make_kicker(text: String, font_size: int) -> Label:
 	var label := _make_label(text, maxi(font_size, 11), UIConstants.COLOR_TEXT_MUTED)
 	label.name = "Kicker"
+	label.add_theme_font_override("font", SUBTITLE_FONT)
 	label.uppercase = true
+	return label
+
+func _make_option_label(text: String, font_size: int, color: Color) -> Label:
+	var label := _make_label(text, font_size, color)
+	label.add_theme_font_override("font", SUBTITLE_FONT)
 	return label
 
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1341,6 +1400,10 @@ func _on_feature_toggled(enabled: bool, key: String) -> void:
 	_features[key] = enabled
 	_update_selection_styles()
 
+func _on_tutorial_toggled(enabled: bool) -> void:
+	_tutorial_enabled = enabled
+	_update_selection_styles()
+
 func _on_company_name_changed(text: String) -> void:
 	_company_name = text
 	_refresh_summary()
@@ -1358,7 +1421,7 @@ func _update_selection_styles() -> void:
 		card.button.set_pressed_no_signal(selected)
 		if card.title:
 			var lit := card.accent.lerp(Color.WHITE, 0.45)
-			if card.group == "feature":
+			if _is_toggle_group(card.group):
 				card.title.add_theme_color_override("font_color",
 					UIConstants.COLOR_TEXT if selected else UIConstants.COLOR_TEXT_MUTED)
 			else:
@@ -1367,9 +1430,19 @@ func _update_selection_styles() -> void:
 			card.check.modulate.a = 1.0 if selected else 0.0
 		if card.switch:
 			card.switch.on = selected
-		if card.glyph and card.group == "feature":
+		if card.glyph and _is_toggle_group(card.group):
 			card.glyph.on = selected
+	_sync_tutorial_availability()
 	_refresh_summary()
+
+## The tutorial only starts on an empty course. With holes generated its switch
+## keeps the company's choice but cannot be changed, and is drawn faded.
+func _sync_tutorial_availability() -> void:
+	if _tutorial_card == null:
+		return
+	var applies := tutorial_applies(_holes)
+	_tutorial_card.button.disabled = not applies
+	_tutorial_card.cell.modulate.a = 1.0 if applies else 0.5
 
 func _is_selected(card: ChoiceCard) -> bool:
 	match card.group:
@@ -1381,6 +1454,8 @@ func _is_selected(card: ChoiceCard) -> bool:
 			return int(card.value) == _holes
 		"feature":
 			return bool(_features.get(str(card.value), false))
+		"tutorial":
+			return _tutorial_enabled
 	return false
 
 func _refresh_summary() -> void:
@@ -1393,6 +1468,8 @@ func _refresh_summary() -> void:
 		_summary_values["money"].text = _money_label(_money)
 	if _summary_values.has("features"):
 		_summary_values["features"].text = features_summary(_features)
+	if _summary_values.has("tutorial"):
+		_summary_values["tutorial"].text = tutorial_summary(_tutorial_enabled, _holes)
 	if _plan_caption:
 		_plan_caption.text = plan_caption(_holes)
 	if _hole_hint:
@@ -1426,6 +1503,7 @@ func get_options() -> Dictionary:
 		"starting_money": _money,
 		"generated_holes": _holes,
 		"features": features,
+		"tutorial": _tutorial_enabled,
 	}
 
 func _on_next_pressed() -> void:
@@ -1473,7 +1551,7 @@ static func _group_digits(amount: int) -> String:
 ## The line under the hole picker.
 static func hole_hint(count: int) -> String:
 	if count == 0:
-		return "Build every hole yourself — the tutorial walks you through the first one."
+		return "Build every hole yourself. The tutorial can guide you through the first one."
 	return "%d holes (%d par) are laid out on the first location you buy. Later sites start empty so you build them yourself." % [
 		count, GeneratedCourse.get_par_for_count(count)]
 
@@ -1482,6 +1560,18 @@ static func hole_hint_short(count: int) -> String:
 	if count == 0:
 		return "An empty plot: you build every hole."
 	return "%d holes (par %d) on the first site you buy." % [count, GeneratedCourse.get_par_for_count(count)]
+
+## The tutorial only runs on an empty first course, so it applies only when no
+## holes are generated.
+static func tutorial_applies(holes: int) -> bool:
+	return holes == 0
+
+## The rail's line for the tutorial: "On", "Off", or "Not used" when the
+## course has generated holes (whatever the switch says).
+static func tutorial_summary(enabled: bool, holes: int) -> String:
+	if not tutorial_applies(holes):
+		return "Not used"
+	return "On" if enabled else "Off"
 
 ## The caption under the course plan: "9 holes · par 36" / "Empty plot".
 static func plan_caption(count: int) -> String:
