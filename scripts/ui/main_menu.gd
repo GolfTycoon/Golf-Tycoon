@@ -36,6 +36,13 @@ class_name MainMenu
 ## Layout is container-driven inside each mode, so a live drag-resize only
 ## rebuilds the tree when the arrangement itself changes.
 ##
+## The cards themselves are pixel art: PixelButtonStyle draws every frame as
+## a nine-patch sprite window - notched corners, ink outline, accent trim and
+## a bevel lit from above - and each action carries a 16x16 sprite of its own
+## (PixelIcon): a pennant for Start New Game, a bolt for Quick Start, the play
+## triangle for Continue, a floppy for Load Game, a polo shirt for Golfer
+## Skins, a cog for Settings and a doorway arrow for Quit.
+##
 ## The scenery behind it (MenuBackdrop) is the shared background image. The
 ## heading is the game logo (assets/ui/logo.png), not a typed wordmark.
 
@@ -73,14 +80,10 @@ const TITLE_TEXT := "Golf Tycoon"
 ## Game-name heading. Transparent padding has already been trimmed off the file
 ## so the control's size is the lockup, not an empty square around it.
 const LOGO_TEXTURE: Texture2D = preload("res://assets/ui/logo.png")
-# The palette and card recipe are shared with the Start New Game screen (see
-# MenuStyle); the names stay here so the builders below read as before.
+# The accent palette is shared with the other out-of-game screens (MenuStyle);
+# the card frames themselves come from PixelButtonStyle. The names stay here
+# so the builders below read as before.
 
-const CARD_RADIUS := MenuStyle.CARD_RADIUS
-const CARD_BG := MenuStyle.CARD_BG
-const CARD_BG_HOVER := MenuStyle.CARD_BG_HOVER
-const CARD_BG_PRESSED := MenuStyle.CARD_BG_PRESSED
-const CARD_BG_DISABLED := MenuStyle.CARD_BG_DISABLED
 const RAIL_BG := MenuStyle.RAIL_BG
 
 ## Widest the two-panel layouts stretch their content. Past this the page
@@ -214,9 +217,9 @@ func _build_wide() -> void:
 	# The rail is a card around its own contents, not a column stretched to the
 	# window: it stays centred beside the hero column on a tall display.
 	rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rail.add_theme_stylebox_override("panel", _style(
-		RAIL_BG, _with_alpha(UIConstants.COLOR_BORDER, 0.45), 1, CARD_RADIUS + 2,
-		int(clampf(view.x * 0.014, 14.0, 24.0)), 18, 20))
+	var rail_pad := int(clampf(view.x * 0.014, 14.0, 24.0))
+	rail.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		_with_alpha(UIConstants.COLOR_BORDER, 0.55), RAIL_BG, rail_pad, 18))
 	row.add_child(rail)
 
 	var rail_column := VBoxContainer.new()
@@ -506,7 +509,7 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 	var button := _make_card("Start New Game",
 		"Set up your company, then buy the location for your first course.",
 		"Set up your golf company, then choose where to build your first course",
-		height, title_font, caption_font, ACCENT_PRIMARY)
+		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.FLAG)
 	button.name = "StartNewGameButton"
 	button.pressed.connect(func(): start_new_game_requested.emit())
 	return button
@@ -515,7 +518,7 @@ func _make_quick_card(height: float, title_font: int, caption_font: int) -> Butt
 	var button := _make_card("Quick Start",
 		"Random company, Normal difficulty, $100,000, a 3-hole course on a random affordable location.",
 		"Jump straight in: random company name, Normal difficulty, $100,000, all features on, and a random affordable location bought and played with 3 generated holes",
-		height, title_font, caption_font, ACCENT_SECONDARY)
+		height, title_font, caption_font, ACCENT_SECONDARY, PixelIcon.Kind.BOLT)
 	button.name = "QuickStartButton"
 	button.pressed.connect(func(): quick_start_requested.emit())
 	return button
@@ -534,7 +537,8 @@ func _make_continue_card(height: float, title_font: int, caption_font: int) -> B
 			newest.get("course_name", ""), int(newest.get("day", 0)), newest.get("name", "")]
 		accent = ACCENT_SECONDARY
 
-	var button := _make_card("Continue", caption, tooltip, height, title_font, caption_font, accent)
+	var button := _make_card("Continue", caption, tooltip, height, title_font, caption_font,
+		accent, PixelIcon.Kind.PLAY, newest.is_empty())
 	button.name = "ContinueButton"
 	button.disabled = newest.is_empty()
 	_continue_button = button
@@ -596,7 +600,8 @@ func _make_load_tile(height: float, title_font: int, caption_font: int) -> Butto
 	if not _saves.is_empty():
 		caption = "%d saved course%s" % [_saves.size(), "" if _saves.size() == 1 else "s"]
 	var button := _make_tile("Load Game", caption, "Choose a saved game", height,
-		title_font, caption_font, ACCENT_UTILITY)
+		title_font, caption_font, ACCENT_UTILITY, UIConstants.COLOR_TEXT,
+		PixelIcon.Kind.FLOPPY, _saves.is_empty())
 	button.name = "LoadGameButton"
 	button.disabled = _saves.is_empty()
 	if button.disabled:
@@ -610,21 +615,24 @@ func _make_load_tile(height: float, title_font: int, caption_font: int) -> Butto
 func _make_golfer_skins_tile(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_tile("Golfer Skins", "Paint what the golfers wear",
 		"Create and edit golfer skins and the Re-color Groups they are painted with",
-		height, title_font, caption_font, ACCENT_SECONDARY)
+		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
+		PixelIcon.Kind.SHIRT)
 	button.name = "GolferSkinsButton"
 	button.pressed.connect(func(): edit_golfer_skins_requested.emit())
 	return button
 
 func _make_settings_tile(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_tile("Settings", "Audio, display and gameplay",
-		"Audio, display and gameplay options", height, title_font, caption_font, ACCENT_UTILITY)
+		"Audio, display and gameplay options", height, title_font, caption_font,
+		ACCENT_UTILITY, UIConstants.COLOR_TEXT, PixelIcon.Kind.GEAR)
 	button.name = "SettingsButton"
 	button.pressed.connect(func(): settings_requested.emit())
 	return button
 
 func _make_quit_tile(height: float, title_font: int, caption_font: int) -> Button:
 	var button := _make_tile("Quit", "Leave the game", "Leave the game", height,
-		title_font, caption_font, ACCENT_QUIT, UIConstants.COLOR_DANGER_MUTED)
+		title_font, caption_font, ACCENT_QUIT, UIConstants.COLOR_DANGER_MUTED,
+		PixelIcon.Kind.DOOR)
 	button.name = "QuitButton"
 	button.pressed.connect(func(): quit_requested.emit())
 	return button
@@ -638,12 +646,14 @@ func _make_quit_tile(height: float, title_font: int, caption_font: int) -> Butto
 ## explanation pinned to the card's lower edge. That caption is a child of the
 ## button with mouse_filter IGNORE, so clicking it clicks the card too.
 func _make_card(text: String, caption: String, tooltip: String, height: float,
-		title_font: int, caption_font: int, accent: Color) -> Button:
+		title_font: int, caption_font: int, accent: Color,
+		icon_kind: int = -1, dimmed_icon: bool = false) -> Button:
 	var button := _make_button_shell(text, tooltip, title_font, UIConstants.COLOR_TEXT)
 	var block := _caption_block(caption_font, CAPTION_LINES)
 	button.custom_minimum_size.y = maxf(height, float(title_font) * 1.45 + block + 24.0)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_paint_card(button, accent, block, 20, UIConstants.COLOR_TEXT, Color.WHITE)
+	_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 10)
 	if not caption.is_empty():
 		button.add_child(_make_caption(caption, caption_font, CAPTION_LINES, UIConstants.COLOR_TEXT_DIM))
 	return button
@@ -652,7 +662,8 @@ func _make_card(text: String, caption: String, tooltip: String, height: float,
 ## caption.
 func _make_tile(text: String, caption: String, tooltip: String, height: float,
 		title_font: int, caption_font: int, accent: Color,
-		text_color: Color = UIConstants.COLOR_TEXT) -> Button:
+		text_color: Color = UIConstants.COLOR_TEXT, icon_kind: int = -1,
+		dimmed_icon: bool = false) -> Button:
 	var button := _make_button_shell(text, tooltip, title_font, text_color)
 	var show_caption := not caption.is_empty() and caption_font > 0
 	var block := _caption_block(caption_font, 1) if show_caption else 0.0
@@ -660,9 +671,22 @@ func _make_tile(text: String, caption: String, tooltip: String, height: float,
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT if show_caption else HORIZONTAL_ALIGNMENT_CENTER
 	var hover_color := Color.WHITE if text_color == UIConstants.COLOR_TEXT else text_color.lightened(0.25)
 	_paint_card(button, accent, block, 14, text_color, hover_color)
+	# The squat layouts drop captions to save width; the sprite goes with them,
+	# because a tile too narrow for a sentence is too narrow for an emblem.
 	if show_caption:
+		_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8)
 		button.add_child(_make_caption(caption, caption_font, 1, UIConstants.COLOR_TEXT_DIM))
 	return button
+
+## Put an action's sprite on its card: whole-multiple scaling keeps the pixels
+## square, and the icon joins the button's own minimum size so the responsive
+## layouts measure it like any other part of the label.
+func _give_icon(button: Button, icon_kind: int, title_font: int, accent: Color,
+		dimmed: bool, gap: int) -> void:
+	if icon_kind < 0:
+		return
+	button.icon = PixelIcon.texture(icon_kind, int(title_font * 1.9), accent, dimmed)
+	button.add_theme_constant_override("h_separation", gap)
 
 ## Shared Button set-up: full-width and pointing-hand, with the label's own
 ## width left in the minimum size - a card may be narrower than its text only
@@ -716,13 +740,7 @@ static func _caption_block(font_size: int, lines: int) -> float:
 ## the caption strip along the bottom edge.
 func _paint_card(button: Button, accent: Color, caption_block: float, pad: int,
 		text_color: Color, hover_color: Color) -> void:
-	MenuStyle.paint_card(button, accent, caption_block, pad, text_color, hover_color)
-
-## StyleBoxFlat with uniform side margins, its own top margin and the room a
-## caption needs below the label.
-static func _style(bg: Color, border: Color, border_width: int, radius: int,
-		pad: int, top: int, bottom: int) -> StyleBoxFlat:
-	return MenuStyle.flat(bg, border, border_width, radius, pad, top, bottom)
+	PixelButtonStyle.paint_card(button, accent, caption_block, pad, text_color, hover_color)
 
 static func _with_alpha(color: Color, alpha: float) -> Color:
 	return MenuStyle.with_alpha(color, alpha)
