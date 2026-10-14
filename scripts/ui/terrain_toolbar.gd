@@ -1,28 +1,14 @@
 extends PanelContainer
 class_name TerrainToolbar
-## TerrainToolbar - Tabbed toolbar docked on the right end of the bottom bar.
-##
-## Nine tabs:
-##  - Course Terrain: one course, hazard & landscape tiles honeycomb, with the brush controls pinned to the page's bottom-left corner so they ride above the tiles instead of scrolling with them; the Open Hole action nestles into the notch between the tee box and the green tiles it pairs. Every tile on this tab replaces every other tile (ground, wild flowers and trees) and is never touched by the Bulldozer.
-##  - Improvements:   walking path tile leading the decoration tiles honeycomb (the garden shed catalogue), with the Bulldozer pinned to the bottom-left corner
-##  - Buildings:      optional amenity catalogue; the required clubhouse is
-##                    supplied with every course, with the Bulldozer pinned to
-##                    the bottom-left corner
-##  - Elevation:      the Vertex, Flat Square and Gradual Square selector tools in one honeycomb, with the Elevation Brush (size and shape) the two Square tools share nestled into the notch between them — the size stepper in the V above the point where those tiles meet, the shape toggle in the V below it — while the terrain brush stays the Course Terrain tab's own
-##  - Holes:          one button per course hole, three to a column, each opening that hole's context menu (the buttons are filled by main.gd)
-##  - Golfers:        who is on the course, four golfers to a column, beside the recent rounds, six rounds to a column
-##  - Player:         play the course, tournaments, player skills
-##  - Club:           world map, land, marketing, milestones, scorecard
-##  - Staff:          hire/fire staff, course condition, payroll, and effects
-##
-## Content within tabs is laid out horizontally and scrolls horizontally when
-## overflowing the available tab width. The Bulldozer lives on the two tabs
-## whose tiles it can remove (Improvements and Buildings), pinned to each
-## page's bottom-left corner so it stays put while the shelf scrolls. The
-## Course Terrain brush controls are pinned to that same corner of their page
-## for the same reason: the brush belongs to every tile on the tab, so it sits
-## above the shelf rather than scrolling away with it.
+## Three dock sections share one horizontally scrolling shelf. Tool selection
+## and keyboard shortcuts reveal the owning section and its circular tab.
+## Player edit/skills share PlayerTab's persistent view so a live round is never
+## rebuilt or interrupted by navigation.
 
+signal section_changed(section: int)
+## Emitted when the whole section shelf is hidden (false) or shown again (true).
+signal section_visibility_changed(open: bool)
+signal financial_overview_pressed
 signal course_review_pressed
 signal tool_selected(tool_type: int)
 signal open_hole_pressed
@@ -49,31 +35,27 @@ signal golfer_row_clicked(golfer_id: int)
 ## member's designated area.
 signal staff_area_move_requested(staff_index: int)
 
-enum Tab { TERRAIN, IMPROVEMENTS, BUILDINGS, ELEVATION, HOLES, GOLFERS, PLAYER, CLUB, STAFF }
-
+enum Tab { TERRAIN, IMPROVEMENTS, BUILDINGS, ELEVATION, HOLES, GOLFERS, PLAYER, MAPS, STAFF, REVIEW, MILESTONE, MARKETING, EDIT_PLAYER, PLAYER_SKILLS }
+enum Section { BUILD, MANAGE, GOLFERS }
+const SECTION_TITLES := ["Build", "Manage", "Golfers"]
+const SECTION_COLORS := [Color("d8bb71"), Color("8dba9b"), Color("87b9cf")]
+const SECTION_TABS := {
+	Section.BUILD: [Tab.TERRAIN, Tab.IMPROVEMENTS, Tab.BUILDINGS, Tab.ELEVATION, Tab.HOLES],
+	Section.MANAGE: [Tab.MAPS, Tab.REVIEW, Tab.MILESTONE, Tab.MARKETING, Tab.STAFF],
+	Section.GOLFERS: [Tab.GOLFERS, Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS],
+}
 const TAB_TITLES := {
-	Tab.TERRAIN: "Terrain",
-	Tab.IMPROVEMENTS: "Improvements",
-	Tab.BUILDINGS: "Buildings",
-	Tab.ELEVATION: "Elevation",
-	Tab.HOLES: "Holes",
-	Tab.GOLFERS: "Golfers",
-	Tab.PLAYER: "Player",
-	Tab.CLUB: "Club",
-	Tab.STAFF: "Staff",
+	Tab.TERRAIN: "Terrain", Tab.IMPROVEMENTS: "Improvements",
+	Tab.BUILDINGS: "Buildings", Tab.ELEVATION: "Elevations", Tab.HOLES: "Holes",
+	Tab.GOLFERS: "Visiting Golfers", Tab.PLAYER: "Play Course", Tab.MAPS: "Maps",
+	Tab.STAFF: "Staff", Tab.REVIEW: "Review", Tab.MILESTONE: "Milestone",
+	Tab.MARKETING: "Marketing", Tab.EDIT_PLAYER: "Edit Player Golfer",
+	Tab.PLAYER_SKILLS: "Player Golfer Skills",
 }
-
-const TAB_TOOLTIPS := {
-	Tab.TERRAIN: "Course Terrain",
-	Tab.IMPROVEMENTS: "Improvements",
-	Tab.BUILDINGS: "Buildings",
-	Tab.ELEVATION: "Elevation",
-	Tab.HOLES: "Course Holes",
-	Tab.GOLFERS: "Golfers",
-	Tab.PLAYER: "Player",
-	Tab.CLUB: "Club",
-	Tab.STAFF: "Staff",
-}
+const TAB_ICONS := ["terrain", "improvements", "buildings", "elevation", "holes",
+	"golfers", "play", "maps", "staff", "review", "milestone", "marketing", "edit", "skills"]
+const PLAYER_TABS := [Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]
+const HEADER_HEIGHT := 22.0
 
 const TOOL_TAB_MAP := {
 	TerrainTypes.Type.TEE_BOX: Tab.TERRAIN,
@@ -114,11 +96,13 @@ const TOOL_TAB_MAP := {
 	"gradual": Tab.ELEVATION,
 	"play_course": Tab.PLAYER,
 	"tournaments": Tab.PLAYER,
-	"world_map": Tab.CLUB,
-	"land": Tab.CLUB,
-	"marketing": Tab.CLUB,
-	"milestones": Tab.CLUB,
-	"scorecard": Tab.CLUB,
+	"world_map": Tab.MAPS,
+	"land": Tab.MAPS,
+	"marketing": Tab.MARKETING,
+	"milestones": Tab.MILESTONE,
+	"scorecard": Tab.REVIEW,
+	"review": Tab.REVIEW,
+	"finance": Tab.REVIEW,
 }
 
 ## Shift + number keys pick the extra course tiles: the harsher variants of
@@ -199,7 +183,14 @@ var golfer_data_provider: Callable = Callable()  # -> Array of golfer row dicts
 
 var _current_tool: int = -1
 var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
-var _tab_bar: TabBar = null
+var current_tab: int = Tab.TERRAIN
+var current_section: int = Section.BUILD
+## True while the player has hidden the open section with its section button.
+var section_collapsed: bool = false
+var _last_tabs := {Section.BUILD: Tab.TERRAIN, Section.MANAGE: Tab.MAPS, Section.GOLFERS: Tab.GOLFERS}
+var _tab_buttons: Dictionary = {}
+var _tab_rail: VBoxContainer
+var _page_title: Label
 var _pages: Array[Control] = []  # One wrapper per tab; the scroll + fixed chrome
 var _bulldozer_buttons: Array[BulldozerButton] = []  # Pinned to Improvements & Buildings
 var _brush_dock: PanelContainer = null  # Pinned to the Course Terrain corner
@@ -254,102 +245,112 @@ func _exit_tree() -> void:
 		EventBus.theme_changed.disconnect(_on_theme_changed)
 
 func _build_ui() -> void:
-	# Panel style — docked flush into the bottom bar corner
-	var panel_style = StyleBoxFlat.new()
-	panel_style.bg_color = UIConstants.COLOR_BG_PANEL
-	panel_style.corner_radius_top_left = 6
-	panel_style.corner_radius_top_right = 6
-	panel_style.corner_radius_bottom_right = 0
-	panel_style.corner_radius_bottom_left = 0
-	panel_style.content_margin_left = 0
-	panel_style.content_margin_right = 0
-	panel_style.content_margin_top = 2
-	panel_style.content_margin_bottom = 2
-	panel_style.border_width_left = 1
-	panel_style.border_width_top = 1
-	panel_style.border_width_right = 1
-	panel_style.border_width_bottom = 0
-	panel_style.border_color = UIConstants.COLOR_BORDER
-	add_theme_stylebox_override("panel", panel_style)
-
+	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		SECTION_COLORS[Section.BUILD], Color("14271f"), 6, 2))
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(300, 0)
-
-	var main_vbox = VBoxContainer.new()
-	main_vbox.add_theme_constant_override("separation", 2)
-	main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_child(main_vbox)
-
-	_build_tab_bar(main_vbox)
-
-	var pages_container = PanelContainer.new()
-	var pages_style = StyleBoxEmpty.new()
-	pages_container.add_theme_stylebox_override("panel", pages_style)
+	# The body can shrink to a sliver on a narrow window: it scrolls rather
+	# than pushing the utility buttons or section rail off screen.
+	custom_minimum_size = Vector2(136, 0)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	add_child(row)
+	_build_tab_rail(row)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 0)
+	row.add_child(body)
+	_page_title = Label.new()
+	_page_title.custom_minimum_size.y = HEADER_HEIGHT
+	_page_title.add_theme_font_override("font", PixelCircleButton.FONT)
+	_page_title.add_theme_font_size_override("font_size", 14)
+	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	body.add_child(_page_title)
+	var pages_container := PanelContainer.new()
+	pages_container.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	pages_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	pages_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	main_vbox.add_child(pages_container)
-
-	# Build one horizontally-scrollable page per tab
+	body.add_child(pages_container)
 	for tab_index in TAB_TITLES.size():
-		var page = _build_page(tab_index)
-		page.visible = (tab_index == Tab.TERRAIN)
+		var page := _build_page(tab_index)
+		page.visible = tab_index == Tab.TERRAIN
 		pages_container.add_child(page)
 		_pages.append(page)
-
+	# The player already has a persistent set of pages. Hide its old text
+	# navigation and move the skill-point badge onto the new circular rail.
+	player_tab.use_external_navigation(_tab_buttons[Tab.PLAYER_SKILLS])
+	player_tab.selection_changed.connect(_on_player_section_changed)
+	select_tab(Tab.TERRAIN)
 	_build_refresh_timer()
 
-func _build_tab_bar(parent: VBoxContainer) -> void:
-	_tab_bar = TabBar.new()
-	_tab_bar.focus_mode = Control.FOCUS_NONE
-	_tab_bar.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	_tab_bar.scrolling_enabled = true
-	_tab_bar.tab_alignment = TabBar.ALIGNMENT_LEFT
-	_tab_bar.custom_minimum_size = Vector2(0, 24)
+func _build_tab_rail(parent: HBoxContainer) -> void:
+	_tab_rail = VBoxContainer.new()
+	_tab_rail.name = "SectionTabs"
+	_tab_rail.alignment = BoxContainer.ALIGNMENT_CENTER
+	_tab_rail.add_theme_constant_override("separation", 2)
+	parent.add_child(_tab_rail)
+	for section in SECTION_TABS:
+		for tab_index in SECTION_TABS[section]:
+			var button := PixelCircleButton.new()
+			button.name = "Tab%d" % tab_index
+			button.glyph = TAB_ICONS[tab_index]
+			button.accent = SECTION_COLORS[section]
+			button.toggle_mode = true
+			button.tooltip_text = TAB_TITLES[tab_index]
+			button.accessibility_name = TAB_TITLES[tab_index]
+			button.pressed.connect(select_tab.bind(tab_index))
+			_tab_rail.add_child(button)
+			_tab_buttons[tab_index] = button
 
-	# Compact tab styles
-	var tab_selected = StyleBoxFlat.new()
-	tab_selected.bg_color = UIConstants.COLOR_PRIMARY
-	tab_selected.corner_radius_top_left = 4
-	tab_selected.corner_radius_top_right = 4
-	tab_selected.content_margin_left = 8
-	tab_selected.content_margin_right = 8
-	tab_selected.content_margin_top = 2
-	tab_selected.content_margin_bottom = 2
-	tab_selected.border_width_bottom = 2
-	tab_selected.border_color = UIConstants.COLOR_GOLD
+func select_section(section: int) -> void:
+	if SECTION_TABS.has(section):
+		select_tab(_last_tabs[section])
 
-	var tab_unselected = StyleBoxFlat.new()
-	tab_unselected.bg_color = UIConstants.COLOR_BG_BUTTON
-	tab_unselected.corner_radius_top_left = 4
-	tab_unselected.corner_radius_top_right = 4
-	tab_unselected.content_margin_left = 8
-	tab_unselected.content_margin_right = 8
-	tab_unselected.content_margin_top = 2
-	tab_unselected.content_margin_bottom = 2
-	tab_unselected.border_width_bottom = 2
-	tab_unselected.border_color = UIConstants.COLOR_BORDER
+## Section button handler: pressing the button of the section that is already
+## open hides it; pressing any other section button (or a collapsed one) opens it.
+func toggle_section(section: int) -> void:
+	if not SECTION_TABS.has(section):
+		return
+	if section == current_section and not section_collapsed:
+		collapse_section()
+	else:
+		select_section(section)
 
-	var tab_panel = StyleBoxFlat.new()
-	tab_panel.bg_color = Color(UIConstants.COLOR_BG_DARK, 0.0)
-	tab_panel.content_margin_top = 0
-	tab_panel.content_margin_bottom = 0
+## Hide the section's tabs and tools. Hotkeys and tab selection bring it back.
+func collapse_section() -> void:
+	if section_collapsed:
+		return
+	section_collapsed = true
+	visible = false
+	section_visibility_changed.emit(false)
 
-	_tab_bar.add_theme_stylebox_override("tab_selected", tab_selected)
-	_tab_bar.add_theme_stylebox_override("tab_unselected", tab_unselected)
-	_tab_bar.add_theme_stylebox_override("tab_hovered", tab_selected)
-	_tab_bar.add_theme_stylebox_override("panel", tab_panel)
-	_tab_bar.add_theme_color_override("font_selected_color", UIConstants.COLOR_TEXT)
-	_tab_bar.add_theme_color_override("font_unselected_color", UIConstants.COLOR_TEXT_DIM)
-	_tab_bar.add_theme_color_override("font_hovered_color", UIConstants.COLOR_TEXT)
+func expand_section() -> void:
+	if not section_collapsed:
+		return
+	section_collapsed = false
+	visible = true
+	section_visibility_changed.emit(true)
 
-	for tab_index in TAB_TITLES.size():
-		_tab_bar.add_tab(TAB_TITLES[tab_index])
-		_tab_bar.set_tab_tooltip(tab_index, TAB_TOOLTIPS[tab_index])
+func _sync_navigation(tab_index: int) -> void:
+	for section in SECTION_TABS:
+		if tab_index in SECTION_TABS[section]:
+			current_section = section
+			break
+	_last_tabs[current_section] = tab_index
+	for index in _tab_buttons:
+		_tab_buttons[index].visible = index in SECTION_TABS[current_section]
+		_tab_buttons[index].active = index == tab_index
+		_tab_buttons[index].set_pressed_no_signal(index == tab_index)
+	_page_title.text = "%s  /  %s" % [SECTION_TITLES[current_section].to_upper(), TAB_TITLES[tab_index]]
+	_page_title.add_theme_color_override("font_color", SECTION_COLORS[current_section])
+	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		SECTION_COLORS[current_section], Color("14271f"), 6, 2))
+	section_changed.emit(current_section)
 
-	_tab_bar.tab_changed.connect(_on_tab_changed)
-	parent.add_child(_tab_bar)
+func _on_player_section_changed(index: int) -> void:
+	# Round setup can select Play Course directly. Reflect that in the rail
+	# only when the player view is already open; don't hijack a build action.
+	if current_tab in PLAYER_TABS and current_tab != PLAYER_TABS[index]:
+		select_tab(PLAYER_TABS[index])
 
 func _build_page(tab_index: int) -> Control:
 	# Each page is a plain wrapper Control holding the horizontally-scrollable
@@ -401,8 +402,8 @@ func _build_page(tab_index: int) -> Control:
 			_build_golfers_tab(hbox)
 		Tab.PLAYER:
 			_build_player_tab(hbox)
-		Tab.CLUB:
-			_build_club_tab(hbox)
+		Tab.MAPS, Tab.REVIEW, Tab.MILESTONE, Tab.MARKETING:
+			_build_manage_tab(hbox, tab_index)
 		Tab.STAFF:
 			_build_staff_tab(hbox)
 
@@ -996,27 +997,31 @@ func _build_player_tab(hbox: HBoxContainer) -> void:
 	hbox.add_child(player_tab)
 
 func select_player_section(index: int) -> void:
-	select_tab(Tab.PLAYER)
-	player_tab.select(index)
+	if index >= 0 and index < PLAYER_TABS.size():
+		select_tab(PLAYER_TABS[index])
 
-func _build_club_tab(hbox: HBoxContainer) -> void:
-	var ops_box = HBoxContainer.new()
-	ops_box.add_theme_constant_override("separation", 4)
-	ops_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# The World Map leads the operations: it is the company's atlas, so it is
-	# where a club decides which site to work on next. Opening it from here
-	# freezes the course behind the globe, exactly as the pause menu did.
-	_add_tool_button(ops_box, {"type": "world_map", "name": "World Map", "desc": "Buy, browse and switch between the company's course sites"})
-	_add_tool_button(ops_box, {"type": "land", "name": "Land", "icon": "[L]", "hotkey": "L", "desc": "Buy land parcels to expand the course"})
-	_add_tool_button(ops_box, {"type": "marketing", "name": "Marketing", "icon": "[M]", "hotkey": "M", "desc": "Marketing campaigns to attract golfers"})
-	_add_tool_button(ops_box, {"type": "milestones", "name": "Milestones", "icon": "[G]", "hotkey": "G", "desc": "Goals and achievements"})
-	_add_tool_button(ops_box, {"type": "scorecard", "name": "Scorecard", "icon": "[K]", "hotkey": "K", "desc": "Course scorecard and records"})
-	ops_box.add_child(_make_review_button())
-	hbox.add_child(_make_tab_group("OPERATIONS", ops_box))
-
-	hbox.add_child(_make_separator())
-
-	hbox.add_child(_make_tip_label("Switch course sites on the World Map, buy land, run marketing campaigns, track milestones and check course records."))
+func _build_manage_tab(hbox: HBoxContainer, tab_index: int) -> void:
+	var actions := {
+		Tab.MAPS: [
+			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
+			["land", "Land", "terrain", "L", "Buy land parcels to expand the course"]],
+		Tab.REVIEW: [
+			["review", "Review", "review", "", "Course rating, feedback and next steps"],
+			["scorecard", "Scorecard", "holes", "K", "Course scorecard and records"],
+			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"]],
+		Tab.MILESTONE: [["milestones", "Milestone", "milestone", "G", "Goals and achievements"]],
+		Tab.MARKETING: [["marketing", "Marketing", "marketing", "M", "Campaigns to attract golfers"]],
+	}
+	hbox.add_theme_constant_override("separation", 10)
+	for action in actions[tab_index]:
+		var button := DockActionButton.new()
+		button.tool_type = action[0]
+		button.tool_name = action[1]
+		button.glyph = action[2]
+		button.hotkey = action[3]
+		button.tool_description = action[4]
+		button.tool_pressed.connect(_on_tool_button_pressed)
+		hbox.add_child(button)
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
@@ -1139,7 +1144,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["world_map", "land", "marketing", "milestones", "scorecard", "tournaments", "play_course"]
+	return tool_type in ["world_map", "land", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -1413,12 +1418,12 @@ func _build_refresh_timer() -> void:
 # Tab handling
 # =============================================================================
 
-func _on_tab_changed(tab_index: int) -> void:
-	_show_page(tab_index)
-
 func _show_page(tab_index: int) -> void:
+	var view_index := Tab.PLAYER if tab_index in PLAYER_TABS else tab_index
 	for i in _pages.size():
-		_pages[i].visible = (i == tab_index)
+		_pages[i].visible = i == view_index
+	if tab_index in PLAYER_TABS:
+		player_tab.select(PLAYER_TABS.find(tab_index))
 	match tab_index:
 		Tab.IMPROVEMENTS:
 			refresh_decoration_unlocks()
@@ -1432,7 +1437,9 @@ func _show_page(tab_index: int) -> void:
 
 func select_tab(tab_index: int) -> void:
 	if tab_index >= 0 and tab_index < _pages.size():
-		_tab_bar.current_tab = tab_index
+		expand_section()
+		current_tab = tab_index
+		_sync_navigation(tab_index)
 		_show_page(tab_index)
 
 func _tab_index_for_tool(tool_type) -> int:
@@ -1446,11 +1453,11 @@ func _reveal_tab_for_tool(tool_type) -> void:
 func _on_refresh_tick() -> void:
 	if not is_visible_in_tree():
 		return
-	if _tab_bar and _tab_bar.current_tab == Tab.GOLFERS:
+	if current_tab == Tab.GOLFERS:
 		_refresh_golfer_lists()
-	elif _tab_bar and _tab_bar.current_tab == Tab.PLAYER:
+	elif current_tab in PLAYER_TABS:
 		_refresh_player_skills()
-	elif _tab_bar and _tab_bar.current_tab == Tab.IMPROVEMENTS:
+	elif current_tab == Tab.IMPROVEMENTS:
 		# Star rating, reputation and hole count all move during play, so the
 		# open decoration shelf keeps up with what has been unlocked.
 		refresh_decoration_unlocks()
@@ -1463,7 +1470,7 @@ func record_completed_round(data: Dictionary) -> void:
 	_recent_rounds.push_front(data)
 	if _recent_rounds.size() > MAX_RECENT_ROUNDS:
 		_recent_rounds.resize(MAX_RECENT_ROUNDS)
-	if is_visible_in_tree() and _tab_bar and _tab_bar.current_tab == Tab.GOLFERS:
+	if is_visible_in_tree() and current_tab == Tab.GOLFERS:
 		_refresh_golfer_lists()
 
 func _refresh_golfer_lists() -> void:
@@ -1654,6 +1661,10 @@ func _on_tool_button_pressed(tool_type) -> void:
 				milestones_pressed.emit()
 			"scorecard":
 				scorecard_pressed.emit()
+			"review":
+				course_review_pressed.emit()
+			"finance":
+				financial_overview_pressed.emit()
 
 func _update_selection_highlight() -> void:
 	for tool_type in _tool_buttons.keys():

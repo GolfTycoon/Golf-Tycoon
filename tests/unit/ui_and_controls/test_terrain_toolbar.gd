@@ -212,18 +212,15 @@ func _catalogue_tiles() -> Array:
 	return toolbar._decoration_shelf.get_children().filter(
 		func(tile): return tile != toolbar._path_tile)
 
-func test_toolbar_has_nine_tabs() -> void:
-	assert_eq(toolbar._tab_bar.tab_count, 9, "Toolbar should have 9 tabs")
-	assert_eq(toolbar._pages.size(), 9, "Toolbar should have 9 pages")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.TERRAIN), "Terrain")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.IMPROVEMENTS), "Improvements")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.BUILDINGS), "Buildings")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.ELEVATION), "Elevation")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.HOLES), "Holes")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.GOLFERS), "Golfers")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.PLAYER), "Player")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.CLUB), "Club")
-	assert_eq(toolbar._tab_bar.get_tab_title(TerrainToolbar.Tab.STAFF), "Staff")
+func test_toolbar_has_fourteen_tabs_in_three_sections() -> void:
+	assert_eq(toolbar._tab_buttons.size(), 14)
+	assert_eq(toolbar._pages.size(), 14)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD].size(), 5)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE].size(), 5)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.GOLFERS].size(), 4)
+	for index in TerrainToolbar.TAB_TITLES:
+		assert_eq(toolbar._tab_buttons[index].accessibility_name, TerrainToolbar.TAB_TITLES[index])
+		assert_true(PixelCircleButton.ICONS.has(toolbar._tab_buttons[index].glyph))
 
 func test_all_pages_scroll_horizontally_behind_fixed_chrome() -> void:
 	for i in toolbar._pages.size():
@@ -258,7 +255,7 @@ func test_bulldozer_pins_to_the_removal_tabs_bottom_left_corners() -> void:
 	for tab in [TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
 		var page: Control = toolbar._pages[tab]
 		var found := page.find_children("*", "BulldozerButton", false, false)
-		assert_eq(found.size(), 1, "%s page pins exactly one Bulldozer" % toolbar._tab_bar.get_tab_title(tab))
+		assert_eq(found.size(), 1, "%s page pins exactly one Bulldozer" % TerrainToolbar.TAB_TITLES[tab])
 		var btn: BulldozerButton = found[0]
 		# Anchored to the page's bottom-left corner, clear of the page edges.
 		assert_almost_eq(btn.anchor_left, 0.0, 0.001, "Anchored to the left edge")
@@ -827,7 +824,7 @@ func test_a_full_course_of_holes_stays_inside_the_bottom_bar() -> void:
 	await _settle_layout()
 	assert_gt(grid.get_combined_minimum_size().y, 0.0, "The hole buttons are measured")
 	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) \
-			- toolbar._tab_bar.get_combined_minimum_size().y
+			- TerrainToolbar.HEADER_HEIGHT
 	assert_lte(grid.get_combined_minimum_size().y, available,
 		"Three rows of hole buttons fit under the tab bar")
 
@@ -1011,7 +1008,7 @@ func test_golfer_and_round_columns_stay_inside_the_bottom_bar() -> void:
 
 	await _settle_layout()
 	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) \
-			- toolbar._tab_bar.get_combined_minimum_size().y
+			- TerrainToolbar.HEADER_HEIGHT
 	var content := toolbar.page_content(TerrainToolbar.Tab.GOLFERS)
 	assert_gt(content.get_combined_minimum_size().y, 0.0, "The Golfers tab is measured")
 	assert_lte(content.get_combined_minimum_size().y, available,
@@ -1056,36 +1053,36 @@ func test_empty_golfer_lists_keep_one_column() -> void:
 func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("feed"),
 		"The toolbar no longer maps a feed tool to a tab")
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.CLUB)
-	var ops_box: HBoxContainer = page.get_child(0).get_child(1)
+	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
+	var ops_box: HBoxContainer = page
 	var tool_types: Array = []
 	for child in ops_box.get_children():
 		if child is ToolButton:
 			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["world_map", "land", "marketing", "milestones", "scorecard"],
+	assert_eq(tool_types, ["world_map", "land"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
 ## operations, so it is the tab that opens the company's atlas.
 func test_world_map_button_leads_the_club_tab_operations() -> void:
-	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("world_map"), TerrainToolbar.Tab.CLUB,
+	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("world_map"), TerrainToolbar.Tab.MAPS,
 		"The World Map belongs to the Club tab")
 	assert_true(toolbar._is_menu_action("world_map"),
 		"The World Map action opens a screen, so it is never a paint tool")
 	assert_false(toolbar._tool_buttons.has("world_map"),
 		"A menu action holds no terrain tool selection")
 
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.CLUB)
-	var ops_box: HBoxContainer = page.get_child(0).get_child(1)
+	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
+	var ops_box: HBoxContainer = page
 	var first: ToolButton = ops_box.get_child(0)
 	assert_eq(first.tool_type, "world_map", "The World Map leads the operations row")
-	assert_eq(first.text, "World Map", "The button reads World Map")
+	assert_eq(first.text, "World Maps", "The button reads World Maps")
 	assert_string_contains(first.tool_description, "course sites")
 
 	watch_signals(toolbar)
 	toolbar._on_tool_button_pressed("world_map")
 	assert_signal_emitted(toolbar, "world_map_pressed")
-	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.CLUB,
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS,
 		"The World Map button keeps the Club tab open behind it")
 
 func test_action_signals() -> void:
@@ -1318,7 +1315,7 @@ func test_path_tile_leads_the_improvements_honeycomb() -> void:
 	path_tile.pressed.emit()
 	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.WALKING_PATH_TOOL])
 	assert_eq(toolbar.get_current_tool(), TerrainTypes.WALKING_PATH_TOOL)
-	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS)
 
 func test_path_tile_previews_the_trail_over_the_ground_it_crosses() -> void:
 	# A path is a thin trail laid on top of the ground, so its tile shows turf
@@ -1873,3 +1870,82 @@ func test_elevation_brush_signals_report_the_new_settings() -> void:
 	assert_signal_emitted_with_parameters(toolbar, "elevation_brush_size_changed", [5])
 	toolbar._on_elevation_brush_shape_toggled()
 	assert_signal_emitted_with_parameters(toolbar, "elevation_brush_shape_changed", [false])
+
+func test_section_navigation_remembers_tabs_and_shows_only_its_rail() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
+	toolbar.select_section(TerrainToolbar.Section.MANAGE)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS)
+	toolbar.select_tab(TerrainToolbar.Tab.MARKETING)
+	toolbar.select_section(TerrainToolbar.Section.BUILD)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.ELEVATION)
+	toolbar.select_section(TerrainToolbar.Section.MANAGE)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING)
+	for index in toolbar._tab_buttons:
+		var button: PixelCircleButton = toolbar._tab_buttons[index]
+		assert_eq(button.visible, index in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE])
+		assert_eq(button.button_pressed, index == TerrainToolbar.Tab.MARKETING)
+	toolbar.select_tab(-1)
+	toolbar.select_section(50)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING, "Invalid navigation is ignored")
+
+func test_section_button_hides_the_open_section_and_reopens_it() -> void:
+	watch_signals(toolbar)
+	toolbar.select_section(TerrainToolbar.Section.BUILD)
+
+	toolbar.toggle_section(TerrainToolbar.Section.BUILD)
+	assert_true(toolbar.section_collapsed)
+	assert_false(toolbar.visible, "The open section's shelf is hidden")
+	assert_signal_emitted_with_parameters(toolbar, "section_visibility_changed", [false])
+
+	toolbar.toggle_section(TerrainToolbar.Section.BUILD)
+	assert_false(toolbar.section_collapsed)
+	assert_true(toolbar.visible, "Pressing the section again shows it")
+
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
+	assert_true(toolbar.visible, "Another section's button opens its shelf")
+
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	assert_false(toolbar.visible)
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	toolbar.collapse_section()
+	toolbar.select_tab(TerrainToolbar.Tab.REVIEW)
+	assert_true(toolbar.visible, "Choosing a tab reopens the collapsed section")
+	assert_false(toolbar.section_collapsed)
+
+func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() -> void:
+	var player := toolbar.player_tab
+	assert_false(player.navigation.visible)
+	for index in TerrainToolbar.PLAYER_TABS.size():
+		toolbar.select_player_section(index)
+		assert_eq(toolbar.current_section, TerrainToolbar.Section.GOLFERS)
+		assert_eq(toolbar.current_tab, TerrainToolbar.PLAYER_TABS[index])
+		assert_eq(player.selected, index)
+		assert_true(player.pages[index].get_parent().is_visible_in_tree())
+		assert_eq(toolbar._pages.filter(func(page): return page.visible).size(), 1)
+	assert_eq(player.skill_badge.get_parent(), toolbar._tab_buttons[TerrainToolbar.Tab.PLAYER_SKILLS])
+	player.select(PlayerTab.PAGE_PLAY)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.PLAYER, "Round setup updates the circular rail")
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	player.select(PlayerTab.PAGE_EDIT)
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.BUILD, "Background updates never hijack building")
+
+func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
+	var expected := {
+		TerrainToolbar.Tab.MAPS: ["world_map", "land"],
+		TerrainToolbar.Tab.REVIEW: ["review", "scorecard", "finance"],
+		TerrainToolbar.Tab.MILESTONE: ["milestones"],
+		TerrainToolbar.Tab.MARKETING: ["marketing"],
+	}
+	watch_signals(toolbar)
+	for tab in expected:
+		var buttons := toolbar.page_content(tab).get_children()
+		assert_eq(buttons.map(func(button): return button.tool_type), expected[tab])
+		for button in buttons:
+			assert_true(button is DockActionButton)
+			button.pressed.emit()
+			assert_eq(toolbar.current_tab, tab)
+			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
+	for signal_name in ["world_map_pressed", "land_pressed", "course_review_pressed", "scorecard_pressed",
+			"financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
+		assert_signal_emitted(toolbar, signal_name)

@@ -4,7 +4,7 @@ extends MainSceneTest
 ## a tooltip and a highlight that say which, all filling the bottom bar's left
 ## control stack.
 
-var fast: Button
+var fast: PixelCircleButton
 
 
 func before_all() -> void:
@@ -25,21 +25,18 @@ func test_pause_play_and_one_fast_forward_button_fill_the_stack() -> void:
 		names.append(String(child.name))
 	assert_eq(names, ["PauseBtn", "PlayBtn", "FastBtn"], "Pause, play and one fast-forward button")
 	assert_null(main.speed_controls.get_node_or_null("UltraBtn"), "No separate Ultra button")
-	# The stack fills the bottom bar, its rows run its full height and the
-	# buttons fill their row.
-	var stack: VBoxContainer = main.left_controls
-	var top_row: Control = stack.get_child(0)
-	var bottom_row: Control = stack.get_child(stack.get_child_count() - 1)
-	assert_almost_eq(stack.size.y, main.bottom_bar.size.y, 0.5, "The stack fills the bottom bar's height")
-	assert_lte(top_row.position.y, 0.5, "with no dead space above its rows")
-	assert_gte(bottom_row.position.y + bottom_row.size.y, stack.size.y - 0.5, "or below them")
-	assert_almost_eq(fast.size.y, main.speed_controls.size.y, 0.5, "The speed buttons fill their row")
+	var dock: BottomControlDock = main.left_controls
+	assert_almost_eq(dock.size.y, main.bottom_bar.size.y, 0.5)
+	for button in [main.pause_btn, main.play_btn, fast]:
+		assert_eq(button.size, Vector2(32, 32), "Small circular controls stay square")
+		assert_true(dock.get_global_rect().encloses(button.get_global_rect()))
+	assert_almost_eq(main.speed_controls.position.y + fast.size.y, dock.size.y - 2, 0.5)
 
 
 func test_fast_forward_steps_between_fast_and_ultra() -> void:
 	# Idle: the button advertises the tier it starts at, dimmed.
 	assert_eq(fast.text, ">>", "The idle button reads >>")
-	assert_lt(fast.modulate.a, 1.0, "and is dimmed")
+	assert_false(fast.active, "Its ring is not selected")
 	assert_string_contains(fast.tooltip_text, "Fast (3x)", "Its tooltip teaches Fast")
 	assert_string_contains(fast.tooltip_text, "Ultra (8x)", "and Ultra")
 	# Both faces keep one width, so toggling never nudges the row.
@@ -50,7 +47,7 @@ func test_fast_forward_steps_between_fast_and_ultra() -> void:
 	assert_eq(Engine.time_scale, 3.0, "and scales the engine by 3")
 	assert_eq(fast.text, ">>", "Fast keeps the >> face")
 	assert_almost_eq(fast.size.x, width, 0.5, "and the button's width")
-	assert_eq(fast.modulate.a, 1.0, "The button lights up while Fast runs")
+	assert_true(fast.active, "The ring lights up while Fast runs")
 	assert_string_contains(fast.tooltip_text, "Ultra (8x)", "and offers Ultra next")
 
 	await click(fast)
@@ -58,7 +55,7 @@ func test_fast_forward_steps_between_fast_and_ultra() -> void:
 	assert_eq(Engine.time_scale, 8.0, "and scales the engine by 8")
 	assert_eq(fast.text, ">>>", "Ultra reads >>>")
 	assert_almost_eq(fast.size.x, width, 0.5, "and the wider face keeps the width")
-	assert_eq(fast.modulate.a, 1.0, "The button stays lit at Ultra")
+	assert_true(fast.active, "The ring stays lit at Ultra")
 	assert_string_contains(fast.tooltip_text, "Fast (3x)", "and offers Fast next")
 
 	await click(fast)
@@ -73,7 +70,7 @@ func test_pause_and_play_keep_their_own_buttons() -> void:
 	assert_eq(GameManager.current_speed, GameManager.GameSpeed.PAUSED, "The pause button pauses")
 	assert_eq(Engine.time_scale, 0.0, "and freezes the engine")
 	assert_eq(fast.text, ">>", "The paused fast-forward button advertises Fast")
-	assert_lt(fast.modulate.a, 1.0, "dimmed")
+	assert_false(fast.active, "Its ring is not selected")
 	await click(main.play_btn)
 	assert_eq(GameManager.current_speed, GameManager.GameSpeed.NORMAL, "The play button resumes at 1x")
 	assert_eq(Engine.time_scale, 1.0, "in real time")
