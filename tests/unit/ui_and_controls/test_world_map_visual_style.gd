@@ -59,6 +59,27 @@ func test_every_visible_word_uses_the_title_screens_pixelify_faces() -> void:
 	if title:
 		assert_eq(title.get_theme_font("font").resource_path, TITLE_FONT_PATH, "the heading is bold")
 
+func test_world_map_title_contains_only_the_icon_and_text() -> void:
+	var screen := _screen()
+	await process_frames(2)
+	var title_block := screen.find_child("TitleBlock", true, false) as HBoxContainer
+	assert_not_null(title_block, "the title block is built")
+	if title_block == null:
+		return
+
+	assert_eq(title_block.get_child_count(), 2, "the title block has no kicker or company summary")
+	if title_block.get_child_count() != 2:
+		return
+	assert_true(title_block.get_child(0) is MenuFlagMark, "the first title item is the golf icon")
+	var title := title_block.get_child(1) as Label
+	assert_not_null(title, "the second title item is text")
+	if title:
+		assert_eq(title.name, "Title", "the text item is the title")
+		assert_eq(title.text, "World Map", "the title reads World Map")
+		assert_eq(title.size_flags_horizontal, Control.SIZE_EXPAND_FILL,
+			"the title can use the space beside the icon")
+		assert_gt(title.size.x, 0.0, "the title receives visible width")
+
 func test_atlas_buttons_and_panels_use_shared_pixel_frames() -> void:
 	var screen := _screen()
 	var buttons := _nodes_of_class(screen, "Button")
@@ -102,9 +123,14 @@ func test_screen_ornaments_are_pixel_sprites() -> void:
 		assert_eq((flag as TextureRect).texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST,
 			"the pennants stay pixel sharp")
 	var legend := screen.find_child("MarkerLegend", true, false)
-	assert_not_null(legend, "the map footer keeps its pin legend")
-	if legend:
-		assert_gte(_texture_rects(legend).size(), 3, "the legend explains the pin colours")
+	var compact_layout := screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_LANDSCAPE \
+		or screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_PORTRAIT
+	if compact_layout:
+		assert_null(legend, "compact layouts leave out the legend to preserve room")
+	else:
+		assert_not_null(legend, "the map footer keeps its pin legend")
+		if legend:
+			assert_gte(_texture_rects(legend).size(), 3, "the legend explains the pin colours")
 	var mark := screen.find_child("Mark", true, false)
 	assert_true(mark is MenuFlagMark, "the title lockup keeps its golf-flag mark")
 

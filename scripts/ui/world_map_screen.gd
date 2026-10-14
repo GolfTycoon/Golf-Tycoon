@@ -73,7 +73,6 @@ var _horizontal_directory: bool = false
 var _rows: Dictionary = {}
 var _filter_buttons: Dictionary = {}
 var _money_label: Label = null
-var _summary_label: Label = null
 var _map_summary_label: Label = null
 var _hint_label: Label = null
 var _search_input: LineEdit = null
@@ -176,7 +175,6 @@ func _build() -> void:
 	_featured_buy = null
 	_featured_action = null
 	_money_label = null
-	_summary_label = null
 	_map_summary_label = null
 	_hint_label = null
 
@@ -261,32 +259,21 @@ func _build_header(mode: int) -> Control:
 	back.pressed.connect(func(): back_requested.emit())
 	header.add_child(back)
 
-	var title_box := VBoxContainer.new()
+	var title_box := HBoxContainer.new()
 	title_box.name = "TitleBlock"
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 1)
-	var kicker := _make_kicker("Company atlas", 10 if compact else 11)
-	kicker.name = "Kicker"
-	var title_row := HBoxContainer.new()
-	title_row.name = "TitleRow"
-	title_row.add_theme_constant_override("separation", 7 if compact else 9)
+	title_box.add_theme_constant_override("separation", 7 if compact else 9)
 	var mark := MenuFlagMark.new()
 	mark.name = "Mark"
 	mark.mark_size = 20.0 if compact else (29.0 if mode == LayoutMode.DESKTOP else 27.0)
 	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_row.add_child(mark)
+	title_box.add_child(mark)
 	var title := _make_title_label("World Map", 20 if compact else 26)
 	title.name = "Title"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_row.add_child(title)
-	title_box.add_child(kicker)
-	title_box.add_child(title_row)
-	_summary_label = _make_label("", 11 if compact else 13, COLOR_TEXT_SECONDARY)
-	_summary_label.name = "CompanySummary"
-	_summary_label.clip_text = true
-	_summary_label.visible = mode != LayoutMode.PHONE_LANDSCAPE
-	title_box.add_child(_summary_label)
+	title_box.add_child(title)
 	header.add_child(title_box)
 
 	var balance := PanelContainer.new()
@@ -867,13 +854,6 @@ func refresh() -> void:
 	_restore_scroll_positions.call_deferred()
 
 func _update_header() -> void:
-	var owned := 0
-	for def in WorldLocations.get_all():
-		if WorldMap.is_owned(str(def.get("id", ""))):
-			owned += 1
-	if is_instance_valid(_summary_label):
-		_summary_label.text = "%s   ·   %d of %d destinations owned" % [
-			WorldMap.company_name, owned, WorldLocations.get_all().size()]
 	if is_instance_valid(_money_label):
 		var cash := "Unlimited" if GameManager.unlimited_money else _format_money(GameManager.money)
 		if _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT:
