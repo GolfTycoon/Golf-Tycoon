@@ -34,7 +34,7 @@ func _view() -> Rect2:
 
 
 ## The location list stays readable and clickable: several rows, and the first
-## row's Buy / Play button, inside the list's clip and the window. A list panel
+## row's Buy & Play / Play button, inside the list's clip and the window. A list panel
 ## that collapses would still be "on screen" while hiding every row.
 func _assert_rows_visible(world_screen: Node, tag: String) -> void:
 	var clip: Rect2 = (world_screen._list_box.get_parent() as Control).get_global_rect()
@@ -146,7 +146,7 @@ func test_the_world_map_fits_every_window() -> void:
 	var world_screen: Node = main.get_node("UI/HUD/WorldMapScreen")
 	assert_true(world_screen.get_node_or_null("Backdrop") is MenuBackdrop,
 		"The world map shares the title screen's backdrop")
-	assert_true(world_screen.get_node_or_null("Frame/Page/AtlasHeader/TitleBlock/TitleRow/Mark") is MenuFlagMark,
+	assert_true(world_screen.get_node_or_null("Frame/Page/AtlasHeader/TitleBlock/Mark") is MenuFlagMark,
 		"and its golf-flag mark")
 	var globe: Rect2 = world_screen.globe.get_global_rect()
 	assert_true(_view().encloses(globe), "The desktop globe is wholly on screen")

@@ -1,7 +1,7 @@
 extends MainSceneTest
 ## The company's road from the main menu to its courses: Start New Game captures
 ## the company options and opens the world map, which lists every location;
-## buying one from its row and pressing Play builds the generated first course
+## Buy & Play on a row buys that site and builds the generated first course
 ## there; the Club tab's World Map button freezes the course behind the globe
 ## and hands it back on Back or Esc; a second location can be bought and played
 ## and the first course is found as it was left; an 18-hole company builds and
@@ -39,7 +39,7 @@ func _tool_button(node: Node, tool_type: String) -> Button:
 	return null
 
 
-## The Buy / Play button in a location's row of the world map.
+## The Buy & Play / Play button in a location's row of the world map.
 func _row_button(screen: Node, location_id: String) -> Button:
 	var row = screen._rows.get(location_id)
 	if row == null:
@@ -169,23 +169,17 @@ func test_buying_and_playing_a_location_builds_its_first_course() -> void:
 	var screen := _world_map_screen()
 	assert_false(WorldMap.is_owned(FIRST_SITE), "Monterey starts unowned")
 	var price := WorldMap.get_price(FIRST_SITE)
-	var buy := _row_button(screen, FIRST_SITE)
-	assert_not_null(buy, "The Monterey row has an action button")
-	if buy == null:
+	var buy_and_play := _row_button(screen, FIRST_SITE)
+	assert_not_null(buy_and_play, "The Monterey row has an action button")
+	if buy_and_play == null:
 		return
-	assert_eq(buy.text, "Buy", "The unowned row offers Buy")
-	buy.pressed.emit()
-	await process_frames(2)
-	assert_true(WorldMap.is_owned(FIRST_SITE), "Pressing Buy buys Monterey")
-	assert_eq(GameManager.money, 200000 - price, "Buying deducts the price")
-	assert_true(screen._rows.has(FIRST_SITE), "The row is still listed after buying")
-
-	var play := _row_button(screen, FIRST_SITE)
-	assert_eq(play.text if play else "", "Play", "The owned row offers Play")
-	if play:
-		play.pressed.emit()
+	assert_eq(buy_and_play.text, "Buy & Play", "The unowned row offers Buy & Play")
+	buy_and_play.pressed.emit()
 	await process_frames(12)
-	assert_null(_world_map_screen(), "Pressing Play closes the world map")
+	assert_true(WorldMap.is_owned(FIRST_SITE), "Pressing Buy & Play buys Monterey")
+	assert_between(GameManager.money, 200000 - price, 200000 - price + 5000,
+		"Buying deducts the price; opening the course may add a little from fees and milestones")
+	assert_null(_world_map_screen(), "Pressing Buy & Play closes the world map")
 	assert_eq(GameManager.company_name, "Summit Golf Group", "The company name reaches the game")
 	assert_eq(GameManager.current_difficulty, DifficultyPresets.Preset.HARD, "and the difficulty")
 	assert_true(GameManager.wind_enabled, "The wind chosen on the setup screen is on in the new game")
@@ -250,6 +244,48 @@ func test_the_club_tab_opens_the_world_map_over_a_frozen_course() -> void:
 	assert_null(_world_map_screen(), "Back closes the world map")
 	assert_false(GameManager.is_paused, "Back resumes the course that was running")
 	assert_true(main.bottom_bar.is_visible_in_tree(), "The gameplay UI comes back after Back")
+
+
+func test_the_globe_turns_when_the_map_opens_from_the_club_tab() -> void:
+	# The Club tab freezes the course behind the map, and a frozen simulation
+	# (Engine.time_scale 0) used to stop the globe mid-flight and write its
+	# frozen centre over every frame of a drag: the atlas looked stuck.
+	_tool_button(main.terrain_toolbar, "world_map").pressed.emit()
+	await process_frames(3)
+	var screen := _world_map_screen()
+	assert_not_null(screen, "The Club tab opens the world map")
+	if screen == null:
+		return
+	assert_true(GameManager.is_paused, "The course behind the map is frozen")
+	var globe: GlobeMap = screen.globe
+	var before := globe.get_view_state()
+	await drag(globe, Vector2(90.0, 30.0))
+	var after := globe.get_view_state()
+	assert_true(absf(float(after["center_lon"]) - float(before["center_lon"])) > 5.0,
+		"Dragging turns the globe over a frozen course")
+	assert_gt(float(after["center_lat"]), float(before["center_lat"]),
+		"and tilts it the way the pointer moved")
+
+	# The zoom buttons answer over a frozen course too.
+	var radius: float = globe.get_view_state()["radius_scale"]
+	var zoom_in := screen.find_child("ZoomIn", true, false) as Button
+	assert_not_null(zoom_in, "The map has a zoom-in button")
+	if zoom_in:
+		zoom_in.pressed.emit()
+	await process_frames(8)
+	assert_gt(globe.get_view_state()["radius_scale"], radius, "Zooming in eases the globe closer")
+
+	# ...and so does choosing a destination, which flies the globe round to it.
+	var centre: float = globe.get_view_state()["center_lon"]
+	globe.location_clicked.emit("japan")
+	await process_frames(8)
+	assert_true(absf(globe.get_view_state()["center_lon"] - centre) > 0.01,
+		"Choosing a destination flies the globe towards it")
+
+	screen.back_requested.emit()
+	await process_frames(3)
+	assert_null(_world_map_screen(), "Back closes the world map")
+	assert_false(GameManager.is_paused, "Back hands the running course back")
 
 
 func test_switching_locations_keeps_each_course_and_the_company_money() -> void:

@@ -36,5 +36,8 @@ Thumbs.db
 *.bak
 *.backup
 
+# Harness renders
+tmp_preview/
+
 # Log files
 *.log

@@ -2,11 +2,11 @@ extends SceneTree
 ## Dev harness: renders the GlobeMap land mask to PNGs so the continent
 ## outlines can be eyeballed without a GPU. Not part of the test suite.
 ##
-##  * `equirect.png` — the polygons tested point by point (GlobeMap.is_land).
-##  * `mask.png` — the mask the planet shader actually samples, straight from
-##    GlobeMap.build_land_mask(), so coastlines and the polar cap can be
-##    compared against the first render.
-##  * `ortho.png` — the old land-dot globe, still drawn by LandStyle.DOTS.
+##  * `equirect.png` — a lower-resolution bake of the detailed Natural Earth
+##    coastline rings, useful for checking the full-world silhouettes.
+##  * `mask.png` — the high-resolution mask the planet shader actually samples.
+##  * `ortho.png` — the shader-free land-dot fallback, sampled from the same
+##    detailed coastline geometry.
 ##
 ## Writes into the project's tmp_preview/ folder (git-ignored).
 const OUT_DIR := "res://tmp_preview"
@@ -37,13 +37,12 @@ func _render_mask() -> void:
 func _render_equirect() -> void:
 	var w := 720
 	var h := 360
+	var land_mask := GlobeMap.build_land_mask(w, h)
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color("16314a"))
 	for y in range(h):
-		var lat: float = 90.0 - (float(y) + 0.5) * (180.0 / float(h))
 		for x in range(w):
-			var lon: float = -180.0 + (float(x) + 0.5) * (360.0 / float(w))
-			if GlobeMap.is_land(lon, lat):
+			if land_mask.get_pixel(x, y).r > 0.5:
 				img.set_pixel(x, y, GlobeMap.LAND_COLOR)
 	print("equirect save: ", img.save_png(OUT_DIR + "/equirect.png"))
 
@@ -56,19 +55,13 @@ func _render_ortho() -> void:
 	_fill_circle(img, center, radius + 3.0, GlobeMap.OCEAN_RIM)
 	_fill_circle(img, center, radius, GlobeMap.OCEAN_COLOR)
 	var dot := radius * deg_to_rad(GlobeMap.LAND_STEP_DEG) * 0.68
-	var lat := -88.0
-	while lat <= 88.0:
-		var lon := -180.0
-		while lon < 180.0:
-			if GlobeMap.is_land(lon, lat):
-				var v := GlobeMap.project_point(lon, lat, -40.0, 30.0)
-				if v.z > 0.0:
-					var pos := center + Vector2(v.x, -v.y) * radius
-					var lit := clampf(v.z * 1.6, 0.0, 1.0)
-					_fill_circle(img, pos, dot * (0.75 + 0.25 * lit),
-						GlobeMap.LAND_SHADE_COLOR.lerp(GlobeMap.LAND_COLOR, lit))
-			lon += GlobeMap.LAND_STEP_DEG
-		lat += GlobeMap.LAND_STEP_DEG
+	for point: Vector2 in GlobeMap.build_land_points():
+		var v := GlobeMap.project_point(point.x, point.y, -40.0, 30.0)
+		if v.z > 0.0:
+			var pos := center + Vector2(v.x, -v.y) * radius
+			var lit := clampf(v.z * 1.6, 0.0, 1.0)
+			_fill_circle(img, pos, dot * (0.75 + 0.25 * lit),
+				GlobeMap.LAND_SHADE_COLOR.lerp(GlobeMap.LAND_COLOR, lit))
 	print("ortho save: ", img.save_png(OUT_DIR + "/ortho.png"))
 
 func _fill_circle(img: Image, center: Vector2, r: float, color: Color) -> void:

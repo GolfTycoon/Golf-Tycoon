@@ -13,8 +13,18 @@ class_name WorldMapScreen
 ##  * Phone portrait: a scrollable travel journal with the globe and selected
 ##    site first, followed by the complete location directory.
 ##
-## All modes are built from the same location state and actions. The selected
-## site, search, filter, scroll position and globe view survive a resize.
+## All modes are built from the same location state and actions. Directory
+## cards offer Buy & Play. The selected-site dossier offers Buy (stay on the
+## map) beside Buy & Play, or Play once the site is owned. The selected site,
+## search, filter, scroll position and globe view survive a resize.
+##
+## The screen wears the same pixel-art look as the title screen and the Start
+## New Game setup: PixelButtonStyle's notched nine-patch frames on every card,
+## tile, button and field; Pixelify Sans throughout (bold for the heading,
+## treasury and the call to action, semibold for names, kickers and buttons,
+## regular for captions and quiet lines); PixelIcon sprites for the treasury
+## coin, the legend pins and each location's state flag; and the globe itself
+## drawn in LandStyle.PIXEL, so the planet is chunky cells with sprite pins.
 
 signal play_location_requested(location_id: String)
 signal back_requested()
@@ -33,6 +43,9 @@ const PHONE_ROW_HEIGHT := 60.0
 const LANDSCAPE_ROW_HEIGHT := 46.0
 const TABLET_CARD_WIDTH := 218.0
 const TABLET_CARD_HEIGHT := 112.0
+## Unowned sites buy the land and start that course in one press.
+const BUY_LABEL := "Buy"
+const BUY_AND_PLAY_LABEL := "Buy & Play"
 ## The out-of-game menus share one background image backdrop, one translucent
 ## card system and the same cream / golf-green / flag-gold accent palette.
 const COLOR_SURFACE := MenuStyle.SHEET_BG
@@ -45,6 +58,13 @@ const COLOR_TEXT_QUIET := UIConstants.COLOR_TEXT_MUTED
 const COLOR_GOLD := MenuStyle.ACCENT_PRIMARY
 const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 
+## The atlas shares the title screen's chunky, readable Pixelify Sans
+## lettering: Bold for the heading, the treasury and the call to action,
+## SemiBold for names, kickers and buttons, Regular for the explanatory copy.
+const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
+const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
+const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
+
 var globe: GlobeMap = null
 var _list_box: BoxContainer = null
 var _directory_scroll: ScrollContainer = null
@@ -53,7 +73,6 @@ var _horizontal_directory: bool = false
 var _rows: Dictionary = {}
 var _filter_buttons: Dictionary = {}
 var _money_label: Label = null
-var _summary_label: Label = null
 var _map_summary_label: Label = null
 var _hint_label: Label = null
 var _search_input: LineEdit = null
@@ -62,6 +81,7 @@ var _featured_meta: Label = null
 var _featured_description: Label = null
 var _featured_stats: Label = null
 var _featured_status: Label = null
+var _featured_buy: Button = null
 var _featured_action: Button = null
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
@@ -152,9 +172,9 @@ func _build() -> void:
 	_featured_description = null
 	_featured_stats = null
 	_featured_status = null
+	_featured_buy = null
 	_featured_action = null
 	_money_label = null
-	_summary_label = null
 	_map_summary_label = null
 	_hint_label = null
 
@@ -234,44 +254,34 @@ func _build_header(mode: int) -> Control:
 	back.tooltip_text = "Return to the previous screen"
 	back.custom_minimum_size = Vector2(94.0 if not compact else 72.0, 42.0 if compact else 46.0)
 	back.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	back.add_theme_font_override("font", SUBTITLE_FONT)
 	_paint_utility_button(back, false)
 	back.pressed.connect(func(): back_requested.emit())
 	header.add_child(back)
 
-	var title_box := VBoxContainer.new()
+	var title_box := HBoxContainer.new()
 	title_box.name = "TitleBlock"
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 1)
-	var kicker := _make_label("COMPANY ATLAS", 10 if compact else 11, COLOR_GOLD)
-	kicker.name = "Kicker"
-	var title_row := HBoxContainer.new()
-	title_row.name = "TitleRow"
-	title_row.add_theme_constant_override("separation", 6 if compact else 8)
+	title_box.add_theme_constant_override("separation", 7 if compact else 9)
 	var mark := MenuFlagMark.new()
 	mark.name = "Mark"
 	mark.mark_size = 20.0 if compact else (29.0 if mode == LayoutMode.DESKTOP else 27.0)
 	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_row.add_child(mark)
-	var title := _make_label("World Map", 20 if compact else 25, COLOR_TEXT_BRIGHT)
+	title_box.add_child(mark)
+	var title := _make_title_label("World Map", 20 if compact else 26)
 	title.name = "Title"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_row.add_child(title)
-	title_box.add_child(kicker)
-	title_box.add_child(title_row)
-	_summary_label = _make_label("", 11 if compact else 13, COLOR_TEXT_SECONDARY)
-	_summary_label.name = "CompanySummary"
-	_summary_label.clip_text = true
-	_summary_label.visible = mode != LayoutMode.PHONE_LANDSCAPE
-	title_box.add_child(_summary_label)
+	title_box.add_child(title)
 	header.add_child(title_box)
 
 	var balance := PanelContainer.new()
 	balance.name = "TreasuryCard"
-	balance.custom_minimum_size = Vector2(104.0 if compact else 154.0, 42.0 if compact else 54.0)
+	balance.custom_minimum_size = Vector2(132.0 if compact else 168.0, 42.0 if compact else 54.0)
 	balance.size_flags_horizontal = Control.SIZE_SHRINK_END
-	balance.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_SURFACE_RAISED,
-		MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.42), MenuStyle.CARD_RADIUS, 10, 6, 1))
+	balance.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		MenuStyle.with_alpha(COLOR_GOLD, 0.72), COLOR_SURFACE_RAISED, 6, 5))
 	var balance_margin := MarginContainer.new()
 	balance_margin.add_theme_constant_override("margin_left", 12 if not compact else 9)
 	balance_margin.add_theme_constant_override("margin_right", 12 if not compact else 9)
@@ -282,14 +292,27 @@ func _build_header(mode: int) -> Control:
 	balance_box.add_theme_constant_override("separation", 0)
 	balance_margin.add_child(balance_box)
 	if not compact:
-		var cash_caption := _make_label("COMPANY CASH", 9, COLOR_TEXT_QUIET)
+		var cash_caption := _make_kicker("Company cash", 10)
+		cash_caption.name = "CashCaption"
 		cash_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cash_caption.add_theme_color_override("font_color", COLOR_TEXT_QUIET)
 		balance_box.add_child(cash_caption)
-	_money_label = _make_label("", 16 if not compact else 13, COLOR_GOLD)
+	var money_row := HBoxContainer.new()
+	money_row.name = "MoneyRow"
+	money_row.alignment = BoxContainer.ALIGNMENT_END
+	money_row.add_theme_constant_override("separation", 6)
+	var coin := _make_sprite(PixelIcon.Kind.COIN, 16, COLOR_GOLD)
+	coin.name = "Coin"
+	money_row.add_child(coin)
+	_money_label = _make_title_label("", 16 if not compact else 13, COLOR_GOLD)
 	_money_label.name = "Money"
+	# A clipped Label reports only a one-pixel minimum width; expand it into the
+	# space beside the coin so the balance itself remains visible.
+	_money_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_money_label.clip_text = true
-	balance_box.add_child(_money_label)
+	money_row.add_child(_money_label)
+	balance_box.add_child(money_row)
 	balance.tooltip_text = "Available company funds"
 	header.add_child(balance)
 	_update_header()
@@ -367,7 +390,7 @@ func _build_phone_landscape_body(view: Vector2) -> Control:
 	rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rail.add_theme_constant_override("separation", 7)
 	var feature := _build_featured_panel(true, true)
-	feature.custom_minimum_size.y = 68.0
+	feature.custom_minimum_size.y = 102.0
 	rail.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_LANDSCAPE, false)
 	catalog.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -393,7 +416,7 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 	map_panel.custom_minimum_size.y = clampf(view.y * 0.28, 220.0, 252.0)
 	content.add_child(map_panel)
 	var feature := _build_featured_panel(true, false)
-	feature.custom_minimum_size.y = 104.0
+	feature.custom_minimum_size.y = 148.0
 	content.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_PORTRAIT, true)
 	content.add_child(catalog)
@@ -425,11 +448,12 @@ func _build_map_panel(mode: int) -> PanelContainer:
 	var map_title_box := VBoxContainer.new()
 	map_title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_title_box.add_theme_constant_override("separation", 1)
-	var map_kicker := _make_label("THE WORLD IS YOUR FAIRWAY", 10 if compact else 11, COLOR_GOLD)
+	var map_kicker := _make_kicker("The world is your fairway", 10 if compact else 11)
 	map_kicker.name = "MapKicker"
 	map_title_box.add_child(map_kicker)
 	_map_summary_label = _make_label("", 12 if compact else 14, COLOR_TEXT_BRIGHT)
 	_map_summary_label.name = "MapSummary"
+	_map_summary_label.add_theme_font_override("font", SUBTITLE_FONT)
 	_map_summary_label.clip_text = true
 	map_title_box.add_child(_map_summary_label)
 	map_header.add_child(map_title_box)
@@ -474,6 +498,7 @@ func _build_map_panel(mode: int) -> PanelContainer:
 
 	globe = GlobeMap.new()
 	globe.name = "GlobeMap"
+	globe.set_land_style(GlobeMap.LandStyle.PIXEL)
 	globe.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	globe.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	globe.custom_minimum_size = _globe_minimum(mode)
@@ -510,26 +535,22 @@ func _map_hint(mode: int) -> String:
 		return "Drag to explore  ·  tap a pin  ·  use + / - to zoom"
 	return "Drag to rotate  ·  tap a pin or a destination card  ·  use + / - to zoom"
 
+## The pin colours the globe itself uses (see GlobeMap.marker_color), so the
+## legend always agrees with the map.
 func _build_map_legend() -> Control:
 	var legend := HBoxContainer.new()
 	legend.name = "MarkerLegend"
-	legend.add_theme_constant_override("separation", 9)
-	legend.add_child(_legend_item(Color("e5c57c"), "Current"))
-	legend.add_child(_legend_item(Color("7fd07f"), "Owned"))
-	legend.add_child(_legend_item(Color("f0f4ea"), "For sale"))
+	legend.add_theme_constant_override("separation", 10)
+	legend.add_child(_legend_item(GlobeMap.marker_color({"active": true}), "Current"))
+	legend.add_child(_legend_item(GlobeMap.marker_color({"owned": true}), "Owned"))
+	legend.add_child(_legend_item(GlobeMap.marker_color({}), "For sale"))
 	return legend
 
 func _legend_item(color: Color, text: String) -> Control:
 	var item := HBoxContainer.new()
-	item.add_theme_constant_override("separation", 4)
-	var dot := ColorRect.new()
-	dot.color = color
-	dot.custom_minimum_size = Vector2(7, 7)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item.add_child(dot)
-	var label := _make_label(text, 10, COLOR_TEXT_SECONDARY)
-	item.add_child(label)
+	item.add_theme_constant_override("separation", 5)
+	item.add_child(_make_sprite(PixelIcon.Kind.PIN, 16, color))
+	item.add_child(_make_label(text, 10, COLOR_TEXT_SECONDARY))
 	return item
 
 func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
@@ -549,24 +570,14 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	margin.add_child(stack)
 
 	if micro:
-		var main_row := HBoxContainer.new()
-		main_row.add_theme_constant_override("separation", 7)
-		var info := VBoxContainer.new()
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_theme_constant_override("separation", 1)
-		_featured_name = _make_label("", 16, COLOR_TEXT_BRIGHT)
+		_featured_name = _make_title_label("", 15)
 		_featured_name.clip_text = true
-		info.add_child(_featured_name)
+		stack.add_child(_featured_name)
 		_featured_meta = _make_label("", 11, COLOR_TEXT_SECONDARY)
 		_featured_meta.clip_text = true
-		info.add_child(_featured_meta)
-		main_row.add_child(info)
-		_featured_action = _make_action_shell(false)
-		_featured_action.custom_minimum_size = Vector2(104, 42)
-		_featured_action.add_theme_font_size_override("font_size", 12)
-		main_row.add_child(_featured_action)
-		stack.add_child(main_row)
-		_featured_status = _make_label("", 9, COLOR_TEXT_QUIET)
+		stack.add_child(_featured_meta)
+		stack.add_child(_build_featured_actions(true, true))
+		_featured_status = _make_label("", 10, COLOR_TEXT_QUIET)
 		_featured_status.clip_text = true
 		stack.add_child(_featured_status)
 		_featured_description = null
@@ -575,32 +586,23 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 
 	var cap_row := HBoxContainer.new()
 	cap_row.add_theme_constant_override("separation", 6)
-	var cap := _make_label("SELECTED DESTINATION" if compact else "LOCATION DOSSIER", 10, COLOR_GOLD)
+	var cap := _make_kicker("Selected destination" if compact else "Location dossier", 10)
+	cap.name = "FeaturedKicker"
 	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cap_row.add_child(cap)
 	_featured_status = _make_label("", 10, COLOR_MINT)
+	_featured_status.add_theme_font_override("font", SUBTITLE_FONT)
+	_featured_status.uppercase = true
 	_featured_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	cap_row.add_child(_featured_status)
 	stack.add_child(cap_row)
 
-	var detail_row := HBoxContainer.new()
-	detail_row.add_theme_constant_override("separation", 8)
-	var detail := VBoxContainer.new()
-	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	detail.add_theme_constant_override("separation", 2)
-	_featured_name = _make_label("", 24 if not compact else 19, COLOR_TEXT_BRIGHT)
+	_featured_name = _make_title_label("", 22 if not compact else 18)
 	_featured_name.clip_text = true
-	detail.add_child(_featured_name)
+	stack.add_child(_featured_name)
 	_featured_meta = _make_label("", 12 if not compact else 11, COLOR_TEXT_SECONDARY)
 	_featured_meta.clip_text = true
-	detail.add_child(_featured_meta)
-	detail_row.add_child(detail)
-	if compact:
-		_featured_action = _make_action_shell(true)
-		_featured_action.custom_minimum_size = Vector2(98, 42)
-		_featured_action.add_theme_font_size_override("font_size", 11)
-		detail_row.add_child(_featured_action)
-	stack.add_child(detail_row)
+	stack.add_child(_featured_meta)
 
 	_featured_description = _make_label("", 12, COLOR_TEXT_SECONDARY)
 	_featured_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -609,15 +611,36 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	stack.add_child(_featured_description)
 
 	_featured_stats = _make_label("", 11, COLOR_MINT)
+	_featured_stats.add_theme_font_override("font", SUBTITLE_FONT)
 	_featured_stats.clip_text = true
 	stack.add_child(_featured_stats)
 
-	if not compact:
-		_featured_action = _make_action_shell(true)
-		_featured_action.custom_minimum_size.y = 46
-		_featured_action.add_theme_font_size_override("font_size", 13)
-		stack.add_child(_featured_action)
+	stack.add_child(_build_featured_actions(compact, false))
 	return panel
+
+## Buy beside Buy & Play for an unowned site; Play alone once it is owned.
+func _build_featured_actions(compact: bool, micro: bool) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "FeaturedActions"
+	row.add_theme_constant_override("separation", 6 if not compact else 4)
+	var height := 34 if micro else (42 if compact else 48)
+	var font_size := 11 if micro else (12 if compact else 14)
+
+	_featured_buy = Button.new()
+	_featured_buy.name = "FeaturedBuy"
+	_featured_buy.custom_minimum_size = Vector2(64 if micro else (72 if compact else 96), height)
+	_featured_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_featured_buy.add_theme_font_size_override("font_size", font_size)
+	_featured_buy.pressed.connect(_on_featured_buy_pressed)
+	_paint_action_button(_featured_buy, false)
+	row.add_child(_featured_buy)
+
+	_featured_action = _make_action_shell(true)
+	_featured_action.custom_minimum_size = Vector2(88 if micro else (108 if compact else 140), height)
+	_featured_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_featured_action.add_theme_font_size_override("font_size", font_size)
+	row.add_child(_featured_action)
+	return row
 
 # =============================================================================
 # LOCATION CATALOGS
@@ -659,10 +682,12 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 		title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title_box.add_theme_constant_override("separation", 0)
 		var heading := _make_label("Course locations" if not compact else "Explore destinations",
-			16 if not compact else 15, COLOR_TEXT_BRIGHT)
+			15 if not compact else 14, COLOR_TEXT_BRIGHT)
+		heading.name = "CatalogHeading"
+		heading.add_theme_font_override("font", SUBTITLE_FONT)
 		title_box.add_child(heading)
-		var caption := _make_label("Choose a site to buy or switch courses" if not compact else "27 places to build your next course",
-			10 if not compact else 10, COLOR_TEXT_QUIET)
+		var caption := _make_label("Choose a site to buy & play, or switch courses" if not compact else "27 places to build your next course",
+			10, COLOR_TEXT_QUIET)
 		title_box.add_child(caption)
 		title_row.add_child(title_box)
 		title_row.add_child(_make_reset_button(compact))
@@ -675,7 +700,7 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 	scroll.name = "LocationScroll"
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.add_theme_stylebox_override("panel", _transparent_panel_style())
+	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_directory_scroll = scroll
 	if page_scrolled:
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -703,8 +728,8 @@ func _build_horizontal_catalog() -> PanelContainer:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
 	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_top", 9)
-	margin.add_theme_constant_override("margin_bottom", 9)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 6)
@@ -715,7 +740,10 @@ func _build_horizontal_catalog() -> PanelContainer:
 	var heading_box := VBoxContainer.new()
 	heading_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_box.add_theme_constant_override("separation", 0)
-	heading_box.add_child(_make_label("Destination shelf", 15, COLOR_TEXT_BRIGHT))
+	var heading := _make_label("Destination shelf", 15, COLOR_TEXT_BRIGHT)
+	heading.name = "ShelfHeading"
+	heading.add_theme_font_override("font", SUBTITLE_FONT)
+	heading_box.add_child(heading)
 	heading_box.add_child(_make_label("Swipe through your company's worldwide portfolio", 10, COLOR_TEXT_QUIET))
 	heading_row.add_child(heading_box)
 	heading_row.add_child(_make_reset_button(true))
@@ -737,7 +765,7 @@ func _build_horizontal_catalog() -> PanelContainer:
 	scroll.custom_minimum_size.y = 112
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.add_theme_stylebox_override("panel", _transparent_panel_style())
+	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_directory_scroll = scroll
 	_horizontal_directory = true
 	stack.add_child(scroll)
@@ -756,11 +784,13 @@ func _make_search_input(height: int) -> LineEdit:
 	search.placeholder_text = "Search name, region or course style"
 	search.clear_button_enabled = true
 	search.custom_minimum_size.y = height
+	search.add_theme_font_override("font", BODY_FONT)
 	search.add_theme_font_size_override("font_size", 12)
 	search.add_theme_color_override("font_color", COLOR_TEXT_BRIGHT)
 	search.add_theme_color_override("font_placeholder_color", COLOR_TEXT_QUIET)
-	search.add_theme_stylebox_override("normal", _panel_style(COLOR_SURFACE_INSET, COLOR_BORDER_SOFT, 1, 8))
-	search.add_theme_stylebox_override("focus", _panel_style(COLOR_SURFACE_INSET, COLOR_GOLD, 1, 8))
+	search.add_theme_color_override("caret_color", MenuStyle.ACCENT_PRIMARY)
+	search.add_theme_color_override("selection_color", MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.35))
+	PixelButtonStyle.paint_field(search, MenuStyle.with_alpha(COLOR_GOLD, 0.85), COLOR_SURFACE_INSET, 8)
 	search.text = _search_query
 	search.text_changed.connect(_on_search_changed)
 	return search
@@ -824,13 +854,6 @@ func refresh() -> void:
 	_restore_scroll_positions.call_deferred()
 
 func _update_header() -> void:
-	var owned := 0
-	for def in WorldLocations.get_all():
-		if WorldMap.is_owned(str(def.get("id", ""))):
-			owned += 1
-	if is_instance_valid(_summary_label):
-		_summary_label.text = "%s   ·   %d of %d destinations owned" % [
-			WorldMap.company_name, owned, WorldLocations.get_all().size()]
 	if is_instance_valid(_money_label):
 		var cash := "Unlimited" if GameManager.unlimited_money else _format_money(GameManager.money)
 		if _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT:
@@ -943,18 +966,17 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	var compact := _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT
 	margin.add_theme_constant_override("margin_left", 8 if compact else 10)
 	margin.add_theme_constant_override("margin_right", 8 if compact else 10)
-	margin.add_theme_constant_override("margin_top", 3)
-	margin.add_theme_constant_override("margin_bottom", 3)
+	margin.add_theme_constant_override("margin_top", 5 if compact else 6)
+	margin.add_theme_constant_override("margin_bottom", 5 if compact else 6)
 	row.add_child(margin)
 
 	var contents := HBoxContainer.new()
 	contents.add_theme_constant_override("separation", 8)
 	margin.add_child(contents)
-	var marker := ColorRect.new()
-	marker.color = _state_accent(state)
-	marker.custom_minimum_size = Vector2(3, 30 if compact else 34)
-	marker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# A little pennant marks each site, dressed in its state's colour: gold
+	# for the course being played, green for owned, quiet grey-green for sale.
+	var marker := _make_sprite(PixelIcon.Kind.FLAG, 16 if compact else 32, _state_accent(state))
+	marker.name = "StateFlag"
 	contents.add_child(marker)
 
 	var info := VBoxContainer.new()
@@ -963,13 +985,14 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	info.add_theme_constant_override("separation", 0)
 	contents.add_child(info)
 	var name_label := _make_label("%s  ·  %s" % [state["name"], state["region"]] if not str(state["region"]).is_empty() \
-		else str(state["name"]), 14 if compact else 15, COLOR_TEXT_BRIGHT)
+		else str(state["name"]), 13 if compact else 14, COLOR_TEXT_BRIGHT)
 	name_label.name = "LocationName"
+	name_label.add_theme_font_override("font", SUBTITLE_FONT)
 	name_label.clip_text = true
 	info.add_child(name_label)
 	var detail := _make_label("%s  ·  %s  ·  %d/%d plots ready" % [
 		state["theme_name"], state["size_name"], int(state["ready"]), int(state["parcels"])],
-		10 if compact else 11, COLOR_TEXT_SECONDARY)
+		10, COLOR_TEXT_SECONDARY)
 	detail.name = "LocationDetails"
 	detail.clip_text = true
 	info.add_child(detail)
@@ -977,6 +1000,7 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	var price := _make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
 		12 if compact else 13, COLOR_MINT if state["owned"] else (COLOR_GOLD if state["affordable"] else UIConstants.COLOR_DANGER))
 	price.name = "LocationPrice"
+	price.add_theme_font_override("font", SUBTITLE_FONT)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	price.custom_minimum_size.x = 68 if compact else 82
@@ -997,13 +1021,14 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 9)
 	margin.add_theme_constant_override("margin_right", 9)
-	margin.add_theme_constant_override("margin_top", 7)
-	margin.add_theme_constant_override("margin_bottom", 7)
+	margin.add_theme_constant_override("margin_top", 9)
+	margin.add_theme_constant_override("margin_bottom", 9)
 	card.add_child(margin)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 2)
 	margin.add_child(stack)
 	var name_label := _make_label(str(state["name"]), 15, COLOR_TEXT_BRIGHT)
+	name_label.add_theme_font_override("font", SUBTITLE_FONT)
 	name_label.clip_text = true
 	stack.add_child(name_label)
 	var region := _make_label(str(state["region"]), 10, COLOR_TEXT_QUIET)
@@ -1018,6 +1043,7 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 	footer.alignment = BoxContainer.ALIGNMENT_END
 	var price := _make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
 		11, COLOR_MINT if state["owned"] else (COLOR_GOLD if state["affordable"] else UIConstants.COLOR_DANGER))
+	price.add_theme_font_override("font", SUBTITLE_FONT)
 	price.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	price.clip_text = true
@@ -1030,9 +1056,10 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 func _make_row_action(state: Dictionary, compact: bool) -> Button:
 	var action := Button.new()
 	action.name = "LocationAction"
-	action.custom_minimum_size = Vector2(58 if _layout_mode == LayoutMode.PHONE_LANDSCAPE else (64 if compact else 76),
-		34 if _layout_mode == LayoutMode.PHONE_LANDSCAPE else (40 if compact else 38))
-	action.add_theme_font_size_override("font_size", 11 if compact else 12)
+	var landscape := _layout_mode == LayoutMode.PHONE_LANDSCAPE
+	action.custom_minimum_size = Vector2(88 if landscape else (96 if compact else 108),
+		34 if landscape else (40 if compact else 38))
+	action.add_theme_font_size_override("font_size", 10 if landscape else (11 if compact else 12))
 	if bool(state["owned"]):
 		if bool(state["active"]):
 			action.text = "Playing"
@@ -1043,13 +1070,24 @@ func _make_row_action(state: Dictionary, compact: bool) -> Button:
 			action.tooltip_text = "Switch to this course; the location you leave keeps its progress"
 			action.pressed.connect(func(): play_location_requested.emit(str(state["id"])))
 	else:
-		action.text = "Buy"
+		action.text = BUY_AND_PLAY_LABEL
 		action.disabled = not bool(state["affordable"])
-		action.tooltip_text = "Buy %s for %s" % [state["name"], _format_money(int(state["price"]))] \
-			if state["affordable"] else "You need %s to buy %s" % [_format_money(int(state["price"])), state["name"]]
-		action.pressed.connect(_on_buy_pressed.bind(str(state["id"])))
+		action.tooltip_text = _buy_and_play_tooltip(state)
+		action.pressed.connect(_on_buy_and_play_pressed.bind(str(state["id"])))
 	_paint_action_button(action, false)
 	return action
+
+func _buy_tooltip(state: Dictionary) -> String:
+	var price := _format_money(int(state["price"]))
+	if bool(state["affordable"]):
+		return "Buy %s for %s. You stay on the map to keep browsing." % [state["name"], price]
+	return "You need %s to buy %s" % [price, state["name"]]
+
+func _buy_and_play_tooltip(state: Dictionary) -> String:
+	var price := _format_money(int(state["price"]))
+	if bool(state["affordable"]):
+		return "Buy %s for %s and start playing there" % [state["name"], price]
+	return "You need %s to buy %s" % [price, state["name"]]
 
 func _location_tooltip(state: Dictionary) -> String:
 	return "%s — %s\n%s · %d-hole capacity · %d of %d plots ready\n%s" % [
@@ -1067,18 +1105,17 @@ func _row_height_for(mode: int) -> float:
 		_:
 			return 58.0
 
+## The colour a location's pennant wears: the same state colours as the
+## globe's pins (active gold, owned green, for-sale cream, out-of-reach
+## grey), so the rows and the map never disagree.
 func _state_accent(state: Dictionary) -> Color:
-	if bool(state["active"]):
-		return COLOR_GOLD
-	if bool(state["owned"]):
-		return Color("7fd07f")
-	return Color("5d8068")
+	return GlobeMap.marker_color(state)
 
 func _apply_row_style(row: PanelContainer, state: Dictionary) -> void:
 	var selected := str(state["id"]) == _selected_id
 	var bg := MenuStyle.CARD_BG_HOVER if selected else MenuStyle.CARD_BG
 	var border := MenuStyle.ACCENT_PRIMARY if selected else MenuStyle.with_alpha(
-		MenuStyle.ACCENT_SECONDARY if state["owned"] else MenuStyle.ACCENT_UTILITY, 0.48)
+		MenuStyle.ACCENT_SECONDARY if state["owned"] else MenuStyle.ACCENT_UTILITY, 0.58)
 	row.add_theme_stylebox_override("panel", _panel_style(bg, border, 2 if selected else 1, 9))
 
 func _update_row_styles() -> void:
@@ -1117,28 +1154,46 @@ func _update_featured() -> void:
 		else:
 			_featured_status.text = "OUT OF REACH"
 			_featured_status.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+	var owned := bool(state["owned"])
+	var active := bool(state["active"])
+	var affordable := bool(state["affordable"])
+	if is_instance_valid(_featured_buy):
+		_featured_buy.visible = not owned
+		if not owned:
+			_featured_buy.text = BUY_LABEL if (_featured_micro or _featured_compact) \
+				else ("BUY · %s" % _format_money(int(state["price"])))
+			_featured_buy.disabled = not affordable
+			_featured_buy.tooltip_text = _buy_tooltip(state)
+			_paint_action_button(_featured_buy, false)
+			_apply_featured_icon(_featured_buy, PixelIcon.Kind.COIN, _featured_buy.disabled)
 	if not is_instance_valid(_featured_action):
 		return
-	if state["active"]:
+	if active:
 		_featured_action.text = "Playing now" if _featured_compact else "CURRENT COURSE"
 		_featured_action.disabled = true
 		_featured_action.tooltip_text = "This is the course you are playing right now"
-	elif state["owned"]:
+	elif owned:
 		_featured_action.text = "Play" if _featured_micro else "PLAY THIS COURSE"
 		_featured_action.disabled = false
 		_featured_action.tooltip_text = "Switch to this course; the location you leave keeps its progress"
 	else:
-		_featured_action.text = "Buy" if _featured_micro else ("BUY · %s" % _format_money(int(state["price"])))
-		if not state["affordable"]:
-			_featured_action.text = "Need funds" if _featured_micro else "NEED %s MORE" % _format_money(int(state["price"]) - GameManager.money)
-		_featured_action.disabled = not bool(state["affordable"])
-		_featured_action.tooltip_text = "Buy this location for %s" % _format_money(int(state["price"]))
+		_featured_action.text = BUY_AND_PLAY_LABEL if (_featured_micro or _featured_compact) else "BUY & PLAY"
+		_featured_action.disabled = not affordable
+		_featured_action.tooltip_text = _buy_and_play_tooltip(state)
 	_paint_action_button(_featured_action, true)
+	_apply_featured_icon(_featured_action, PixelIcon.Kind.PLAY, _featured_action.disabled)
+
+func _apply_featured_icon(button: Button, kind: int, dimmed: bool) -> void:
+	button.icon = PixelIcon.texture(
+		kind,
+		16 if _featured_compact or _featured_micro else 32,
+		MenuStyle.INK if not dimmed else UIConstants.COLOR_TEXT_MUTED, dimmed)
+	button.add_theme_constant_override("h_separation", 8)
 
 func _make_action_shell(primary: bool) -> Button:
 	var button := Button.new()
 	button.name = "FeaturedAction"
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if not _featured_micro else Control.SIZE_SHRINK_END
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_size_override("font_size", 13)
 	button.pressed.connect(_on_featured_action_pressed)
@@ -1149,9 +1204,13 @@ func _make_action_shell(primary: bool) -> Button:
 # INTERACTION
 # =============================================================================
 
+## Clicking a destination in the list selects it and flies the globe round to
+## centre on it, the same as clicking its pin on the map.
 func _on_row_input(event: InputEvent, location_id: String) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		select_location(location_id)
+		if WorldLocations.has_location(location_id) and is_instance_valid(globe):
+			globe.look_at_location(location_id)
 
 func _on_globe_location_clicked(location_id: String) -> void:
 	select_location(location_id)
@@ -1167,19 +1226,36 @@ func select_location(location_id: String) -> void:
 	_update_featured()
 	_update_row_styles()
 
+func _on_featured_buy_pressed() -> void:
+	_on_buy_pressed(_selected_id)
+
 func _on_featured_action_pressed() -> void:
 	if WorldMap.is_owned(_selected_id):
 		if _selected_id != WorldMap.active_location_id:
 			play_location_requested.emit(_selected_id)
 	else:
-		_on_buy_pressed(_selected_id)
+		_on_buy_and_play_pressed(_selected_id)
 
+## Buy an unowned site and stay on the map so more sites can be browsed.
 func _on_buy_pressed(location_id: String) -> void:
 	_selected_id = location_id
-	if WorldMap.buy_location(location_id):
-		if is_instance_valid(globe):
-			globe.look_at_location(location_id)
+	if not WorldMap.buy_location(location_id):
+		return
+	if is_instance_valid(globe):
+		globe.look_at_location(location_id)
 	refresh()
+
+## Buy an unowned site and start playing it in one step. Owned sites are a
+## no-op here: their rows already offer Play, and buying twice never charges.
+func _on_buy_and_play_pressed(location_id: String) -> void:
+	_selected_id = location_id
+	if not WorldMap.buy_location(location_id):
+		return
+	if is_instance_valid(globe):
+		globe.look_at_location(location_id)
+	if location_id == WorldMap.active_location_id:
+		return
+	play_location_requested.emit(location_id)
 
 func _on_search_changed(text: String) -> void:
 	_search_query = text
@@ -1248,51 +1324,85 @@ func _filter_description(filter: int) -> String:
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+## The small gold caption above a section, like the setup screen's kickers.
+func _make_kicker(text: String, font_size: int) -> Label:
+	var kicker := _make_label(text, font_size, COLOR_GOLD)
+	kicker.add_theme_font_override("font", SUBTITLE_FONT)
+	kicker.uppercase = true
+	return kicker
+
+## A heading in the bold weight: the screen title, a location's name, the
+## treasury's balance.
+func _make_title_label(text: String, font_size: int, color: Color = COLOR_TEXT_BRIGHT) -> Label:
+	var title := _make_label(text, font_size, color)
+	title.add_theme_font_override("font", TITLE_FONT)
+	return title
+
+## One of the menu sprites (PixelIcon), nearest-filtered so its pixels stay
+## hard at whatever size the layout asks for.
+func _make_sprite(kind: int, side: int, accent: Color) -> TextureRect:
+	var grid_side := PixelIcon.snapped_side(side)
+	var sprite := TextureRect.new()
+	sprite.texture = PixelIcon.texture(kind, grid_side, accent)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	sprite.custom_minimum_size = Vector2(grid_side, grid_side)
+	sprite.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	sprite.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return sprite
 
 func _make_panel(bg: Color, border: Color, radius: int) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", _panel_style(bg, border, 1, radius))
 	return panel
 
-static func _panel_style(bg: Color, border: Color, border_width: int, radius: int) -> StyleBoxFlat:
-	# Use the same StyleBoxFlat recipe as the title and setup screens. The
-	# atlas adds only a restrained shadow so its cards sit above the backdrop.
-	var style := MenuStyle.flat(bg, border, border_width, radius, 0, 0, 0)
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.18)
-	style.shadow_size = 5
-	style.shadow_offset = Vector2(0.0, 2.0)
-	return style
+## The atlas's panels wear the same notched nine-patch pixel frame as the
+## title and setup screens (PixelButtonStyle): straight edges, ink outline,
+## accent trim, no rounded corners and no soft shadow. The signature keeps
+## the old call sites; the pixel recipe has one fixed border weight and no
+## corner radius, so those two arguments are only kept for readability.
+static func _panel_style(bg: Color, border: Color, _border_width: int, _radius: int) -> StyleBoxTexture:
+	return PixelButtonStyle.panel_style(border, bg, 0, 0)
 
-static func _transparent_panel_style() -> StyleBoxFlat:
-	return _panel_style(Color(0.0, 0.0, 0.0, 0.0), Color(0.0, 0.0, 0.0, 0.0), 0, 0)
-
+## Paint a small menu action (Back, Center, +, -, Reset): a pixel card with
+## the semibold type.
 func _paint_utility_button(button: Button, gold: bool) -> void:
 	var accent := MenuStyle.ACCENT_PRIMARY if gold else MenuStyle.ACCENT_UTILITY
-	MenuStyle.paint_card(button, accent, 0.0, 8, UIConstants.COLOR_TEXT, MenuStyle.TITLE_COLOR)
+	PixelButtonStyle.paint_card(button, accent, 0.0, 8, UIConstants.COLOR_TEXT, MenuStyle.TITLE_COLOR)
+	button.add_theme_font_override("font", SUBTITLE_FONT)
 	button.add_theme_color_override("font_pressed_color", UIConstants.COLOR_TEXT)
 	button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
 
+## Paint one of the browse chooser's toggles: quiet until pressed, when the
+## frame sinks and lights its trim, like the setup screen's option cards.
 func _paint_filter_button(button: Button) -> void:
-	MenuStyle.paint_choice(button, MenuStyle.ACCENT_SECONDARY, 8)
+	PixelButtonStyle.paint_choice(button, MenuStyle.ACCENT_SECONDARY)
+	button.add_theme_font_override("font", SUBTITLE_FONT)
 	button.add_theme_color_override("font_color", COLOR_TEXT_SECONDARY)
 	button.add_theme_color_override("font_hover_color", MenuStyle.TITLE_COLOR)
 	button.add_theme_color_override("font_pressed_color", MenuStyle.ACCENT_PRIMARY)
+	button.add_theme_color_override("font_focus_color", MenuStyle.TITLE_COLOR)
 	button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
 
+## Paint a Buy & Play / Play action: the featured destination's gold slab (bold ink
+## type on the gold fill) or a row's quiet green card.
 func _paint_action_button(button: Button, primary: bool) -> void:
 	if primary:
-		MenuStyle.paint_primary(button, 9)
-		button.add_theme_color_override("font_color", MenuStyle.INK)
-		button.add_theme_color_override("font_hover_color", MenuStyle.INK)
-		button.add_theme_color_override("font_pressed_color", MenuStyle.INK)
+		PixelButtonStyle.paint_primary(button)
+		button.add_theme_font_override("font", TITLE_FONT)
 		button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
 	else:
-		MenuStyle.paint_card(button, MenuStyle.ACCENT_SECONDARY, 0.0, 7,
+		PixelButtonStyle.paint_card(button, MenuStyle.ACCENT_SECONDARY, 0.0, 7,
 			COLOR_TEXT_BRIGHT, MenuStyle.TITLE_COLOR)
+		button.add_theme_font_override("font", SUBTITLE_FONT)
 		button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 

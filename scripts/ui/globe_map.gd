@@ -6,9 +6,9 @@ class_name GlobeMap
 ## pay for the continents:
 ##
 ##  * **the planet** (`_planet`, a ColorRect running
-##    `shaders/globe_planet.gdshader`): the hand-simplified lon/lat polygons
-##    below are rasterised once into an equirectangular land mask
-##    (`build_land_mask()`, cached for the whole run) and the shader turns that
+##    `shaders/globe_planet.gdshader`): Natural Earth 1:50m land rings in
+##    `data/world_land_polygons.json` are rasterised once into an equirectangular
+##    land mask (`build_land_mask()`, cached for the whole run) and the shader turns that
 ##    mask back into a shaded sphere — sea depth and coastal shelf, fbm relief,
 ##    an arid band around the tropics, polar ice, a warm sun with a soft
 ##    day/night terminator, a specular glint on open water and a soft
@@ -17,30 +17,39 @@ class_name GlobeMap
 ##    destination pins and their labels, repainted only when the marker set
 ##    changes — a hover or a new selection leaves the planet untouched.
 ##
-## `LandStyle.DOTS` keeps the earlier land-dot drawing (every land point as a
-## little disc) for callers that want the mask off; the planet is the default.
+## `LandStyle.DOTS` keeps a lightweight, shader-free land-dot fallback; the
+## planet is the default, and `LandStyle.PIXEL` is the same planet quantised
+## into chunky hard-edged cells — the World Map screen's retro mode, matching
+## the menu screens' pixel frames, sprites and Pixelify type.
 ##
 ## Drag to spin (with a little inertia), scroll or pinch to zoom, click a
-## marker (or the list beside it) to select. Public API: `set_locations`,
+## marker (or the list beside it) to select. The globe animates on wall-clock
+## time rather than the simulation's, so it still turns when the screen hosting
+## it has frozen the course behind it — and taking hold of it cancels any
+## fly-to still in flight, so a drag always wins. Public API: `set_locations`,
 ## `set_selected`, `look_at_location`, `set_view_state` / `get_view_state`,
 ## `set_land_style`, `location_clicked(id)`, static `project_point`,
 ## `is_land`, `build_land_points`, `build_land_mask`, `mask_uv`.
 
 signal location_clicked(location_id: String)
 
-## How the continents are drawn: PLANET (baked mask + shader) or DOTS (the
-## old rasterised land points, no shader needed).
-enum LandStyle { PLANET, DOTS }
+## How the continents are drawn: PLANET (baked mask + shader), DOTS (a
+## shader-free rasterised land-dot fallback) or PIXEL (the same shader planet
+## quantised into chunky hard-edged cells, with pixel-art pin sprites for the
+## markers, to match the menu screens' 16-bit look).
+enum LandStyle { PLANET, DOTS, PIXEL }
 
 const DEFAULT_LAND_STYLE := LandStyle.PLANET
 const PLANET_SHADER := preload("res://shaders/globe_planet.gdshader")
+## The font the PIXEL globe's destination labels are set in: the same
+## Pixelify Sans the menu screens use (SIL Open Font License 1.1).
+const MARKER_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 
-## Size of the baked equirectangular land mask. 2048x1024 is about 3.5 km per
-## texel at the equator — sharper than the globe is ever drawn — and bakes in
-## ~12 ms.
+## Size of the baked equirectangular land mask. 2048x1024 is about 20 km per
+## texel at the equator, still much sharper than the globe is drawn.
 const MASK_WIDTH := 2048
 const MASK_HEIGHT := 1024
-## Land mask resolution for the DOTS style: one point every LAND_STEP_DEG degrees.
+## Spacing of the shader-free land-dot fallback, in degrees.
 const LAND_STEP_DEG := 3.0
 const MIN_RADIUS_SCALE := 0.7
 const MAX_RADIUS_SCALE := 1.6
@@ -65,91 +74,45 @@ const GRATICULE_COLOR := Color(1.0, 1.0, 1.0, 0.10)
 const MARKER_RADIUS := 6.0
 const MARKER_HIT_RADIUS := 11.0
 
-## Simplified continent outlines as [lon, lat] pairs (longitude first).
-## They are deliberately coarse — the globe is a navigation aid, not an atlas.
-const LAND_POLYGONS: Array = [
-	# North America
-	[
-		[-168, 66], [-158, 71], [-140, 70], [-125, 72], [-108, 73], [-95, 73],
-		[-82, 74], [-70, 68], [-58, 60], [-52, 48], [-66, 45], [-72, 41],
-		[-76, 35], [-81, 25], [-83, 25], [-90, 29], [-97, 26], [-105, 21],
-		[-110, 23], [-114, 28], [-117, 32], [-121, 35], [-124, 40], [-127, 49],
-		[-131, 54], [-139, 60], [-150, 60], [-160, 56],
-	],
-	# Central America
-	[
-		[-92, 16], [-87, 21], [-83, 15], [-78, 8], [-77, 7], [-83, 8], [-88, 14],
-	],
-	# South America
-	[
-		[-78, 8], [-72, 11], [-62, 10], [-52, 4], [-44, -2], [-35, -6], [-38, -16],
-		[-48, -25], [-58, -35], [-62, -40], [-65, -48], [-68, -55], [-75, -52],
-		[-73, -40], [-71, -30], [-70, -18], [-76, -14], [-81, -5], [-80, 2],
-	],
-	# Greenland
-	[
-		[-56, 60], [-42, 60], [-22, 70], [-20, 78], [-35, 84], [-58, 82], [-66, 72],
-	],
-	# Africa
-	[
-		[-17, 15], [-16, 22], [-10, 30], [0, 36], [10, 37], [20, 33], [33, 31],
-		[35, 25], [43, 12], [51, 12], [42, -2], [40, -10], [40, -25], [35, -25],
-		[26, -34], [18, -34], [13, -23], [9, -1], [9, 5], [3, 6], [-8, 5], [-13, 9],
-	],
-	# Madagascar
-	[
-		[43, -13], [50, -15], [50, -25], [44, -22],
-	],
-	# Eurasia
-	[
-		[-10, 36], [-9, 44], [0, 44], [3, 51], [-5, 58], [8, 63], [20, 70],
-		[35, 70], [60, 72], [90, 76], [120, 74], [150, 70], [180, 66], [180, 60],
-		[150, 52], [140, 42], [130, 34], [122, 30], [115, 22], [108, 15],
-		[100, 6], [98, 10], [92, 20], [85, 20], [80, 12], [75, 8], [70, 20],
-		[62, 25], [56, 20], [50, 27], [43, 37], [35, 42], [30, 45], [28, 41],
-		[20, 40], [13, 45], [18, 42], [10, 38], [3, 43], [-2, 40],
-	],
-	# British Isles
-	[
-		[-6, 50], [-2, 52], [0, 54], [-3, 58], [-6, 58], [-8, 53],
-	],
-	# Ireland
-	[
-		[-10.5, 51.5], [-6, 52], [-6, 55], [-10, 55],
-	],
-	# Japan
-	[
-		[130, 31], [136, 34], [141, 40], [146, 44], [143, 43], [138, 36],
-		[133, 33],
-	],
-	# Indonesia / New Guinea
-	[
-		[95, 5], [105, 0], [115, -5], [125, -3], [135, -3], [150, -6], [150, -10],
-		[140, -9], [130, -8], [120, -9], [110, -8], [100, -2],
-	],
-	# Philippines
-	[
-		[120, 6], [126, 8], [126, 18], [120, 16],
-	],
-	# Australia
-	[
-		[114, -22], [122, -18], [130, -12], [142, -11], [147, -20], [153, -28],
-		[150, -38], [140, -38], [129, -32], [115, -35], [113, -26],
-	],
-	# Tasmania
-	[
-		[145, -41], [148, -41], [148, -43], [145, -43],
-	],
-	# New Zealand
-	[
-		[173, -35], [178, -38], [174, -47], [166, -46], [170, -41],
-	],
-	# Antarctica (drawn as a polar band)
-	[
-		[-180, -63], [-140, -70], [-100, -73], [-60, -63], [-20, -70], [20, -68],
-		[60, -66], [100, -64], [140, -66], [180, -63], [180, -90], [-180, -90],
-	],
-]
+## The PIXEL planet's palette: the planet shader's own tunables re-mixed into
+## the menu palette — a deep ink-teal sea with a pale shelf, golf greens for
+## the land and sandy tropics — so the atlas sits inside the pixel-art
+## screens instead of looking borrowed from a photograph.
+const PIXEL_PALETTE: Dictionary = {
+	"ocean_deep": Color("0e2430"),
+	"ocean_mid": Color("15384a"),
+	"ocean_shallow": Color("1f5468"),
+	"shore_color": Color("93c4ad"),
+	"land_low": Color("2b5c33"),
+	"land_mid": Color("4f8f49"),
+	"land_high": Color("7fb08a"),
+	"land_dry": Color("b7a066"),
+	"land_beach": Color("e0cf9d"),
+	"ice_color": Color("edf4ec"),
+	"atmosphere_color": Color("8fd0c2"),
+}
+## PIXEL light tuning: a higher ambient floor and a harder terminator keep the
+## chunky cells bold rather than muddy; clouds and the glint stay quiet so
+## the coastlines and pins carry the picture.
+const PIXEL_TUNING: Dictionary = {
+	"terminator_softness": 0.22,
+	"specular_strength": 0.22,
+	"cloud_amount": 0.10,
+	"graticule_alpha": 0.09,
+	"coast_glow": 0.50,
+}
+## Side of one pixel block on the PIXEL planet, per end of the clamp: the
+## finer grid resolves coastlines at roughly 115 cells across a typical globe.
+const PIXEL_BLOCK_MIN := 2.0
+const PIXEL_BLOCK_MAX := 3.5
+## Side of the destination pin sprite (one multiple of the 16px grid) and how
+## far it floats above its point, for depth.
+const PIN_SPRITE_SIDE := 16
+const PIN_SPRITE_RAISE := 2.0
+
+## Detailed Natural Earth 1:50m coastline rings (longitude, latitude),
+## simplified offline to fit the globe's screen resolution.
+const LAND_DATA_PATH := "res://data/world_land_polygons.json"
 
 var _center_lon: float = -40.0
 var _center_lat: float = 30.0
@@ -183,8 +146,15 @@ var _anim_to_lon: float = 0.0
 var _anim_to_lat: float = 0.0
 var _anim_time: float = 0.0
 var _animating: bool = false
+## Wall-clock stamp of the previous animation frame, in microseconds. The
+## globe keeps its own clock (see `_frame_seconds`) because the screens that
+## host it — above all the Club tab's World Map, which freezes the course it
+## opened over — hand it frames worth zero seconds. Negative means "no
+## previous frame": the next one starts from nothing.
+var _frame_usec: int = -1
 static var _land_points: Array = []
 static var _land_polygon_cache: Array = []
+static var _land_polygon_cache_loaded: bool = false
 ## How often the planet surface has been re-shaded. Hovering and selecting a
 ## destination must not touch it — they are the marker layer's business.
 var _view_syncs: int = 0
@@ -202,15 +172,17 @@ func _ready() -> void:
 	_build_layers()
 	_sync_planet()
 	resized.connect(_on_resized)
-	set_process(false)
+	_stop_animating()
 
 ## The two drawing layers: the shader planet underneath, the markers on top.
 func _build_layers() -> void:
-	if _land_style == LandStyle.PLANET:
+	if _land_style == LandStyle.PLANET or _land_style == LandStyle.PIXEL:
 		_planet_material = ShaderMaterial.new()
 		_planet_material.shader = PLANET_SHADER
 		_planet_material.set_shader_parameter("land_mask", get_land_mask_texture())
 		_planet_material.set_shader_parameter("mask_size", Vector2(MASK_WIDTH, MASK_HEIGHT))
+		if _land_style == LandStyle.PIXEL:
+			_apply_pixel_palette()
 		_planet = ColorRect.new()
 		_planet.name = "PlanetSurface"
 		_planet.color = Color.WHITE
@@ -260,6 +232,22 @@ func _sync_planet() -> void:
 	_planet_material.set_shader_parameter("center_lon_deg", _center_lon)
 	_planet_material.set_shader_parameter("center_lat_deg", _center_lat)
 	_planet_material.set_shader_parameter("radius_scale", _radius_scale)
+	_planet_material.set_shader_parameter("pixel_block",
+		_pixel_block_size() if _land_style == LandStyle.PIXEL else 0.0)
+
+## The menu palette and the chunkier light, set once when the PIXEL planet's
+## material is made (see PIXEL_PALETTE / PIXEL_TUNING).
+func _apply_pixel_palette() -> void:
+	for parameter in PIXEL_PALETTE:
+		_planet_material.set_shader_parameter(parameter, PIXEL_PALETTE[parameter])
+	for parameter in PIXEL_TUNING:
+		_planet_material.set_shader_parameter(parameter, PIXEL_TUNING[parameter])
+
+## Side of one retro cell on the PIXEL globe, in screen pixels: around 115
+## cells across a typical sphere give the coastlines more resolution while
+## keeping the toy-globe silhouette crisp on a phone and desktop.
+func _pixel_block_size() -> float:
+	return clampf(minf(size.x, size.y) / 125.0, PIXEL_BLOCK_MIN, PIXEL_BLOCK_MAX)
 
 ## The view moved: the planet needs new shading and the markers new positions.
 func _redraw_view() -> void:
@@ -296,18 +284,18 @@ func set_view_state(state: Dictionary) -> void:
 	_animating = false
 	_spin_lon = 0.0
 	_spin_lat = 0.0
-	set_process(false)
+	_stop_animating()
 	_redraw_view()
 
 ## Zoom steps ease to their target instead of jumping, which reads as the
 ## globe being pulled towards the player.
 func zoom_in() -> void:
 	_zoom_target = clampf(_zoom_target * ZOOM_STEP, MIN_RADIUS_SCALE, MAX_RADIUS_SCALE)
-	set_process(true)
+	_start_animating()
 
 func zoom_out() -> void:
 	_zoom_target = clampf(_zoom_target / ZOOM_STEP, MIN_RADIUS_SCALE, MAX_RADIUS_SCALE)
-	set_process(true)
+	_start_animating()
 
 ## Give the globe the locations to pin: array of dictionaries with
 ## id/name/lat/lon (plus any extra state the marker colour needs).
@@ -342,7 +330,7 @@ func _center_on(lon: float, lat: float) -> void:
 	_animating = true
 	_spin_lon = 0.0
 	_spin_lat = 0.0
-	set_process(true)
+	_start_animating()
 
 ## Smoothly unwrap a longitude so animations can cross the antimeridian
 ## without a jump.
@@ -353,13 +341,42 @@ static func _unwrap_lon(lon: float, reference: float) -> float:
 		lon += 360.0
 	return lon
 
+## Start the animation loop. The clock restarts with it, so the first frame
+## after the globe has been sitting idle is not charged for the idle time.
+func _start_animating() -> void:
+	_frame_usec = -1
+	set_process(true)
+
+## Nothing left to animate: stop the loop, so an idle globe costs nothing.
+func _stop_animating() -> void:
+	_frame_usec = -1
+	set_process(false)
+
+## How many seconds this frame is worth. The engine's own delta, unless the
+## simulation behind the map is frozen: the Club tab opens the World Map over a
+## course it has paused, a paused simulation runs on `Engine.time_scale` 0, and
+## a frozen clock hands out frames worth nothing at all. The globe is an
+## interface rather than part of the simulation, so it keeps its own clock and
+## turns at the same rate whatever the course behind it is doing.
+func _frame_seconds(delta: float) -> float:
+	if delta > 0.0:
+		_frame_usec = -1
+		return delta
+	var now := Time.get_ticks_usec()
+	var seconds := 0.0
+	if _frame_usec > 0:
+		seconds = float(now - _frame_usec) * 1e-6
+	_frame_usec = now
+	return maxf(seconds, 0.0)
+
 ## Flies the centring animation, settles the zoom and keeps a flicked globe
 ## spinning until it slows down.
 func _process(delta: float) -> void:
+	var step := _frame_seconds(delta)
 	var changed := false
 
 	if _animating:
-		_anim_time = minf(_anim_time + delta / CENTER_DURATION, 1.0)
+		_anim_time = minf(_anim_time + step / CENTER_DURATION, 1.0)
 		# Ease out cubic: quick off the mark, gentle on arrival.
 		var t := 1.0 - pow(1.0 - _anim_time, 3.0)
 		_center_lon = lerpf(_anim_from_lon, _anim_to_lon, t)
@@ -371,16 +388,16 @@ func _process(delta: float) -> void:
 		changed = true
 
 	if absf(_radius_scale - _zoom_target) > 0.0005:
-		_radius_scale = lerpf(_radius_scale, _zoom_target, minf(1.0, ZOOM_SETTLE_RATE * delta))
+		_radius_scale = lerpf(_radius_scale, _zoom_target, minf(1.0, ZOOM_SETTLE_RATE * step))
 		if absf(_radius_scale - _zoom_target) <= 0.0005:
 			_radius_scale = _zoom_target
 		changed = true
 
 	# Inertia, but never while the player is still holding the globe.
 	if not _dragging and (absf(_spin_lon) > 0.05 or absf(_spin_lat) > 0.05):
-		_center_lon = fposmod(_center_lon + _spin_lon * delta, 360.0)
-		_center_lat = clampf(_center_lat + _spin_lat * delta, -MAX_CENTER_LAT, MAX_CENTER_LAT)
-		var decay := pow(SPIN_DECAY, delta)
+		_center_lon = fposmod(_center_lon + _spin_lon * step, 360.0)
+		_center_lat = clampf(_center_lat + _spin_lat * step, -MAX_CENTER_LAT, MAX_CENTER_LAT)
+		var decay := pow(SPIN_DECAY, step)
 		_spin_lon *= decay
 		_spin_lat *= decay
 		changed = true
@@ -388,7 +405,7 @@ func _process(delta: float) -> void:
 	if not changed:
 		_spin_lon = 0.0
 		_spin_lat = 0.0
-		set_process(false)
+		_stop_animating()
 		return
 	_redraw_view()
 
@@ -406,79 +423,91 @@ static func project_point(lon_deg: float, lat_deg: float, center_lon: float, cen
 	var y := cos(phi0) * sin(phi) - sin(phi0) * cos(phi) * cos(lam)
 	return Vector3(x, y, z)
 
-## Rasterise every land polygon into lon/lat points (computed once per run).
+## Rasterise the low-resolution land-dot fallback from the same coastline
+## geometry as the planet mask. Sampling the mask avoids testing thousands of
+## detailed coastline vertices for each display dot.
 static func build_land_points() -> Array:
 	var points: Array = []
-	var lat := -88.0
-	while lat <= 88.0:
-		var lon := -180.0
-		while lon < 180.0:
-			if is_land(lon, lat):
+	var columns := int(roundf(360.0 / LAND_STEP_DEG))
+	var rows := int(roundf(180.0 / LAND_STEP_DEG))
+	var mask := build_land_mask(columns, rows)
+	for y in range(rows):
+		var lat := 90.0 - (float(y) + 0.5) * LAND_STEP_DEG
+		for x in range(columns):
+			if mask.get_pixel(x, y).r > 0.5:
+				var lon := -180.0 + (float(x) + 0.5) * LAND_STEP_DEG
 				points.append(Vector2(lon, lat))
-			lon += LAND_STEP_DEG
-		lat += LAND_STEP_DEG
 	return points
 
+## Test whether a geographic point is land. Polygon holes (notably the Caspian
+## Sea) are excluded, and multiple land shapes are treated as a union.
 static func is_land(lon: float, lat: float) -> bool:
-	for polygon in _get_polygons():
-		if Geometry2D.is_point_in_polygon(Vector2(lon, lat), polygon):
+	var wrapped_lon := fposmod(lon + 180.0, 360.0) - 180.0
+	var point := Vector2(wrapped_lon, lat)
+	for polygon: Array in _get_polygons():
+		if not Geometry2D.is_point_in_polygon(point, polygon[0]):
+			continue
+		var in_hole := false
+		for hole_index in range(1, polygon.size()):
+			if Geometry2D.is_point_in_polygon(point, polygon[hole_index]):
+				in_hole = true
+				break
+		if not in_hole:
 			return true
 	return false
 
 ## ── Baked land mask (what the planet shader samples) ─────────────────────
 
-## Rasterise LAND_POLYGONS into an equirectangular coverage mask, white on
-## land, which is what `shaders/globe_planet.gdshader` samples. The bake uses
-## a scanline fill: a row's land spans are written in bulk with `fill_rect()`
+## Rasterise the Natural Earth rings into an equirectangular coverage mask,
+## white on land, which is what `shaders/globe_planet.gdshader` samples. Outer
+## coastlines and lake rings share the scanline parity fill, so the water holes
+## stay empty. A row's land spans are written in bulk with `fill_rect()`
 ## and only the two ends of each span are written pixel by pixel (with their
 ## analytic coverage, so coastlines get a soft texel instead of a staircase).
-## That keeps a 2048x1024 bake near 12 ms, where testing every texel with
-## Geometry2D.is_point_in_polygon would take seconds.
+## Edges are bucketed only into the rows they can cross; this avoids testing
+## every mask texel against thousands of polygon edges.
 static func build_land_mask(width: int = MASK_WIDTH, height: int = MASK_HEIGHT) -> Image:
 	var mask := Image.create(width, height, false, Image.FORMAT_R8)
 	mask.fill(Color(0, 0, 0, 1))
-	var edges := _get_mask_edges()
-	var coords: PackedFloat32Array = edges["coords"]
-	var edge_end: PackedInt32Array = edges["end"]
-	var lat_min: PackedFloat32Array = edges["lat_min"]
-	var lat_max: PackedFloat32Array = edges["lat_max"]
-	var polygon_count := edge_end.size()
+	var coords: PackedFloat32Array = _get_mask_edges()["coords"]
 	var deg_per_row := 180.0 / float(height)
 	var to_x := float(width) / 360.0
+	var crossings_by_row: Array[Array] = []
+	for _row in range(height):
+		crossings_by_row.append([])
+
+	# Bucket each coastline edge only into the rows it can cross. The old
+	# per-row polygon scan re-tested long shorelines hundreds of times; this
+	# keeps the detailed 1:50m geometry quick to bake at the full mask size.
+	@warning_ignore("integer_division")
+	var edge_count := coords.size() / 4
+	for edge in range(edge_count):
+		var ax := coords[edge * 4]
+		var ay := coords[edge * 4 + 1]
+		var bx := coords[edge * 4 + 2]
+		var by := coords[edge * 4 + 3]
+		var low := minf(ay, by)
+		var high := maxf(ay, by)
+		var first_row := maxi(0, floori((90.0 - high) / deg_per_row - 0.5) + 1)
+		var last_row := mini(height - 1, floori((90.0 - low) / deg_per_row - 0.5))
+		for y in range(first_row, last_row + 1):
+			var lat := 90.0 - (float(y) + 0.5) * deg_per_row
+			if not ((ay <= lat and by > lat) or (by <= lat and ay > lat)):
+				continue
+			var t := (lat - ay) / (by - ay)
+			var lon := ax + t * (bx - ax)
+			crossings_by_row[y].append(lon)
 
 	_mask_bake_count += 1
 	for y in range(height):
-		var lat := 90.0 - (float(y) + 0.5) * deg_per_row
-		# Longitude where this scanline enters (odd crossing) or leaves (even
-		# crossing) the land, kept in ascending order by an insertion sort —
-		# a row only ever has a handful of crossings.
-		var crossings := PackedFloat32Array()
-		var first_edge := 0
-		for polygon in range(polygon_count):
-			var last_edge: int = edge_end[polygon]
-			if lat >= lat_min[polygon] and lat <= lat_max[polygon]:
-				for e in range(first_edge, last_edge):
-					var ax := coords[e * 4]
-					var ay := coords[e * 4 + 1]
-					var bx := coords[e * 4 + 2]
-					var by := coords[e * 4 + 3]
-					if (ay <= lat and by > lat) or (by <= lat and ay > lat):
-						var t := (lat - ay) / (by - ay)
-						var lon := ax + t * (bx - ax)
-						var slot := crossings.size()
-						crossings.resize(slot + 1)
-						while slot > 0 and crossings[slot - 1] > lon:
-							crossings[slot] = crossings[slot - 1]
-							slot -= 1
-						crossings[slot] = lon
-			first_edge = last_edge
-
+		var crossings := crossings_by_row[y]
+		crossings.sort()
 		var i := 0
 		while i + 1 < crossings.size():
-			# Span from crossing i to i+1, in pixel edges. Pixel centres sit at
-			# half integers, hence the -0.5.
-			var x_start := (crossings[i] + 180.0) * to_x - 0.5
-			var x_end := (crossings[i + 1] + 180.0) * to_x - 0.5
+			# Longitude where this scanline enters (odd crossing) or leaves
+			# (even crossing) the land. Pixel centres sit at half integers.
+			var x_start := (float(crossings[i]) + 180.0) * to_x - 0.5
+			var x_end := (float(crossings[i + 1]) + 180.0) * to_x - 0.5
 			i += 2
 			if x_end <= 0.0 or x_start >= float(width - 1):
 				continue
@@ -529,8 +558,8 @@ static func mask_coverage(mask: Image, lon_deg: float, lat_deg: float) -> float:
 	var y := clampi(int(uv.y * float(mask.get_height())), 0, mask.get_height() - 1)
 	return mask.get_pixel(x, y).r
 
-## How many times the mask has been rasterised this run (tests assert the
-## bake is shared, so this only ever grows by one per process).
+## How many times the mask rasteriser has run (tests use this to verify the
+## full-resolution texture cache bakes just once).
 static func mask_bake_count() -> int:
 	return _mask_bake_count
 
@@ -539,51 +568,67 @@ static func clear_mask_cache() -> void:
 	_mask_texture = null
 	_mask_bake_count = 0
 
-## LAND_POLYGONS as one flat array of non-horizontal edges — four floats
-## [ax, ay, bx, by] per edge — plus each polygon's latitude range and where
-## its edges end in that array. Horizontal edges can never cross a scanline,
-## so they are dropped, and a polygon is only tested on rows inside its
-## latitude range.
+## All Natural Earth rings as one flat array of non-horizontal edges — four
+## floats [ax, ay, bx, by] per edge. Horizontal edges can never cross a
+## scanline, so they are omitted from the cached edge list.
 static func _get_mask_edges() -> Dictionary:
 	if _mask_edges.is_empty():
 		var coords := PackedFloat32Array()
-		var end := PackedInt32Array()
-		var lat_min := PackedFloat32Array()
-		var lat_max := PackedFloat32Array()
-		for polygon in _get_polygons():
-			var low := 90.0
-			var high := -90.0
-			var count: int = polygon.size()
-			for i in range(count):
-				var from: Vector2 = polygon[i]
-				var to: Vector2 = polygon[(i + 1) % count]
-				low = minf(low, minf(from.y, to.y))
-				high = maxf(high, maxf(from.y, to.y))
-				if absf(from.y - to.y) < 0.000001:
-					continue
-				coords.append_array(PackedFloat32Array([from.x, from.y, to.x, to.y]))
-			# Four floats per edge: whole-edge count is exact integer maths.
-			@warning_ignore("integer_division")
-			end.append(coords.size() / 4)
-			lat_min.append(low)
-			lat_max.append(high)
-		_mask_edges = {
-			"coords": coords,
-			"end": end,
-			"lat_min": lat_min,
-			"lat_max": lat_max,
-		}
+		for polygon: Array in _get_polygons():
+			for ring: PackedVector2Array in polygon:
+				var count := ring.size()
+				for i in range(count):
+					var from: Vector2 = ring[i]
+					var to: Vector2 = ring[(i + 1) % count]
+					if absf(from.y - to.y) < 0.000001:
+						continue
+					coords.append(from.x)
+					coords.append(from.y)
+					coords.append(to.x)
+					coords.append(to.y)
+		_mask_edges = {"coords": coords}
 	return _mask_edges
 
-## LAND_POLYGONS as PackedVector2Array, built once (the const form is a plain
-## array of [lon, lat] pairs, which PackedVector2Array() would not convert).
+## Load and convert the bundled Natural Earth polygons once. Each polygon is
+## an array of rings: the first ring is its coast, any remaining rings are holes.
 static func _get_polygons() -> Array:
-	if _land_polygon_cache.is_empty():
-		for polygon in LAND_POLYGONS:
+	if _land_polygon_cache_loaded:
+		return _land_polygon_cache
+	_land_polygon_cache_loaded = true
+
+	var file := FileAccess.open(LAND_DATA_PATH, FileAccess.READ)
+	if file == null:
+		push_error("Could not open globe land data at %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not parsed is Dictionary:
+		push_error("Globe land data is not a JSON object: %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+	var source_polygons: Variant = parsed.get("polygons", [])
+	if not source_polygons is Array:
+		push_error("Globe land data has no polygon array: %s" % LAND_DATA_PATH)
+		return _land_polygon_cache
+
+	for source_polygon: Variant in source_polygons:
+		if not source_polygon is Array or source_polygon.is_empty():
+			continue
+		var rings: Array = []
+		var valid_polygon := true
+		for source_ring: Variant in source_polygon:
+			if not source_ring is Array or source_ring.size() < 4:
+				valid_polygon = false
+				break
 			var points := PackedVector2Array()
-			for point in polygon:
-				points.append(Vector2(float(point[0]), float(point[1])))
-			_land_polygon_cache.append(points)
+			for source_point: Variant in source_ring:
+				if not source_point is Array or source_point.size() < 2:
+					valid_polygon = false
+					break
+				points.append(Vector2(float(source_point[0]), float(source_point[1])))
+			if not valid_polygon:
+				break
+			rings.append(points)
+		if valid_polygon and not rings.is_empty():
+			_land_polygon_cache.append(rings)
 	return _land_polygon_cache
 
 func _project(lon: float, lat: float) -> Vector3:
@@ -600,10 +645,11 @@ func _screen_for(v: Vector3, center: Vector2, radius: float) -> Vector2:
 
 ## ── Drawing ──────────────────────────────────────────────────────────────
 
-## The land-dot fallback (LandStyle.DOTS). The planet style is drawn by the
-## shader on its own layer, so there is nothing to do here.
+## The land-dot fallback (LandStyle.DOTS). The planet styles (PLANET and
+## PIXEL) are drawn by the shader on their own layer, so there is nothing to
+## do here.
 func _draw() -> void:
-	if _land_style == LandStyle.PLANET:
+	if _land_style == LandStyle.PLANET or _land_style == LandStyle.PIXEL:
 		return
 	var center := _sphere_center()
 	var radius := _sphere_radius()
@@ -696,15 +742,93 @@ func _draw_markers(canvas: CanvasItem, center: Vector2, radius: float) -> void:
 		_marker_positions[id] = pos
 		var selected: bool = id == _selected_id
 		var hovered := id == _hover_id
-		var marker_radius := MARKER_RADIUS + (2.0 if selected else 0.0)
 
-		canvas.draw_circle(pos + Vector2(1.5, 2.0), marker_radius + 1.0, Color(0.0, 0.0, 0.0, 0.35))
-		canvas.draw_circle(pos, marker_radius, marker_color(loc))
-		canvas.draw_arc(pos, marker_radius, 0.0, TAU, 24, Color(0.05, 0.08, 0.05, 0.9), 1.5, true)
-		if selected:
-			canvas.draw_arc(pos, marker_radius + 5.0, 0.0, TAU, 32, UIConstants.COLOR_GOLD, 2.0, true)
+		if _land_style == LandStyle.PIXEL:
+			_draw_pixel_pin(canvas, pos, loc, selected)
+		else:
+			_draw_smooth_marker(canvas, pos, loc, selected)
 		if selected or hovered:
-			_draw_marker_label(canvas, pos, str(loc.get("name", id)), selected)
+			if _land_style == LandStyle.PIXEL:
+				_draw_marker_label_pixel(canvas, pos, str(loc.get("name", id)), selected)
+			else:
+				_draw_marker_label(canvas, pos, str(loc.get("name", id)), selected)
+
+func _draw_smooth_marker(canvas: CanvasItem, pos: Vector2, loc: Dictionary, selected: bool) -> void:
+	var marker_radius := MARKER_RADIUS + (2.0 if selected else 0.0)
+	canvas.draw_circle(pos + Vector2(1.5, 2.0), marker_radius + 1.0, Color(0.0, 0.0, 0.0, 0.35))
+	canvas.draw_circle(pos, marker_radius, marker_color(loc))
+	canvas.draw_arc(pos, marker_radius, 0.0, TAU, 24, Color(0.05, 0.08, 0.05, 0.9), 1.5, true)
+	if selected:
+		canvas.draw_arc(pos, marker_radius + 5.0, 0.0, TAU, 32, UIConstants.COLOR_GOLD, 2.0, true)
+
+## A marker for the PIXEL globe: the same 16x16 pin sprite the screens use
+## (PixelIcon.Kind.PIN), tip on the destination, with chunky corner brackets
+## in gold when it is the selected site. The sprite is nearest-filtered and
+## placed on whole pixels, so the pin's cells stay crisp against the
+## quantised planet.
+func _draw_pixel_pin(canvas: CanvasItem, pos: Vector2, loc: Dictionary, selected: bool) -> void:
+	var tint := marker_color(loc)
+	var side := PixelIcon.snapped_side(PIN_SPRITE_SIDE)
+	var tip := (pos - Vector2(0.0, PIN_SPRITE_RAISE)).round()
+	# The sprite's pin tip sits at 13.5/16 of its height.
+	var base := tip - Vector2(side * 0.5, side * 0.84)
+	# A two-block cast shadow grounds the pin on the globe.
+	canvas.draw_rect(Rect2(tip + Vector2(2.0, 1.0), Vector2(side * 0.4, 2.0)),
+		Color(0.0, 0.0, 0.0, 0.30))
+	canvas.draw_texture(PixelIcon.texture(PixelIcon.Kind.PIN, side, tint), base)
+	if selected:
+		_draw_pin_brackets(canvas, tip, side)
+
+## Gold corner brackets around the selected pin — the atlas's way of saying
+## "you are here" without covering the pin itself.
+func _draw_pin_brackets(canvas: CanvasItem, tip: Vector2, side: float) -> void:
+	var gold := UIConstants.COLOR_GOLD
+	var frame := Rect2(tip - Vector2(side * 0.62, side * 0.96), Vector2(side * 1.24, side * 1.05))
+	var arm := maxf(2.0, side * 0.22)
+	var bar := 2.0
+	# Each corner is an L of two bars, snapped to whole pixels.
+	for corner in [frame.position, Vector2(frame.end.x, frame.position.y),
+			Vector2(frame.position.x, frame.end.y), frame.end]:
+		var sx: float = 1.0 if corner.x == frame.position.x else -1.0
+		var sy: float = 1.0 if corner.y == frame.position.y else -1.0
+		var h := Rect2(Vector2.ZERO, Vector2(arm, bar))
+		var v := Rect2(Vector2.ZERO, Vector2(bar, arm))
+		h.position = Vector2(corner.x, corner.y) if sx > 0.0 else Vector2(corner.x - arm, corner.y)
+		v.position = Vector2(corner.x, corner.y) if sy > 0.0 else Vector2(corner.x, corner.y - arm)
+		if sx < 0.0:
+			v.position.x = corner.x - bar
+		if sy < 0.0:
+			h.position.y = corner.y - bar
+		canvas.draw_rect(h, gold)
+		canvas.draw_rect(v, gold)
+
+## The destination's name as a pixel tag: a notched ink frame with an accent
+## trim (gold for the selected site), Pixelify type on top. The frame is the
+## same recipe as the screens' cards: outline, trim, fill — no rounded
+## corners, nothing anti-aliased.
+func _draw_marker_label_pixel(canvas: CanvasItem, pos: Vector2, text: String, selected: bool) -> void:
+	var font_size := 13
+	var accent := UIConstants.COLOR_GOLD if selected else Color(0.62, 0.72, 0.62, 0.85)
+	var text_size := MARKER_FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var pad := Vector2(6.0, 4.0)
+	var rect_size := (text_size + pad * 2.0).round()
+	var top := (pos + Vector2(10.0, -rect_size.y * 0.5)).round()
+	_draw_pixel_tag(canvas, Rect2(top, rect_size), accent,
+		Color(0.035, 0.075, 0.06, 0.92), Color("0b1a14"))
+	canvas.draw_string(MARKER_FONT, top + Vector2(pad.x, pad.y + MARKER_FONT.get_ascent(font_size)),
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
+		UIConstants.COLOR_GOLD if selected else UIConstants.COLOR_TEXT)
+
+## A small notched pixel frame: two overlapping rects per layer make the
+## 1-pixel corner cut, outside in — ink outline, accent trim, dark fill.
+func _draw_pixel_tag(canvas: CanvasItem, rect: Rect2, accent: Color, fill: Color, ink: Color) -> void:
+	for layer in [[rect, ink], [rect.grow(-1.0), accent], [rect.grow(-2.0), fill]]:
+		var layer_rect: Rect2 = layer[0]
+		var color: Color = layer[1]
+		canvas.draw_rect(Rect2(layer_rect.position + Vector2(1.0, 0.0),
+			layer_rect.size - Vector2(2.0, 0.0)), color)
+		canvas.draw_rect(Rect2(layer_rect.position + Vector2(0.0, 1.0),
+			layer_rect.size - Vector2(0.0, 2.0)), color)
 
 func _draw_marker_label(canvas: CanvasItem, pos: Vector2, text: String, selected: bool) -> void:
 	var font := ThemeDB.fallback_font
@@ -763,6 +887,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 			return
 		if _touch_index == -1:
 			_touch_index = event.index
+			_take_hold()
 			_dragging = true
 			_drag_start = local_pos
 			_drag_last = local_pos
@@ -779,7 +904,7 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 				location_clicked.emit(hit)
 		else:
 			# Let go mid-flick: the globe keeps the spin and coasts.
-			set_process(true)
+			_start_animating()
 		_touch_index = -1
 		get_viewport().set_input_as_handled()
 	elif inside:
@@ -788,6 +913,15 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 
 func _screen_to_local(screen_pos: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * screen_pos
+
+## The player has taken hold of the globe: whatever it was doing — flying to a
+## destination or coasting off a flick — is theirs to overrule from here. A
+## fly-to left in flight would otherwise write its own centre over every frame
+## of the drag, and the globe would refuse to follow the hand on it.
+func _take_hold() -> void:
+	_animating = false
+	_spin_lon = 0.0
+	_spin_lat = 0.0
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -798,6 +932,7 @@ func _gui_input(event: InputEvent) -> void:
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
+			_take_hold()
 			_dragging = true
 			_drag_start = event.position
 			_drag_last = event.position
@@ -811,7 +946,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				if not hit.is_empty():
 					location_clicked.emit(hit)
 			else:
-				set_process(true)
+				_start_animating()
 		accept_event()
 	elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 		zoom_in()

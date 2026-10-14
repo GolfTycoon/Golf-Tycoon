@@ -57,7 +57,7 @@ godot --headless --path . -s tests/integration/world_map_flow.gd
 | `new_game_resets_course.gd` | A second new game starts from a clean grid |
 | `generated_course_hole_layout.gd` | Quick Start and the prebuilt packages deliver every hole, and arrive with their walking paths |
 | `staff_on_course.gd` | Hiring staff, moving an area, and pulling a weed |
-| `world_map_flow.gd` | Menu, setup, globe, buy, play, switch and quick start |
+| `world_map_flow.gd` | Menu, setup, globe, Buy & Play, switch and quick start |
 | `clubhouse_lifecycle.gd` | The clubhouse is created and kept |
 | `tee_aim_arrows.gd` | Aiming arrows on tees |
 | `management_loop.gd`, `guest_experience_campaign.gd`, `guest_experience_followup.gd` | Longer management and visitor flows |

@@ -15,6 +15,11 @@ extends SceneTree
 
 const SHADER_PATH := "res://shaders/globe_planet.gdshader"
 
+## GlobeMap's pin-sprite constants, copied for the pin port (PIN_SPRITE_SIDE
+## / PIN_SPRITE_RAISE in scripts/ui/globe_map.gd).
+const PIN_SPRITE_SIDE := 16
+const PIN_SPRITE_RAISE := 2.0
+
 var _uniforms: Dictionary = {}
 var _mask: Image
 var _view_lon := -40.0
@@ -25,13 +30,30 @@ func _initialize() -> void:
 	_mask = GlobeMap.build_land_mask()
 	_report_projection_round_trip()
 	# The view GlobeMap opens on, plus a pole and an ocean view.
-	_render(820, -40.0, 30.0, "planet_view.png")
-	_render(600, 0.0, 78.0, "planet_view_pole.png")
-	_render(600, -150.0, 10.0, "planet_view_pacific.png")
+	_render(820, -40.0, 30.0, "planet_view.png", false)
+	_render(600, 0.0, 78.0, "planet_view_pole.png", false)
+	_render(600, -150.0, 10.0, "planet_view_pacific.png", false)
+	# The World Map's LandStyle.PIXEL planet: the same shader with the menu
+	# palette and chunky-light tuning GlobeMap feeds it, quantised a block at
+	# a time, and with the pin sprites instead of the smooth dots.
+	_apply_uniforms(GlobeMap.PIXEL_PALETTE)
+	_apply_uniforms(GlobeMap.PIXEL_TUNING)
+	_uniforms["pixel_block"] = clampf(820.0 / 125.0,
+		GlobeMap.PIXEL_BLOCK_MIN, GlobeMap.PIXEL_BLOCK_MAX)
+	_render(820, -40.0, 30.0, "planet_pixel_view.png", true)
+	_uniforms["pixel_block"] = clampf(600.0 / 125.0,
+		GlobeMap.PIXEL_BLOCK_MIN, GlobeMap.PIXEL_BLOCK_MAX)
+	_render(600, 120.0, 25.0, "planet_pixel_asia.png", true)
 	print("wrote planet previews to res://tmp_preview")
 	quit()
 
-func _render(size: int, center_lon: float, center_lat: float, file: String) -> void:
+## Feed a dictionary of shader parameters over the parsed defaults, the way
+## GlobeMap._apply_pixel_palette() feeds the material.
+func _apply_uniforms(overrides: Dictionary) -> void:
+	for parameter in overrides:
+		_uniforms[parameter] = overrides[parameter]
+
+func _render(size: int, center_lon: float, center_lat: float, file: String, pixel: bool) -> void:
 	_view_lon = center_lon
 	_view_lat = center_lat
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://tmp_preview"))
@@ -47,7 +69,8 @@ func _render(size: int, center_lon: float, center_lat: float, file: String) -> v
 				color.r * alpha + background.r * (1.0 - alpha),
 				color.g * alpha + background.g * (1.0 - alpha),
 				color.b * alpha + background.b * (1.0 - alpha)))
-	var pinned := _draw_pins(img, Vector2(size, size), center_lon, center_lat)
+	var pinned := _draw_pins_pixel(img, Vector2(size, size), center_lon, center_lat) if pixel \
+		else _draw_pins(img, Vector2(size, size), center_lon, center_lat)
 	print("%s %dx%d in %.0f ms, %d pins drawn" % [
 		file, size, size, float(Time.get_ticks_usec() - started) / 1000.0, pinned])
 	print("save: ", img.save_png("res://tmp_preview/" + file))
@@ -144,6 +167,10 @@ func _fragment(px_pos: Vector2, view_size: Vector2) -> Color:
 
 	var p := px_pos - view_size * 0.5
 	var radius := maxf(minf(view_size.x, view_size.y) * 0.5 * sphere_fill * radius_scale, 1.0)
+	var pixel_block := _uf("pixel_block")
+	if pixel_block > 0.0:
+		# Pixel mode: the whole fragment runs on the centre of its block.
+		p = (p / pixel_block).floor() * pixel_block + Vector2.ONE * (pixel_block * 0.5)
 	var r := p.length() / radius
 	var px := 1.0 / radius
 	var body := 1.0 - smoothstep(1.0 - px * 1.5, 1.0 + px * 1.5, r)
@@ -166,9 +193,12 @@ func _fragment(px_pos: Vector2, view_size: Vector2) -> Color:
 	# width comes from the view instead of fwidth().
 	var texel := maxf(2.0 / mask_size.x, 2.0 * px * 57.29578 / 360.0)
 	var coast_aa := clampf(texel * 0.8, 1.0 / mask_size.x, 0.35)
+	if pixel_block > 0.0:
+		# Block edges would otherwise see a huge fwidth; exactly one block.
+		coast_aa = pixel_block * px * 57.29578 / 180.0
 	var land_a := smoothstep(0.5 - coast_aa, 0.5 + coast_aa, land)
 	var px_deg := px * 57.29578
-	var probe := maxf(texel * 2.0, px_deg / 360.0 * 3.0)
+	var probe := maxf(texel * 2.0, px_deg / 360.0 * maxf(3.0, pixel_block * 1.2))
 	var probe_lat_lo := clampf(mask_uv.y - probe, half_row, 1.0 - half_row)
 	var probe_lat_hi := clampf(mask_uv.y + probe, half_row, 1.0 - half_row)
 	var sample_east := _mask_at(Vector2(mask_uv.x + probe, mask_uv.y))
@@ -198,6 +228,9 @@ func _fragment(px_pos: Vector2, view_size: Vector2) -> Color:
 	land_rgb = land_rgb.lerp(_u4("land_dry"), arid)
 	land_rgb = land_rgb.lerp(_u4("land_beach"), clampf(near_water * land_a, 0.0, 1.0) * 0.35)
 	var ice := smoothstep(67.0, 78.0, abs_lat + (relief - 0.5) * 8.0) * _uf("ice_strength")
+	if pixel_block > 0.0:
+		# Snow falls a block at a time: the cap edge is stepped, never soft.
+		ice = 1.0 if ice >= 0.5 else 0.0
 	land_rgb = land_rgb.lerp(_u4("ice_color"), clampf(ice, 0.0, 1.0))
 	var albedo := ocean.lerp(land_rgb, land_a)
 
@@ -205,6 +238,9 @@ func _fragment(px_pos: Vector2, view_size: Vector2) -> Color:
 	var ndl := n.dot(light)
 	var day := smoothstep(-_uf("terminator_softness"), _uf("terminator_softness"), ndl)
 	var luminance := _uf("ambient_floor") + (1.0 - _uf("ambient_floor")) * clampf(ndl, 0.0, 1.0)
+	if pixel_block > 0.0:
+		# Daylight lands in a handful of flat shades, not a smooth gradient.
+		luminance = floorf(luminance * 5.0 + 0.5) / 5.0
 	var planet := Color(albedo.r * luminance, albedo.g * luminance, albedo.b * luminance)
 	var tint := _u4("night_tint").lerp(_u4("day_tint"), day)
 	planet = Color(planet.r * tint.r, planet.g * tint.g, planet.b * tint.b)
@@ -229,6 +265,9 @@ func _fragment(px_pos: Vector2, view_size: Vector2) -> Color:
 		var gx := absf(fposmod(lon_deg / step + 0.5, 1.0) - 0.5) * step
 		var gy := absf(fposmod(lat_deg / step + 0.5, 1.0) - 0.5) * step
 		var line_width := maxf(0.7 * maxf(rad_to_deg(px), rad_to_deg(px)), 0.02)
+		if pixel_block > 0.0:
+			# In pixel mode the graticule is a flat one-block-wide rule.
+			line_width = pixel_block * px * 57.29578
 		var lines := 1.0 - smoothstep(0.0, line_width, minf(gx, gy))
 		lines *= 1.0 - smoothstep(80.0, 88.0, abs_lat)
 		planet = planet.lerp(Color(1, 1, 1), lines * graticule_alpha * (0.3 + 0.7 * day))
@@ -322,3 +361,62 @@ func _fill_circle(img: Image, center: Vector2, r: float, color: Color) -> void:
 			var dy := float(y) + 0.5 - center.y
 			if dx * dx + dy * dy <= r2:
 				img.set_pixel(x, y, color)
+
+## The PIXEL globe's markers, drawn the way GlobeMap._draw_pixel_pin draws
+## them: the 16x16 pin sprite, tip on the destination and raised a hair, over
+## a two-block cast shadow — with gold corner brackets on the selected site.
+func _draw_pins_pixel(img: Image, view_size: Vector2, center_lon: float, center_lat: float) -> int:
+	var selected := "monterey"
+	var radius := maxf(minf(view_size.x, view_size.y) * 0.5 * _uf("sphere_fill") * _uf("radius_scale"), 1.0)
+	var center := view_size * 0.5
+	var side := PixelIcon.snapped_side(PIN_SPRITE_SIDE)
+	var drawn := 0
+	for def in WorldLocations.get_all():
+		var v := GlobeMap.project_point(float(def["lon"]), float(def["lat"]), center_lon, center_lat)
+		if v.z <= 0.02:
+			continue
+		var pos := center + Vector2(v.x, -v.y) * radius
+		var is_selected := str(def["id"]) == selected
+		var loc := {"active": is_selected, "owned": false, "price": 0}
+		var tip := (pos - Vector2(0.0, PIN_SPRITE_RAISE)).round()
+		var base := tip - Vector2(side * 0.5, side * 0.84)
+		_fill_rect_pixels(img, Rect2(tip + Vector2(2.0, 1.0), Vector2(side * 0.4, 2.0)),
+			Color(0.0, 0.0, 0.0, 0.30))
+		var sprite := PixelIcon.texture(PixelIcon.Kind.PIN, side, GlobeMap.marker_color(loc)).get_image()
+		sprite.convert(Image.FORMAT_RGBA8)
+		img.blend_rect(sprite, Rect2i(Vector2i.ZERO, sprite.get_size()), Vector2i(base.round()))
+		if is_selected:
+			_draw_pixel_brackets(img, tip, side)
+			print("  gold-bracketed pin %-13s at %s" % [def["id"], pos])
+		drawn += 1
+	return drawn
+
+## The gold corner brackets of _draw_pin_brackets, as pixels.
+func _draw_pixel_brackets(img: Image, tip: Vector2, side: float) -> void:
+	var gold := UIConstants.COLOR_GOLD
+	var frame := Rect2(tip - Vector2(side * 0.62, side * 0.96), Vector2(side * 1.24, side * 1.05))
+	var arm := maxf(2.0, side * 0.22)
+	var bar := 2.0
+	for corner in [frame.position, Vector2(frame.end.x, frame.position.y),
+			Vector2(frame.position.x, frame.end.y), frame.end]:
+		var sx: float = 1.0 if (corner as Vector2).x == frame.position.x else -1.0
+		var sy: float = 1.0 if (corner as Vector2).y == frame.position.y else -1.0
+		var h := Rect2((corner as Vector2) if sx > 0.0 else (corner as Vector2) - Vector2(arm, 0.0),
+			Vector2(arm, bar))
+		var v := Rect2((corner as Vector2) if sy > 0.0 else (corner as Vector2) - Vector2(0.0, arm),
+			Vector2(bar, arm))
+		if sx < 0.0:
+			v.position.x = (corner as Vector2).x - bar
+		if sy < 0.0:
+			h.position.y = (corner as Vector2).y - bar
+		_fill_rect_pixels(img, h, gold)
+		_fill_rect_pixels(img, v, gold)
+
+func _fill_rect_pixels(img: Image, rect: Rect2, color: Color) -> void:
+	for y in range(maxi(0, int(rect.position.y)), mini(img.get_height(), int(ceili(rect.end.y)))):
+		for x in range(maxi(0, int(rect.position.x)), mini(img.get_width(), int(ceili(rect.end.x)))):
+			var dst := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(
+				color.r * color.a + dst.r * (1.0 - color.a),
+				color.g * color.a + dst.g * (1.0 - color.a),
+				color.b * color.a + dst.b * (1.0 - color.a)))

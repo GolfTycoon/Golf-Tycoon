@@ -45,6 +45,34 @@ func test_the_mask_puts_known_places_on_the_right_side_of_the_coast() -> void:
 	assert_gt(GlobeMap.mask_coverage(mask, 100.0, -75.0), 0.5, "Antarctica is drawn as a polar cap")
 	assert_gt(GlobeMap.mask_coverage(mask, 20.0, 0.0), 0.5, "the equator runs through land in central Africa")
 	assert_lt(GlobeMap.mask_coverage(mask, 0.0, 0.0), 0.5, "and through water in the Gulf of Guinea")
+	assert_gt(GlobeMap.mask_coverage(mask, -19.0, 65.0), 0.5, "Iceland is kept as its own island")
+	assert_lt(GlobeMap.mask_coverage(mask, -12.0, 65.0), 0.5, "the water east of Iceland is not filled in")
+	assert_lt(GlobeMap.mask_coverage(mask, 50.0, 42.0), 0.5, "the Caspian Sea remains a hole in Eurasia")
+	assert_lt(GlobeMap.mask_coverage(mask, 122.0, 10.0), 0.5, "the Philippine Sea is not swallowed by a blocky island outline")
+	assert_lt(GlobeMap.mask_coverage(mask, 113.0, -5.0), 0.5, "the Java Sea remains water between the islands")
+	assert_gt(GlobeMap.mask_coverage(mask, 121.0, 14.0), 0.5, "Luzon remains land beside the Philippine Sea")
+	assert_gt(GlobeMap.mask_coverage(mask, -179.0, -89.0), 0.5, "Antarctica remains land across the western date line")
+	assert_gt(GlobeMap.mask_coverage(mask, 179.0, -89.0), 0.5, "the eastern date line closes the polar coastline")
+
+func test_the_land_data_has_detailed_coastlines_and_separate_islands() -> void:
+	var polygons := GlobeMap._get_polygons()
+	assert_gt(polygons.size(), 1400, "the bundled Natural Earth data keeps separate land shapes")
+	var vertices := 0
+	var holes := 0
+	for polygon: Array in polygons:
+		if polygon.size() > 1:
+			holes += polygon.size() - 1
+		for ring: PackedVector2Array in polygon:
+			vertices += ring.size()
+	assert_gt(vertices, 20000, "the atlas has detailed coastline vertices rather than a handful of hand-drawn points")
+	assert_gt(holes, 0, "interior water rings are retained")
+	assert_true(GlobeMap.is_land(-19.0, 65.0), "Iceland's outline includes its interior")
+	assert_false(GlobeMap.is_land(-12.0, 65.0), "nearby North Atlantic water stays water")
+	assert_false(GlobeMap.is_land(50.0, 42.0), "the Caspian Sea hole is not reported as land")
+	assert_true(GlobeMap.is_land(121.0, 14.0), "the Luzon coastline is represented")
+	assert_false(GlobeMap.is_land(122.0, 10.0), "water in the Philippine archipelago is not filled as land")
+	assert_true(GlobeMap.is_land(115.2, -8.4), "Bali is represented as a separate island")
+	assert_false(GlobeMap.is_land(113.0, -5.0), "the Java Sea between islands stays water")
 
 func test_the_mask_bake_is_shared_by_every_globe() -> void:
 	GlobeMap.clear_mask_cache()
@@ -114,13 +142,19 @@ func test_hovering_or_selecting_never_re_shades_the_planet() -> void:
 		globe._process(0.1)
 	assert_gt(globe.view_sync_count(), syncs, "moving the globe does re-shade the planet")
 
-func test_the_dots_style_keeps_the_old_drawing_available() -> void:
+func test_the_dots_style_keeps_a_shader_free_fallback_available() -> void:
 	var globe := _make_globe(GlobeMap.LandStyle.DOTS)
 	assert_eq(globe.get_land_style(), GlobeMap.LandStyle.DOTS)
 	assert_false(is_instance_valid(globe._planet), "the dots style builds no shader planet")
 	assert_true(is_instance_valid(globe._marker_layer), "markers still get their own layer")
 	await process_frames(2)
-	assert_gt(globe._land_points.size(), 1000, "the old land points are rasterised for the dots")
+	assert_gt(globe._land_points.size(), 1000, "the detailed land mask supplies the shader-free dots")
+
+func test_pixel_planet_uses_a_finer_cell_grid_for_its_coastlines() -> void:
+	var globe := autofree(GlobeMap.new()) as GlobeMap
+	globe.size = Vector2(600.0, 600.0)
+	assert_eq(globe._pixel_block_size(), 3.5,
+		"the world map's pixel grid is finer than the former 4.5px limit")
 
 ## ── View animation ───────────────────────────────────────────────────────
 
@@ -156,6 +190,60 @@ func test_centring_animation_is_smooth_and_monotonic() -> void:
 			break
 	assert_almost_eq(globe._center_lon, 90.0, 0.001, "it lands exactly on the destination")
 	assert_gt(steps, 2, "the move is interpolated over several frames, not snapped")
+
+func test_a_frozen_simulation_does_not_freeze_the_globe() -> void:
+	# The Club tab opens the World Map over a course it has paused, and a paused
+	# simulation runs on Engine.time_scale 0: every frame it hands out is worth
+	# no time at all. The atlas is an interface rather than part of the
+	# simulation, so it measures its own time and keeps turning.
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "east", "name": "East", "lon": 90.0, "lat": 0.0}])
+	globe.look_at_location("east")
+	Engine.time_scale = 0.0
+	# The frame already in flight still carries the last of the running clock,
+	# so let the frozen clock settle before watching the globe.
+	await process_frames(2)
+	var progress: float = globe._anim_time
+	var centre: float = globe._center_lon
+	await process_frames(6)
+	assert_gt(globe._anim_time, progress, "the fly-to keeps its own time while the course is frozen")
+	assert_gt(globe._center_lon, centre, "and carries the globe towards the destination")
+
+	var radius: float = globe.get_view_state()["radius_scale"]
+	globe.zoom_in()
+	await process_frames(6)
+	assert_gt(globe.get_view_state()["radius_scale"], radius,
+		"zooming eases towards its target over a frozen course too")
+
+
+func test_taking_hold_of_the_globe_stops_a_fly_to_in_flight() -> void:
+	# A hand on the globe overrules whatever it was doing: a fly-to left in
+	# flight writes its own centre over every frame of the drag, and the globe
+	# seems to refuse to follow the pointer.
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "east", "name": "East", "lon": 90.0, "lat": 0.0}])
+	globe.look_at_location("east")
+	assert_true(globe._animating, "the globe is flying towards the destination")
+
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(200.0, 180.0)
+	globe._gui_input(press)
+	assert_false(globe._animating, "taking hold of the globe cancels the fly-to")
+
+	var before := globe._center_lon
+	var motion := InputEventMouseMotion.new()
+	motion.position = press.position + Vector2(60.0, 0.0)
+	globe._gui_input(motion)
+	var dragged := globe._center_lon
+	assert_true(absf(dragged - before) > 10.0, "the drag turns the globe")
+	await process_frames(3)
+	assert_almost_eq(globe._center_lon, dragged, 0.001,
+		"and the globe stays where the drag left it")
+
 
 func test_zoom_eases_to_its_target_and_stops_processing() -> void:
 	var globe := _make_globe()

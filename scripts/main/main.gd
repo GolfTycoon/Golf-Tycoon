@@ -811,8 +811,9 @@ func _leave_club_world_map() -> void:
 	_set_gameplay_ui_visible(true)
 	GameManager.is_paused = _world_map_restore_paused
 
-## The player pressed Play on an owned location: start the company's game
-## there, restoring the course they left when there is one.
+## The player pressed Play on an owned location, or Buy & Play on an unowned
+## one: start the company's game there, restoring the course they left when
+## there is one.
 func _on_world_map_play_location(location_id: String) -> void:
 	if not WorldMap.is_owned(location_id):
 		return

@@ -1,15 +1,20 @@
 extends Control
 class_name MenuFlagMark
-## The title screen's mark: a ball resting on a green with a flagstick over it.
+## The menu screens' mark: a gold pennant on its flagstick, standing in the
+## cup on a green with a ball beside it.
 ##
 ## It is drawn, not typed, for the same reason as the Rotate buttons' arrows
 ## and the compass needle — the game's font carries no golf glyph, and a
-## Unicode flag would render as a blank box on some builds. Drawn shapes look
-## the same everywhere and scale to whatever `mark_size` the layout asks for.
+## Unicode flag would render as a blank box on some builds. And it is drawn
+## as a 16x16 pixel-art sprite, like the title screen's PixelIcon actions and
+## the Start New Game setup glyphs: the screens share one hard-edged visual
+## language, so a smooth vector mark would stick out beside them. Drawn
+## rectangles scale to whatever `mark_size` the layout asks for.
 
 const DEFAULT_SIZE := 64.0
-## Share of the mark taken by the flagstick, measured from the green up.
-const FLAG_HEIGHT_SHARE := 0.52
+
+## Side of the sprite grid, in source pixels.
+const GRID := 16
 
 const GREEN_COLOR := Color("2c6739")
 const FRINGE_COLOR := Color("22502d")
@@ -19,6 +24,29 @@ const FLAG_COLOR := Color("e5c57c")
 const CUP_COLOR := Color("0d2119")
 const BALL_COLOR := Color("f4edd9")
 const BALL_SHADE := Color("c9c2ad")
+
+## The sprite, one 16-character row per pixel row. Characters are palette
+## keys: '.' air, 'X' ink (and the cup), 'A' the flag's gold, 'L' its lit top
+## edge, 'C' the cream flagstick, 'W'/'S' the ball and its shade, 'G' the
+## putting green, 'R' its lit top rim and 'g' the dark fringe.
+const ART := [
+	"................",
+	".....CXXXXXX....",
+	".....CXLLLLLX...",
+	".....CXAAAAAX...",
+	".....CXAAAAAXX..",
+	".....CXAAAAAAX..",
+	".....CXXXXXXXX..",
+	".....C..........",
+	".....C..........",
+	"..RRRCRRR.WWW...",
+	".GGGXXGGGWSGGg..",
+	".gGGGGGGGGGGGG..",
+	"..gGGGGGGGGGGg..",
+	"...gGGGGGGGGg...",
+	"................",
+	"................",
+]
 
 ## Side length of the mark in layout pixels. Setting it resizes the control.
 @export var mark_size := DEFAULT_SIZE:
@@ -33,41 +61,47 @@ func _init() -> void:
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+## Paint the character grid directly as non-antialiased rectangles. Rounding
+## each cell edge (rather than scaling a smooth CanvasItem shape) preserves
+## the hard edges when the responsive layout gives the mark a non-integer
+## size — the same render path SetupGlyph uses for the setup screen's glyphs.
 func _draw() -> void:
 	var side := minf(size.x, size.y)
 	if side <= 1.0:
 		return
 	var origin := (size - Vector2(side, side)) * 0.5
-	var center := origin + Vector2(side * 0.5, side * 0.5)
+	var cell := side / float(GRID)
+	for y in GRID:
+		var row: String = ART[y]
+		for x in GRID:
+			var color := _cell_color(row[x])
+			if color.a <= 0.0:
+				continue
+			var left := roundf(origin.x + float(x) * cell)
+			var top := roundf(origin.y + float(y) * cell)
+			var right := roundf(origin.x + float(x + 1) * cell)
+			var bottom := roundf(origin.y + float(y + 1) * cell)
+			if right > left and bottom > top:
+				draw_rect(Rect2(Vector2(left, top), Vector2(right - left, bottom - top)), color)
 
-	# A soft halo so the mark reads on both the light and the dark parts of the
-	# backdrop, then the green's fringe and putting surface.
-	draw_circle(center, side * 0.5, Color(GREEN_RIM.r, GREEN_RIM.g, GREEN_RIM.b, 0.10))
-	var green := origin + Vector2(side * 0.5, side * 0.70)
-	_ellipse(green, Vector2(side * 0.44, side * 0.24), FRINGE_COLOR)
-	_ellipse(green, Vector2(side * 0.37, side * 0.19), GREEN_COLOR)
-
-	# Flagstick and cloth.
-	var pole_base := green + Vector2(-side * 0.06, side * 0.02)
-	var pole_top := pole_base - Vector2(0.0, side * FLAG_HEIGHT_SHARE)
-	var pole_width := maxf(1.6, side * 0.045)
-	draw_line(pole_base, pole_top, POLE_COLOR, pole_width, true)
-	draw_colored_polygon(PackedVector2Array([
-		pole_top,
-		pole_top + Vector2(side * 0.30, side * 0.10),
-		pole_top + Vector2(0.0, side * 0.21),
-	]), FLAG_COLOR)
-
-	# Cup under the stick, ball beside it.
-	_ellipse(pole_base, Vector2(pole_width * 1.5, pole_width * 1.05), CUP_COLOR)
-	var ball_center := green + Vector2(side * 0.24, side * 0.02)
-	draw_circle(ball_center, side * 0.10, BALL_COLOR)
-	draw_circle(ball_center + Vector2(side * 0.03, side * 0.03), side * 0.04, BALL_SHADE)
-
-## Fill an axis-aligned ellipse with a polygon (CanvasItem has no draw_ellipse).
-func _ellipse(center: Vector2, radii: Vector2, color: Color, segments: int = 36) -> void:
-	var points := PackedVector2Array()
-	for i in segments:
-		var angle := TAU * float(i) / float(segments)
-		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
-	draw_colored_polygon(points, color)
+static func _cell_color(key: String) -> Color:
+	match key:
+		"X":
+			return CUP_COLOR
+		"A":
+			return FLAG_COLOR
+		"L":
+			return FLAG_COLOR.lightened(0.38)
+		"C":
+			return POLE_COLOR
+		"W":
+			return BALL_COLOR
+		"S":
+			return BALL_SHADE
+		"G":
+			return GREEN_COLOR
+		"R":
+			return GREEN_RIM
+		"g":
+			return FRINGE_COLOR
+	return Color(0, 0, 0, 0)
