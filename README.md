@@ -42,16 +42,16 @@ Golf Tycoon is a 2D isometric simulation written in **GDScript** for **Godot 4.6
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/v0.3.2-main-menu.jpg" width="420" alt="Main Menu">
-  <img src="docs/screenshots/v0.3.2-course-building.jpg" width="420" alt="Building a course">
+  <img src="docs/screenshots/v0.3.2-main-menu.jpg" width="410" alt="Main Menu">
+  <img src="docs/screenshots/v0.3.2-course-building.jpg" width="410" alt="Building a course">
 </p>
 <p align="center">
-  <img src="docs/screenshots/v0.3.2-shot-in-progress.jpg" width="420" alt="A golfer taking a shot">
-  <img src="docs/screenshots/v0.3.2-world-map.jpg" width="420" alt="The world map">
+  <img src="docs/screenshots/v0.3.2-shot-in-progress.jpg" width="410" alt="A golfer taking a shot">
+  <img src="docs/screenshots/v0.3.2-world-map.jpg" width="410" alt="The world map">
 </p>
 <p align="center">
-  <img src="docs/screenshots/v0.3.2-business-panel.jpg" width="420" alt="A management panel">
-  <img src="docs/screenshots/v0.3.2-course-theme.jpg" width="420" alt="A Parkland themed course">
+  <img src="docs/screenshots/v0.3.2-business-panel.jpg" width="410" alt="A management panel">
+  <img src="docs/screenshots/v0.3.2-course-theme.jpg" width="410" alt="A Parkland themed course">
 </p>
 
 ## Quick Start
