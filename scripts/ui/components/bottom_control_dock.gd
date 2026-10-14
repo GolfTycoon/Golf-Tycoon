@@ -6,6 +6,8 @@ const WIDTH := 218.0
 const SECTION_SIZES := [84.0, 74.0, 64.0]
 const SECTION_POSITIONS := [Vector2(8, 0), Vector2(99, 18), Vector2(144, 104)]
 var section_buttons: Array[PixelCircleButton] = []
+var _current_section: int = 0
+var _section_open: bool = true
 
 func setup(toolbar: TerrainToolbar) -> void:
 	custom_minimum_size = Vector2(WIDTH, UIConstants.BOTTOM_BAR_HEIGHT)
@@ -21,11 +23,13 @@ func setup(toolbar: TerrainToolbar) -> void:
 		button.accessibility_name = button.caption
 		button.tooltip_text = "Open %s tools" % button.caption
 		button.position = SECTION_POSITIONS[i]
-		button.pressed.connect(toolbar.select_section.bind(i))
+		button.pressed.connect(toolbar.toggle_section.bind(i))
 		add_child(button)
 		section_buttons.append(button)
 	toolbar.section_changed.connect(_sync_section)
+	toolbar.section_visibility_changed.connect(_sync_visibility)
 	_sync_section(toolbar.current_section)
+	_sync_visibility(toolbar.visible)
 
 	for i in ["MenuBtn", "FeedBtn", "InspectBtn"].size():
 		var button := get_node(["MenuBtn", "FeedBtn", "InspectBtn"][i]) as Control
@@ -47,6 +51,12 @@ func setup(toolbar: TerrainToolbar) -> void:
 	speed.add_theme_constant_override("separation", 4)
 
 func _sync_section(section: int) -> void:
+	_current_section = section
 	for i in section_buttons.size():
-		section_buttons[i].active = i == section
-		section_buttons[i].set_pressed_no_signal(i == section)
+		section_buttons[i].active = i == section and _section_open
+		section_buttons[i].set_pressed_no_signal(i == section and _section_open)
+
+## A hidden section lights no button, so the dock shows nothing as open.
+func _sync_visibility(open: bool) -> void:
+	_section_open = open
+	_sync_section(_current_section)

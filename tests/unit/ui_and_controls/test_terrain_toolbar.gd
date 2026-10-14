@@ -1888,6 +1888,31 @@ func test_section_navigation_remembers_tabs_and_shows_only_its_rail() -> void:
 	toolbar.select_section(50)
 	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING, "Invalid navigation is ignored")
 
+func test_section_button_hides_the_open_section_and_reopens_it() -> void:
+	watch_signals(toolbar)
+	toolbar.select_section(TerrainToolbar.Section.BUILD)
+
+	toolbar.toggle_section(TerrainToolbar.Section.BUILD)
+	assert_true(toolbar.section_collapsed)
+	assert_false(toolbar.visible, "The open section's shelf is hidden")
+	assert_signal_emitted_with_parameters(toolbar, "section_visibility_changed", [false])
+
+	toolbar.toggle_section(TerrainToolbar.Section.BUILD)
+	assert_false(toolbar.section_collapsed)
+	assert_true(toolbar.visible, "Pressing the section again shows it")
+
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
+	assert_true(toolbar.visible, "Another section's button opens its shelf")
+
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	assert_false(toolbar.visible)
+	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
+	toolbar.collapse_section()
+	toolbar.select_tab(TerrainToolbar.Tab.REVIEW)
+	assert_true(toolbar.visible, "Choosing a tab reopens the collapsed section")
+	assert_false(toolbar.section_collapsed)
+
 func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() -> void:
 	var player := toolbar.player_tab
 	assert_false(player.navigation.visible)

@@ -2576,6 +2576,25 @@ func _create_menu_buttons() -> void:
 
 func _fill_left_control_stack() -> void:
 	left_controls.setup(terrain_toolbar)
+	terrain_toolbar.section_visibility_changed.connect(_on_section_visibility_changed)
+	_sync_bottom_bar_backdrop(not terrain_toolbar.section_collapsed)
+
+## The bar's opaque backdrop covers the whole width only while a section is open.
+## Once the section is hidden it shrinks to the left controls, so the course
+## shows through where the shelf used to be.
+func _on_section_visibility_changed(open: bool) -> void:
+	_sync_bottom_bar_backdrop(open)
+
+func _sync_bottom_bar_backdrop(open: bool) -> void:
+	var bg := $UI/HUD.get_node_or_null("BottomBarBG") as Control
+	if bg == null:
+		return
+	if open:
+		bg.anchor_right = 1.0
+		bg.offset_right = 0.0
+	else:
+		bg.anchor_right = 0.0
+		bg.offset_right = left_controls.custom_minimum_size.x
 
 func _on_inspect_toggled(enabled: bool) -> void:
 	if not enabled:

@@ -6,6 +6,8 @@ class_name TerrainToolbar
 ## rebuilt or interrupted by navigation.
 
 signal section_changed(section: int)
+## Emitted when the whole section shelf is hidden (false) or shown again (true).
+signal section_visibility_changed(open: bool)
 signal financial_overview_pressed
 signal course_review_pressed
 signal tool_selected(tool_type: int)
@@ -183,6 +185,8 @@ var _current_tool: int = -1
 var _tool_buttons: Dictionary = {}  # tool_type -> ToolButton
 var current_tab: int = Tab.TERRAIN
 var current_section: int = Section.BUILD
+## True while the player has hidden the open section with its section button.
+var section_collapsed: bool = false
 var _last_tabs := {Section.BUILD: Tab.TERRAIN, Section.MANAGE: Tab.MAPS, Section.GOLFERS: Tab.GOLFERS}
 var _tab_buttons: Dictionary = {}
 var _tab_rail: VBoxContainer
@@ -300,6 +304,31 @@ func _build_tab_rail(parent: HBoxContainer) -> void:
 func select_section(section: int) -> void:
 	if SECTION_TABS.has(section):
 		select_tab(_last_tabs[section])
+
+## Section button handler: pressing the button of the section that is already
+## open hides it; pressing any other section button (or a collapsed one) opens it.
+func toggle_section(section: int) -> void:
+	if not SECTION_TABS.has(section):
+		return
+	if section == current_section and not section_collapsed:
+		collapse_section()
+	else:
+		select_section(section)
+
+## Hide the section's tabs and tools. Hotkeys and tab selection bring it back.
+func collapse_section() -> void:
+	if section_collapsed:
+		return
+	section_collapsed = true
+	visible = false
+	section_visibility_changed.emit(false)
+
+func expand_section() -> void:
+	if not section_collapsed:
+		return
+	section_collapsed = false
+	visible = true
+	section_visibility_changed.emit(true)
 
 func _sync_navigation(tab_index: int) -> void:
 	for section in SECTION_TABS:
@@ -1408,6 +1437,7 @@ func _show_page(tab_index: int) -> void:
 
 func select_tab(tab_index: int) -> void:
 	if tab_index >= 0 and tab_index < _pages.size():
+		expand_section()
 		current_tab = tab_index
 		_sync_navigation(tab_index)
 		_show_page(tab_index)

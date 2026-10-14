@@ -9,6 +9,8 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 	var buttons: Array = main.left_controls.section_buttons
 	assert_gt(buttons[0].size.x, buttons[1].size.x)
 	assert_gt(buttons[1].size.x, buttons[2].size.x)
+	# Start from a hidden shelf: pressing the already-open section hides it.
+	main.terrain_toolbar.collapse_section()
 	for i in buttons.size():
 		await click(buttons[i])
 		assert_eq(main.terrain_toolbar.current_section, i)
