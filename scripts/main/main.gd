@@ -12,17 +12,17 @@ const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd"
 @onready var bottom_bar: HBoxContainer = $UI/HUD/BottomBar
 var terrain_toolbar: TerrainToolbar = null
 var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up in _setup_terrain_toolbar)
-@onready var left_controls: VBoxContainer = $UI/HUD/BottomBar/LeftControls
+@onready var left_controls: BottomControlDock = $UI/HUD/BottomBar/LeftControls
 @onready var rotate_view_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/RotateViewControls
 @onready var rotate_ccw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCCWBtn
 @onready var rotate_cw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCWBtn
 @onready var orientation_label: Label = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationLabel
 @onready var orientation_needle: CompassNeedle = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationNeedle
-@onready var pause_btn: Button = $UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn
-@onready var play_btn: Button = $UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn
+@onready var pause_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn
+@onready var play_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn
 ## One fast-forward button for both accelerated tiers: it reads ">>" at Fast
 ## and ">>>" at Ultra, and a press swaps between the two (see GameManager).
-@onready var fast_btn: Button = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
+@onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
 const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
 ## Every hole button opens that hole's context menu, so they all read at one
@@ -73,8 +73,8 @@ var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
-var inspect_btn: Button = null
-var feed_btn: Button = null  # Event feed toggle in the left control stack, between Menu and Inspect
+var inspect_btn: PixelCircleButton = null
+var feed_btn: PixelCircleButton = null  # Event feed toggle in the left control stack, between Menu and Inspect
 var tile_inspector: TileInspector = null
 var map_btn: Button = null  # Map-icon toggle in the minimap's bottom-left corner; synced with MiniMap visibility
 const MAP_BUTTON_SIZE: float = 26.0
@@ -634,6 +634,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_size_changed.connect(_on_elevation_brush_size_changed)
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
+	terrain_toolbar.financial_overview_pressed.connect(func(): _toggle_panel(financial_panel))
 	terrain_toolbar.course_review_pressed.connect(func(): _toggle_panel(course_rating_overlay))
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 	terrain_toolbar.brush_shape_changed.connect(func(value: bool):
@@ -1099,58 +1100,20 @@ func _setup_placement_preview() -> void:
 	add_child(_measure_overlay)
 
 func _setup_bottom_bar() -> void:
-	"""Style the bottom bar with a dark background and visual separators."""
-	# Add a dark background panel behind the bottom bar (tall enough for the tabbed toolbar)
-	var bg = Panel.new()
+	var bg := Panel.new()
 	bg.name = "BottomBarBG"
-	var style = StyleBoxFlat.new()
-	style.bg_color = UIConstants.COLOR_BG_DARK
-	style.border_width_top = 1
-	style.border_color = UIConstants.COLOR_BORDER
-	bg.add_theme_stylebox_override("panel", style)
-	# Position it exactly behind the BottomBar (view/speed controls + tabbed toolbar)
+	bg.add_theme_stylebox_override("panel", PixelButtonStyle.bar_style(
+		Color("718f69"), Color("101f19")))
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bg.offset_top = -Screen.bottom_bar_height()
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Insert as sibling just before the bottom bar
-	var hud = $UI/HUD
+	var hud := $UI/HUD
 	hud.add_child(bg)
 	hud.move_child(bg, bottom_bar.get_index())
-
-	# Add padding to the bottom bar itself
-	bottom_bar.add_theme_constant_override("separation", 6)
-
-	# Style LeftControls (VBox containing RotateView above Speed) for tight stacking
-	if left_controls:
-		left_controls.add_theme_constant_override("separation", 2)
-		left_controls.alignment = BoxContainer.ALIGNMENT_CENTER
-	if rotate_view_controls:
-		rotate_view_controls.alignment = BoxContainer.ALIGNMENT_CENTER
-		rotate_view_controls.add_theme_constant_override("separation", 4)
-	if speed_controls:
-		speed_controls.alignment = BoxContainer.ALIGNMENT_CENTER
-		speed_controls.add_theme_constant_override("separation", 4)
-	# The fast-forward face flips between ">>" and ">>>". Size the button for
-	# the widest face up front so toggling tiers can never resize it or nudge
-	# the row of speed controls that holds it.
-	if fast_btn:
-		lock_button_width_to_faces(fast_btn, [">>", ">>>"])
-	if orientation_label:
-		orientation_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-		orientation_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-		orientation_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
-
-	# Add a separator after LeftControls (which now contains both RotateView and Speed)
-	var sep = VSeparator.new()
-	sep.custom_minimum_size = Vector2(1, 40)
-	sep.modulate = Color(1, 1, 1, 0.3)
-	bottom_bar.add_child(sep)
-	# left_controls index determines separator position; fall back to speed_controls if missing
-	var sep_index = left_controls.get_index() + 1 if left_controls else speed_controls.get_index() + 1
-	bottom_bar.move_child(sep, sep_index)
-
-	# Ensure BottomBar anchors match the configured height
+	bottom_bar.add_theme_constant_override("separation", 2)
 	bottom_bar.offset_top = -Screen.bottom_bar_height()
+	orientation_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	orientation_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 
 func _toggle_panel(panel: CenteredPanel) -> void:
 	"""Toggle a panel with mutual exclusion — opening one closes the previous."""
@@ -1186,10 +1149,11 @@ func _update_button_states() -> void:
 	fast_btn.text = fast_forward_label(speed)
 	fast_btn.tooltip_text = fast_forward_tooltip(speed)
 
-	# Highlight active speed button
-	pause_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.PAUSED else Color(1, 1, 1, 1)
-	play_btn.modulate = Color(1, 1, 1, 0.5) if GameManager.current_speed != GameManager.GameSpeed.NORMAL else Color(1, 1, 1, 1)
-	fast_btn.modulate = Color(1, 1, 1, 0.5) if not GameManagerScript.is_fast_forward_speed(speed) else Color(1, 1, 1, 1)
+	# Gold-lit rings communicate speed without dimming the icons into the bar.
+	pause_btn.active = speed == GameManager.GameSpeed.PAUSED
+	play_btn.active = speed == GameManager.GameSpeed.NORMAL
+	fast_btn.active = GameManagerScript.is_fast_forward_speed(speed)
+	fast_btn.queue_redraw()
 
 func _start_painting() -> void:
 	if inspect_mode:
@@ -2581,65 +2545,37 @@ func _on_mode_toggle_pressed() -> void:
 # --- Menu / Save/Load ---
 
 func _create_menu_buttons() -> void:
-	"""Top rows of the left control stack (above Rotate View): Menu, Feed and Inspect."""
-	var menu_row = HBoxContainer.new()
-	menu_row.name = "MenuControls"
-	menu_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	menu_row.add_theme_constant_override("separation", UIConstants.SEPARATION_MD)
-
-	var menu_btn = Button.new()
+	var menu_btn := PixelCircleButton.new()
 	menu_btn.name = "MenuBtn"
-	menu_btn.text = "Menu"
+	menu_btn.glyph = "menu"
+	menu_btn.accessibility_name = "Menu"
 	menu_btn.tooltip_text = "Game menu (Esc)"
-	menu_btn.custom_minimum_size = Vector2(60, UIConstants.TOOL_BUTTON_HEIGHT)
-	menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu_btn.pressed.connect(_on_menu_pressed)
-	menu_row.add_child(menu_btn)
+	left_controls.add_child(menu_btn)
 
-
-	left_controls.add_child(menu_row)
-	left_controls.move_child(menu_row, 0)
-
-	feed_btn = Button.new()
+	feed_btn = PixelCircleButton.new()
 	feed_btn.name = "FeedBtn"
-	feed_btn.text = "Feed"
+	feed_btn.glyph = "feed"
+	feed_btn.accessibility_name = "Feed"
 	feed_btn.tooltip_text = "Course event feed (N)"
-	feed_btn.custom_minimum_size = Vector2(60, UIConstants.TOOL_BUTTON_HEIGHT)
-	feed_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	feed_btn.pressed.connect(_toggle_event_feed)
 	left_controls.add_child(feed_btn)
-	left_controls.move_child(feed_btn, 1)
 
-	inspect_btn = Button.new()
+	inspect_btn = PixelCircleButton.new()
 	inspect_btn.name = "InspectBtn"
-	inspect_btn.text = "Inspect"
-	inspect_btn.tooltip_text = "Hover over a tile to inspect terrain, improvements and buildings. Esc or right-click to exit."
+	inspect_btn.glyph = "inspect"
+	inspect_btn.accessibility_name = "Inspect"
+	inspect_btn.tooltip_text = "Inspect terrain, improvements and buildings. Esc or right-click to exit."
 	inspect_btn.toggle_mode = true
-	inspect_btn.custom_minimum_size.y = UIConstants.TOOL_BUTTON_HEIGHT
 	inspect_btn.toggled.connect(_on_inspect_toggled)
 	left_controls.add_child(inspect_btn)
-	left_controls.move_child(inspect_btn, 2)  # Directly below Feed.
 
 	tile_inspector = TileInspector.new()
 	tile_inspector.name = "TileInspector"
 	$UI/HUD.add_child(tile_inspector)
 
 func _fill_left_control_stack() -> void:
-	"""Stretch the left control stack over the full height of the bottom bar.
-
-	Every row of the stack (Menu, Feed, Inspect, the Rotate pair, the speed
-	controls) grows to share the bar's height, and every button grows to fill
-	its row — so the buttons run the full height of the stack instead of
-	floating in a short centred strip. The compass needle and its letter keep
-	their tight, centred slots inside the Rotate row."""
-	if not left_controls:
-		return
-	left_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	for row in left_controls.get_children():
-		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		for child in row.get_children():
-			if child is Button:
-				child.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_controls.setup(terrain_toolbar)
 
 func _on_inspect_toggled(enabled: bool) -> void:
 	if not enabled:
@@ -3901,7 +3837,8 @@ func _toggle_event_feed() -> void:
 
 func _update_feed_unread(count: int) -> void:
 	if feed_btn:
-		feed_btn.text = "Feed (%d)" % count if count > 0 else "Feed"
+		feed_btn.notification_count = count
+		feed_btn.tooltip_text = "Course event feed (N) — %d unread" % count
 
 func _navigate_to_hole(hole_number: int) -> void:
 	if not GameManager.current_course:

@@ -1,15 +1,6 @@
 extends GameTest
-## The left control stack's Rotate buttons and the compass needle that stands
-## beside their N / E / S / W letter.
-##
-## The two Rotate buttons used to carry the Unicode glyphs ⟲ / ⟳. The game's
-## font has neither character, so both buttons showed a blank face and only the
-## tooltips named them. They are drawn now — a ring with a gap at the bottom and
-## an arrow head at the end of the sweep — and these tests pin down the two
-## things a drawing has to get right: which way each sweep travels, and where
-## each head lands. The needle's quarter turns are pinned the same way, and the
-## last test reads the scene itself so a hand-edit of main.tscn cannot quietly
-## leave a button back on a glyph the font cannot print.
+## Rotation uses mirrored bitmap arrows rather than missing font glyphs;
+## the compass state and scene connections stay intact.
 
 ## Node paths come out of the scene's state prefixed with the scene root.
 const ROTATE_CONTROLS := "./UI/HUD/BottomBar/LeftControls/RotateViewControls"
@@ -21,41 +12,17 @@ func test_font_has_no_glyph_for_the_old_rotate_arrows() -> void:
 	assert_false(ThemeDB.fallback_font.has_char(0x27F3),
 		"The ⟳ glyph is missing from the font, so the button must draw its arrow")
 
-func test_arc_sweeps_the_way_the_course_turns() -> void:
-	var cw := RotateViewButton.arc_angles(true)
-	var ccw := RotateViewButton.arc_angles(false)
-	# Screen angles grow clockwise, so the clockwise sweep grows...
-	assert_true(cw.y > cw.x, "The clockwise arrow sweeps through growing angles")
-	# ...and the counter-clockwise one is the very same sweep read backwards.
-	assert_true(ccw.y < ccw.x, "The counter-clockwise arrow sweeps back the other way")
-	assert_almost_eq(ccw.x, cw.y, 0.0001)
-	assert_almost_eq(ccw.y, cw.x, 0.0001)
-	# Both leave the same gap at the bottom of the ring.
-	assert_almost_eq(absf(cw.y - cw.x) + deg_to_rad(RotateViewButton.GAP_DEGREES), TAU, 0.0001)
-
-func test_heads_sit_on_opposite_sides_of_the_ring() -> void:
-	var radius := RotateViewButton.ARROW_RADIUS
-	var cw_tip := RotateViewButton.head_tip(radius, true)
-	var ccw_tip := RotateViewButton.head_tip(radius, false)
-	# The clockwise head finishes on the lower right of the ring, the
-	# counter-clockwise head mirrors it onto the lower left.
-	assert_true(cw_tip.x > 0.0, "The clockwise head finishes on the right of the ring")
-	assert_true(ccw_tip.x < 0.0, "The counter-clockwise head finishes on the left of the ring")
-	assert_true(cw_tip.y > 0.0, "Both heads finish at the foot of the ring")
-	assert_almost_eq(cw_tip.x, -ccw_tip.x, 0.001)
-	assert_almost_eq(cw_tip.y, ccw_tip.y, 0.001)
-	# The tip stays clear of the ring so the head reads as a head.
-	assert_true(RotateViewButton.head_tip(radius, true).length() > radius)
-
-func test_head_travels_the_way_its_arc_turns() -> void:
-	# At the foot of the ring the clockwise arrow is moving leftwards across the
-	# bottom of the gap, and the counter-clockwise one rightwards.
-	var cw_direction := RotateViewButton.travel_direction(RotateViewButton.arc_angles(true).y, true)
-	var ccw_direction := RotateViewButton.travel_direction(RotateViewButton.arc_angles(false).y, false)
-	assert_true(cw_direction.x < 0.0, "The clockwise head points across the gap to the left")
-	assert_true(ccw_direction.x > 0.0, "The counter-clockwise head points across the gap to the right")
-	assert_almost_eq(cw_direction.x, -ccw_direction.x, 0.0001)
-	assert_almost_eq(cw_direction.y, ccw_direction.y, 0.0001)
+func test_pixel_arrows_are_mirrored_and_keep_their_direction() -> void:
+	var ccw: Array = PixelCircleButton.ICONS["rotate_ccw"]
+	var cw: Array = PixelCircleButton.ICONS["rotate_cw"]
+	assert_eq(ccw.size(), cw.size())
+	for row in ccw.size():
+		assert_eq(ccw[row].reverse(), cw[row], "Each arrow mirrors the other")
+	var button := RotateViewButton.new()
+	add_child_autofree(button)
+	assert_eq(button.glyph, "rotate_ccw")
+	button.clockwise = true
+	assert_eq(button.glyph, "rotate_cw")
 
 func test_buttons_are_drawn_not_typed() -> void:
 	var ccw_button := RotateViewButton.new()
@@ -63,7 +30,7 @@ func test_buttons_are_drawn_not_typed() -> void:
 	assert_eq(ccw_button.text, "", "The sweep is the label: no glyph is typed on the face")
 	assert_false(ccw_button.clockwise, "The Q button sweeps counter-clockwise")
 	# The drawn arrow keeps the footprint the text buttons had.
-	assert_eq(ccw_button.custom_minimum_size, Vector2(28, 24))
+	assert_eq(ccw_button.custom_minimum_size, Vector2(32, 32))
 
 	var cw_button := RotateViewButton.new()
 	cw_button.clockwise = true

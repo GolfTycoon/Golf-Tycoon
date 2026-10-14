@@ -32,7 +32,7 @@ func _placement_tile() -> Vector2i:
 func test_decorations_open_as_a_toolbar_tab_with_the_whole_catalogue() -> void:
 	# O still opens the decorations — as the toolbar tab, not a popup window.
 	main._on_decoration_placement_pressed()
-	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS, "Decorations open the Improvements tab")
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS, "Decorations open the Improvements tab")
 	assert_eq(placements.placement_mode, PlacementManager.PlacementMode.NONE,
 		"Opening the tab does not start a placement")
 	for child in main.get_children():
@@ -69,7 +69,7 @@ func test_a_tile_places_its_decoration_at_the_catalogue_price() -> void:
 	assert_eq(placements.placement_mode, PlacementManager.PlacementMode.DECORATION,
 		"Pressing a decoration tile starts decoration placement")
 	assert_eq(placements.selected_decoration_type, "ball_washer", "Placement uses the tile's decoration")
-	assert_eq(toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS, "Picking a tile keeps the tab open")
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS, "Picking a tile keeps the tab open")
 
 	var pos := _placement_tile()
 	assert_ne(pos, Vector2i(-1, -1), "A legal decoration tile exists near the clubhouse")

@@ -196,5 +196,5 @@ func test_the_pinned_buttons_follow_bulldozer_mode() -> void:
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.IMPROVEMENTS)
 	buttons[0].pressed.emit()
 	assert_true(main.bulldozer_mode, "A pinned button activates bulldozer mode")
-	assert_eq(main.terrain_toolbar._tab_bar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS,
+	assert_eq(main.terrain_toolbar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS,
 		"Pressing the pinned Bulldozer keeps its tab open")

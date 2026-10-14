@@ -215,8 +215,7 @@ func test_the_club_tab_opens_the_world_map_over_a_frozen_course() -> void:
 	map_button.pressed.emit()
 	await process_frames(3)
 	assert_not_null(_world_map_screen(), "The Club tab opens the world map")
-	var tabs: TabBar = main.terrain_toolbar._tab_bar
-	assert_eq(tabs.get_tab_title(tabs.current_tab), "Club", "The Club tab stays open behind it")
+	assert_eq(main.terrain_toolbar.current_tab, TerrainToolbar.Tab.MAPS, "The Maps tab stays open behind it")
 	assert_eq(GameManager.money, money, "Opening the world map does not change the money")
 	assert_true(GameManager.is_paused, "The course freezes behind the world map")
 	assert_false(main.bottom_bar.is_visible_in_tree(), "The gameplay UI steps aside for the world map")

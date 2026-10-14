@@ -10,6 +10,9 @@
 [ext_resource type="Script" path="res://scripts/ui/components/rotate_view_button.gd" id="9_rotate_view_button"]
 [ext_resource type="Script" path="res://scripts/ui/components/compass_needle.gd" id="10_compass_needle"]
 
+[ext_resource type="Script" path="res://scripts/ui/components/pixel_circle_button.gd" id="11_circle"]
+[ext_resource type="Script" path="res://scripts/ui/components/bottom_control_dock.gd" id="12_dock"]
+
 [node name="Main" type="Node2D" unique_id=1113796788]
 script = ExtResource("1_main")
 
@@ -73,12 +76,13 @@ offset_top = -190.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="LeftControls" type="VBoxContainer" parent="UI/HUD/BottomBar" unique_id=904583721]
+[node name="LeftControls" type="Control" parent="UI/HUD/BottomBar" unique_id=904583721]
+custom_minimum_size = Vector2(218, 190)
 layout_mode = 2
-alignment = 1
+script = ExtResource("12_dock")
 
 [node name="RotateViewControls" type="HBoxContainer" parent="UI/HUD/BottomBar/LeftControls" unique_id=452819603]
-layout_mode = 2
+layout_mode = 0
 alignment = 1
 
 [node name="RotateCCWBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/RotateViewControls" unique_id=778451209]
@@ -106,20 +110,32 @@ script = ExtResource("9_rotate_view_button")
 clockwise = true
 
 [node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar/LeftControls" unique_id=1574521636]
-layout_mode = 2
+layout_mode = 0
 alignment = 1
 
 [node name="PauseBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1287478317]
-custom_minimum_size = Vector2(28, 24)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 text = "||"
+script = ExtResource("11_circle")
+glyph = "pause"
+tooltip_text = "Pause simulation (Space)"
+accessibility_name = "Pause"
 
 [node name="PlayBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1738357492]
-custom_minimum_size = Vector2(28, 24)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 text = ">"
+script = ExtResource("11_circle")
+glyph = "play"
+tooltip_text = "Normal speed (Space)"
+accessibility_name = "Play"
 
 [node name="FastBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=811286996]
-custom_minimum_size = Vector2(28, 24)
+custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 text = ">>"
+script = ExtResource("11_circle")
+glyph = "fast"
+tooltip_text = "Fast / Ultra speed"
+accessibility_name = "Fast"

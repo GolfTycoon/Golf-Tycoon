@@ -34,10 +34,10 @@ func _escape() -> void:
 func test_the_control_stack_holds_menu_feed_and_inspect() -> void:
 	assert_false(inspector_on_title_screen, "The inspector is hidden on the title screen")
 	assert_false(main.tile_inspector.visible, "Showing the HUD does not show the inspector")
-	var menu: Control = main.left_controls.get_node("MenuControls")
+	var menu: Control = main.left_controls.get_node("MenuBtn")
 	var feed: Control = main.left_controls.get_node("FeedBtn")
-	assert_gte(feed.position.y, menu.position.y + menu.size.y, "Feed is below Menu")
-	assert_gte(main.inspect_btn.position.y, feed.position.y + feed.size.y, "Inspect is below Feed")
+	assert_gte(feed.position.x, menu.position.x + menu.size.x, "Feed is beside Menu")
+	assert_gte(main.inspect_btn.position.x, feed.position.x + feed.size.x, "Inspect is beside Feed")
 	assert_lte(main.left_controls.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT), "The controls fit the bottom bar")
 
 
@@ -47,9 +47,10 @@ func test_the_feed_button_opens_the_feed_and_shows_the_unread_count() -> void:
 	main.feed_btn.pressed.emit()
 	assert_false(main.event_feed_panel.visible, "and closes it")
 	main._update_feed_unread(3)
-	assert_eq(main.feed_btn.text, "Feed (3)", "The unread count badges the Feed button")
+	assert_eq(main.feed_btn.notification_count, 3, "Unread events light the Feed badge")
+	assert_string_contains(main.feed_btn.tooltip_text, "3 unread")
 	main._update_feed_unread(0)
-	assert_eq(main.feed_btn.text, "Feed", "and clears with it")
+	assert_eq(main.feed_btn.notification_count, 0, "and clears with it")
 
 
 func test_the_map_button_sits_in_the_minimaps_corner_and_follows_it() -> void:

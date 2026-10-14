@@ -5,6 +5,8 @@ class_name PlayerTab
 ## Tournament — and swaps to the aiming HUD (the shot controls) while a round is
 ## in progress. Scores are not part of it: they read out in the HUD's top-left
 ## corner (ScoresDock), over the course view.
+signal selection_changed(index: int)
+
 const TITLES = ["Play Course", "Edit Player", "Player Skills"]
 ## Page indices inside `pages`, matching the order of TITLES.
 const PAGE_PLAY := 0
@@ -17,6 +19,7 @@ const PERSISTENT_META := "player_tab_persistent"
 const BADGE_INSET := 4.0
 const BADGE_MIN_SIZE := 16.0
 
+var navigation: VBoxContainer
 var pages: Array[HBoxContainer] = []
 var buttons: Array[Button] = []
 ## The Player Skills button's badge: the number of skill points the owner has
@@ -36,7 +39,7 @@ var playing := false
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var navigation := VBoxContainer.new()
+	navigation = VBoxContainer.new()
 	navigation.custom_minimum_size.x = 140
 	navigation.add_theme_constant_override("separation", 0)
 	add_child(navigation)
@@ -96,13 +99,24 @@ func _make_page(body: Control) -> HBoxContainer:
 	_make_scroll(body).add_child(page)
 	return page
 
+func use_external_navigation(skills_button: Button) -> void:
+	navigation.hide()
+	skill_badge.reparent(skills_button)
+	skills_button.resized.connect(_place_skill_badge)
+	_place_skill_badge()
+
 func select(index: int) -> void:
+	if index < 0 or index >= pages.size():
+		return
+	var changed := selected != index
 	selected = index
 	for i in pages.size():
 		pages[i].get_parent().visible = i == index
 		buttons[i].set_pressed_no_signal(i == index)
 	_sync_aim_view()
 	refresh_skill_badge()
+	if changed:
+		selection_changed.emit(index)
 
 ## Keep the Player Skills badge on the number of points still to spend. Called
 ## whenever the page changes and whenever a point is allocated, so it reads the
@@ -160,7 +174,10 @@ func _place_skill_badge() -> void:
 	if button == null:
 		return
 	skill_badge.reset_size()
-	skill_badge.position = Vector2(button.size.x - skill_badge.size.x - BADGE_INSET, BADGE_INSET)
+	if button is PixelCircleButton:
+		skill_badge.position = Vector2(button.size.x - skill_badge.size.x + 4, -2)
+	else:
+		skill_badge.position = Vector2(button.size.x - skill_badge.size.x - BADGE_INSET, BADGE_INSET)
 
 ## While playing, the Play Course page shows the aiming HUD instead of the
 ## combined round-setup sections.
