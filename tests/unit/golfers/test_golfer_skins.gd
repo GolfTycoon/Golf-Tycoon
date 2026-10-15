@@ -595,6 +595,16 @@ func _test_skin() -> GolferSkin:
 	skin.sprite_size = Vector2i(48, 48)
 	return skin
 
+func test_exported_sprite_textures_are_discovered_through_import_remaps() -> void:
+	var library := _library()
+	var skin := library.get_skin("casual")
+	var first_frame := library.sprite_probe_path("casual")
+
+	assert_true(ResourceLoader.exists(first_frame), "The imported sprite resource is available")
+	assert_gt(library.frame_keys(skin, "idle", "south").size(), 0,
+		"Frame discovery must work even when an export omits the source PNG")
+	assert_not_null(library.recolored_frames(skin), "A built-in skin still has frames in an export")
+
 func test_a_visitor_is_drawn_in_the_skin_their_tier_wears() -> void:
 	var golfer: Golfer = add_child_autofree(load("res://scenes/entities/golfer.tscn").instantiate())
 	await process_frames(1)

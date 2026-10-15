@@ -37,6 +37,8 @@ A skin is a folder with two kinds of file:
 
 Built-in skins live in `data/golfer_skins/`. The shipped ones are `beginner` and `casual`. Skins you save are stored in `user://golfer_skins`, so the shipped files are never changed.
 
+The sprite PNGs are imported resources. Exported builds may contain only their imported textures rather than the original PNG files, so the runtime discovers animation frames through Godot's resource loader and import remaps.
+
 `tools/generate_golfer_skin_layers.gd` builds the layer files for a skin.
 
 ## Related
