@@ -127,8 +127,9 @@ func sprite_sets() -> Array[String]:
 	dir.list_dir_begin()
 	var entry := dir.get_next()
 	while entry != "":
+		var probe_path := sprite_probe_path(entry)
 		if dir.current_is_dir() and not entry.begins_with(".") \
-				and FileAccess.file_exists(sprite_probe_path(entry)):
+				and (ResourceLoader.exists(probe_path) or FileAccess.file_exists(probe_path)):
 			sets.append(entry)
 		entry = dir.get_next()
 	dir.list_dir_end()
@@ -597,7 +598,12 @@ func frame_keys(skin: GolferSkin, animation: String, direction: String) -> Array
 	var frame := 0
 	while frame < MAX_FRAMES:
 		var key := GolferSkin.layer_key(animation, chosen, frame)
-		if not FileAccess.file_exists(skin.art_root.path_join(key + ".png")):
+		var sprite_path := skin.art_root.path_join(key + ".png")
+		# In exported PCKs the source PNG is replaced by its imported texture;
+		# FileAccess.file_exists() then reports false even though ResourceLoader
+		# can resolve the original path through the .import remap. Keep the file
+		# check as a fallback for custom art stored outside the imported project.
+		if not ResourceLoader.exists(sprite_path) and not FileAccess.file_exists(sprite_path):
 			break
 		keys.append(key)
 		frame += 1
