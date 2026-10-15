@@ -14,7 +14,6 @@ signal close_requested
 
 const PANEL_WIDTH: float = 340.0
 # Top margin is measured at runtime so the panel clears the status column.
-const BOTTOM_MARGIN: float = UIConstants.BOTTOM_BAR_HEIGHT + 6.0  # Clears the BottomBar
 const RIGHT_MARGIN: float = 4.0
 
 var _scroll: ScrollContainer = null
@@ -100,7 +99,8 @@ func _build_ui() -> void:
 func _position_panel() -> void:
 	var vp_size = get_viewport().get_visible_rect().size
 	var top_margin := UIConstants.get_hud_column_clearance(self)
-	var panel_height = maxf(120.0, vp_size.y - top_margin - BOTTOM_MARGIN)
+	var bottom_margin := Screen.bottom_bar_height() + 6.0
+	var panel_height = maxf(120.0, vp_size.y - top_margin - bottom_margin)
 	size = Vector2(PANEL_WIDTH, panel_height)
 	position = Vector2(vp_size.x - PANEL_WIDTH - RIGHT_MARGIN, top_margin)
 

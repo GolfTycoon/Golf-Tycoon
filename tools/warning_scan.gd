@@ -1,5 +1,5 @@
 extends Node
-## Force-reloads every project script so Godot re-analyses all of them.
+## Re-parses every project script so Godot re-analyses all of them.
 ##
 ## Godot prints GDScript warnings only while a debugger is attached. A headless
 ## run — `make test`, CI — therefore never shows them, so they pile up until
@@ -13,17 +13,23 @@ extends Node
 ##
 ##     godot --headless -d --path . -- --warning-sweep
 
-const SWEEP_ROOTS: Array[String] = ["res://scripts", "res://tests"]
+const SWEEP_ROOTS: Array[String] = ["res://scripts", "res://tests", "res://tools"]
 
 
 func _ready() -> void:
 	if not "--warning-sweep" in OS.get_cmdline_user_args():
 		return
 	var scripts := _scripts_under(SWEEP_ROOTS)
+	var self_path: String = get_script().resource_path
 	for path in scripts:
-		var script := ResourceLoader.load(path)
-		if script is GDScript:
-			script.reload(true)
+		# This script is running, so it cannot be parsed again underneath itself.
+		if path == self_path:
+			continue
+		# Parse each file afresh: that is what makes Godot print its warnings.
+		# Do not call reload() on the script instead. A script that declares its
+		# own reload() method (GolferSkins, GolferSkinLibrary) shadows
+		# GDScript.reload, so that call never reaches the analyser.
+		ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
 	print("WARNING_SWEEP_DONE scripts=%d" % scripts.size())
 	get_tree().quit()
 

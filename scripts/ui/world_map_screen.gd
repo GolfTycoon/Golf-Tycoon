@@ -390,7 +390,12 @@ func _build_phone_landscape_body(view: Vector2) -> Control:
 	rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rail.add_theme_constant_override("separation", 7)
 	var feature := _build_featured_panel(true, true)
-	feature.custom_minimum_size.y = 102.0
+	# In the short landscape layout the destination list needs the height of
+	# four tappable rows. The list itself already carries the selected action,
+	# so keep only the selected name and its quick action above it.
+	_featured_meta.hide()
+	_featured_status.hide()
+	feature.custom_minimum_size.y = 68.0
 	rail.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_LANDSCAPE, false)
 	catalog.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -413,10 +418,14 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 	scroll.add_child(content)
 
 	var map_panel := _build_map_panel(LayoutMode.PHONE_PORTRAIT)
-	map_panel.custom_minimum_size.y = clampf(view.y * 0.28, 220.0, 252.0)
+	map_panel.custom_minimum_size.y = clampf(view.y * 0.26, 210.0, 240.0)
 	content.add_child(map_panel)
 	var feature := _build_featured_panel(true, false)
-	feature.custom_minimum_size.y = 148.0
+	# The list repeats the selected site's availability and action. On a phone
+	# keep the title and action prominent, and leave the longer notes for tablets.
+	_featured_description.hide()
+	_featured_stats.hide()
+	feature.custom_minimum_size.y = 116.0
 	content.add_child(feature)
 	var catalog := _build_vertical_catalog(LayoutMode.PHONE_PORTRAIT, true)
 	content.add_child(catalog)
@@ -559,14 +568,14 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	var panel := _make_panel(COLOR_SURFACE_RAISED, MenuStyle.with_alpha(MenuStyle.ACCENT_SECONDARY, 0.42), MenuStyle.CARD_RADIUS)
 	panel.name = "FeaturedLocation"
 	var margin := MarginContainer.new()
-	var pad := 13 if not compact else (9 if micro else 10)
+	var pad := 13 if not compact else (4 if micro else 8)
 	margin.add_theme_constant_override("margin_left", pad)
 	margin.add_theme_constant_override("margin_right", pad)
 	margin.add_theme_constant_override("margin_top", pad)
 	margin.add_theme_constant_override("margin_bottom", pad)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 6 if not compact else 4)
+	stack.add_theme_constant_override("separation", 6 if not compact else (4 if micro else 3))
 	margin.add_child(stack)
 
 	if micro:
@@ -655,14 +664,14 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 	var panel := _make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42), MenuStyle.CARD_RADIUS)
 	panel.name = "LocationDirectory"
 	var margin := MarginContainer.new()
-	var pad := 12 if not compact else (7 if phone_landscape else 10)
+	var pad := 12 if not compact else (5 if phone_landscape else 10)
 	margin.add_theme_constant_override("margin_left", pad)
 	margin.add_theme_constant_override("margin_right", pad)
 	margin.add_theme_constant_override("margin_top", pad)
 	margin.add_theme_constant_override("margin_bottom", pad)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 7 if not compact else 5)
+	stack.add_theme_constant_override("separation", 7 if not compact else (4 if phone_landscape else 5))
 	margin.add_child(stack)
 
 	if phone_landscape:
@@ -705,6 +714,9 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 	if page_scrolled:
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		# Keep four touch-sized destinations visible before the player has to
+		# scroll the larger travel-journal page.
+		scroll.custom_minimum_size.y = PHONE_ROW_HEIGHT * 4.0 + 10.0
 	else:
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

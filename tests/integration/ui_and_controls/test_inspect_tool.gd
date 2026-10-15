@@ -38,7 +38,7 @@ func test_the_control_stack_holds_menu_feed_and_inspect() -> void:
 	var feed: Control = main.left_controls.get_node("FeedBtn")
 	assert_gte(feed.position.x, menu.position.x + menu.size.x, "Feed is beside Menu")
 	assert_gte(main.inspect_btn.position.x, feed.position.x + feed.size.x, "Inspect is beside Feed")
-	assert_lte(main.left_controls.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT), "The controls fit the bottom bar")
+	assert_lte(main.left_controls.size.y, Screen.bottom_bar_height(), "The controls fit the responsive bottom bar")
 
 
 func test_the_feed_button_opens_the_feed_and_shows_the_unread_count() -> void:

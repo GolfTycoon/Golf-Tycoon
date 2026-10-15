@@ -104,8 +104,9 @@ func test_single_finger_drag_pans_the_camera() -> void:
 	_push_drag(0, Vector2(600, 550))
 	_push_touch(false, 0, Vector2(600, 550))
 	await _settle()
-	# Pan applies the inter-drag delta (50, 40) in screen pixels.
-	assert_eq(camera._target_position, Vector2(50, 60))
+	# The first threshold-crossing drag now moves the camera too, so the full
+	# finger travel (100, 50) is reflected in the inverse camera movement.
+	assert_eq(camera._target_position, Vector2(0, 50))
 	# A drag must not synthesize mouse clicks.
 	assert_eq(sink.mouse_events.size(), 0)
 
@@ -127,6 +128,93 @@ func test_single_finger_drag_paints_when_a_tool_is_active() -> void:
 	assert_eq(presses, 1, "paint stroke opens with a synthetic mouse press")
 	assert_eq(releases, 1, "paint stroke ends with a synthetic mouse release")
 	assert_gte(sink.motion_events.size(), 1, "finger motion becomes mouse motion")
+
+func test_touch_drag_scrolls_a_scroll_container_without_painting_or_panning() -> void:
+	touch.paint_mode_provider = func() -> bool: return true
+	camera = autofree(IsometricCamera.new())
+	add_child(camera)
+	camera.set_zoom_level(1.0, true)
+	camera._target_position = Vector2(100, 100)
+	touch.camera = camera
+
+	var ui: Control = autofree(Control.new())
+	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ui)
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(100, 100)
+	scroll.size = Vector2(220, 120)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ui.add_child(scroll)
+	var shelf := Control.new()
+	shelf.custom_minimum_size = Vector2(640, 100)
+	scroll.add_child(shelf)
+	await _settle(2)
+	assert_gt(scroll.get_h_scroll_bar().max_value, scroll.get_h_scroll_bar().page,
+		"The shelf has horizontal overflow to scroll")
+
+	var before := camera._target_position
+	var start := Vector2(200, 150)
+	_push_touch(true, 0, start)
+	_push_drag(0, start - Vector2(90, 0))
+	_push_touch(false, 0, start - Vector2(90, 0))
+	await _settle()
+	assert_gt(scroll.scroll_horizontal, 0, "Dragging left scrolls the shelf to the right")
+	assert_eq(camera._target_position, before, "The same gesture never pans the course")
+	assert_eq(sink.mouse_events.size(), 0, "Scrolling never starts an accidental paint stroke")
+
+func test_touch_drag_on_a_button_does_not_activate_it_or_paint_behind_it() -> void:
+	touch.paint_mode_provider = func() -> bool: return true
+	camera = autofree(IsometricCamera.new())
+	add_child(camera)
+	camera._target_position = Vector2(100, 100)
+	touch.camera = camera
+
+	var ui: Control = autofree(Control.new())
+	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ui)
+	var button := Button.new()
+	button.text = "Touch me"
+	button.position = Vector2(100, 100)
+	button.size = Vector2(120, 60)
+	ui.add_child(button)
+	var activations := []
+	button.pressed.connect(func(): activations.append(true))
+
+	_push_touch(true, 0, Vector2(150, 130))
+	_push_drag(0, Vector2(210, 160))
+	_push_touch(false, 0, Vector2(210, 160))
+	await _settle()
+	assert_true(activations.is_empty(), "A drag that leaves a button cancels its tap")
+	assert_eq(camera._target_position, Vector2(100, 100), "A UI drag cannot pan the course")
+	assert_eq(sink.mouse_events.size(), 0, "A UI drag cannot paint the course")
+
+func test_canceled_touch_releases_a_paint_stroke_without_clicking() -> void:
+	touch.paint_mode_provider = func() -> bool: return true
+	_push_touch(true, 0, Vector2(500, 500))
+	_push_drag(0, Vector2(530, 510))
+	var cancel := InputEventScreenTouch.new()
+	cancel.index = 0
+	cancel.position = Vector2(530, 510)
+	cancel.pressed = false
+	cancel.canceled = true
+	get_viewport().push_input(cancel, true)
+	await _settle()
+
+	var presses := 0
+	var releases := 0
+	for ev in sink.mouse_events:
+		if ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.pressed:
+				presses += 1
+			else:
+				releases += 1
+	assert_eq(presses, 1, "The drag began one paint stroke")
+	assert_eq(releases, 1, "Cancellation releases the synthetic mouse button")
+	assert_true(touch._touches.is_empty(), "Canceled pointers are removed from gesture state")
+	assert_eq(touch._gesture, touch.Gesture.NONE, "Cancellation resets the gesture")
 
 func test_two_finger_drag_zooms_the_camera() -> void:
 	camera = autofree(IsometricCamera.new())

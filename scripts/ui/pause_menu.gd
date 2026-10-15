@@ -30,6 +30,7 @@ var _panel: PanelContainer = null
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	add_to_group("touch_camera_backdrop")
 	_build_ui()
 
 func _build_ui() -> void:
@@ -48,7 +49,7 @@ func _build_ui() -> void:
 
 	# Menu panel
 	var panel = PanelContainer.new()
-	var compact := has_node("/root/Screen") and Screen.is_compact()
+	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.12, 0.1, 0.95)
 	style.border_color = UIConstants.COLOR_PRIMARY
@@ -107,7 +108,7 @@ func _build_ui() -> void:
 
 	# Hint at bottom (touch-specific gesture help on touch screens)
 	var hint = Label.new()
-	if DisplayServer.is_touchscreen_available():
+	if has_node("/root/Screen") and Screen.uses_touch_layout():
 		hint.text = "Look around while paused: drag to pan, pinch to zoom\nTap Resume to continue"
 	else:
 		hint.text = "Look around while paused: middle-mouse drag or WASD to pan, scroll to zoom\nPress Escape to resume"
@@ -119,7 +120,7 @@ func _build_ui() -> void:
 func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, text_color: Color = Color.WHITE) -> void:
 	var btn = Button.new()
 	btn.text = text
-	var compact := has_node("/root/Screen") and Screen.is_compact()
+	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
 	if compact:
 		# Full-width, tall targets: easy to tap on touch screens.
 		btn.custom_minimum_size = Vector2(0, 44)
@@ -185,6 +186,17 @@ func _is_inside_panel(control: Control) -> bool:
 			return true
 		node = node.get_parent()
 	return false
+
+## The pause overlay blocks normal GUI input across the screen, but its dimmed
+## backdrop still allows camera gestures. TouchInput checks this before it
+## decides whether a drag belongs to the UI.
+func allows_touch_camera_gesture(screen_pos: Vector2) -> bool:
+	if camera == null or not is_visible_in_tree():
+		return false
+	if _panel == null:
+		return true
+	var local_pos := _panel.get_global_transform_with_canvas().affine_inverse() * screen_pos
+	return not Rect2(Vector2.ZERO, _panel.size).has_point(local_pos)
 
 func _on_resume_pressed() -> void:
 	resume_requested.emit()

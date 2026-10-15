@@ -12,7 +12,6 @@ const TOAST_WIDTH: float = 320.0
 const DISPLAY_DURATION: float = 3.5
 const DISPLAY_DURATION_HIGH: float = 5.0
 const FADE_DURATION: float = 0.4
-const BOTTOM_MARGIN: float = UIConstants.BOTTOM_BAR_HEIGHT + 6.0  # Clears the BottomBar
 const RIGHT_MARGIN: float = 20.0
 const TOAST_SPACING: float = 6.0
 
@@ -162,7 +161,7 @@ func _dismiss_toast(panel: PanelContainer) -> void:
 
 func _reposition_toasts() -> void:
 	var vp_size = get_viewport().get_visible_rect().size
-	var y_offset = BOTTOM_MARGIN
+	var y_offset := Screen.bottom_bar_height() + 6.0  # Clear the responsive BottomBar
 
 	# Stack from bottom up
 	for i in range(_active_toasts.size() - 1, -1, -1):

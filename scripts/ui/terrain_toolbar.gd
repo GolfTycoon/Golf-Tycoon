@@ -239,10 +239,32 @@ var _staff_panel: StaffPanel = null
 func _ready() -> void:
 	_build_ui()
 	EventBus.theme_changed.connect(_on_theme_changed)
+	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
+		Screen.changed.connect(_on_screen_changed)
+	apply_screen()
 
 func _exit_tree() -> void:
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.disconnect(_on_theme_changed)
+	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
+		Screen.changed.disconnect(_on_screen_changed)
+
+## Give the tab rail room for a finger on phones and compact windows. Five
+## 40px tab targets still fit the responsive 232px bottom dock.
+func apply_screen() -> void:
+	if _tab_rail == null:
+		return
+	var diameter := 40.0 if Screen.uses_touch_layout() else 32.0
+	for button in _tab_buttons.values():
+		if not is_instance_valid(button):
+			continue
+		button.diameter = diameter
+		button.custom_minimum_size = Vector2.ONE * diameter
+		button.size = Vector2.ONE * diameter
+		button.queue_redraw()
+
+func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
+	apply_screen()
 
 func _build_ui() -> void:
 	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(

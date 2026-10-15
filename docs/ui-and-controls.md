@@ -117,7 +117,7 @@ Tool shortcuts are also shown on each tool's tooltip. The hotkey panel (`F1`) is
 ## Mouse and Touch
 
 - **Mouse.** Left click places or selects. Right click cancels or opens a context menu. The wheel zooms.
-- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom. A two-finger tap cancels or closes menus.
+- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get 44px utility controls, larger toolbar tabs, and a taller dock so the controls are easier to reach.
 
 ## Layout
 

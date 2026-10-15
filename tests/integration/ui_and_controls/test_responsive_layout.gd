@@ -75,7 +75,7 @@ func test_a_rotated_phone_stays_compact_and_reflows() -> void:
 	await set_window(Vector2i(844, 390))
 	assert_true(Screen.is_compact(), "An 844x390 rotated phone stays compact")
 	assert_almost_eq(Screen.world_scale, 1.0, 0.001, "and keeps the 1:1 world scale")
-	assert_almost_eq(main.mini_map.offset_bottom, -190.0, 1.0, "The minimap re-docks above the bottom bar")
+	assert_almost_eq(main.mini_map.offset_bottom, -Screen.bottom_bar_height(), 1.0, "The minimap re-docks above the touch-sized bottom bar")
 
 
 func test_tablets_and_desktops_scale_the_world_with_the_window() -> void:
@@ -137,6 +137,28 @@ func test_a_tap_clicks_and_a_drag_pans_the_camera() -> void:
 	var moved: Vector2 = main.camera._target_position - before
 	assert_true(absf(moved.x) > 20.0 and absf(moved.y) > 10.0, "A one-finger drag pans the camera (moved %s)" % moved)
 
+
+func test_touch_drag_scrolls_the_tool_shelf_instead_of_moving_the_course() -> void:
+	await set_window(Vector2i(390, 844))
+	if main.main_menu:
+		main.main_menu.queue_free()
+		main.main_menu = null
+	main._set_gameplay_ui_visible(true)
+	GameManager.set_mode(GameManager.GameMode.SIMULATING)
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(3)
+	var scroll: ScrollContainer = main.terrain_toolbar.page_scroll(TerrainToolbar.Tab.TERRAIN)
+	assert_gt(scroll.get_h_scroll_bar().max_value, scroll.get_h_scroll_bar().page,
+		"The phone-sized terrain shelf has content to scroll")
+	var rect := scroll.get_global_rect()
+	var start := Vector2(rect.end.x - 20.0, rect.position.y + rect.size.y * 0.5)
+	var camera_before: Vector2 = main.camera._target_position
+	_push_touch(true, start)
+	_push_drag(start - Vector2(90, 0))
+	_push_touch(false, start - Vector2(90, 0))
+	await process_frames(3)
+	assert_gt(scroll.scroll_horizontal, 0, "A left drag scrolls the toolbar shelf")
+	assert_eq(main.camera._target_position, camera_before, "The course camera stays still")
 
 func test_the_world_map_fits_every_window() -> void:
 	WorldMap.new_world(WorldMapStateScript.default_options())

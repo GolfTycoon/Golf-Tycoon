@@ -754,12 +754,13 @@ func test_the_round_locks_the_page_but_not_the_skin_controls() -> void:
 func test_embedded_pages_fit_toolbar_and_overflow_horizontally() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
+	var expected_toolbar_height := toolbar.size.y
 	for width in [1000, 600, 1600]:
 		toolbar.size.x = width
 		for index in 3:
 			tab.select(index)
 			await process_frames(5)
-			assert_eq(toolbar.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT), "Switching pages never grows the bar")
+			assert_eq(toolbar.size.y, expected_toolbar_height, "Switching pages never grows the bar")
 			_assert_shelf_fits(tab.pages[index])
 			if index == PlayerTab.PAGE_EDIT:
 				assert_gt(rounds._skin_preview_box.size.y, 72.0,
@@ -784,7 +785,7 @@ func test_embedded_pages_fit_toolbar_and_overflow_horizontally() -> void:
 					"Navigation stays pinned while content scrolls")
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await process_frames(5)
-	assert_eq(toolbar.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT))
+	assert_eq(toolbar.size.y, expected_toolbar_height)
 
 func test_embedded_tournament_survives_rebuilds_and_fits_all_states() -> void:
 	var toolbar := _embedded_toolbar()
@@ -931,6 +932,7 @@ func test_round_complete_scores_land_on_the_card() -> void:
 func test_embedded_aim_and_full_scorecards_fit_toolbar() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
+	var expected_toolbar_height := toolbar.size.y
 	for i in 10:
 		rounds.draft.allocate(i, 1)
 	rounds.name_edit.text = "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"
@@ -947,7 +949,7 @@ func test_embedded_aim_and_full_scorecards_fit_toolbar() -> void:
 	rounds._show_results()
 	await process_frames(5)
 	_assert_shelf_fits(tab.aim_page)
-	assert_eq(toolbar.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT))
+	assert_eq(toolbar.size.y, expected_toolbar_height)
 
 func test_save_skills_button_removed_and_skills_save_automatically() -> void:
 	var tab := PlayerTab.new()
