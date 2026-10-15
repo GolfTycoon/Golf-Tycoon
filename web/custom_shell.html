@@ -855,6 +855,7 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 
 	let initializing = true;
 	let statusMode = '';
+	let booting = false;
 
 	statusMotto.textContent = loadingMottos[Math.floor(Math.random() * loadingMottos.length)];
 
@@ -918,6 +919,10 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	}
 
 	function updateProgress(current, total) {
+		if (booting) {
+			return;
+		}
+
 		if (!(current > 0 && total > 0)) {
 			statusProgress.removeAttribute('value');
 			statusProgress.removeAttribute('max');
@@ -928,6 +933,22 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		}
 
 		const ratio = Math.min(Math.max(current / total, 0), 1);
+
+		// Once every byte has arrived the engine still has to boot, which on a
+		// slow device can take a while. Stop showing a frozen 100% bar and
+		// switch to an indeterminate "starting up" state so it is clear the
+		// game is still working rather than stuck.
+		if (current >= total) {
+			booting = true;
+			statusProgress.removeAttribute('value');
+			statusProgress.removeAttribute('max');
+			statusPercent.textContent = '100%';
+			statusTitle.textContent = 'Starting up';
+			statusDetail.textContent = 'Preparing the course…';
+			statusOverlay.classList.add('is-indeterminate');
+			return;
+		}
+
 		const percentage = Math.round(ratio * 100);
 		const stage = loadingStages.find((item) => ratio <= item.limit) || loadingStages[loadingStages.length - 1];
 
@@ -1017,15 +1038,6 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		}).then(() => {
 			setStatusMode('hidden');
 		}, displayFailureNotice);
-	}
-}());
-		</script>
-	</body>
-</html>
-script>
-	</body>
-</html>
-playFailureNotice);
 	}
 }());
 		</script>
