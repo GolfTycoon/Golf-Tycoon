@@ -14,6 +14,8 @@ extends Node
 ##    design size and stay big enough to tap.
 ##  * compact / portrait flags - narrow or tall windows get a compact HUD
 ##    (narrower status column, smaller minimap) so everything fits.
+##  * touch layout - compact windows and touch-enabled displays get larger
+##    controls and a taller bottom dock for comfortable thumb targets.
 ##  * available_panel_size() - the rect popup panels may occupy, keeping
 ##    clear of the bottom control bar.
 ##
@@ -85,9 +87,15 @@ func is_portrait() -> bool:
 func is_landscape() -> bool:
 	return window_size.x >= window_size.y
 
+## Whether this window should use thumb-friendly control sizing. Compact
+## layouts are treated as touch surfaces even on a desktop so narrow windows
+## remain usable; native touch displays get the same layout at larger sizes.
+func uses_touch_layout() -> bool:
+	return is_compact() or DisplayServer.is_touchscreen_available()
+
 ## Bottom control bar height (view/speed controls + tabbed toolbar).
 func bottom_bar_height() -> float:
-	return float(UIConstants.BOTTOM_BAR_HEIGHT)
+	return float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if uses_touch_layout() else UIConstants.BOTTOM_BAR_HEIGHT)
 
 ## Vertical space below which popup panels must not sit (the bottom bar
 ## plus a little breathing room).

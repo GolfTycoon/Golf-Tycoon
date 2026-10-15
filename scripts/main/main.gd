@@ -4143,6 +4143,10 @@ func _apply_responsive_layout() -> void:
 		bg.offset_top = -bar_h
 	if hud_status_column:
 		hud_status_column.apply_screen()
+	if left_controls:
+		left_controls.apply_screen()
+	if terrain_toolbar:
+		terrain_toolbar.apply_screen()
 	if mini_map:
 		mini_map.apply_screen()
 		_position_mini_map()

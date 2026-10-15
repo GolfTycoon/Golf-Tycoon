@@ -109,6 +109,8 @@ const HUD_COLUMN_GROUP := "hud_status_column"
 # Bottom bar height: view/speed controls on the left + tabbed toolbar on the right.
 # Keep in sync with main.tscn BottomBar offset_top.
 const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
+const TOUCH_BOTTOM_BAR_HEIGHT := 232  # Tall enough for 44px camera / speed targets
+const TOUCH_TARGET_SIZE := 44  # Comfortable minimum for primary touch controls
 const BUILD_TOOLS_WIDTH := 260
 const TOOL_BUTTON_HEIGHT := 32
 

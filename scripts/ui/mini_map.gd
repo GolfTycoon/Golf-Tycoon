@@ -20,6 +20,7 @@ var _map_texture: ImageTexture = null
 var _needs_redraw: bool = true
 var _update_timer: float = 0.0
 var _is_dragging: bool = false  # Track drag state for click-and-drag navigation
+var _touch_index: int = -1  # Active finger for direct minimap navigation
 const UPDATE_INTERVAL: float = 0.5  # Redraw terrain every 0.5 seconds
 
 # Fallback color palette (used if theme is unavailable)
@@ -105,6 +106,7 @@ const UNOWNED_TINT = Color(0.3, 0.2, 0.2, 0.4)    # Subtle dark tint on unowned
 func _ready() -> void:
 	custom_minimum_size = get_map_total_size()
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	add_to_group("native_touch_input")
 	apply_screen()
 	_build_terrain_colors()
 	# Listen for theme changes to update colors
@@ -390,6 +392,12 @@ func _map_to_world_pos(map_pos: Vector2) -> Vector2:
 		return Vector2.ZERO
 	return (map_pos - Vector2(BORDER_WIDTH, BORDER_WIDTH)) / _map_scale() + _terrain_grid.projection.world_bounds().position
 
+func _screen_to_local(screen_pos: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * screen_pos
+
+func _navigate_to_map_pos(map_pos: Vector2) -> void:
+	camera_move_requested.emit(_map_to_world_pos(map_pos))
+
 # Transparent corners should not intercept clicks intended for the course.
 func _has_point(point: Vector2) -> bool:
 	return _is_within_map(point)
@@ -421,6 +429,30 @@ func _is_within_map(local_pos: Vector2) -> bool:
 	return _terrain_grid != null and Geometry2D.is_point_in_polygon(local_pos, _map_polygon())
 
 func _input(event: InputEvent) -> void:
+	# Native touch events are not mouse-emulated in this game. Handle the map
+	# directly so a finger can tap or scrub it to move the camera rather than
+	# being treated as a world pan by the shared gesture adapter.
+	if event is InputEventScreenTouch and visible:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if _touch_index == -1 and _is_within_map(_screen_to_local(touch.position)):
+				_touch_index = touch.index
+				_is_dragging = true
+				_navigate_to_map_pos(_screen_to_local(touch.position))
+				get_viewport().set_input_as_handled()
+		elif touch.index == _touch_index:
+			_touch_index = -1
+			_is_dragging = false
+			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventScreenDrag and visible and event.index == _touch_index:
+		var drag := event as InputEventScreenDrag
+		var local_pos := _screen_to_local(drag.position)
+		if _is_within_map(local_pos):
+			_navigate_to_map_pos(local_pos)
+		get_viewport().set_input_as_handled()
+		return
+
 	# Don't process any gameplay hotkeys while in main menu
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return

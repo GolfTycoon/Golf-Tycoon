@@ -6,7 +6,6 @@ class_name RoundSummaryPopup
 const DISPLAY_DURATION: float = 5.0
 const FADE_DURATION: float = 0.5
 const PANEL_WIDTH: float = 260.0
-const BOTTOM_MARGIN: float = UIConstants.BOTTOM_BAR_HEIGHT + 6.0  # Clears the BottomBar
 const RIGHT_MARGIN: float = 20.0
 
 var _queue: Array = []
@@ -131,7 +130,7 @@ func _show_next() -> void:
 	var vp_size = get_viewport().get_visible_rect().size
 	_panel.position = Vector2(
 		vp_size.x - _panel.size.x - RIGHT_MARGIN,
-		vp_size.y - _panel.size.y - BOTTOM_MARGIN
+		vp_size.y - _panel.size.y - Screen.bottom_bar_height() - 6.0
 	)
 
 	# Auto-dismiss timer

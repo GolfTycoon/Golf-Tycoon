@@ -80,16 +80,22 @@ func test_apply_size_emits_changed_only_when_values_move() -> void:
 func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	var s := _make_screen()
 	s.window_size = Vector2(1600, 1000)
-	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - 198))
+	var desktop_bar := UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if DisplayServer.is_touchscreen_available() else UIConstants.BOTTOM_BAR_HEIGHT
+	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - desktop_bar - 8))
 	s.window_size = Vector2(390, 844)
-	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 198))
+	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 240),
+		"Touch layouts reserve the taller bottom dock plus its popup margin")
 	# Tiny windows get a usable floor, not a negative size.
 	s.window_size = Vector2(64, 64)
 	assert_eq(s.available_panel_size(), Vector2(120, 120))
 
-func test_bottom_bar_height_is_the_ui_constant() -> void:
+func test_touch_layout_uses_a_taller_bar_for_larger_targets() -> void:
 	var s := _make_screen()
-	# bottom_bar_height() is a float, the constant is an int: compare as floats
-	# so GUT does not flag the type mismatch.
-	assert_eq(s.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT))
-	assert_almost_eq(s.hud_bottom_clearance(), UIConstants.BOTTOM_BAR_HEIGHT + 8.0, 0.001)
+	s.window_size = Vector2(1600, 1000)
+	var desktop_height: int = UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if DisplayServer.is_touchscreen_available() else UIConstants.BOTTOM_BAR_HEIGHT
+	assert_eq(s.bottom_bar_height(), float(desktop_height))
+
+	s.window_size = Vector2(390, 844)
+	assert_true(s.uses_touch_layout(), "Compact phone-sized windows use touch sizing")
+	assert_eq(s.bottom_bar_height(), float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT))
+	assert_almost_eq(s.hud_bottom_clearance(), UIConstants.TOUCH_BOTTOM_BAR_HEIGHT + 8.0, 0.001)

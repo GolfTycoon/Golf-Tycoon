@@ -164,6 +164,7 @@ static var _mask_bake_count: int = 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	add_to_group("native_touch_input")
 	clip_contents = true
 	# Screens that embed the globe may provide a tighter minimum for a phone;
 	# keep a comfortable default for standalone previews and other callers.
