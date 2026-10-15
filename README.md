@@ -5,7 +5,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="License: GPL-3.0"></a>
   <a href="https://godotengine.org"><img src="https://img.shields.io/badge/Godot-4.6%2B-478cbf.svg" alt="Godot 4.6+"></a>
-  <a href="project.godot"><img src="https://img.shields.io/badge/version-0.3.2-green.svg" alt="Version 0.3.2"></a>
+  <a href="project.godot"><img src="https://img.shields.io/badge/version-0.3.3-green.svg" alt="Version 0.3.3"></a>
 </p>
 
 Build a golf course from the ground up, then run it as a business. Lay out tees, greens and bunkers, place buildings and decorations, hire staff, and watch golfers play your holes shot by shot.
