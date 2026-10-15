@@ -180,14 +180,14 @@ func test_touch_drag_on_a_button_does_not_activate_it_or_paint_behind_it() -> vo
 	button.position = Vector2(100, 100)
 	button.size = Vector2(120, 60)
 	ui.add_child(button)
-	var activated := false
-	button.pressed.connect(func(): activated = true)
+	var activations := []
+	button.pressed.connect(func(): activations.append(true))
 
 	_push_touch(true, 0, Vector2(150, 130))
 	_push_drag(0, Vector2(210, 160))
 	_push_touch(false, 0, Vector2(210, 160))
 	await _settle()
-	assert_false(activated, "A drag that leaves a button cancels its tap")
+	assert_true(activations.is_empty(), "A drag that leaves a button cancels its tap")
 	assert_eq(camera._target_position, Vector2(100, 100), "A UI drag cannot pan the course")
 	assert_eq(sink.mouse_events.size(), 0, "A UI drag cannot paint the course")
 

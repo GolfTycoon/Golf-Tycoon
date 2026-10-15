@@ -97,7 +97,7 @@ func _generate(skin_id: String) -> void:
 				skin.set_layer(key, sprite_layer)
 				frame += 1
 
-	_apply_sampled_colors(skin, histograms, pixels_per_group)
+	_apply_sampled_colors(skin, histograms)
 	var folder := SKIN_ROOT.path_join(skin_id)
 	if not skin.save_to(folder):
 		push_error("Could not write %s" % folder)
@@ -123,8 +123,7 @@ func _sample(histograms: Dictionary, group_id: int, color: Color) -> void:
 ## is what the group is drawn in, and that colour's brightness is the group's
 ## shade reference. The region's flat colour therefore lands exactly on the
 ## player's chosen colour, with the artwork's shadows shading down from it.
-func _apply_sampled_colors(skin: GolferSkin, histograms: Dictionary,
-		pixels_per_group: Dictionary) -> void:
+func _apply_sampled_colors(skin: GolferSkin, histograms: Dictionary) -> void:
 	for group in skin.group_list():
 		var group_id := int(group["id"])
 		var counts: Dictionary = histograms.get(group_id, {})
