@@ -4,6 +4,17 @@ class_name PlayerRoundManager
 signal session_opened
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
+## Section headings on the owner's own pages. The pixel-art styling pass picks
+## them out in gold, so the pages name their columns from one place.
+const DETAILS_TITLE := "Golfer Details"
+const TRAITS_TITLE := "Golfer Traits"
+const SKILLS_TITLE := "Golfer Skills"
+## What a section's second and later columns add to their heading.
+const CONTINUED_SUFFIX := " (continued)"
+## Toggles to a column on the owner's pages. The pages are horizontal shelves
+## with no vertical scroll, so a section that runs longer than this carries on
+## in the next column instead of growing past the bottom bar.
+const TOGGLES_PER_COLUMN := 4
 var player_tab: PlayerTab
 ## Top-left score card owned by the game HUD (null in isolated tools and tests,
 ## which fall back to putting the scorecards on the round page).
@@ -108,10 +119,11 @@ func _make_panel(full_screen: bool) -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 
-## The Edit Player page's skin selector and Re-color Group controls. The skin
-## selector lives with the player's name; the group section is the next column
-## and gives each group a full-height, named color selector.
-func _build_skin_controls() -> void:
+## The skin selector, written into the column the page is building — the one
+## that carries the player's name, so who the golfer is and what they wear read
+## together. Their Re-color Groups are a column of their own further along the
+## shelf (see _build_skin_group_controls).
+func _build_skin_picker() -> void:
 	_label("Golfer skin")
 	_skin_picker = OptionButton.new()
 	_skin_picker.name = "GolferSkinPicker"
@@ -122,6 +134,27 @@ func _build_skin_controls() -> void:
 	_skin_picker.item_selected.connect(_on_golfer_skin_selected)
 	content.add_child(_skin_picker)
 
+
+## A headed column of On/Off toggles on one of the owner's shelves. The toggles
+## of a section run TOGGLES_PER_COLUMN deep and then carry on in a column
+## beside it — the shelf scrolls sideways, so growing right keeps the page
+## inside the bottom bar's height — and the follow-on columns say so in their
+## heading. `slot` is the index of the first toggle the column takes.
+func _toggle_column(page: HBoxContainer, title: String, slot: int,
+		width: float = 210) -> VBoxContainer:
+	var column := PlayerTab.add_column(page, width)
+	# A heading and four toggles only clear the bottom bar at the tighter row
+	# spacing the stacked round sections use.
+	column.add_theme_constant_override("separation", 2)
+	var heading := Label.new()
+	heading.text = title if slot == 0 else title + CONTINUED_SUFFIX
+	column.add_child(heading)
+	return column
+
+
+## The Re-color Group section: one full-height, named color selector per group
+## of the skin the owner wears, in a column of its own on the Edit Player shelf.
+func _build_skin_group_controls() -> void:
 	_skin_controls = VBoxContainer.new()
 	_skin_controls.name = "SkinGroupControls"
 	_skin_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -467,10 +500,22 @@ func _build_setup() -> void:
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
-		# Editable identity fields for the player golfer.
+		# The skin the owner wears closes the first column: the name and the
+		# golfer wearing it read together, under the animated preview beside
+		# them. It stays editable during a round - dressing the owner is not
+		# part of the play loop being protected (see start_round).
+		_build_skin_picker()
+		# The rest of who the golfer is takes the next column. The shelf has no
+		# vertical scroll, so a column of this page holds a heading and about
+		# four controls before it would grow past the bottom bar.
+		content = PlayerTab.add_column(edit_page, 200)
+		var details_title := Label.new()
+		details_title.text = DETAILS_TITLE
+		content.add_child(details_title)
 		var profession_edit := LineEdit.new()
 		profession_edit.name = "PlayerProfession"
 		profession_edit.placeholder_text = "Profession"
+		profession_edit.tooltip_text = "What your golfer does away from the course"
 		profession_edit.text = draft.profession
 		profession_edit.text_changed.connect(func(value: String):
 			draft.profession = value.left(48)
@@ -478,6 +523,8 @@ func _build_setup() -> void:
 		content.add_child(profession_edit)
 		var age_spin := SpinBox.new()
 		age_spin.name = "PlayerAge"
+		age_spin.prefix = "Age"
+		age_spin.tooltip_text = "Your golfer's age, from 18 to 100"
 		age_spin.min_value = 18
 		age_spin.max_value = 100
 		age_spin.value = draft.age
@@ -487,6 +534,7 @@ func _build_setup() -> void:
 		content.add_child(age_spin)
 		var gender_picker := OptionButton.new()
 		gender_picker.name = "PlayerGender"
+		gender_picker.tooltip_text = "Your golfer's gender"
 		gender_picker.add_item("Male")
 		gender_picker.add_item("Female")
 		gender_picker.select(draft.gender)
@@ -496,6 +544,7 @@ func _build_setup() -> void:
 		content.add_child(gender_picker)
 		var marital_picker := OptionButton.new()
 		marital_picker.name = "PlayerMaritalStatus"
+		marital_picker.tooltip_text = "Your golfer's marital status"
 		for value in ["Single", "Married", "Divorced", "Widowed"]:
 			marital_picker.add_item(value)
 		marital_picker.select(draft.marital_status)
@@ -503,11 +552,11 @@ func _build_setup() -> void:
 			draft.marital_status = value
 			_persist_player_profile())
 		content.add_child(marital_picker)
-		var traits_column := PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_EDIT], 210)
-		var traits_title := Label.new()
-		traits_title.text = "Golfer Traits"
-		traits_column.add_child(traits_title)
-		for key in GolferAttributes.TRAIT_KEYS:
+		var traits_column: VBoxContainer = null
+		for slot in GolferAttributes.TRAIT_KEYS.size():
+			if slot % TOGGLES_PER_COLUMN == 0:
+				traits_column = _toggle_column(edit_page, TRAITS_TITLE, slot)
+			var key: String = GolferAttributes.TRAIT_KEYS[slot]
 			var trait_toggle := CheckButton.new()
 			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
 			trait_toggle.button_pressed = draft.traits[key]
@@ -515,11 +564,9 @@ func _build_setup() -> void:
 				draft.traits[trait_key] = on
 				_persist_player_profile())
 			traits_column.add_child(trait_toggle)
-	if is_instance_valid(player_tab):
-		# The golfer's skin and the colours of its Re-color Groups. These stay
-		# editable during a round - dressing the owner is not part of the play
-		# loop being protected (see start_round).
-		_build_skin_controls()
+		# The colours of the skin's Re-color Groups, after the golfer they
+		# dress and the traits they carry.
+		_build_skin_group_controls()
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
 	# edited above (they follow into these fields); what is left here is the
@@ -580,11 +627,12 @@ func _build_setup() -> void:
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
 	if is_instance_valid(player_tab):
-		var golfer_skills_column := PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 220)
-		var golfer_skills_title := Label.new()
-		golfer_skills_title.text = "Golfer Skills"
-		golfer_skills_column.add_child(golfer_skills_title)
-		for key in GolferAttributes.GOLFER_SKILL_KEYS:
+		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
+		var golfer_skills_column: VBoxContainer = null
+		for slot in GolferAttributes.GOLFER_SKILL_KEYS.size():
+			if slot % TOGGLES_PER_COLUMN == 0:
+				golfer_skills_column = _toggle_column(skills_page, SKILLS_TITLE, slot, 220)
+			var key: String = GolferAttributes.GOLFER_SKILL_KEYS[slot]
 			var skill_toggle := CheckButton.new()
 			skill_toggle.text = GolferAttributes.GOLFER_SKILL_NAMES[key]
 			skill_toggle.button_pressed = draft.golfer_skills[key]
@@ -616,7 +664,8 @@ func _build_setup() -> void:
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
 				_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
-				if widget is Label and (widget.text in ["Golfer Traits", "Golfer Skills"] or widget == points_label):
+				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
+						in [DETAILS_TITLE, TRAITS_TITLE, SKILLS_TITLE] or widget == points_label):
 					widget.add_theme_color_override("font_color", Color("f0bf59"))
 					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()

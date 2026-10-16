@@ -6,9 +6,13 @@ var fixture: Node2D
 var rounds: PlayerRoundManager
 var golfers: GolferManager
 var hud: Control
+## The window size Screen had before a test pinned the desktop layout to
+## measure the owner's pages (see _embedded_toolbar).
+var _window_size: Vector2 = Vector2(1600, 1000)
 
 func before_each() -> void:
 	super()
+	_window_size = Screen.window_size
 	GameManager.tournament_manager = null
 	GameManager.is_paused = false
 	GameManager.player_profile = PlayerGolferProfile.new()
@@ -44,6 +48,8 @@ func after_each() -> void:
 	rounds.leave_round()
 	golfers.clear_all_golfers()
 	await process_frames(1)
+	Screen.apply_size(_window_size)
+	Screen.set_process(true)
 	super()
 
 ## A folder of the test's own for the skins a test writes out.
@@ -622,10 +628,21 @@ func test_shot_buttons_run_along_the_top_of_the_play_course_page() -> void:
 
 ## Exercise the real toolbar so header, panel margins and scrollbars count
 ## against the same height budget as the course tiles.
+##
+## The headless test window is 64x64, which Screen reads as a compact — and so
+## touch-sized — layout: a taller bottom bar than the desktop one these pages
+## are measured against. The reference window size is pinned for the length of
+## the test (and Screen's per-frame polling, which would put the tiny window
+## back, paused with it) so the toolbar is the 190px desktop bar main.gd gives
+## it. after_each puts both back.
 func _embedded_toolbar() -> TerrainToolbar:
+	Screen.set_process(false)
+	Screen.apply_size(Screen.BASE_SIZE)
 	var toolbar := TerrainToolbar.new()
 	fixture.add_child(toolbar)
 	toolbar.size = Vector2(1000, UIConstants.BOTTOM_BAR_HEIGHT)
+	assert_eq(Screen.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
+		"The pages are measured against the desktop bottom bar")
 	var panel := TournamentPanel.new()
 	panel.embedded = true
 	toolbar.player_tab.add_persistent(panel)
