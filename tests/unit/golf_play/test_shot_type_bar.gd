@@ -109,3 +109,58 @@ func test_select_shape_mirrors_the_golfer_without_reporting() -> void:
 	assert_eq(reported, [], "Mirroring the golfer is not a press")
 	bar.select_shape(99)
 	assert_eq(bar.selected_shape(), 0, "Out-of-range shapes fall back to straight")
+
+## Every button carries its own picture of the shot it names — the arc it flies
+## and the roll that follows — in the slot above the label.
+func test_each_shot_button_carries_a_picture_of_its_own_shot() -> void:
+	await process_frames(1)
+	for shape in bar.shot_count():
+		var button := bar.shot_button(shape)
+		var diagram := bar.shot_diagram(shape)
+		assert_true(diagram is ShotShapeDiagram, "shot %d has a legend" % shape)
+		assert_eq(diagram.get_parent(), button, "the legend rides on its own button")
+		assert_eq(diagram.shape, shape, "and pictures the shot the button names")
+		assert_eq(diagram.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+			"the legend never takes the clicks and hovers its button answers")
+		# The legend sits in the slot the styleboxes reserve above the label, so
+		# picture and name never share a line.
+		assert_almost_eq(diagram.position.y, ShotTypeBar.DIAGRAM_TOP, 0.01,
+			"shot %d's legend sits in the top slot" % shape)
+		assert_almost_eq(diagram.size.y, ShotShapeDiagram.DIAGRAM_HEIGHT, 0.01)
+		assert_lte(diagram.position.y + diagram.size.y, ShotTypeBar.text_top_margin(),
+			"the legend ends where the label's slot begins")
+		assert_true(Rect2(Vector2.ZERO, button.size).encloses(Rect2(diagram.position, diagram.size)),
+			"the whole legend is inside its button")
+		assert_almost_eq(diagram.position.x + diagram.size.x * 0.5, button.size.x * 0.5, 0.5,
+			"centred over the label")
+
+## A greyed button keeps its picture but loses its colour, so the row still
+## teaches the shapes while it waits for a lie or a turn.
+func test_the_pictures_grey_out_with_their_buttons() -> void:
+	bar.set_ready(true)
+	bar.update_for_lie(TerrainTypes.Type.ROUGH)
+	for shape in [0, 4]:
+		assert_true(bar.shot_diagram(shape).enabled, "shape %d keeps its colour" % shape)
+	for shape in [1, 2, 3]:
+		assert_false(bar.shot_diagram(shape).enabled,
+			"a shot this lie forbids is drawn in the muted grey")
+	bar.set_ready(false)
+	for shape in bar.shot_count():
+		assert_false(bar.shot_diagram(shape).enabled, "a dead row greys every picture out")
+	bar.set_ready(true)
+	bar.update_for_lie(TerrainTypes.Type.FAIRWAY)
+	for shape in bar.shot_count():
+		assert_true(bar.shot_diagram(shape).enabled, "the fairway lights them all again")
+
+## The row's height is the legend's slot over the label and nothing more, so the
+## Play Course page keeps room for both.
+func test_the_row_is_exactly_the_legend_slot_over_the_label() -> void:
+	await process_frames(1)
+	assert_almost_eq(bar.get_combined_minimum_size().y, float(ShotTypeBar.BUTTON_HEIGHT), 0.01)
+	for shape in bar.shot_count():
+		var button := bar.shot_button(shape)
+		var top: float = button.get_theme_stylebox("normal").content_margin_top
+		assert_almost_eq(top, ShotTypeBar.text_top_margin(), 0.01,
+			"every face reserves the same slot, or the label jumps between states")
+		assert_almost_eq(button.get_theme_stylebox("disabled").content_margin_top, top, 0.01)
+		assert_almost_eq(button.get_theme_stylebox("pressed").content_margin_top, top, 0.01)

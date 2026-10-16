@@ -17,6 +17,13 @@ class_name ShotTypeBar
 ##
 ## The row greys out (`set_ready(false)`) rather than disappearing while the
 ## owner waits for their turn, matching how the rest of the aiming HUD behaves.
+##
+## Each button also carries a picture of its own shot — the arc it flies, the
+## carry point where it lands and the roll that follows — drawn by
+## `ShotShapeDiagram` from the aim guide's profile, so the legend on the button
+## and the guide on the course are the same shape and cannot disagree. The label
+## sits under the picture, which is what makes the row taller than a toolbar tool
+## button.
 
 ## Emitted when the owner presses a shot type. The index matches `Golfer.player_shape`.
 signal shape_selected(shape: int)
@@ -51,11 +58,21 @@ const SHOTS := [
 	},
 ]
 
-## Height of the row. Matches a toolbar tool button so the top of the tab keeps
-## the same visual weight as the rest of the bottom bar.
-const BUTTON_HEIGHT := 30
+## Height of the row: the legend's slot over the label. Taller than a toolbar
+## tool button (30) because each button now carries a picture of its shot as
+## well as its name. The Play Course page keeps room for both: the row and the
+## aiming columns under it share the page's height.
+const BUTTON_HEIGHT := 53
+## The legend's slot inside a button: how far it sits below the top edge, and how
+## much of the button's width it may never take.
+const DIAGRAM_TOP := 3.0
+const DIAGRAM_SIDE_PAD := 2.0
+## Gap the label keeps under the legend.
+const DIAGRAM_GAP := 2.0
 
 var _buttons: Array[Button] = []
+## One legend per button, in the same order: the picture of the shot it names.
+var _diagrams: Array[ShotShapeDiagram] = []
 var _group := ButtonGroup.new()
 ## The lit shape (0-4), always the shot the golfer will hit.
 var _shape := 0
@@ -80,8 +97,31 @@ func _ready() -> void:
 		var button := _make_button(index)
 		add_child(button)
 		_buttons.append(button)
+		_diagrams.append(_attach_diagram(button, index))
 	_painted_shape = -1  # First sync always paints the disabled/lit styles.
 	_sync_buttons()
+
+## The button's own picture of its shot: the arc and roll that shot type flies,
+## drawn from the aim guide's profile so the legend and the guide agree. It is
+## placed by hand because a Button lays out its own text and icon but none of its
+## children — the same arrangement `PlayerTab` gives the Player Skills badge.
+func _attach_diagram(button: Button, index: int) -> ShotShapeDiagram:
+	var diagram := ShotShapeDiagram.new()
+	diagram.name = "Shape%s" % SHOTS[index]["name"]
+	diagram.shape = index
+	button.add_child(diagram)
+	button.resized.connect(_place_diagram.bind(button, diagram))
+	_place_diagram(button, diagram)
+	return diagram
+
+## Centre the legend in the slot the styleboxes reserve above the label. The slot
+## keeps its height and only loses width when a button is narrower than the
+## legend, which happens on phone-width windows where the row is already at its
+## minimum; the legend scales itself down whole rather than distorting.
+func _place_diagram(button: Button, diagram: ShotShapeDiagram) -> void:
+	var width := minf(ShotShapeDiagram.DIAGRAM_WIDTH, maxf(0.0, button.size.x - 2.0 * DIAGRAM_SIDE_PAD))
+	diagram.size = Vector2(width, ShotShapeDiagram.DIAGRAM_HEIGHT)
+	diagram.position = Vector2((button.size.x - width) * 0.5, DIAGRAM_TOP)
 
 func _make_button(index: int) -> Button:
 	var shot: Dictionary = SHOTS[index]
@@ -133,9 +173,17 @@ static func _flat_style(bg_color: Color, border_color: Color, border_width: int 
 	style.set_corner_radius_all(4)
 	style.content_margin_left = 8
 	style.content_margin_right = 8
-	style.content_margin_top = 3
+	style.content_margin_top = text_top_margin()
 	style.content_margin_bottom = 3
 	return style
+
+## What every face of a button reserves above its label: the legend's slot plus
+## the gap under it. A Button centres its label inside its stylebox margins and
+## reads the margins of the face it is drawing *now*, so all of them have to
+## reserve the same slot or the label jumps when a shot is hovered, pressed or
+## greyed out.
+static func text_top_margin() -> float:
+	return DIAGRAM_TOP + ShotShapeDiagram.DIAGRAM_HEIGHT + DIAGRAM_GAP
 
 func _on_button_pressed(index: int) -> void:
 	# Disabled buttons cannot be pressed, but a programmatic press must not put
@@ -171,8 +219,13 @@ func _sync_buttons() -> void:
 	_painted_shape = _shape
 	for index in _buttons.size():
 		var button := _buttons[index]
+		var playable := _ready_for_shot and Golfer.shape_allowed(index, _terrain)
 		button.set_pressed_no_signal(index == _shape)
-		button.disabled = not _ready_for_shot or not Golfer.shape_allowed(index, _terrain)
+		button.disabled = not playable
+		# The legend greys out with its button rather than going blank: a shot
+		# this lie forbids still shows the arc and roll it would have flown.
+		if index < _diagrams.size():
+			_diagrams[index].enabled = playable
 		if moved:
 			button.add_theme_stylebox_override("disabled",
 				_lit_disabled_style if index == _shape else _disabled_style)
@@ -188,6 +241,11 @@ func shot_count() -> int:
 ## The button for `shape`, clamped into range so callers can tab by index.
 func shot_button(shape: int) -> Button:
 	return _buttons[clampi(shape, 0, maxi(0, _buttons.size() - 1))]
+
+## The legend on `shape`'s button: the picture of that shot's arc and roll,
+## clamped into range the same way so callers can tab by index.
+func shot_diagram(shape: int) -> ShotShapeDiagram:
+	return _diagrams[clampi(shape, 0, maxi(0, _diagrams.size() - 1))]
 
 ## The shot the row is lit on (0 straight … 4 low punch).
 func selected_shape() -> int:

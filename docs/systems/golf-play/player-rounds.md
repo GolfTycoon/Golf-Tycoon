@@ -2,8 +2,8 @@
 
 > Play your own round alongside the management sim: a practice round or a match against a pro, with persistent skills, shot shapes and an aim guide.
 
-**Source:** `scripts/managers/player_round_manager.gd`, `scripts/managers/player_golfer_manager.gd` (claiming the owner for a round), `scripts/systems/player_golfer_profile.gd`, `scripts/ui/aim_guide.gd`, `scripts/ui/components/shot_type_bar.gd`, `scripts/entities/golfer.gd` (`preview_shot()`, `preview_shot_to_rest()`, `play_shot()`), `scripts/terrain/terrain_grid.gd` (`snap_world_to_tile_anchor()`)
-**Tests:** `tests/unit/golf_play/test_player_golfer.gd`, `tests/unit/golf_play/test_aim_guide.gd`, `tests/unit/golf_play/test_player_round.gd`, `tests/unit/golf_play/test_shot_type_bar.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
+**Source:** `scripts/managers/player_round_manager.gd`, `scripts/managers/player_golfer_manager.gd` (claiming the owner for a round), `scripts/systems/player_golfer_profile.gd`, `scripts/ui/aim_guide.gd`, `scripts/ui/components/shot_type_bar.gd`, `scripts/ui/components/shot_shape_diagram.gd`, `scripts/entities/golfer.gd` (`preview_shot()`, `preview_shot_to_rest()`, `play_shot()`), `scripts/terrain/terrain_grid.gd` (`snap_world_to_tile_anchor()`)
+**Tests:** `tests/unit/golf_play/test_player_golfer.gd`, `tests/unit/golf_play/test_aim_guide.gd`, `tests/unit/golf_play/test_player_round.gd`, `tests/unit/golf_play/test_shot_type_bar.gd`, `tests/unit/golf_play/test_shot_shape_diagram.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
 
 ---
 
@@ -80,6 +80,8 @@ For shape, luck and recovery skills, the relevant residual inaccuracy or lie pen
 ### Shot shapes
 
 `ShotTypeBar` shows one button per shot type across the top of the Play Course page: **straight, fade, draw, high backspin and low punch**. The buttons are mutually exclusive, and the lit button is the shot that `play_shot()` will hit. A shot that the current lie forbids is greyed out in place rather than hidden.
+
+Each button also carries a **picture of its own shot** — the flight arc, the carry point where it lands and the roll that follows — drawn above the label by `ShotShapeDiagram`. The legend is a miniature of the aim guide, not a second opinion: `ShotShapeDiagram.unit_path()` takes the guide's own profile (`AimGuide.roll_ratio_for_shape()`, `AimGuide.arc_scale_for_shape()`, `AimGuide.ARC_HEIGHT_RATIO`, `AimGuide.BEND_FACTOR`) and the bend in `Golfer.shape_bend_degrees()`, projects it with the course's 2:1 isometric mapping, and fits it into the button's slot. All five legends share one heading and one scale, so the row compares: backspin climbs highest and its dotted roll runs back toward the ball under the guide's violet, punch stays flat and runs on, and fade and draw bow off the line as mirror images. The guide's absolute arc cap does not apply at button size; the legend scales to its slot instead. Two legend-only gains, `ShotShapeDiagram.ROLL_GAIN` and `ShotShapeDiagram.BEND_GAIN`, multiply the rollout and the 8° bend so both read on a 44px button — the ratios *between* shot types stay the guide's. A greyed button keeps its picture in the UI's muted grey, so the row still teaches the shapes while it waits for a lie or a turn. The row's height (`ShotTypeBar.BUTTON_HEIGHT`) is the legend's slot over the label, and the Play Course page keeps room for both above the aiming columns.
 
 | Shape | Rule |
 | --- | --- |
@@ -162,6 +164,9 @@ Owner-round golfers use the tournament spawning path, which skips entrance fees 
 | Guide bend factor | `AimGuide.BEND_FACTOR` (matches `BallManager`) | 0.06 |
 | Guide roll dot spacing and radius | `AimGuide._draw_dotted_trail()` | 9 px, 2.4 px |
 | Shortest captioned roll | `AimGuide._draw_labels()` | 5 yd |
+| Legend slot on a shot button, and the row's height | `ShotShapeDiagram.DIAGRAM_SIZE`, `ShotTypeBar.BUTTON_HEIGHT` | 44×26 px, 53 px |
+| Legend rollout and bend gains over the guide's | `ShotShapeDiagram.ROLL_GAIN`, `ShotShapeDiagram.BEND_GAIN` | 2.5, 3.0 |
+| Legend flight samples and rollout dots | `ShotShapeDiagram.ARC_STEPS`, `ShotShapeDiagram.ROLL_DOTS` | 20, 3 |
 | Anchor lands on target within | `Golfer.REST_SOLVE_TOLERANCE` | 0.12 tile |
 | Solver stops refining within | `Golfer.REST_SOLVE_EXACT_ERROR` | 0.02 tile |
 | Fixed-point passes and bisections | `Golfer.REST_SOLVE_ITERATIONS`, `Golfer.REST_SOLVE_BISECTIONS` | 12, 14 |
