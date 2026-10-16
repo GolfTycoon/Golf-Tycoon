@@ -1,8 +1,19 @@
 [
  {
-  "name": "Leah Cove",
+  "name": "Leah Harbour",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 6, "Accurate Irons": 9,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 12, "High Backspin Shot": 7,
+   "Recovery Skills": 8, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "bdc3c7",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Brooks Cove",
+  "name": "Brooks Lighthouse",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Barber",
+  "marital_status": "Divorced",
+  "age": 43,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 10, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 7, "High Backspin Shot": 11,
+   "Recovery Skills": 12, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "ecf0f1",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Wyatt Cove",
+  "name": "Wyatt Sanddollar",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 11, "Accurate Driver": 6, "Accurate Irons": 10,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 10, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "4a235a",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Jen Cove",
+  "name": "Jen Tidepool",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 17, "Accurate Driver": 16, "Accurate Irons": 18,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 21, "High Backspin Shot": 11,
+   "Recovery Skills": 12, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "ecf0f1",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Leo Cove",
+  "name": "Leo Anemone",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Photographer",
+  "marital_status": "Divorced",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 31, "Accurate Driver": 25, "Accurate Irons": 22,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 23, "High Backspin Shot": 32,
+   "Recovery Skills": 21, "Luck": 26
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "1a1a2e",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Mandy Cove",
+  "name": "Mandy Pebble",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Kelp Biologist",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 27, "Long Driver": 30, "Accurate Driver": 16, "Accurate Irons": 24,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 30, "Fade Shot (L to R)": 25, "High Backspin Shot": 19,
+   "Recovery Skills": 24, "Luck": 30
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "2c3e50",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Sue Cove",
+  "name": "Sue Kelp",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 8, "Accurate Driver": 9, "Accurate Irons": 7,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "808b96",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Ace Cove",
+  "name": "Ace Wharf",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 31, "Accurate Driver": 23, "Accurate Irons": 19,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 25, "Fade Shot (L to R)": 31, "High Backspin Shot": 33,
+   "Recovery Skills": 28, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "d5d8dc",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Chad Cove",
+  "name": "Chad Seagull",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 5, "Accurate Driver": 8, "Accurate Irons": 12,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1b2631",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Dan Cove",
+  "name": "Dan Nautilus",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Photographer",
+  "marital_status": "Single",
+  "age": 31,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 23, "Long Driver": 24, "Accurate Driver": 18, "Accurate Irons": 33,
+   "Accurate Putter": 30, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 9, "High Backspin Shot": 12,
+   "Recovery Skills": 29, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "566573",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Seth Cove",
+  "name": "Seth Pacific",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Florist",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 8, "Accurate Driver": 20, "Accurate Irons": 12,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "4a235a",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Andy Cove",
+  "name": "Andy Driftwood",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Accountant",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 19, "Accurate Driver": 13, "Accurate Irons": 14,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 18, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "2c3e50",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Mike Cove",
+  "name": "Mike Cypress",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Real Estate Agent",
+  "marital_status": "Married",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 10,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "1a1a2e",
@@ -156,9 +299,19 @@
   }
  },
  {
-  "name": "Kurt Cove",
+  "name": "Kurt Otter",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Barber",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Accurate Driver": 3, "Accurate Irons": 7, "Accurate Putter": 2,
+   "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 2
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "ecf0f1",
@@ -168,9 +321,20 @@
   }
  },
  {
-  "name": "Vicky Cove",
+  "name": "Vicky Cabrillo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Mechanic",
+  "marital_status": "Divorced",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 12, "Accurate Driver": 9, "Accurate Irons": 12,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 18, "High Backspin Shot": 15,
+   "Recovery Skills": 19, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "bdc3c7",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Penny Cove",
+  "name": "Penny Pelican",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Hotel Manager",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 8, "Accurate Driver": 3, "Accurate Irons": 7,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 4, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "d5d8dc",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Ron Cove",
+  "name": "Ron Beachgrass",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Teacher",
+  "marital_status": "Single",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 12,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 6, "High Backspin Shot": 9,
+   "Recovery Skills": 6, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "2e4053",
@@ -204,9 +390,20 @@
   }
  },
  {
-  "name": "Lucy Cove",
+  "name": "Lucy Cannery",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Deep Sea Fisherman",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 9, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -219,6 +416,17 @@
   "name": "Mel Cove",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 17, "Accurate Driver": 12, "Accurate Irons": 8,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 8, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "34495e",
@@ -228,9 +436,20 @@
   }
  },
  {
-  "name": "Maggie Cove",
+  "name": "Maggie Sandpiper",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 5, "Accurate Driver": 6, "Accurate Irons": 5,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 6, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -240,9 +459,20 @@
   }
  },
  {
-  "name": "Flo Cove",
+  "name": "Flo Clam",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Graphic Designer",
+  "marital_status": "Divorced",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 9, "Accurate Driver": 17, "Accurate Irons": 10,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 20, "High Backspin Shot": 20,
+   "Recovery Skills": 11, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "2e4053",
@@ -252,9 +482,20 @@
   }
  },
  {
-  "name": "Tara Cove",
+  "name": "Tara Sardine",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Carpenter",
+  "marital_status": "Divorced",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 8, "Accurate Driver": 14, "Accurate Irons": 13,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 18, "High Backspin Shot": 18,
+   "Recovery Skills": 18, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "ecf0f1",
@@ -264,9 +505,20 @@
   }
  },
  {
-  "name": "Tracy Cove",
+  "name": "Tracy Peninsula",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 29, "Accurate Driver": 27, "Accurate Irons": 18,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 8,
+   "Recovery Skills": 17, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "283747",
@@ -276,9 +528,20 @@
   }
  },
  {
-  "name": "Kathy Cove",
+  "name": "Kathy Fisherman",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 36,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 9, "Accurate Driver": 6, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 7, "High Backspin Shot": 13,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "bdc3c7",
@@ -288,9 +551,20 @@
   }
  },
  {
-  "name": "Hope Cove",
+  "name": "Hope Pelican",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 63,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 10, "Accurate Driver": 8, "Accurate Irons": 4,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "2c3e50",
@@ -300,9 +574,20 @@
   }
  },
  {
-  "name": "Grace Cove",
+  "name": "Grace Lighthouse",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Married",
+  "age": 68,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 12, "Accurate Irons": 7,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 5,
+   "Recovery Skills": 8, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "bdc3c7",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Kira Cove",
+  "name": "Kira Beachgrass",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 21, "Accurate Driver": 17, "Accurate Irons": 9,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 12, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "1b2631",
@@ -324,9 +620,20 @@
   }
  },
  {
-  "name": "Ashley Cove",
+  "name": "Ashley Harbour",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Journalist",
+  "marital_status": "Divorced",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 17, "Accurate Driver": 21, "Accurate Irons": 31,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 28, "Fade Shot (L to R)": 20, "High Backspin Shot": 15,
+   "Recovery Skills": 22, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "34495e",
@@ -336,9 +643,20 @@
   }
  },
  {
-  "name": "Whitney Cove",
+  "name": "Whitney Tidepool",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Electrician",
+  "marital_status": "Married",
+  "age": 49,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 15, "Accurate Driver": 21, "Accurate Irons": 18,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 16, "High Backspin Shot": 17,
+   "Recovery Skills": 16, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "1b2631",
@@ -348,9 +666,20 @@
   }
  },
  {
-  "name": "Nash Cove",
+  "name": "Nash Fisherman",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 51,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 3, "Accurate Driver": 11, "Accurate Irons": 12,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "f7f9f9",
@@ -360,9 +689,20 @@
   }
  },
  {
-  "name": "Jade Cove",
+  "name": "Jade Kelp",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Waiter",
+  "marital_status": "Married",
+  "age": 31,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 9, "Accurate Driver": 18, "Accurate Irons": 9,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 8, "High Backspin Shot": 5,
+   "Recovery Skills": 12, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "2c3e50",
@@ -372,9 +712,20 @@
   }
  },
  {
-  "name": "Logan Cove",
+  "name": "Logan Sardine",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Waiter",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 12, "Accurate Driver": 15, "Accurate Irons": 14,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 19, "High Backspin Shot": 18,
+   "Recovery Skills": 17, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "7d6608",
@@ -384,9 +735,20 @@
   }
  },
  {
-  "name": "Molly Cove",
+  "name": "Molly Peninsula",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 7, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "ecf0f1",
@@ -399,6 +761,17 @@
   "name": "Vera Cove",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Insurance Agent",
+  "marital_status": "Single",
+  "age": 27,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 8, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "f7f9f9",
@@ -408,9 +781,20 @@
   }
  },
  {
-  "name": "Mark Cove",
+  "name": "Mark Clam",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Librarian",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 18, "Accurate Driver": 18, "Accurate Irons": 11,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 10, "High Backspin Shot": 15,
+   "Recovery Skills": 18, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "bdc3c7",
@@ -420,9 +804,20 @@
   }
  },
  {
-  "name": "Jasper Cove",
+  "name": "Jasper Seagull",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Mechanic",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 20, "Accurate Driver": 25, "Accurate Irons": 19,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 7,
+   "Recovery Skills": 14, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "4a235a",
@@ -432,9 +827,20 @@
   }
  },
  {
-  "name": "Roger Cove",
+  "name": "Roger Pacific",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Musician",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 6, "Accurate Driver": 11, "Accurate Irons": 7,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "566573",
@@ -444,9 +850,20 @@
   }
  },
  {
-  "name": "Cole Cove",
+  "name": "Cole Cannery",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 31,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 7, "Accurate Driver": 10, "Accurate Irons": 8,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 3,
+   "Recovery Skills": 10, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "f7f9f9",
@@ -456,9 +873,20 @@
   }
  },
  {
-  "name": "Paige Cove",
+  "name": "Paige Wharf",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Electrician",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 8, "Accurate Driver": 7, "Accurate Irons": 8,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 6, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "1a1a2e",
@@ -468,9 +896,20 @@
   }
  },
  {
-  "name": "Gage Cove",
+  "name": "Gage Driftwood",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Baker",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 27, "Long Driver": 18, "Accurate Driver": 27, "Accurate Irons": 16,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 8, "High Backspin Shot": 13,
+   "Recovery Skills": 15, "Luck": 27
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "1c2833",
@@ -480,9 +919,20 @@
   }
  },
  {
-  "name": "Trent Cove",
+  "name": "Trent Cabrillo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Divorced",
+  "age": 33,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 14, "Accurate Driver": 12, "Accurate Irons": 13,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 14, "High Backspin Shot": 19,
+   "Recovery Skills": 18, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "bdc3c7",
@@ -492,9 +942,20 @@
   }
  },
  {
-  "name": "Hank Cove",
+  "name": "Hank Cypress",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 8, "Accurate Driver": 10, "Accurate Irons": 4,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "5b2c6f",
@@ -504,9 +965,20 @@
   }
  },
  {
-  "name": "Jodi Cove",
+  "name": "Jodi Pebble",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Single",
+  "age": 46,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "1a1a2e",
@@ -516,9 +988,20 @@
   }
  },
  {
-  "name": "Wayne Cove",
+  "name": "Wayne Nautilus",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Dentist",
+  "marital_status": "Divorced",
+  "age": 51,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 8, "Accurate Irons": 10,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 4, "High Backspin Shot": 12,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "d5d8dc",
@@ -528,9 +1011,20 @@
   }
  },
  {
-  "name": "Vince Cove",
+  "name": "Vince Otter",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 14, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 7,
+   "Recovery Skills": 11, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "1b2631",
@@ -540,9 +1034,19 @@
   }
  },
  {
-  "name": "Rita Cove",
+  "name": "Rita Anemone",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Real Estate Agent",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 4, "Accurate Driver": 4, "Accurate Putter": 5,
+   "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 6, "High Backspin Shot": 8, "Recovery Skills": 4
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "616a6b",
@@ -552,9 +1056,20 @@
   }
  },
  {
-  "name": "Bobby Cove",
+  "name": "Bobby Sandpiper",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 9, "Accurate Driver": 10, "Accurate Irons": 4,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 7, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "1a1a2e",
@@ -564,9 +1079,20 @@
   }
  },
  {
-  "name": "Faye Cove",
+  "name": "Faye Sanddollar",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Tour Guide",
+  "marital_status": "Divorced",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 10, "Accurate Driver": 12, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 10, "High Backspin Shot": 6,
+   "Recovery Skills": 4, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "4a235a",
@@ -576,9 +1102,20 @@
   }
  },
  {
-  "name": "Cam Cove",
+  "name": "Cam Wharf",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Architect",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 10, "Accurate Driver": 18, "Accurate Irons": 14,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 11, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "566573",
@@ -588,9 +1125,20 @@
   }
  },
  {
-  "name": "Connie Cove",
+  "name": "Connie Harbour",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 12, "Accurate Driver": 11, "Accurate Irons": 21,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 11, "High Backspin Shot": 20,
+   "Recovery Skills": 15, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "2c3e50",

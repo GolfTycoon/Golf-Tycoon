@@ -1,8 +1,19 @@
 [
  {
-  "name": "Sean Kapolei",
+  "name": "Sean Kaneohe",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Architect",
+  "marital_status": "Widowed",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 2, "Accurate Driver": 1, "Accurate Irons": 1,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "7d6608",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Demi Kapolei",
+  "name": "Demi Makaha",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Navy Officer",
+  "marital_status": "Single",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 13, "Accurate Driver": 12, "Accurate Irons": 8,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 6,
+   "Recovery Skills": 17, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "f7f9f9",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Joy Kapolei",
+  "name": "Joy Laie",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Musician",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 11, "Accurate Driver": 8, "Accurate Irons": 12,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 7, "High Backspin Shot": 6,
+   "Recovery Skills": 14, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "1c2833",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Skip Kapolei",
+  "name": "Skip Mokuleia",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Surfboard Shaper",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 8, "Accurate Driver": 8, "Accurate Irons": 3,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "4a235a",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Zoe Kapolei",
+  "name": "Zoe Pearl",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 21, "Accurate Driver": 23, "Accurate Irons": 19,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 23, "Fade Shot (L to R)": 32, "High Backspin Shot": 24,
+   "Recovery Skills": 29, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "566573",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Tom Kapolei",
+  "name": "Tom Palolo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Musician",
+  "marital_status": "Divorced",
+  "age": 52,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 17, "Accurate Driver": 16, "Accurate Irons": 13,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 9, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "7d6608",
@@ -75,6 +141,17 @@
   "name": "Rose Kapolei",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Tour Guide",
+  "marital_status": "Divorced",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 24, "Long Driver": 28, "Accurate Driver": 16, "Accurate Irons": 30,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 9, "High Backspin Shot": 13,
+   "Recovery Skills": 29, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "1c2833",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Luna Kapolei",
+  "name": "Luna Honolulu",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Hotel Manager",
+  "marital_status": "Divorced",
+  "age": 55,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 1, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 1, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Owen Kapolei",
+  "name": "Owen Hanauma",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Doctor",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 21, "Accurate Driver": 26, "Accurate Irons": 31,
+   "Accurate Putter": 28, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 12, "High Backspin Shot": 8,
+   "Recovery Skills": 25, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "bdc3c7",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Laura Kapolei",
+  "name": "Laura Ewa",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Judge",
+  "marital_status": "Married",
+  "age": 45,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 8, "Accurate Driver": 3, "Accurate Irons": 7,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "2c3e50",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Kathy Kapolei",
+  "name": "Kathy Waimanalo",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Dentist",
+  "marital_status": "Divorced",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 12, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 4, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "1a1a2e",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Mark Kapolei",
+  "name": "Mark Kahuku",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 68,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 8, "Accurate Driver": 5, "Accurate Irons": 12,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 5,
+   "Recovery Skills": 3, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "f7f9f9",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Raven Kapolei",
+  "name": "Raven Aiea",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "f7f9f9",
@@ -156,9 +299,19 @@
   }
  },
  {
-  "name": "Holt Kapolei",
+  "name": "Holt Mililani",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 43,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 1, "Accurate Putter": 5,
+   "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "4a235a",
@@ -168,9 +321,20 @@
   }
  },
  {
-  "name": "Kurt Kapolei",
+  "name": "Kurt Wahiawa",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Florist",
+  "marital_status": "Widowed",
+  "age": 52,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 3, "Accurate Irons": 4,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 14,
+   "Recovery Skills": 11, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "4a235a",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Trent Kapolei",
+  "name": "Trent Nuuanu",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 43,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 12, "Accurate Driver": 15, "Accurate Irons": 19,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 6,
+   "Recovery Skills": 13, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "2c3e50",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Rocky Kapolei",
+  "name": "Rocky Haleiwa",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Divorced",
+  "age": 45,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 9, "Accurate Driver": 10, "Accurate Irons": 3,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "4a235a",
@@ -204,9 +390,20 @@
   }
  },
  {
-  "name": "Molly Kapolei",
+  "name": "Molly Kailua",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 4, "Accurate Irons": 8,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 12, "High Backspin Shot": 6,
+   "Recovery Skills": 12, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "2e4053",
@@ -216,9 +413,20 @@
   }
  },
  {
-  "name": "Cassie Kapolei",
+  "name": "Cassie Pupukea",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Journalist",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 25, "Long Driver": 21, "Accurate Driver": 26, "Accurate Irons": 25,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 14, "High Backspin Shot": 13,
+   "Recovery Skills": 26, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1a1a2e",
@@ -228,9 +436,20 @@
   }
  },
  {
-  "name": "Emmett Kapolei",
+  "name": "Emmett Manoa",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Luau Performer",
+  "marital_status": "Married",
+  "age": 60,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 5, "Accurate Driver": 9, "Accurate Irons": 10,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "2c3e50",
@@ -240,9 +459,20 @@
   }
  },
  {
-  "name": "Russ Kapolei",
+  "name": "Russ Koko",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 25,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 4, "Accurate Driver": 4, "Accurate Irons": 3,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 14, "High Backspin Shot": 14,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "34495e",
@@ -252,9 +482,20 @@
   }
  },
  {
-  "name": "Noelle Kapolei",
+  "name": "Noelle Makapuu",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Luau Performer",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 15, "Accurate Driver": 15, "Accurate Irons": 22,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 12, "High Backspin Shot": 16,
+   "Recovery Skills": 18, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "2c3e50",
@@ -264,9 +505,20 @@
   }
  },
  {
-  "name": "Piper Kapolei",
+  "name": "Piper Waimea",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 16, "Accurate Driver": 11, "Accurate Irons": 17,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 9,
+   "Recovery Skills": 12, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "2c3e50",
@@ -276,9 +528,20 @@
   }
  },
  {
-  "name": "Sara Kapolei",
+  "name": "Sara Kahala",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Electrician",
+  "marital_status": "Widowed",
+  "age": 70,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 10, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 11, "High Backspin Shot": 11,
+   "Recovery Skills": 6, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "ecf0f1",
@@ -288,9 +551,20 @@
   }
  },
  {
-  "name": "Lynn Kapolei",
+  "name": "Lynn Kaneohe",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 15, "Accurate Driver": 27, "Accurate Irons": 21,
+   "Accurate Putter": 32, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 31, "High Backspin Shot": 16,
+   "Recovery Skills": 23, "Luck": 23
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "d5d8dc",
@@ -300,9 +574,20 @@
   }
  },
  {
-  "name": "Ivy Kapolei",
+  "name": "Ivy Waimanalo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 18, "Accurate Driver": 16, "Accurate Irons": 12,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 7, "High Backspin Shot": 6,
+   "Recovery Skills": 17, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "566573",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Polly Kapolei",
+  "name": "Polly Pupukea",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Pilot",
+  "marital_status": "Divorced",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 9, "Accurate Driver": 11, "Accurate Irons": 17,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 6, "High Backspin Shot": 5,
+   "Recovery Skills": 16, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "2c3e50",
@@ -324,9 +620,19 @@
   }
  },
  {
-  "name": "Ben Kapolei",
+  "name": "Ben Kahala",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Engineer",
+  "marital_status": "Widowed",
+  "age": 75,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 4, "Accurate Putter": 4,
+   "Draw Shot (R to L)": 1, "High Backspin Shot": 2, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "1c2833",
@@ -336,9 +642,20 @@
   }
  },
  {
-  "name": "Phil Kapolei",
+  "name": "Phil Kahuku",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Tour Guide",
+  "marital_status": "Divorced",
+  "age": 49,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 13, "Accurate Driver": 8, "Accurate Irons": 7,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "34495e",
@@ -348,9 +665,20 @@
   }
  },
  {
-  "name": "Tara Kapolei",
+  "name": "Tara Makapuu",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Luau Performer",
+  "marital_status": "Single",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 31, "Long Driver": 24, "Accurate Driver": 18, "Accurate Irons": 20,
+   "Accurate Putter": 27, "Draw Shot (R to L)": 21, "Fade Shot (L to R)": 25, "High Backspin Shot": 19,
+   "Recovery Skills": 24, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "808b96",
@@ -360,9 +688,20 @@
   }
  },
  {
-  "name": "Matt Kapolei",
+  "name": "Matt Haleiwa",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 4, "Accurate Driver": 9, "Accurate Irons": 4,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 12, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "5b2c6f",
@@ -372,9 +711,20 @@
   }
  },
  {
-  "name": "Gwen Kapolei",
+  "name": "Gwen Koko",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 11, "Accurate Driver": 9, "Accurate Irons": 11,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 8, "High Backspin Shot": 13,
+   "Recovery Skills": 12, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "1c2833",
@@ -384,9 +734,20 @@
   }
  },
  {
-  "name": "Pete Kapolei",
+  "name": "Pete Kailua",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 7, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 9, "High Backspin Shot": 11,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "1a1a2e",
@@ -396,9 +757,20 @@
   }
  },
  {
-  "name": "Ace Kapolei",
+  "name": "Ace Palolo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 12, "Accurate Driver": 9, "Accurate Irons": 10,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 15, "High Backspin Shot": 12,
+   "Recovery Skills": 18, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "2c3e50",
@@ -408,9 +780,20 @@
   }
  },
  {
-  "name": "Bonnie Kapolei",
+  "name": "Bonnie Laie",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 17, "Accurate Driver": 16, "Accurate Irons": 12,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 17, "High Backspin Shot": 20,
+   "Recovery Skills": 14, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "2c3e50",
@@ -423,6 +806,17 @@
   "name": "Noah Kapolei",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Judge",
+  "marital_status": "Divorced",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 20, "Accurate Driver": 17, "Accurate Irons": 15,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 19, "High Backspin Shot": 19,
+   "Recovery Skills": 18, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "1a1a2e",
@@ -432,9 +826,20 @@
   }
  },
  {
-  "name": "Sam Kapolei",
+  "name": "Sam Nuuanu",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Luau Performer",
+  "marital_status": "Married",
+  "age": 33,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 17, "Accurate Driver": 31, "Accurate Irons": 28,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 29, "High Backspin Shot": 33,
+   "Recovery Skills": 16, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "5b2c6f",
@@ -444,9 +849,19 @@
   }
  },
  {
-  "name": "Hope Kapolei",
+  "name": "Hope Waimea",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Insurance Agent",
+  "marital_status": "Single",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 4, "Draw Shot (R to L)": 1,
+   "Fade Shot (L to R)": 2, "High Backspin Shot": 1, "Recovery Skills": 4, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "2c3e50",
@@ -456,9 +871,20 @@
   }
  },
  {
-  "name": "Maya Kapolei",
+  "name": "Maya Pearl",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Baker",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 14, "Accurate Driver": 19, "Accurate Irons": 16,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 16, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "1b2631",
@@ -468,9 +894,20 @@
   }
  },
  {
-  "name": "Frank Kapolei",
+  "name": "Frank Ewa",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 11, "Accurate Irons": 10,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 10, "High Backspin Shot": 13,
+   "Recovery Skills": 6, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "1a1a2e",
@@ -480,9 +917,20 @@
   }
  },
  {
-  "name": "Seth Kapolei",
+  "name": "Seth Manoa",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 61,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 16, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 9, "High Backspin Shot": 4,
+   "Recovery Skills": 11, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "5b2c6f",
@@ -492,9 +940,20 @@
   }
  },
  {
-  "name": "Carmen Kapolei",
+  "name": "Carmen Hanauma",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 17, "Accurate Driver": 13, "Accurate Irons": 15,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 4,
+   "Recovery Skills": 11, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1c2833",
@@ -504,9 +963,20 @@
   }
  },
  {
-  "name": "Josh Kapolei",
+  "name": "Josh Mililani",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 32, "Accurate Driver": 27, "Accurate Irons": 20,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 31, "High Backspin Shot": 26,
+   "Recovery Skills": 26, "Luck": 30
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "4a235a",
@@ -516,9 +986,20 @@
   }
  },
  {
-  "name": "Chase Kapolei",
+  "name": "Chase Aiea",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chemist",
+  "marital_status": "Divorced",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 28, "Accurate Driver": 25, "Accurate Irons": 20,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 26, "Fade Shot (L to R)": 30, "High Backspin Shot": 22,
+   "Recovery Skills": 30, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "283747",
@@ -528,9 +1009,20 @@
   }
  },
  {
-  "name": "Zane Kapolei",
+  "name": "Zane Mokuleia",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Writer",
+  "marital_status": "Single",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 12, "Accurate Driver": 7, "Accurate Irons": 9,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 5, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "bdc3c7",
@@ -540,9 +1032,19 @@
   }
  },
  {
-  "name": "Deb Kapolei",
+  "name": "Deb Honolulu",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 63,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 5, "Accurate Putter": 4, "Fade Shot (L to R)": 2,
+   "High Backspin Shot": 2, "Recovery Skills": 1, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "f7f9f9",
@@ -552,9 +1054,20 @@
   }
  },
  {
-  "name": "Jasper Kapolei",
+  "name": "Jasper Wahiawa",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 17, "Accurate Driver": 16, "Accurate Irons": 17,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 22, "High Backspin Shot": 11,
+   "Recovery Skills": 17, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "f7f9f9",
@@ -564,9 +1077,20 @@
   }
  },
  {
-  "name": "Sofia Kapolei",
+  "name": "Sofia Makaha",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Musician",
+  "marital_status": "Married",
+  "age": 66,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 9, "Accurate Driver": 5, "Accurate Irons": 6,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 5,
+   "Recovery Skills": 4, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "2c3e50",
@@ -576,9 +1100,20 @@
   }
  },
  {
-  "name": "Bailey Kapolei",
+  "name": "Bailey Kahala",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 16, "Accurate Driver": 8, "Accurate Irons": 16,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 14, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1a1a2e",
@@ -588,9 +1123,20 @@
   }
  },
  {
-  "name": "Gene Kapolei",
+  "name": "Gene Wahiawa",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Divorced",
+  "age": 58,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 8, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 8, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "5b2c6f",

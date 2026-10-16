@@ -184,7 +184,7 @@ tendency_sign = +1 or -1 (50/50)
 miss_tendency = magnitude * sign
 ```
 
-Visiting golfers keep the name on their visitor card and roll the rest of the identity; returning guests keep the whole block and only restart their statuses at 50%.
+A visitor from a location's pool does not roll their block at all: their [visitor card](golfer-attributes.md#visiting-golfer-cards) carries the whole thing - name, profession, marital status, age, gender, Golfer Traits, Golfer Skills and Golf Skill points - and the tier only adds what the card leaves out (personality, patience, miss tendency). A golfer rolled on the spot rolls it as above, and a returning guest keeps the block they arrived with and only restarts their statuses at 50%.
 
 ### 8. Personality Generation (Per Tier)
 

@@ -99,7 +99,22 @@ Terrain behaviour is defined in `scripts/terrain/terrain_types.gd`. `terrain_typ
 
 ## Visiting Golfers
 
-`data/visiting_golfers/` has one file for each of the 27 World Map locations, named after the location in lower case, for example `japan.json`, `new_york.json` or `san_diego.json`. Each file lists the visitors for that location. Each visitor has a name, a `skin_id` (a folder in `data/golfer_skins/`), a tier and group colours.
+`data/visiting_golfers/` has one file for each of the 27 World Map locations, named after the location in lower case, for example `japan.json`, `new_york.json` or `san_diego.json`. Each file lists the 50 visitors for that location, and every visitor has a unique name within it (and across the whole game).
+
+Each visitor is a full golfer card:
+
+| Field | Meaning |
+| --- | --- |
+| `name` | The golfer's unique first and last name |
+| `skin_id` | A folder in `data/golfer_skins/` the golfer wears |
+| `tier` | Beginner (0), Casual (1), Serious (2) or Pro (3) — the tier decides personality, patience and miss tendency |
+| `profession`, `marital_status`, `age`, `gender` | Identity. The status is Single, Married, Divorced or Widowed; the gender is the golfer's own and matches the name |
+| `traits` | The Golfer Traits that are On (neat, outgoing, active, playful, nice); any the golfer does not have are left out |
+| `golfer_skills` | The Golfer Skills that are On (length, accuracy, imagination) |
+| `golf_skills` | The Golf Skill points, by the skill's name (1-99, each point +10%). Skills with no points are left out |
+| `group_colors` | Shirt, Pants, Cap, Hair and Skin hex colours for the group's kit |
+
+`GolferAttributes.apply_visitor_card()` reads the card, and `GolferManager.spawn_visiting_golfer()` gives it to the golfer they spawn. A card is the whole person: a returning guest keeps this same block through their visits. See [Golfer Attributes](systems/golfers/golfer-attributes.md).
 
 See [World Map](systems/economy-and-land/world-map.md) for the locations.
 

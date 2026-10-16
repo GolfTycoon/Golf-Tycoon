@@ -983,12 +983,21 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	if golfer == null:
 		return null
 	golfer.initialize_from_tier(tier)
+	# The visitor card carries the whole person: identity, Golfer Traits,
+	# Golfer Skills and Golf Skill points all come from the card. The tier has
+	# already given them the rest - personality, patience and miss tendency.
+	golfer.attributes.apply_visitor_card(visitor)
+	golfer.golfer_name = golfer.attributes.name
+	# The card's Active trait decides how fast they walk, so walk speed is
+	# taken from the attributes again now they are the card's.
+	golfer.walk_speed = 100.0 * golfer.attributes.walk_speed_multiplier()
 	golfer.skin_id = skin
 	golfer.group_color_overrides = group_colors
 	golfer.refresh_skin_sprites()
 	_spawned_visitor_names[visitor_name] = true
-	print("Spawned visiting golfer: %s (%s skin, %s tier) at %s" % [
-		visitor_name, skin, GolferTier.get_tier_name(tier), location_id])
+	print("Spawned visiting golfer: %s, %s (%s skin, %s tier) at %s" % [
+		golfer.attributes.name, golfer.attributes.profession, skin,
+		GolferTier.get_tier_name(tier), location_id])
 	return golfer
 
 ## Spawn initial group of golfers when course opens.
