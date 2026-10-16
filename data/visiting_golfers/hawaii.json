@@ -1,8 +1,19 @@
 [
  {
-  "name": "Tim Aloha",
+  "name": "Tim Pikake",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Dentist",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 12, "Accurate Driver": 6, "Accurate Irons": 6,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 7, "High Backspin Shot": 11,
+   "Recovery Skills": 9, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "1a1a2e",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Olive Aloha",
+  "name": "Olive Molokai",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 43,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 10, "Accurate Driver": 4, "Accurate Irons": 8,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "4a235a",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Sheila Aloha",
+  "name": "Sheila Pali",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 6, "Accurate Driver": 9, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 12, "High Backspin Shot": 14,
+   "Recovery Skills": 10, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "7d6608",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Tina Aloha",
+  "name": "Tina Hana",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 20, "Accurate Driver": 17, "Accurate Irons": 20,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 14, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "2c3e50",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Luke Aloha",
+  "name": "Luke Ukulele",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 46,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 13, "Accurate Driver": 16, "Accurate Irons": 13,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 18, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "4a235a",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Laura Aloha",
+  "name": "Laura Leilani",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 20, "Accurate Driver": 15, "Accurate Irons": 13,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 7, "High Backspin Shot": 8,
+   "Recovery Skills": 18, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "bdc3c7",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Vince Aloha",
+  "name": "Vince Hilo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Electrician",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 15, "Accurate Driver": 12, "Accurate Irons": 18,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 13, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Troy Aloha",
+  "name": "Troy Plumeria",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 23,
+  "gender": "Male",
+  "traits": ["active"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 3, "Accurate Driver": 12, "Accurate Irons": 7,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 5,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "2c3e50",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Leo Aloha",
+  "name": "Leo Lanai",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Farmer",
+  "marital_status": "Single",
+  "age": 35,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 28, "Long Driver": 30, "Accurate Driver": 24, "Accurate Irons": 14,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 27, "Fade Shot (L to R)": 23, "High Backspin Shot": 28,
+   "Recovery Skills": 33, "Luck": 24
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "4a235a",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Ace Aloha",
+  "name": "Ace Mahalo",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Divorced",
+  "age": 57,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 13, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 8, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "283747",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Gail Aloha",
+  "name": "Gail Nalu",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 24, "Accurate Driver": 32, "Accurate Irons": 26,
+   "Accurate Putter": 32, "Draw Shot (R to L)": 33, "Fade Shot (L to R)": 16, "High Backspin Shot": 25,
+   "Recovery Skills": 22, "Luck": 24
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1b2631",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Heather Aloha",
+  "name": "Heather Waikiki",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 64,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 12,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "bdc3c7",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Finn Aloha",
+  "name": "Finn Kona",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Waiter",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 29, "Accurate Driver": 25, "Accurate Irons": 29,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 23, "Fade Shot (L to R)": 23, "High Backspin Shot": 33,
+   "Recovery Skills": 18, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "808b96",
@@ -156,9 +299,20 @@
   }
  },
  {
-  "name": "Toni Aloha",
+  "name": "Toni Makani",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Veterinarian",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 6, "Accurate Driver": 5, "Accurate Irons": 14,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "808b96",
@@ -168,9 +322,20 @@
   }
  },
  {
-  "name": "Kathy Aloha",
+  "name": "Kathy Kai",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Journalist",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 12, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 12, "High Backspin Shot": 9,
+   "Recovery Skills": 10, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "1b2631",
@@ -180,9 +345,20 @@
   }
  },
  {
-  "name": "Jo Aloha",
+  "name": "Jo Pua",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Divorced",
+  "age": 73,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 7,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 11, "High Backspin Shot": 8,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "7d6608",
@@ -192,9 +368,20 @@
   }
  },
  {
-  "name": "Stella Aloha",
+  "name": "Stella Maui",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Software Developer",
+  "marital_status": "Widowed",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 12, "Accurate Driver": 18, "Accurate Irons": 13,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 17, "High Backspin Shot": 19,
+   "Recovery Skills": 10, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "1c2833",
@@ -204,9 +391,20 @@
   }
  },
  {
-  "name": "Ruth Aloha",
+  "name": "Ruth Luau",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 6, "Accurate Driver": 3, "Accurate Irons": 8,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 9,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "616a6b",
@@ -216,9 +414,20 @@
   }
  },
  {
-  "name": "Erin Aloha",
+  "name": "Erin Kailua",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 45,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 6, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "2c3e50",
@@ -228,9 +437,20 @@
   }
  },
  {
-  "name": "Russ Aloha",
+  "name": "Russ Lava",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 5, "Accurate Driver": 10, "Accurate Irons": 3,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 11, "High Backspin Shot": 10,
+   "Recovery Skills": 5, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "2c3e50",
@@ -240,9 +460,20 @@
   }
  },
  {
-  "name": "Tom Aloha",
+  "name": "Tom Hibiscus",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 13, "Accurate Driver": 20, "Accurate Irons": 13,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 11, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "d5d8dc",
@@ -252,9 +483,19 @@
   }
  },
  {
-  "name": "Jasmine Aloha",
+  "name": "Jasmine Outrigger",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 46,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 5, "Accurate Irons": 2,
+   "Accurate Putter": 1, "Recovery Skills": 1, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "1c2833",
@@ -267,6 +508,17 @@
   "name": "Neil Aloha",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 17, "Accurate Driver": 15, "Accurate Irons": 13,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 13, "High Backspin Shot": 16,
+   "Recovery Skills": 15, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "f7f9f9",
@@ -276,9 +528,20 @@
   }
  },
  {
-  "name": "Pat Aloha",
+  "name": "Pat Kauai",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 9, "Accurate Irons": 9,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 5, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "283747",
@@ -288,9 +551,20 @@
   }
  },
  {
-  "name": "Deb Aloha",
+  "name": "Deb Waikiki",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Musician",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 19, "Accurate Driver": 29, "Accurate Irons": 18,
+   "Accurate Putter": 31, "Draw Shot (R to L)": 30, "Fade Shot (L to R)": 16, "High Backspin Shot": 17,
+   "Recovery Skills": 33, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "34495e",
@@ -300,9 +574,20 @@
   }
  },
  {
-  "name": "Carmen Aloha",
+  "name": "Carmen Hana",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Waiter",
+  "marital_status": "Divorced",
+  "age": 31,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 5, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 6, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "5b2c6f",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Logan Aloha",
+  "name": "Logan Lava",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 10, "Accurate Driver": 8, "Accurate Irons": 10,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 5, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "bdc3c7",
@@ -324,9 +620,20 @@
   }
  },
  {
-  "name": "Leah Aloha",
+  "name": "Leah Nalu",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 8, "Accurate Driver": 3, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "d5d8dc",
@@ -336,9 +643,20 @@
   }
  },
  {
-  "name": "Nancy Aloha",
+  "name": "Nancy Pua",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 12,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 4,
+   "Recovery Skills": 11, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "808b96",
@@ -348,9 +666,20 @@
   }
  },
  {
-  "name": "Polly Aloha",
+  "name": "Polly Hilo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Baker",
+  "marital_status": "Divorced",
+  "age": 47,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 17, "Accurate Driver": 8, "Accurate Irons": 14,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 9, "High Backspin Shot": 16,
+   "Recovery Skills": 16, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "1a1a2e",
@@ -360,9 +689,20 @@
   }
  },
  {
-  "name": "Ryan Aloha",
+  "name": "Ryan Hibiscus",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Surf Instructor",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 10,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "7d6608",
@@ -372,9 +712,20 @@
   }
  },
  {
-  "name": "Chad Aloha",
+  "name": "Chad Makani",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Journalist",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 18, "Accurate Driver": 14, "Accurate Irons": 9,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 18, "High Backspin Shot": 17,
+   "Recovery Skills": 12, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "1a1a2e",
@@ -384,9 +735,20 @@
   }
  },
  {
-  "name": "Julie Aloha",
+  "name": "Julie Molokai",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Divorced",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 6, "Accurate Driver": 10, "Accurate Irons": 8,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "7d6608",
@@ -396,9 +758,20 @@
   }
  },
  {
-  "name": "Amber Aloha",
+  "name": "Amber Leilani",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Scientist",
+  "marital_status": "Single",
+  "age": 47,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 8, "Accurate Driver": 11, "Accurate Irons": 11,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 13, "High Backspin Shot": 6,
+   "Recovery Skills": 11, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "1b2631",
@@ -408,9 +781,20 @@
   }
  },
  {
-  "name": "Mack Aloha",
+  "name": "Mack Outrigger",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Scientist",
+  "marital_status": "Divorced",
+  "age": 61,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 9, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "7d6608",
@@ -420,9 +804,20 @@
   }
  },
  {
-  "name": "Ella Aloha",
+  "name": "Ella Plumeria",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Graphic Designer",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 12, "Accurate Driver": 8, "Accurate Irons": 11,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 15, "High Backspin Shot": 19,
+   "Recovery Skills": 12, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "616a6b",
@@ -432,9 +827,20 @@
   }
  },
  {
-  "name": "Lucy Aloha",
+  "name": "Lucy Mahalo",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 27, "Accurate Driver": 24, "Accurate Irons": 19,
+   "Accurate Putter": 30, "Draw Shot (R to L)": 29, "Fade Shot (L to R)": 16, "High Backspin Shot": 18,
+   "Recovery Skills": 25, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "1b2631",
@@ -444,9 +850,20 @@
   }
  },
  {
-  "name": "Paul Aloha",
+  "name": "Paul Lanai",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 11, "Accurate Driver": 16, "Accurate Irons": 14,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 5, "High Backspin Shot": 7,
+   "Recovery Skills": 17, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "34495e",
@@ -456,9 +873,20 @@
   }
  },
  {
-  "name": "Earl Aloha",
+  "name": "Earl Pikake",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 6, "Accurate Driver": 2, "Accurate Irons": 2,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 4
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "1c2833",
@@ -468,9 +896,20 @@
   }
  },
  {
-  "name": "Kai Aloha",
+  "name": "Kai Maui",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 19, "Accurate Driver": 18, "Accurate Irons": 18,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 13, "High Backspin Shot": 19,
+   "Recovery Skills": 19, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "5b2c6f",
@@ -480,9 +919,20 @@
   }
  },
  {
-  "name": "Dave Aloha",
+  "name": "Dave Pali",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 33,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 16, "Accurate Driver": 13, "Accurate Irons": 12,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 16, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "283747",
@@ -492,9 +942,20 @@
   }
  },
  {
-  "name": "Jonah Aloha",
+  "name": "Jonah Kona",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 11, "Accurate Driver": 14, "Accurate Irons": 11,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 7, "High Backspin Shot": 4,
+   "Recovery Skills": 17, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "2e4053",
@@ -504,9 +965,20 @@
   }
  },
  {
-  "name": "Iris Aloha",
+  "name": "Iris Ukulele",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 16, "Accurate Driver": 12, "Accurate Irons": 15,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 13, "High Backspin Shot": 18,
+   "Recovery Skills": 15, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "f7f9f9",
@@ -516,9 +988,20 @@
   }
  },
  {
-  "name": "Betsy Aloha",
+  "name": "Betsy Kailua",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Librarian",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 33, "Long Driver": 25, "Accurate Driver": 21, "Accurate Irons": 29,
+   "Accurate Putter": 26, "Draw Shot (R to L)": 26, "Fade Shot (L to R)": 32, "High Backspin Shot": 24,
+   "Recovery Skills": 30, "Luck": 30
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "ecf0f1",
@@ -528,9 +1011,20 @@
   }
  },
  {
-  "name": "Sara Aloha",
+  "name": "Sara Kai",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 12, "Accurate Driver": 9, "Accurate Irons": 9,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 15, "High Backspin Shot": 16,
+   "Recovery Skills": 17, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "1c2833",
@@ -540,9 +1034,20 @@
   }
  },
  {
-  "name": "Sally Aloha",
+  "name": "Sally Kauai",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 28, "Accurate Driver": 27, "Accurate Irons": 15,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 11,
+   "Recovery Skills": 26, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "4a235a",
@@ -552,9 +1057,20 @@
   }
  },
  {
-  "name": "Liam Aloha",
+  "name": "Liam Luau",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Architect",
+  "marital_status": "Married",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 9, "Accurate Driver": 3, "Accurate Irons": 5,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 7, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "bdc3c7",
@@ -567,6 +1083,17 @@
   "name": "Holly Aloha",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Outrigger Paddler",
+  "marital_status": "Married",
+  "age": 74,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 4,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 1
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "808b96",
@@ -576,9 +1103,20 @@
   }
  },
  {
-  "name": "Ken Aloha",
+  "name": "Ken Hilo",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Insurance Agent",
+  "marital_status": "Divorced",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 9, "Accurate Driver": 3, "Accurate Irons": 7,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "566573",
@@ -591,6 +1129,16 @@
   "name": "Nick Aloha",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Carpenter",
+  "marital_status": "Widowed",
+  "age": 65,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 3, "Accurate Driver": 3, "Accurate Irons": 2,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 1, "Recovery Skills": 1
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "2c3e50",

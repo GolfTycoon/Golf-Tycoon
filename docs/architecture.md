@@ -24,7 +24,7 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 | --- | --- | --- |
 | `scripts/autoload/` | Global singletons | 11 |
 | `scripts/systems/` | Stateless rules and calculators | 35 |
-| `scripts/managers/` | Owners of live groups (golfers, land, staff, weeds, tournaments) | 13 |
+| `scripts/managers/` | Owners of live groups (golfers, land, staff, weeds, tournaments) | 14 |
 | `scripts/entities/` | Scene objects: golfers, balls, buildings, staff | 10 |
 | `scripts/terrain/` | Course surface, grid, overlays and generation | 30 |
 | `scripts/course/` | Hole routes, routing overlay and entity layer | 8 |
@@ -85,6 +85,7 @@ Main (Node2D)                      main.gd
 ├── Entities (Node2D)
 │   ├── Golfers, Balls, Buildings  containers for live objects
 ├── GolferManager, BallManager, HoleManager (Node)
+├── PlayerGolferManager (Node)        the owner's own golfer and the ground they work
 ├── Holes (Node2D)                 hole visuals
 ├── IsometricCamera (Camera2D)
 └── UI (CanvasLayer)

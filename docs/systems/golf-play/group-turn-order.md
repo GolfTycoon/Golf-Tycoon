@@ -110,4 +110,4 @@ Because only walkers are tested, the check cannot deadlock. A partner whose ball
 
 - [Player Rounds](player-rounds.md) covers the round your golfer plays.
 - [Golfer Spawning](../golfers/golfer-spawning.md) sets how many groups are on the course.
-- [Golfer Needs](../golfers/golfer-needs.md) covers the pace need that waiting drains.
+- [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers the pace need that waiting drains.

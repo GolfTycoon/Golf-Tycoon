@@ -14,6 +14,7 @@ How shots, balls, putts and golfer turns work on the course.
 | --- | --- |
 | [Shot Accuracy](golf-play/shot-accuracy.md) | Accuracy, lie and club modifiers, and the shot simulator |
 | [Player Rounds](golf-play/player-rounds.md) | Playing your own golfer's round and scoring |
+| [The Owner's Golfer on the Course](golf-play/owner-on-the-course.md) | Your golfer working the course between rounds, and the ground they work |
 | [Ball Physics](golf-play/ball-physics.md) | Flight, bounce, roll and landing effects |
 | [Group Turn Order](golf-play/group-turn-order.md) | Who plays next, and when a group is held up |
 | [Putting System](golf-play/putting-system.md) | Make chances, misses and the putting model |
@@ -83,7 +84,8 @@ Who visits the course and how they feel about it.
 
 | Doc | What it covers |
 | --- | --- |
-| [Golfer Needs](golfers/golfer-needs.md) | Thirst, pace, comfort and how needs decay |
+| [Golfer Attributes](golfers/golfer-attributes.md) | Identity, traits, golfer skills, golf skills, statuses and comments |
+| [Golfer Needs and Statuses](golfers/golfer-needs.md) | Fun, Attitude, Energy, Hunger, Thirst and how they decay |
 | [Golfer Spawning](golfers/golfer-spawning.md) | Arrival rate, tiers, group size and landing zones |
 | [Satisfaction and Feedback](golfers/satisfaction-feedback.md) | Thought bubbles, daily satisfaction and visitor return |
 

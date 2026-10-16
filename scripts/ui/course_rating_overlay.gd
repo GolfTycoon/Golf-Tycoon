@@ -130,7 +130,7 @@ func _update_rating() -> void:
 
 	var experience := FeedbackManager.visit_summary()
 	_experience_label.text = "%d completed-visit reviews | %d returning guests\nVisit satisfaction: %s | Return intent: %s\n%d amenity visits | $%d service income" % [experience.reviews,experience.returning, ("%d%%" % int(experience.satisfaction*100)) if experience.reviews else "awaiting rounds", ("%d%%" % int(experience.return_intent*100)) if experience.reviews else "awaiting rounds",experience.service_visits,experience.service_revenue]
-	_experience_label.tooltip_text = "Visit satisfaction combines needs, mood and value at the end of the round. Return intent is a forecast, not a guaranteed booking."
+	_experience_label.tooltip_text = "Visit satisfaction combines needs, attitude and value at the end of the round. Return intent is a forecast, not a guaranteed booking."
 	var recent := FeedbackManager.recent_experience()
 	if recent.days > 0:
 		_experience_label.text += "\nPrevious %d days: %s satisfaction | $%d/day operating profit" % [recent.days,("%d%%" % int(recent.satisfaction*100)) if recent.reviews > 0 else "unrated",int(recent.profit)]

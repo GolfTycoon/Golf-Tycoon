@@ -4,7 +4,7 @@ class_name GolferManager
 
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 
-## Several attitude facilities can stack, but the starting-mood bonus they
+## Several attitude facilities can stack, but the starting-attitude bonus they
 ## grant is capped so a course full of them can't start every guest ecstatic.
 const MAX_ATTITUDE_BONUS: float = 0.2
 
@@ -838,12 +838,6 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.guest_key = FeedbackManager.next_guest_key()
 	golfer.group_id = group_id
 
-	# Set skill levels with some randomness
-	golfer.driving_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.accuracy_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.putting_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.recovery_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-
 	# Set miss tendency: lower skill = stronger bias, random hook vs slice
 	var tendency_magnitude = (1.0 - skill_level) * randf_range(0.2, 0.7)
 	golfer.miss_tendency = tendency_magnitude * (1.0 if randf() > 0.5 else -1.0)
@@ -858,7 +852,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.golfer_selected.connect(_on_golfer_selected)
 
 	# Owning the right facilities shapes the round before it starts: attitude
-	# facilities start every guest in a better mood, and the Resort Hotel
+	# facilities start every guest in a better attitude, and the Resort Hotel
 	# starts them rested enough to shrug off fatigue longer.
 	_apply_facility_bonuses(golfer)
 
@@ -877,7 +871,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 ## Facilities that work on every guest before they even tee off:
 ##  - Attitude facilities (Tennis Court, Stable, Spa, Swim Club) start each
-##    golfer with a more positive attitude — a bonus to their starting mood.
+##    golfer with a more positive attitude — a bonus to their starting attitude.
 ##  - The Resort Hotel starts each golfer with more stamina: their energy
 ##    drains more slowly as they play, so they stay happier deeper into the
 ##    round (matters most on higher difficulties, where fatigue bites).
@@ -893,8 +887,8 @@ func _apply_facility_bonuses(golfer: Golfer) -> void:
 		if stamina_multiplier < golfer.needs.energy_decay_modifier:
 			golfer.needs.energy_decay_modifier = stamina_multiplier
 	if attitude_bonus > 0.0:
-		golfer.current_mood = clampf(
-			golfer.current_mood + minf(attitude_bonus, MAX_ATTITUDE_BONUS), 0.0, 1.0)
+		golfer.attitude = clampf(
+			golfer.attitude + minf(attitude_bonus, MAX_ATTITUDE_BONUS), 0.0, 1.0)
 
 ## Start a newly spawned guest on the walk from the clubhouse door to the first
 ## open tee. Without a clubhouse (or terrain) the golfer is left where the old
@@ -924,29 +918,41 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 			regular.initialize_from_tier(int(returning.tier))
 			regular.guest_key = returning.key
 			regular.is_returning_guest = true
-			for field in ["driving_skill","accuracy_skill","putting_skill","recovery_skill","patience","aggression","miss_tendency"]:
+			for field in ["patience","aggression","miss_tendency"]:
 				regular.set(field, returning[field])
+			# A returning guest is the same person: keep their identity, traits
+			# and golf skills. Statuses (Fun, Attitude, Energy, Hunger, Thirst)
+			# start this round at 50% like everyone else's.
+			var saved_attributes = returning.get("attributes", {})
+			if saved_attributes is Dictionary and not saved_attributes.is_empty():
+				regular.attributes = GolferAttributes.from_data(saved_attributes)
 			regular.needs.setup(regular.golfer_tier, regular.patience)
+			regular.walk_speed = 100.0 * regular.attributes.walk_speed_multiplier()
 		return regular
-	var names = [
-		"Tiger", "Jack", "Arnold", "Phil", "Rory", "Jordan", "Brooks",
-		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
-	]
 
 	# Select tier based on course quality, difficulty, and hole count
 	var hole_count = GameManager.get_open_hole_count()
 	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation, hole_count)
 
-	# Build name with tier-appropriate prefix
-	var base_name = names[randi() % names.size()]
-	var prefix = GolferTier.get_name_prefix(tier)
-	var full_name = prefix + " " + base_name if prefix != "" else base_name
+	# Roll the identity (name, profession, marital status, age, gender) up
+	# front so the golfer spawns under the name their identity carries.
+	var identity := GolferAttributes.new()
+	identity.randomize_identity(tier)
 
-	# Spawn with default skill (will be overridden by initialize_from_tier)
-	var golfer = spawn_golfer(full_name, 0.5, group_id)
+	# Spawn with defaults; the tier block below rolls identity, traits, skills
+	# and golf skill points over the top
+	var golfer = spawn_golfer(identity.name, 0.5, group_id)
 	if golfer:
 		golfer.initialize_from_tier(tier)
-		print("Spawned %s (%s tier)" % [full_name, GolferTier.get_tier_name(tier)])
+		# Keep the identity rolled for the name they spawned under; the tier
+		# generation keeps the traits, golfer skills and golf skill points.
+		golfer.attributes.name = identity.name
+		golfer.attributes.profession = identity.profession
+		golfer.attributes.age = identity.age
+		golfer.attributes.gender = identity.gender
+		golfer.attributes.marital_status = identity.marital_status
+		print("Spawned %s, %s (%s tier)" % [identity.name, identity.profession,
+			GolferTier.get_tier_name(tier)])
 
 	return golfer
 
@@ -977,12 +983,21 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	if golfer == null:
 		return null
 	golfer.initialize_from_tier(tier)
+	# The visitor card carries the whole person: identity, Golfer Traits,
+	# Golfer Skills and Golf Skill points all come from the card. The tier has
+	# already given them the rest - personality, patience and miss tendency.
+	golfer.attributes.apply_visitor_card(visitor)
+	golfer.golfer_name = golfer.attributes.name
+	# The card's Active trait decides how fast they walk, so walk speed is
+	# taken from the attributes again now they are the card's.
+	golfer.walk_speed = 100.0 * golfer.attributes.walk_speed_multiplier()
 	golfer.skin_id = skin
 	golfer.group_color_overrides = group_colors
 	golfer.refresh_skin_sprites()
 	_spawned_visitor_names[visitor_name] = true
-	print("Spawned visiting golfer: %s (%s skin, %s tier) at %s" % [
-		visitor_name, skin, GolferTier.get_tier_name(tier), location_id])
+	print("Spawned visiting golfer: %s, %s (%s skin, %s tier) at %s" % [
+		golfer.attributes.name, golfer.attributes.profession, skin,
+		GolferTier.get_tier_name(tier), location_id])
 	return golfer
 
 ## Spawn initial group of golfers when course opens.
@@ -1030,13 +1045,11 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 		push_error("No golfers container found")
 		return null
 
-	var pro_names = [
-		"Seve", "Vijay", "Ernie", "Lee", "Gary", "Sam", "Ben", "Walter",
-		"Byron", "Gene", "Tom", "Nick", "Payne", "Hale", "Ray", "Billy"
-	]
-	var base_name = pro_names[randi() % pro_names.size()]
-	var prefix = GolferTier.get_name_prefix(forced_tier)
-	var full_name = prefix + " " + base_name if prefix != "" else base_name
+	# Tournament golfers carry a full identity (name, profession, marital
+	# status, age, gender) like every other golfer.
+	var identity := GolferAttributes.new()
+	identity.randomize_identity(forced_tier)
+	var full_name = identity.name
 
 	var golfer = GOLFER_SCENE.instantiate() as Golfer
 	golfer.golfer_id = next_golfer_id
@@ -1045,12 +1058,6 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 	golfer.group_id = group_id
 	golfer.is_tournament_golfer = true
 
-	# Set default skills (will be overridden by initialize_from_tier)
-	golfer.driving_skill = 0.5
-	golfer.accuracy_skill = 0.5
-	golfer.putting_skill = 0.5
-	golfer.recovery_skill = 0.5
-
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
 	_groups_dirty = true
@@ -1058,6 +1065,12 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 
 	# Initialize tier skills — no green fee payment for tournament golfers
 	golfer.initialize_from_tier(forced_tier)
+	# Keep the identity rolled for the name they spawned under.
+	golfer.attributes.name = identity.name
+	golfer.attributes.profession = identity.profession
+	golfer.attributes.age = identity.age
+	golfer.attributes.gender = identity.gender
+	golfer.attributes.marital_status = identity.marital_status
 
 	EventBus.golfer_spawned.emit(golfer.golfer_id, full_name)
 	golfer_spawned.emit(golfer)
@@ -1113,6 +1126,33 @@ func remove_golfer(golfer_id: int) -> void:
 			golfer_removed.emit(golfer_id)
 			return
 
+## Put a golfer on the course: they join the live list of golfers and, when
+## a group is given, they play in it. The owner's own golfer is on the course
+## between rounds and joins the group for a round (see PlayerGolferManager).
+func join_course(golfer: Golfer, group_id: int = -1) -> void:
+	if golfer == null or not is_instance_valid(golfer):
+		return
+	if not active_golfers.has(golfer):
+		active_golfers.append(golfer)
+		if not golfer.golfer_selected.is_connected(_on_golfer_selected):
+			golfer.golfer_selected.connect(_on_golfer_selected)
+	golfer.group_id = group_id
+	_groups_dirty = true
+
+## Take a golfer off the course without freeing them: the node stays alive,
+## it simply stops being one of the golfers playing. The owner's own golfer
+## goes this way when their round is over - they are still on the course,
+## working it.
+func take_off_course(golfer: Golfer) -> void:
+	if golfer == null:
+		return
+	var index := active_golfers.find(golfer)
+	if index >= 0:
+		active_golfers.remove_at(index)
+		_groups_dirty = true
+	if golfer.golfer_selected.is_connected(_on_golfer_selected):
+		golfer.golfer_selected.disconnect(_on_golfer_selected)
+
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)
@@ -1129,7 +1169,7 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 	# Record tier for daily statistics
 	GameManager.daily_stats.record_golfer_tier(finished_golfer.golfer_tier)
 
-	# Tier-based reputation gain, scaled by golfer mood
+	# Tier-based reputation gain, scaled by golfer attitude
 	# Happy golfers spread the word; unhappy golfers hurt reputation
 	var base_rep: float = GolferTier.get_reputation_gain(finished_golfer.golfer_tier) * 0.1
 
@@ -1143,16 +1183,16 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
 	base_rep *= prestige_mult
 
-	# Scale by mood: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
+	# Scale by attitude: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
 	var value: float = GameManager.course_rating.get("value", 3.0) / 5.0
-	var mood: float = minf(finished_golfer.current_mood, value + 0.15)
+	var attitude_val: float = minf(finished_golfer.attitude, value + 0.15)
 	var reputation_gain: float
-	if mood >= 0.6:
-		reputation_gain = base_rep * lerpf(0.5, 1.0, (mood - 0.6) / 0.4)
-	elif mood >= 0.4:
+	if attitude_val >= 0.6:
+		reputation_gain = base_rep * lerpf(0.5, 1.0, (attitude_val - 0.6) / 0.4)
+	elif attitude_val >= 0.4:
 		reputation_gain = base_rep * 0.25  # Neutral: minimal gain
 	else:
-		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - mood) / 0.4)  # Unhappy: reputation loss
+		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - attitude_val) / 0.4)  # Unhappy: reputation loss
 
 	if finished_golfer.hole_scores.size() >= finished_golfer._round_total_holes:
 		GameManager.modify_reputation(reputation_gain)

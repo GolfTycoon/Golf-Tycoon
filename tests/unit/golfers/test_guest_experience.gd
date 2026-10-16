@@ -19,11 +19,11 @@ func after_each() -> void:
 func _visitor(golfer_name: String = "Visitor") -> Golfer:
 	var golfer: Golfer = autofree(Golfer.new())
 	golfer.golfer_name = golfer_name
-	golfer.needs = GolferNeeds.new()
+	golfer.attributes = GolferAttributes.new()
 	return golfer
 
 func test_normal_play_recovers_patience_but_traffic_reduces_it() -> void:
-	var needs := GolferNeeds.new()
+	var needs := GolferAttributes.new()
 	needs.setup(1, 0.5)
 	needs.on_waiting(100)
 	assert_lt(needs.pace, 0.5)
@@ -57,7 +57,7 @@ func test_service_and_value_improvements_raise_visit_score_and_return_intent() -
 	golfer.guest_key = "test"
 	golfer._round_total_holes = 9
 	golfer.paid_round_fee = 500
-	golfer.current_mood = 0.4
+	golfer.attitude = 0.4
 	golfer.needs.energy = 0.1
 	golfer.needs.hunger = 0.1
 	golfer.needs.comfort = 0.1

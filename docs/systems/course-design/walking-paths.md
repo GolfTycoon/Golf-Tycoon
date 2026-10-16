@@ -114,6 +114,6 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 - [Generated Walking Paths](generated-walking-paths.md) covers the network a generated course is laid out with.
 - [Clubhouse](clubhouse.md) is what a trail has to reach to be paved.
 - [Terrain Types](terrain-types.md) has the walking rates of the ground under the trail, and the retired id 9.
-- [Golfer Needs](../golfers/golfer-needs.md) covers pace satisfaction while walking.
+- [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers pace satisfaction while walking.
 - [Group Turn Order](../golf-play/group-turn-order.md) covers walkers stepping clear of a partner's shot.
 - [Architecture](../../architecture.md) lists the draw bands the trail and the golfers paint in.

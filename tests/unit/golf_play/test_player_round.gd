@@ -6,9 +6,13 @@ var fixture: Node2D
 var rounds: PlayerRoundManager
 var golfers: GolferManager
 var hud: Control
+## The window size Screen had before a test pinned the desktop layout to
+## measure the owner's pages (see _embedded_toolbar).
+var _window_size: Vector2 = Vector2(1600, 1000)
 
 func before_each() -> void:
 	super()
+	_window_size = Screen.window_size
 	GameManager.tournament_manager = null
 	GameManager.is_paused = false
 	GameManager.player_profile = PlayerGolferProfile.new()
@@ -44,6 +48,8 @@ func after_each() -> void:
 	rounds.leave_round()
 	golfers.clear_all_golfers()
 	await process_frames(1)
+	Screen.apply_size(_window_size)
+	Screen.set_process(true)
 	super()
 
 ## A folder of the test's own for the skins a test writes out.
@@ -622,10 +628,21 @@ func test_shot_buttons_run_along_the_top_of_the_play_course_page() -> void:
 
 ## Exercise the real toolbar so header, panel margins and scrollbars count
 ## against the same height budget as the course tiles.
+##
+## The headless test window is 64x64, which Screen reads as a compact — and so
+## touch-sized — layout: a taller bottom bar than the desktop one these pages
+## are measured against. The reference window size is pinned for the length of
+## the test (and Screen's per-frame polling, which would put the tiny window
+## back, paused with it) so the toolbar is the 190px desktop bar main.gd gives
+## it. after_each puts both back.
 func _embedded_toolbar() -> TerrainToolbar:
+	Screen.set_process(false)
+	Screen.apply_size(Screen.BASE_SIZE)
 	var toolbar := TerrainToolbar.new()
 	fixture.add_child(toolbar)
 	toolbar.size = Vector2(1000, UIConstants.BOTTOM_BAR_HEIGHT)
+	assert_eq(Screen.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
+		"The pages are measured against the desktop bottom bar")
 	var panel := TournamentPanel.new()
 	panel.embedded = true
 	toolbar.player_tab.add_persistent(panel)
@@ -988,29 +1005,29 @@ func test_skills_auto_save_and_take_effect_for_next_shot_mid_round() -> void:
 	for button in skill_page.find_children("*", "Button", true, false):
 		assert_false(button.disabled, "Skill adjustment buttons must remain enabled during round")
 
-	# Record the initial driving skill to compare against after allocating points
-	var initial_driving_skill := rounds.player.driving_skill
+	# Record the initial driving ability to compare against after allocating points
+	var initial_driving_ability := rounds.player.driving_ability()
 
-	# Mid-round: change skills (e.g. shift a point from Power Hitter to Long Driver, and add to Accurate Irons)
-	# First refund 1 from skill 0 (Power Hitter)
-	assert_true(rounds.allocate_skill(0, -1))
+	# Mid-round: change skills (e.g. shift a point from Accurate Putter to Long Driver)
+	# First refund 1 from skill 4 (Accurate Putter)
+	assert_true(rounds.allocate_skill(4, -1))
 	# Add to skill 1 (Long Driver)
 	assert_true(rounds.allocate_skill(1, 1))
 
 	# Verify skills auto-saved to GameManager.player_profile
-	assert_eq(GameManager.player_profile.points[0], 0, "Power Hitter points updated in profile")
+	assert_eq(GameManager.player_profile.points[4], 0, "Accurate Putter points updated in profile")
 	assert_eq(GameManager.player_profile.points[1], 2, "Long Driver points updated in profile")
 
-	# Verify skills are immediately in effect on the golfer for the next shot
-	assert_almost_eq(rounds.player.driving_skill, GameManager.player_profile.normalized_skill(1), 0.0001,
-		"Player driving_skill updated immediately")
-	assert_gt(rounds.player.driving_skill, initial_driving_skill,
-		"Driving skill increased after allocating more points to Long Driver")
+	# Verify abilities are immediately in effect on the golfer for the next shot
+	assert_almost_eq(rounds.player.driving_ability(), GameManager.player_profile.driving_ability(), 0.0001,
+		"Player driving_ability updated immediately")
+	assert_gt(rounds.player.driving_ability(), initial_driving_ability,
+		"Driving ability increased after allocating more points to Long Driver")
 
 	# Verify driver distance reflects the new skills immediately
 	var new_driver_dist := rounds.player.player_max_distance(Golfer.Club.DRIVER)
-	# Long Driver adds to driver bonus, so distance factor for driver is now higher
-	assert_almost_eq(new_driver_dist, float(Golfer.CLUB_STATS[Golfer.Club.DRIVER].max_distance) * 0.7 * (1.0 + 0.2), 0.01,
+	# Power Hitter 1pt (0.1) + Long Driver 2pt (0.2) → factor 0.7 * (1.0 + 0.3)
+	assert_almost_eq(new_driver_dist, float(Golfer.CLUB_STATS[Golfer.Club.DRIVER].max_distance) * 0.7 * (1.0 + 0.3), 0.01,
 		"Driver distance reflects updated Long Driver skill immediately")
 
 	# Verify aim guide / shot preview reflects the updated skills
@@ -1024,7 +1041,7 @@ func test_skills_auto_save_and_take_effect_for_next_shot_mid_round() -> void:
 
 	rounds.leave_round()
 
-func test_putting_skill_auto_saves_and_takes_effect_for_next_putt() -> void:
+func test_putting_ability_auto_saves_and_takes_effect_for_next_putt() -> void:
 	var tab := PlayerTab.new()
 	fixture.add_child(tab)
 	rounds.attach_player_tab(tab)
@@ -1034,15 +1051,15 @@ func test_putting_skill_auto_saves_and_takes_effect_for_next_putt() -> void:
 	rounds._start_embedded(0)
 	rounds._process(0.0)
 
-	var initial_putting_skill := rounds.player.putting_skill
+	var initial_putting_ability := rounds.player.putting_ability()
 
 	# Reallocate: shift point from Luck (index 9) to Accurate Putter (index 4)
 	assert_true(rounds.allocate_skill(9, -1))
 	assert_true(rounds.allocate_skill(4, 1))
 
 	assert_eq(GameManager.player_profile.points[4], 2, "Accurate Putter updated in GameManager.player_profile")
-	assert_gt(rounds.player.putting_skill, initial_putting_skill,
-		"Golfer putting_skill immediately reflects new Accurate Putter skill for next putt")
+	assert_gt(rounds.player.putting_ability(), initial_putting_ability,
+		"Golfer putting_ability immediately reflects new Accurate Putter skill for next putt")
 
 	rounds.leave_round()
 
@@ -1068,14 +1085,125 @@ func test_skills_change_mid_round_with_tournament_manager_present() -> void:
 	assert_true(rounds.allocate_skill(3, 1), "Allocating skill mid-round succeeds with TournamentManager present")
 	assert_eq(GameManager.player_profile.points[0], 0)
 	assert_eq(GameManager.player_profile.points[3], 2)
-	assert_almost_eq(rounds.player.accuracy_skill, GameManager.player_profile.normalized_skill(3), 0.0001)
+	assert_almost_eq(rounds.player.accuracy_ability(), GameManager.player_profile.accuracy_ability(), 0.0001)
 
 	# Also verify sync_player_skills updates SimulationGolfer if present in field
 	var sg := tm._make_player_sim_golfer()
 	tm._sim_field = [sg]
 	assert_true(rounds.allocate_skill(3, -1))
 	assert_true(rounds.allocate_skill(1, 1))
-	assert_almost_eq(sg.driving_skill, GameManager.player_profile.normalized_skill(1), 0.0001,
-		"TournamentManager SimulationGolfer skills update when player skills change")
+	assert_almost_eq(sg.driving_ability, GameManager.player_profile.driving_ability(), 0.0001,
+		"TournamentManager SimulationGolfer abilities update when player skills change")
 
 	rounds.leave_round()
+
+func test_the_round_is_played_with_the_golfer_who_works_the_course() -> void:
+	# The owner's own golfer lives on the course between rounds, working a
+	# ground of their own. The round is played with that same golfer.
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	assert_true(course_owner.is_on_course_duty(), "Between rounds the owner's golfer works the course")
+
+	_start(0)
+	assert_eq(rounds.player, course_owner, "The round is played with the same golfer")
+	assert_true(golfers.get_active_golfers().has(course_owner), "They play with the group on the course")
+	assert_false(course_owner.is_on_course_duty(), "While they play they are not working")
+	assert_eq(rounds.player.golfer_name, "Test Owner")
+
+	rounds.leave_round()
+	assert_true(course_owner.is_on_course_duty(), "When the round is over they go back to work")
+	assert_false(golfers.get_active_golfers().has(course_owner),
+		"They are not one of the guests playing the course")
+
+func test_the_edit_player_page_names_the_ground_they_work() -> void:
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(9, 11))
+
+	var tab := PlayerTab.new()
+	fixture.add_child(tab)
+	rounds.attach_player_tab(tab)
+	rounds.open_setup()
+	var column := _find_node(tab.pages[PlayerTab.PAGE_EDIT], "OwnerWorkArea")
+	assert_not_null(column, "The Edit Player page says where the owner works")
+	assert_true(column.text.contains("9"), "The ground the owner works is named: %s" % column.text)
+	assert_true(column.text.contains("11"), "The ground the owner works is named: %s" % column.text)
+
+	# The button asks main.gd for a click on the course.
+	var moved: Array = []
+	rounds.owner_area_move_requested.connect(func(): moved.append(true))
+	var button := rounds._work_area_button
+	assert_not_null(button, "The page has a button that moves the ground")
+	button.pressed.emit()
+	assert_eq(moved.size(), 1, "The button asks for the new ground")
+	rounds.set_owner_area_mode(true)
+	assert_eq(button.text, "Pick a tile…", "While the ground is being chosen the button says so")
+	rounds.set_owner_area_mode(false)
+	assert_eq(button.text, "Move work area")
+
+## The node named `wanted` under `node`, wherever it sits in the tree.
+func _find_node(node: Node, wanted: String) -> Node:
+	if node == null:
+		return null
+	if node.name == wanted:
+		return node
+	for child in node.get_children():
+		var found := _find_node(child, wanted)
+		if found != null:
+			return found
+	return null
+
+func test_the_owner_walks_to_the_tee_to_start_a_round() -> void:
+	# The owner works a ground of their own between rounds. When a round
+	# starts they walk from there to the tee - they are not put there.
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(25, 25))
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+
+	_start(0)
+	assert_eq(rounds.player, course_owner, "The round is played with the same golfer")
+	assert_eq(course_owner.current_state, Golfer.State.WALKING,
+		"The owner walks to the tee instead of being put there")
+	assert_eq(course_owner.ball_position, Vector2i(10, 10), "Their ball is on the tee")
+	assert_almost_eq(
+		GameManager.terrain_grid.screen_to_grid_point(course_owner.global_position).distance_to(Vector2(25, 25)),
+		0.0, 1.0, "They are still where they were working when the round starts")
+	assert_false(owner_manager.duty.running,
+		"The work stops while they play, so they do not walk back to it")
+
+func test_the_owner_goes_back_to_work_when_the_round_is_over() -> void:
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(25, 25))
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+
+	_start(0)
+	# The round is played from the tee: the owner is there when it ends.
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(10, 10))
+	rounds.leave_round()
+	assert_eq(owner_manager.duty.commute, OwnerDuty.Commute.HOME,
+		"The round ended away from the ground they work, so they walk back to it")
+	assert_false(course_owner.is_on_course_duty(), "They are walking home, not working yet")
+	# The walk ends on the ground they work, and the work starts again.
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+	course_owner.path.clear()
+	course_owner._on_reached_destination()
+	owner_manager.duty._process(0.1)
+	assert_true(course_owner.is_on_course_duty(), "They are working the course again")
+	assert_true(owner_manager.duty.running, "The work is running again")

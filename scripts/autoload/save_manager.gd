@@ -295,6 +295,10 @@ func _build_save_data() -> Dictionary:
 		data["staff"] = GameManager.staff_manager.serialize()
 	if GameManager.weed_manager:
 		data["weeds"] = GameManager.weed_manager.serialize()
+	# The ground the owner's own golfer works belongs to the course, so it
+	# travels with the site (see build_location_snapshot).
+	if GameManager.player_golfer_manager:
+		data["owner_duty"] = GameManager.player_golfer_manager.serialize()
 	if GameManager.marketing_manager:
 		data["marketing"] = GameManager.marketing_manager.serialize()
 
@@ -480,6 +484,8 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.staff_manager.deserialize(data["staff"])
 	if GameManager.weed_manager and data.has("weeds"):
 		GameManager.weed_manager.deserialize(data["weeds"])
+	if GameManager.player_golfer_manager and data.has("owner_duty"):
+		GameManager.player_golfer_manager.deserialize(data["owner_duty"])
 	if GameManager.marketing_manager and data.has("marketing"):
 		GameManager.marketing_manager.deserialize(data["marketing"])
 

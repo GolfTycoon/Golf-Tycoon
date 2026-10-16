@@ -20,7 +20,12 @@ enum State {
 	# at its door. Appended last so the saved/compared numbers of the older
 	# states never shift. Nothing picks a LEAVING golfer to play — see
 	# GolferManager — and only FINISHED means "gone".
-	LEAVING
+	LEAVING,
+	# The owner's own golfer, working the course between rounds: they walk
+	# the ground they were given, pulling weeds and greeting the golfers they
+	# meet (see OwnerDuty). They are not in play, so the turn system never
+	# picks them and nothing about them is saved with a round.
+	ON_DUTY
 }
 
 enum Club {
@@ -114,19 +119,29 @@ var golfer_tier: int = GolferTier.Tier.CASUAL
 
 ## Tournament flag — tournament golfers skip green fees and course-closing checks
 var is_tournament_golfer: bool = false
+## The owner's own golfer: the one who works the course between rounds (see
+## PlayerGolferManager and OwnerDuty). They are not a guest and never leave
+## the course: when their round is over they go back to work on it.
+var is_course_owner: bool = false
+## Whether this golfer has played every hole of their round. The owner's own
+## golfer stays on the course, so this - not the FINISHED state - is what says
+## their round is over.
+var round_complete: bool = false
 var is_owner_round: bool = false
 var player_profile: PlayerGolferProfile = null
 # 0 straight, 1 fade, 2 draw, 3 backspin, 4 low punch.
 var player_shape: int = 0
+## Shot shape chosen by the AI for this shot, same encoding as player_shape
+## (0 straight, 1 fade L→R, 2 draw R→L, 3 high backspin). Only golfers with the
+## Imagination golfer skill can shape the ball at all.
+var _ai_shape: int = 0
 
 ## Per-hole score tracking for scorecard display
 var hole_scores: Array = []  # Array of {hole: int, strokes: int, par: int}
 
-## Skill stats (0.0 to 1.0, where 1.0 is best)
-@export_range(0.0, 1.0) var driving_skill: float = 0.5
-@export_range(0.0, 1.0) var accuracy_skill: float = 0.5
-@export_range(0.0, 1.0) var putting_skill: float = 0.5
-@export_range(0.0, 1.0) var recovery_skill: float = 0.5
+## Playing abilities are NOT stored: they are derived from the golter's Golf
+## Skill points on demand (driving_ability, accuracy_ability, putting_ability,
+## recovery_ability). The points are the skills.
 
 ## Personality traits
 @export_range(0.0, 1.0) var aggression: float = 0.5  # 0.0 = cautious, 1.0 = aggressive/risky
@@ -138,10 +153,29 @@ var miss_tendency: float = 0.0
 
 ## Current state
 var current_state: State = State.IDLE
-var current_mood: float = 0.5  # 0.0 = angry, 1.0 = happy
+## The golfer's Attitude status (0.0 = angry, 1.0 = happy) - the attribute that
+## replaced Mood. Attitude lives on the attribute block below; this alias keeps
+## every service bonus and readout working against the same value.
+var attitude: float:
+	get:
+		return attributes.attitude if attributes else 0.5
+	set(value):
+		if attributes:
+			attributes.attitude = clampf(value, 0.0, 1.0)
 
-## Needs system — tracks energy, comfort, hunger, pace satisfaction
-var needs: GolferNeeds = GolferNeeds.new()
+## The full golfer attribute block every golfer carries: Name, Profession,
+## Marital Status, Age, Gender, Golfer Traits (Neat, Outgoing, Active, Playful,
+## Nice), Golfer Skills (Length, Accuracy, Imagination), the ten Golf Skills as
+## points (+10% each, up to 990%), the five Golfer Statuses (Fun, Attitude,
+## Energy, Hunger, Thirst - each starting at 50%), and the golfer's Comments.
+## See GolferAttributes.
+var attributes: GolferAttributes = GolferAttributes.new()
+
+## Compatibility alias: the status simulation lives on the attribute block now,
+## so every `golfer.needs.*` status read/write reaches the same values.
+var needs: GolferAttributes:
+	get:
+		return attributes
 var _amenity_pause_remaining := 0.0
 var traffic_blocked := false
 var traffic_wait_seconds := 0.0
@@ -580,6 +614,12 @@ func apply_player_appearance(profile: PlayerGolferProfile) -> void:
 		return
 	for key in PlayerGolferProfile.COLORS:
 		set(key, Color(profile.appearance.get(key, "ffffff")))
+	# The owner is a golfer like any other: the attribute block carries their
+	# name, profession and the same ten Golf Skills as points (+10% each).
+	attributes.name = profile.golfer_name
+	attributes.profession = "Course Owner"
+	for i in range(mini(profile.points.size(), attributes.golf_points.size())):
+		attributes.golf_points[i] = profile.points[i]
 	_apply_appearance()
 	refresh_skin_sprites()
 
@@ -632,21 +672,60 @@ func _apply_appearance() -> void:
 	if hands:
 		hands.color = skin_tone
 
-## Synchronize driving, accuracy, putting and recovery skills from the owner profile.
+	# Add body shading overlays for visual depth
+	_add_body_shading()
+
+## Synchronize the attribute block from the owner profile: the owner is a
+## golfer like any other, so their ten Golf Skills (points, +10% each) live on
+## `attributes.golf_points` alongside their identity and statuses. Playing
+## abilities are derived from those points on demand.
 func sync_player_profile_skills() -> void:
 	if player_profile == null:
 		return
-	driving_skill = player_profile.normalized_skill(1)
-	accuracy_skill = player_profile.normalized_skill(3)
-	putting_skill = player_profile.normalized_skill(4)
-	recovery_skill = player_profile.normalized_skill(8)
+	for i in range(mini(player_profile.points.size(), attributes.golf_points.size())):
+		attributes.golf_points[i] = player_profile.points[i]
+	attributes.name = player_profile.golfer_name
+	attributes.profession = player_profile.profession
+	attributes.age = player_profile.age
+	attributes.gender = player_profile.gender
+	attributes.marital_status = player_profile.marital_status
+	attributes.traits = player_profile.traits.duplicate()
+	attributes.golfer_skills = player_profile.golfer_skills.duplicate()
 	if arms:
 		arms.color = skin_tone
 	if hands:
 		hands.color = skin_tone
 
-	# Add body shading overlays for visual depth
-	_add_body_shading()
+## This golfer's Golf Skill bonus in percent-of-effect units: every point is
+## +10%, so 12 points reads as 1.2. The owner's allocation screen stores the
+## points on the profile; every other golfer keeps them on the attribute block.
+## Caps at +990% (99 points).
+func golf_bonus(index: int) -> float:
+	if player_profile:
+		return player_profile.bonus(index)
+	return attributes.golf_bonus(index) if attributes else 0.0
+
+## Playing abilities (0.0-1.0) derived from the golfer's Golf Skill points -
+## the points are the skills; these are just their playable shape.
+func driving_ability() -> float:
+	if player_profile:
+		return player_profile.driving_ability()
+	return attributes.driving_ability() if attributes else 0.5
+
+func accuracy_ability() -> float:
+	if player_profile:
+		return player_profile.accuracy_ability()
+	return attributes.accuracy_ability() if attributes else 0.5
+
+func putting_ability() -> float:
+	if player_profile:
+		return player_profile.putting_ability()
+	return attributes.putting_ability() if attributes else 0.5
+
+func recovery_ability() -> float:
+	if player_profile:
+		return player_profile.recovery_ability()
+	return attributes.recovery_ability() if attributes else 0.5
 
 func _add_body_shading() -> void:
 	if not visual or visual.has_node("ShirtShadow"):
@@ -701,25 +780,31 @@ func _exit_tree() -> void:
 		_swing_tween.kill()
 	_swing_tween = null
 
-## Initialize golfer from a tier (sets skills and personality)
+## Initialize golfer from a tier (attributes and personality)
 func initialize_from_tier(tier: int) -> void:
 	golfer_tier = tier
 
-	# Generate skills based on tier
-	var skills = GolferTier.generate_skills(tier)
-	driving_skill = skills.driving
-	accuracy_skill = skills.accuracy
-	putting_skill = skills.putting
-	recovery_skill = skills.recovery
-	miss_tendency = skills.miss_tendency
+	# Full attribute block: identity (name, profession, marital status, age,
+	# gender), Golfer Traits, Golfer Skills and Golf Skill points. The points
+	# ARE the skills - playing abilities derive from them on demand. Returning
+	# guests keep the block they arrived with when the caller restores one.
+	attributes.generate_for_tier(tier)
+	attributes.name = golfer_name
+	attributes.golfer_tier = tier
+
+	# Miss tendency (hook/slice bias) comes from the tier
+	miss_tendency = GolferTier.generate_miss_tendency(tier)
 
 	# Set personality based on tier
 	var personality = GolferTier.get_personality(tier)
 	aggression = personality.aggression
 	patience = personality.patience
 
-	# Initialize needs system with tier and patience
+	# Statuses (Fun, Attitude, Energy, Hunger, Thirst) start at 50%
 	needs.setup(tier, patience)
+
+	# Active golfers walk the course faster
+	walk_speed = 100.0 * attributes.walk_speed_multiplier()
 
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
@@ -838,7 +923,13 @@ func _process(delta: float) -> void:
 		return
 	_update_highlight_ring()
 	_update_tier_ring()
-	_update_mood_visuals()
+	_update_attitude_visuals()
+
+	# The owner's own golfer, working the course between rounds: their duty
+	# (see OwnerDuty) walks them and does their job, so none of the play
+	# below applies to them.
+	if current_state == State.ON_DUTY:
+		return
 
 	# The round is over: this golfer is walking home and visiting the
 	# clubhouse, not playing. Keep away from the turn system (which only ever
@@ -1760,27 +1851,27 @@ func finish_hole(par: int) -> void:
 	total_par += par
 	previous_hole_strokes = current_strokes  # Store for honor system on next tee
 
-	# Update mood based on performance relative to personal expectation
-	var avg_skill = (driving_skill + accuracy_skill + putting_skill + recovery_skill) / 4.0
+	# Update attitude based on performance relative to personal expectation
+	var avg_skill = (driving_ability() + accuracy_ability() + putting_ability() + recovery_ability()) / 4.0
 	var expected_score = par + FeedbackTriggers.get_expected_over_par(avg_skill)
 	var performance = current_strokes - expected_score  # negative = better than expected
 	if performance <= -2.0:       # Way better than expected
-		_adjust_mood(0.3)
+		_adjust_attitude(0.3)
 	elif performance <= -1.0:     # Better than expected
-		_adjust_mood(0.15)
+		_adjust_attitude(0.15)
 	elif performance <= 0.5:      # At or near expected
-		_adjust_mood(0.05)
+		_adjust_attitude(0.05)
 	elif performance <= 1.5:      # Slightly worse than expected
-		_adjust_mood(-0.1)
+		_adjust_attitude(-0.1)
 	else:                         # Much worse than expected
-		_adjust_mood(-0.2)
+		_adjust_attitude(-0.2)
 
 	# Decay needs after completing a hole
 	needs.on_hole_completed()
-	# Apply mood penalty from critically low needs
-	var need_penalty = needs.get_mood_penalty()
+	# Apply attitude penalty from critically low needs
+	var need_penalty = needs.get_attitude_penalty()
 	if need_penalty < 0.0:
-		_adjust_mood(need_penalty)
+		_adjust_attitude(need_penalty)
 	# Check for needs-based feedback triggers
 	_check_need_triggers()
 	# Reset wait timer (golfer is actively playing)
@@ -1818,7 +1909,7 @@ func finish_hole(par: int) -> void:
 		golfer_name, GolferTier.get_tier_name(golfer_tier),
 		current_hole + 1, _score_label, current_strokes, par,
 		_hole_yardage, par,
-		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency
+		driving_ability(), accuracy_ability(), putting_ability(), recovery_ability(), miss_tendency
 	])
 
 	EventBus.golfer_finished_hole.emit(golfer_id, _hole_number, current_strokes, par)
@@ -1847,11 +1938,19 @@ func finish_round() -> void:
 		show_thought(FeedbackTriggers.TriggerType.TOO_FEW_HOLES)
 	else:
 		# Show course satisfaction feedback (only if course has enough holes)
-		var avg_skill = (driving_skill + accuracy_skill + putting_skill + recovery_skill) / 4.0
+		var avg_skill = (driving_ability() + accuracy_ability() + putting_ability() + recovery_ability()) / 4.0
 		var holes_played = hole_scores.size()
 		var course_trigger = FeedbackTriggers.get_course_trigger(total_strokes, total_par, avg_skill, holes_played)
 		if course_trigger != FeedbackTriggers.TriggerType.NONE:
 			show_thought(course_trigger)
+
+	# Neat golfers judge the upkeep: a weed-free course delights them, weeds
+	# sour the end of the visit.
+	if attributes and attributes.trait_on("neat") and GameManager.weed_manager:
+		var neat_trigger: int = FeedbackTriggers.TriggerType.COURSE_TIDY
+		if GameManager.weed_manager.get_weed_count() > 0:
+			neat_trigger = FeedbackTriggers.TriggerType.COURSE_MESSY
+		show_thought(neat_trigger)
 
 	# Per-round debug summary
 	var _eagles = 0
@@ -1876,14 +1975,28 @@ func finish_round() -> void:
 		_vs_par_str, total_strokes, total_par,
 		hole_scores.size(),
 		_eagles, _birdies, _pars, _bogeys, _doubles, _triples_plus,
-		driving_skill, accuracy_skill, putting_skill, recovery_skill, miss_tendency,
+		driving_ability(), accuracy_ability(), putting_ability(), recovery_ability(), miss_tendency,
 		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
-	if total_holes > 0 and hole_scores.size() >= total_holes and not is_tournament_golfer:
+	if total_holes > 0 and hole_scores.size() >= total_holes and not is_tournament_golfer \
+			and not is_course_owner:
 		FeedbackManager.record_visit(self)
 		EventBus.golfer_completed_round.emit(golfer_id, total_strokes, total_par)
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes, total_par)
+
+	# The owner's own golfer is not a guest: they do not leave the course when
+	# their round is over, they go back to work on it (see OwnerDuty).
+	if is_course_owner:
+		round_complete = true
+		_departure_phase = 0
+		_departure_elapsed = 0.0
+		_left_course_announced = false
+		_change_state(State.IDLE)
+		var owner_manager := GameManager.player_golfer_manager
+		if owner_manager != null:
+			owner_manager.owner_finished_round()
+		return
 
 	# Last thing: leave through the clubhouse door (see _begin_departure).
 	_begin_departure()
@@ -1910,25 +2023,37 @@ func select_club(distance_to_target: float, current_terrain: int) -> Club:
 ##   Casual   (0.50-0.70): Driver 208-242yd, FW 143-176yd, Iron 123-152yd
 ##   Serious  (0.70-0.85): Driver 242-267yd, FW 176-198yd, Iron 152-169yd
 ##   Pro      (0.85-0.98): Driver 267-289yd, FW 198-217yd, Iron 169-183yd
+## Golf Skills feed in for everyone: Power Hitter fuels all full swings and
+## Long Driver adds reach to the driver, each point worth +10% of the skill.
+## The Length golfer skill adds another 10% (how far a golfer is able to drive).
 func _get_skill_distance_factor(club: Club) -> float:
 	if player_profile and club != Club.PUTTER:
 		var bonus := player_profile.bonus(0)
 		if club == Club.DRIVER:
 			bonus += player_profile.bonus(1)
 		return 0.7 * (1.0 + bonus)
+	var factor: float
 	match club:
 		Club.DRIVER:
-			return 0.40 + driving_skill * 0.55
+			factor = 0.40 + driving_ability() * 0.55
 		Club.FAIRWAY_WOOD:
-			return 0.40 + driving_skill * 0.50
+			factor = 0.40 + driving_ability() * 0.50
 		Club.IRON:
-			return 0.50 + accuracy_skill * 0.42
+			factor = 0.50 + accuracy_ability() * 0.42
 		Club.WEDGE:
-			return 0.80 + accuracy_skill * 0.18
+			factor = 0.80 + accuracy_ability() * 0.18
 		Club.PUTTER:
-			return 0.92 + putting_skill * 0.06
+			factor = 0.92 + putting_ability() * 0.06
 		_:
-			return 0.85
+			factor = 0.85
+	if club != Club.PUTTER:
+		# Power Hitter: how much power fuels the shot (capped for playability)
+		factor *= 1.0 + minf(0.30, 0.05 * golf_bonus(GolferAttributes.GolfSkill.POWER_HITTER))
+		if club == Club.DRIVER:
+			# Long Driver: affects the length of the drive
+			factor *= 1.0 + minf(0.25, 0.06 * golf_bonus(GolferAttributes.GolfSkill.LONG_DRIVER))
+		factor *= attributes.distance_multiplier() if attributes else 1.0
+	return factor
 
 ## AI decision making - decide where to aim shot.
 ## Delegates to ShotAI for multi-shot planning, wind compensation, recovery logic,
@@ -1939,7 +2064,83 @@ func decide_shot_target(hole_position: Vector2i) -> Vector2i:
 	_shot_strategy = decision.strategy
 	_cached_shot_target = decision.target
 	_cached_shot_target_valid = true
+	_ai_shape = _choose_ai_shape(decision.target)
 	return decision.target
+
+## Pick the shot shape for this swing: 0 straight, 1 fade (L→R), 2 draw (R→L),
+## 3 high backspin. Only golfers with the Imagination golfer skill can control
+## the behaviour of the ball like this - without it the ball goes straight. The
+## Draw/Fade/Backspin Golf Skills decide how much shape they can actually put
+## on the ball (see _calculate_shot_precise).
+func _choose_ai_shape(target: Vector2i) -> int:
+	if player_profile != null or attributes == null:
+		return 0  # The owner's shape comes from the shot-type controls
+	if not attributes.can_shape_shots():
+		return 0
+	var terrain_grid = GameManager.terrain_grid
+	if terrain_grid == null:
+		return 0
+	var from_tile := Vector2i(ball_position_precise.round())
+	if terrain_grid.get_tile(from_tile) == TerrainTypes.Type.GREEN:
+		return 0  # Putting - no shape
+	# Near the green, a skilled golfer can throw a high backspin shot that
+	# stops or rolls back, overshooting gently while avoiding the hazard.
+	var hole_data = GameManager.course_data.holes[current_hole] if GameManager.course_data \
+		and current_hole < GameManager.course_data.holes.size() else null
+	if hole_data and attributes.golf_points[GolferAttributes.GolfSkill.HIGH_BACKSPIN] > 0:
+		var dist_to_hole := ball_position_precise.distance_to(Vector2(hole_data.hole_position))
+		if dist_to_hole <= 3.5 and shape_allowed(3, terrain_grid.get_tile(from_tile)) \
+				and randf() < 0.5:
+			return 3
+	# A hazard near the aim line is curved around with the shape that bends
+	# away from it - the classic use of Imagination.
+	if attributes.golf_points[GolferAttributes.GolfSkill.DRAW_SHOT] <= 0 \
+			and attributes.golf_points[GolferAttributes.GolfSkill.FADE_SHOT] <= 0:
+		return 0
+	if not (shape_allowed(1, terrain_grid.get_tile(from_tile))):
+		return 0
+	var hazard_side := _hazard_side_on_line(target)
+	if hazard_side == 0:
+		return 0
+	# Fade (1) curves L→R: use it when the hazard is left of the aim line.
+	if hazard_side < 0 and attributes.golf_points[GolferAttributes.GolfSkill.FADE_SHOT] > 0:
+		return 1
+	if hazard_side > 0 and attributes.golf_points[GolferAttributes.GolfSkill.DRAW_SHOT] > 0:
+		return 2
+	return 0
+
+## Which side of the ball-to-target line the first hazard sits on:
+## -1 hazard to the left, +1 hazard to the right, 0 no hazard near the line.
+func _hazard_side_on_line(target: Vector2i) -> int:
+	var terrain_grid = GameManager.terrain_grid
+	if terrain_grid == null:
+		return 0
+	var from := ball_position_precise
+	var to := Vector2(target)
+	var direction := (to - from)
+	var distance := direction.length()
+	if distance < 0.5:
+		return 0
+	direction /= distance
+	var steps := clampi(int(distance * 2.0), 4, 40)
+	for i in range(1, steps + 1):
+		var sample := from + direction * (distance * float(i) / float(steps))
+		var tile := Vector2i(sample.round())
+		if not terrain_grid.is_valid_position(tile):
+			continue
+		var terrain := terrain_grid.get_tile(tile)
+		if not (TerrainTypes.is_water(terrain) or TerrainTypes.is_bunker(terrain) \
+				or TerrainTypes.is_tree(terrain) or TerrainTypes.is_rocks(terrain) \
+				or TerrainTypes.is_out_of_play(terrain)):
+			continue
+		var to_hazard := Vector2(tile) - from
+		# Y-down coordinates: positive cross means the hazard is to the right
+		# of the aim line, negative means it is to the left.
+		var cross := direction.x * to_hazard.y - direction.y * to_hazard.x
+		if absf(cross) < 0.25:
+			continue  # Dead on the line - the aim AI already handles this
+		return 1 if cross > 0.0 else -1
+	return 0
 
 func get_cached_or_compute_shot_target(hole_position: Vector2i) -> Vector2i:
 	"""Return cached shot target if available, otherwise compute it."""
@@ -1952,7 +2153,7 @@ func get_cached_or_compute_shot_target(hole_position: Vector2i) -> Vector2i:
 
 ## Calculate putt with sub-tile precision
 ## Uses probability-based make model calibrated to PGA Tour putting stats,
-## scaled by putting_skill. Misses are realistic: putts can go past the hole,
+## scaled by the Accurate Putter skill. Misses are realistic: putts can go past the hole,
 ## stop short, or miss laterally. Three-putts are possible.
 ##
 ## Make rates (at skill=0.95, roughly PGA Tour level):
@@ -1962,6 +2163,11 @@ func get_cached_or_compute_shot_target(hole_position: Vector2i) -> Vector2i:
 func _calculate_putt(from_precise: Vector2) -> Dictionary:
 	if player_profile:
 		sync_player_profile_skills()
+	# Putting precision is the Accurate Putter Golf Skill (derived ability);
+	# Luck rounds the stroke out. Same rules for every golfer.
+	var putt_skill := putting_ability()
+	putt_skill = 1.0 - (1.0 - putt_skill) / (1.0 + golf_bonus(GolferAttributes.GolfSkill.LUCK))
+	putt_skill = clampf(putt_skill, 0.0, 0.98)
 	var terrain_grid = GameManager.terrain_grid
 	var course_data = GameManager.course_data
 	if not terrain_grid or not course_data or course_data.holes.is_empty() or current_hole >= course_data.holes.size():
@@ -1988,7 +2194,7 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 		landing = hole_pos
 	else:
 		# Step 2: Determine if the putt is made (probability-based)
-		var make_rate = GolfRules.get_putt_make_rate(distance, putting_skill)
+		var make_rate = GolfRules.get_putt_make_rate(distance, putt_skill)
 		var is_made = randf() < make_rate
 
 		if is_made:
@@ -1996,7 +2202,7 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			landing = hole_pos
 		else:
 			# Putt misses — calculate realistic miss position
-			var miss_chars = GolfRules.get_putt_miss_characteristics(distance, putting_skill)
+			var miss_chars = GolfRules.get_putt_miss_characteristics(distance, putt_skill)
 
 			# Distance error: gaussian sample around the hole position
 			# Positive = past the hole, negative = short of the hole
@@ -2014,13 +2220,13 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 			var max_miss_from_hole: float
 			if distance < 0.15:
 				# Short putts (<10ft): misses stay very close
-				max_miss_from_hole = 0.03 + (1.0 - putting_skill) * 0.025   # ~2-3.6 ft
+				max_miss_from_hole = 0.03 + (1.0 - putt_skill) * 0.025   # ~2-3.6 ft
 			elif distance < 0.45:
 				# Medium putts (10-30ft): tighter cap, skilled putters leave ~3ft not 5+ft
-				max_miss_from_hole = 0.04 + (1.0 - putting_skill) * 0.05    # ~2.6-5.9 ft
+				max_miss_from_hole = 0.04 + (1.0 - putt_skill) * 0.05    # ~2.6-5.9 ft
 			else:
 				# Long putts (30ft+): proportional but tighter
-				max_miss_from_hole = distance * (0.08 + (1.0 - putting_skill) * 0.12)
+				max_miss_from_hole = distance * (0.08 + (1.0 - putt_skill) * 0.12)
 
 			var miss_dist = landing.distance_to(hole_pos)
 			if miss_dist > max_miss_from_hole:
@@ -2059,7 +2265,7 @@ func _calculate_putt(from_precise: Vector2) -> Dictionary:
 		"landing_precise": landing,
 		"from_precise": from_precise,
 		"distance": distance_yards,
-		"accuracy": clampf(putting_skill, 0.0, 1.0),
+		"accuracy": clampf(putt_skill, 0.0, 1.0),
 		"club": Club.PUTTER
 	}
 
@@ -2092,31 +2298,29 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 	# Get terrain modifiers
 	var lie_modifier = _get_lie_modifier(current_terrain, club)
 
-	if player_profile:
-		lie_modifier = 1.0 - (1.0 - lie_modifier) / (1.0 + player_profile.bonus(8))
+	# Recovery Skills: every golfer escapes bad lies better with points here
+	# (each point is +10% of the skill).
+	var recovery_bonus := golf_bonus(GolferAttributes.GolfSkill.RECOVERY)
+	if recovery_bonus > 0.0:
+		lie_modifier = 1.0 - (1.0 - lie_modifier) / (1.0 + recovery_bonus)
 
-	# Calculate skill-based accuracy
-	var skill_accuracy = 0.0
+	# Skill-based accuracy, straight from the Golf Skills - the same rules for
+	# the owner and every other golfer. The club family's Accurate skill sets
+	# the base (each point is +10%), a shaped shot leans on its Draw/Fade/
+	# Backspin skill, and Luck smooths the tricky ones.
+	var accurate_index: int
 	match club:
-		Club.DRIVER:
-			skill_accuracy = (driving_skill * 0.7 + accuracy_skill * 0.3)
-		Club.FAIRWAY_WOOD:
-			skill_accuracy = (driving_skill * 0.5 + accuracy_skill * 0.5)
-		Club.IRON:
-			skill_accuracy = (driving_skill * 0.4 + accuracy_skill * 0.6)
-		Club.WEDGE:
-			skill_accuracy = (accuracy_skill * 0.7 + recovery_skill * 0.3)
-		Club.PUTTER:
-			skill_accuracy = putting_skill
-
-	if player_profile:
-		if club == Club.PUTTER:
-			skill_accuracy = player_profile.normalized_skill(4)
-		else:
-			skill_accuracy = player_profile.normalized_skill(2 if club in [Club.DRIVER, Club.FAIRWAY_WOOD] else 3)
-		if player_shape in [1, 2, 3]:
-			skill_accuracy = 1.0 - (1.0 - skill_accuracy) / (1.0 + player_profile.bonus({1: 6, 2: 5, 3: 7}[player_shape]))
-		skill_accuracy = 1.0 - (1.0 - skill_accuracy) / (1.0 + player_profile.bonus(9))
+		Club.DRIVER, Club.FAIRWAY_WOOD:
+			accurate_index = GolferAttributes.GolfSkill.ACCURATE_DRIVER
+		Club.IRON, Club.WEDGE:
+			accurate_index = GolferAttributes.GolfSkill.ACCURATE_IRONS
+		_:
+			accurate_index = GolferAttributes.GolfSkill.ACCURATE_PUTTER
+	var skill_accuracy := GolferAttributes.ability_from_bonus(golf_bonus(accurate_index))
+	var active_shape: int = player_shape if player_profile else _ai_shape
+	if active_shape in [1, 2, 3]:
+		skill_accuracy = 1.0 - (1.0 - skill_accuracy) / (1.0 + golf_bonus({1: 6, 2: 5, 3: 7}[active_shape]))
+	skill_accuracy = 1.0 - (1.0 - skill_accuracy) / (1.0 + golf_bonus(GolferAttributes.GolfSkill.LUCK))
 
 	# Combine all accuracy factors
 	var base_accuracy = club_stats["accuracy_modifier"]
@@ -2138,8 +2342,8 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 		# Scale floor based on putting skill:
 		# Low skill (0.3): 50% to 85% floor range
 		# High skill (0.95): 80% to 95% floor range
-		var skill_floor_min = lerpf(0.50, 0.80, putting_skill)
-		var skill_floor_max = lerpf(0.85, 0.95, putting_skill)
+		var skill_floor_min = lerpf(0.50, 0.80, skill_accuracy)
+		var skill_floor_max = lerpf(0.85, 0.95, skill_accuracy)
 		var putt_floor = lerpf(skill_floor_max, skill_floor_min, putt_distance_ratio)
 		total_accuracy = max(total_accuracy, putt_floor)
 
@@ -2202,10 +2406,20 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 	var direction = (target - Vector2(from)).normalized()
 	if player_profile and player_shape in [1, 2]:
 		direction = direction.rotated(deg_to_rad(shape_bend_degrees(player_shape)))
+	elif _ai_shape in [1, 2] and attributes != null:
+		# Draw (R→L) / Fade (L→R) - the bend a golfer with Imagination puts on
+		# the ball, scaled by the matching Draw/Fade Golf Skill.
+		var shape_index := GolferAttributes.GolfSkill.FADE_SHOT if _ai_shape == 1 \
+			else GolferAttributes.GolfSkill.DRAW_SHOT
+		direction = direction.rotated(
+			deg_to_rad(shape_bend_degrees(_ai_shape)) * attributes.shape_bend_multiplier(shape_index))
 
 	# Max angular spread based on inaccuracy (degrees)
 	# Worst case ~12° = severe slice/hook, pro-level ~1.2° = tight dispersion
-	var max_spread_deg = (1.0 - total_accuracy) * 12.0
+	# The Accuracy golfer skill tightens the whole spread (control of where the
+	# ball lands).
+	var dispersion_mult := attributes.dispersion_multiplier() if attributes else 1.0
+	var max_spread_deg = (1.0 - total_accuracy) * 12.0 * dispersion_mult
 	var spread_std_dev = max_spread_deg / 2.5  # ~95% of shots within max_spread
 
 	# Reduce spread for controlled partial swings (short wedges)
@@ -2223,10 +2437,12 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 	var miss_angle_deg = 0.0 if deterministic else base_angle_deg + tendency_strength
 
 	# Rare shank: catastrophic sideways miss (only on full swings, not putts/wedges)
-	# ~3% for worst beginners, <0.3% for pros
+	# ~3% for worst beginners, <0.3% for pros. Luck cuts the odds: a lucky
+	# golfer's miscues stay in play.
 	var is_shank = false
 	if club != Club.PUTTER and club != Club.WEDGE and not deterministic:
-		var shank_chance = (1.0 - total_accuracy) * 0.04
+		var luck_factor := 1.0 - minf(0.5, 0.15 * golf_bonus(GolferAttributes.GolfSkill.LUCK))
+		var shank_chance = (1.0 - total_accuracy) * 0.04 * luck_factor
 		if randf() < shank_chance:
 			is_shank = true
 			var shank_dir: float
@@ -2252,7 +2468,7 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 	# than all landing in a tight cluster.
 	if club != Club.PUTTER and not deterministic:
 		var angular_lateral_std = actual_distance * sin(deg_to_rad(spread_std_dev))
-		var min_lateral_std = (1.0 - total_accuracy) * 0.8
+		var min_lateral_std = (1.0 - total_accuracy) * 0.8 * dispersion_mult
 		if angular_lateral_std < min_lateral_std:
 			var perpendicular = Vector2(-miss_direction.y, miss_direction.x)
 			var extra_std = sqrt(min_lateral_std * min_lateral_std - angular_lateral_std * angular_lateral_std)
@@ -2326,8 +2542,13 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 		Vector2(from), actual_distance, total_accuracy, deterministic)
 
 	var carry_tile: int = terrain_grid.get_tile(carry_position)
-	if player_profile and player_shape == 3 and (carry_tile == TerrainTypes.Type.GREEN or TerrainTypes.is_fairway(carry_tile)):
-		var spin := minf(1.5, 0.25 * (1.0 + player_profile.bonus(7)))
+	# High Backspin Shot: a high shot that lands and rolls back slightly,
+	# overshooting gently while avoiding the hazard behind the pin. The owner
+	# selects it as a shot shape; AI golfers with Imagination pick it near the
+	# green. The High Backspin Golf Skill sets how much bite the ball has.
+	var wants_backspin := (player_profile != null and player_shape == 3) or (_ai_shape == 3)
+	if wants_backspin and (carry_tile == TerrainTypes.Type.GREEN or TerrainTypes.is_fairway(carry_tile)):
+		var spin := minf(1.5, 0.25 * (1.0 + golf_bonus(GolferAttributes.GolfSkill.HIGH_BACKSPIN)))
 		rollout.final_position = carry_position_precise - direction * spin
 		rollout.rollout_distance = spin
 		rollout.is_backspin = true
@@ -2450,7 +2671,7 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 	var is_backspin = false
 	if club == Club.WEDGE and not is_wedge_chip:
 		# Backspin ability scales with accuracy and recovery skill
-		var spin_skill = (accuracy_skill * 0.6 + recovery_skill * 0.4)
+		var spin_skill = (accuracy_ability() * 0.6 + recovery_ability() * 0.4)
 		# High-skill players (>0.7) can generate backspin; lower skill just reduces roll
 		if spin_skill > 0.7:
 			# Shift rollout toward negative (backspin) based on skill above threshold
@@ -3265,13 +3486,13 @@ func _change_state(new_state: State) -> void:
 	state_changed.emit(old_state, new_state)
 	_update_visual()
 
-## Adjust mood
-func _adjust_mood(amount: float) -> void:
-	var old_mood = current_mood
-	current_mood = clamp(current_mood + amount, 0.0, 1.0)
+## Adjust attitude
+func _adjust_attitude(amount: float) -> void:
+	var old_attitude = attitude
+	attitude = clamp(attitude + amount, 0.0, 1.0)
 
-	if abs(old_mood - current_mood) > 0.05:
-		EventBus.golfer_mood_changed.emit(golfer_id, current_mood)
+	if abs(old_attitude - attitude) > 0.05:
+		EventBus.golfer_attitude_changed.emit(golfer_id, attitude)
 
 ## Check needs and show thought bubbles for unmet needs
 func _check_need_triggers() -> void:
@@ -3288,12 +3509,54 @@ func _check_need_triggers() -> void:
 func is_staff_service_available() -> bool:
 	return staff_help_cooldown <= 0.0 and current_state not in [State.FINISHED, State.LEAVING]
 
+# =============================================================================
+# THE OWNER'S OWN GOLFER, WORKING THE COURSE
+# =============================================================================
+
+## Start working the course. The owner's golfer is not a guest: between
+## rounds they walk the ground they were given, pulling weeds and greeting
+## the golfers they meet (see OwnerDuty). They are not in play, so the turn
+## system leaves them alone.
+func begin_course_duty() -> void:
+	activity_text = "Working the course"
+	# A walk back to the clubhouse belongs to a round that is over. The owner
+	# is not leaving: they are going back to work.
+	_departure_phase = 0
+	_departure_elapsed = 0.0
+	_departure_pause = 0.0
+	_change_state(State.ON_DUTY)
+
+## The round has the owner on the first tee again: the work stops until the
+## round is over.
+func end_course_duty() -> void:
+	activity_text = "Playing golf"
+	_change_state(State.IDLE)
+
+## Whether this golfer is working the course rather than playing it.
+func is_on_course_duty() -> bool:
+	return current_state == State.ON_DUTY
+
+## Walk to a place on the course: to the tee to start a round, or back to the
+## ground they work when a round is over. The walk uses the pathfinding the
+## golfers use, so it follows the trails and goes around obstacles. The turn
+## system only ever picks an IDLE golfer, so they are not in play while they
+## walk.
+func begin_walk_to(target_screen: Vector2, activity: String) -> void:
+	path = _find_path_to(target_screen)
+	path_index = 0
+	activity_text = activity
+	_change_state(State.WALKING)
+
 ## A greeter chatted with this golfer — cheers them up.
 func receive_greeting(amount: float) -> void:
 	if not is_staff_service_available():
 		return
 	staff_help_cooldown = STAFF_HELP_COOLDOWN_SECONDS
-	_adjust_mood(amount)
+	# Outgoing golfers enjoy a chat more than most
+	var greeting_boost := amount
+	if attributes:
+		greeting_boost *= attributes.greeting_boost_multiplier()
+	_adjust_attitude(greeting_boost)
 	show_thought(FeedbackTriggers.TriggerType.CHEERED_UP)
 
 ## A marshal talked this group back to a sensible pace.
@@ -3302,7 +3565,7 @@ func receive_pace_help(amount: float) -> void:
 		return
 	staff_help_cooldown = STAFF_HELP_COOLDOWN_SECONDS
 	var boost := needs.restore_pace(amount)
-	_adjust_mood(0.02 + boost)
+	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.PACED_UP)
 
 ## A drinks vendor handed this golfer something cold.
@@ -3311,7 +3574,7 @@ func receive_drink(amount: float) -> void:
 		return
 	staff_help_cooldown = STAFF_HELP_COOLDOWN_SECONDS
 	var boost := needs.restore_thirst(amount)
-	_adjust_mood(0.02 + boost)
+	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
 
 ## Create highlight ring node for active golfer indication
@@ -3388,15 +3651,15 @@ func _on_mouse_exited() -> void:
 	_is_hovered = false
 	_refresh_name_label()
 
-## Update visual modulate based on mood state
-func _update_mood_visuals() -> void:
+## Update visual modulate based on attitude state
+func _update_attitude_visuals() -> void:
 	if not visual:
 		return
-	if current_mood < 0.3:
+	if attitude < 0.3:
 		visual.modulate = Color(1.2, 0.85, 0.85)
-	elif current_mood > 0.8:
+	elif attitude > 0.8:
 		visual.modulate = Color(1.0, 0.98, 0.85)
-	elif current_mood >= 0.4:
+	elif attitude >= 0.4:
 		visual.modulate = Color.WHITE
 
 ## Update visual representation
@@ -3412,7 +3675,7 @@ func _update_visual() -> void:
 
 		var dir = _current_direction
 		match current_state:
-			State.IDLE, State.PREPARING_SHOT:
+			State.IDLE, State.PREPARING_SHOT, State.ON_DUTY:
 				var anim = "idle_%s" % dir
 				if _animated_sprite.sprite_frames.has_animation(anim):
 					_animated_sprite.play(anim)
@@ -3472,6 +3735,8 @@ func _update_visual() -> void:
 	match current_state:
 		State.IDLE:
 			pass  # Default appearance
+		State.ON_DUTY:
+			pass  # Working the course - the walk animation is the duty's
 		State.WALKING, State.LEAVING:
 			pass  # Walk animation handled in _process_walking
 		State.PREPARING_SHOT:
@@ -3624,7 +3889,7 @@ func _process_amenity_visit(delta: float) -> void:
 
 func _serve_amenity() -> void:
 	var boost := needs.apply_building_effect(_amenity_service)
-	_adjust_mood(boost)
+	_adjust_attitude(boost)
 	if _amenity_service == "cart_garage":
 		_rent_cart()
 	amenities_used += 1
@@ -3715,33 +3980,46 @@ func _apply_clubhouse_effects() -> void:
 			_show_building_revenue_notification(income, "clubhouse")
 
 		# Apply needs-based satisfaction from clubhouse visit
-		var mood_boost = needs.apply_building_effect("clubhouse")
+		var attitude_boost = needs.apply_building_effect("clubhouse")
 		# Also apply upgrade-specific satisfaction bonus on top
 		var upgrade_bonus = building.get_satisfaction_bonus()
 		if upgrade_bonus > 0:
-			_adjust_mood(upgrade_bonus)
-		if mood_boost > 0.0:
-			_adjust_mood(mood_boost)
+			_adjust_attitude(upgrade_bonus)
+		if attitude_boost > 0.0:
+			_adjust_attitude(attitude_boost)
 
 		break  # Only one clubhouse
 
-## Show a thought bubble with golfer feedback
-## Respects cooldown to prevent spam
+## Make a golfer comment and (usually) show it in a thought bubble.
+## The comment itself always lands on the golfer's attribute block when its
+## probability passes - comments are what Fun accumulates from - while the
+## bubble display respects a cooldown so the screen is not spammed.
 func show_thought(trigger_type: int) -> void:
 	FeedbackManager.record_incident(self, trigger_type)
-	# Enforce cooldown
-	var current_time = Time.get_ticks_msec() / 1000.0
-	if current_time - _last_thought_time < THOUGHT_COOLDOWN:
-		return
 
-	# Check probability
-	if not FeedbackTriggers.should_trigger(trigger_type):
+	# Check probability - outgoing golfers speak up more often
+	var chance := FeedbackTriggers.get_probability(trigger_type)
+	if attributes:
+		chance = minf(1.0, chance * attributes.comment_probability_multiplier())
+	if randf() >= chance:
 		return
-
-	_last_thought_time = current_time
 
 	var message = FeedbackTriggers.get_random_message(trigger_type)
 	var sentiment_str = FeedbackTriggers.get_sentiment(trigger_type)
+
+	# Every comment a golfer makes while playing is recorded (Positive, Neutral,
+	# or Negative) and accumulates into their Fun status.
+	if attributes:
+		attributes.record_comment(message, sentiment_str, current_hole + 1, GameManager.current_day)
+
+	# Notify FeedbackManager for aggregate tracking
+	EventBus.golfer_thought.emit(golfer_id, trigger_type, sentiment_str)
+
+	# Bubble display: enforce cooldown to prevent spam
+	var current_time = Time.get_ticks_msec() / 1000.0
+	if current_time - _last_thought_time < THOUGHT_COOLDOWN:
+		return
+	_last_thought_time = current_time
 
 	var sentiment: int = ThoughtBubble.Sentiment.NEUTRAL
 	if sentiment_str == "positive":
@@ -3751,9 +4029,6 @@ func show_thought(trigger_type: int) -> void:
 
 	var bubble = ThoughtBubble.create(message, sentiment)
 	add_child(bubble)
-
-	# Notify FeedbackManager for aggregate tracking
-	EventBus.golfer_thought.emit(golfer_id, trigger_type, sentiment_str)
 
 ## Click detection handler (mirrors Building pattern)
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
@@ -3767,10 +4042,6 @@ func serialize() -> Dictionary:
 		"golfer_name": golfer_name,
 		"group_id": group_id,
 		"golfer_tier": golfer_tier,
-		"driving_skill": driving_skill,
-		"accuracy_skill": accuracy_skill,
-		"putting_skill": putting_skill,
-		"recovery_skill": recovery_skill,
 		"miss_tendency": miss_tendency,
 		"aggression": aggression,
 		"patience": patience,
@@ -3779,11 +4050,12 @@ func serialize() -> Dictionary:
 		"total_strokes": total_strokes,
 		"total_par": total_par,
 		"previous_hole_strokes": previous_hole_strokes,
-		"current_mood": current_mood,
+		"attitude": attitude,
 		"current_state": current_state,
 		"ball_position": {"x": ball_position.x, "y": ball_position.y},
 		"ball_position_precise": {"x": ball_position_precise.x, "y": ball_position_precise.y},
 		"position": {"x": global_position.x, "y": global_position.y},
+		"attributes": attributes.serialize(),
 	}
 	if not skin_id.is_empty():
 		data["skin_id"] = skin_id
@@ -3800,10 +4072,6 @@ func deserialize(data: Dictionary) -> void:
 	golfer_name = data.get("golfer_name", "Golfer")
 	group_id = data.get("group_id", -1)
 	golfer_tier = data.get("golfer_tier", GolferTier.Tier.CASUAL)
-	driving_skill = data.get("driving_skill", 0.5)
-	accuracy_skill = data.get("accuracy_skill", 0.5)
-	putting_skill = data.get("putting_skill", 0.5)
-	recovery_skill = data.get("recovery_skill", 0.5)
 	miss_tendency = data.get("miss_tendency", 0.0)
 	aggression = data.get("aggression", 0.5)
 	patience = data.get("patience", 0.5)
@@ -3812,7 +4080,14 @@ func deserialize(data: Dictionary) -> void:
 	total_strokes = data.get("total_strokes", 0)
 	total_par = data.get("total_par", 0)
 	previous_hole_strokes = data.get("previous_hole_strokes", 0)
-	current_mood = data.get("current_mood", 0.5)
+	# Attribute block (identity, traits, skills, golf skill points, statuses,
+	# comments). Older saves only carry the flat fields above.
+	var saved_attributes = data.get("attributes", {})
+	if saved_attributes is Dictionary and not saved_attributes.is_empty():
+		attributes = GolferAttributes.from_data(saved_attributes)
+	attributes.name = golfer_name
+	attributes.golfer_tier = golfer_tier
+	attitude = data.get("attitude", data.get("current_mood", attributes.attitude))
 	skin_id = data.get("skin_id", "")
 	# Restore visiting golfer colour overrides.
 	var saved_overrides: Dictionary = data.get("group_color_overrides", {})

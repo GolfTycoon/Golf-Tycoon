@@ -173,19 +173,18 @@ for each tier:
 
 ### 7. Skill Generation (Per Golfer)
 
-```
-skills = {
-    driving:  randf_range(skill_low, skill_high),
-    accuracy: randf_range(skill_low, skill_high),
-    putting:  randf_range(skill_low, skill_high),
-    recovery: randf_range(skill_low, skill_high),
-}
+Every spawned golfer rolls a full [attribute block](golfer-attributes.md): identity (gendered name, profession, marital status, age), the five Golfer Traits (On/Off), the three Golfer Skills (On/Off) and the ten Golf Skills as points (0-99, each point +10%, up to 990%). The points are the skills - there is no separate set of playing skills to roll or blend. When the game needs a playable form (shot accuracy, distance, putting), it derives the four abilities from the points on demand - see [Playing abilities](golfer-attributes.md#playing-abilities-derived-not-stored).
 
+The only playing parameter rolled at spawn is the miss tendency:
+
+```
 # Miss tendency
 tendency_magnitude = randf_range(tendency_low, tendency_high)
 tendency_sign = +1 or -1 (50/50)
 miss_tendency = magnitude * sign
 ```
+
+A visitor from a location's pool does not roll their block at all: their [visitor card](golfer-attributes.md#visiting-golfer-cards) carries the whole thing - name, profession, marital status, age, gender, Golfer Traits, Golfer Skills and Golf Skill points - and the tier only adds what the card leaves out (personality, patience, miss tendency). A golfer rolled on the spot rolls it as above, and a returning guest keeps the block they arrived with and only restarts their statuses at 50%.
 
 ### 8. Personality Generation (Per Tier)
 
@@ -258,7 +257,7 @@ for each active golfer (from earlier groups):
 
 ## Related
 
-- [Golfer Needs](golfer-needs.md) covers what golfers want on the course.
+- [Golfer Needs and Statuses](golfer-needs.md) covers what golfers want on the course.
 - [Satisfaction and Feedback](satisfaction-feedback.md) covers how visits go.
 - [Course Rating](../ratings-and-reputation/course-rating.md) sets the rating that drives arrivals.
 - [Seasonal Calendar](../environment-and-time/seasonal-calendar.md) adds seasonal demand.

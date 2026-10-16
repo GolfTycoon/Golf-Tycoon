@@ -1,8 +1,19 @@
 [
  {
-  "name": "Ron Moreno",
+  "name": "Ron Torres",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Dentist",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 12, "Accurate Driver": 15, "Accurate Irons": 18,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 12, "High Backspin Shot": 14,
+   "Recovery Skills": 18, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "283747",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Tony Moreno",
+  "name": "Tony Sanz",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Real Estate Agent",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 27, "Long Driver": 22, "Accurate Driver": 19, "Accurate Irons": 19,
+   "Accurate Putter": 27, "Draw Shot (R to L)": 27, "Fade Shot (L to R)": 24, "High Backspin Shot": 22,
+   "Recovery Skills": 31, "Luck": 24
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "1a1a2e",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Tina Moreno",
+  "name": "Tina Romero",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 15, "Accurate Driver": 13, "Accurate Irons": 14,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 19, "High Backspin Shot": 10,
+   "Recovery Skills": 17, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "5b2c6f",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Hugh Moreno",
+  "name": "Hugh Martinez",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 57,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 12, "Accurate Driver": 15, "Accurate Irons": 18,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 5, "High Backspin Shot": 9,
+   "Recovery Skills": 11, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "7d6608",
@@ -51,6 +95,17 @@
   "name": "Owen Moreno",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Tapas Chef",
+  "marital_status": "Widowed",
+  "age": 71,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 5,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 4
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "34495e",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Liz Moreno",
+  "name": "Liz Serrano",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Tapas Chef",
+  "marital_status": "Married",
+  "age": 46,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 11, "Accurate Driver": 4, "Accurate Irons": 6,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 7, "High Backspin Shot": 6,
+   "Recovery Skills": 12, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "2e4053",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Mel Moreno",
+  "name": "Mel Molina",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Librarian",
+  "marital_status": "Married",
+  "age": 73,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 10, "Accurate Driver": 7, "Accurate Irons": 10,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 4, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1a1a2e",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Cam Moreno",
+  "name": "Cam Rodriguez",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Olive Farmer",
+  "marital_status": "Divorced",
+  "age": 48,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 7, "Accurate Driver": 6, "Accurate Irons": 7,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "7d6608",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Vera Moreno",
+  "name": "Vera Fernandez",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Librarian",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 13, "Accurate Driver": 11, "Accurate Irons": 17,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 15, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "1a1a2e",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Roy Moreno",
+  "name": "Roy Garcia",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Football Coach",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 10, "Accurate Irons": 7,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 1,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1a1a2e",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Jess Moreno",
+  "name": "Jess Iglesias",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 72,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 4, "Accurate Driver": 10, "Accurate Irons": 10,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 13, "High Backspin Shot": 10,
+   "Recovery Skills": 10, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "1a1a2e",
@@ -132,9 +253,19 @@
   }
  },
  {
-  "name": "Brooks Moreno",
+  "name": "Brooks Sanchez",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 5, "Accurate Putter": 3, "Draw Shot (R to L)": 2,
+   "Fade Shot (L to R)": 2, "High Backspin Shot": 2, "Recovery Skills": 2, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "bdc3c7",
@@ -144,9 +275,20 @@
   }
  },
  {
-  "name": "Wendy Moreno",
+  "name": "Wendy Delgado",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Single",
+  "age": 66,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 4, "Accurate Irons": 10,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "1a1a2e",
@@ -156,9 +298,20 @@
   }
  },
  {
-  "name": "Tara Moreno",
+  "name": "Tara Castro",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Barber",
+  "marital_status": "Single",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 17, "Accurate Driver": 12, "Accurate Irons": 14,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 14, "High Backspin Shot": 14,
+   "Recovery Skills": 12, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -168,9 +321,20 @@
   }
  },
  {
-  "name": "Val Moreno",
+  "name": "Val Lopez",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Football Coach",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 7, "Accurate Driver": 11, "Accurate Irons": 6,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 4, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "34495e",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Kate Moreno",
+  "name": "Kate Marin",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 12, "Accurate Irons": 20,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 20, "High Backspin Shot": 13,
+   "Recovery Skills": 13, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "4a235a",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Luke Moreno",
+  "name": "Luke Blanco",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 15, "Accurate Driver": 16, "Accurate Irons": 10,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 16, "High Backspin Shot": 14,
+   "Recovery Skills": 20, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "283747",
@@ -204,9 +390,20 @@
   }
  },
  {
-  "name": "Clay Moreno",
+  "name": "Clay Navarro",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 14, "Accurate Driver": 12, "Accurate Irons": 11,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 17, "High Backspin Shot": 19,
+   "Recovery Skills": 14, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "616a6b",
@@ -216,9 +413,19 @@
   }
  },
  {
-  "name": "Nancy Moreno",
+  "name": "Nancy Rubio",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Dentist",
+  "marital_status": "Married",
+  "age": 76,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Accurate Driver": 2, "Accurate Irons": 5, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8,
+   "High Backspin Shot": 4, "Recovery Skills": 2, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "d5d8dc",
@@ -228,9 +435,20 @@
   }
  },
  {
-  "name": "Marc Moreno",
+  "name": "Marc Ramos",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Architect",
+  "marital_status": "Single",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 5, "Accurate Driver": 2, "Accurate Irons": 5,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "283747",
@@ -240,9 +458,20 @@
   }
  },
  {
-  "name": "Chloe Moreno",
+  "name": "Chloe Cortes",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Lawyer",
+  "marital_status": "Widowed",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Recovery Skills": 3,
+   "Luck": 1
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "5b2c6f",
@@ -252,9 +481,20 @@
   }
  },
  {
-  "name": "Kai Moreno",
+  "name": "Kai Gil",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 12, "Accurate Driver": 8, "Accurate Irons": 8,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 12, "High Backspin Shot": 7,
+   "Recovery Skills": 11, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "1a1a2e",
@@ -264,9 +504,20 @@
   }
  },
  {
-  "name": "Rose Moreno",
+  "name": "Rose Vargas",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Engineer",
+  "marital_status": "Widowed",
+  "age": 69,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 5, "Accurate Driver": 6, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 7, "High Backspin Shot": 13,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "1a1a2e",
@@ -276,9 +527,20 @@
   }
  },
  {
-  "name": "Allie Moreno",
+  "name": "Allie Ortega",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 8, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 5, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "1a1a2e",
@@ -288,9 +550,20 @@
   }
  },
  {
-  "name": "Eli Moreno",
+  "name": "Eli Serrano",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Mechanic",
+  "marital_status": "Single",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 30, "Accurate Driver": 25, "Accurate Irons": 15,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 21, "Luck": 27
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "4a235a",
@@ -300,9 +573,20 @@
   }
  },
  {
-  "name": "Flo Moreno",
+  "name": "Flo Torres",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Baker",
+  "marital_status": "Divorced",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 6,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 8, "High Backspin Shot": 7,
+   "Recovery Skills": 2, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "4a235a",
@@ -312,9 +596,20 @@
   }
  },
  {
-  "name": "Chelsea Moreno",
+  "name": "Chelsea Blanco",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 15,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 20, "High Backspin Shot": 17,
+   "Recovery Skills": 14, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "34495e",
@@ -324,9 +619,20 @@
   }
  },
  {
-  "name": "Riley Moreno",
+  "name": "Riley Sanchez",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 4,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 10, "High Backspin Shot": 12,
+   "Recovery Skills": 11, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "1a1a2e",
@@ -336,9 +642,20 @@
   }
  },
  {
-  "name": "Kira Moreno",
+  "name": "Kira Ortega",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Olive Farmer",
+  "marital_status": "Divorced",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 5, "Accurate Driver": 9, "Accurate Irons": 13,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "2c3e50",
@@ -348,9 +665,20 @@
   }
  },
  {
-  "name": "Glen Moreno",
+  "name": "Glen Castro",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Plumber",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 29, "Accurate Driver": 25, "Accurate Irons": 15,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 22, "Fade Shot (L to R)": 26, "High Backspin Shot": 20,
+   "Recovery Skills": 21, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "4a235a",
@@ -360,9 +688,20 @@
   }
  },
  {
-  "name": "Will Moreno",
+  "name": "Will Rodriguez",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 10, "Accurate Driver": 14, "Accurate Irons": 7,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 6, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "7d6608",
@@ -372,9 +711,20 @@
   }
  },
  {
-  "name": "Ellie Moreno",
+  "name": "Ellie Cortes",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Dentist",
+  "marital_status": "Single",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 16, "Accurate Driver": 31, "Accurate Irons": 29,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 28, "Fade Shot (L to R)": 25, "High Backspin Shot": 32,
+   "Recovery Skills": 17, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "4a235a",
@@ -384,9 +734,20 @@
   }
  },
  {
-  "name": "Kara Moreno",
+  "name": "Kara Martinez",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Dentist",
+  "marital_status": "Married",
+  "age": 66,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 5, "Accurate Driver": 9, "Accurate Irons": 3,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "ecf0f1",
@@ -396,9 +757,20 @@
   }
  },
  {
-  "name": "Al Moreno",
+  "name": "Al Iglesias",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Widowed",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 3, "Accurate Driver": 9, "Accurate Irons": 8,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 12, "High Backspin Shot": 7,
+   "Recovery Skills": 13, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "bdc3c7",
@@ -408,9 +780,20 @@
   }
  },
  {
-  "name": "Chase Moreno",
+  "name": "Chase Romero",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 49,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 15, "Accurate Driver": 10, "Accurate Irons": 11,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 9, "High Backspin Shot": 20,
+   "Recovery Skills": 12, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "34495e",
@@ -420,9 +803,20 @@
   }
  },
  {
-  "name": "Dave Moreno",
+  "name": "Dave Garcia",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 10, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "4a235a",
@@ -432,9 +826,20 @@
   }
  },
  {
-  "name": "Lily Moreno",
+  "name": "Lily Delgado",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Barber",
+  "marital_status": "Widowed",
+  "age": 67,
+  "gender": "Female",
+  "traits": ["playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 4, "Accurate Irons": 7,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 12, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "f7f9f9",
@@ -444,9 +849,20 @@
   }
  },
  {
-  "name": "Bobby Moreno",
+  "name": "Bobby Lopez",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 18, "Accurate Driver": 20, "Accurate Irons": 26,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 31, "High Backspin Shot": 32,
+   "Recovery Skills": 33, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "4a235a",
@@ -459,6 +875,17 @@
   "name": "Jade Moreno",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 46,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 9, "Accurate Driver": 6, "Accurate Irons": 8,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 8, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "283747",
@@ -468,9 +895,20 @@
   }
  },
  {
-  "name": "Zane Moreno",
+  "name": "Zane Gil",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 23, "Accurate Driver": 18, "Accurate Irons": 20,
+   "Accurate Putter": 30, "Draw Shot (R to L)": 26, "Fade Shot (L to R)": 30, "High Backspin Shot": 20,
+   "Recovery Skills": 19, "Luck": 27
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -480,9 +918,20 @@
   }
  },
  {
-  "name": "Ashley Moreno",
+  "name": "Ashley Ramos",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Football Coach",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 12, "Accurate Driver": 10, "Accurate Irons": 15,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 12, "High Backspin Shot": 20,
+   "Recovery Skills": 18, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "7d6608",
@@ -492,9 +941,20 @@
   }
  },
  {
-  "name": "Claire Moreno",
+  "name": "Claire Molina",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 61,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 2, "Accurate Irons": 4,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 2, "High Backspin Shot": 2, "Recovery Skills": 3,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "283747",
@@ -504,9 +964,20 @@
   }
  },
  {
-  "name": "Kirk Moreno",
+  "name": "Kirk Sanz",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 5, "Accurate Irons": 2,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 1, "High Backspin Shot": 2, "Recovery Skills": 1,
+   "Luck": 1
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "1c2833",
@@ -516,9 +987,20 @@
   }
  },
  {
-  "name": "Cody Moreno",
+  "name": "Cody Marin",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 11, "Accurate Driver": 11, "Accurate Irons": 12,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 5, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "4a235a",
@@ -528,9 +1010,20 @@
   }
  },
  {
-  "name": "Henry Moreno",
+  "name": "Henry Fernandez",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Widowed",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 11, "Accurate Driver": 9, "Accurate Irons": 9,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 14, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -540,9 +1033,20 @@
   }
  },
  {
-  "name": "Dawn Moreno",
+  "name": "Dawn Rubio",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 22, "Accurate Driver": 27, "Accurate Irons": 19,
+   "Accurate Putter": 28, "Draw Shot (R to L)": 21, "Fade Shot (L to R)": 29, "High Backspin Shot": 21,
+   "Recovery Skills": 25, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "7d6608",
@@ -552,9 +1056,20 @@
   }
  },
  {
-  "name": "Alex Moreno",
+  "name": "Alex Navarro",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 11, "Accurate Driver": 16, "Accurate Irons": 15,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 14, "High Backspin Shot": 21,
+   "Recovery Skills": 15, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1c2833",
@@ -564,9 +1079,20 @@
   }
  },
  {
-  "name": "Holly Moreno",
+  "name": "Holly Vargas",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 8, "Accurate Driver": 14, "Accurate Irons": 13,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 17, "High Backspin Shot": 20,
+   "Recovery Skills": 18, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "4a235a",
@@ -576,9 +1102,19 @@
   }
  },
  {
-  "name": "Vince Moreno",
+  "name": "Vince Ortega",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Widowed",
+  "age": 68,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 3, "Accurate Irons": 1,
+   "Accurate Putter": 4, "High Backspin Shot": 1, "Recovery Skills": 1, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "1c2833",
@@ -588,9 +1124,20 @@
   }
  },
  {
-  "name": "Molly Moreno",
+  "name": "Molly Rodriguez",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Divorced",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 17, "Accurate Driver": 10, "Accurate Irons": 15,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 21, "Fade Shot (L to R)": 18, "High Backspin Shot": 13,
+   "Recovery Skills": 18, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "d5d8dc",

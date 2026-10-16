@@ -19,9 +19,9 @@ Reputation changes through two mechanisms:
 
 Every night, reputation decays slightly. The rate depends on the course's star rating — poorly-rated courses decay faster, excellent courses decay very slowly. This creates constant pressure to maintain quality and ensures that a course can't coast on past success forever.
 
-### Golfer Mood (Per Golfer)
+### Golfer Attitude (Per Golfer)
 
-When a golfer finishes their round, they contribute positive or negative reputation based on their mood (satisfaction level 0.0–1.0). Happy golfers (mood > 0.6) spread the word and increase reputation. Unhappy golfers (mood < 0.4) hurt reputation. Neutral golfers (0.4–0.6) provide a small positive contribution.
+When a golfer finishes their round, they contribute positive or negative reputation based on their attitude (status level 0.0–1.0). Happy golfers (attitude > 0.6) spread the word and increase reputation. Unhappy golfers (attitude < 0.4) hurt reputation. Neutral golfers (0.4–0.6) provide a small positive contribution.
 
 The reputation gain is scaled by:
 - **Golfer tier** — Pro golfers have 10x the reputation impact of beginners
@@ -104,27 +104,27 @@ if tier == PRO and total_strokes <= total_par:
 prestige = CourseRatingSystem.get_prestige_multiplier(course_rating)
 base_rep = int(base_rep * prestige)
 
-# Step 4: Scale by golfer mood
-mood = golfer.current_mood    # 0.0 to 1.0
+# Step 4: Scale by golfer attitude
+attitude = golfer.attitude    # 0.0 to 1.0
 
-if mood >= 0.6:
+if attitude >= 0.6:
     # Happy golfer: positive reputation (scales 0.5x to 1.0x of base)
-    reputation_gain = base_rep * lerp(0.5, 1.0, (mood - 0.6) / 0.4)
+    reputation_gain = base_rep * lerp(0.5, 1.0, (attitude - 0.6) / 0.4)
 
-elif mood >= 0.4:
+elif attitude >= 0.4:
     # Neutral golfer: small positive gain
     reputation_gain = base_rep * 0.25
 
 else:
     # Unhappy golfer: negative reputation (scales 0x to -1.0x of base)
-    reputation_gain = -base_rep * lerp(0.0, 1.0, (0.4 - mood) / 0.4)
+    reputation_gain = -base_rep * lerp(0.0, 1.0, (0.4 - attitude) / 0.4)
 
 reputation += reputation_gain
 ```
 
 ### 4. Reputation Impact Examples
 
-| Golfer | Mood | Base | Prestige | Final Gain |
+| Golfer | Attitude | Base | Prestige | Final Gain |
 | ------ | ---- | ---- | -------- | ---------- |
 | Happy Beginner (0.8) | 0.8 | 1 | 1.0x | +0.75 |
 | Happy Casual (0.7) | 0.7 | 2 | 1.0x | +1.25 |
@@ -135,7 +135,7 @@ reputation += reputation_gain
 
 ### 5. Tournament Reputation
 
-Tournaments award a flat reputation bonus on completion (bypasses the mood system):
+Tournaments award a flat reputation bonus on completion (bypasses the attitude system):
 
 ```
 LOCAL:        +15 reputation
@@ -161,17 +161,17 @@ Reputation influences several systems:
 | Decay by star level | `game_manager.gd` | 1.0/0.5/0.25/0.1 | Higher = faster reputation loss |
 | Tier reputation gains | `golfer_tier.gd` | 1/2/4/10 | Higher = faster reputation growth |
 | Pro under-par bonus | `golfer_manager.gd` | 2x | Higher = more reward for satisfying pros |
-| Happy mood threshold | `golfer_manager.gd` | 0.6 | Lower = easier to get positive rep |
-| Unhappy mood threshold | `golfer_manager.gd` | 0.4 | Higher = more golfers hurt reputation |
+| Happy attitude threshold | `golfer_manager.gd` | 0.6 | Lower = easier to get positive rep |
+| Unhappy attitude threshold | `golfer_manager.gd` | 0.4 | Higher = more golfers hurt reputation |
 | Neutral gain multiplier | `golfer_manager.gd` | 0.25 | Higher = more rep from neutral golfers |
 | Tournament rep rewards | `tournament_system.gd` | 15/40/100/300 | Higher = more tournament incentive |
 | Stagnation threshold | `game_manager.gd` | 28 days | Lower = faster pressure to expand |
 | Stagnation penalty | `game_manager.gd` | -0.3/day | Higher = more punishing to coast |
 | Stagnation rep floor | `game_manager.gd` | 40.0 | Lower = penalty applies at lower rep |
 
-## Reputation Mood Cap
+## Reputation Attitude Cap
 
-Completed-round tier rewards are multiplied by 0.1 before prestige, retaining fractional values. The mood used for reputation is capped at `value_rating / 5 + .15`: a pleasant round cannot fully erase poor value. Existing milestone and tournament rewards are separate. This slows a new club's rise to maximum reputation and ties recommendations to the price paid.
+Completed-round tier rewards are multiplied by 0.1 before prestige, retaining fractional values. The attitude used for reputation is capped at `value_rating / 5 + .15`: a pleasant round cannot fully erase poor value. Existing milestone and tournament rewards are separate. This slows a new club's rise to maximum reputation and ties recommendations to the price paid.
 
 ---
 

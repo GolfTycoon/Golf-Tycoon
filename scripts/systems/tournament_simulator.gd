@@ -17,10 +17,10 @@ class SimulationGolfer:
 	var id: int = 0
 	var name: String = ""
 	var tier: int = GolferTier.Tier.SERIOUS
-	var driving_skill: float = 0.7
-	var accuracy_skill: float = 0.7
-	var putting_skill: float = 0.7
-	var recovery_skill: float = 0.7
+	var driving_ability: float = 0.7
+	var accuracy_ability: float = 0.7
+	var putting_ability: float = 0.7
+	var recovery_ability: float = 0.7
 	var miss_tendency: float = 0.0
 	var aggression: float = 0.5
 	var patience: float = 0.5
@@ -30,10 +30,10 @@ class SimulationGolfer:
 		var gd = ShotAI.GolferData.new()
 		gd.ball_position = ball_pos
 		gd.ball_position_precise = Vector2(ball_pos)
-		gd.driving_skill = driving_skill
-		gd.accuracy_skill = accuracy_skill
-		gd.putting_skill = putting_skill
-		gd.recovery_skill = recovery_skill
+		gd.driving_ability = driving_ability
+		gd.accuracy_ability = accuracy_ability
+		gd.putting_ability = putting_ability
+		gd.recovery_ability = recovery_ability
 		gd.miss_tendency = miss_tendency
 		gd.aggression = aggression
 		gd.patience = patience
@@ -42,15 +42,16 @@ class SimulationGolfer:
 		gd.total_par = total_par
 		return gd
 
+	## Build from a dict of playing abilities (0-1) plus miss tendency/personality.
 	static func from_skills(golfer_id: int, golfer_name: String, golfer_tier: int, skills: Dictionary, personality: Dictionary) -> SimulationGolfer:
 		var sg = SimulationGolfer.new()
 		sg.id = golfer_id
 		sg.name = golfer_name
 		sg.tier = golfer_tier
-		sg.driving_skill = skills.get("driving", 0.7)
-		sg.accuracy_skill = skills.get("accuracy", 0.7)
-		sg.putting_skill = skills.get("putting", 0.7)
-		sg.recovery_skill = skills.get("recovery", 0.7)
+		sg.driving_ability = skills.get("driving", 0.7)
+		sg.accuracy_ability = skills.get("accuracy", 0.7)
+		sg.putting_ability = skills.get("putting", 0.7)
+		sg.recovery_ability = skills.get("recovery", 0.7)
 		sg.miss_tendency = skills.get("miss_tendency", 0.0)
 		sg.aggression = personality.get("aggression", 0.5)
 		sg.patience = personality.get("patience", 0.5)
@@ -234,7 +235,7 @@ static func _simulate_hole(sim_golfer: SimulationGolfer, hole_data, hole_index: 
 		if current_terrain == TerrainTypes.Type.GREEN:
 			var putt_result = _calculate_putt_headless(
 				ball_precise, Vector2(hole_pos),
-				sim_golfer.putting_skill, sim_golfer.miss_tendency
+				sim_golfer.putting_ability, sim_golfer.miss_tendency
 			)
 			if putt_result.is_holed:
 				break  # Ball in hole
@@ -316,8 +317,8 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 
 	if club == Golfer.Club.PUTTER:
 		var putt_distance_ratio = clamp(distance_to_target / float(club_stats["max_distance"]), 0.0, 1.0)
-		var skill_floor_min = lerpf(0.50, 0.80, sim_golfer.putting_skill)
-		var skill_floor_max = lerpf(0.85, 0.95, sim_golfer.putting_skill)
+		var skill_floor_min = lerpf(0.50, 0.80, sim_golfer.putting_ability)
+		var skill_floor_max = lerpf(0.85, 0.95, sim_golfer.putting_ability)
 		var putt_floor = lerpf(skill_floor_max, skill_floor_min, putt_distance_ratio)
 		total_accuracy = max(total_accuracy, putt_floor)
 
@@ -429,7 +430,7 @@ static func _calculate_shot_headless(from: Vector2i, target: Vector2i, club: int
 ## Calculate a putt using the probability-based make model.
 ## Returns {landing_position, landing_precise, is_holed}.
 static func _calculate_putt_headless(from_precise: Vector2, hole_pos: Vector2,
-		putting_skill: float, _miss_tendency: float) -> Dictionary:
+		putting_ability: float, _miss_tendency: float) -> Dictionary:
 	var distance = from_precise.distance_to(hole_pos)
 	var direction = (hole_pos - from_precise).normalized() if distance > 0.001 else Vector2.ZERO
 	var perpendicular = Vector2(-direction.y, direction.x)
@@ -443,7 +444,7 @@ static func _calculate_putt_headless(from_precise: Vector2, hole_pos: Vector2,
 		}
 
 	# Probability-based make
-	var make_rate = GolfRules.get_putt_make_rate(distance, putting_skill)
+	var make_rate = GolfRules.get_putt_make_rate(distance, putting_ability)
 	if randf() < make_rate:
 		return {
 			"landing_position": Vector2i(hole_pos.round()),
@@ -452,7 +453,7 @@ static func _calculate_putt_headless(from_precise: Vector2, hole_pos: Vector2,
 		}
 
 	# Putt misses — calculate miss position
-	var miss_chars = GolfRules.get_putt_miss_characteristics(distance, putting_skill)
+	var miss_chars = GolfRules.get_putt_miss_characteristics(distance, putting_ability)
 	var distance_error = _gaussian_random() * miss_chars.distance_std + miss_chars.long_bias
 	var lateral_error = _gaussian_random() * miss_chars.lateral_std
 
@@ -461,11 +462,11 @@ static func _calculate_putt_headless(from_precise: Vector2, hole_pos: Vector2,
 	# Cap miss distance
 	var max_miss_from_hole: float
 	if distance < 0.15:
-		max_miss_from_hole = 0.03 + (1.0 - putting_skill) * 0.025
+		max_miss_from_hole = 0.03 + (1.0 - putting_ability) * 0.025
 	elif distance < 0.45:
-		max_miss_from_hole = 0.04 + (1.0 - putting_skill) * 0.05
+		max_miss_from_hole = 0.04 + (1.0 - putting_ability) * 0.05
 	else:
-		max_miss_from_hole = distance * (0.08 + (1.0 - putting_skill) * 0.12)
+		max_miss_from_hole = distance * (0.08 + (1.0 - putting_ability) * 0.12)
 
 	var miss_dist = landing.distance_to(hole_pos)
 	if miss_dist > max_miss_from_hole:
@@ -497,15 +498,15 @@ static func _gaussian_random() -> float:
 static func _get_shot_accuracy(sg: SimulationGolfer, club: int) -> float:
 	match club:
 		Golfer.Club.DRIVER:
-			return sg.driving_skill * 0.7 + sg.accuracy_skill * 0.3
+			return sg.driving_ability * 0.7 + sg.accuracy_ability * 0.3
 		Golfer.Club.FAIRWAY_WOOD:
-			return sg.driving_skill * 0.5 + sg.accuracy_skill * 0.5
+			return sg.driving_ability * 0.5 + sg.accuracy_ability * 0.5
 		Golfer.Club.IRON:
-			return sg.driving_skill * 0.4 + sg.accuracy_skill * 0.6
+			return sg.driving_ability * 0.4 + sg.accuracy_ability * 0.6
 		Golfer.Club.WEDGE:
-			return sg.accuracy_skill * 0.7 + sg.recovery_skill * 0.3
+			return sg.accuracy_ability * 0.7 + sg.recovery_ability * 0.3
 		Golfer.Club.PUTTER:
-			return sg.putting_skill
+			return sg.putting_ability
 		_:
 			return 0.5
 
@@ -589,9 +590,19 @@ static func generate_field(tier: int, field_size: int) -> Array:
 				golfer_tier = t_key
 				break
 
-		var skills = GolferTier.generate_skills(golfer_tier)
+		# Skills come from the golfer's Golf Skill points: roll an attribute
+		# block for the tier and derive the playable abilities from it.
+		var attrs := GolferAttributes.new()
+		attrs.generate_for_tier(golfer_tier)
+		var skills = {
+			"driving": attrs.driving_ability(),
+			"accuracy": attrs.accuracy_ability(),
+			"putting": attrs.putting_ability(),
+			"recovery": attrs.recovery_ability(),
+			"miss_tendency": GolferTier.generate_miss_tendency(golfer_tier),
+		}
 
-		# Apply skill floor per tournament tier
+		# Apply ability floor per tournament tier
 		var skill_floor = _get_skill_floor(tier)
 		skills.driving = maxf(skills.driving, skill_floor)
 		skills.accuracy = maxf(skills.accuracy, skill_floor)

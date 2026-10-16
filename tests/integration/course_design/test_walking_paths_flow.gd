@@ -5,6 +5,8 @@ extends MainSceneTest
 ## comes back with undo — and a golfer standing on it is drawn over it.
 
 const SAVE_NAME := "integration_walking_paths"
+## Tiles of trail the first test lays, the last of them against the clubhouse.
+const TRAIL_LENGTH := 4
 
 var grid: TerrainGrid
 ## The clubhouse's top-left footprint tile: where a new course puts it varies,
@@ -43,13 +45,51 @@ func _overlay() -> WalkingPathOverlay:
 	return grid.get_node("WalkingPathOverlay") as WalkingPathOverlay
 
 
+## A straight run of ground leading to the clubhouse's wall: TRAIL_LENGTH tiles
+## for the trail, nearest the wall last, and one more beyond them for the trail
+## to be refused on. Where a new course puts its clubhouse varies — it can
+## stand against the edge of the owned land, or have a tree standing where a
+## trail would run — so the run is looked for on each side in turn rather than
+## measured off the footprint and hoped for.
+func _run_up_to_the_clubhouse() -> Array[Vector2i]:
+	var clubhouse := CourseClubhouse.find(main.entity_layer)
+	for row in range(clubhouse.height):
+		for side in [Vector2i.LEFT, Vector2i.RIGHT]:
+			var wall_x: int = 0 if side == Vector2i.LEFT else clubhouse.width - 1
+			var wall: Vector2i = clubhouse.grid_position + Vector2i(wall_x, row)
+			var run: Array[Vector2i] = []
+			for step in range(TRAIL_LENGTH + 1, 0, -1):
+				run.append(wall + side * step)
+			if _is_buildable_ground(run):
+				return run
+	return [] as Array[Vector2i]
+
+
+## True when every tile is owned ground with nothing standing on it, which is
+## all _paint_walking_path_stamp() asks of a tile before it lays the trail.
+func _is_buildable_ground(tiles: Array[Vector2i]) -> bool:
+	for tile in tiles:
+		if not grid.is_valid_position(tile):
+			return false
+		if not GameManager.land_manager.is_tile_owned(tile):
+			return false
+		if main.entity_layer.is_tile_occupied_by_building(tile) \
+				or main.entity_layer.is_tile_occupied_by_decoration(tile):
+			return false
+	return true
+
+
 func test_a_trail_is_painted_paved_saved_bulldozed_and_undone() -> void:
-	# Four tiles leading west to the clubhouse; the last one touches it.
-	var trail: Array[Vector2i] = []
-	for step in range(-4, 0):
-		trail.append(_near_clubhouse(Vector2i(step, 1)))
-	var touching := trail[3]
-	var refusing := _near_clubhouse(Vector2i(-5, 1))
+	# Four tiles leading to the clubhouse; the last one touches it. The fifth,
+	# furthest out, is the ground the trail will be refused on.
+	var run := _run_up_to_the_clubhouse()
+	assert_eq(run.size(), TRAIL_LENGTH + 1,
+		"A new course leaves a run of owned ground beside its clubhouse")
+	if run.size() != TRAIL_LENGTH + 1:
+		return
+	var refusing := run[0]
+	var trail: Array[Vector2i] = run.slice(1)
+	var touching := trail[TRAIL_LENGTH - 1]
 	var detached := [_near_clubhouse(Vector2i(6, -11)), _near_clubhouse(Vector2i(7, -11))]
 
 	# Select the Path tool the way the toolbar does.
@@ -72,7 +112,7 @@ func test_a_trail_is_painted_paved_saved_bulldozed_and_undone() -> void:
 	for tile in trail:
 		assert_true(grid.has_walking_path(tile), "%s carries the trail" % tile)
 		assert_eq(grid.get_tile(tile), TerrainTypes.Type.ROUGH, "%s is still rough underneath" % tile)
-	assert_eq(GameManager.money, money_before - 4 * 8, "Four trail tiles cost $32")
+	assert_eq(GameManager.money, money_before - TRAIL_LENGTH * 8, "Four trail tiles cost $32")
 
 	# Unhostable ground refuses the trail, and charges nothing.
 	var money_now := GameManager.money

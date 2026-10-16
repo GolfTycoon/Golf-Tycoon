@@ -143,7 +143,6 @@ const ELEVATION_BRUSH_NOTCH_SLOT := 1
 ## tall, so their single row fills the same page height as the two interlocking
 ## course rows and the toolbar never changes height with the tab.
 const ELEVATION_V_PADDING := 15
-const MAX_RECENT_ROUNDS := 30
 ## Paint-brush sizes in tiles. Same 1×1 through 9×9 steps as the Elevation Brush.
 const BRUSH_SIZES: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 ## Brush controls pinned to the Course Terrain page's bottom-left corner: a
@@ -161,17 +160,12 @@ const BRUSH_DOCK_TOOLTIP := "Paint brush: shape, size, smaller and bigger. Stays
 ## the tab grows along the axis the page already scrolls on and never past the
 ## bottom bar's height.
 const HOLE_COLUMN_HEIGHT := 3
-## Golfers on the course stack four deep per column, for the same reason: the
+## Golfers on the course stack three deep per column, for the same reason: the
 ## columns run off to the right where the page scrolls, so a busy course grows
 ## sideways instead of downwards past the bottom bar's height.
-const GOLFER_COLUMN_HEIGHT := 4
+const GOLFER_COLUMN_HEIGHT := 3
 const GOLFER_COLUMN_GAP := 10  # Between two columns of golfers
 const GOLFER_ROW_GAP := 4  # Between two golfers in the same column
-## Recent rounds stack six deep per column — they are one-line labels, so six of
-## them still sit under the tab bar while the columns run off to the right.
-const RECENT_ROUND_COLUMN_HEIGHT := 6
-const RECENT_ROUND_COLUMN_GAP := 14  # Between two columns of rounds
-const RECENT_ROUND_ROW_GAP := 4  # Between two rounds in the same column
 const OPEN_HOLE_TOOLTIP := "Pair the waiting tee box with the waiting green with a hole"
 const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unused green with a hole"
 ## What the Bulldozer removes — improvements and buildings only. Course
@@ -219,9 +213,11 @@ var _tee_tile_button: TerrainTileButton = null
 var _green_places_cup := true
 var _tee_box_can_place: bool = true
 var _tee_box_blocker: String = ""
-var _active_golfers_box: HBoxContainer = null  # Shelf of columns, four golfers deep
-var _recent_rounds_box: HBoxContainer = null  # Shelf of columns, six rounds deep
-var _recent_rounds: Array[Dictionary] = []
+var _visitor_shelf: HBoxContainer = null  # Active golfers first, followed by past visitors
+var _visitor_archive: Dictionary = {}
+var _visitor_register: HBoxContainer
+var _visitor_detail: HBoxContainer
+var _selected_visitor := ""
 var player_tab: PlayerTab
 var _building_registry: Dictionary = {}
 var _building_shelf: TileHoneycomb = null
@@ -973,43 +969,19 @@ func layout_hole_buttons() -> void:
 				slot += 1
 
 func _build_golfers_tab(hbox: HBoxContainer) -> void:
-	var on_course_group = VBoxContainer.new()
-	on_course_group.add_theme_constant_override("separation", 2)
-	on_course_group.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	var lbl1 = Label.new()
-	lbl1.text = "ON THE COURSE"
-	lbl1.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	lbl1.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	on_course_group.add_child(lbl1)
-
-	_active_golfers_box = HBoxContainer.new()
-	_active_golfers_box.name = "ActiveGolfersShelf"
-	# The gap between columns: the rows inside a column keep their own tighter
-	# rhythm, so this is the breathing room that tells two columns apart.
-	_active_golfers_box.add_theme_constant_override("separation", GOLFER_COLUMN_GAP)
-	_active_golfers_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	on_course_group.add_child(_active_golfers_box)
-	hbox.add_child(on_course_group)
-
-	hbox.add_child(_make_separator())
-
-	var recent_group = VBoxContainer.new()
-	recent_group.add_theme_constant_override("separation", 2)
-	recent_group.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	var lbl2 = Label.new()
-	lbl2.text = "RECENT ROUNDS"
-	lbl2.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	lbl2.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	recent_group.add_child(lbl2)
-
-	_recent_rounds_box = HBoxContainer.new()
-	_recent_rounds_box.name = "RecentRoundsShelf"
-	_recent_rounds_box.add_theme_constant_override("separation", RECENT_ROUND_COLUMN_GAP)
-	_recent_rounds_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	recent_group.add_child(_recent_rounds_box)
-	hbox.add_child(recent_group)
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 6)
+	hbox.add_child(page)
+	_visitor_register = HBoxContainer.new()
+	_visitor_register.add_theme_constant_override("separation", 16)
+	page.add_child(_visitor_register)
+	_visitor_detail = HBoxContainer.new()
+	_visitor_detail.add_theme_constant_override("separation", 14)
+	page.add_child(_visitor_detail)
+	_visitor_shelf = HBoxContainer.new()
+	_visitor_shelf.name = "VisitingGolfersShelf"
+	_visitor_shelf.add_theme_constant_override("separation", GOLFER_COLUMN_GAP)
+	_visitor_register.add_child(_visitor_shelf)
 
 func _build_player_tab(hbox: HBoxContainer) -> void:
 	player_tab = PlayerTab.new()
@@ -1489,42 +1461,43 @@ func _on_refresh_tick() -> void:
 # =============================================================================
 
 func record_completed_round(data: Dictionary) -> void:
-	_recent_rounds.push_front(data)
-	if _recent_rounds.size() > MAX_RECENT_ROUNDS:
-		_recent_rounds.resize(MAX_RECENT_ROUNDS)
+	_visitor_archive[str(data.get("name", "Golfer"))] = data.duplicate(true)
 	if is_visible_in_tree() and current_tab == Tab.GOLFERS:
 		_refresh_golfer_lists()
 
 func _refresh_golfer_lists() -> void:
-	if _active_golfers_box == null or _recent_rounds_box == null:
+	if _visitor_shelf == null:
 		return
 
 	# The old columns leave their shelves straight away. A child waiting on
 	# queue_free() is still in the tree, so it would still take up shelf space
 	# and sit beside the fresh columns until the end of the frame.
-	_clear_shelf(_active_golfers_box)
-	_clear_shelf(_recent_rounds_box)
+	_clear_shelf(_visitor_shelf)
 
 	var rows: Array = []
 	if golfer_data_provider.is_valid():
 		rows = golfer_data_provider.call()
 
+	var active_names: Dictionary = {}
+	for row_data in rows:
+		var visitor_name := str(row_data.get("name", "Golfer"))
+		active_names[visitor_name] = true
+		var snapshot: Dictionary = _visitor_archive.get(visitor_name, {}).duplicate(true)
+		snapshot.merge(row_data, true)
+		_visitor_archive[visitor_name] = snapshot
+	_visitor_register.visible = _selected_visitor.is_empty()
+	_visitor_detail.visible = not _selected_visitor.is_empty()
+	if not _selected_visitor.is_empty():
+		_show_visitor(_selected_visitor, active_names.has(_selected_visitor))
 	var golfer_rows: Array[Control] = []
-	if rows.is_empty():
-		golfer_rows.append(_make_empty_label("No golfers on the course."))
-	else:
-		for row_data in rows:
-			golfer_rows.append(_make_golfer_row(row_data))
-	_stack_in_columns(_active_golfers_box, golfer_rows, GOLFER_COLUMN_HEIGHT, GOLFER_ROW_GAP)
-
-	var round_rows: Array[Control] = []
-	if _recent_rounds.is_empty():
-		round_rows.append(_make_empty_label("No rounds played yet."))
-	else:
-		for round_data in _recent_rounds:
-			round_rows.append(_make_round_row(round_data))
-	_stack_in_columns(_recent_rounds_box, round_rows, RECENT_ROUND_COLUMN_HEIGHT,
-		RECENT_ROUND_ROW_GAP)
+	for row_data in rows:
+		golfer_rows.append(_make_golfer_row(row_data))
+	for visitor_name in _visitor_archive:
+		if not active_names.has(visitor_name):
+			golfer_rows.append(_make_visitor_card(_visitor_archive[visitor_name], false))
+	if golfer_rows.is_empty():
+		golfer_rows.append(_make_empty_label("Your next regular starts here.\nGolfers will appear when they visit your course."))
+	_stack_in_columns(_visitor_shelf, golfer_rows, GOLFER_COLUMN_HEIGHT, GOLFER_ROW_GAP)
 
 ## Take every column off a shelf. The columns are only removed here and freed at
 ## the end of the frame, so a refresh can never free a row out from under a
@@ -1558,67 +1531,115 @@ func _make_empty_label(text: String) -> Label:
 	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	return label
 
+func _visitor_label(text: String, color := Color("e4e7d5")) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", color)
+	return label
+
+func _visitor_button(text: String, accent: Color) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.add_theme_font_size_override("font_size", 12)
+	PixelButtonStyle.paint_card(button, accent, 0, 6, Color("e4e7d5"), Color.WHITE)
+	return button
+
 func _make_golfer_row(row_data: Dictionary) -> Control:
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var mood: float = row_data.get("mood", 0.5)
-	var mood_dot = Label.new()
-	mood_dot.text = "●"
-	mood_dot.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	if mood >= 0.66:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_HAPPY)
-	elif mood >= 0.33:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_NEUTRAL)
-	else:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_UNHAPPY)
-	mood_dot.tooltip_text = "Mood: %d%%" % int(mood * 100)
-	row.add_child(mood_dot)
-
-	var golfer_btn = Button.new()
-	golfer_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	golfer_btn.clip_text = false
-	golfer_btn.custom_minimum_size = Vector2(0, 26)
-	golfer_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	golfer_btn.text = "%s (%s) · H%d · %d str" % [
-		row_data.get("name", "Golfer"),
-		GolferTier.get_tier_name(row_data.get("tier", 1)),
-		row_data.get("hole", 1),
-		row_data.get("strokes", 0),
-	]
-	golfer_btn.tooltip_text = "%s (%s) on Hole %d (%d strokes) - Click to follow" % [
-		row_data.get("name", "Golfer"),
-		GolferTier.get_tier_name(row_data.get("tier", 1)),
-		row_data.get("hole", 1),
-		row_data.get("strokes", 0),
-	]
-	golfer_btn.pressed.connect(_on_golfer_row_pressed.bind(row_data.get("id", -1)))
-	row.add_child(golfer_btn)
-	return row
+	return _make_visitor_card(row_data, true)
 
 func _make_round_row(round_data: Dictionary) -> Control:
-	var diff: int = int(round_data.get("strokes", 0)) - int(round_data.get("par", 0))
-	var label = Label.new()
-	label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	var round_day: int = int(round_data.get("day", 1))
-	label.text = "%s%s: %d (%s%d) · %s" % [
-		"★ " if round_data.get("owner", false) else "",
-		round_data.get("name", "Golfer"),
-		round_data.get("strokes", 0),
-		"+" if diff > 0 else "",
-		diff,
-		GameCalendar.format_date_short(round_day),
-	]
-	label.add_theme_color_override("font_color", UIConstants.get_score_color(diff))
-	label.tooltip_text = "%s's round (%s) on %s: %d strokes (%+d)" % [
-		round_data.get("name", "Golfer"),
-		GolferTier.get_tier_name(round_data.get("tier", 1)),
-		GameCalendar.format_date(round_day),
-		round_data.get("strokes", 0),
-		diff,
-	]
-	return label
+	return _make_visitor_card(round_data, false)
+
+func _make_visitor_card(data: Dictionary, active: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var accent := Color("83c9a4") if active else Color("b5a477")
+	var portrait := VisitorPortrait.new()
+	portrait.texture = data.get("portrait")
+	row.add_child(portrait)
+	var name_text := str(data.get("name", "Golfer"))
+	var subtitle := "PLAYING  /  H%02d  /  %d strokes" % [data.get("hole", 1), data.get("strokes", 0)] if active else "PAST VISITOR  /  %d strokes" % data.get("strokes", 0)
+	var button := _visitor_button(name_text + "\n" + subtitle, accent)
+	button.custom_minimum_size = Vector2(260, 44)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.tooltip_text = "View %s's profile" % name_text
+	button.pressed.connect(func():
+		_selected_visitor = name_text
+		_refresh_golfer_lists())
+	row.add_child(button)
+	if active:
+		var locate := _visitor_button("Locate", Color("87b9cf"))
+		locate.custom_minimum_size.y = 44
+		locate.tooltip_text = "Center the camera on " + name_text
+		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
+		row.add_child(locate)
+	return row
+
+func _show_visitor(visitor_name: String, active: bool) -> void:
+	_clear_shelf(_visitor_detail)
+	var data: Dictionary = _visitor_archive.get(visitor_name, {})
+	var back := _visitor_button("< Guest register", Color("e2c681"))
+	back.pressed.connect(func():
+		_selected_visitor = ""
+		_refresh_golfer_lists())
+	_visitor_detail.add_child(back)
+	var portrait := VisitorPortrait.new()
+	portrait.texture = data.get("portrait")
+	_visitor_detail.add_child(portrait)
+	var identity := VBoxContainer.new()
+	_visitor_detail.add_child(identity)
+	identity.add_child(_visitor_label(visitor_name, Color("e2c681")))
+	identity.add_child(_visitor_label(GolferTier.get_tier_name(data.get("tier", 1))))
+	identity.add_child(_visitor_label("ON THE COURSE" if active else "PAST VISITOR", Color("83c9a4")))
+	identity.add_child(_visitor_label("Strokes: %d" % data.get("strokes", 0)))
+	if active:
+		identity.add_child(_visitor_label("Hole: %d  /  Attitude: %d%%" % [data.get("hole", 1), int(float(data.get("attitude", 0.5)) * 100)]))
+		var locate := _visitor_button("Locate golfer", Color("87b9cf"))
+		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
+		identity.add_child(locate)
+	elif data.has("day"):
+		identity.add_child(_visitor_label("Last round: " + GameCalendar.format_date_short(data.day)))
+		var diff := int(data.get("strokes", 0)) - int(data.get("par", 0))
+		identity.add_child(_visitor_label("Score: %+d to par" % diff, UIConstants.get_score_color(diff)))
+	for section in data.get("profile", []):
+		var lines: Array = section.get("lines", [])
+		var column: VBoxContainer
+		# Short, horizontally scrolling columns keep the dock's height fixed.
+		for index in maxi(lines.size(), 1):
+			if index % 4 == 0:
+				column = VBoxContainer.new()
+				column.custom_minimum_size.x = 230
+				column.add_theme_constant_override("separation", 4)
+				var scroll := ScrollContainer.new()
+				scroll.custom_minimum_size = Vector2(290, 150)
+				scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+				_visitor_detail.add_child(scroll)
+				column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				scroll.add_child(column)
+				column.add_child(_visitor_label(str(section.get("title", "Profile")) + (" (continued)" if index > 0 else ""), Color("87b9cf")))
+			if index < lines.size():
+				var label := _visitor_label(str(lines[index]))
+				label.custom_minimum_size.x = 260
+				label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				column.add_child(label)
+		var meters: Dictionary = section.get("meters", {})
+		for meter_name in meters:
+			var row := HBoxContainer.new()
+			column.add_child(row)
+			var label := _visitor_label("%s: %d%%" % [meter_name, int(float(meters[meter_name]) * 100)])
+			label.custom_minimum_size.x = 110
+			row.add_child(label)
+			var bar := ProgressBar.new()
+			bar.custom_minimum_size = Vector2(100, 12)
+			bar.max_value = 1.0
+			bar.value = float(meters[meter_name])
+			bar.show_percentage = false
+			row.add_child(bar)
+
+func show_visitor_profile(visitor_name: String) -> void:
+	_selected_visitor = visitor_name
+	select_tab(Tab.GOLFERS)
 
 func _on_golfer_row_pressed(golfer_id: int) -> void:
 	if golfer_id >= 0:

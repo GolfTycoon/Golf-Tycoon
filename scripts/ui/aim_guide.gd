@@ -14,6 +14,11 @@ class_name AimGuide
 ## draw share the standard profile; Backspin gets a higher arc and short reverse
 ## roll; Punch gets a low arc and longer forward roll. The faint ground reference,
 ## bright flight stroke, dotted rollout and carry marker all use one line color.
+##
+## Those profile values are the guide's contract with the rest of the UI: the
+## shot-type buttons' legends (`ShotShapeDiagram`) are built from the same roll
+## ratios, arc multipliers and bend factor, so the picture on a button and the
+## guide that shot draws on the course cannot drift apart.
 
 const GUIDE_Z_INDEX := 10
 
@@ -27,6 +32,10 @@ const BEND_FACTOR := 0.06
 const STANDARD_ROLL_RATIO := 0.08
 const BACKSPIN_ROLL_RATIO := -0.05
 const PUNCH_ROLL_RATIO := 0.12
+## Arc height multiplier per shot shape: backspin lofts the flight, punch
+## flattens it. Matches the `arc_scale` `Golfer.preview_shot()` reports.
+const BACKSPIN_ARC_SCALE := 1.4
+const PUNCH_ARC_SCALE := 0.3
 const MAX_BACKSPIN_ROLL_TILES := 1.5
 const ROLL_SAMPLE_SPACING_TILES := 0.5
 
@@ -100,7 +109,7 @@ static func build_geometry(grid: TerrainGrid, aim_preview: Dictionary,
 		return {}
 
 	var shape := _shape_for_preview(aim_preview)
-	var roll_ratio := _roll_ratio_for_shape(shape)
+	var roll_ratio := roll_ratio_for_shape(shape)
 	# `roll_ratio` is roll/carry. For backspin, the selected rest is behind the
 	# carry point, so the nominal carry is placed just beyond the target anchor.
 	var guide_roll_tiles := grid_distance * absf(roll_ratio) / (1.0 + roll_ratio)
@@ -187,7 +196,12 @@ static func _shape_for_preview(aim_preview: Dictionary) -> int:
 		return 3
 	return 0
 
-static func _roll_ratio_for_shape(shape: int) -> float:
+## The guide's rollout profile for a shot shape (0 straight, 1 fade, 2 draw,
+## 3 high backspin, 4 low punch), as roll/carry: a short run forward, a longer
+## run for the punch, and a reversal for backspin. Shared with the shot-type
+## buttons' `ShotShapeDiagram`, so the legend on a button and the guide on the
+## course always roll the same way.
+static func roll_ratio_for_shape(shape: int) -> float:
 	match shape:
 		3:
 			return BACKSPIN_ROLL_RATIO
@@ -196,13 +210,22 @@ static func _roll_ratio_for_shape(shape: int) -> float:
 		_:
 			return STANDARD_ROLL_RATIO
 
+## The guide's arc height multiplier for a shot shape: backspin lofts the
+## flight, punch flattens it, everything else keeps the standard bell curve.
+## Shared with `ShotShapeDiagram` for the same reason as the roll profile.
+static func arc_scale_for_shape(shape: int) -> float:
+	match shape:
+		3:
+			return BACKSPIN_ARC_SCALE
+		4:
+			return PUNCH_ARC_SCALE
+		_:
+			return 1.0
+
 static func _arc_scale_for_shape(aim_preview: Dictionary, shape: int) -> float:
 	if aim_preview.has("shape"):
-		if shape == 3:
-			return 1.4
-		if shape == 4:
-			return 0.3
-		return 1.0
+		return arc_scale_for_shape(shape)
+	# Older previews carry the multiplier instead of the shape.
 	return float(aim_preview.get("arc_scale", 1.0))
 
 ## Cosmetic mid-flight wind drift on the guide's flat-plane path. Excluding

@@ -1,39 +1,45 @@
-# Golfer Needs System
+# Golfer Needs and Statuses
 
-> **Source:** `scripts/systems/golfer_needs.gd`, integrated via `scripts/entities/golfer.gd`
+> **Source:** `scripts/systems/golfer_attributes.gd` (`GolferAttributes` status simulation), integrated via `scripts/entities/golfer.gd`
 
 ## Plain English
 
-The golfer needs system tracks five explicit needs for each golfer during their round: **energy**, **comfort**, **hunger**, **thirst**, and **pace satisfaction**. Each need starts at 1.0 (fully satisfied) and decays as the golfer plays holes and waits for their turn.
+The golfer status simulation lives on the golfer's attribute block ([Golfer Attributes](golfer-attributes.md)). Every golfer carries five **Golfer Statuses** - **Fun, Attitude, Energy, Hunger, Thirst** - and each one starts the course at 50%. Two internal course-flow trackers that are not golfer statuses also ride along: **comfort** (the need for a restroom) and **pace** (how stuck the golfer feels in traffic). Both start full and push Fun and Attitude around when they drop.
 
 ### How It Works
 
-Needs decay naturally as golfers play:
-- **Energy** drops after each hole (walking the course is tiring)
-- **Comfort** drops after each hole (need for restroom facilities)
-- **Hunger** drops after each hole (the slowest decay)
-- **Thirst** drops after each hole; snack bars and pubs take the edge off, but drinks vendors are the real answer
-- **Pace** drops when golfers are idle waiting for their turn, modified by their patience trait
+Statuses decay as golfers play:
 
-When a need drops below the **low threshold** (0.30), the golfer may show a thought bubble complaint (e.g., "Getting tired...", "Need a restroom!"). When a need drops below the **critical threshold** (0.15), the golfer takes a one-time mood penalty. Both feedback triggers and mood penalties reset when a building visit restores the need above the respective threshold, allowing them to fire again if the need drops again.
+- **Energy** goes down while the golfer is on the course and goes up when using a bench. Active golfers tire more slowly; the Resort Hotel sends guests out rested (0.6x decay).
+- **Hunger** goes down while the golfer is on the course and goes up when using a Snack Bar (a Pub feeds them properly).
+- **Thirst** goes down while the golfer is on the course and goes up when using a Drink Vendor (snack bars and pubs take the edge off).
+- **Fun** is based on the accumulation of the golfer's comments made while playing your course (Positive comments add to it, Negative ones subtract) - and waiting in traffic is no fun either.
+- **Attitude** is based on the amount of fun the golfer is having at your resort: it settles toward Fun after every comment, hole and wait, and service shocks (greeters, marshals, drinks) adjust it directly.
+- **Comfort** drops after each hole (need for a restroom; the clubhouse visit restores it). **Pace** drops when golfers wait on groups ahead, modified by their patience - normal turns within a group do not count.
 
-### Buildings Satisfy Needs
+When a status drops below the **low threshold** (0.30), the golfer may make a complaint comment (e.g. "Getting tired...", "Need a drink"). When it drops below the **critical threshold** (0.15), the golfer takes a one-time Attitude penalty. Both fire once per episode and reset when an amenity restores the status above the threshold.
 
-Buildings placed on the course restore specific needs when a golfer walks within range:
-- **Bench** (park bench improvement): Restores energy (+0.20)
-- **Snack Bar**: Restores hunger (+0.30) and a little thirst (+0.20)
-- **Pub**: Restores hunger (+0.50) and a little thirst (+0.25)
-- **Putting Green, Pro Shop, Driving Range**: Practice visits lift mood (+0.03)
-- **Cart Garage**: Renting a cart lifts mood (+0.02) and boosts the golfer's walking speed for the round
-- **Clubhouse**: Small boost to all needs (+0.15 each) at end of round
+### Buildings Satisfy Statuses
 
-Other facilities work before the round starts: the **Tennis Court, Stable, Spa and Swim Club** start every golfer in a better mood, the **Resort Hotel** starts every golfer with more stamina (energy drains 0.6x as fast), and the **Airstrip, Castle, Casino and Theme Park** boost the green fee per hole.
+Buildings placed on the course restore specific statuses when a golfer walks within range and decides to stop:
 
-This creates a strategic incentive: players must place amenity buildings along the course to keep golfers happy during long rounds. On-course staff do the rest: **greeters** lift mood, **marshals** restore pace, and **drinks vendors** quench thirst — see [staff-and-weeds.md](../economy-and-land/staff-and-weeds.md).
+| Building | Status | Restore | Attitude boost |
+| --- | --- | --- | --- |
+| Bench | Energy | +0.20 | +0.02 |
+| Snack Bar | Hunger (+Thirst) | +0.30 (+0.20) | +0.03 |
+| Pub | Hunger (+Thirst) | +0.50 (+0.25) | +0.05 |
+| Putting Green, Pro Shop, Driving Range | Fun | +0.03 | +0.03 |
+| Cart Garage | Fun | +0.02 | +0.02 |
+| Clubhouse | All | +0.15 each | +0.03 |
+
+Other facilities work before the round starts: the **Tennis Court, Stable, Spa and Swim Club** start every golfer with a better Attitude, and the **Resort Hotel** starts every golfer with more stamina (Energy drains 0.6x as fast).
+
+On-course staff do the rest: **greeters** lift Attitude (Outgoing golfers enjoy it more), **marshals** restore pace, and **drinks vendors** quench Thirst - see [staff-and-weeds.md](../economy-and-land/staff-and-weeds.md).
 
 ### Tier Differences
 
-Higher-tier golfers are more demanding — their needs decay faster:
+Higher-tier golfers are more demanding - their statuses decay faster:
+
 - Beginners: 0.8x decay rate (resilient)
 - Casual: 1.0x (baseline)
 - Serious: 1.1x (slightly demanding)
@@ -41,159 +47,116 @@ Higher-tier golfers are more demanding — their needs decay faster:
 
 ### Patience and Pace
 
-The golfer's patience trait (set by tier) directly affects how fast pace satisfaction drops during waits. Impatient golfers (pros, patience ~0.3) lose pace satisfaction 2.5x faster than patient golfers (beginners/retirees, patience ~0.9).
+The golfer's patience (set by tier) directly affects how fast pace drops during waits. Impatient golfers (pros, patience ~0.3) lose pace 2.5x faster than patient golfers (beginners/retirees, patience ~0.9). Normal play restores pace at 0.0008 per simulation second; a marshal's nudge restores a chunk at once.
 
 ### Walking at accelerated simulation speeds
 
-Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. Clamping the step prevents an accelerated frame from overshooting and oscillating across a waypoint. Reaching the final waypoint returns immediately after the state transition so walking animation cannot overwrite the arrival state.
+Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. The step is the golfer's walk speed times the ground rate underfoot (`TerrainGrid.walk_speed_modifier_at()`: dirt 1.25x, 1.5x once the trail reaches the clubhouse) and, for Active golfers, times their 1.15x walking multiplier.
 
-The step is taken at `walk_speed` times the rate of the ground underfoot: `TerrainGrid.walk_speed_modifier_at()` folds the terrain's own rate together with any walking path laid on it (dirt 1.25x, 1.5x once the trail reaches the clubhouse), so a golfer sent across the course on a trail arrives sooner and drains pace over a shorter walk. Routes prefer a trail whenever it is no more than a moment slower than walking straight there — see [Walking Paths](../course-design/walking-paths.md).
+### Amenities and traffic
 
-### Amenities
-
-A nearby park bench restores energy once per visit when energy is below 0.7. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. Pausing the game also pauses golfer processing.
-
-### Physical amenity visits and traffic
-
-Normal turns within a golfer's own group no longer drain pace. The golfer manager marks a group as traffic-blocked only when its next player is ready but an earlier group prevents a safe shot. Those waiting seconds reduce pace; normal play restores pace at 0.0008 per simulation second. A marshal reduces the effective waiting penalty by the ratio `0.6 / staff_pace_modifier` (20% reduction with one marshal).
-
-A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. They find the nearest accessible perimeter tile with a clear approach, walk to it, receive the need benefit and pay on arrival, pause for four seconds with a visible activity caption, and walk back to resume their route. No accessible approach means no visit or charge. Each walking leg has a timeout so an obstructed approach cannot stall a group forever. Park benches use the same visit path for rest. Service counts and income are recorded separately from green fees.
-
-The golfer panel converts accumulated waiting seconds to game-clock minutes using `seconds * 60 / SECONDS_PER_GAME_HOUR`. Raw playtest `traffic_minutes` telemetry remains simulation seconds divided by 60; it is not wall time at accelerated speed.
+A golfer considers nearby services once per hole until they choose a visit, and uses each chosen facility at most once per round. Functional amenity use pauses the golfer for four simulation seconds so the visit is visible. The golfer manager marks a group as traffic-blocked only when its next player is ready but an earlier group prevents a safe shot; those waiting seconds reduce pace and Fun. A marshal reduces the effective waiting penalty by the ratio `0.6 / staff_pace_modifier`.
 
 ---
 
 ## Algorithm
 
-### 1. Need Decay Per Hole
+### 1. Status Decay Per Hole
 
 ```
 tier_modifier = { BEGINNER: 0.8, CASUAL: 1.0, SERIOUS: 1.1, PRO: 1.3 }
 
 on_hole_completed():
-    energy  -= 0.08 * tier_modifier    # Low after ~12 holes (beginner) or ~9 holes (pro)
-    comfort -= 0.06 * tier_modifier    # Low after ~16 holes (beginner) or ~12 holes (pro)
-    hunger  -= 0.05 * tier_modifier    # Low after ~20 holes (beginner) or ~15 holes (pro)
-    thirst  -= 0.07 * tier_modifier    # Low after ~14 holes (beginner) or ~11 holes (pro)
+    energy  -= 0.018 * tier_modifier * hotel_modifier * active_modifier
+    hunger  -= 0.012 * tier_modifier    # Low after ~17 holes (casual)
+    thirst  -= 0.015 * tier_modifier    # Low after ~13 holes (casual)
+    comfort -= 0.06  * tier_modifier    # Internal restroom need
+    attitude += (fun - attitude) * 0.3
 ```
 
-### 2. Pace Decay (Waiting)
+### 2. Waiting (Traffic)
 
 ```
 on_waiting(wait_seconds):
     patience_modifier = 1.0 + (1.0 - patience) * 1.5
-    # Patient (0.9):   modifier = 1.15
-    # Impatient (0.3):  modifier = 2.05
-
     pace -= wait_seconds * 0.003 * patience_modifier
+    fun  -= wait_seconds * 0.0012 * (0.75 if Nice else 1.0)
 ```
 
-Pace is checked in 5-second chunks during the golfer's `_process()` loop to avoid per-frame overhead.
+Pace is checked in 5-second chunks during the golfer's `_process()` loop.
 
-### 3. Building Interaction Chance
-
-When a golfer walks within a building's `effect_radius`, they don't automatically stop — they roll against an **interaction chance** based on how much they need that building. This prevents revenue spam from placing many buildings and makes need levels matter for building placement strategy.
+### 3. Comments -> Fun
 
 ```
-relevant_need = need mapped to building type (bench→energy, snack_bar/pub→hunger)
-
-if relevant_need < 0.30:  interaction_chance = 1.00   # Desperate — always stop
-elif relevant_need < 0.70: interaction_chance = 0.50   # Could use it — coin flip
-else:                      interaction_chance = 0.20   # Doing fine — usually walk past
-
-# Buildings with no need mapping (pro_shop, practice facilities): flat 0.30 base chance
+record_comment(text, sentiment):
+    positive: fun += 0.02 * (1.5 if Playful else 1.0)
+    neutral:  fun += 0.002
+    negative: fun -= 0.02 * (0.7 if Nice else 1.0)
+    attitude += (fun - attitude) * 0.3
 ```
 
-Golfers do NOT pathfind to buildings — they only interact when they happen to walk within proximity range. The interaction check is one-time-per-round per building (tracked via `_visited_buildings`).
+### 4. Building Interaction Chance
 
-### 4. Building Need Restoration
+```
+relevant_status = status mapped to building type (bench→energy, snack_bar/pub→hunger)
 
-| Building | Need | Restore Amount | Mood Boost |
+if relevant_status < 0.30:  interaction_chance = 1.00   # Desperate - always stop
+elif relevant_status < 0.70: interaction_chance = 0.50   # Could use it - coin flip
+else:                        interaction_chance = 0.20   # Doing fine - usually walk past
+
+# Buildings with no status mapping (pro_shop, practice facilities): flat 0.30
+```
+
+Golfers do NOT pathfind to buildings - they only interact when they happen to walk within proximity range, at most once per round per building.
+
+### 5. Complaint Comments (Low Statuses)
+
+| Status | Trigger | Threshold | Messages |
 | --- | --- | --- | --- |
-| Bench | Energy | +0.20 | +0.02 |
-| Restroom | Comfort | +0.35 | +0.05 |
-| Snack Bar | Hunger | +0.30 | +0.03 |
-| Restaurant | Hunger | +0.50 | +0.05 |
-| Clubhouse | All | +0.15 each | +0.03 |
+| Energy < 0.30 | TIRED | LOW_NEED_THRESHOLD | "Getting tired...", "Need a break", etc. |
+| Comfort < 0.30 | NEEDS_RESTROOM | LOW_NEED_THRESHOLD | "Need a restroom!", etc. |
+| Hunger < 0.30 | HUNGRY | LOW_NEED_THRESHOLD | "Getting hungry...", etc. |
+| Thirst < 0.30 | THIRSTY | LOW_NEED_THRESHOLD | "So thirsty...", etc. |
+| Pace < 0.30 | SLOW_PACE | LOW_NEED_THRESHOLD | "Slow play...", "C'mon!", etc. |
 
-Restoration only happens when the golfer decides to interact (passes the chance roll above). Clubhouse interaction happens at end of round and is always guaranteed.
+Each fires at most once per episode and is recorded as a Negative comment on the golfer (see [Golfer Attributes](golfer-attributes.md)).
 
-### 4. Feedback Triggers
+### 6. Attitude Penalties (Critical Statuses)
 
-| Need | Trigger Type | Threshold | Probability | Messages |
-| --- | --- | --- | --- | --- |
-| Energy < 0.30 | TIRED | LOW_NEED_THRESHOLD | 70% | "Getting tired...", "Need a break", etc. |
-| Comfort < 0.30 | NEEDS_RESTROOM | LOW_NEED_THRESHOLD | 70% | "Need a restroom!", "Where's the restroom?", etc. |
-| Hunger < 0.30 | HUNGRY | LOW_NEED_THRESHOLD | 60% | "Getting hungry...", "Need a snack", etc. |
-| Pace < 0.30 | SLOW_PACE | LOW_NEED_THRESHOLD | 70% | "Slow play...", "C'mon!", etc. |
+Each fires once per critical episode (-0.05 Energy, -0.05 Comfort, -0.03 Hunger, -0.04 Thirst, -0.08 Pace) and resets when the status recovers above the critical threshold.
 
-Each trigger fires at most once per low-need episode (tracked by `_triggered_low_*` flags). Flags reset when a building visit restores the need above `LOW_NEED_THRESHOLD`, so the trigger can fire again if the need drops again later in the round.
-
-### 5. Mood Penalties (Critical Needs)
+### 7. Overall Satisfaction
 
 ```
-get_mood_penalty():
-    penalty = 0.0
-    # Each penalty fires ONCE per critical transition (tracked by _applied_critical_* flags)
-    # Flags reset when building visit restores need above CRITICAL_NEED_THRESHOLD
-    if energy  < 0.15 and not already_applied: penalty -= 0.05
-    if comfort < 0.15 and not already_applied: penalty -= 0.05
-    if hunger  < 0.15 and not already_applied: penalty -= 0.03
-    if pace    < 0.15 and not already_applied: penalty -= 0.08  # Pace frustration is strongest
-    return penalty
-
-# Called per hole in finish_hole(), but each need's penalty only fires once per critical episode
-```
-
-### 6. Overall Satisfaction
-
-```
-overall = energy * 0.30 + comfort * 0.20 + hunger * 0.20 + pace * 0.30
-```
-
-### 7. Signal Flow
-
-```
-1. Golfer plays hole → needs.on_hole_completed() → decay energy/comfort/hunger
-2. Golfer waits (IDLE) → needs.on_waiting() → decay pace
-3. Golfer walks near building → needs.get_interaction_chance() → random roll → apply_building_effect() if passed
-4. Need drops below 0.30 → needs.check_need_triggers() → show_thought() → EventBus.golfer_thought
-5. Need drops below 0.15 → needs.get_mood_penalty() → _adjust_mood() → EventBus.golfer_mood_changed
-6. FeedbackManager receives golfer_thought → tracks needs_complaints for daily summary
+overall = fun * 0.25 + attitude * 0.25 + energy * 0.20 + hunger * 0.15 + thirst * 0.15
 ```
 
 ## Tuning Levers
 
 | Parameter | Location | Current Value | Effect |
 | --- | --- | --- | --- |
-| ENERGY_DECAY_PER_HOLE | `golfer_needs.gd` | 0.08 | Higher = golfers tire faster |
-| COMFORT_DECAY_PER_HOLE | `golfer_needs.gd` | 0.06 | Higher = more restroom demand |
-| HUNGER_DECAY_PER_HOLE | `golfer_needs.gd` | 0.05 | Higher = more food demand |
-| THIRST_DECAY_PER_HOLE | `golfer_needs.gd` | 0.07 | Higher = more drink demand |
-| THIRST_SATISFACTION_FLOOR | `golfer_needs.gd` | 0.85 | Satisfaction multiplier when thirst is 0. Thirst scales the four-need score rather than taking a share, so a quenched golfer scores identically to before |
-| PACE_DECAY_PER_WAIT_SECOND | `golfer_needs.gd` | 0.003 | Higher = more pace complaints. At 0.003, patient golfers (0.9) survive 240s total wait without critical pace. |
-| LOW_NEED_THRESHOLD | `golfer_needs.gd` | 0.30 | Higher = complaints start sooner |
-| CRITICAL_NEED_THRESHOLD | `golfer_needs.gd` | 0.15 | Higher = mood penalties start sooner |
-| BENCH_ENERGY_RESTORE | `golfer_needs.gd` | 0.20 | Higher = benches more effective |
-| SNACK_BAR_HUNGER_RESTORE | `golfer_needs.gd` | 0.30 | Higher = snack bars more effective |
-| PUB_HUNGER_RESTORE | `golfer_needs.gd` | 0.50 | Higher = pubs more effective |
-| CLUBHOUSE_ALL_RESTORE | `golfer_needs.gd` | 0.15 | Higher = clubhouse more effective |
-| PRACTICE_MOOD_BOOST | `golfer_needs.gd` | 0.03 | Mood lift from visiting the putting green, pro shop or driving range |
-| CART_GARAGE_MOOD_BOOST | `golfer_needs.gd` | 0.02 | Mood lift when a golfer rents a cart |
-| energy_decay_modifier | `GolferNeeds` field | 1.0 (0.6 with a Resort Hotel) | Scales per-hole energy decay; lower = golfers stay fresh longer |
-| INTERACT_CHANCE_HIGH_NEED | `golfer_needs.gd` | 0.20 | Chance of stopping when need > 0.7. Lower = buildings less useful when golfer is satisfied |
-| INTERACT_CHANCE_MID_NEED | `golfer_needs.gd` | 0.50 | Chance of stopping when need is 0.3–0.7 |
-| INTERACT_CHANCE_LOW_NEED | `golfer_needs.gd` | 1.00 | Chance of stopping when need < 0.3 (guaranteed) |
-| INTERACT_CHANCE_BASE | `golfer_needs.gd` | 0.30 | Fallback chance for buildings with no need mapping (pro_shop) |
-| Tier decay modifiers | `golfer_needs.gd:_get_tier_decay_modifier()` | 0.8–1.3 | Higher = tier is more demanding |
-| Overall satisfaction weights | `golfer_needs.gd:get_overall_satisfaction()` | E:0.30 C:0.20 H:0.20 P:0.30 | Adjust relative importance of each need |
+| STATUS_START | `golfer_attributes.gd` | 0.5 | Golfer statuses start the course at 50% |
+| ENERGY_DECAY_PER_HOLE | `golfer_attributes.gd` | 0.018 | Higher = golfers tire faster |
+| HUNGER_DECAY_PER_HOLE | `golfer_attributes.gd` | 0.012 | Higher = more food demand |
+| THIRST_DECAY_PER_HOLE | `golfer_attributes.gd` | 0.015 | Higher = more drink demand |
+| COMFORT_DECAY_PER_HOLE | `golfer_attributes.gd` | 0.06 | Higher = more restroom demand |
+| PACE_DECAY_PER_WAIT_SECOND | `golfer_attributes.gd` | 0.003 | Higher = more pace complaints |
+| FUN_DECAY_PER_WAIT_SECOND | `golfer_attributes.gd` | 0.0012 | Higher = waiting hurts Fun faster |
+| LOW_NEED_THRESHOLD | `golfer_attributes.gd` | 0.30 | Higher = complaints start sooner |
+| CRITICAL_NEED_THRESHOLD | `golfer_attributes.gd` | 0.15 | Higher = attitude penalties start sooner |
+| BENCH_ENERGY_RESTORE | `golfer_attributes.gd` | 0.20 | Higher = benches more effective |
+| SNACK_BAR_HUNGER_RESTORE | `golfer_attributes.gd` | 0.30 | Higher = snack bars more effective |
+| PUB_HUNGER_RESTORE | `golfer_attributes.gd` | 0.50 | Higher = pubs more effective |
+| CLUBHOUSE_ALL_RESTORE | `golfer_attributes.gd` | 0.15 | Higher = clubhouse more effective |
+| energy_decay_modifier | `GolferAttributes` field | 1.0 (0.6 with a Resort Hotel) | Scales per-hole energy decay |
+| INTERACT_CHANCE_* | `golfer_attributes.gd` | 0.2 / 0.5 / 1.0 / 0.3 | Amenity stop chances by status band |
+| Tier decay modifiers | `golfer_attributes.gd:_get_tier_decay_modifier()` | 0.8-1.3 | Higher = tier is more demanding |
+| Overall satisfaction weights | `golfer_attributes.gd:get_overall_satisfaction()` | F:0.25 A:0.25 E:0.20 H:0.15 T:0.15 | Adjust the relative importance |
 
 ---
 
 ## Related
 
-- [Golfer Spawning](golfer-spawning.md) covers who arrives.
-- [Satisfaction and Feedback](satisfaction-feedback.md) turns needs into thoughts and ratings.
-- [Staff and Weeds](../economy-and-land/staff-and-weeds.md) covers the staff who serve golfers.
-- [Improvement Catalog](../course-design/garden-catalog.md) lists the amenities that meet needs.
-- [Walking Paths](../course-design/walking-paths.md) covers the trails that shorten the walk between shots.
+- [Golfer Attributes](golfer-attributes.md) is the full attribute model these statuses belong to.
+- [Satisfaction and Feedback](satisfaction-feedback.md) covers how visits are scored.
+- [Clubhouse](../course-design/clubhouse.md) covers the arrival/departure visit that tops statuses up.

@@ -37,6 +37,7 @@ The stroke index is not saved. It is recalculated after each load.
 | Environment | Wind, weather, season, active seasonal event |
 | Staff | Hired staff, their areas and the course condition |
 | Weeds | Each weed clump and how far it has grown |
+| Your own golfer | The ground they work between rounds (`owner_duty`). Their name, colours and skills are saved with the company, under `player_golfer`. |
 | Tournaments | Tournament state (a live round cannot be resumed, so it is cleared on load) |
 | Golfers | **Not saved.** They respawn when the simulation resumes. |
 

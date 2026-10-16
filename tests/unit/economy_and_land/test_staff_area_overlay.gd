@@ -33,3 +33,19 @@ func test_overlay_survives_a_staff_change_with_no_manager() -> void:
 	overlay.refresh()
 	# No crash and no drawn geometry required: the guard returns early.
 	assert_eq(overlay.highlight_index, -1)
+
+func test_the_owners_ground_is_drawn_as_its_own_ring() -> void:
+	# The owner's own golfer works a ground of their own. It is drawn here
+	# too, so the player can see where their golfer is working.
+	GameManager.terrain_grid = grid
+	var owner_manager := PlayerGolferManager.new()
+	add_child_autofree(owner_manager)
+	GameManager.player_golfer_manager = owner_manager
+	assert_eq(overlay.owner_area_polygon().size(), 0, "With no ground chosen there is no ring to draw")
+	assert_true(owner_manager.set_area_center(Vector2i(10, 10)))
+	var ring := overlay.owner_area_polygon()
+	assert_eq(ring.size(), 32, "The owner's ground is a ring like a staff member's")
+	assert_gt(ring[0].distance_to(ring[16]), 1.0, "The ring is drawn around the ground they work")
+	# Moving the ground moves the ring with it.
+	owner_manager.set_area_center(Vector2i(20, 20))
+	assert_ne(overlay.owner_area_polygon()[0], ring[0], "The ring follows the ground they work")

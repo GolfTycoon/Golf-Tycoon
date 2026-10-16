@@ -61,12 +61,12 @@ const COLOR_SCORE_OVER := Color(0.9, 0.4, 0.3)        # Over par (leaderboard)
 const COLOR_SCORE_UNDER := Color(0.3, 0.9, 0.3)       # Under par (leaderboard)
 
 # =============================================================================
-# MOOD COLORS
+# ATTITUDE COLORS
 # =============================================================================
 
-const COLOR_MOOD_HAPPY := Color(0.3, 0.9, 0.3)        # Satisfied/Happy
-const COLOR_MOOD_NEUTRAL := Color(0.9, 0.9, 0.3)      # Neutral
-const COLOR_MOOD_UNHAPPY := Color(0.9, 0.3, 0.3)      # Frustrated/Unhappy
+const COLOR_ATTITUDE_HAPPY := Color(0.3, 0.9, 0.3)        # Satisfied/Happy
+const COLOR_ATTITUDE_NEUTRAL := Color(0.9, 0.9, 0.3)      # Neutral
+const COLOR_ATTITUDE_UNHAPPY := Color(0.9, 0.3, 0.3)      # Frustrated/Unhappy
 
 # =============================================================================
 # TYPOGRAPHY SCALE

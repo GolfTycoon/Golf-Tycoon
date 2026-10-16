@@ -87,7 +87,6 @@ var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
 var analytics_panel_ui: AnalyticsPanel = null
-var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
 ## Top-left corner of the screen: round scores and the live tournament board.
@@ -136,9 +135,14 @@ var staff_container: Node2D = null
 var weed_container: Node2D = null
 var weed_manager: WeedManager = null
 var staff_area_overlay: StaffAreaOverlay = null
+## The owner's own golfer, who is on the course between rounds.
+var player_golfer_manager: PlayerGolferManager = null
 ## Index into StaffManager.hired_staff whose area the player is repositioning,
 ## or -1 when not in that mode.
 var _staff_area_mode_index: int = -1
+## True while the player is choosing the ground the owner's own golfer works
+## (see PlayerGolferManager).
+var _owner_area_mode: bool = false
 
 # Hole context menu and move modes
 enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN }
@@ -263,6 +267,17 @@ func _ready() -> void:
 	staff_area_overlay.set_terrain_grid(terrain_grid)
 	terrain_grid.add_child(staff_area_overlay)
 
+	# The owner's own golfer lives on the course: between rounds they work
+	# the ground the player gives them (see PlayerGolferManager).
+	player_golfer_manager = PlayerGolferManager.new()
+	player_golfer_manager.name = "PlayerGolferManager"
+	add_child(player_golfer_manager)
+	GameManager.player_golfer_manager = player_golfer_manager
+	player_golfer_manager.setup(golfer_manager.golfers_container)
+	player_golfer_manager.area_changed.connect(func(_center: Vector2i):
+		if staff_area_overlay:
+			staff_area_overlay.refresh())
+
 	var marketing_mgr = MarketingManager.new()
 	marketing_mgr.name = "MarketingManager"
 	add_child(marketing_mgr)
@@ -291,13 +306,16 @@ func _ready() -> void:
 	_setup_weather_debug_panel()
 	_setup_season_debug_panel()
 	_setup_analytics_panel()
-	_setup_golfer_info_popup()
+	_setup_golfer_profile_navigation()
 	_setup_round_summary_popup()
 	player_round = PlayerRoundManager.new()
 	add_child(player_round)
 	player_round.setup(golfer_manager, $IsometricCamera, $UI/HUD)
 	player_round.attach_player_tab(terrain_toolbar.player_tab)
 	player_round.attach_scores_panel(scores_dock.round_scores)
+	# The Edit Player page asks for a click on the course to move the ground
+	# the owner's own golfer works.
+	player_round.owner_area_move_requested.connect(_on_owner_area_move_requested)
 	# The owner plays their own shots during a tournament: the manager spawns the
 	# field, but aiming for their live golfer is handed to the PlayerRoundManager.
 	tournament_manager.set_aim_controller(player_round)
@@ -666,7 +684,9 @@ func _collect_golfer_rows() -> Array:
 			"tier": golfer.golfer_tier,
 			"hole": golfer.current_hole + 1,
 			"strokes": golfer.total_strokes + golfer.current_strokes,
-			"mood": golfer.current_mood,
+			"attitude": golfer.attitude,
+			"profile": _visitor_profile(golfer),
+			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
 	return rows
 
@@ -675,7 +695,53 @@ func _on_toolbar_golfer_clicked(golfer_id: int) -> void:
 	var golfer = golfer_manager.get_golfer(golfer_id)
 	if golfer:
 		camera.focus_on(golfer.global_position, false)
-		_on_golfer_clicked(golfer)
+
+func _visitor_profile(golfer: Golfer) -> Array[Dictionary]:
+	# Value-only snapshot: departed visitors retain every detail without keeping
+	# a freed golfer node alive. Active visitors refresh through the provider.
+	var attributes := golfer.attributes
+	var sections: Array[Dictionary] = []
+	sections.append({"title": "Identity", "lines": [
+		"Profession: " + attributes.profession,
+		"Age / Gender: %d / %s" % [attributes.age, attributes.gender_name()],
+		"Marital Status: " + attributes.marital_status_name(),
+		"Returning guest: " + ("Yes" if golfer.is_returning_guest else "No")]})
+	var traits: Array[String] = []
+	for key in GolferAttributes.TRAIT_KEYS:
+		traits.append("%s: %s" % [GolferAttributes.TRAIT_NAMES[key], "On" if attributes.trait_on(key) else "Off"])
+	sections.append({"title": "Golfer Traits", "lines": traits})
+	var skills: Array[String] = []
+	for key in GolferAttributes.GOLFER_SKILL_KEYS:
+		skills.append("%s: %s" % [GolferAttributes.GOLFER_SKILL_NAMES[key], "On" if attributes.skill_on(key) else "Off"])
+	sections.append({"title": "Golfer Skills", "lines": skills})
+	var golf_skills: Array[String] = []
+	for i in GolferAttributes.GOLF_SKILLS.size():
+		golf_skills.append("%s: %d%%" % [GolferAttributes.GOLF_SKILLS[i], attributes.golf_skill_percent(i)])
+	sections.append({"title": "Golf Skills", "lines": golf_skills})
+	sections.append({"title": "Golfer Statuses", "meters": {
+		"Fun": attributes.fun, "Attitude": attributes.attitude,
+		"Energy": attributes.energy, "Hunger": attributes.hunger, "Thirst": attributes.thirst}})
+	var comments: Array[String] = ["Positive %d / Neutral %d / Negative %d" % [
+		int(attributes.comment_counts.get("positive", 0)), int(attributes.comment_counts.get("neutral", 0)), int(attributes.comment_counts.get("negative", 0))]]
+	for comment in attributes.recent_comments(5):
+		comments.append("%s: %s" % [str(comment.get("sentiment", "neutral")).capitalize(), comment.get("text", "")])
+	sections.append({"title": "Golfer Comments", "lines": comments})
+	sections.append({"title": "Course Experience", "lines": [golfer.activity_text,
+		"Traffic wait: %.1f game minutes" % (golfer.traffic_wait_seconds * 60.0 / GameManager.SECONDS_PER_GAME_HOUR),
+		"Amenities used: %d" % golfer.amenities_used,
+		FeedbackManager.guest_incident_text(golfer.golfer_id)]})
+	var diff := golfer.total_strokes - golfer.total_par
+	var score := "%d (%+d)" % [golfer.total_strokes, diff]
+	if golfer.total_par <= 0:
+		score = "Not started"
+	elif diff == 0:
+		score = "%d (E)" % golfer.total_strokes
+	sections.append({"title": "Current Round", "lines": ["Score: " + score, "Hole: %d" % (golfer.current_hole + 1)]})
+	var scores: Array[String] = []
+	for hole in golfer.hole_scores:
+		scores.append("H%d: %d strokes / par %d / %s" % [hole.hole, hole.strokes, hole.par, GolfRules.get_score_name(hole.strokes, hole.par)])
+	sections.append({"title": "Scorecard", "lines": scores if not scores.is_empty() else ["No completed holes yet."]})
+	return sections
 
 func _on_play_course_pressed() -> void:
 	terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
@@ -1163,6 +1229,11 @@ func _start_painting() -> void:
 		_handle_staff_area_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
 		return
 
+	# Choosing the ground the owner's own golfer works takes the next click.
+	if _owner_area_mode:
+		_handle_owner_area_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
+		return
+
 	# The building being carried (the clubhouse) takes the next click.
 	if _moving_building != null:
 		_handle_building_move_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
@@ -1446,6 +1517,51 @@ func _handle_staff_area_click(grid_pos: Vector2i) -> void:
 		EventBus.notify("Could not move that area.", "error")
 	_cancel_staff_area_mode()
 
+## Ask main to choose the ground the owner's own golfer works. The next
+## click on the course moves their area there.
+func _on_owner_area_move_requested() -> void:
+	_cancel_inspect_mode()
+	_cancel_staff_area_mode()
+	# Any other tool would fight the click, so clear it first.
+	_cancel_hole_move_mode()
+	_cancel_building_move()
+	_close_hole_context_menu()
+	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
+
+	_owner_area_mode = true
+	if player_round:
+		player_round.set_owner_area_mode(true)
+	EventBus.notify("Click a tile to set your golfer's work area.", "info")
+
+func _cancel_owner_area_mode() -> void:
+	if not _owner_area_mode:
+		return
+	_owner_area_mode = false
+	if player_round:
+		player_round.set_owner_area_mode(false)
+
+## The click that puts the owner's own golfer to work somewhere new.
+func _handle_owner_area_click(grid_pos: Vector2i) -> void:
+	var manager := GameManager.player_golfer_manager
+	if manager == null:
+		_cancel_owner_area_mode()
+		return
+	if not terrain_grid.is_valid_position(grid_pos):
+		EventBus.notify("That tile is off the course.", "error")
+		return
+	if manager.set_area_center(grid_pos):
+		EventBus.notify("Your golfer's work area moved.", "success")
+	else:
+		EventBus.notify("Could not move that area.", "error")
+	_cancel_owner_area_mode()
+
 func _cancel_action() -> void:
 	if is_painting:
 		_stop_painting()
@@ -1463,6 +1579,9 @@ func _cancel_action() -> void:
 
 	if _staff_area_mode_index >= 0:
 		_cancel_staff_area_mode()
+		had_active_operation = true
+	if _owner_area_mode:
+		_cancel_owner_area_mode()
 		had_active_operation = true
 	if _hole_context_menu:
 		_close_hole_context_menu()
@@ -1499,6 +1618,8 @@ func _has_active_tool() -> bool:
 		return true
 	if _staff_area_mode_index >= 0:
 		return true
+	if _owner_area_mode:
+		return true
 	if _hole_move_mode != HoleMoveMode.NONE:
 		return true
 	if _moving_building != null:
@@ -1526,6 +1647,7 @@ func _on_tool_selected(tool_type: int) -> void:
 
 	# Cancel any building or decoration placement, elevation mode and bulldozer
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	_cancel_hole_move_mode()
 	_cancel_building_move()
 	_close_hole_context_menu()
@@ -2025,6 +2147,10 @@ func _on_new_game_started() -> void:
 		weed_manager.clear_all()
 	if GameManager.staff_manager:
 		GameManager.staff_manager.clear_all_staff()
+	if player_golfer_manager:
+		# A new course starts with the ground unchosen: the owner works the
+		# middle of it until the player moves their area somewhere else.
+		player_golfer_manager.reset_area()
 	if entity_layer:
 		entity_layer.clear_all()
 	if hole_manager:
@@ -2157,6 +2283,11 @@ func _on_new_game_started() -> void:
 	loading_overlay.finish()
 	await get_tree().process_frame
 	loading_overlay.queue_free()
+
+	# The owner's own golfer is on the course from the start, working the
+	# ground the player gave them.
+	if player_golfer_manager:
+		player_golfer_manager.on_course_ready()
 
 	# Day always starts automatically — ensure simulation is active even if a
 	# subclass previously cleared mode during generation.
@@ -2603,6 +2734,7 @@ func _on_inspect_toggled(enabled: bool) -> void:
 	# Finish any stroke and leave all editing operations before inspecting.
 	_cancel_action()
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	_cancel_hole_move_mode()
 	_close_hole_context_menu()
 	placement_manager.cancel_placement()
@@ -2720,6 +2852,10 @@ func _on_load_completed(success: bool) -> void:
 		StrokeIndexCalculator.recalculate_for_course()
 		# Center camera on grid (same as new game) so player starts on their course
 		_center_camera_on_course()
+		# The owner's own golfer is on the course, working the ground the
+		# player gave them.
+		if player_golfer_manager:
+			player_golfer_manager.on_course_ready()
 
 # --- Hole Context Menu & Move Modes ---
 
@@ -3236,6 +3372,7 @@ func _on_building_move_requested(building: Building) -> void:
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	placement_manager.cancel_placement()
 	_disable_terrain_painting_preview()
 	if terrain_toolbar:
@@ -3657,26 +3794,16 @@ func _toggle_analytics_panel() -> void:
 
 # --- Golfer Info Popup ---
 
-func _setup_golfer_info_popup() -> void:
-	var hud = $UI/HUD
-	golfer_info_popup = GolferInfoPopup.new()
-	golfer_info_popup.name = "GolferInfoPopup"
-	golfer_info_popup.close_requested.connect(_on_golfer_info_popup_closed)
-	hud.add_child(golfer_info_popup)
-	golfer_info_popup.hide()
+func _setup_golfer_profile_navigation() -> void:
 	golfer_manager.golfer_clicked.connect(_on_golfer_clicked)
-
-func _on_golfer_info_popup_closed() -> void:
-	golfer_info_popup.hide()
-	_active_panel = null
 
 func _on_golfer_clicked(golfer: Golfer) -> void:
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		return
-	if _active_panel and _active_panel != golfer_info_popup and _active_panel.visible:
+	if _active_panel and _active_panel.visible:
 		_active_panel.hide()
-	_active_panel = golfer_info_popup
-	golfer_info_popup.show_for_golfer(golfer)
+	_active_panel = null
+	terrain_toolbar.show_visitor_profile(golfer.golfer_name)
 
 # --- Round Summary ---
 
@@ -3699,6 +3826,8 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 			"day": GameManager.current_day,
 			"tier": golfer.golfer_tier,
 			"owner": golfer.is_owner_round,
+			"profile": _visitor_profile(golfer),
+			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
 	if golfer.is_owner_round:
 		return
@@ -3706,7 +3835,7 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 		"name": golfer.golfer_name,
 		"total_strokes": total_strokes,
 		"total_par": golfer.total_par,
-		"mood": golfer.current_mood,
+		"attitude": golfer.attitude,
 		"tier": golfer.golfer_tier,
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),

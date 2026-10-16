@@ -122,19 +122,19 @@ static func is_ball_holed(ball_pos: Vector2, hole_pos: Vector2) -> bool:
 # =============================================================================
 # PUTTING MAKE RATES
 # =============================================================================
-## Based on PGA Tour averages, scaled by putting_skill.
+## Based on PGA Tour averages, scaled by putting_ability.
 ##
-## PGA Tour make rates (putting_skill ≈ 0.90-0.98):
+## PGA Tour make rates (putting_ability ≈ 0.90-0.98):
 ##   3 ft: ~99%    5 ft: ~77%    8 ft: ~50%    10 ft: ~40%
 ##  15 ft: ~25%   20 ft: ~15%   25 ft: ~10%    30 ft: ~7%
 ##  40 ft: ~3%    50 ft: ~2%
 ##
 ## The model uses an exponential decay: make_rate = exp(-distance * k)
-## where k is scaled inversely with putting_skill.
+## where k is scaled inversely with putting_ability.
 
 ## Get probability of making a putt at a given distance (in tiles).
-## putting_skill: 0.0-1.0 (beginner to pro).
-static func get_putt_make_rate(distance_tiles: float, putting_skill: float) -> float:
+## putting_ability: 0.0-1.0 (beginner to pro).
+static func get_putt_make_rate(distance_tiles: float, putting_ability: float) -> float:
 	if distance_tiles < TAP_IN_DISTANCE:
 		return 1.0  # Tap-in, automatic
 
@@ -149,7 +149,7 @@ static func get_putt_make_rate(distance_tiles: float, putting_skill: float) -> f
 	var base_decay = 0.053
 	# Skill scales the decay: lower skill = steeper decay = harder to make putts
 	# skill 0.95 → multiplier 1.125, skill 0.35 → multiplier ~2.625
-	var skill_multiplier = 1.0 + (1.0 - putting_skill) * 2.5
+	var skill_multiplier = 1.0 + (1.0 - putting_ability) * 2.5
 	var decay = base_decay * skill_multiplier
 
 	var make_rate = exp(-distance_feet * decay)
@@ -161,7 +161,7 @@ static func get_putt_make_rate(distance_tiles: float, putting_skill: float) -> f
 ## Returns {"distance_ratio": float, "lateral_std": float}
 ## distance_ratio: how far past/short of hole (1.0 = at hole, >1.0 = past, <1.0 = short)
 ## lateral_std: standard deviation of lateral miss in tiles.
-static func get_putt_miss_characteristics(distance_tiles: float, putting_skill: float) -> Dictionary:
+static func get_putt_miss_characteristics(distance_tiles: float, putting_ability: float) -> Dictionary:
 	var distance_feet = distance_tiles * 66.0
 
 	# Short putts (< 10 ft): misses are mostly lateral (lip-outs), slight long bias
@@ -174,30 +174,30 @@ static func get_putt_miss_characteristics(distance_tiles: float, putting_skill: 
 	var distance_std: float
 	if distance_feet < 10.0:
 		# Short putts: small overshoot, tight control
-		distance_std = 0.015 + (1.0 - putting_skill) * 0.02
+		distance_std = 0.015 + (1.0 - putting_ability) * 0.02
 	elif distance_feet < 30.0:
 		# Medium putts: moderate distance error
-		distance_std = 0.03 + (1.0 - putting_skill) * 0.06
+		distance_std = 0.03 + (1.0 - putting_ability) * 0.06
 	else:
 		# Long putts: distance control is the main challenge
 		# Error proportional to distance (lag putting)
-		distance_std = distance_tiles * (0.06 + (1.0 - putting_skill) * 0.12)
+		distance_std = distance_tiles * (0.06 + (1.0 - putting_ability) * 0.12)
 
 	# Lateral error (left/right miss)
 	var lateral_std: float
 	if distance_feet < 10.0:
 		# Short putts: small lateral miss (lip-out territory)
-		lateral_std = 0.008 + (1.0 - putting_skill) * 0.017
+		lateral_std = 0.008 + (1.0 - putting_ability) * 0.017
 	elif distance_feet < 30.0:
 		# Medium putts: moderate read error
-		lateral_std = 0.015 + (1.0 - putting_skill) * 0.035
+		lateral_std = 0.015 + (1.0 - putting_ability) * 0.035
 	else:
 		# Long putts: significant read error
-		lateral_std = 0.025 + (1.0 - putting_skill) * 0.06
+		lateral_std = 0.025 + (1.0 - putting_ability) * 0.06
 
 	# Slight long bias — pros are taught "never up, never in"
 	# Aggressive putters tend to run it past; cautious ones leave it short
-	var long_bias = 0.02 + putting_skill * 0.03  # Better players hit it firmer
+	var long_bias = 0.02 + putting_ability * 0.03  # Better players hit it firmer
 
 	return {
 		"distance_std": distance_std,

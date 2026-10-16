@@ -2,8 +2,25 @@ extends Node2D
 class_name PlayerRoundManager
 ## Owner rounds run alongside the management simulation as a normal group.
 signal session_opened
+## Emitted when the player asks to move the ground the owner's own golfer
+## works between rounds. main.gd turns it into a click-on-the-course mode.
+signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
+## Section headings on the owner's own pages. The pixel-art styling pass picks
+## them out in gold, so the pages name their columns from one place.
+const DETAILS_TITLE := "Golfer Details"
+const TRAITS_TITLE := "Golfer Traits"
+const SKILLS_TITLE := "Golfer Skills"
+## The heading of the column that holds the ground the owner's own golfer
+## works when they are not playing.
+const WORK_AREA_TITLE := "On the course"
+## What a section's second and later columns add to their heading.
+const CONTINUED_SUFFIX := " (continued)"
+## Toggles to a column on the owner's pages. The pages are horizontal shelves
+## with no vertical scroll, so a section that runs longer than this carries on
+## in the next column instead of growing past the bottom bar.
+const TOGGLES_PER_COLUMN := 4
 var player_tab: PlayerTab
 ## Top-left score card owned by the game HUD (null in isolated tools and tests,
 ## which fall back to putting the scorecards on the round page).
@@ -46,6 +63,10 @@ var round_kind := 0
 var aim_guide: AimGuide
 var _was_aiming: bool = false
 var _tournament_hud_column: VBoxContainer = null
+## The Edit Player page's work-area column: where the owner's own golfer
+## works between rounds, and the button that moves it.
+var _work_area_label: Label = null
+var _work_area_button: Button = null
 ## True while aiming for the owner's golfer inside a running tournament. The
 ## TournamentManager owns that round; this flag only tells our _process to skip
 ## the owner-round bookkeeping (driving the sim, showing round results) and to
@@ -108,10 +129,11 @@ func _make_panel(full_screen: bool) -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 
-## The Edit Player page's skin selector and Re-color Group controls. The skin
-## selector lives with the player's name; the group section is the next column
-## and gives each group a full-height, named color selector.
-func _build_skin_controls() -> void:
+## The skin selector, written into the column the page is building — the one
+## that carries the player's name, so who the golfer is and what they wear read
+## together. Their Re-color Groups are a column of their own further along the
+## shelf (see _build_skin_group_controls).
+func _build_skin_picker() -> void:
 	_label("Golfer skin")
 	_skin_picker = OptionButton.new()
 	_skin_picker.name = "GolferSkinPicker"
@@ -122,6 +144,27 @@ func _build_skin_controls() -> void:
 	_skin_picker.item_selected.connect(_on_golfer_skin_selected)
 	content.add_child(_skin_picker)
 
+
+## A headed column of On/Off toggles on one of the owner's shelves. The toggles
+## of a section run TOGGLES_PER_COLUMN deep and then carry on in a column
+## beside it — the shelf scrolls sideways, so growing right keeps the page
+## inside the bottom bar's height — and the follow-on columns say so in their
+## heading. `slot` is the index of the first toggle the column takes.
+func _toggle_column(page: HBoxContainer, title: String, slot: int,
+		width: float = 210) -> VBoxContainer:
+	var column := PlayerTab.add_column(page, width)
+	# A heading and four toggles only clear the bottom bar at the tighter row
+	# spacing the stacked round sections use.
+	column.add_theme_constant_override("separation", 2)
+	var heading := Label.new()
+	heading.text = title if slot == 0 else title + CONTINUED_SUFFIX
+	column.add_child(heading)
+	return column
+
+
+## The Re-color Group section: one full-height, named color selector per group
+## of the skin the owner wears, in a column of its own on the Edit Player shelf.
+func _build_skin_group_controls() -> void:
 	_skin_controls = VBoxContainer.new()
 	_skin_controls.name = "SkinGroupControls"
 	_skin_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -141,6 +184,56 @@ func _build_skin_controls() -> void:
 	_skin_group_columns.add_theme_constant_override("separation", 6)
 	_skin_controls.add_child(_skin_group_columns)
 	_refresh_skin_controls()
+
+
+## The ground the owner's own golfer works between rounds.
+##
+## The owner is on the course even when they are not playing: they walk the
+## ground they were given, pulling weeds and greeting the golfers they meet.
+## The button asks main.gd for a click on the course, the same way a staff
+## member's designated area is moved.
+func _build_work_area_column() -> void:
+	var title := Label.new()
+	title.text = WORK_AREA_TITLE
+	content.add_child(title)
+
+	_work_area_label = Label.new()
+	_work_area_label.name = "OwnerWorkArea"
+	_work_area_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_work_area_label)
+
+	_work_area_button = Button.new()
+	_work_area_button.name = "MoveWorkArea"
+	_work_area_button.text = "Move work area"
+	_work_area_button.tooltip_text = "Choose the ground your golfer works when they are not playing."
+	_work_area_button.pressed.connect(func(): owner_area_move_requested.emit())
+	content.add_child(_work_area_button)
+
+	_refresh_work_area()
+
+## Where the owner's own golfer works, in words the player can read.
+func _refresh_work_area() -> void:
+	if _work_area_label == null:
+		return
+	var owner_manager := GameManager.player_golfer_manager
+	if owner_manager == null or owner_manager.area_center.x < 0:
+		_work_area_label.text = "Your golfer is not on the course yet."
+		return
+	var center: Vector2i = owner_manager.area_center
+	_work_area_label.text = "Working the ground around tile %d, %d — %d tiles wide." \
+		% [center.x, center.y, owner_manager.area_radius]
+
+## The player is choosing a new work area (or has finished choosing one).
+## The button says which, and the label reads the ground that is set.
+func set_owner_area_mode(choosing: bool) -> void:
+	if _work_area_button != null:
+		if choosing:
+			_work_area_button.text = "Pick a tile…"
+			_work_area_button.modulate = UIConstants.COLOR_GOLD
+		else:
+			_work_area_button.text = "Move work area"
+			_work_area_button.modulate = Color.WHITE
+	_refresh_work_area()
 
 
 ## Fill the picker and rebuild the named columns for the skin the owner wears.
@@ -331,6 +424,11 @@ func _persist_player_profile() -> void:
 		GameManager.player_profile = draft
 	else:
 		GameManager.player_profile = PlayerGolferProfile.from_data(draft.serialize())
+	# The owner's own golfer is on the course: they wear the profile as it
+	# is edited.
+	var owner_manager := GameManager.player_golfer_manager
+	if owner_manager != null:
+		owner_manager.refresh_profile()
 
 
 ## The PlayerGolferProfile colour keys the Golfer Skin the owner wears does not
@@ -417,6 +515,26 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
+func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
+	# Chunky, square-corner pixel UI: dark enamel surfaces, hard outlines and
+	# high-contrast mint/gold accents instead of the default rounded widgets.
+	control.add_theme_color_override("font_color", Color("f4edcf"))
+	control.add_theme_color_override("font_hover_color", Color("ffffff"))
+	control.add_theme_color_override("font_pressed_color", Color("14231f"))
+	control.add_theme_font_size_override("font_size", 12)
+	if control is Button:
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			var box := StyleBoxFlat.new()
+			box.bg_color = Color("233a35") if state != "pressed" else accent
+			box.border_color = accent if state in ["hover", "pressed"] else Color("526b5e")
+			box.set_border_width_all(2)
+			box.set_corner_radius_all(0)
+			box.content_margin_left = 8
+			box.content_margin_right = 8
+			box.content_margin_top = 5
+			box.content_margin_bottom = 5
+			control.add_theme_stylebox_override(state, box)
+
 func _build_setup() -> void:
 	draft = PlayerGolferProfile.from_data(GameManager.player_profile.serialize())
 	# A rebuilt page means no round is showing: drop whatever scores the last
@@ -447,10 +565,77 @@ func _build_setup() -> void:
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
-		# The golfer's skin and the colours of its Re-color Groups. These stay
-		# editable during a round - dressing the owner is not part of the play
-		# loop being protected (see start_round).
-		_build_skin_controls()
+		# The skin the owner wears closes the first column: the name and the
+		# golfer wearing it read together, under the animated preview beside
+		# them. It stays editable during a round - dressing the owner is not
+		# part of the play loop being protected (see start_round).
+		_build_skin_picker()
+		# The rest of who the golfer is takes the next column. The shelf has no
+		# vertical scroll, so a column of this page holds a heading and about
+		# four controls before it would grow past the bottom bar.
+		content = PlayerTab.add_column(edit_page, 200)
+		var details_title := Label.new()
+		details_title.text = DETAILS_TITLE
+		content.add_child(details_title)
+		var profession_edit := LineEdit.new()
+		profession_edit.name = "PlayerProfession"
+		profession_edit.placeholder_text = "Profession"
+		profession_edit.tooltip_text = "What your golfer does away from the course"
+		profession_edit.text = draft.profession
+		profession_edit.text_changed.connect(func(value: String):
+			draft.profession = value.left(48)
+			_persist_player_profile())
+		content.add_child(profession_edit)
+		var age_spin := SpinBox.new()
+		age_spin.name = "PlayerAge"
+		age_spin.prefix = "Age"
+		age_spin.tooltip_text = "Your golfer's age, from 18 to 100"
+		age_spin.min_value = 18
+		age_spin.max_value = 100
+		age_spin.value = draft.age
+		age_spin.value_changed.connect(func(value: float):
+			draft.age = int(value)
+			_persist_player_profile())
+		content.add_child(age_spin)
+		var gender_picker := OptionButton.new()
+		gender_picker.name = "PlayerGender"
+		gender_picker.tooltip_text = "Your golfer's gender"
+		gender_picker.add_item("Male")
+		gender_picker.add_item("Female")
+		gender_picker.select(draft.gender)
+		gender_picker.item_selected.connect(func(value: int):
+			draft.gender = value
+			_persist_player_profile())
+		content.add_child(gender_picker)
+		var marital_picker := OptionButton.new()
+		marital_picker.name = "PlayerMaritalStatus"
+		marital_picker.tooltip_text = "Your golfer's marital status"
+		for value in ["Single", "Married", "Divorced", "Widowed"]:
+			marital_picker.add_item(value)
+		marital_picker.select(draft.marital_status)
+		marital_picker.item_selected.connect(func(value: int):
+			draft.marital_status = value
+			_persist_player_profile())
+		content.add_child(marital_picker)
+		# The owner's own golfer is on the course: the ground they work when
+		# they are not playing gets a column of its own.
+		content = PlayerTab.add_column(edit_page, 220)
+		_build_work_area_column()
+		var traits_column: VBoxContainer = null
+		for slot in GolferAttributes.TRAIT_KEYS.size():
+			if slot % TOGGLES_PER_COLUMN == 0:
+				traits_column = _toggle_column(edit_page, TRAITS_TITLE, slot)
+			var key: String = GolferAttributes.TRAIT_KEYS[slot]
+			var trait_toggle := CheckButton.new()
+			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
+			trait_toggle.button_pressed = draft.traits[key]
+			trait_toggle.toggled.connect(func(on: bool, trait_key: String = key):
+				draft.traits[trait_key] = on
+				_persist_player_profile())
+			traits_column.add_child(trait_toggle)
+		# The colours of the skin's Re-color Groups, after the golfer they
+		# dress and the traits they carry.
+		_build_skin_group_controls()
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
 	# edited above (they follow into these fields); what is left here is the
@@ -510,6 +695,20 @@ func _build_setup() -> void:
 		pro_picker.disabled = true
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
+	if is_instance_valid(player_tab):
+		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
+		var golfer_skills_column: VBoxContainer = null
+		for slot in GolferAttributes.GOLFER_SKILL_KEYS.size():
+			if slot % TOGGLES_PER_COLUMN == 0:
+				golfer_skills_column = _toggle_column(skills_page, SKILLS_TITLE, slot, 220)
+			var key: String = GolferAttributes.GOLFER_SKILL_KEYS[slot]
+			var skill_toggle := CheckButton.new()
+			skill_toggle.text = GolferAttributes.GOLFER_SKILL_NAMES[key]
+			skill_toggle.button_pressed = draft.golfer_skills[key]
+			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
+				draft.golfer_skills[skill_key] = on
+				_persist_player_profile())
+			golfer_skills_column.add_child(skill_toggle)
 	points_label = _label("")
 	_label("Each point adds 10% bonus. Maximum per skill: 990%.")
 	skill_labels.clear()
@@ -530,6 +729,14 @@ func _build_setup() -> void:
 			button.pressed.connect(allocate_skill.bind(i, change))
 			row.add_child(button)
 	if is_instance_valid(player_tab):
+		# Apply one consistent pixel-art visual language to both owner tabs.
+		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
+			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
+				_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
+				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
+						in [DETAILS_TITLE, TRAITS_TITLE, SKILLS_TITLE] or widget == points_label):
+					widget.add_theme_color_override("font_color", Color("f0bf59"))
+					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()
 		start_button = null
 	else:
@@ -552,10 +759,7 @@ func _save_skills() -> void:
 	GameManager.player_profile.points = draft.points.duplicate()
 	if is_instance_valid(player):
 		player.player_profile = GameManager.player_profile
-		player.driving_skill = GameManager.player_profile.normalized_skill(1)
-		player.accuracy_skill = GameManager.player_profile.normalized_skill(3)
-		player.putting_skill = GameManager.player_profile.normalized_skill(4)
-		player.recovery_skill = GameManager.player_profile.normalized_skill(8)
+		player.sync_player_profile_skills()
 		if player.awaits_player_shot():
 			update_aim_guide()
 	if GameManager.tournament_manager and GameManager.tournament_manager.has_method("sync_player_skills"):
@@ -621,30 +825,45 @@ func start_round() -> void:
 	var group_id: int = manager.next_group_id
 	manager.next_group_id += 1
 
-	player = _spawn(draft.golfer_name, GolferTier.Tier.CASUAL, group_id)
-	player.player_profile = draft
-	player.driving_skill = draft.normalized_skill(1)
-	player.accuracy_skill = draft.normalized_skill(3)
-	player.putting_skill = draft.normalized_skill(4)
-	player.recovery_skill = draft.normalized_skill(8)
-	player.miss_tendency = 0.0
-	player.apply_player_appearance(draft)
+	# The tee of the first open hole: the owner's own golfer walks there from
+	# the ground they were working.
+	var course_data = GameManager.course_data
+	var tee_pos := Vector2i(-1, -1)
+	if course_data and not course_data.holes.is_empty():
+		var first_open_idx = manager._find_next_open_hole(0, course_data)
+		if first_open_idx < course_data.holes.size():
+			tee_pos = course_data.holes[first_open_idx].tee_position
+
+	# The owner's own golfer tees off: the same golfer who works the course
+	# between rounds plays this round.
+	player = _claim_owner(group_id, tee_pos)
+	if player == null:
+		# No owner golfer on the course (a tool running the game on its own):
+		# fall back to a golfer spawned for the round.
+		player = _spawn(draft.golfer_name, GolferTier.Tier.CASUAL, group_id)
+		player.player_profile = draft
+		player.sync_player_profile_skills()
+		player.miss_tendency = 0.0
+		player.apply_player_appearance(draft)
 
 	if round_kind == 1:
 		_spawn(PROS[opponent], GolferTier.Tier.PRO, group_id)
 
 	# Position all participants at the tee of the first open hole
-	var course_data = GameManager.course_data
-	if course_data and not course_data.holes.is_empty():
-		var first_open_idx = manager._find_next_open_hole(0, course_data)
-		if first_open_idx < course_data.holes.size():
-			var first_hole = course_data.holes[first_open_idx]
-			var tee_pos = first_hole.tee_position
-			var tee_screen = GameManager.terrain_grid.grid_to_screen_center(tee_pos) if GameManager.terrain_grid else Vector2.ZERO
-			for golfer in participants:
-				golfer.ball_position = tee_pos
-				golfer.ball_position_precise = Vector2(tee_pos)
-				golfer.global_position = tee_screen
+	if tee_pos.x >= 0:
+		var tee_screen = GameManager.terrain_grid.grid_to_screen_center(tee_pos) if GameManager.terrain_grid else Vector2.ZERO
+		for golfer in participants:
+			golfer.ball_position = tee_pos
+			golfer.ball_position_precise = Vector2(tee_pos)
+			# The owner's own golfer is already walking to the tee from the
+			# ground they were working.
+			if golfer == player and golfer.current_state == Golfer.State.WALKING:
+				continue
+			golfer.global_position = tee_screen
+		# Follow the owner on their way to the tee.
+		if is_instance_valid(player) and is_instance_valid(camera) \
+				and player.current_state == Golfer.State.WALKING:
+			camera.focus_on(player.global_position)
 
 	# Immediately trigger group update to determine tee honor and advance first shooter
 	if is_instance_valid(manager):
@@ -679,6 +898,34 @@ func _spawn(golfer_name: String, tier: int, group_id: int) -> Golfer:
 	golfer._update_visual()
 	participants.append(golfer)
 	return golfer
+
+## The owner's own golfer, taken off their work and put on the first tee.
+##
+## The golfer who works the course between rounds is the golfer who plays the
+## round: they join the group, walk to the tee from the ground they were
+## working, and when the round is over they walk back to it (see
+## PlayerGolferManager).
+func _claim_owner(group_id: int, tee: Vector2i = Vector2i(-1, -1)) -> Golfer:
+	var owner_manager := GameManager.player_golfer_manager
+	if owner_manager == null:
+		return null
+	var course_owner := owner_manager.claim_for_round(group_id, tee)
+	if course_owner == null:
+		return null
+	course_owner.player_profile = draft
+	course_owner.sync_player_profile_skills()
+	course_owner.miss_tendency = 0.0
+	course_owner.apply_player_appearance(draft)
+	course_owner.golfer_name = draft.golfer_name
+	participants.append(course_owner)
+	return course_owner
+
+## The owner's own golfer goes back to work on the course.
+func _release_owner() -> void:
+	var owner_manager := GameManager.player_golfer_manager
+	if owner_manager == null:
+		return
+	owner_manager.release_from_round()
 
 # ============================================================================
 # TOURNAMENT AIMING
@@ -784,6 +1031,13 @@ func _process(delta: float) -> void:
 
 		var finished := true
 		for golfer in participants:
+			if golfer == player and golfer.is_course_owner:
+				# The owner's own golfer is not a guest: they stay on the
+				# course and go back to work, so their round is over when
+				# they have played every hole, not when they leave.
+				if not golfer.round_complete:
+					finished = false
+				continue
 			if golfer.current_state != Golfer.State.FINISHED:
 				finished = false
 				break
@@ -989,11 +1243,18 @@ func leave_round(_restore_mode: bool = true) -> void:
 	if is_instance_valid(aim_guide):
 		aim_guide.clear()
 	if not was_tournament_aim:
-		# Owner round: remove the participants we spawned. A tournament golfer
+		# Owner round: the opponents we spawned leave the course. The owner's
+		# own golfer does not: they are on the course between rounds as well,
+		# and go back to work now the round is over. A tournament golfer
 		# belongs to the TournamentManager, which clears it on its own.
+		var owner_manager := GameManager.player_golfer_manager
 		for golfer in participants:
-			if is_instance_valid(golfer):
-				manager.remove_golfer(golfer.golfer_id)
+			if not is_instance_valid(golfer):
+				continue
+			if owner_manager != null and owner_manager.golfer == golfer:
+				_release_owner()
+				continue
+			manager.remove_golfer(golfer.golfer_id)
 	tournament_aim = false
 	participants.clear()
 	player = null

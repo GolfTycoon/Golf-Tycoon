@@ -1,8 +1,19 @@
 [
  {
-  "name": "Sheila Sun",
+  "name": "Sheila Adobe",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Baker",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 12, "Accurate Irons": 11,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 5, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "2c3e50",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Jade Sun",
+  "name": "Jade Sunburst",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 43,
+  "gender": "Female",
+  "traits": ["playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 4,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 4,
+   "Recovery Skills": 4, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "d5d8dc",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Wayne Sun",
+  "name": "Wayne Monsoon",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Tour Guide",
+  "marital_status": "Divorced",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 15, "Accurate Driver": 17, "Accurate Irons": 17,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 5, "High Backspin Shot": 4,
+   "Recovery Skills": 10, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "bdc3c7",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Vera Sun",
+  "name": "Vera Cactus",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 5, "Accurate Irons": 2, "Accurate Putter": 2,
+   "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 2, "Recovery Skills": 2,
+   "Luck": 3
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "2c3e50",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Linc Sun",
+  "name": "Linc Saguaro",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Rodeo Rider",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 32, "Accurate Driver": 24, "Accurate Irons": 32,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 26, "Fade Shot (L to R)": 25, "High Backspin Shot": 27,
+   "Recovery Skills": 19, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "7d6608",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Hal Sun",
+  "name": "Hal Grapefruit",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Widowed",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 10, "Accurate Driver": 9, "Accurate Irons": 16,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 12, "High Backspin Shot": 15,
+   "Recovery Skills": 20, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "34495e",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Ella Sun",
+  "name": "Ella Sunset",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 64,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 13, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 9, "High Backspin Shot": 7,
+   "Recovery Skills": 10, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "616a6b",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Jed Sun",
+  "name": "Jed Dustdevil",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 14, "Accurate Driver": 18, "Accurate Irons": 18,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 18, "High Backspin Shot": 15,
+   "Recovery Skills": 16, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "616a6b",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Harry Sun",
+  "name": "Harry Paloverde",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Mechanic",
+  "marital_status": "Single",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 13, "Accurate Driver": 13, "Accurate Irons": 10,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 5, "High Backspin Shot": 7,
+   "Recovery Skills": 8, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "1a1a2e",
@@ -111,6 +210,17 @@
   "name": "Dave Sun",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Lawyer",
+  "marital_status": "Divorced",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 9, "High Backspin Shot": 10,
+   "Recovery Skills": 13, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "2c3e50",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Jesse Sun",
+  "name": "Jesse Mesa",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Rodeo Rider",
+  "marital_status": "Married",
+  "age": 45,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 10, "Accurate Driver": 14, "Accurate Irons": 14,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 19, "High Backspin Shot": 15,
+   "Recovery Skills": 15, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "1a1a2e",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Holt Sun",
+  "name": "Holt Copper",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Single",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 21, "Accurate Driver": 20, "Accurate Irons": 20,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 17, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "4a235a",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Bonnie Sun",
+  "name": "Bonnie Javelina",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 31, "Accurate Driver": 17, "Accurate Irons": 22,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 34, "Fade Shot (L to R)": 21, "High Backspin Shot": 26,
+   "Recovery Skills": 23, "Luck": 27
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "4a235a",
@@ -156,9 +299,20 @@
   }
  },
  {
-  "name": "Joy Sun",
+  "name": "Joy Buckeye",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Florist",
+  "marital_status": "Single",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 19, "Accurate Driver": 15, "Accurate Irons": 12,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 5,
+   "Recovery Skills": 12, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "f7f9f9",
@@ -168,9 +322,19 @@
   }
  },
  {
-  "name": "Penny Sun",
+  "name": "Penny Agave",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Divorced",
+  "age": 31,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Long Driver": 2, "Accurate Driver": 2, "Accurate Irons": 1, "Accurate Putter": 2,
+   "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 4, "Recovery Skills": 6
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "616a6b",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Sunny Sun",
+  "name": "Sunny Coyote",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 8, "Accurate Irons": 8,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 5,
+   "Recovery Skills": 3, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "1c2833",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Jess Sun",
+  "name": "Jess Sandstone",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 9, "Accurate Driver": 5, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "4a235a",
@@ -204,9 +390,20 @@
   }
  },
  {
-  "name": "Noelle Sun",
+  "name": "Noelle Roadrunner",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Veterinarian",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 6,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 4, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "1a1a2e",
@@ -216,9 +413,20 @@
   }
  },
  {
-  "name": "Wendy Sun",
+  "name": "Wendy Canyon",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Doctor",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 16, "Accurate Driver": 14, "Accurate Irons": 17,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 11, "High Backspin Shot": 17,
+   "Recovery Skills": 20, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "808b96",
@@ -228,9 +436,20 @@
   }
  },
  {
-  "name": "Gemma Sun",
+  "name": "Gemma Miner",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 18, "Accurate Driver": 14, "Accurate Irons": 9,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 6, "High Backspin Shot": 7,
+   "Recovery Skills": 10, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "bdc3c7",
@@ -240,9 +459,18 @@
   }
  },
  {
-  "name": "Gage Sun",
+  "name": "Gage Rattler",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Pharmacist",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Recovery Skills": 2, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "616a6b",
@@ -252,9 +480,20 @@
   }
  },
  {
-  "name": "Kathy Sun",
+  "name": "Kathy Joshua",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Judge",
+  "marital_status": "Widowed",
+  "age": 55,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 3, "Accurate Driver": 5, "Accurate Irons": 5,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 13, "High Backspin Shot": 10,
+   "Recovery Skills": 11, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "5b2c6f",
@@ -264,9 +503,20 @@
   }
  },
  {
-  "name": "Carl Sun",
+  "name": "Carl Ocotillo",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Baker",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 31, "Accurate Driver": 27, "Accurate Irons": 17,
+   "Accurate Putter": 26, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 30, "High Backspin Shot": 32,
+   "Recovery Skills": 24, "Luck": 26
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "1a1a2e",
@@ -276,9 +526,20 @@
   }
  },
  {
-  "name": "Sally Sun",
+  "name": "Sally Desert",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Librarian",
+  "marital_status": "Single",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 34, "Long Driver": 22, "Accurate Driver": 32, "Accurate Irons": 23,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 22, "Fade Shot (L to R)": 19, "High Backspin Shot": 15,
+   "Recovery Skills": 27, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "566573",
@@ -288,9 +549,20 @@
   }
  },
  {
-  "name": "Riley Sun",
+  "name": "Riley Agave",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Electrician",
+  "marital_status": "Divorced",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 10, "Accurate Driver": 15, "Accurate Irons": 20,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 10, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "4a235a",
@@ -300,9 +572,20 @@
   }
  },
  {
-  "name": "Glen Sun",
+  "name": "Glen Desert",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 10, "Accurate Irons": 8,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 3,
+   "Recovery Skills": 6, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "4a235a",
@@ -312,9 +595,20 @@
   }
  },
  {
-  "name": "Phil Sun",
+  "name": "Phil Roadrunner",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 64,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 9, "Accurate Driver": 12, "Accurate Irons": 11,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "bdc3c7",
@@ -324,9 +618,20 @@
   }
  },
  {
-  "name": "Eve Sun",
+  "name": "Eve Ocotillo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Judge",
+  "marital_status": "Divorced",
+  "age": 55,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 13, "Accurate Driver": 12, "Accurate Irons": 15,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 22, "High Backspin Shot": 17,
+   "Recovery Skills": 19, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "5b2c6f",
@@ -336,9 +641,20 @@
   }
  },
  {
-  "name": "Wade Sun",
+  "name": "Wade Miner",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Divorced",
+  "age": 60,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 4, "Accurate Driver": 14, "Accurate Irons": 12,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 8, "High Backspin Shot": 12,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "5b2c6f",
@@ -348,9 +664,20 @@
   }
  },
  {
-  "name": "Rocky Sun",
+  "name": "Rocky Mesa",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Graphic Designer",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 5, "Accurate Irons": 2,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 7, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "f7f9f9",
@@ -360,9 +687,20 @@
   }
  },
  {
-  "name": "Todd Sun",
+  "name": "Todd Sunburst",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 12, "Accurate Driver": 14, "Accurate Irons": 17,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 14, "High Backspin Shot": 11,
+   "Recovery Skills": 14, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "4a235a",
@@ -372,9 +710,20 @@
   }
  },
  {
-  "name": "Sandy Sun",
+  "name": "Sandy Sandstone",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Waiter",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 3, "Accurate Driver": 10, "Accurate Irons": 8,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 11, "High Backspin Shot": 7,
+   "Recovery Skills": 4, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "616a6b",
@@ -384,9 +733,20 @@
   }
  },
  {
-  "name": "Nick Sun",
+  "name": "Nick Copper",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Accountant",
+  "marital_status": "Divorced",
+  "age": 59,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 10, "Accurate Driver": 14, "Accurate Irons": 8,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 5,
+   "Recovery Skills": 8, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "283747",
@@ -396,9 +756,20 @@
   }
  },
  {
-  "name": "Logan Sun",
+  "name": "Logan Rattler",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 5, "Accurate Irons": 7,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 3, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "2e4053",
@@ -408,9 +779,20 @@
   }
  },
  {
-  "name": "Charlie Sun",
+  "name": "Charlie Saguaro",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Solar Engineer",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 32, "Long Driver": 17, "Accurate Driver": 30, "Accurate Irons": 17,
+   "Accurate Putter": 29, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 11, "High Backspin Shot": 9,
+   "Recovery Skills": 16, "Luck": 23
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "f7f9f9",
@@ -420,9 +802,20 @@
   }
  },
  {
-  "name": "Luna Sun",
+  "name": "Luna Monsoon",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Divorced",
+  "age": 75,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 6, "Accurate Driver": 6, "Accurate Irons": 10,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 11, "High Backspin Shot": 11,
+   "Recovery Skills": 10, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "808b96",
@@ -432,9 +825,20 @@
   }
  },
  {
-  "name": "Seth Sun",
+  "name": "Seth Buckeye",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "566573",
@@ -444,9 +848,20 @@
   }
  },
  {
-  "name": "Carol Sun",
+  "name": "Carol Cactus",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Journalist",
+  "marital_status": "Divorced",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 12, "Accurate Driver": 17, "Accurate Irons": 16,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 14, "High Backspin Shot": 11,
+   "Recovery Skills": 13, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "2c3e50",
@@ -456,9 +871,20 @@
   }
  },
  {
-  "name": "Bobby Sun",
+  "name": "Bobby Grapefruit",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Waiter",
+  "marital_status": "Single",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 17, "Accurate Driver": 14, "Accurate Irons": 12,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 8,
+   "Recovery Skills": 14, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "bdc3c7",
@@ -471,6 +897,17 @@
   "name": "Dan Sun",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Rodeo Rider",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 7, "Accurate Driver": 9, "Accurate Irons": 8,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 11, "High Backspin Shot": 9,
+   "Recovery Skills": 9, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "bdc3c7",
@@ -480,9 +917,20 @@
   }
  },
  {
-  "name": "Colt Sun",
+  "name": "Colt Sunset",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 49,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 20, "Accurate Driver": 14, "Accurate Irons": 14,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 16, "High Backspin Shot": 20,
+   "Recovery Skills": 15, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "2c3e50",
@@ -492,9 +940,20 @@
   }
  },
  {
-  "name": "Owen Sun",
+  "name": "Owen Adobe",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Pool Designer",
+  "marital_status": "Widowed",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 16, "Accurate Driver": 14, "Accurate Irons": 12,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 18, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "bdc3c7",
@@ -504,9 +963,20 @@
   }
  },
  {
-  "name": "Gene Sun",
+  "name": "Gene Dustdevil",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Mechanic",
+  "marital_status": "Single",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 9, "Accurate Driver": 4, "Accurate Irons": 10,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 10, "High Backspin Shot": 7,
+   "Recovery Skills": 11, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "5b2c6f",
@@ -516,9 +986,20 @@
   }
  },
  {
-  "name": "Mike Sun",
+  "name": "Mike Joshua",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 66,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 7, "Accurate Driver": 2, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 1, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "1b2631",
@@ -528,9 +1009,20 @@
   }
  },
  {
-  "name": "Ron Sun",
+  "name": "Ron Coyote",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Writer",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 2, "Accurate Irons": 2,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 6,
+   "Recovery Skills": 3, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "4a235a",
@@ -540,9 +1032,20 @@
   }
  },
  {
-  "name": "Judd Sun",
+  "name": "Judd Javelina",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 2, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 2, "Recovery Skills": 2,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "808b96",
@@ -552,9 +1055,20 @@
   }
  },
  {
-  "name": "Kara Sun",
+  "name": "Kara Canyon",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Musician",
+  "marital_status": "Divorced",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 2, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "34495e",
@@ -564,9 +1078,20 @@
   }
  },
  {
-  "name": "Ellie Sun",
+  "name": "Ellie Paloverde",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Artist",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 26, "Accurate Driver": 23, "Accurate Irons": 24,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 25, "Fade Shot (L to R)": 30, "High Backspin Shot": 30,
+   "Recovery Skills": 26, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "1c2833",
@@ -576,9 +1101,20 @@
   }
  },
  {
-  "name": "Kylie Sun",
+  "name": "Kylie Buckeye",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Journalist",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 4, "Accurate Driver": 10, "Accurate Irons": 13,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "616a6b",
@@ -588,9 +1124,20 @@
   }
  },
  {
-  "name": "Kay Sun",
+  "name": "Kay Ocotillo",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 44,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 8, "Accurate Irons": 8,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "d5d8dc",
