@@ -196,7 +196,8 @@ func _update_display() -> void:
 
 		for score_data in _golfer.hole_scores:
 			var hole_label := Label.new()
-			hole_label.text = "H%d" % (score_data.hole + 1)
+			# Hole scores store the 1-based course hole number, not an array index.
+			hole_label.text = "H%d" % score_data.hole
 			hole_label.add_theme_font_size_override("font_size", 11)
 			hole_label.custom_minimum_size = Vector2(35, 0)
 			grid.add_child(hole_label)
