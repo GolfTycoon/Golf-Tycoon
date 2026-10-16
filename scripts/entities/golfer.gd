@@ -672,8 +672,12 @@ func sync_player_profile_skills() -> void:
 	for i in range(mini(player_profile.points.size(), attributes.golf_points.size())):
 		attributes.golf_points[i] = player_profile.points[i]
 	attributes.name = player_profile.golfer_name
-	if attributes.profession.is_empty():
-		attributes.profession = "Course Owner"
+	attributes.profession = player_profile.profession
+	attributes.age = player_profile.age
+	attributes.gender = player_profile.gender
+	attributes.marital_status = player_profile.marital_status
+	attributes.traits = player_profile.traits.duplicate()
+	attributes.golfer_skills = player_profile.golfer_skills.duplicate()
 	if arms:
 		arms.color = skin_tone
 	if hands:

@@ -6,6 +6,12 @@ const SKILLS = ["Power Hitter", "Long Driver", "Accurate Driver", "Accurate Iron
 	"High Backspin Shot", "Recovery Skills", "Luck"]
 const COLORS = ["shirt_color", "pants_color", "cap_color", "hair_color", "skin_tone"]
 var golfer_name: String = "Course Owner"
+var profession: String = "Professional"
+var age: int = 30
+var gender: int = GolferAttributes.Gender.MALE
+var marital_status: int = GolferAttributes.MaritalStatus.SINGLE
+var traits: Dictionary = {"neat": false, "outgoing": false, "active": false, "playful": false, "nice": false}
+var golfer_skills: Dictionary = {"length": false, "accuracy": false, "imagination": false}
 var appearance: Dictionary = {"shirt_color": "e65959", "pants_color": "404059",
 	"cap_color": "3366b3", "hair_color": "4d331a", "skin_tone": "f2cca6"}
 var points: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -52,7 +58,10 @@ func recovery_ability() -> float:
 
 func serialize() -> Dictionary:
 	return {"name": golfer_name, "appearance": appearance.duplicate(),
-		"points": points.duplicate(), "initialized": initialized}
+		"points": points.duplicate(), "initialized": initialized,
+		"profession": profession, "age": age, "gender": gender,
+		"marital_status": marital_status, "traits": traits.duplicate(),
+		"golfer_skills": golfer_skills.duplicate()}
 
 static func from_data(data: Dictionary) -> PlayerGolferProfile:
 	var profile := PlayerGolferProfile.new()
@@ -68,6 +77,14 @@ static func from_data(data: Dictionary) -> PlayerGolferProfile:
 		for i in SKILLS.size():
 			profile.points[i] = clampi(int(saved[i]), 0, 99)
 	profile.initialized = bool(data.get("initialized", false))
+	profile.profession = str(data.get("profession", "Professional")).strip_edges().left(48)
+	profile.age = clampi(int(data.get("age", 30)), 18, 100)
+	profile.gender = clampi(int(data.get("gender", 0)), 0, 1)
+	profile.marital_status = clampi(int(data.get("marital_status", 0)), 0, 3)
+	for key in GolferAttributes.TRAIT_KEYS:
+		profile.traits[key] = bool(data.get("traits", {}).get(key, false))
+	for key in GolferAttributes.GOLFER_SKILL_KEYS:
+		profile.golfer_skills[key] = bool(data.get("golfer_skills", {}).get(key, false))
 	if not profile.initialized:
 		var budget := 10
 		for i in profile.points.size():

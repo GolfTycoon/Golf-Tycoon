@@ -417,6 +417,26 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
+func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
+	# Chunky, square-corner pixel UI: dark enamel surfaces, hard outlines and
+	# high-contrast mint/gold accents instead of the default rounded widgets.
+	control.add_theme_color_override("font_color", Color("f4edcf"))
+	control.add_theme_color_override("font_hover_color", Color("ffffff"))
+	control.add_theme_color_override("font_pressed_color", Color("14231f"))
+	control.add_theme_font_size_override("font_size", 12)
+	if control is Button:
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			var box := StyleBoxFlat.new()
+			box.bg_color = Color("233a35") if state != "pressed" else accent
+			box.border_color = accent if state in ["hover", "pressed"] else Color("526b5e")
+			box.set_border_width_all(2)
+			box.set_corner_radius_all(0)
+			box.content_margin_left = 8
+			box.content_margin_right = 8
+			box.content_margin_top = 5
+			box.content_margin_bottom = 5
+			control.add_theme_stylebox_override(state, box)
+
 func _build_setup() -> void:
 	draft = PlayerGolferProfile.from_data(GameManager.player_profile.serialize())
 	# A rebuilt page means no round is showing: drop whatever scores the last
@@ -446,6 +466,55 @@ func _build_setup() -> void:
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
+	if is_instance_valid(player_tab):
+		# Editable identity fields for the player golfer.
+		var profession_edit := LineEdit.new()
+		profession_edit.name = "PlayerProfession"
+		profession_edit.placeholder_text = "Profession"
+		profession_edit.text = draft.profession
+		profession_edit.text_changed.connect(func(value: String):
+			draft.profession = value.left(48)
+			_persist_player_profile())
+		content.add_child(profession_edit)
+		var age_spin := SpinBox.new()
+		age_spin.name = "PlayerAge"
+		age_spin.min_value = 18
+		age_spin.max_value = 100
+		age_spin.value = draft.age
+		age_spin.value_changed.connect(func(value: float):
+			draft.age = int(value)
+			_persist_player_profile())
+		content.add_child(age_spin)
+		var gender_picker := OptionButton.new()
+		gender_picker.name = "PlayerGender"
+		gender_picker.add_item("Male")
+		gender_picker.add_item("Female")
+		gender_picker.select(draft.gender)
+		gender_picker.item_selected.connect(func(value: int):
+			draft.gender = value
+			_persist_player_profile())
+		content.add_child(gender_picker)
+		var marital_picker := OptionButton.new()
+		marital_picker.name = "PlayerMaritalStatus"
+		for value in ["Single", "Married", "Divorced", "Widowed"]:
+			marital_picker.add_item(value)
+		marital_picker.select(draft.marital_status)
+		marital_picker.item_selected.connect(func(value: int):
+			draft.marital_status = value
+			_persist_player_profile())
+		content.add_child(marital_picker)
+		var traits_column := PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_EDIT], 210)
+		var traits_title := Label.new()
+		traits_title.text = "Golfer Traits"
+		traits_column.add_child(traits_title)
+		for key in GolferAttributes.TRAIT_KEYS:
+			var trait_toggle := CheckButton.new()
+			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
+			trait_toggle.button_pressed = draft.traits[key]
+			trait_toggle.toggled.connect(func(on: bool, trait_key: String = key):
+				draft.traits[trait_key] = on
+				_persist_player_profile())
+			traits_column.add_child(trait_toggle)
 	if is_instance_valid(player_tab):
 		# The golfer's skin and the colours of its Re-color Groups. These stay
 		# editable during a round - dressing the owner is not part of the play
@@ -510,6 +579,19 @@ func _build_setup() -> void:
 		pro_picker.disabled = true
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
+	if is_instance_valid(player_tab):
+		var golfer_skills_column := PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 220)
+		var golfer_skills_title := Label.new()
+		golfer_skills_title.text = "Golfer Skills"
+		golfer_skills_column.add_child(golfer_skills_title)
+		for key in GolferAttributes.GOLFER_SKILL_KEYS:
+			var skill_toggle := CheckButton.new()
+			skill_toggle.text = GolferAttributes.GOLFER_SKILL_NAMES[key]
+			skill_toggle.button_pressed = draft.golfer_skills[key]
+			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
+				draft.golfer_skills[skill_key] = on
+				_persist_player_profile())
+			golfer_skills_column.add_child(skill_toggle)
 	points_label = _label("")
 	_label("Each point adds 10% bonus. Maximum per skill: 990%.")
 	skill_labels.clear()
@@ -530,6 +612,13 @@ func _build_setup() -> void:
 			button.pressed.connect(allocate_skill.bind(i, change))
 			row.add_child(button)
 	if is_instance_valid(player_tab):
+		# Apply one consistent pixel-art visual language to both owner tabs.
+		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
+			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
+				_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
+				if widget is Label and (widget.text in ["Golfer Traits", "Golfer Skills"] or widget == points_label):
+					widget.add_theme_color_override("font_color", Color("f0bf59"))
+					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()
 		start_button = null
 	else:
