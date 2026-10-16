@@ -87,7 +87,6 @@ var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
 var analytics_panel_ui: AnalyticsPanel = null
-var golfer_info_popup: GolferInfoPopup = null
 var round_summary_popup: RoundSummaryPopup = null
 var tournament_leaderboard: TournamentLeaderboard = null
 ## Top-left corner of the screen: round scores and the live tournament board.
@@ -291,7 +290,7 @@ func _ready() -> void:
 	_setup_weather_debug_panel()
 	_setup_season_debug_panel()
 	_setup_analytics_panel()
-	_setup_golfer_info_popup()
+	_setup_golfer_profile_navigation()
 	_setup_round_summary_popup()
 	player_round = PlayerRoundManager.new()
 	add_child(player_round)
@@ -667,6 +666,8 @@ func _collect_golfer_rows() -> Array:
 			"hole": golfer.current_hole + 1,
 			"strokes": golfer.total_strokes + golfer.current_strokes,
 			"attitude": golfer.attitude,
+			"profile": _visitor_profile(golfer),
+			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
 	return rows
 
@@ -675,7 +676,53 @@ func _on_toolbar_golfer_clicked(golfer_id: int) -> void:
 	var golfer = golfer_manager.get_golfer(golfer_id)
 	if golfer:
 		camera.focus_on(golfer.global_position, false)
-		_on_golfer_clicked(golfer)
+
+func _visitor_profile(golfer: Golfer) -> Array[Dictionary]:
+	# Value-only snapshot: departed visitors retain every detail without keeping
+	# a freed golfer node alive. Active visitors refresh through the provider.
+	var attributes := golfer.attributes
+	var sections: Array[Dictionary] = []
+	sections.append({"title": "Identity", "lines": [
+		"Profession: " + attributes.profession,
+		"Age / Gender: %d / %s" % [attributes.age, attributes.gender_name()],
+		"Marital Status: " + attributes.marital_status_name(),
+		"Returning guest: " + ("Yes" if golfer.is_returning_guest else "No")]})
+	var traits: Array[String] = []
+	for key in GolferAttributes.TRAIT_KEYS:
+		traits.append("%s: %s" % [GolferAttributes.TRAIT_NAMES[key], "On" if attributes.trait_on(key) else "Off"])
+	sections.append({"title": "Golfer Traits", "lines": traits})
+	var skills: Array[String] = []
+	for key in GolferAttributes.GOLFER_SKILL_KEYS:
+		skills.append("%s: %s" % [GolferAttributes.GOLFER_SKILL_NAMES[key], "On" if attributes.skill_on(key) else "Off"])
+	sections.append({"title": "Golfer Skills", "lines": skills})
+	var golf_skills: Array[String] = []
+	for i in GolferAttributes.GOLF_SKILLS.size():
+		golf_skills.append("%s: %d%%" % [GolferAttributes.GOLF_SKILLS[i], attributes.golf_skill_percent(i)])
+	sections.append({"title": "Golf Skills", "lines": golf_skills})
+	sections.append({"title": "Golfer Statuses", "meters": {
+		"Fun": attributes.fun, "Attitude": attributes.attitude,
+		"Energy": attributes.energy, "Hunger": attributes.hunger, "Thirst": attributes.thirst}})
+	var comments: Array[String] = ["Positive %d / Neutral %d / Negative %d" % [
+		int(attributes.comment_counts.get("positive", 0)), int(attributes.comment_counts.get("neutral", 0)), int(attributes.comment_counts.get("negative", 0))]]
+	for comment in attributes.recent_comments(5):
+		comments.append("%s: %s" % [str(comment.get("sentiment", "neutral")).capitalize(), comment.get("text", "")])
+	sections.append({"title": "Golfer Comments", "lines": comments})
+	sections.append({"title": "Course Experience", "lines": [golfer.activity_text,
+		"Traffic wait: %.1f game minutes" % (golfer.traffic_wait_seconds * 60.0 / GameManager.SECONDS_PER_GAME_HOUR),
+		"Amenities used: %d" % golfer.amenities_used,
+		FeedbackManager.guest_incident_text(golfer.golfer_id)]})
+	var diff := golfer.total_strokes - golfer.total_par
+	var score := "%d (%+d)" % [golfer.total_strokes, diff]
+	if golfer.total_par <= 0:
+		score = "Not started"
+	elif diff == 0:
+		score = "%d (E)" % golfer.total_strokes
+	sections.append({"title": "Current Round", "lines": ["Score: " + score, "Hole: %d" % (golfer.current_hole + 1)]})
+	var scores: Array[String] = []
+	for hole in golfer.hole_scores:
+		scores.append("H%d: %d strokes / par %d / %s" % [hole.hole, hole.strokes, hole.par, GolfRules.get_score_name(hole.strokes, hole.par)])
+	sections.append({"title": "Scorecard", "lines": scores if not scores.is_empty() else ["No completed holes yet."]})
+	return sections
 
 func _on_play_course_pressed() -> void:
 	terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
@@ -3657,26 +3704,16 @@ func _toggle_analytics_panel() -> void:
 
 # --- Golfer Info Popup ---
 
-func _setup_golfer_info_popup() -> void:
-	var hud = $UI/HUD
-	golfer_info_popup = GolferInfoPopup.new()
-	golfer_info_popup.name = "GolferInfoPopup"
-	golfer_info_popup.close_requested.connect(_on_golfer_info_popup_closed)
-	hud.add_child(golfer_info_popup)
-	golfer_info_popup.hide()
+func _setup_golfer_profile_navigation() -> void:
 	golfer_manager.golfer_clicked.connect(_on_golfer_clicked)
-
-func _on_golfer_info_popup_closed() -> void:
-	golfer_info_popup.hide()
-	_active_panel = null
 
 func _on_golfer_clicked(golfer: Golfer) -> void:
 	if placement_manager.placement_mode != PlacementManager.PlacementMode.NONE:
 		return
-	if _active_panel and _active_panel != golfer_info_popup and _active_panel.visible:
+	if _active_panel and _active_panel.visible:
 		_active_panel.hide()
-	_active_panel = golfer_info_popup
-	golfer_info_popup.show_for_golfer(golfer)
+	_active_panel = null
+	terrain_toolbar.show_visitor_profile(golfer.golfer_name)
 
 # --- Round Summary ---
 
@@ -3699,6 +3736,8 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 			"day": GameManager.current_day,
 			"tier": golfer.golfer_tier,
 			"owner": golfer.is_owner_round,
+			"profile": _visitor_profile(golfer),
+			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
 	if golfer.is_owner_round:
 		return
