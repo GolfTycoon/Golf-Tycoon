@@ -2,7 +2,7 @@
 
 > Hired staff walk the course inside a designated area and do their job: groundskeepers pull weeds, greeters lift moods, marshals keep pace and vendors serve drinks. Weeds left on the course lower its condition.
 
-**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_needs.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
+**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
 **Tests:** `tests/unit/test_staff_manager.gd`, `tests/unit/test_weed_manager.gd`, `tests/unit/test_staff_panel.gd`, `tests/unit/test_staff_service.gd`, `tests/unit/test_staff_area_overlay.gd`, `tests/integration/staff_on_course.gd`
 
 ---
@@ -142,8 +142,7 @@ modifier = min(1.0, 0.6 + 0.12 × standard_marshals + 0.20 × premium_marshals)
 | Groundskeeper relief | `staff_manager.gd` `process_daily_maintenance()` | `0.7` | Share of weed pressure a full crew ignores |
 | Service range | `staff_member.gd` `SERVICE_RANGE_TILES` | `2.5` tiles | How close a golfer must stay |
 | Service cooldown | `golfer.gd` `STAFF_HELP_COOLDOWN_SECONDS` | `20` s | Gap between services to one golfer |
-| Thirst decay | `golfer_needs.gd` `THIRST_DECAY_PER_HOLE` | `0.07` per hole | Higher means golfers get thirsty sooner |
-| Thirst satisfaction floor | `golfer_needs.gd` `THIRST_SATISFACTION_FLOOR` | `0.85` | Satisfaction multiplier when completely dry |
+| Thirst decay | `golfer_attributes.gd` `THIRST_DECAY_PER_HOLE` | `0.015` per hole | Higher means golfers get thirsty sooner |
 
 ---
 
@@ -151,5 +150,6 @@ modifier = min(1.0, 0.6 + 0.12 × standard_marshals + 0.20 × premium_marshals)
 
 - [Economy](economy.md) covers payroll and daily costs.
 - [Course Rating](../ratings-and-reputation/course-rating.md) explains how condition and pace feed the star rating.
-- [Golfer Needs](../golfers/golfer-needs.md) covers thirst, pace and mood.
-- [Satisfaction & Feedback](../golfers/satisfaction-feedback.md) covers how mood affects reviews.
+- [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers thirst, pace and attitude.
+- [Golfer Attributes](../golfers/golfer-attributes.md) covers the Neat trait, whose owners comment on (and dislike) weeds.
+- [Satisfaction & Feedback](../golfers/satisfaction-feedback.md) covers how attitude affects reviews.

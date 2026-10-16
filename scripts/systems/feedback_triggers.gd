@@ -28,6 +28,9 @@ enum TriggerType {
 	REFRESHED,
 	CHEERED_UP,
 	PACED_UP,
+	## Course upkeep, seen by golfers with the Neat trait
+	COURSE_TIDY,
+	COURSE_MESSY,
 }
 
 ## Trigger data: messages array and sentiment
@@ -136,6 +139,16 @@ const TRIGGERS: Dictionary = {
 		"messages": ["Thanks, marshal!", "Back on pace", "Good to keep moving", "Appreciate the nudge!"],
 		"sentiment": "positive",
 		"probability": 0.6,
+	},
+	TriggerType.COURSE_TIDY: {
+		"messages": ["Beautifully kept!", "Immaculate grounds", "Love the upkeep", "What a tidy course!"],
+		"sentiment": "positive",
+		"probability": 0.8,
+	},
+	TriggerType.COURSE_MESSY: {
+		"messages": ["Weeds everywhere...", "Needs a good cleanup", "This place is getting scruffy", "Who maintains this?"],
+		"sentiment": "negative",
+		"probability": 0.8,
 	},
 }
 

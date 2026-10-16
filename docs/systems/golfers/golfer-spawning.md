@@ -173,19 +173,24 @@ for each tier:
 
 ### 7. Skill Generation (Per Golfer)
 
+Every spawned golfer rolls a full [attribute block](golfer-attributes.md): identity (gendered name, profession, marital status, age), the five Golfer Traits (On/Off), the three Golfer Skills (On/Off) and the ten Golf Skills as points (0-99, each point +10%, up to 990%). The tier's four playing skills are then blended with the matching Golf Skill points so both views agree:
+
 ```
 skills = {
-    driving:  randf_range(skill_low, skill_high),
-    accuracy: randf_range(skill_low, skill_high),
-    putting:  randf_range(skill_low, skill_high),
-    recovery: randf_range(skill_low, skill_high),
+    driving:  0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Power Hitter, Long Driver),
+    accuracy: 0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Accurate Driver, Accurate Irons),
+    putting:  0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Accurate Putter),
+    recovery: 0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Recovery Skills),
 }
+# norm(x) = 1 - 0.5 / (1 + points[x] * 0.1), clamped to 0.05-0.99
 
 # Miss tendency
 tendency_magnitude = randf_range(tendency_low, tendency_high)
 tendency_sign = +1 or -1 (50/50)
 miss_tendency = magnitude * sign
 ```
+
+Visiting golfers keep the name on their visitor card and roll the rest of the identity; returning guests keep the whole block and only restart their statuses at 50%.
 
 ### 8. Personality Generation (Per Tier)
 
@@ -258,7 +263,7 @@ for each active golfer (from earlier groups):
 
 ## Related
 
-- [Golfer Needs](golfer-needs.md) covers what golfers want on the course.
+- [Golfer Needs and Statuses](golfer-needs.md) covers what golfers want on the course.
 - [Satisfaction and Feedback](satisfaction-feedback.md) covers how visits go.
 - [Course Rating](../ratings-and-reputation/course-rating.md) sets the rating that drives arrivals.
 - [Seasonal Calendar](../environment-and-time/seasonal-calendar.md) adds seasonal demand.

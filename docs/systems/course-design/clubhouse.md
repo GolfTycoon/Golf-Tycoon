@@ -105,5 +105,5 @@ The golfer state machine gained one state, `LEAVING`, appended last so saved sta
 - [Generated Walking Paths](generated-walking-paths.md) covers the network planned out of the clubhouse door.
 - [Isometric Buildings](isometric-buildings.md) covers how buildings are drawn.
 - [Course Architecture](course-character.md) covers facade and landform rendering.
-- [Golfer Needs](../golfers/golfer-needs.md) covers how the visit restores needs.
+- [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers how the visit restores needs.
 - [Golfer Spawning](../golfers/golfer-spawning.md) covers how groups enter the course.

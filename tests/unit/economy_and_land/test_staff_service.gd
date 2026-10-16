@@ -7,7 +7,7 @@ func _make_golfer() -> Golfer:
 	golfer.golfer_id = 900 + randi() % 100
 	golfer.golfer_name = "Guest"
 	golfer.current_mood = 0.5
-	golfer.needs = GolferNeeds.new()
+	golfer.attributes = GolferAttributes.new()
 	golfer.needs.setup(GolferTier.Tier.CASUAL, 0.5)
 	return golfer
 

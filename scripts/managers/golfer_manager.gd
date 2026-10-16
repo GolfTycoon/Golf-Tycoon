@@ -926,27 +926,38 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 			regular.is_returning_guest = true
 			for field in ["driving_skill","accuracy_skill","putting_skill","recovery_skill","patience","aggression","miss_tendency"]:
 				regular.set(field, returning[field])
+			# A returning guest is the same person: keep their identity, traits
+			# and golf skills. Statuses (Fun, Attitude, Energy, Hunger, Thirst)
+			# start this round at 50% like everyone else's.
+			var saved_attributes = returning.get("attributes", {})
+			if saved_attributes is Dictionary and not saved_attributes.is_empty():
+				regular.attributes = GolferAttributes.from_data(saved_attributes)
 			regular.needs.setup(regular.golfer_tier, regular.patience)
+			regular.walk_speed = 100.0 * regular.attributes.walk_speed_multiplier()
 		return regular
-	var names = [
-		"Tiger", "Jack", "Arnold", "Phil", "Rory", "Jordan", "Brooks",
-		"Dustin", "Justin", "Bryson", "Jon", "Collin", "Scottie", "Xander"
-	]
 
 	# Select tier based on course quality, difficulty, and hole count
 	var hole_count = GameManager.get_open_hole_count()
 	var tier = GolferTier.select_tier(GameManager.course_rating, GameManager.green_fee, GameManager.reputation, hole_count)
 
-	# Build name with tier-appropriate prefix
-	var base_name = names[randi() % names.size()]
-	var prefix = GolferTier.get_name_prefix(tier)
-	var full_name = prefix + " " + base_name if prefix != "" else base_name
+	# Roll the identity (name, profession, marital status, age, gender) up
+	# front so the golfer spawns under the name their identity carries.
+	var identity := GolferAttributes.new()
+	identity.randomize_identity(tier)
 
 	# Spawn with default skill (will be overridden by initialize_from_tier)
-	var golfer = spawn_golfer(full_name, 0.5, group_id)
+	var golfer = spawn_golfer(identity.name, 0.5, group_id)
 	if golfer:
 		golfer.initialize_from_tier(tier)
-		print("Spawned %s (%s tier)" % [full_name, GolferTier.get_tier_name(tier)])
+		# Keep the identity rolled for the name they spawned under; the tier
+		# generation keeps the traits, golfer skills and golf skill points.
+		golfer.attributes.name = identity.name
+		golfer.attributes.profession = identity.profession
+		golfer.attributes.age = identity.age
+		golfer.attributes.gender = identity.gender
+		golfer.attributes.marital_status = identity.marital_status
+		print("Spawned %s, %s (%s tier)" % [identity.name, identity.profession,
+			GolferTier.get_tier_name(tier)])
 
 	return golfer
 
@@ -1030,13 +1041,11 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 		push_error("No golfers container found")
 		return null
 
-	var pro_names = [
-		"Seve", "Vijay", "Ernie", "Lee", "Gary", "Sam", "Ben", "Walter",
-		"Byron", "Gene", "Tom", "Nick", "Payne", "Hale", "Ray", "Billy"
-	]
-	var base_name = pro_names[randi() % pro_names.size()]
-	var prefix = GolferTier.get_name_prefix(forced_tier)
-	var full_name = prefix + " " + base_name if prefix != "" else base_name
+	# Tournament golfers carry a full identity (name, profession, marital
+	# status, age, gender) like every other golfer.
+	var identity := GolferAttributes.new()
+	identity.randomize_identity(forced_tier)
+	var full_name = identity.name
 
 	var golfer = GOLFER_SCENE.instantiate() as Golfer
 	golfer.golfer_id = next_golfer_id
@@ -1058,6 +1067,12 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 
 	# Initialize tier skills — no green fee payment for tournament golfers
 	golfer.initialize_from_tier(forced_tier)
+	# Keep the identity rolled for the name they spawned under.
+	golfer.attributes.name = identity.name
+	golfer.attributes.profession = identity.profession
+	golfer.attributes.age = identity.age
+	golfer.attributes.gender = identity.gender
+	golfer.attributes.marital_status = identity.marital_status
 
 	EventBus.golfer_spawned.emit(golfer.golfer_id, full_name)
 	golfer_spawned.emit(golfer)

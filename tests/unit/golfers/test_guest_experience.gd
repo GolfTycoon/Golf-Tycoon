@@ -19,11 +19,11 @@ func after_each() -> void:
 func _visitor(golfer_name: String = "Visitor") -> Golfer:
 	var golfer: Golfer = autofree(Golfer.new())
 	golfer.golfer_name = golfer_name
-	golfer.needs = GolferNeeds.new()
+	golfer.attributes = GolferAttributes.new()
 	return golfer
 
 func test_normal_play_recovers_patience_but_traffic_reduces_it() -> void:
-	var needs := GolferNeeds.new()
+	var needs := GolferAttributes.new()
 	needs.setup(1, 0.5)
 	needs.on_waiting(100)
 	assert_lt(needs.pace, 0.5)

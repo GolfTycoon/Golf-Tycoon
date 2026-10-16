@@ -30,6 +30,7 @@ Golf Tycoon is a 2D isometric simulation written in **GDScript** for **Godot 4.6
 
 - **Course building.** Paint terrain such as fairways, bunkers, water, rough and trees. Create holes by painting a tee box and a cup, then open the hole.
 - **Shot-by-shot golf.** Golfers choose targets, clubs and risks. Wind, lies, terrain and accuracy all affect every shot.
+- **Real golfers.** Every golfer has a name, profession, marital status, age and gender, traits (Neat, Outgoing, Active, Playful, Nice), skills (Length, Accuracy, Imagination), ten point-based Golf Skills (Power Hitter through Luck, each +10% per point up to 990%), live statuses (Fun, Attitude, Energy, Hunger, Thirst) and a running record of their Positive, Neutral and Negative comments.
 - **Ten themes.** Parkland, Desert, Links, Mountain, City, Resort, Heathland, Woodland, Tropical and Marshland each change the look, wind and costs.
 - **Business management.** Set green fees, manage costs and loans, hire staff, and watch the daily accounts.
 - **Star ratings.** Condition, design, value, pace and aesthetics combine into a five-star course rating that drives golfer demand.

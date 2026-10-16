@@ -68,4 +68,4 @@ A golfer uses a facility when the needs check selects it. Revenue is paid only i
 - [Path Furniture](path-furniture.md) covers benches, ball washers and other path-side items.
 - [Walking Paths](walking-paths.md) covers the trail itself: its look, its paving and the pace it buys.
 - [Isometric Buildings](isometric-buildings.md) covers how buildings are drawn.
-- [Golfer Needs](../golfers/golfer-needs.md) covers how facilities restore needs.
+- [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers how facilities restore needs.

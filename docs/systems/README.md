@@ -83,7 +83,8 @@ Who visits the course and how they feel about it.
 
 | Doc | What it covers |
 | --- | --- |
-| [Golfer Needs](golfers/golfer-needs.md) | Thirst, pace, comfort and how needs decay |
+| [Golfer Attributes](golfers/golfer-attributes.md) | Identity, traits, golfer skills, golf skills, statuses and comments |
+| [Golfer Needs and Statuses](golfers/golfer-needs.md) | Fun, Attitude, Energy, Hunger, Thirst and how they decay |
 | [Golfer Spawning](golfers/golfer-spawning.md) | Arrival rate, tiers, group size and landing zones |
 | [Satisfaction and Feedback](golfers/satisfaction-feedback.md) | Thought bubbles, daily satisfaction and visitor return |
 
