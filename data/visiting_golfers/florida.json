@@ -1,8 +1,19 @@
 [
  {
-  "name": "Crystal Bay",
+  "name": "Crystal Mango",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 33,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 7,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "4a235a",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Mel Bay",
+  "name": "Mel Palmetto",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Electrician",
+  "marital_status": "Divorced",
+  "age": 46,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 4, "Accurate Driver": 1, "Accurate Irons": 1,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 5, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "1a1a2e",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Nadia Bay",
+  "name": "Nadia Gulfstream",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Real Estate Agent",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 6, "Accurate Driver": 14, "Accurate Irons": 8,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 3, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "2c3e50",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Kent Bay",
+  "name": "Kent Tarpon",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Veterinarian",
+  "marital_status": "Divorced",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 33, "Accurate Driver": 31, "Accurate Irons": 29,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 24, "Fade Shot (L to R)": 34, "High Backspin Shot": 26,
+   "Recovery Skills": 32, "Luck": 27
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "2c3e50",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Ruth Bay",
+  "name": "Ruth Marlin",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Graphic Designer",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 33, "Long Driver": 24, "Accurate Driver": 14, "Accurate Irons": 23,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 10, "High Backspin Shot": 8,
+   "Recovery Skills": 25, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "808b96",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Whitney Bay",
+  "name": "Whitney Coconut",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 7, "Accurate Driver": 8, "Accurate Irons": 5,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 5, "High Backspin Shot": 2,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "34495e",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Ivy Bay",
+  "name": "Ivy Sawgrass",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Lawyer",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 6, "Accurate Driver": 9, "Accurate Irons": 3,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "7d6608",
@@ -87,6 +164,17 @@
   "name": "Cayla Bay",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 8, "Accurate Driver": 6, "Accurate Irons": 5,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 9, "High Backspin Shot": 14,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "4a235a",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Ty Bay",
+  "name": "Ty Keylargo",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Citrus Grower",
+  "marital_status": "Married",
+  "age": 71,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 10, "Accurate Driver": 9, "Accurate Irons": 10,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 7, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "2c3e50",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Paul Bay",
+  "name": "Paul Cypress",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Baker",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 5, "Accurate Driver": 11, "Accurate Irons": 5,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 10, "High Backspin Shot": 11,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "808b96",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Chelsea Bay",
+  "name": "Chelsea Canaveral",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Musician",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 28, "Accurate Driver": 31, "Accurate Irons": 19,
+   "Accurate Putter": 30, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 8, "High Backspin Shot": 12,
+   "Recovery Skills": 27, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "4a235a",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Bobby Bay",
+  "name": "Bobby Seagrape",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Insurance Agent",
+  "marital_status": "Widowed",
+  "age": 77,
+  "gender": "Male",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 3, "Accurate Driver": 1, "Accurate Irons": 1,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 9, "High Backspin Shot": 5,
+   "Recovery Skills": 4, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "616a6b",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Vince Bay",
+  "name": "Vince Boardwalk",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Doctor",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 11, "Accurate Driver": 19, "Accurate Irons": 18,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 8, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "566573",
@@ -156,9 +299,20 @@
   }
  },
  {
-  "name": "Lane Bay",
+  "name": "Lane Manatee",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 31,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 5, "Accurate Driver": 5, "Accurate Irons": 4,
+   "Accurate Putter": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 2, "Recovery Skills": 5,
+   "Luck": 3
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "4a235a",
@@ -168,9 +322,20 @@
   }
  },
  {
-  "name": "Clay Bay",
+  "name": "Clay Papaya",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 75,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 13, "Accurate Driver": 7, "Accurate Irons": 4,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 3,
+   "Recovery Skills": 9, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "2e4053",
@@ -180,9 +345,20 @@
   }
  },
  {
-  "name": "Ted Bay",
+  "name": "Ted Gator",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Pilot",
+  "marital_status": "Single",
+  "age": 66,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 4, "Accurate Driver": 3, "Accurate Irons": 3,
+   "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 1, "High Backspin Shot": 2, "Recovery Skills": 3,
+   "Luck": 2
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "616a6b",
@@ -192,9 +368,20 @@
   }
  },
  {
-  "name": "Earl Bay",
+  "name": "Earl Everglades",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Citrus Grower",
+  "marital_status": "Single",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 23, "Long Driver": 19, "Accurate Driver": 32, "Accurate Irons": 21,
+   "Accurate Putter": 24, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 26, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "ecf0f1",
@@ -204,9 +391,20 @@
   }
  },
  {
-  "name": "Joel Bay",
+  "name": "Joel Pelican",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 18, "Accurate Driver": 17, "Accurate Irons": 19,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 8, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "808b96",
@@ -216,9 +414,20 @@
   }
  },
  {
-  "name": "Linc Bay",
+  "name": "Linc Driftwood",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 14, "Accurate Driver": 12, "Accurate Irons": 16,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 9, "High Backspin Shot": 15,
+   "Recovery Skills": 17, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "5b2c6f",
@@ -228,9 +437,20 @@
   }
  },
  {
-  "name": "Nate Bay",
+  "name": "Nate Sandcastle",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 57,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 8, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 5,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "283747",
@@ -240,9 +460,20 @@
   }
  },
  {
-  "name": "Faye Bay",
+  "name": "Faye Suncoast",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 10, "Accurate Driver": 15, "Accurate Irons": 12,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 9,
+   "Recovery Skills": 8, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "616a6b",
@@ -252,9 +483,20 @@
   }
  },
  {
-  "name": "Rose Bay",
+  "name": "Rose Okeechobee",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Veterinarian",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 16, "Accurate Driver": 11, "Accurate Irons": 12,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 10, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "1b2631",
@@ -264,9 +506,20 @@
   }
  },
  {
-  "name": "Leah Bay",
+  "name": "Leah Tequesta",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Single",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 8,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 9,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "1c2833",
@@ -276,9 +529,19 @@
   }
  },
  {
-  "name": "Jenna Bay",
+  "name": "Jenna Flamingo",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Accurate Driver": 2, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 4, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "2c3e50",
@@ -288,9 +551,20 @@
   }
  },
  {
-  "name": "Emmett Bay",
+  "name": "Emmett Flamingo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Divorced",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 17, "Accurate Driver": 14, "Accurate Irons": 12,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 17, "High Backspin Shot": 13,
+   "Recovery Skills": 13, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "1c2833",
@@ -300,9 +574,20 @@
   }
  },
  {
-  "name": "Jill Bay",
+  "name": "Jill Coconut",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 70,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 5, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 2, "High Backspin Shot": 6,
+   "Recovery Skills": 3, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "1b2631",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Kylie Bay",
+  "name": "Kylie Boardwalk",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Citrus Grower",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 17, "Accurate Driver": 13, "Accurate Irons": 9,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 5, "High Backspin Shot": 7,
+   "Recovery Skills": 13, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "5b2c6f",
@@ -324,9 +620,20 @@
   }
  },
  {
-  "name": "Holt Bay",
+  "name": "Holt Tarpon",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Veterinarian",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 16, "Accurate Driver": 28, "Accurate Irons": 23,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 23, "Fade Shot (L to R)": 31, "High Backspin Shot": 18,
+   "Recovery Skills": 28, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "1c2833",
@@ -336,9 +643,20 @@
   }
  },
  {
-  "name": "Pat Bay",
+  "name": "Pat Sandcastle",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Waiter",
+  "marital_status": "Divorced",
+  "age": 54,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 3,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 1,
+   "Recovery Skills": 3, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "2c3e50",
@@ -348,9 +666,20 @@
   }
  },
  {
-  "name": "Kay Bay",
+  "name": "Kay Mango",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 61,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 11, "Accurate Driver": 17, "Accurate Irons": 11,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 15, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "283747",
@@ -360,9 +689,20 @@
   }
  },
  {
-  "name": "Nash Bay",
+  "name": "Nash Papaya",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Citrus Grower",
+  "marital_status": "Divorced",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 9, "Accurate Driver": 13, "Accurate Irons": 9,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 17, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "2c3e50",
@@ -375,6 +715,17 @@
   "name": "Jonah Bay",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Single",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 5, "Accurate Driver": 4, "Accurate Irons": 10,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 5,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "7d6608",
@@ -384,9 +735,20 @@
   }
  },
  {
-  "name": "Heath Bay",
+  "name": "Heath Gulfstream",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 14, "Accurate Driver": 5, "Accurate Irons": 7,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 8, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "f7f9f9",
@@ -396,9 +758,20 @@
   }
  },
  {
-  "name": "Tate Bay",
+  "name": "Tate Sawgrass",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Retired",
+  "marital_status": "Widowed",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 6, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 8, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "616a6b",
@@ -408,9 +781,20 @@
   }
  },
  {
-  "name": "Lisa Bay",
+  "name": "Lisa Marlin",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 15, "Accurate Irons": 12,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 12, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "bdc3c7",
@@ -420,9 +804,20 @@
   }
  },
  {
-  "name": "Dawn Bay",
+  "name": "Dawn Okeechobee",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Lawyer",
+  "marital_status": "Single",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 8, "Accurate Driver": 7, "Accurate Irons": 10,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 1, "High Backspin Shot": 5,
+   "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "566573",
@@ -432,9 +827,19 @@
   }
  },
  {
-  "name": "Dana Bay",
+  "name": "Dana Keylargo",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Irons": 2, "Accurate Putter": 3,
+   "Fade Shot (L to R)": 2, "Recovery Skills": 4, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "2c3e50",
@@ -444,9 +849,20 @@
   }
  },
  {
-  "name": "Sara Bay",
+  "name": "Sara Suncoast",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 23,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Long Driver": 2, "Accurate Driver": 1, "Accurate Irons": 5, "Accurate Putter": 4,
+   "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 3, "Recovery Skills": 6,
+   "Luck": 3
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "1c2833",
@@ -456,9 +872,20 @@
   }
  },
  {
-  "name": "Sofia Bay",
+  "name": "Sofia Manatee",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 3,
+   "Recovery Skills": 3, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "1c2833",
@@ -468,9 +895,20 @@
   }
  },
  {
-  "name": "Grace Bay",
+  "name": "Grace Palmetto",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Divorced",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 17, "Accurate Driver": 13, "Accurate Irons": 18,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 8, "High Backspin Shot": 6,
+   "Recovery Skills": 8, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "f7f9f9",
@@ -480,9 +918,20 @@
   }
  },
  {
-  "name": "Lily Bay",
+  "name": "Lily Canaveral",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Florist",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 11, "Accurate Driver": 13, "Accurate Irons": 14,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 16, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "283747",
@@ -492,9 +941,20 @@
   }
  },
  {
-  "name": "Duke Bay",
+  "name": "Duke Tequesta",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Boat Broker",
+  "marital_status": "Divorced",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 9, "Accurate Driver": 3, "Accurate Irons": 1,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+   "Recovery Skills": 1, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "bdc3c7",
@@ -504,9 +964,19 @@
   }
  },
  {
-  "name": "Sheila Bay",
+  "name": "Sheila Pelican",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Teacher",
+  "marital_status": "Single",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Long Driver": 1, "Accurate Driver": 7, "Accurate Irons": 7, "Accurate Putter": 2,
+   "Draw Shot (R to L)": 1, "High Backspin Shot": 2, "Recovery Skills": 5, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "2e4053",
@@ -516,9 +986,20 @@
   }
  },
  {
-  "name": "Hal Bay",
+  "name": "Hal Cypress",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Editor",
+  "marital_status": "Divorced",
+  "age": 54,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 10, "Accurate Driver": 12, "Accurate Irons": 8,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 17, "High Backspin Shot": 21,
+   "Recovery Skills": 15, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "616a6b",
@@ -528,9 +1009,20 @@
   }
  },
  {
-  "name": "Kurt Bay",
+  "name": "Kurt Gator",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Divorced",
+  "age": 59,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 5, "Accurate Driver": 9, "Accurate Irons": 12,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "4a235a",
@@ -540,9 +1032,19 @@
   }
  },
  {
-  "name": "Judd Bay",
+  "name": "Judd Seagrape",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Rocket Engineer",
+  "marital_status": "Divorced",
+  "age": 33,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 5, "Accurate Putter": 4,
+   "High Backspin Shot": 1, "Recovery Skills": 2, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "d5d8dc",
@@ -552,9 +1054,20 @@
   }
  },
  {
-  "name": "Roger Bay",
+  "name": "Roger Driftwood",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Pharmacist",
+  "marital_status": "Divorced",
+  "age": 57,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 15, "Accurate Driver": 21, "Accurate Irons": 13,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 7,
+   "Recovery Skills": 17, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "566573",
@@ -564,9 +1077,20 @@
   }
  },
  {
-  "name": "Nora Bay",
+  "name": "Nora Everglades",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Doctor",
+  "marital_status": "Single",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Accurate Driver": 1, "Accurate Irons": 1, "Accurate Putter": 1,
+   "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 2, "Recovery Skills": 3,
+   "Luck": 1
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "2e4053",
@@ -576,9 +1100,20 @@
   }
  },
  {
-  "name": "Donna Bay",
+  "name": "Donna Pelican",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 10, "Accurate Driver": 4, "Accurate Irons": 7,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 9, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "566573",
@@ -588,9 +1123,20 @@
   }
  },
  {
-  "name": "Nell Bay",
+  "name": "Nell Flamingo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Artist",
+  "marital_status": "Single",
+  "age": 42,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 13, "Accurate Driver": 18, "Accurate Irons": 14,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 15, "High Backspin Shot": 11,
+   "Recovery Skills": 13, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "7d6608",

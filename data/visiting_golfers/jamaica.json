@@ -1,8 +1,19 @@
 [
  {
-  "name": "April Mandeville",
+  "name": "April Guava",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Graphic Designer",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 16, "Accurate Driver": 21, "Accurate Irons": 25,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 10, "High Backspin Shot": 8,
+   "Recovery Skills": 17, "Luck": 23
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "d5d8dc",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Wayne Mandeville",
+  "name": "Wayne Cassava",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Pilot",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 30, "Accurate Driver": 33, "Accurate Irons": 18,
+   "Accurate Putter": 28, "Draw Shot (R to L)": 23, "Fade Shot (L to R)": 26, "High Backspin Shot": 31,
+   "Recovery Skills": 23, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Noah Mandeville",
+  "name": "Noah Rockstone",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 5, "Accurate Driver": 10, "Accurate Irons": 10,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 10, "High Backspin Shot": 12,
+   "Recovery Skills": 6, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "283747",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Cam Mandeville",
+  "name": "Cam Montego",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Divorced",
+  "age": 66,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 4, "Accurate Irons": 8,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "616a6b",
@@ -48,9 +92,19 @@
   }
  },
  {
-  "name": "Faye Mandeville",
+  "name": "Faye Likkle",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Fishing Captain",
+  "marital_status": "Widowed",
+  "age": 66,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 5, "Accurate Irons": 6,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "Recovery Skills": 4
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "bdc3c7",
@@ -60,9 +114,20 @@
   }
  },
  {
-  "name": "Dana Mandeville",
+  "name": "Dana Bamboo",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Accurate Driver": 2, "Accurate Irons": 3, "Accurate Putter": 5,
+   "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 3, "High Backspin Shot": 8, "Recovery Skills": 6,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "d5d8dc",
@@ -72,9 +137,20 @@
   }
  },
  {
-  "name": "Clara Mandeville",
+  "name": "Clara Sorrel",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 6, "Accurate Driver": 6, "Accurate Irons": 6,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 5, "High Backspin Shot": 2,
+   "Recovery Skills": 9, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "2e4053",
@@ -84,9 +160,20 @@
   }
  },
  {
-  "name": "Ruth Mandeville",
+  "name": "Ruth Lignum",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 73,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 10, "High Backspin Shot": 10,
+   "Recovery Skills": 4, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "616a6b",
@@ -99,6 +186,17 @@
   "name": "Heath Mandeville",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 3, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 10, "High Backspin Shot": 7,
+   "Recovery Skills": 7, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "34495e",
@@ -108,9 +206,20 @@
   }
  },
  {
-  "name": "Nate Mandeville",
+  "name": "Nate Pelican",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Tour Guide",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 32, "Accurate Driver": 17, "Accurate Irons": 29,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 12, "High Backspin Shot": 9,
+   "Recovery Skills": 26, "Luck": 30
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "1b2631",
@@ -120,9 +229,20 @@
   }
  },
  {
-  "name": "June Mandeville",
+  "name": "June Calabash",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Divorced",
+  "age": 59,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 17, "Accurate Driver": 14, "Accurate Irons": 9,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 14, "High Backspin Shot": 14,
+   "Recovery Skills": 20, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "34495e",
@@ -132,9 +252,20 @@
   }
  },
  {
-  "name": "Kai Mandeville",
+  "name": "Kai Negril",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Musician",
+  "marital_status": "Divorced",
+  "age": 80,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 2, "Accurate Driver": 5, "Accurate Irons": 5,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 6, "High Backspin Shot": 2,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "d5d8dc",
@@ -144,9 +275,20 @@
   }
  },
  {
-  "name": "Gus Mandeville",
+  "name": "Gus Ackee",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 10, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 8, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "7d6608",
@@ -156,9 +298,19 @@
   }
  },
  {
-  "name": "Chloe Mandeville",
+  "name": "Chloe Bluehole",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 19,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Long Driver": 4, "Accurate Irons": 3, "Accurate Putter": 5, "Draw Shot (R to L)": 1,
+   "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "34495e",
@@ -168,9 +320,20 @@
   }
  },
  {
-  "name": "Brooke Mandeville",
+  "name": "Brooke Ital",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 10, "Accurate Driver": 13, "Accurate Irons": 10,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 20, "High Backspin Shot": 19,
+   "Recovery Skills": 18, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "bdc3c7",
@@ -180,9 +343,20 @@
   }
  },
  {
-  "name": "Flo Mandeville",
+  "name": "Flo Coconut",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 7,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 9, "High Backspin Shot": 13,
+   "Recovery Skills": 10, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "2c3e50",
@@ -192,9 +366,20 @@
   }
  },
  {
-  "name": "Sheila Mandeville",
+  "name": "Sheila Fisherman",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Electrician",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 22, "Accurate Driver": 29, "Accurate Irons": 25,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 12, "High Backspin Shot": 9,
+   "Recovery Skills": 20, "Luck": 24
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "bdc3c7",
@@ -204,9 +389,20 @@
   }
  },
  {
-  "name": "Lara Mandeville",
+  "name": "Lara Trelawny",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 10, "Accurate Driver": 13, "Accurate Irons": 7,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "2c3e50",
@@ -216,9 +412,20 @@
   }
  },
  {
-  "name": "Toni Mandeville",
+  "name": "Toni Mangrove",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 2, "Accurate Driver": 2, "Accurate Irons": 2,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 5, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "4a235a",
@@ -228,9 +435,20 @@
   }
  },
  {
-  "name": "Mia Mandeville",
+  "name": "Mia Reggae",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 10, "Accurate Driver": 21, "Accurate Irons": 17,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 16, "High Backspin Shot": 19,
+   "Recovery Skills": 14, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "283747",
@@ -240,9 +458,20 @@
   }
  },
  {
-  "name": "Grace Mandeville",
+  "name": "Grace Portmore",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Carpenter",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 22, "Accurate Driver": 26, "Accurate Irons": 31,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 22, "Fade Shot (L to R)": 28, "High Backspin Shot": 29,
+   "Recovery Skills": 32, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "283747",
@@ -252,9 +481,20 @@
   }
  },
  {
-  "name": "Jodi Mandeville",
+  "name": "Jodi Kingston",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Pharmacist",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 17, "Accurate Driver": 16, "Accurate Irons": 19,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 5,
+   "Recovery Skills": 10, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "f7f9f9",
@@ -264,9 +504,20 @@
   }
  },
  {
-  "name": "Linc Mandeville",
+  "name": "Linc Irie",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Nurse",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 7, "Accurate Driver": 2, "Accurate Irons": 2,
+   "Accurate Putter": 5, "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Recovery Skills": 3,
+   "Luck": 4
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "283747",
@@ -276,9 +527,20 @@
   }
  },
  {
-  "name": "Pam Mandeville",
+  "name": "Pam Zion",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 47,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 6, "Accurate Driver": 4, "Accurate Irons": 7,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 11, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "566573",
@@ -288,9 +550,20 @@
   }
  },
  {
-  "name": "Kirk Mandeville",
+  "name": "Kirk Zion",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Carpenter",
+  "marital_status": "Single",
+  "age": 27,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 20, "Accurate Driver": 29, "Accurate Irons": 33,
+   "Accurate Putter": 32, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 25, "High Backspin Shot": 16,
+   "Recovery Skills": 28, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "d5d8dc",
@@ -300,9 +573,19 @@
   }
  },
  {
-  "name": "Julie Mandeville",
+  "name": "Julie Ackee",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 80,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Accurate Driver": 1, "Accurate Irons": 3, "Accurate Putter": 1,
+   "Recovery Skills": 4, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "f7f9f9",
@@ -312,9 +595,19 @@
   }
  },
  {
-  "name": "Evan Mandeville",
+  "name": "Evan Trelawny",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 66,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Accurate Irons": 1, "Accurate Putter": 3, "Fade Shot (L to R)": 2,
+   "High Backspin Shot": 2, "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "f7f9f9",
@@ -324,9 +617,20 @@
   }
  },
  {
-  "name": "Hana Mandeville",
+  "name": "Hana Negril",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 19, "Accurate Driver": 22, "Accurate Irons": 26,
+   "Accurate Putter": 32, "Draw Shot (R to L)": 22, "Fade Shot (L to R)": 32, "High Backspin Shot": 25,
+   "Recovery Skills": 24, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "283747",
@@ -336,9 +640,20 @@
   }
  },
  {
-  "name": "Gemma Mandeville",
+  "name": "Gemma Ital",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 57,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 16, "Accurate Driver": 8, "Accurate Irons": 10,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 21, "Fade Shot (L to R)": 18, "High Backspin Shot": 18,
+   "Recovery Skills": 13, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "1c2833",
@@ -348,9 +663,20 @@
   }
  },
  {
-  "name": "Ivy Mandeville",
+  "name": "Ivy Sorrel",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Judge",
+  "marital_status": "Single",
+  "age": 41,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 10, "Accurate Driver": 3, "Accurate Irons": 4,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 10, "High Backspin Shot": 8,
+   "Recovery Skills": 4, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "4a235a",
@@ -360,9 +686,20 @@
   }
  },
  {
-  "name": "Ella Mandeville",
+  "name": "Ella Montego",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Journalist",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 1, "Accurate Irons": 3, "Accurate Putter": 4,
+   "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 4, "High Backspin Shot": 6, "Recovery Skills": 5,
+   "Luck": 1
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "1b2631",
@@ -372,9 +709,20 @@
   }
  },
  {
-  "name": "Holly Mandeville",
+  "name": "Holly Likkle",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 5, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 13, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "1b2631",
@@ -384,9 +732,20 @@
   }
  },
  {
-  "name": "Owen Mandeville",
+  "name": "Owen Coconut",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Librarian",
+  "marital_status": "Divorced",
+  "age": 32,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 10, "Accurate Driver": 14, "Accurate Irons": 10,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 12, "High Backspin Shot": 14,
+   "Recovery Skills": 13, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "2e4053",
@@ -396,9 +755,20 @@
   }
  },
  {
-  "name": "Carmen Mandeville",
+  "name": "Carmen Bamboo",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Single",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 14, "Accurate Driver": 11, "Accurate Irons": 21,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 14, "High Backspin Shot": 12,
+   "Recovery Skills": 19, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "1a1a2e",
@@ -408,9 +778,20 @@
   }
  },
  {
-  "name": "Russ Mandeville",
+  "name": "Russ Lignum",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 8, "Accurate Driver": 9, "Accurate Irons": 6,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 5, "High Backspin Shot": 9,
+   "Recovery Skills": 6, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "283747",
@@ -420,9 +801,20 @@
   }
  },
  {
-  "name": "Alex Mandeville",
+  "name": "Alex Kingston",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Teacher",
+  "marital_status": "Divorced",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 17, "Accurate Driver": 18, "Accurate Irons": 11,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 12, "High Backspin Shot": 16,
+   "Recovery Skills": 15, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "808b96",
@@ -432,9 +824,20 @@
   }
  },
  {
-  "name": "Hazel Mandeville",
+  "name": "Hazel Mangrove",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Photographer",
+  "marital_status": "Divorced",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 15, "Accurate Driver": 18, "Accurate Irons": 11,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 14, "High Backspin Shot": 14,
+   "Recovery Skills": 17, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "5b2c6f",
@@ -444,9 +847,20 @@
   }
  },
  {
-  "name": "Stella Mandeville",
+  "name": "Stella Fisherman",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 17, "Accurate Driver": 20, "Accurate Irons": 16,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 19, "High Backspin Shot": 17,
+   "Recovery Skills": 17, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "566573",
@@ -456,9 +870,20 @@
   }
  },
  {
-  "name": "Jesse Mandeville",
+  "name": "Jesse Pelican",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Veterinarian",
+  "marital_status": "Married",
+  "age": 23,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 9, "Accurate Driver": 6, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+   "Recovery Skills": 9, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "bdc3c7",
@@ -468,9 +893,20 @@
   }
  },
  {
-  "name": "Lane Mandeville",
+  "name": "Lane Guava",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 12, "Accurate Driver": 14, "Accurate Irons": 17,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 18, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "2e4053",
@@ -480,9 +916,20 @@
   }
  },
  {
-  "name": "Casey Mandeville",
+  "name": "Casey Portmore",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Resort Entertainer",
+  "marital_status": "Married",
+  "age": 43,
+  "gender": "Male",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 4,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 3, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "4a235a",
@@ -492,9 +939,20 @@
   }
  },
  {
-  "name": "Tom Mandeville",
+  "name": "Tom Irie",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Electrician",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 6, "Accurate Driver": 12, "Accurate Irons": 11,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "f7f9f9",
@@ -504,9 +962,20 @@
   }
  },
  {
-  "name": "Mandy Mandeville",
+  "name": "Mandy Bluehole",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Resort Entertainer",
+  "marital_status": "Divorced",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 26, "Accurate Driver": 21, "Accurate Irons": 14,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 7, "High Backspin Shot": 9,
+   "Recovery Skills": 20, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "566573",
@@ -516,9 +985,20 @@
   }
  },
  {
-  "name": "Ace Mandeville",
+  "name": "Ace Reggae",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 14, "Accurate Driver": 18, "Accurate Irons": 17,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 9,
+   "Recovery Skills": 11, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "2c3e50",
@@ -531,6 +1011,17 @@
   "name": "Ross Mandeville",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Editor",
+  "marital_status": "Single",
+  "age": 31,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 23, "Accurate Driver": 26, "Accurate Irons": 27,
+   "Accurate Putter": 26, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 21, "High Backspin Shot": 32,
+   "Recovery Skills": 22, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "4a235a",
@@ -540,9 +1031,20 @@
   }
  },
  {
-  "name": "Donna Mandeville",
+  "name": "Donna Calabash",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 22, "Accurate Driver": 25, "Accurate Irons": 25,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 15, "High Backspin Shot": 7,
+   "Recovery Skills": 25, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "f7f9f9",
@@ -552,9 +1054,20 @@
   }
  },
  {
-  "name": "Gavin Mandeville",
+  "name": "Gavin Cassava",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 19, "Accurate Driver": 19, "Accurate Irons": 21,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 17, "High Backspin Shot": 13,
+   "Recovery Skills": 18, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "7d6608",
@@ -564,9 +1077,20 @@
   }
  },
  {
-  "name": "Anna Mandeville",
+  "name": "Anna Rockstone",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Divorced",
+  "age": 49,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 16, "Accurate Driver": 13, "Accurate Irons": 14,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 22, "High Backspin Shot": 18,
+   "Recovery Skills": 21, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "34495e",
@@ -576,9 +1100,20 @@
   }
  },
  {
-  "name": "Emily Mandeville",
+  "name": "Emily Negril",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Consultant",
+  "marital_status": "Divorced",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 6, "Accurate Driver": 3, "Accurate Irons": 1,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "Recovery Skills": 3,
+   "Luck": 2
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "1a1a2e",
@@ -588,9 +1123,20 @@
   }
  },
  {
-  "name": "Kurt Mandeville",
+  "name": "Kurt Irie",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 29, "Accurate Driver": 33, "Accurate Irons": 30,
+   "Accurate Putter": 31, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 11, "High Backspin Shot": 13,
+   "Recovery Skills": 16, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "2e4053",

@@ -1,8 +1,19 @@
 [
  {
-  "name": "Ivy Jones",
+  "name": "Ivy Roberts",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 20, "Accurate Driver": 12, "Accurate Irons": 21,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 12, "High Backspin Shot": 20,
+   "Recovery Skills": 17, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "2c3e50",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Mitch Jones",
+  "name": "Mitch Pemberton",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 13, "Accurate Driver": 20, "Accurate Irons": 17,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 8,
+   "Recovery Skills": 17, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "283747",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Penny Jones",
+  "name": "Penny Hughes",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 31, "Long Driver": 33, "Accurate Driver": 21, "Accurate Irons": 25,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 20, "High Backspin Shot": 29,
+   "Recovery Skills": 32, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "616a6b",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Hal Jones",
+  "name": "Hal Price",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 16, "Accurate Driver": 9, "Accurate Irons": 21,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 10, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "616a6b",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Pete Jones",
+  "name": "Pete Griffiths",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 35,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 10, "Accurate Driver": 7, "Accurate Irons": 3,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 3, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "283747",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Heath Jones",
+  "name": "Heath Bowen",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 6, "Accurate Irons": 3,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 5, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "2c3e50",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Fiona Jones",
+  "name": "Fiona Morgan",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Architect",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 18, "Accurate Driver": 19, "Accurate Irons": 26,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 33, "Fade Shot (L to R)": 24, "High Backspin Shot": 16,
+   "Recovery Skills": 17, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "4a235a",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Ace Jones",
+  "name": "Ace Lewis",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Scientist",
+  "marital_status": "Single",
+  "age": 19,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 1, "Accurate Driver": 2, "Accurate Irons": 2,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "Recovery Skills": 5,
+   "Luck": 3
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "d5d8dc",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Corey Jones",
+  "name": "Corey Davies",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Waiter",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 28, "Accurate Driver": 24, "Accurate Irons": 15,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 8, "High Backspin Shot": 11,
+   "Recovery Skills": 27, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "d5d8dc",
@@ -108,9 +207,19 @@
   }
  },
  {
-  "name": "Harry Jones",
+  "name": "Harry Bevan",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 3, "Accurate Irons": 2,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "Recovery Skills": 4
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "4a235a",
@@ -120,9 +229,20 @@
   }
  },
  {
-  "name": "Pat Jones",
+  "name": "Pat Meredith",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 4, "Accurate Driver": 6, "Accurate Irons": 3,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 1,
+   "Recovery Skills": 9, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "566573",
@@ -132,9 +252,20 @@
   }
  },
  {
-  "name": "April Jones",
+  "name": "April Williams",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Writer",
+  "marital_status": "Single",
+  "age": 60,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 11,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 9, "High Backspin Shot": 19,
+   "Recovery Skills": 22, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "808b96",
@@ -144,9 +275,20 @@
   }
  },
  {
-  "name": "Ada Jones",
+  "name": "Ada Tudor",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Librarian",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 20, "Accurate Driver": 25, "Accurate Irons": 20,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 11, "High Backspin Shot": 15,
+   "Recovery Skills": 28, "Luck": 17
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "1b2631",
@@ -156,9 +298,20 @@
   }
  },
  {
-  "name": "Wade Jones",
+  "name": "Wade Evans",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 9,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 6, "High Backspin Shot": 14,
+   "Recovery Skills": 13, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "4a235a",
@@ -168,9 +321,20 @@
   }
  },
  {
-  "name": "Riley Jones",
+  "name": "Riley Gwyn",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Real Estate Agent",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 8, "Accurate Driver": 13, "Accurate Irons": 9,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 20, "High Backspin Shot": 12,
+   "Recovery Skills": 18, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1a1a2e",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Nia Jones",
+  "name": "Nia Owen",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Writer",
+  "marital_status": "Single",
+  "age": 50,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 2, "Accurate Driver": 5, "Accurate Irons": 1,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 7, "High Backspin Shot": 6,
+   "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "1c2833",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Hugh Jones",
+  "name": "Hugh Rhys",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Choir Master",
+  "marital_status": "Widowed",
+  "age": 67,
+  "gender": "Male",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 12, "Accurate Driver": 7, "Accurate Irons": 5,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 11, "High Backspin Shot": 6,
+   "Recovery Skills": 14, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "2c3e50",
@@ -204,9 +390,19 @@
   }
  },
  {
-  "name": "Rae Jones",
+  "name": "Rae Llewellyn",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Nurse",
+  "marital_status": "Widowed",
+  "age": 76,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 2, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 2, "Recovery Skills": 4, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "d5d8dc",
@@ -219,6 +415,17 @@
   "name": "Rosa Jones",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 9, "Accurate Driver": 14, "Accurate Irons": 16,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 11, "High Backspin Shot": 22,
+   "Recovery Skills": 19, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "283747",
@@ -228,9 +435,20 @@
   }
  },
  {
-  "name": "Rocky Jones",
+  "name": "Rocky Rees",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 9, "Accurate Driver": 6, "Accurate Irons": 4,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 13, "High Backspin Shot": 7,
+   "Recovery Skills": 9, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "2c3e50",
@@ -240,9 +458,20 @@
   }
  },
  {
-  "name": "Ellie Jones",
+  "name": "Ellie Powell",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Consultant",
+  "marital_status": "Single",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 16, "Accurate Driver": 10, "Accurate Irons": 22,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 10, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "7d6608",
@@ -252,9 +481,20 @@
   }
  },
  {
-  "name": "Jake Jones",
+  "name": "Jake Thomas",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Consultant",
+  "marital_status": "Single",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 21, "Accurate Driver": 10, "Accurate Irons": 18,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 17, "High Backspin Shot": 13,
+   "Recovery Skills": 15, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "7d6608",
@@ -264,9 +504,20 @@
   }
  },
  {
-  "name": "Julie Jones",
+  "name": "Julie Cadwallader",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Lawyer",
+  "marital_status": "Single",
+  "age": 32,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 18, "Accurate Driver": 12, "Accurate Irons": 19,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 21, "Fade Shot (L to R)": 20, "High Backspin Shot": 15,
+   "Recovery Skills": 15, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "bdc3c7",
@@ -276,9 +527,20 @@
   }
  },
  {
-  "name": "Wyatt Jones",
+  "name": "Wyatt Vaughan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 55,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 11, "Accurate Driver": 10, "Accurate Irons": 5,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 10, "High Backspin Shot": 9,
+   "Recovery Skills": 5, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "5b2c6f",
@@ -288,9 +550,20 @@
   }
  },
  {
-  "name": "Joy Jones",
+  "name": "Joy Bowen",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Divorced",
+  "age": 75,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 14, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 5, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "d5d8dc",
@@ -300,9 +573,20 @@
   }
  },
  {
-  "name": "Josh Jones",
+  "name": "Josh Pemberton",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 5, "Accurate Driver": 8, "Accurate Irons": 10,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "566573",
@@ -312,9 +596,20 @@
   }
  },
  {
-  "name": "Pam Jones",
+  "name": "Pam Roberts",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Software Developer",
+  "marital_status": "Widowed",
+  "age": 67,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Long Driver": 4, "Accurate Driver": 2, "Accurate Irons": 5, "Accurate Putter": 8,
+   "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 7, "High Backspin Shot": 4, "Recovery Skills": 7,
+   "Luck": 2
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "2c3e50",
@@ -324,9 +619,20 @@
   }
  },
  {
-  "name": "Finn Jones",
+  "name": "Finn Owen",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 11, "Accurate Driver": 6, "Accurate Irons": 9,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 11, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "2c3e50",
@@ -336,9 +642,20 @@
   }
  },
  {
-  "name": "Gavin Jones",
+  "name": "Gavin Powell",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Dentist",
+  "marital_status": "Divorced",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 8, "Accurate Driver": 9, "Accurate Irons": 11,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 6, "High Backspin Shot": 5,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "4a235a",
@@ -348,9 +665,20 @@
   }
  },
  {
-  "name": "Rose Jones",
+  "name": "Rose Rees",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Choir Master",
+  "marital_status": "Divorced",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 24, "Long Driver": 31, "Accurate Driver": 30, "Accurate Irons": 22,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 27, "Fade Shot (L to R)": 28, "High Backspin Shot": 15,
+   "Recovery Skills": 25, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "d5d8dc",
@@ -360,9 +688,20 @@
   }
  },
  {
-  "name": "Jasmine Jones",
+  "name": "Jasmine Vaughan",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 60,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 14, "Accurate Driver": 8, "Accurate Irons": 14,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 5, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "1b2631",
@@ -372,9 +711,20 @@
   }
  },
  {
-  "name": "Heather Jones",
+  "name": "Heather Price",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 9, "Accurate Driver": 6, "Accurate Irons": 9,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 13, "High Backspin Shot": 9,
+   "Recovery Skills": 6, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "1a1a2e",
@@ -384,9 +734,20 @@
   }
  },
  {
-  "name": "Jess Jones",
+  "name": "Jess Davies",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Doctor",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 15, "Accurate Driver": 14, "Accurate Irons": 15,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 18, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "4a235a",
@@ -399,6 +760,17 @@
   "name": "Jolene Jones",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Musician",
+  "marital_status": "Widowed",
+  "age": 73,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 9, "Accurate Driver": 7, "Accurate Irons": 9,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 11, "High Backspin Shot": 6,
+   "Recovery Skills": 4, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "34495e",
@@ -408,9 +780,20 @@
   }
  },
  {
-  "name": "Ali Jones",
+  "name": "Ali Meredith",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Harpist",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 10, "Accurate Irons": 4,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 14, "High Backspin Shot": 10,
+   "Recovery Skills": 12, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "2c3e50",
@@ -420,9 +803,20 @@
   }
  },
  {
-  "name": "Brooke Jones",
+  "name": "Brooke Williams",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 11, "Accurate Driver": 20, "Accurate Irons": 19,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 12, "High Backspin Shot": 12,
+   "Recovery Skills": 19, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "34495e",
@@ -432,9 +826,20 @@
   }
  },
  {
-  "name": "Toni Jones",
+  "name": "Toni Tudor",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Veterinarian",
+  "marital_status": "Divorced",
+  "age": 49,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 18, "Accurate Driver": 22, "Accurate Irons": 15,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 18, "High Backspin Shot": 12,
+   "Recovery Skills": 20, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "4a235a",
@@ -444,9 +849,20 @@
   }
  },
  {
-  "name": "Marie Jones",
+  "name": "Marie Morgan",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Photographer",
+  "marital_status": "Widowed",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 10, "Accurate Driver": 11, "Accurate Irons": 14,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 17, "High Backspin Shot": 21,
+   "Recovery Skills": 9, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1b2631",
@@ -456,9 +872,19 @@
   }
  },
  {
-  "name": "Demi Jones",
+  "name": "Demi Hughes",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 52,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 5, "Accurate Putter": 5, "Draw Shot (R to L)": 4,
+   "Fade Shot (L to R)": 6, "High Backspin Shot": 4, "Recovery Skills": 8, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "5b2c6f",
@@ -468,9 +894,19 @@
   }
  },
  {
-  "name": "Emily Jones",
+  "name": "Emily Evans",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Carpenter",
+  "marital_status": "Divorced",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Accurate Driver": 5, "Accurate Putter": 1, "Draw Shot (R to L)": 2,
+   "High Backspin Shot": 1, "Recovery Skills": 5
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1c2833",
@@ -480,9 +916,20 @@
   }
  },
  {
-  "name": "Shane Jones",
+  "name": "Shane Thomas",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Architect",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 20, "Accurate Driver": 12, "Accurate Irons": 12,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "5b2c6f",
@@ -492,9 +939,20 @@
   }
  },
  {
-  "name": "Dale Jones",
+  "name": "Dale Rhys",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 13, "Accurate Driver": 19, "Accurate Irons": 20,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 10, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "283747",
@@ -504,9 +962,20 @@
   }
  },
  {
-  "name": "Bo Jones",
+  "name": "Bo Griffiths",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 51,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 6, "Accurate Driver": 9, "Accurate Irons": 4,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 9, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "283747",
@@ -516,9 +985,20 @@
   }
  },
  {
-  "name": "Piper Jones",
+  "name": "Piper Llewellyn",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 13, "Accurate Driver": 12, "Accurate Irons": 12,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "1b2631",
@@ -528,9 +1008,20 @@
   }
  },
  {
-  "name": "Stella Jones",
+  "name": "Stella Gwyn",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 61,
+  "gender": "Female",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 8, "Accurate Driver": 9, "Accurate Irons": 14,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 6, "High Backspin Shot": 5,
+   "Recovery Skills": 11, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "1a1a2e",
@@ -540,9 +1031,20 @@
   }
  },
  {
-  "name": "Henry Jones",
+  "name": "Henry Cadwallader",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Editor",
+  "marital_status": "Divorced",
+  "age": 60,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 14, "Accurate Driver": 18, "Accurate Irons": 13,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 17, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "1a1a2e",
@@ -552,9 +1054,19 @@
   }
  },
  {
-  "name": "Noelle Jones",
+  "name": "Noelle Bevan",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Software Developer",
+  "marital_status": "Widowed",
+  "age": 54,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 3, "Accurate Driver": 2, "Accurate Irons": 5,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 2, "High Backspin Shot": 2, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "bdc3c7",
@@ -564,9 +1076,20 @@
   }
  },
  {
-  "name": "Tracy Jones",
+  "name": "Tracy Lewis",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Harpist",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 20, "Long Driver": 15, "Accurate Driver": 18, "Accurate Irons": 12,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 15, "High Backspin Shot": 21,
+   "Recovery Skills": 13, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "bdc3c7",
@@ -576,9 +1099,20 @@
   }
  },
  {
-  "name": "Charlie Jones",
+  "name": "Charlie Llewellyn",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Slate Quarrier",
+  "marital_status": "Widowed",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 5, "Accurate Driver": 7, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "4a235a",
@@ -588,9 +1122,20 @@
   }
  },
  {
-  "name": "Sara Jones",
+  "name": "Sara Gwyn",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 73,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 6, "Accurate Driver": 1, "Accurate Irons": 3,
+   "Accurate Putter": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Recovery Skills": 3,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "2e4053",

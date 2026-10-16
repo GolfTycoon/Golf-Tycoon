@@ -1,8 +1,19 @@
 [
  {
-  "name": "Dave Ryan",
+  "name": "Dave Hennessy",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Librarian",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 28, "Accurate Driver": 15, "Accurate Irons": 16,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 30, "Fade Shot (L to R)": 31, "High Backspin Shot": 22,
+   "Recovery Skills": 31, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "566573",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Cassie Ryan",
+  "name": "Cassie Byrne",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 25, "Accurate Driver": 16, "Accurate Irons": 19,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 25, "High Backspin Shot": 22,
+   "Recovery Skills": 31, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "2e4053",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Greg Ryan",
+  "name": "Greg Fallon",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 3, "Accurate Irons": 8,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 1,
+   "Recovery Skills": 4, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "5b2c6f",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Ruth Ryan",
+  "name": "Ruth Moran",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 49,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 13, "Accurate Driver": 20, "Accurate Irons": 18,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 21, "High Backspin Shot": 20,
+   "Recovery Skills": 16, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "616a6b",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Andy Ryan",
+  "name": "Andy Quinn",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 4, "Accurate Irons": 8,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 3,
+   "Recovery Skills": 3, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "2c3e50",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Sandy Ryan",
+  "name": "Sandy Sullivan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 18, "Accurate Driver": 12, "Accurate Irons": 20,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 22, "High Backspin Shot": 15,
+   "Recovery Skills": 20, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "5b2c6f",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Tracy Ryan",
+  "name": "Tracy Gallagher",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 36,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 9,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "4a235a",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Holt Ryan",
+  "name": "Holt Kelly",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 46,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 13, "Accurate Driver": 11, "Accurate Irons": 20,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 18, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "5b2c6f",
@@ -96,9 +184,20 @@
   }
  },
  {
-  "name": "Sally Ryan",
+  "name": "Sally O'Sullivan",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Writer",
+  "marital_status": "Divorced",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 1, "Accurate Driver": 2, "Accurate Irons": 3,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 1, "High Backspin Shot": 1,
+   "Recovery Skills": 1, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "1a1a2e",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Clara Ryan",
+  "name": "Clara McCarthy",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Florist",
+  "marital_status": "Divorced",
+  "age": 47,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 9, "Accurate Driver": 14, "Accurate Irons": 13,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 11, "High Backspin Shot": 17,
+   "Recovery Skills": 13, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "4a235a",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Jane Ryan",
+  "name": "Jane Sheehan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Waiter",
+  "marital_status": "Single",
+  "age": 40,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 13, "Accurate Driver": 10, "Accurate Irons": 15,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 7, "High Backspin Shot": 7,
+   "Recovery Skills": 8, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "1a1a2e",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Ross Ryan",
+  "name": "Ross Flanagan",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Single",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 10,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 14, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "2c3e50",
@@ -147,6 +279,17 @@
   "name": "Cody Ryan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Musician",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 17, "Accurate Driver": 11, "Accurate Irons": 18,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 8, "High Backspin Shot": 7,
+   "Recovery Skills": 18, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "808b96",
@@ -156,9 +299,20 @@
   }
  },
  {
-  "name": "Raven Ryan",
+  "name": "Raven Callaghan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 18, "Accurate Driver": 13, "Accurate Irons": 9,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 18, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "2e4053",
@@ -168,9 +322,20 @@
   }
  },
  {
-  "name": "Rocky Ryan",
+  "name": "Rocky Kavanagh",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Married",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 9, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "1a1a2e",
@@ -180,9 +345,20 @@
   }
  },
  {
-  "name": "Brooke Ryan",
+  "name": "Brooke Murphy",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 18, "Accurate Driver": 17, "Accurate Irons": 16,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 8, "High Backspin Shot": 6,
+   "Recovery Skills": 15, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "808b96",
@@ -192,9 +368,20 @@
   }
  },
  {
-  "name": "Leah Ryan",
+  "name": "Leah Donnelly",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Driver": 4, "Accurate Irons": 5,
+   "Accurate Putter": 6, "Fade Shot (L to R)": 1, "High Backspin Shot": 2, "Recovery Skills": 4,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "566573",
@@ -204,9 +391,20 @@
   }
  },
  {
-  "name": "Chris Ryan",
+  "name": "Chris Nolan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 60,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 4, "Accurate Driver": 5, "Accurate Irons": 13,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 9, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "d5d8dc",
@@ -216,9 +414,20 @@
   }
  },
  {
-  "name": "Colt Ryan",
+  "name": "Colt Fitzgerald",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 48,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 5, "Accurate Driver": 7, "Accurate Irons": 6,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 7, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "ecf0f1",
@@ -228,9 +437,20 @@
   }
  },
  {
-  "name": "Drew Ryan",
+  "name": "Drew Brennan",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Farmer",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 25, "Accurate Driver": 30, "Accurate Irons": 24,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 25, "Fade Shot (L to R)": 26, "High Backspin Shot": 20,
+   "Recovery Skills": 22, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "1c2833",
@@ -240,9 +460,20 @@
   }
  },
  {
-  "name": "Sue Ryan",
+  "name": "Sue Doyle",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 8, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 7, "High Backspin Shot": 10,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "f7f9f9",
@@ -252,9 +483,20 @@
   }
  },
  {
-  "name": "Nancy Ryan",
+  "name": "Nancy Keane",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 31,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 4, "Accurate Driver": 7, "Accurate Irons": 5,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 9, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "616a6b",
@@ -264,9 +506,20 @@
   }
  },
  {
-  "name": "Joel Ryan",
+  "name": "Joel Cassidy",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 10, "Accurate Driver": 8, "Accurate Irons": 7,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 5,
+   "Recovery Skills": 5, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "ecf0f1",
@@ -276,9 +529,20 @@
   }
  },
  {
-  "name": "Mitch Ryan",
+  "name": "Mitch Clancy",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Pharmacist",
+  "marital_status": "Single",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 1, "Accurate Driver": 5, "Accurate Irons": 4,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 6
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "34495e",
@@ -288,9 +552,19 @@
   }
  },
  {
-  "name": "Tess Ryan",
+  "name": "Tess Quinn",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Engineer",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Irons": 1, "Accurate Putter": 1,
+   "High Backspin Shot": 1, "Recovery Skills": 4, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "bdc3c7",
@@ -303,6 +577,17 @@
   "name": "Emily Ryan",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Veterinarian",
+  "marital_status": "Married",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 12, "Accurate Driver": 10, "Accurate Irons": 17,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 12, "High Backspin Shot": 17,
+   "Recovery Skills": 20, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "2c3e50",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Jolene Ryan",
+  "name": "Jolene Sheehan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 17, "Accurate Driver": 17, "Accurate Irons": 17,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 6, "High Backspin Shot": 4,
+   "Recovery Skills": 13, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -324,9 +620,20 @@
   }
  },
  {
-  "name": "Lucy Ryan",
+  "name": "Lucy Doyle",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Pharmacist",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 24, "Long Driver": 22, "Accurate Driver": 34, "Accurate Irons": 24,
+   "Accurate Putter": 24, "Draw Shot (R to L)": 23, "Fade Shot (L to R)": 26, "High Backspin Shot": 16,
+   "Recovery Skills": 29, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "2c3e50",
@@ -336,9 +643,20 @@
   }
  },
  {
-  "name": "Zane Ryan",
+  "name": "Zane Gallagher",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Professor",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 12, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 11, "High Backspin Shot": 7,
+   "Recovery Skills": 9, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "4a235a",
@@ -348,9 +666,20 @@
   }
  },
  {
-  "name": "Will Ryan",
+  "name": "Will O'Sullivan",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Carpenter",
+  "marital_status": "Single",
+  "age": 39,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 30, "Long Driver": 31, "Accurate Driver": 19, "Accurate Irons": 14,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 25, "Fade Shot (L to R)": 20, "High Backspin Shot": 30,
+   "Recovery Skills": 21, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "1a1a2e",
@@ -360,9 +689,20 @@
   }
  },
  {
-  "name": "Blake Ryan",
+  "name": "Blake Nolan",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Software Developer",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 10, "Accurate Driver": 16, "Accurate Irons": 15,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 10, "High Backspin Shot": 20,
+   "Recovery Skills": 16, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "2c3e50",
@@ -372,9 +712,19 @@
   }
  },
  {
-  "name": "Dale Ryan",
+  "name": "Dale Fitzgerald",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 67,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Long Driver": 3, "Accurate Driver": 1, "Accurate Irons": 1, "Accurate Putter": 3,
+   "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "Recovery Skills": 5, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "bdc3c7",
@@ -384,9 +734,20 @@
   }
  },
  {
-  "name": "Rita Ryan",
+  "name": "Rita Brennan",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Firefighter",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 16, "Accurate Driver": 10, "Accurate Irons": 15,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 14, "High Backspin Shot": 17,
+   "Recovery Skills": 14, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "5b2c6f",
@@ -396,9 +757,20 @@
   }
  },
  {
-  "name": "Ali Ryan",
+  "name": "Ali Hennessy",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 31,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 10, "Accurate Driver": 13, "Accurate Irons": 13,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 7, "High Backspin Shot": 12,
+   "Recovery Skills": 10, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "2c3e50",
@@ -408,9 +780,20 @@
   }
  },
  {
-  "name": "Heath Ryan",
+  "name": "Heath Keane",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Divorced",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 8, "Accurate Driver": 8, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 10,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "616a6b",
@@ -420,9 +803,20 @@
   }
  },
  {
-  "name": "Mike Ryan",
+  "name": "Mike Donnelly",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Driver",
+  "marital_status": "Divorced",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 16, "Accurate Driver": 14, "Accurate Irons": 19,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 7, "High Backspin Shot": 4,
+   "Recovery Skills": 13, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "34495e",
@@ -432,9 +826,20 @@
   }
  },
  {
-  "name": "Faye Ryan",
+  "name": "Faye Sullivan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 6, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 5,
+   "Recovery Skills": 7, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "7d6608",
@@ -444,9 +849,20 @@
   }
  },
  {
-  "name": "Keith Ryan",
+  "name": "Keith Kavanagh",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Waiter",
+  "marital_status": "Divorced",
+  "age": 64,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 3, "Accurate Irons": 8,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 3, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "1a1a2e",
@@ -456,9 +872,19 @@
   }
  },
  {
-  "name": "Mandy Ryan",
+  "name": "Mandy Clancy",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Writer",
+  "marital_status": "Married",
+  "age": 49,
+  "gender": "Female",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 3, "Accurate Irons": 2, "Accurate Putter": 5,
+   "Recovery Skills": 4, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "7d6608",
@@ -468,9 +894,20 @@
   }
  },
  {
-  "name": "Piper Ryan",
+  "name": "Piper Byrne",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 75,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 5, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 8, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "d5d8dc",
@@ -480,9 +917,20 @@
   }
  },
  {
-  "name": "Bonnie Ryan",
+  "name": "Bonnie Cassidy",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 45,
+  "gender": "Female",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 16, "Accurate Driver": 10, "Accurate Irons": 13,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 8, "High Backspin Shot": 8,
+   "Recovery Skills": 13, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "f7f9f9",
@@ -492,9 +940,20 @@
   }
  },
  {
-  "name": "Nadia Ryan",
+  "name": "Nadia Callaghan",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 44,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 4, "Accurate Driver": 11, "Accurate Irons": 5,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 9, "High Backspin Shot": 13,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "34495e",
@@ -504,9 +963,20 @@
   }
  },
  {
-  "name": "Jill Ryan",
+  "name": "Jill Moran",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Professor",
+  "marital_status": "Married",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 12, "Accurate Driver": 13, "Accurate Irons": 16,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 9, "High Backspin Shot": 6,
+   "Recovery Skills": 16, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "5b2c6f",
@@ -516,9 +986,20 @@
   }
  },
  {
-  "name": "Cam Ryan",
+  "name": "Cam Murphy",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 25, "Long Driver": 31, "Accurate Driver": 29, "Accurate Irons": 29,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 7, "High Backspin Shot": 12,
+   "Recovery Skills": 16, "Luck": 22
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "d5d8dc",
@@ -528,9 +1009,20 @@
   }
  },
  {
-  "name": "Frank Ryan",
+  "name": "Frank McCarthy",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 4, "Accurate Irons": 4, "Accurate Putter": 4,
+   "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Recovery Skills": 1,
+   "Luck": 1
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "d5d8dc",
@@ -540,9 +1032,20 @@
   }
  },
  {
-  "name": "Rich Ryan",
+  "name": "Rich Flanagan",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 1,
+   "Recovery Skills": 2, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "d5d8dc",
@@ -552,9 +1055,20 @@
   }
  },
  {
-  "name": "Ella Ryan",
+  "name": "Ella Kelly",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 68,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 7, "Accurate Driver": 7, "Accurate Irons": 4,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 6, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "283747",
@@ -564,9 +1078,20 @@
   }
  },
  {
-  "name": "Jess Ryan",
+  "name": "Jess Fallon",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Publican",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 11, "Accurate Driver": 5, "Accurate Irons": 13,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 6, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "566573",
@@ -576,9 +1101,20 @@
   }
  },
  {
-  "name": "Val Ryan",
+  "name": "Val Sullivan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Veterinarian",
+  "marital_status": "Divorced",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 9, "Accurate Driver": 5, "Accurate Irons": 10,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 6, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "7d6608",
@@ -588,9 +1124,20 @@
   }
  },
  {
-  "name": "Lane Ryan",
+  "name": "Lane O'Sullivan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Waiter",
+  "marital_status": "Married",
+  "age": 64,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 10, "Accurate Driver": 13, "Accurate Irons": 11,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "808b96",

@@ -53,12 +53,18 @@ Every golfer in Golf Tycoon - a visiting guest, a tournament player, or the cour
 
 ### Identity generation
 
-Random golfers roll identity when they spawn (visiting golfers keep the name of their visitor card; the course owner takes their name and profession from the player profile):
+Random golfers roll identity when they spawn; visiting golfers arrive with theirs already written on their visitor card, and the course owner takes their name and profession from the player profile:
 
 - **Gender** is a coin flip; **Age** 18-80 by tier (Pro golfers are 20-40, Serious 22-62).
 - **Profession** comes from a pool of common professions.
 - **Marital Status** odds shift with age: the young are mostly Single, mid-life mostly Married, and Widowed grows after 66.
 - **Name** is drawn from gendered first-name and surname pools, so the name matches the gender rolled.
+
+### Visiting golfer cards
+
+Every World Map location has a pool of 50 visiting golfers in `data/visiting_golfers/<location>.json` (see [Data Reference](../../data-reference.md)). Each visitor card carries the golfer's whole attribute block — Name, Profession, Marital Status, Age, Gender, Golfer Traits, Golfer Skills and Golf Skill points — and their shared look (`skin_id`, `tier`, `group_colors`), so the visitors of a location are 50 different people rather than 50 variations of one. Every name is unique, within a location and across the whole game.
+
+`GolferAttributes.apply_visitor_card()` writes the card over the block the tier rolled: identity, the five Golfer Traits, the three Golfer Skills and all ten Golf Skill points come from the card, while personality, patience, miss tendency and the statuses stay what the tier and the round give everyone. Golfer Skills the card does not list are Off and Golf Skills it does not list have no points, so a card only ever names what the golfer has.
 
 ### Traits and skills generation
 

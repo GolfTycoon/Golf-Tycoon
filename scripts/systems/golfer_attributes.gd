@@ -384,6 +384,90 @@ static func _roll_marital_status(age_value: int) -> int:
 	if roll < 0.73: return MaritalStatus.DIVORCED
 	return MaritalStatus.WIDOWED
 
+# ===========================================================================
+# Visiting golfer cards
+# ===========================================================================
+
+## Apply a visiting golfer's card - an entry in `data/visiting_golfers/
+## <location>.json` - over the block generate_for_tier() just rolled. A card
+## carries the whole person: identity (Name, Profession, Marital Status, Age,
+## Gender), the Golfer Traits and Golfer Skills that are On for them, and the
+## Golf Skill points they have trained. Anything the card leaves out keeps the
+## value the roll gave it, so a partial card is never a broken golfer.
+func apply_visitor_card(card: Dictionary) -> void:
+	var visitor_name := str(card.get("name", "")).strip_edges()
+	if not visitor_name.is_empty():
+		name = visitor_name
+	var visitor_profession := str(card.get("profession", "")).strip_edges()
+	if not visitor_profession.is_empty():
+		profession = visitor_profession
+	if card.has("age"):
+		age = clampi(int(card["age"]), 18, 99)
+	var visitor_marital_status := marital_status_from_name(str(card.get("marital_status", "")))
+	if visitor_marital_status >= 0:
+		marital_status = visitor_marital_status
+	var visitor_gender := gender_from_name(str(card.get("gender", "")))
+	if visitor_gender >= 0:
+		gender = visitor_gender
+	_apply_switch_list(card.get("traits"), TRAIT_KEYS, traits)
+	_apply_switch_list(card.get("golfer_skills"), GOLFER_SKILL_KEYS, golfer_skills)
+	_apply_golf_skill_points(card.get("golf_skills"))
+
+## Switch every key off, then on for each key the card lists. A card that does
+## not carry the switch list at all leaves the rolled switches standing.
+func _apply_switch_list(listed: Variant, keys: Array, switches: Dictionary) -> void:
+	if not (listed is Array):
+		return
+	for key in keys:
+		switches[key] = false
+	for entry in listed:
+		var key := str(entry)
+		if switches.has(key):
+			switches[key] = true
+
+## Write the card's Golf Skill points over the block. The card names the skills
+## this golfer has points in; the rest are set to 0 (no points, no skill).
+func _apply_golf_skill_points(points: Variant) -> void:
+	if not (points is Dictionary):
+		return
+	for i in golf_points.size():
+		golf_points[i] = 0
+	for skill_name in points:
+		var index := golf_skill_index(str(skill_name))
+		if index >= 0:
+			golf_points[index] = clampi(int(points[skill_name]), 0, POINTS_PER_GOLF_SKILL)
+
+## Index of a Golf Skill by the name a visitor card or the player uses, or -1
+## when the name matches no Golf Skill.
+static func golf_skill_index(skill_name: String) -> int:
+	var wanted := skill_name.strip_edges()
+	for i in GOLF_SKILLS.size():
+		if GOLF_SKILLS[i] == wanted:
+			return i
+	wanted = wanted.to_lower()
+	for i in GOLF_SKILLS.size():
+		if GOLF_SKILLS[i].to_lower() == wanted:
+			return i
+	return -1
+
+## Marital Status from its name ("Single", "Married", ...), or -1 when the name
+## is not one the game knows.
+static func marital_status_from_name(status_name: String) -> int:
+	var wanted := status_name.strip_edges().to_lower()
+	for status in MARITAL_STATUS_NAMES:
+		if str(MARITAL_STATUS_NAMES[status]).to_lower() == wanted:
+			return int(status)
+	return -1
+
+## Gender from its name ("Male" / "Female"), or -1 when the name is not one the
+## game knows.
+static func gender_from_name(gender_name_value: String) -> int:
+	var wanted := gender_name_value.strip_edges().to_lower()
+	for value in GENDER_NAMES:
+		if str(GENDER_NAMES[value]).to_lower() == wanted:
+			return int(value)
+	return -1
+
 ## Reset everything a fresh round needs - the five statuses go back to 50%.
 ## Identity, traits, skills and golf points survive: the golfer is the same
 ## person stepping onto the course again.

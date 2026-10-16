@@ -1,8 +1,19 @@
 [
  {
-  "name": "Piper Broadway",
+  "name": "Piper Bowery",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 22, "Accurate Driver": 25, "Accurate Irons": 29,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 15, "High Backspin Shot": 11,
+   "Recovery Skills": 22, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "2e4053",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Kai Broadway",
+  "name": "Kai Empire",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 25, "Accurate Driver": 22, "Accurate Irons": 20,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 30, "Fade Shot (L to R)": 30, "High Backspin Shot": 19,
+   "Recovery Skills": 33, "Luck": 21
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "bdc3c7",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Gemma Broadway",
+  "name": "Gemma Manhattan",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Electrician",
+  "marital_status": "Single",
+  "age": 48,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 11, "Accurate Irons": 11,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 5, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "1a1a2e",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Jess Broadway",
+  "name": "Jess Metropolis",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Accountant",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 30, "Accurate Driver": 22, "Accurate Irons": 25,
+   "Accurate Putter": 21, "Draw Shot (R to L)": 28, "Fade Shot (L to R)": 34, "High Backspin Shot": 18,
+   "Recovery Skills": 20, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "145a32",
    "Pants": "1a1a2e",
@@ -48,9 +92,20 @@
   }
  },
  {
-  "name": "Mia Broadway",
+  "name": "Mia Brooklyn",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Baker",
+  "marital_status": "Married",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 12, "High Backspin Shot": 10,
+   "Recovery Skills": 7, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "2e4053",
@@ -60,9 +115,20 @@
   }
  },
  {
-  "name": "Scott Broadway",
+  "name": "Scott Knickerbocker",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Engineer",
+  "marital_status": "Widowed",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 9, "Accurate Driver": 4, "Accurate Irons": 3,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 10, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "4a235a",
@@ -72,9 +138,20 @@
   }
  },
  {
-  "name": "Lynn Broadway",
+  "name": "Lynn Queens",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 21, "Long Driver": 17, "Accurate Driver": 14, "Accurate Irons": 13,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 8, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "7d6608",
@@ -84,9 +161,20 @@
   }
  },
  {
-  "name": "Cody Broadway",
+  "name": "Cody Subway",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Editor",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 9, "Accurate Driver": 12, "Accurate Irons": 6,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 3, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "f7f9f9",
@@ -99,6 +187,17 @@
   "name": "Logan Broadway",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Artist",
+  "marital_status": "Divorced",
+  "age": 75,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 9, "Accurate Driver": 8, "Accurate Irons": 5,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 4,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "1c2833",
@@ -108,9 +207,20 @@
   }
  },
  {
-  "name": "Whitney Broadway",
+  "name": "Whitney Hudson",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Firefighter",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 4, "Accurate Driver": 12, "Accurate Irons": 14,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 12, "High Backspin Shot": 8,
+   "Recovery Skills": 8, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "616a6b",
@@ -120,9 +230,20 @@
   }
  },
  {
-  "name": "Jack Broadway",
+  "name": "Jack Taxi",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Single",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 17, "Accurate Driver": 21, "Accurate Irons": 22,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 12, "High Backspin Shot": 9,
+   "Recovery Skills": 14, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "4a235a",
@@ -132,9 +253,20 @@
   }
  },
  {
-  "name": "Joe Broadway",
+  "name": "Joe Pretzel",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Nurse",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 25, "Long Driver": 24, "Accurate Driver": 25, "Accurate Irons": 28,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 31, "Fade Shot (L to R)": 17, "High Backspin Shot": 22,
+   "Recovery Skills": 19, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "d5d8dc",
@@ -144,9 +276,20 @@
   }
  },
  {
-  "name": "Raven Broadway",
+  "name": "Raven Astoria",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Librarian",
+  "marital_status": "Single",
+  "age": 35,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 4, "Accurate Driver": 7, "Accurate Irons": 6,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1,
+   "Recovery Skills": 5, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "922b21",
    "Pants": "808b96",
@@ -156,9 +299,20 @@
   }
  },
  {
-  "name": "Roger Broadway",
+  "name": "Roger Rooftop",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Driver",
+  "marital_status": "Widowed",
+  "age": 68,
+  "gender": "Male",
+  "traits": ["playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 6, "Long Driver": 6, "Accurate Driver": 7, "Accurate Irons": 4,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 4, "High Backspin Shot": 2,
+   "Recovery Skills": 10, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "2c3e50",
@@ -168,9 +322,19 @@
   }
  },
  {
-  "name": "April Broadway",
+  "name": "April Hustle",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Photographer",
+  "marital_status": "Divorced",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 5, "Accurate Putter": 1,
+   "Fade Shot (L to R)": 1, "Recovery Skills": 1, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "bdc3c7",
@@ -180,9 +344,20 @@
   }
  },
  {
-  "name": "Jamie Broadway",
+  "name": "Jamie Skyline",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Florist",
+  "marital_status": "Married",
+  "age": 60,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 10, "Accurate Driver": 9, "Accurate Irons": 18,
+   "Accurate Putter": 18, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 5,
+   "Recovery Skills": 16, "Luck": 14
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "2e4053",
@@ -192,9 +367,20 @@
   }
  },
  {
-  "name": "Rocky Broadway",
+  "name": "Rocky Delancey",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Doctor",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 6, "Accurate Driver": 9, "Accurate Irons": 5,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 3,
+   "Recovery Skills": 5, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -204,9 +390,20 @@
   }
  },
  {
-  "name": "Pam Broadway",
+  "name": "Pam Tribeca",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 21,
+  "gender": "Female",
+  "traits": ["neat", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 5, "Accurate Irons": 8,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "808b96",
@@ -216,9 +413,20 @@
   }
  },
  {
-  "name": "Luke Broadway",
+  "name": "Luke Gotham",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Musician",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["active"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 26, "Accurate Driver": 26, "Accurate Irons": 22,
+   "Accurate Putter": 26, "Draw Shot (R to L)": 33, "Fade Shot (L to R)": 21, "High Backspin Shot": 23,
+   "Recovery Skills": 31, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "1c2833",
@@ -228,9 +436,20 @@
   }
  },
  {
-  "name": "Brent Broadway",
+  "name": "Brent Bagel",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["outgoing", "active"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 3, "Accurate Driver": 9, "Accurate Irons": 12,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 5, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "1c2833",
@@ -240,9 +459,20 @@
   }
  },
  {
-  "name": "Noelle Broadway",
+  "name": "Noelle Bronx",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 58,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 13, "Accurate Driver": 18, "Accurate Irons": 21,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 16, "Fade Shot (L to R)": 13, "High Backspin Shot": 17,
+   "Recovery Skills": 16, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "5b2c6f",
@@ -252,9 +482,20 @@
   }
  },
  {
-  "name": "Clay Broadway",
+  "name": "Clay Soho",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Florist",
+  "marital_status": "Single",
+  "age": 51,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 2, "Accurate Driver": 1, "Accurate Irons": 2,
+   "Accurate Putter": 1, "Fade Shot (L to R)": 2, "High Backspin Shot": 1, "Recovery Skills": 3,
+   "Luck": 4
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "d5d8dc",
@@ -264,9 +505,20 @@
   }
  },
  {
-  "name": "Dale Broadway",
+  "name": "Dale Bodega",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 16, "Accurate Driver": 15, "Accurate Irons": 9,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 4, "High Backspin Shot": 4,
+   "Recovery Skills": 15, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "7d6608",
@@ -276,9 +528,20 @@
   }
  },
  {
-  "name": "Brooke Broadway",
+  "name": "Brooke Harlem",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Electrician",
+  "marital_status": "Widowed",
+  "age": 70,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 9, "Accurate Driver": 9, "Accurate Irons": 3,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 11, "High Backspin Shot": 14,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1c2833",
@@ -288,9 +551,20 @@
   }
  },
  {
-  "name": "Nick Broadway",
+  "name": "Nick Harlem",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chef",
+  "marital_status": "Single",
+  "age": 20,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 32, "Accurate Driver": 23, "Accurate Irons": 26,
+   "Accurate Putter": 20, "Draw Shot (R to L)": 29, "Fade Shot (L to R)": 24, "High Backspin Shot": 20,
+   "Recovery Skills": 31, "Luck": 30
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "283747",
@@ -300,9 +574,20 @@
   }
  },
  {
-  "name": "Nora Broadway",
+  "name": "Nora Empire",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Retired",
+  "marital_status": "Married",
+  "age": 60,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 14, "Accurate Driver": 16, "Accurate Irons": 16,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 16, "High Backspin Shot": 15,
+   "Recovery Skills": 17, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a1a2e",
    "Pants": "ecf0f1",
@@ -312,9 +597,20 @@
   }
  },
  {
-  "name": "Hal Broadway",
+  "name": "Hal Skyline",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Broadway Producer",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 16, "Accurate Driver": 21, "Accurate Irons": 17,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 5, "High Backspin Shot": 5,
+   "Recovery Skills": 17, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "34495e",
@@ -324,9 +620,20 @@
   }
  },
  {
-  "name": "Cole Broadway",
+  "name": "Cole Metropolis",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Nurse",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 8, "Accurate Driver": 6, "Accurate Irons": 14,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 5,
+   "Recovery Skills": 10, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "bdc3c7",
@@ -336,9 +643,20 @@
   }
  },
  {
-  "name": "Beth Broadway",
+  "name": "Beth Rooftop",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 27,
+  "gender": "Female",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 31, "Long Driver": 28, "Accurate Driver": 26, "Accurate Irons": 18,
+   "Accurate Putter": 31, "Draw Shot (R to L)": 30, "Fade Shot (L to R)": 32, "High Backspin Shot": 29,
+   "Recovery Skills": 30, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "ecf0f1",
@@ -348,9 +666,20 @@
   }
  },
  {
-  "name": "Trent Broadway",
+  "name": "Trent Subway",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Writer",
+  "marital_status": "Widowed",
+  "age": 74,
+  "gender": "Male",
+  "traits": ["neat"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 8, "Accurate Driver": 7, "Accurate Irons": 12,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 13, "High Backspin Shot": 7,
+   "Recovery Skills": 11, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "2c3e50",
@@ -360,9 +689,20 @@
   }
  },
  {
-  "name": "Riley Broadway",
+  "name": "Riley Bagel",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Real Estate Agent",
+  "marital_status": "Widowed",
+  "age": 52,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 7, "Accurate Driver": 4, "Accurate Irons": 5,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 12, "High Backspin Shot": 7,
+   "Recovery Skills": 6, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "bdc3c7",
@@ -372,9 +712,20 @@
   }
  },
  {
-  "name": "Sunny Broadway",
+  "name": "Sunny Gotham",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Female",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 23, "Accurate Driver": 28, "Accurate Irons": 19,
+   "Accurate Putter": 31, "Draw Shot (R to L)": 24, "Fade Shot (L to R)": 26, "High Backspin Shot": 29,
+   "Recovery Skills": 23, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "7d6608",
@@ -384,9 +735,20 @@
   }
  },
  {
-  "name": "Cam Broadway",
+  "name": "Cam Soho",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Mechanic",
+  "marital_status": "Single",
+  "age": 23,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 15, "Accurate Driver": 15, "Accurate Irons": 17,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 6, "High Backspin Shot": 8,
+   "Recovery Skills": 11, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "283747",
@@ -396,9 +758,20 @@
   }
  },
  {
-  "name": "Shannon Broadway",
+  "name": "Shannon Bowery",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Dentist",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 25, "Long Driver": 14, "Accurate Driver": 32, "Accurate Irons": 18,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 33, "Fade Shot (L to R)": 22, "High Backspin Shot": 25,
+   "Recovery Skills": 26, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "e8e8e8",
    "Pants": "2e4053",
@@ -408,9 +781,19 @@
   }
  },
  {
-  "name": "Jim Broadway",
+  "name": "Jim Manhattan",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 45,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 3, "Accurate Putter": 3, "High Backspin Shot": 1,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "ecf0f1",
@@ -420,9 +803,20 @@
   }
  },
  {
-  "name": "Liam Broadway",
+  "name": "Liam Bodega",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Real Estate Agent",
+  "marital_status": "Married",
+  "age": 79,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 5, "Accurate Driver": 4, "Accurate Irons": 2,
+   "Accurate Putter": 2, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 4, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "2c3e50",
@@ -432,9 +826,20 @@
   }
  },
  {
-  "name": "Vince Broadway",
+  "name": "Vince Taxi",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Software Developer",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Male",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 10,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "283747",
@@ -447,6 +852,17 @@
   "name": "Wade Broadway",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Tour Guide",
+  "marital_status": "Single",
+  "age": 27,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 16, "Accurate Driver": 30, "Accurate Irons": 25,
+   "Accurate Putter": 23, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 22, "High Backspin Shot": 23,
+   "Recovery Skills": 30, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "ecf0f1",
@@ -456,9 +872,20 @@
   }
  },
  {
-  "name": "Tex Broadway",
+  "name": "Tex Bronx",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Accountant",
+  "marital_status": "Married",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 15, "Accurate Driver": 12, "Accurate Irons": 10,
+   "Accurate Putter": 10, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 22, "High Backspin Shot": 20,
+   "Recovery Skills": 16, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "34495e",
@@ -468,9 +895,20 @@
   }
  },
  {
-  "name": "Heath Broadway",
+  "name": "Heath Astoria",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Dentist",
+  "marital_status": "Single",
+  "age": 30,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 12, "Accurate Driver": 8, "Accurate Irons": 18,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 10, "High Backspin Shot": 12,
+   "Recovery Skills": 21, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "4a235a",
@@ -480,9 +918,20 @@
   }
  },
  {
-  "name": "Ruth Broadway",
+  "name": "Ruth Queens",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Hotel Manager",
+  "marital_status": "Single",
+  "age": 60,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 19, "Long Driver": 13, "Accurate Driver": 10, "Accurate Irons": 10,
+   "Accurate Putter": 17, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 13, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "7d6608",
    "Pants": "f7f9f9",
@@ -492,9 +941,19 @@
   }
  },
  {
-  "name": "Ashley Broadway",
+  "name": "Ashley Knickerbocker",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 2, "Accurate Irons": 2, "Accurate Putter": 1,
+   "Draw Shot (R to L)": 1, "High Backspin Shot": 2, "Recovery Skills": 2, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "76448a",
    "Pants": "2c3e50",
@@ -504,9 +963,20 @@
   }
  },
  {
-  "name": "Jill Broadway",
+  "name": "Jill Tribeca",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Female",
+  "traits": ["active", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 13, "Accurate Driver": 17, "Accurate Irons": 18,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 13, "Fade Shot (L to R)": 13, "High Backspin Shot": 18,
+   "Recovery Skills": 14, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "1a1a2e",
@@ -516,9 +986,20 @@
   }
  },
  {
-  "name": "Grant Broadway",
+  "name": "Grant Delancey",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Chemist",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 24, "Long Driver": 26, "Accurate Driver": 28, "Accurate Irons": 29,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 10, "High Backspin Shot": 14,
+   "Recovery Skills": 27, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "2e4053",
@@ -528,9 +1009,20 @@
   }
  },
  {
-  "name": "Shane Broadway",
+  "name": "Shane Pretzel",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Chef",
+  "marital_status": "Married",
+  "age": 50,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 7, "Accurate Driver": 5, "Accurate Irons": 9,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 8, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "283747",
@@ -540,9 +1032,20 @@
   }
  },
  {
-  "name": "Lane Broadway",
+  "name": "Lane Hustle",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Engineer",
+  "marital_status": "Single",
+  "age": 29,
+  "gender": "Male",
+  "traits": ["active"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 26, "Long Driver": 26, "Accurate Driver": 26, "Accurate Irons": 24,
+   "Accurate Putter": 31, "Draw Shot (R to L)": 19, "Fade Shot (L to R)": 24, "High Backspin Shot": 31,
+   "Recovery Skills": 30, "Luck": 20
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "1c2833",
@@ -552,9 +1055,19 @@
   }
  },
  {
-  "name": "Ron Broadway",
+  "name": "Ron Brooklyn",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Deli Owner",
+  "marital_status": "Married",
+  "age": 35,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 7, "Accurate Driver": 4, "Accurate Putter": 1,
+   "Draw Shot (R to L)": 2, "High Backspin Shot": 2, "Recovery Skills": 1, "Luck": 1
+  },
   "group_colors": {
    "Shirt": "4a90d9",
    "Pants": "4a235a",
@@ -564,9 +1077,19 @@
   }
  },
  {
-  "name": "Jenna Broadway",
+  "name": "Jenna Hudson",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Insurance Agent",
+  "marital_status": "Married",
+  "age": 39,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Long Driver": 5, "Accurate Driver": 2, "Accurate Irons": 3, "Draw Shot (R to L)": 6,
+   "Fade Shot (L to R)": 4, "High Backspin Shot": 4, "Recovery Skills": 7
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "d5d8dc",
@@ -576,9 +1099,20 @@
   }
  },
  {
-  "name": "June Broadway",
+  "name": "June Soho",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Stockbroker",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 10, "Accurate Driver": 9, "Accurate Irons": 9,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 6, "High Backspin Shot": 4,
+   "Recovery Skills": 14, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "4a235a",
@@ -588,9 +1122,20 @@
   }
  },
  {
-  "name": "Sue Broadway",
+  "name": "Sue Bowery",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Photographer",
+  "marital_status": "Married",
+  "age": 33,
+  "gender": "Female",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 25, "Accurate Driver": 21, "Accurate Irons": 30,
+   "Accurate Putter": 24, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 9, "High Backspin Shot": 11,
+   "Recovery Skills": 28, "Luck": 29
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "f7f9f9",

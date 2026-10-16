@@ -20,8 +20,12 @@ enum Size { SMALL, MEDIUM, LARGE, CHAMPIONSHIP }
 const LAND_VALUE_PER_PARCEL: int = 2200
 
 ## Where each location's visiting-golfer JSON file lives (50 golfers each).
-## Each file is a JSON array of objects with keys: name, skin_id, tier,
-## group_colors ({Shirt, Pants, Cap, Hair, Skin} → hex colour string).
+## Each file is a JSON array of golfer cards, each with a unique `name`, the
+## look they arrive in (`skin_id`, `tier`, `group_colors` - {Shirt, Pants, Cap,
+## Hair, Skin} → hex colour string) and their attribute block: profession,
+## marital_status, age, gender, traits (the Golfer Traits that are On),
+## golfer_skills (the Golfer Skills that are On) and golf_skills (Golf Skill
+## points by name, 1-99). See GolferAttributes.apply_visitor_card().
 const VISITING_GOLFERS_ROOT: String = "res://data/visiting_golfers"
 
 ## Every location's unlocked land includes at least the central parcel cluster.

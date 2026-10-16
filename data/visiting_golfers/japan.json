@@ -1,8 +1,19 @@
 [
  {
-  "name": "Logan Hiro",
+  "name": "Logan Okada",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Tour Guide",
+  "marital_status": "Single",
+  "age": 21,
+  "gender": "Male",
+  "traits": ["neat", "active", "playful"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 8, "Accurate Driver": 6, "Accurate Irons": 8,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 5, "High Backspin Shot": 10,
+   "Recovery Skills": 11, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "5b2c6f",
@@ -12,9 +23,20 @@
   }
  },
  {
-  "name": "Colt Hiro",
+  "name": "Colt Abe",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Dentist",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Male",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 12, "Accurate Driver": 20, "Accurate Irons": 11,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 14, "High Backspin Shot": 14,
+   "Recovery Skills": 11, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "f0ad4e",
    "Pants": "566573",
@@ -24,9 +46,20 @@
   }
  },
  {
-  "name": "Tate Hiro",
+  "name": "Tate Mori",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Dentist",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Male",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 10, "Accurate Driver": 22, "Accurate Irons": 14,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 20, "Fade Shot (L to R)": 22, "High Backspin Shot": 12,
+   "Recovery Skills": 20, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "1a1a2e",
@@ -36,9 +69,20 @@
   }
  },
  {
-  "name": "Chloe Hiro",
+  "name": "Chloe Yamada",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Artist",
+  "marital_status": "Widowed",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 12, "Accurate Driver": 8, "Accurate Irons": 17,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 12, "High Backspin Shot": 14,
+   "Recovery Skills": 15, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "5cb85c",
    "Pants": "2c3e50",
@@ -48,9 +92,19 @@
   }
  },
  {
-  "name": "Clay Hiro",
+  "name": "Clay Suzuki",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Veterinarian",
+  "marital_status": "Single",
+  "age": 56,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 2, "Long Driver": 1, "Accurate Driver": 1, "Accurate Irons": 2,
+   "Fade Shot (L to R)": 2, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "1c2833",
@@ -60,9 +114,20 @@
   }
  },
  {
-  "name": "Jodi Hiro",
+  "name": "Jodi Hayashi",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 41,
+  "gender": "Female",
+  "traits": ["neat", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 17, "Accurate Driver": 19, "Accurate Irons": 18,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 19, "High Backspin Shot": 12,
+   "Recovery Skills": 12, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "283747",
@@ -72,9 +137,20 @@
   }
  },
  {
-  "name": "Crystal Hiro",
+  "name": "Crystal Yamaguchi",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Hotel Manager",
+  "marital_status": "Single",
+  "age": 51,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 10, "Accurate Driver": 4, "Accurate Irons": 7,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 4, "High Backspin Shot": 1,
+   "Recovery Skills": 10, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "bdc3c7",
@@ -84,9 +160,20 @@
   }
  },
  {
-  "name": "Brent Hiro",
+  "name": "Brent Matsumoto",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 57,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 16, "Accurate Driver": 16, "Accurate Irons": 18,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 5, "High Backspin Shot": 6,
+   "Recovery Skills": 15, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "566573",
@@ -96,9 +183,20 @@
   }
  },
  {
-  "name": "Wade Hiro",
+  "name": "Wade Watanabe",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Baker",
+  "marital_status": "Divorced",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 29, "Long Driver": 22, "Accurate Driver": 29, "Accurate Irons": 28,
+   "Accurate Putter": 29, "Draw Shot (R to L)": 22, "Fade Shot (L to R)": 19, "High Backspin Shot": 27,
+   "Recovery Skills": 19, "Luck": 24
+  },
   "group_colors": {
    "Shirt": "8e44ad",
    "Pants": "1c2833",
@@ -111,6 +209,16 @@
   "name": "Gwen Hiro",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Sushi Chef",
+  "marital_status": "Married",
+  "age": 59,
+  "gender": "Female",
+  "traits": ["nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 3, "Accurate Irons": 5, "Accurate Putter": 4,
+   "Fade Shot (L to R)": 2, "High Backspin Shot": 1, "Recovery Skills": 1, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "7b241c",
    "Pants": "bdc3c7",
@@ -120,9 +228,20 @@
   }
  },
  {
-  "name": "Blake Hiro",
+  "name": "Blake Nakamura",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Photographer",
+  "marital_status": "Single",
+  "age": 22,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 14, "Long Driver": 12, "Accurate Driver": 8, "Accurate Irons": 14,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 17, "Fade Shot (L to R)": 18, "High Backspin Shot": 15,
+   "Recovery Skills": 12, "Luck": 16
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "2c3e50",
@@ -132,9 +251,19 @@
   }
  },
  {
-  "name": "Jenna Hiro",
+  "name": "Jenna Fujiwara",
   "skin_id": "beginner",
   "tier": 0,
+  "profession": "Driver",
+  "marital_status": "Single",
+  "age": 70,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 6, "Accurate Driver": 5, "Accurate Irons": 5,
+   "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 2, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "1b2631",
    "Pants": "7d6608",
@@ -144,9 +273,20 @@
   }
  },
  {
-  "name": "Ruby Hiro",
+  "name": "Ruby Sato",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 30,
+  "gender": "Female",
+  "traits": ["neat", "playful"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 32, "Long Driver": 21, "Accurate Driver": 18, "Accurate Irons": 29,
+   "Accurate Putter": 26, "Draw Shot (R to L)": 28, "Fade Shot (L to R)": 25, "High Backspin Shot": 15,
+   "Recovery Skills": 21, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "34495e",
@@ -156,9 +296,20 @@
   }
  },
  {
-  "name": "Casey Hiro",
+  "name": "Casey Kimura",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Doctor",
+  "marital_status": "Married",
+  "age": 70,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 6, "Accurate Driver": 11, "Accurate Irons": 8,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 2, "High Backspin Shot": 3,
+   "Recovery Skills": 7, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "1a1a2e",
@@ -168,9 +319,20 @@
   }
  },
  {
-  "name": "Dave Hiro",
+  "name": "Dave Tanaka",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Carpenter",
+  "marital_status": "Single",
+  "age": 42,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 19, "Accurate Driver": 12, "Accurate Irons": 16,
+   "Accurate Putter": 19, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 8, "Luck": 12
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "7d6608",
@@ -180,9 +342,20 @@
   }
  },
  {
-  "name": "Ada Hiro",
+  "name": "Ada Yamamoto",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["neat"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 13, "Accurate Driver": 13, "Accurate Irons": 14,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 7, "High Backspin Shot": 6,
+   "Recovery Skills": 8, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "34495e",
@@ -192,9 +365,20 @@
   }
  },
  {
-  "name": "Carol Hiro",
+  "name": "Carol Inoue",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Architect",
+  "marital_status": "Single",
+  "age": 25,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 8, "Accurate Irons": 14,
+   "Accurate Putter": 8, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 9, "High Backspin Shot": 10,
+   "Recovery Skills": 10, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "2c3e50",
@@ -204,9 +388,20 @@
   }
  },
  {
-  "name": "Tess Hiro",
+  "name": "Tess Kato",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 75,
+  "gender": "Female",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 5, "Accurate Driver": 10, "Accurate Irons": 6,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 5, "High Backspin Shot": 8,
+   "Recovery Skills": 6, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "2c3e50",
@@ -216,9 +411,20 @@
   }
  },
  {
-  "name": "Mark Hiro",
+  "name": "Mark Ikeda",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Veterinarian",
+  "marital_status": "Single",
+  "age": 46,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 10, "Accurate Driver": 7, "Accurate Irons": 11,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 10, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "d9534f",
    "Pants": "1c2833",
@@ -228,9 +434,20 @@
   }
  },
  {
-  "name": "Holly Hiro",
+  "name": "Holly Shimizu",
   "skin_id": "beginner",
   "tier": 1,
+  "profession": "Pharmacist",
+  "marital_status": "Married",
+  "age": 32,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 3, "Long Driver": 9, "Accurate Driver": 7, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 4, "Fade Shot (L to R)": 5, "High Backspin Shot": 5,
+   "Recovery Skills": 6, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "c0392b",
    "Pants": "d5d8dc",
@@ -240,9 +457,20 @@
   }
  },
  {
-  "name": "Rose Hiro",
+  "name": "Rose Takahashi",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 56,
+  "gender": "Female",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 15, "Accurate Driver": 9, "Accurate Irons": 12,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 12, "High Backspin Shot": 15,
+   "Recovery Skills": 16, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "ecf0f1",
@@ -252,9 +480,20 @@
   }
  },
  {
-  "name": "Amy Hiro",
+  "name": "Amy Yoshida",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Mechanic",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Female",
+  "traits": ["active"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 4, "Accurate Driver": 7, "Accurate Irons": 7,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 3, "High Backspin Shot": 7,
+   "Recovery Skills": 1, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "6e2c00",
    "Pants": "616a6b",
@@ -264,9 +503,20 @@
   }
  },
  {
-  "name": "Kent Hiro",
+  "name": "Kent Kobayashi",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Scientist",
+  "marital_status": "Single",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 23, "Accurate Driver": 27, "Accurate Irons": 21,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 28, "Fade Shot (L to R)": 26, "High Backspin Shot": 21,
+   "Recovery Skills": 31, "Luck": 26
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "2e4053",
@@ -276,9 +526,20 @@
   }
  },
  {
-  "name": "Ryan Hiro",
+  "name": "Ryan Sasaki",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Graphic Designer",
+  "marital_status": "Married",
+  "age": 26,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 13, "Long Driver": 17, "Accurate Driver": 9, "Accurate Irons": 18,
+   "Accurate Putter": 15, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 17, "High Backspin Shot": 15,
+   "Recovery Skills": 15, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "1a1a2e",
@@ -288,9 +549,20 @@
   }
  },
  {
-  "name": "Bo Hiro",
+  "name": "Bo Ikeda",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Architect",
+  "marital_status": "Married",
+  "age": 75,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 8, "Accurate Driver": 8, "Accurate Irons": 6,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 9, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "2c3e50",
@@ -300,9 +572,20 @@
   }
  },
  {
-  "name": "Lee Hiro",
+  "name": "Lee Hayashi",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Electronics Engineer",
+  "marital_status": "Widowed",
+  "age": 63,
+  "gender": "Male",
+  "traits": ["active", "playful", "nice"],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 5, "Accurate Irons": 6,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 9, "High Backspin Shot": 8,
+   "Recovery Skills": 5, "Luck": 2
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "1a1a2e",
@@ -312,9 +595,20 @@
   }
  },
  {
-  "name": "Sara Hiro",
+  "name": "Sara Kobayashi",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 42,
+  "gender": "Female",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": ["imagination"],
+  "golf_skills": {
+   "Power Hitter": 18, "Long Driver": 18, "Accurate Driver": 9, "Accurate Irons": 13,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 13, "High Backspin Shot": 15,
+   "Recovery Skills": 18, "Luck": 11
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "d5d8dc",
@@ -324,9 +618,20 @@
   }
  },
  {
-  "name": "Sheila Hiro",
+  "name": "Sheila Mori",
   "skin_id": "beginner",
   "tier": 3,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 25, "Long Driver": 19, "Accurate Driver": 19, "Accurate Irons": 20,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 11, "High Backspin Shot": 8,
+   "Recovery Skills": 24, "Luck": 22
+  },
   "group_colors": {
    "Shirt": "cb4335",
    "Pants": "1b2631",
@@ -336,9 +641,20 @@
   }
  },
  {
-  "name": "Jo Hiro",
+  "name": "Jo Yoshida",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 12, "Long Driver": 11, "Accurate Driver": 7, "Accurate Irons": 11,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 8, "High Backspin Shot": 12,
+   "Recovery Skills": 7, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "6c3483",
    "Pants": "d5d8dc",
@@ -348,9 +664,20 @@
   }
  },
  {
-  "name": "Sue Hiro",
+  "name": "Sue Sato",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Hotel Manager",
+  "marital_status": "Married",
+  "age": 53,
+  "gender": "Female",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 2, "Accurate Driver": 5, "Accurate Irons": 3,
+   "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 1, "High Backspin Shot": 1, "Recovery Skills": 1,
+   "Luck": 5
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "2c3e50",
@@ -360,9 +687,20 @@
   }
  },
  {
-  "name": "John Hiro",
+  "name": "John Okada",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Scientist",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Male",
+  "traits": ["neat", "active", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 28, "Long Driver": 19, "Accurate Driver": 20, "Accurate Irons": 16,
+   "Accurate Putter": 32, "Draw Shot (R to L)": 15, "Fade Shot (L to R)": 11, "High Backspin Shot": 9,
+   "Recovery Skills": 20, "Luck": 25
+  },
   "group_colors": {
    "Shirt": "27ae60",
    "Pants": "808b96",
@@ -372,9 +710,20 @@
   }
  },
  {
-  "name": "Sally Hiro",
+  "name": "Sally Takahashi",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Driver",
+  "marital_status": "Married",
+  "age": 40,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 23, "Long Driver": 18, "Accurate Driver": 16, "Accurate Irons": 22,
+   "Accurate Putter": 25, "Draw Shot (R to L)": 9, "Fade Shot (L to R)": 14, "High Backspin Shot": 9,
+   "Recovery Skills": 14, "Luck": 28
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "f7f9f9",
@@ -384,9 +733,20 @@
   }
  },
  {
-  "name": "Stella Hiro",
+  "name": "Stella Shimizu",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Ceramics Artist",
+  "marital_status": "Single",
+  "age": 44,
+  "gender": "Female",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 9, "Long Driver": 10, "Accurate Driver": 10, "Accurate Irons": 13,
+   "Accurate Putter": 7, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 7, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "292b2c",
    "Pants": "f7f9f9",
@@ -396,9 +756,19 @@
   }
  },
  {
-  "name": "Cayla Hiro",
+  "name": "Cayla Kimura",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Artist",
+  "marital_status": "Married",
+  "age": 67,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 4, "Long Driver": 4, "Accurate Driver": 4, "Accurate Irons": 5,
+   "Accurate Putter": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 2, "Recovery Skills": 5
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "34495e",
@@ -408,9 +778,19 @@
   }
  },
  {
-  "name": "Ace Hiro",
+  "name": "Ace Kato",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 34,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 1, "Long Driver": 2, "Accurate Driver": 2, "Accurate Irons": 3,
+   "Accurate Putter": 1, "Draw Shot (R to L)": 1, "Recovery Skills": 5, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1e8449",
    "Pants": "2c3e50",
@@ -420,9 +800,20 @@
   }
  },
  {
-  "name": "Beth Hiro",
+  "name": "Beth Yamamoto",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Teacher",
+  "marital_status": "Married",
+  "age": 51,
+  "gender": "Female",
+  "traits": [],
+  "golfer_skills": ["accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 17, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 12,
+   "Accurate Putter": 13, "Draw Shot (R to L)": 11, "Fade Shot (L to R)": 14, "High Backspin Shot": 15,
+   "Recovery Skills": 14, "Luck": 13
+  },
   "group_colors": {
    "Shirt": "0b5345",
    "Pants": "bdc3c7",
@@ -432,9 +823,19 @@
   }
  },
  {
-  "name": "Kira Hiro",
+  "name": "Kira Sasaki",
   "skin_id": "casual",
   "tier": 0,
+  "profession": "Lawyer",
+  "marital_status": "Married",
+  "age": 54,
+  "gender": "Female",
+  "traits": ["outgoing"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Accurate Driver": 3, "Accurate Irons": 4, "Accurate Putter": 4,
+   "Draw Shot (R to L)": 2, "Recovery Skills": 1, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "f7f9f9",
@@ -444,9 +845,20 @@
   }
  },
  {
-  "name": "April Hiro",
+  "name": "April Fujiwara",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Tour Guide",
+  "marital_status": "Married",
+  "age": 43,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 7, "Accurate Irons": 8,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 9, "High Backspin Shot": 4,
+   "Recovery Skills": 6, "Luck": 7
+  },
   "group_colors": {
    "Shirt": "117a65",
    "Pants": "f7f9f9",
@@ -456,9 +868,20 @@
   }
  },
  {
-  "name": "James Hiro",
+  "name": "James Abe",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Consultant",
+  "marital_status": "Married",
+  "age": 67,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 5, "Accurate Driver": 8, "Accurate Irons": 8,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+   "Recovery Skills": 3, "Luck": 6
+  },
   "group_colors": {
    "Shirt": "1b4f72",
    "Pants": "1b2631",
@@ -468,9 +891,20 @@
   }
  },
  {
-  "name": "Nash Hiro",
+  "name": "Nash Yamada",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Artist",
+  "marital_status": "Single",
+  "age": 41,
+  "gender": "Male",
+  "traits": ["outgoing", "active", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 16, "Long Driver": 9, "Accurate Driver": 11, "Accurate Irons": 18,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 7, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 8, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "5bc0de",
    "Pants": "1c2833",
@@ -480,9 +914,20 @@
   }
  },
  {
-  "name": "Tim Hiro",
+  "name": "Tim Watanabe",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Judge",
+  "marital_status": "Married",
+  "age": 61,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active"],
+  "golfer_skills": ["length", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 11, "Long Driver": 6, "Accurate Driver": 4, "Accurate Irons": 10,
+   "Accurate Putter": 3, "Draw Shot (R to L)": 14, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 10, "Luck": 5
+  },
   "group_colors": {
    "Shirt": "1a5276",
    "Pants": "ecf0f1",
@@ -492,9 +937,20 @@
   }
  },
  {
-  "name": "Dean Hiro",
+  "name": "Dean Inoue",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 37,
+  "gender": "Male",
+  "traits": ["active", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 4, "Accurate Driver": 13, "Accurate Irons": 6,
+   "Accurate Putter": 9, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 3,
+   "Recovery Skills": 4, "Luck": 10
+  },
   "group_colors": {
    "Shirt": "e67e22",
    "Pants": "bdc3c7",
@@ -507,6 +963,17 @@
   "name": "Ron Hiro",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Plumber",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Male",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["length", "accuracy"],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 14, "Accurate Driver": 14, "Accurate Irons": 20,
+   "Accurate Putter": 11, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 8, "High Backspin Shot": 4,
+   "Recovery Skills": 11, "Luck": 15
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "4a235a",
@@ -516,9 +983,20 @@
   }
  },
  {
-  "name": "Cassie Hiro",
+  "name": "Cassie Matsumoto",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Pilot",
+  "marital_status": "Married",
+  "age": 62,
+  "gender": "Female",
+  "traits": ["neat", "outgoing", "active", "playful", "nice"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 6, "Accurate Driver": 9, "Accurate Irons": 14,
+   "Accurate Putter": 12, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 1, "High Backspin Shot": 5,
+   "Recovery Skills": 10, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "b9770e",
    "Pants": "4a235a",
@@ -528,9 +1006,20 @@
   }
  },
  {
-  "name": "Roger Hiro",
+  "name": "Roger Nakamura",
   "skin_id": "beginner",
   "tier": 2,
+  "profession": "Barber",
+  "marital_status": "Married",
+  "age": 28,
+  "gender": "Male",
+  "traits": ["outgoing", "nice"],
+  "golfer_skills": ["length", "accuracy", "imagination"],
+  "golf_skills": {
+   "Power Hitter": 10, "Long Driver": 15, "Accurate Driver": 11, "Accurate Irons": 10,
+   "Accurate Putter": 14, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 21, "High Backspin Shot": 14,
+   "Recovery Skills": 12, "Luck": 18
+  },
   "group_colors": {
    "Shirt": "2471a3",
    "Pants": "1a1a2e",
@@ -540,9 +1029,20 @@
   }
  },
  {
-  "name": "Phil Hiro",
+  "name": "Phil Tanaka",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Sushi Chef",
+  "marital_status": "Married",
+  "age": 36,
+  "gender": "Male",
+  "traits": ["outgoing", "playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 8, "Long Driver": 8, "Accurate Driver": 4, "Accurate Irons": 4,
+   "Accurate Putter": 4, "Draw Shot (R to L)": 5, "Fade Shot (L to R)": 3, "High Backspin Shot": 2,
+   "Recovery Skills": 4, "Luck": 3
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "7d6608",
@@ -552,9 +1052,20 @@
   }
  },
  {
-  "name": "Pat Hiro",
+  "name": "Pat Yamaguchi",
   "skin_id": "casual",
   "tier": 2,
+  "profession": "Chemist",
+  "marital_status": "Married",
+  "age": 38,
+  "gender": "Male",
+  "traits": ["outgoing", "playful"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 15, "Long Driver": 18, "Accurate Driver": 16, "Accurate Irons": 11,
+   "Accurate Putter": 16, "Draw Shot (R to L)": 8, "Fade Shot (L to R)": 7, "High Backspin Shot": 5,
+   "Recovery Skills": 12, "Luck": 8
+  },
   "group_colors": {
    "Shirt": "34495e",
    "Pants": "34495e",
@@ -564,9 +1075,20 @@
   }
  },
  {
-  "name": "Daisy Hiro",
+  "name": "Daisy Suzuki",
   "skin_id": "casual",
   "tier": 3,
+  "profession": "Teacher",
+  "marital_status": "Single",
+  "age": 29,
+  "gender": "Female",
+  "traits": ["neat", "outgoing"],
+  "golfer_skills": ["accuracy"],
+  "golf_skills": {
+   "Power Hitter": 22, "Long Driver": 25, "Accurate Driver": 32, "Accurate Irons": 22,
+   "Accurate Putter": 22, "Draw Shot (R to L)": 12, "Fade Shot (L to R)": 8, "High Backspin Shot": 7,
+   "Recovery Skills": 30, "Luck": 19
+  },
   "group_colors": {
    "Shirt": "c9302c",
    "Pants": "1b2631",
@@ -576,9 +1098,20 @@
   }
  },
  {
-  "name": "Hailey Hiro",
+  "name": "Hailey Yoshida",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Sushi Chef",
+  "marital_status": "Divorced",
+  "age": 61,
+  "gender": "Female",
+  "traits": ["neat", "active"],
+  "golfer_skills": ["length"],
+  "golf_skills": {
+   "Power Hitter": 7, "Long Driver": 11, "Accurate Driver": 4, "Accurate Irons": 6,
+   "Accurate Putter": 6, "Draw Shot (R to L)": 2, "Fade Shot (L to R)": 2, "High Backspin Shot": 2,
+   "Recovery Skills": 6, "Luck": 9
+  },
   "group_colors": {
    "Shirt": "4a235a",
    "Pants": "616a6b",
@@ -588,9 +1121,20 @@
   }
  },
  {
-  "name": "Gemma Hiro",
+  "name": "Gemma Nakamura",
   "skin_id": "casual",
   "tier": 1,
+  "profession": "Carpenter",
+  "marital_status": "Single",
+  "age": 24,
+  "gender": "Female",
+  "traits": ["playful", "nice"],
+  "golfer_skills": [],
+  "golf_skills": {
+   "Power Hitter": 5, "Long Driver": 8, "Accurate Driver": 10, "Accurate Irons": 7,
+   "Accurate Putter": 5, "Draw Shot (R to L)": 3, "Fade Shot (L to R)": 3, "High Backspin Shot": 4,
+   "Recovery Skills": 10, "Luck": 4
+  },
   "group_colors": {
    "Shirt": "a04000",
    "Pants": "ecf0f1",
