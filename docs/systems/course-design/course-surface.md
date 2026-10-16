@@ -2,7 +2,7 @@
 
 > The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, recessed sand, moving water and painted tree grounds, instead of per-tile sprites.
 
-**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
+**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
 
 ---
@@ -21,6 +21,11 @@ The simulation still uses the same tile grid (128 × 128 by default). This is a 
 Desktop and web use the same shader. The terrain data is stored in a small texture, one pixel per tile. Theme colours live in a separate palette texture, with one texel per terrain type. A new terrain type therefore needs only a new palette key.
 
 Some terrain types share looks. Rocks, Small Boulders and Large Boulders use one stone base colour, with three stone sizes. The twelve woodland types all paint ground from the same trees palette entry.
+
+The same palette colours the two small maps of the course: the minimap and the
+Course Map both ask `CourseSurface.map_color(type)` for each tile, so the ground
+reads identically at every size, and a theme change (or a colourblind mode)
+repaints all three together. See [Course Map](course-map.md).
 
 ### Paintable features
 

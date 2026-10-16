@@ -23,81 +23,22 @@ var _is_dragging: bool = false  # Track drag state for click-and-drag navigation
 var _touch_index: int = -1  # Active finger for direct minimap navigation
 const UPDATE_INTERVAL: float = 0.5  # Redraw terrain every 0.5 seconds
 
-# Fallback color palette (used if theme is unavailable)
-const FALLBACK_TERRAIN_COLORS: Dictionary = {
-	0: Color(0.18, 0.22, 0.18),   # EMPTY
-	1: Color(0.2, 0.5, 0.2),      # GRASS
-	2: Color(0.4, 0.8, 0.4),      # FAIRWAY
-	3: Color(0.3, 0.6, 0.3),      # ROUGH
-	4: Color(0.25, 0.45, 0.22),   # HEAVY_ROUGH
-	5: Color(0.3, 0.9, 0.3),      # GREEN
-	6: Color(0.5, 0.8, 0.5),      # TEE_BOX
-	7: Color(0.9, 0.85, 0.6),     # BUNKER
-	8: Color(0.3, 0.5, 0.9),      # WATER
-	9: Color(0.7, 0.7, 0.7),      # PATH
-	10: Color(0.15, 0.15, 0.15),  # OUT_OF_BOUNDS
-	11: Color(0.15, 0.35, 0.15),  # TREES
-	12: Color(0.45, 0.32, 0.22),  # FLOWER_BED
-	13: Color(0.48, 0.46, 0.42),  # ROCKS
-	14: Color(0.62, 0.72, 0.38),  # FIRM_FAIRWAY
-	15: Color(0.80, 0.70, 0.48),  # POT_BUNKER
-	16: Color(0.35, 0.62, 0.85),  # STREAM
-	17: Color(0.24, 0.40, 0.20),  # DEEP_ROUGH
-	18: Color(0.78, 0.70, 0.52),  # WASTE_BUNKER
-	19: Color(0.30, 0.38, 0.18),  # BRUSH
-	20: Color(0.58, 0.55, 0.51),  # SMALL_BOULDERS
-	21: Color(0.44, 0.41, 0.38),  # LARGE_BOULDERS
-}
-
-## A laid trail, drawn on the map as the walk it is. The trail is a flag over
-## the ground it crosses rather than a terrain of its own, so it is read beside
-## the tile's colour. Each theme brings its own walk colour ("path"): packed
-## earth on Parkland, white shell on Resort, crushed coral on Tropical.
+## The colour of a walking path, for a theme that names no trail colour of its
+## own (see CourseTheme.get_terrain_colors).
 const TRAIL_COLOR := Color("c9bc98")
 
-# Cached theme-aware terrain colors (rebuilt on theme change)
-var _terrain_colors: Dictionary = {}
+## The theme's own trail colour, re-read when the theme changes.
 var _trail_color: Color = TRAIL_COLOR
 
-func _build_terrain_colors() -> void:
-	"""Build mini-map colors from current course theme"""
-	var theme_colors = CourseTheme.get_terrain_colors(GameManager.current_theme)
-	if theme_colors.is_empty():
-		_terrain_colors = FALLBACK_TERRAIN_COLORS.duplicate()
-		_trail_color = TRAIL_COLOR
-		return
-	_trail_color = theme_colors.get("path", TRAIL_COLOR)
+func _refresh_trail_color() -> void:
+	_trail_color = CourseTheme.get_terrain_colors(GameManager.current_theme).get("path", TRAIL_COLOR)
 
-	_terrain_colors = {
-		TerrainTypes.Type.EMPTY: theme_colors.get("empty", Color(0.18, 0.22, 0.18)),
-		TerrainTypes.Type.GRASS: theme_colors.get("grass", Color(0.2, 0.5, 0.2)),
-		TerrainTypes.Type.FAIRWAY: theme_colors.get("fairway_light", Color(0.4, 0.8, 0.4)),
-		TerrainTypes.Type.ROUGH: theme_colors.get("rough", Color(0.3, 0.6, 0.3)),
-		TerrainTypes.Type.HEAVY_ROUGH: theme_colors.get("heavy_rough", Color(0.25, 0.45, 0.22)),
-		TerrainTypes.Type.GREEN: theme_colors.get("green_light", Color(0.3, 0.9, 0.3)),
-		TerrainTypes.Type.TEE_BOX: theme_colors.get("tee_box_light", Color(0.5, 0.8, 0.5)),
-		TerrainTypes.Type.BUNKER: theme_colors.get("bunker", Color(0.9, 0.85, 0.6)),
-		TerrainTypes.Type.WATER: theme_colors.get("water", Color(0.3, 0.5, 0.9)),
-		TerrainTypes.Type.OUT_OF_BOUNDS: theme_colors.get("oob", Color(0.15, 0.15, 0.15)),
-		TerrainTypes.Type.TREES: theme_colors.get("trees", Color(0.15, 0.35, 0.15)),
-		TerrainTypes.Type.FLOWER_BED: theme_colors.get("flower_bed", Color(0.45, 0.32, 0.22)),
-		TerrainTypes.Type.ROCKS: theme_colors.get("rocks", Color(0.48, 0.46, 0.42)),
-		TerrainTypes.Type.FIRM_FAIRWAY: theme_colors.get("firm_fairway", Color(0.62, 0.72, 0.38)),
-		TerrainTypes.Type.POT_BUNKER: theme_colors.get("pot_bunker", Color(0.80, 0.70, 0.48)),
-		TerrainTypes.Type.STREAM: theme_colors.get("stream", Color(0.35, 0.62, 0.85)),
-		TerrainTypes.Type.DEEP_ROUGH: theme_colors.get("deep_rough", Color(0.24, 0.40, 0.20)),
-		TerrainTypes.Type.WASTE_BUNKER: theme_colors.get("waste_bunker", Color(0.78, 0.70, 0.52)),
-		TerrainTypes.Type.BRUSH: theme_colors.get("brush", Color(0.30, 0.38, 0.18)),
-		TerrainTypes.Type.SMALL_BOULDERS: theme_colors.get("rocks", Color(0.58, 0.55, 0.51)),
-		TerrainTypes.Type.LARGE_BOULDERS: theme_colors.get("rocks", Color(0.44, 0.41, 0.38)),
-	}
-
-## The map colour of one tile. Woodland is one colour whatever the species — at
-## this scale a pine and an oak are the same dark patch of trees — so every tree
-## tile reads the Trees row (see TerrainTypes.is_tree).
+## The map colour of one tile: the same lookup the course surface paints the
+## ground with, so the minimap, the Course Map and the course itself always agree
+## about what a tile looks like. Woodland is one colour whatever the species — at
+## this scale a pine and an oak are the same dark patch of trees.
 func _terrain_color(terrain_type: int) -> Color:
-	var key: int = TerrainTypes.Type.TREES if TerrainTypes.is_tree(terrain_type) else terrain_type
-	return _terrain_colors.get(key, Color(0.3, 0.3, 0.3))
+	return CourseSurface.map_color(terrain_type)
 
 # Land boundary colors
 const BOUNDARY_COLOR = Color(0.9, 0.6, 0.2, 1.0)  # Orange/gold property line
@@ -108,7 +49,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	add_to_group("native_touch_input")
 	apply_screen()
-	_build_terrain_colors()
+	_refresh_trail_color()
 	# Listen for theme changes to update colors
 	if EventBus.has_signal("theme_changed"):
 		EventBus.theme_changed.connect(_on_theme_changed)
@@ -135,7 +76,7 @@ func set_map_size(new_size: int) -> void:
 	queue_redraw()
 
 func _on_theme_changed(_theme_type) -> void:
-	_build_terrain_colors()
+	_refresh_trail_color()
 	_needs_redraw = true
 
 func setup(terrain_grid: TerrainGrid, entity_layer, golfer_manager) -> void:

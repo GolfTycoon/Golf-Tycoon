@@ -143,10 +143,16 @@ var entity_layer = null
 # Shot heatmap tracker (set by main scene)
 var shot_heatmap_tracker: ShotHeatmapTracker = null
 
+## Where golfers have been happy and unhappy on the course (set by main scene).
+## Read by the Course Map's Course Aura mode.
+var course_aura: CourseAura = null
+
 # Economy system references (set by main scene)
 var land_manager: LandManager = null
 var staff_manager: StaffManager = null
 var weed_manager: WeedManager = null
+## The course's holes: what the Course Map's Routing mode reads and edits.
+var hole_manager: HoleManager = null
 ## The live golfer spawner, used by on-course staff to find customers.
 var golfer_manager: GolferManager = null
 ## The owner's own golfer, who is on the course between rounds (see
@@ -672,6 +678,8 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	reset_course_records()  # Clear records for new game
 	if shot_heatmap_tracker:
 		shot_heatmap_tracker.clear()
+	if course_aura:
+		course_aura.clear()
 	loan_balance = 0
 	tee_booking_interval = 90
 	daily_history.clear()

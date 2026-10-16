@@ -114,6 +114,12 @@ var _moving_building: Building = null
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var world_map_screen: WorldMapScreen = null
+## The Course Map: the isometric overview of the course and its four modes
+## (Land Management, Routing Holes, Course Aura, Staff Management).
+var course_map_screen: CourseMapScreen = null
+## The pause flag from before the Course Map opened. The map freezes the day
+## while it is up, so this is what the course resumes to on the way out.
+var _course_map_restore_paused: bool = false
 var event_feed_panel: EventFeedPanel = null
 ## Where the world map screen was opened from — decides where its Back button
 ## (and a picked location) return to.
@@ -179,6 +185,7 @@ func _ready() -> void:
 
 	# Set up hole manager
 	hole_manager.set_terrain_grid(terrain_grid)
+	GameManager.hole_manager = hole_manager
 
 	# Set up routing overlay for inter-hole walking routes
 	routing_overlay = RoutingOverlay.new()
@@ -336,6 +343,7 @@ func _ready() -> void:
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
+	_setup_course_aura()
 	_setup_responsive_ui()
 	_initialize_game()
 	print("Main scene ready")
@@ -390,7 +398,7 @@ func _input(event: InputEvent) -> void:
 		# The World Map is a screen of its own: while it is up, no gameplay
 		# hotkey (Escape included) reaches the course behind it. Its own Back
 		# button and Escape close it.
-		if _world_map_is_open():
+		if _world_map_is_open() or _course_map_is_open():
 			return
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
@@ -458,6 +466,9 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_L:
 				_toggle_land_panel()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_M and event.shift_pressed:
+				_toggle_course_map()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_M:
 				_toggle_marketing_panel()
@@ -596,6 +607,9 @@ func _connect_signals() -> void:
 	EventBus.hole_toggled.connect(_on_hole_toggled)
 	# The hole menu can re-par a hole, so its button re-reads the hole.
 	EventBus.hole_updated.connect(_refresh_hole_button)
+	# The round's order changed (Course Map, Routing Holes): the hole buttons
+	# and the tee/cup states read the course again.
+	EventBus.holes_reordered.connect(_on_holes_reordered)
 	EventBus.end_of_day.connect(_on_end_of_day)
 	EventBus.year_ended.connect(_on_year_ended)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -664,6 +678,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.play_course_pressed.connect(_on_play_course_pressed)
 	terrain_toolbar.tournaments_pressed.connect(_toggle_tournament_panel)
 	terrain_toolbar.world_map_pressed.connect(_open_world_map_from_club_tab)
+	terrain_toolbar.course_map_pressed.connect(_open_course_map)
 	terrain_toolbar.land_pressed.connect(_toggle_land_panel)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
@@ -756,6 +771,7 @@ func _initialize_game() -> void:
 
 func _show_main_menu() -> void:
 	_close_world_map()
+	_close_course_map()
 	main_menu = MainMenu.new()
 	main_menu.name = "MainMenu"
 	main_menu.start_new_game_requested.connect(_on_menu_start_new_game)
@@ -812,6 +828,59 @@ func _on_menu_continue(save_name: String) -> void:
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
+
+## ── Course map ───────────────────────────────────────────────────────────
+## The Course Map takes the whole window and freezes the day while it is up, the
+## same way the world map does. It edits the live course in place, so a parcel
+## bought or a hole moved is there the moment the course is handed back.
+
+## The Maps tab's Course Map button, and the Shift+M hotkey.
+func _open_course_map() -> void:
+	if _course_map_is_open():
+		return
+	_course_map_restore_paused = GameManager.is_paused
+	GameManager.is_paused = true
+	_set_gameplay_ui_visible(false)
+	var hud := $UI/HUD
+	# A screen that is on its way out (Shift+M tapped twice in one frame) is not
+	# the screen to hand the course to: it is replaced rather than reused.
+	var existing := hud.get_node_or_null("CourseMapScreen") as CourseMapScreen
+	course_map_screen = null if existing != null and existing.is_queued_for_deletion() else existing
+	if course_map_screen == null:
+		course_map_screen = CourseMapScreen.new()
+		course_map_screen.name = "CourseMapScreen"
+		course_map_screen.back_requested.connect(_on_course_map_back)
+		hud.add_child(course_map_screen)
+	course_map_screen.show()
+	course_map_screen.refresh()
+
+func _close_course_map() -> void:
+	if course_map_screen:
+		course_map_screen.queue_free()
+		course_map_screen = null
+
+## The Shift+M hotkey: open the map, or put it away again.
+func _toggle_course_map() -> void:
+	if _course_map_is_open():
+		_on_course_map_back()
+		return
+	_open_course_map()
+
+## True while the Course Map is up. It takes the whole window, so the course
+## behind it must not answer gameplay hotkeys while it is open.
+func _course_map_is_open() -> bool:
+	return course_map_screen != null and not course_map_screen.is_queued_for_deletion() \
+		and course_map_screen.visible
+
+func _on_course_map_back() -> void:
+	_close_course_map()
+	_leave_course_map()
+
+## Hand the course back after the map closes: the gameplay UI returns and the day
+## resumes only if it was running before the map opened.
+func _leave_course_map() -> void:
+	_set_gameplay_ui_visible(true)
+	GameManager.is_paused = _course_map_restore_paused
 
 ## ── World map ────────────────────────────────────────────────────────────
 
@@ -1096,7 +1165,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1811,6 +1880,13 @@ func _on_hole_layout_hole_created(_hole_number: int, _par: int, _distance_yards:
 	_refresh_hole_layout_ui()
 
 func _on_hole_layout_hole_deleted(_hole_number: int) -> void:
+	_refresh_hole_layout_ui()
+
+## The Course Map moved holes or turned the round around: the hole buttons are
+## read back from course data (numbers follow the new order) and the tee/cup
+## states are re-checked.
+func _on_holes_reordered(_order: Array) -> void:
+	_rebuild_hole_list()
 	_refresh_hole_layout_ui()
 
 func _on_hole_layout_load_completed(_success: bool) -> void:
@@ -2918,16 +2994,11 @@ func _on_context_toggle_hole(hole_number: int) -> void:
 		EventBus.notify("Hole %d %s" % [hole_number, "opened" if is_open else "closed"], "info")
 
 func _on_context_par_override(hole_number: int, new_par: int) -> void:
-	var hole = _find_hole_data(hole_number)
-	if not hole:
+	if not hole_manager.set_hole_par(hole_number, new_par):
 		return
-	var auto_par = GolfRules.calculate_par(hole.distance_yards)
-	hole.par_override = -1 if new_par == auto_par else new_par
-	hole.par = new_par
-	hole.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole, terrain_grid)
-	GameManager.current_course._recalculate_par()
-	EventBus.hole_updated.emit(hole_number)
-	var label = "Par %d (auto)" % new_par if new_par == auto_par else "Par %d (manual)" % new_par
+	var hole = _find_hole_data(hole_number)
+	var label = "Par %d (auto)" % new_par if hole and hole.par_override < 0 \
+		else "Par %d (manual)" % new_par
 	EventBus.notify("Hole %d set to %s" % [hole_number, label], "info")
 
 func _on_context_view_stats(hole_number: int) -> void:
@@ -4242,6 +4313,17 @@ func _setup_shot_heatmap() -> void:
 	shot_heatmap_tracker.initialize()
 	GameManager.shot_heatmap_tracker = shot_heatmap_tracker
 	terrain_grid.setup_shot_heatmap_overlay(shot_heatmap_tracker)
+
+# --- Course Aura ---
+
+## The aura listens to every golfer comment and remembers where it was made.
+## It is a plain node: nothing on the course changes because of it, and the
+## Course Map's Course Aura mode is the one screen that reads it.
+func _setup_course_aura() -> void:
+	var aura := CourseAura.new()
+	aura.name = "CourseAura"
+	add_child(aura)
+	GameManager.course_aura = aura
 
 # --- Responsive Layout (desktop / tablet / mobile) ---
 

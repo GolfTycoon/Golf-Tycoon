@@ -1118,31 +1118,43 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	for child in ops_box.get_children():
 		if child is ToolButton:
 			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["world_map", "land"],
+	assert_eq(tool_types, ["course_map", "world_map", "land"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
-## operations, so it is the tab that opens the company's atlas.
-func test_world_map_button_leads_the_club_tab_operations() -> void:
-	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("world_map"), TerrainToolbar.Tab.MAPS,
-		"The World Map belongs to the Club tab")
-	assert_true(toolbar._is_menu_action("world_map"),
-		"The World Map action opens a screen, so it is never a paint tool")
-	assert_false(toolbar._tool_buttons.has("world_map"),
-		"A menu action holds no terrain tool selection")
+## operations, so it is the tab that opens the company's atlas. The Course Map
+## leads the row - it is this course, one tap away - with the atlas beside it.
+func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
+	for tool_type in ["course_map", "world_map"]:
+		assert_eq(TerrainToolbar.TOOL_TAB_MAP.get(tool_type), TerrainToolbar.Tab.MAPS,
+			"%s belongs to the Club tab" % tool_type)
+		assert_true(toolbar._is_menu_action(tool_type),
+			"The %s action opens a screen, so it is never a paint tool" % tool_type)
+		assert_false(toolbar._tool_buttons.has(tool_type),
+			"A menu action holds no terrain tool selection")
 
 	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
 	var ops_box: HBoxContainer = page
-	var first: ToolButton = ops_box.get_child(0)
-	assert_eq(first.tool_type, "world_map", "The World Map leads the operations row")
-	assert_eq(first.text, "World Maps", "The button reads World Maps")
-	assert_string_contains(first.tool_description, "course sites")
+	assert_eq((ops_box.get_child(0) as ToolButton).tool_type, "course_map",
+		"The Course Map leads the operations row")
+	assert_eq((ops_box.get_child(1) as ToolButton).tool_type, "world_map",
+		"with the company's atlas beside it")
+
+	var course_map: ToolButton = ops_box.get_child(0)
+	assert_string_contains(course_map.text, "Course Map", "The button reads Course Map")
+	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
+	assert_string_contains(course_map.tool_description, "isometric")
+	var world_map: ToolButton = ops_box.get_child(1)
+	assert_eq(world_map.text, "World Maps", "The button reads World Maps")
+	assert_string_contains(world_map.tool_description, "course sites")
 
 	watch_signals(toolbar)
+	toolbar._on_tool_button_pressed("course_map")
+	assert_signal_emitted(toolbar, "course_map_pressed")
 	toolbar._on_tool_button_pressed("world_map")
 	assert_signal_emitted(toolbar, "world_map_pressed")
 	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS,
-		"The World Map button keeps the Club tab open behind it")
+		"Both buttons keep the Club tab open behind them")
 
 func test_action_signals() -> void:
 	watch_signals(toolbar)
@@ -1991,7 +2003,7 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 
 func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
 	var expected := {
-		TerrainToolbar.Tab.MAPS: ["world_map", "land"],
+		TerrainToolbar.Tab.MAPS: ["course_map", "world_map", "land"],
 		TerrainToolbar.Tab.REVIEW: ["review", "scorecard", "finance"],
 		TerrainToolbar.Tab.MILESTONE: ["milestones"],
 		TerrainToolbar.Tab.MARKETING: ["marketing"],
@@ -2005,6 +2017,6 @@ func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
 			button.pressed.emit()
 			assert_eq(toolbar.current_tab, tab)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
-	for signal_name in ["world_map_pressed", "land_pressed", "course_review_pressed", "scorecard_pressed",
-			"financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
+	for signal_name in ["course_map_pressed", "world_map_pressed", "land_pressed", "course_review_pressed",
+			"scorecard_pressed", "financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
