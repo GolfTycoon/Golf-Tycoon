@@ -2,8 +2,8 @@
 
 > Hired staff walk the course inside a designated area and do their job: groundskeepers pull weeds, greeters lift attitudes, marshals keep pace and vendors serve drinks. Weeds left on the course lower its condition.
 
-**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
-**Tests:** `tests/unit/test_staff_manager.gd`, `tests/unit/test_weed_manager.gd`, `tests/unit/test_staff_panel.gd`, `tests/unit/test_staff_service.gd`, `tests/unit/test_staff_area_overlay.gd`, `tests/integration/staff_on_course.gd`
+**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/entities/owner_duty.gd` (the owner's own golfer doing the same work), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
+**Tests:** `tests/unit/economy_and_land/test_staff_manager.gd`, `tests/unit/economy_and_land/test_weed_manager.gd`, `tests/unit/economy_and_land/test_staff_panel.gd`, `tests/unit/economy_and_land/test_staff_service.gd`, `tests/unit/economy_and_land/test_staff_area_overlay.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
 
 ---
 
@@ -19,6 +19,8 @@ Hiring an employee puts them on the course. They walk around their **designated 
 | Drinks vendor | Soda Vendor | Cart Refresher | Serve thirsty golfers a drink |
 
 **Designated areas.** Each employee has a circle of tiles as their area. They only work on targets inside it, and they wander within it when there is nothing to do. Areas show as translucent rings on the course. On the **Staff** tab, press an employee's **Area** button, then left-click a tile to move their area there. Right-click or Esc cancels.
+
+**Your own golfer works too.** The owner's own golfer is on the course between rounds, and does the groundskeeper and greeter jobs on a ground of their own: a gold ring you can move from the **Edit Player** page. See [The Owner's Golfer on the Course](../golf-play/owner-on-the-course.md).
 
 **The Staff tab** has two sections. **Hire Staff** lists each job with a Standard and a Premium button, showing the daily wage and headcount. **Current Staff** shows the daily payroll, the number of weeds, and one row per employee with a name, staff type, wage, **Area** and **Fire** buttons.
 
@@ -149,6 +151,7 @@ modifier = min(1.0, 0.6 + 0.12 × standard_marshals + 0.20 × premium_marshals)
 ## Related
 
 - [Economy](economy.md) covers payroll and daily costs.
+- [The Owner's Golfer on the Course](../golf-play/owner-on-the-course.md) covers the same work done by the player's own golfer.
 - [Course Rating](../ratings-and-reputation/course-rating.md) explains how condition and pace feed the star rating.
 - [Golfer Needs and Statuses](../golfers/golfer-needs.md) covers thirst, pace and attitude.
 - [Golfer Attributes](../golfers/golfer-attributes.md) covers the Neat trait, whose owners comment on (and dislike) weeds.

@@ -149,6 +149,9 @@ var staff_manager: StaffManager = null
 var weed_manager: WeedManager = null
 ## The live golfer spawner, used by on-course staff to find customers.
 var golfer_manager: GolferManager = null
+## The owner's own golfer, who is on the course between rounds (see
+## PlayerGolferManager).
+var player_golfer_manager: PlayerGolferManager = null
 var marketing_manager: MarketingManager = null
 
 # Daily statistics tracking

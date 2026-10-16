@@ -20,7 +20,12 @@ enum State {
 	# at its door. Appended last so the saved/compared numbers of the older
 	# states never shift. Nothing picks a LEAVING golfer to play — see
 	# GolferManager — and only FINISHED means "gone".
-	LEAVING
+	LEAVING,
+	# The owner's own golfer, working the course between rounds: they walk
+	# the ground they were given, pulling weeds and greeting the golfers they
+	# meet (see OwnerDuty). They are not in play, so the turn system never
+	# picks them and nothing about them is saved with a round.
+	ON_DUTY
 }
 
 enum Club {
@@ -114,6 +119,14 @@ var golfer_tier: int = GolferTier.Tier.CASUAL
 
 ## Tournament flag — tournament golfers skip green fees and course-closing checks
 var is_tournament_golfer: bool = false
+## The owner's own golfer: the one who works the course between rounds (see
+## PlayerGolferManager and OwnerDuty). They are not a guest and never leave
+## the course: when their round is over they go back to work on it.
+var is_course_owner: bool = false
+## Whether this golfer has played every hole of their round. The owner's own
+## golfer stays on the course, so this - not the FINISHED state - is what says
+## their round is over.
+var round_complete: bool = false
 var is_owner_round: bool = false
 var player_profile: PlayerGolferProfile = null
 # 0 straight, 1 fade, 2 draw, 3 backspin, 4 low punch.
@@ -911,6 +924,12 @@ func _process(delta: float) -> void:
 	_update_highlight_ring()
 	_update_tier_ring()
 	_update_attitude_visuals()
+
+	# The owner's own golfer, working the course between rounds: their duty
+	# (see OwnerDuty) walks them and does their job, so none of the play
+	# below applies to them.
+	if current_state == State.ON_DUTY:
+		return
 
 	# The round is over: this golfer is walking home and visiting the
 	# clubhouse, not playing. Keep away from the turn system (which only ever
@@ -1960,10 +1979,24 @@ func finish_round() -> void:
 		_needs.energy, _needs.comfort, _needs.hunger, _needs.pace,
 	])
 
-	if total_holes > 0 and hole_scores.size() >= total_holes and not is_tournament_golfer:
+	if total_holes > 0 and hole_scores.size() >= total_holes and not is_tournament_golfer \
+			and not is_course_owner:
 		FeedbackManager.record_visit(self)
 		EventBus.golfer_completed_round.emit(golfer_id, total_strokes, total_par)
 	EventBus.golfer_finished_round.emit(golfer_id, total_strokes, total_par)
+
+	# The owner's own golfer is not a guest: they do not leave the course when
+	# their round is over, they go back to work on it (see OwnerDuty).
+	if is_course_owner:
+		round_complete = true
+		_departure_phase = 0
+		_departure_elapsed = 0.0
+		_left_course_announced = false
+		_change_state(State.IDLE)
+		var owner_manager := GameManager.player_golfer_manager
+		if owner_manager != null:
+			owner_manager.owner_finished_round()
+		return
 
 	# Last thing: leave through the clubhouse door (see _begin_departure).
 	_begin_departure()
@@ -3476,6 +3509,44 @@ func _check_need_triggers() -> void:
 func is_staff_service_available() -> bool:
 	return staff_help_cooldown <= 0.0 and current_state not in [State.FINISHED, State.LEAVING]
 
+# =============================================================================
+# THE OWNER'S OWN GOLFER, WORKING THE COURSE
+# =============================================================================
+
+## Start working the course. The owner's golfer is not a guest: between
+## rounds they walk the ground they were given, pulling weeds and greeting
+## the golfers they meet (see OwnerDuty). They are not in play, so the turn
+## system leaves them alone.
+func begin_course_duty() -> void:
+	activity_text = "Working the course"
+	# A walk back to the clubhouse belongs to a round that is over. The owner
+	# is not leaving: they are going back to work.
+	_departure_phase = 0
+	_departure_elapsed = 0.0
+	_departure_pause = 0.0
+	_change_state(State.ON_DUTY)
+
+## The round has the owner on the first tee again: the work stops until the
+## round is over.
+func end_course_duty() -> void:
+	activity_text = "Playing golf"
+	_change_state(State.IDLE)
+
+## Whether this golfer is working the course rather than playing it.
+func is_on_course_duty() -> bool:
+	return current_state == State.ON_DUTY
+
+## Walk to a place on the course: to the tee to start a round, or back to the
+## ground they work when a round is over. The walk uses the pathfinding the
+## golfers use, so it follows the trails and goes around obstacles. The turn
+## system only ever picks an IDLE golfer, so they are not in play while they
+## walk.
+func begin_walk_to(target_screen: Vector2, activity: String) -> void:
+	path = _find_path_to(target_screen)
+	path_index = 0
+	activity_text = activity
+	_change_state(State.WALKING)
+
 ## A greeter chatted with this golfer — cheers them up.
 func receive_greeting(amount: float) -> void:
 	if not is_staff_service_available():
@@ -3604,7 +3675,7 @@ func _update_visual() -> void:
 
 		var dir = _current_direction
 		match current_state:
-			State.IDLE, State.PREPARING_SHOT:
+			State.IDLE, State.PREPARING_SHOT, State.ON_DUTY:
 				var anim = "idle_%s" % dir
 				if _animated_sprite.sprite_frames.has_animation(anim):
 					_animated_sprite.play(anim)
@@ -3664,6 +3735,8 @@ func _update_visual() -> void:
 	match current_state:
 		State.IDLE:
 			pass  # Default appearance
+		State.ON_DUTY:
+			pass  # Working the course - the walk animation is the duty's
 		State.WALKING, State.LEAVING:
 			pass  # Walk animation handled in _process_walking
 		State.PREPARING_SHOT:

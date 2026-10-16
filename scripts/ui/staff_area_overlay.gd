@@ -6,11 +6,18 @@ class_name StaffAreaOverlay
 ## world space to render correctly in both the isometric and top-down views.
 ## While the player is repositioning an employee (move_staff_area mode) that
 ## employee's ring is highlighted.
+##
+## The owner's own golfer works a ground of their own, and it is drawn here
+## too - in gold, so it reads as the owner's and not as another employee.
 
 const FILL_ALPHA: float = 0.10
 const OUTLINE_ALPHA: float = 0.45
 const HIGHLIGHT_FILL_ALPHA: float = 0.22
 const HIGHLIGHT_OUTLINE_ALPHA: float = 0.95
+## The owner's own work area: the owner's colour, and a little brighter than
+## a hired employee's ring.
+const OWNER_FILL_ALPHA: float = 0.12
+const OWNER_OUTLINE_ALPHA: float = 0.7
 
 var terrain_grid: TerrainGrid = null
 ## Index into StaffManager.hired_staff currently being repositioned, or -1.
@@ -35,21 +42,42 @@ func refresh() -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	if terrain_grid == null or GameManager.staff_manager == null:
+	if terrain_grid == null:
 		return
-	var staff: Array = GameManager.staff_manager.hired_staff
-	for i in range(staff.size()):
-		var record: Dictionary = staff[i]
-		var center: Vector2i = record.get("area_center", Vector2i.ZERO)
-		var radius: float = float(record.get("area_radius", 6.0))
-		var highlighted := i == highlight_index
-		var fill := Color(0.4, 0.85, 0.5, HIGHLIGHT_FILL_ALPHA if highlighted else FILL_ALPHA)
-		var outline := Color(1.0, 0.92, 0.55, HIGHLIGHT_OUTLINE_ALPHA) if highlighted \
-			else Color(0.45, 0.9, 0.55, OUTLINE_ALPHA)
-		var polygon := _projected_circle(Vector2(center), radius)
-		if polygon.size() >= 3:
-			draw_colored_polygon(polygon, fill)
-			draw_polyline(polygon + PackedVector2Array([polygon[0]]), outline, 1.5 if not highlighted else 2.5)
+	if GameManager.staff_manager != null:
+		var staff: Array = GameManager.staff_manager.hired_staff
+		for i in range(staff.size()):
+			var record: Dictionary = staff[i]
+			var center: Vector2i = record.get("area_center", Vector2i.ZERO)
+			var radius: float = float(record.get("area_radius", 6.0))
+			var highlighted := i == highlight_index
+			var fill := Color(0.4, 0.85, 0.5, HIGHLIGHT_FILL_ALPHA if highlighted else FILL_ALPHA)
+			var outline := Color(1.0, 0.92, 0.55, HIGHLIGHT_OUTLINE_ALPHA) if highlighted \
+				else Color(0.45, 0.9, 0.55, OUTLINE_ALPHA)
+			var polygon := _projected_circle(Vector2(center), radius)
+			if polygon.size() >= 3:
+				draw_colored_polygon(polygon, fill)
+				draw_polyline(polygon + PackedVector2Array([polygon[0]]), outline, 1.5 if not highlighted else 2.5)
+	_draw_owner_area()
+
+## The ground the owner's own golfer works, drawn in the owner's gold.
+func _draw_owner_area() -> void:
+	var polygon := owner_area_polygon()
+	if polygon.size() < 3:
+		return
+	draw_colored_polygon(polygon, Color(0.95, 0.78, 0.35, OWNER_FILL_ALPHA))
+	draw_polyline(polygon + PackedVector2Array([polygon[0]]),
+		Color(1.0, 0.85, 0.4, OWNER_OUTLINE_ALPHA), 2.0)
+
+## The ring of ground the owner's own golfer works, in world space. Empty when
+## the owner has no ground yet.
+func owner_area_polygon() -> PackedVector2Array:
+	if terrain_grid == null:
+		return PackedVector2Array()
+	var manager = GameManager.player_golfer_manager
+	if manager == null or manager.area_center.x < 0:
+		return PackedVector2Array()
+	return _projected_circle(Vector2(manager.area_center), manager.area_radius)
 
 ## Sample a grid-space circle and project each point to world space.
 func _projected_circle(center_grid: Vector2, radius: float) -> PackedVector2Array:

@@ -1096,3 +1096,114 @@ func test_skills_change_mid_round_with_tournament_manager_present() -> void:
 		"TournamentManager SimulationGolfer abilities update when player skills change")
 
 	rounds.leave_round()
+
+func test_the_round_is_played_with_the_golfer_who_works_the_course() -> void:
+	# The owner's own golfer lives on the course between rounds, working a
+	# ground of their own. The round is played with that same golfer.
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	assert_true(course_owner.is_on_course_duty(), "Between rounds the owner's golfer works the course")
+
+	_start(0)
+	assert_eq(rounds.player, course_owner, "The round is played with the same golfer")
+	assert_true(golfers.get_active_golfers().has(course_owner), "They play with the group on the course")
+	assert_false(course_owner.is_on_course_duty(), "While they play they are not working")
+	assert_eq(rounds.player.golfer_name, "Test Owner")
+
+	rounds.leave_round()
+	assert_true(course_owner.is_on_course_duty(), "When the round is over they go back to work")
+	assert_false(golfers.get_active_golfers().has(course_owner),
+		"They are not one of the guests playing the course")
+
+func test_the_edit_player_page_names_the_ground_they_work() -> void:
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(9, 11))
+
+	var tab := PlayerTab.new()
+	fixture.add_child(tab)
+	rounds.attach_player_tab(tab)
+	rounds.open_setup()
+	var column := _find_node(tab.pages[PlayerTab.PAGE_EDIT], "OwnerWorkArea")
+	assert_not_null(column, "The Edit Player page says where the owner works")
+	assert_true(column.text.contains("9"), "The ground the owner works is named: %s" % column.text)
+	assert_true(column.text.contains("11"), "The ground the owner works is named: %s" % column.text)
+
+	# The button asks main.gd for a click on the course.
+	var moved: Array = []
+	rounds.owner_area_move_requested.connect(func(): moved.append(true))
+	var button := rounds._work_area_button
+	assert_not_null(button, "The page has a button that moves the ground")
+	button.pressed.emit()
+	assert_eq(moved.size(), 1, "The button asks for the new ground")
+	rounds.set_owner_area_mode(true)
+	assert_eq(button.text, "Pick a tile…", "While the ground is being chosen the button says so")
+	rounds.set_owner_area_mode(false)
+	assert_eq(button.text, "Move work area")
+
+## The node named `wanted` under `node`, wherever it sits in the tree.
+func _find_node(node: Node, wanted: String) -> Node:
+	if node == null:
+		return null
+	if node.name == wanted:
+		return node
+	for child in node.get_children():
+		var found := _find_node(child, wanted)
+		if found != null:
+			return found
+	return null
+
+func test_the_owner_walks_to_the_tee_to_start_a_round() -> void:
+	# The owner works a ground of their own between rounds. When a round
+	# starts they walk from there to the tee - they are not put there.
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(25, 25))
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+
+	_start(0)
+	assert_eq(rounds.player, course_owner, "The round is played with the same golfer")
+	assert_eq(course_owner.current_state, Golfer.State.WALKING,
+		"The owner walks to the tee instead of being put there")
+	assert_eq(course_owner.ball_position, Vector2i(10, 10), "Their ball is on the tee")
+	assert_almost_eq(
+		GameManager.terrain_grid.screen_to_grid_point(course_owner.global_position).distance_to(Vector2(25, 25)),
+		0.0, 1.0, "They are still where they were working when the round starts")
+	assert_false(owner_manager.duty.running,
+		"The work stops while they play, so they do not walk back to it")
+
+func test_the_owner_goes_back_to_work_when_the_round_is_over() -> void:
+	GameManager.golfer_manager = golfers
+	var owner_manager := PlayerGolferManager.new()
+	fixture.add_child(owner_manager)
+	owner_manager.setup(golfers.golfers_container)
+	GameManager.player_golfer_manager = owner_manager
+	var course_owner := owner_manager.ensure_golfer()
+	owner_manager.set_area_center(Vector2i(25, 25))
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+
+	_start(0)
+	# The round is played from the tee: the owner is there when it ends.
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(10, 10))
+	rounds.leave_round()
+	assert_eq(owner_manager.duty.commute, OwnerDuty.Commute.HOME,
+		"The round ended away from the ground they work, so they walk back to it")
+	assert_false(course_owner.is_on_course_duty(), "They are walking home, not working yet")
+	# The walk ends on the ground they work, and the work starts again.
+	course_owner.global_position = GameManager.terrain_grid.grid_to_screen_center(Vector2i(25, 25))
+	course_owner.path.clear()
+	course_owner._on_reached_destination()
+	owner_manager.duty._process(0.1)
+	assert_true(course_owner.is_on_course_duty(), "They are working the course again")
+	assert_true(owner_manager.duty.running, "The work is running again")

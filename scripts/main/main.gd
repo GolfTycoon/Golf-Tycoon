@@ -135,9 +135,14 @@ var staff_container: Node2D = null
 var weed_container: Node2D = null
 var weed_manager: WeedManager = null
 var staff_area_overlay: StaffAreaOverlay = null
+## The owner's own golfer, who is on the course between rounds.
+var player_golfer_manager: PlayerGolferManager = null
 ## Index into StaffManager.hired_staff whose area the player is repositioning,
 ## or -1 when not in that mode.
 var _staff_area_mode_index: int = -1
+## True while the player is choosing the ground the owner's own golfer works
+## (see PlayerGolferManager).
+var _owner_area_mode: bool = false
 
 # Hole context menu and move modes
 enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN }
@@ -262,6 +267,17 @@ func _ready() -> void:
 	staff_area_overlay.set_terrain_grid(terrain_grid)
 	terrain_grid.add_child(staff_area_overlay)
 
+	# The owner's own golfer lives on the course: between rounds they work
+	# the ground the player gives them (see PlayerGolferManager).
+	player_golfer_manager = PlayerGolferManager.new()
+	player_golfer_manager.name = "PlayerGolferManager"
+	add_child(player_golfer_manager)
+	GameManager.player_golfer_manager = player_golfer_manager
+	player_golfer_manager.setup(golfer_manager.golfers_container)
+	player_golfer_manager.area_changed.connect(func(_center: Vector2i):
+		if staff_area_overlay:
+			staff_area_overlay.refresh())
+
 	var marketing_mgr = MarketingManager.new()
 	marketing_mgr.name = "MarketingManager"
 	add_child(marketing_mgr)
@@ -297,6 +313,9 @@ func _ready() -> void:
 	player_round.setup(golfer_manager, $IsometricCamera, $UI/HUD)
 	player_round.attach_player_tab(terrain_toolbar.player_tab)
 	player_round.attach_scores_panel(scores_dock.round_scores)
+	# The Edit Player page asks for a click on the course to move the ground
+	# the owner's own golfer works.
+	player_round.owner_area_move_requested.connect(_on_owner_area_move_requested)
 	# The owner plays their own shots during a tournament: the manager spawns the
 	# field, but aiming for their live golfer is handed to the PlayerRoundManager.
 	tournament_manager.set_aim_controller(player_round)
@@ -1210,6 +1229,11 @@ func _start_painting() -> void:
 		_handle_staff_area_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
 		return
 
+	# Choosing the ground the owner's own golfer works takes the next click.
+	if _owner_area_mode:
+		_handle_owner_area_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
+		return
+
 	# The building being carried (the clubhouse) takes the next click.
 	if _moving_building != null:
 		_handle_building_move_click(terrain_grid.screen_to_grid(camera.get_mouse_world_position()))
@@ -1493,6 +1517,51 @@ func _handle_staff_area_click(grid_pos: Vector2i) -> void:
 		EventBus.notify("Could not move that area.", "error")
 	_cancel_staff_area_mode()
 
+## Ask main to choose the ground the owner's own golfer works. The next
+## click on the course moves their area there.
+func _on_owner_area_move_requested() -> void:
+	_cancel_inspect_mode()
+	_cancel_staff_area_mode()
+	# Any other tool would fight the click, so clear it first.
+	_cancel_hole_move_mode()
+	_cancel_building_move()
+	_close_hole_context_menu()
+	placement_manager.cancel_placement()
+	_cancel_elevation_mode()
+	_cancel_bulldozer_mode()
+	is_painting = false
+	if terrain_toolbar:
+		terrain_toolbar.clear_selection()
+	if placement_preview:
+		placement_preview.set_terrain_painting_enabled(false)
+
+	_owner_area_mode = true
+	if player_round:
+		player_round.set_owner_area_mode(true)
+	EventBus.notify("Click a tile to set your golfer's work area.", "info")
+
+func _cancel_owner_area_mode() -> void:
+	if not _owner_area_mode:
+		return
+	_owner_area_mode = false
+	if player_round:
+		player_round.set_owner_area_mode(false)
+
+## The click that puts the owner's own golfer to work somewhere new.
+func _handle_owner_area_click(grid_pos: Vector2i) -> void:
+	var manager := GameManager.player_golfer_manager
+	if manager == null:
+		_cancel_owner_area_mode()
+		return
+	if not terrain_grid.is_valid_position(grid_pos):
+		EventBus.notify("That tile is off the course.", "error")
+		return
+	if manager.set_area_center(grid_pos):
+		EventBus.notify("Your golfer's work area moved.", "success")
+	else:
+		EventBus.notify("Could not move that area.", "error")
+	_cancel_owner_area_mode()
+
 func _cancel_action() -> void:
 	if is_painting:
 		_stop_painting()
@@ -1510,6 +1579,9 @@ func _cancel_action() -> void:
 
 	if _staff_area_mode_index >= 0:
 		_cancel_staff_area_mode()
+		had_active_operation = true
+	if _owner_area_mode:
+		_cancel_owner_area_mode()
 		had_active_operation = true
 	if _hole_context_menu:
 		_close_hole_context_menu()
@@ -1546,6 +1618,8 @@ func _has_active_tool() -> bool:
 		return true
 	if _staff_area_mode_index >= 0:
 		return true
+	if _owner_area_mode:
+		return true
 	if _hole_move_mode != HoleMoveMode.NONE:
 		return true
 	if _moving_building != null:
@@ -1573,6 +1647,7 @@ func _on_tool_selected(tool_type: int) -> void:
 
 	# Cancel any building or decoration placement, elevation mode and bulldozer
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	_cancel_hole_move_mode()
 	_cancel_building_move()
 	_close_hole_context_menu()
@@ -2072,6 +2147,10 @@ func _on_new_game_started() -> void:
 		weed_manager.clear_all()
 	if GameManager.staff_manager:
 		GameManager.staff_manager.clear_all_staff()
+	if player_golfer_manager:
+		# A new course starts with the ground unchosen: the owner works the
+		# middle of it until the player moves their area somewhere else.
+		player_golfer_manager.reset_area()
 	if entity_layer:
 		entity_layer.clear_all()
 	if hole_manager:
@@ -2204,6 +2283,11 @@ func _on_new_game_started() -> void:
 	loading_overlay.finish()
 	await get_tree().process_frame
 	loading_overlay.queue_free()
+
+	# The owner's own golfer is on the course from the start, working the
+	# ground the player gave them.
+	if player_golfer_manager:
+		player_golfer_manager.on_course_ready()
 
 	# Day always starts automatically — ensure simulation is active even if a
 	# subclass previously cleared mode during generation.
@@ -2650,6 +2734,7 @@ func _on_inspect_toggled(enabled: bool) -> void:
 	# Finish any stroke and leave all editing operations before inspecting.
 	_cancel_action()
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	_cancel_hole_move_mode()
 	_close_hole_context_menu()
 	placement_manager.cancel_placement()
@@ -2767,6 +2852,10 @@ func _on_load_completed(success: bool) -> void:
 		StrokeIndexCalculator.recalculate_for_course()
 		# Center camera on grid (same as new game) so player starts on their course
 		_center_camera_on_course()
+		# The owner's own golfer is on the course, working the ground the
+		# player gave them.
+		if player_golfer_manager:
+			player_golfer_manager.on_course_ready()
 
 # --- Hole Context Menu & Move Modes ---
 
@@ -3283,6 +3372,7 @@ func _on_building_move_requested(building: Building) -> void:
 	_cancel_elevation_mode()
 	_cancel_bulldozer_mode()
 	_cancel_staff_area_mode()
+	_cancel_owner_area_mode()
 	placement_manager.cancel_placement()
 	_disable_terrain_painting_preview()
 	if terrain_toolbar:

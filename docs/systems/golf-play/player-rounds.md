@@ -2,8 +2,8 @@
 
 > Play your own round alongside the management sim: a practice round or a match against a pro, with persistent skills, shot shapes and an aim guide.
 
-**Source:** `scripts/managers/player_round_manager.gd`, `scripts/systems/player_golfer_profile.gd`, `scripts/ui/aim_guide.gd`, `scripts/ui/components/shot_type_bar.gd`, `scripts/entities/golfer.gd` (`preview_shot()`, `preview_shot_to_rest()`, `play_shot()`), `scripts/terrain/terrain_grid.gd` (`snap_world_to_tile_anchor()`)
-**Tests:** `tests/unit/test_player_golfer.gd`, `tests/unit/test_aim_guide.gd`, `tests/unit/test_player_round.gd`, `tests/unit/test_shot_type_bar.gd`
+**Source:** `scripts/managers/player_round_manager.gd`, `scripts/managers/player_golfer_manager.gd` (claiming the owner for a round), `scripts/systems/player_golfer_profile.gd`, `scripts/ui/aim_guide.gd`, `scripts/ui/components/shot_type_bar.gd`, `scripts/entities/golfer.gd` (`preview_shot()`, `preview_shot_to_rest()`, `play_shot()`), `scripts/terrain/terrain_grid.gd` (`snap_world_to_tile_anchor()`)
+**Tests:** `tests/unit/golf_play/test_player_golfer.gd`, `tests/unit/golf_play/test_aim_guide.gd`, `tests/unit/golf_play/test_player_round.gd`, `tests/unit/golf_play/test_shot_type_bar.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
 
 ---
 
@@ -25,6 +25,10 @@ All participants play the open holes from the back tees. The owner and any oppon
 The owner chooses a name and their shirt, pants, cap, hair and skin colours. Because baked tier sprites cannot show those colours, the owner is drawn with the procedural golfer renderer. Opponents keep their tier sprites.
 
 Skill points are spent on the **Player Skills** page. The navigation button shows how many points are still unspent. A round can start with points unspent, and the points stay banked for later.
+
+### Your golfer is on the course between rounds
+
+The golfer you create is not spawned for the round and thrown away afterwards: they live on the course. Between rounds they work a ground of their own — pulling weeds and chatting with the golfers they meet, the work of a groundskeeper and a greeter — and the round you play is played with that same golfer, who walks to the tee from where they were working and walks back to their ground when the round is over. See [The Owner's Golfer on the Course](owner-on-the-course.md).
 
 ### Tournaments take priority
 
@@ -139,7 +143,7 @@ The mouse does not aim at a free point. It snaps to a terrain **anchor**, meanin
 
 `play_shot` ignores input while swinging, walking or watching, while paused, off the map, or when aimed at the ball itself. This stops double-click extra strokes.
 
-Owner-round golfers use the tournament spawning path, which skips entrance fees and closing-time limits. `is_owner_round` tells `PlayerRoundManager` to handle completion and results. Visitors and the course simulation keep running throughout. Cleanup removes the owner's group members and balls and leaves visitors alone.
+Owner-round golfers use the tournament spawning path, which skips entrance fees and closing-time limits. `is_owner_round` tells `PlayerRoundManager` to handle completion and results. Visitors and the course simulation keep running throughout. Cleanup removes the owner's group members and balls and leaves visitors alone — except the owner's own golfer, who is not a guest: they go back to work on the course when the round ends.
 
 ---
 
@@ -169,6 +173,7 @@ Owner-round golfers use the tournament spawning path, which skips entrance fees 
 
 ## Related
 
+- [The Owner's Golfer on the Course](owner-on-the-course.md) covers the work your golfer does between rounds.
 - [Shot Accuracy](shot-accuracy.md) is used for each shot.
 - [Group Turn Order](group-turn-order.md) decides when your golfer plays.
 - [Putting System](putting-system.md) covers putts.

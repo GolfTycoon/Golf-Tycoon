@@ -1126,6 +1126,33 @@ func remove_golfer(golfer_id: int) -> void:
 			golfer_removed.emit(golfer_id)
 			return
 
+## Put a golfer on the course: they join the live list of golfers and, when
+## a group is given, they play in it. The owner's own golfer is on the course
+## between rounds and joins the group for a round (see PlayerGolferManager).
+func join_course(golfer: Golfer, group_id: int = -1) -> void:
+	if golfer == null or not is_instance_valid(golfer):
+		return
+	if not active_golfers.has(golfer):
+		active_golfers.append(golfer)
+		if not golfer.golfer_selected.is_connected(_on_golfer_selected):
+			golfer.golfer_selected.connect(_on_golfer_selected)
+	golfer.group_id = group_id
+	_groups_dirty = true
+
+## Take a golfer off the course without freeing them: the node stays alive,
+## it simply stops being one of the golfers playing. The owner's own golfer
+## goes this way when their round is over - they are still on the course,
+## working it.
+func take_off_course(golfer: Golfer) -> void:
+	if golfer == null:
+		return
+	var index := active_golfers.find(golfer)
+	if index >= 0:
+		active_golfers.remove_at(index)
+		_groups_dirty = true
+	if golfer.golfer_selected.is_connected(_on_golfer_selected):
+		golfer.golfer_selected.disconnect(_on_golfer_selected)
+
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	# Find the golfer to get their tier and group_id
 	var finished_golfer = get_golfer(golfer_id)

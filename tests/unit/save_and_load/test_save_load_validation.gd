@@ -157,3 +157,28 @@ func test_a_version_one_save_keeps_its_state_at_the_top_level() -> void:
 		"world_map": WorldMap.serialize()})
 	assert_eq(GameManager.course_name, "Flat Save")
 	assert_eq(GameManager.money, 1234)
+
+# ---------------------------------------------------------------------------
+# The owner's own ground
+# ---------------------------------------------------------------------------
+
+func test_the_owners_work_area_is_restored_with_the_course() -> void:
+	# The ground the owner's own golfer works belongs to the course, so it is
+	# saved with the site and comes back when the course is loaded.
+	var grid := make_grid(32, 32)
+	GameManager.terrain_grid = grid
+	var owner_manager := PlayerGolferManager.new()
+	add_child_autofree(owner_manager)
+	GameManager.player_golfer_manager = owner_manager
+	assert_true(owner_manager.set_area_center(Vector2i(7, 9)))
+	owner_manager.set_area_center(Vector2i(20, 20))
+
+	GameManager.current_course = GameManager.CourseData.new()
+	SaveManager._apply_save_data({
+		"version": SaveManager.SAVE_VERSION,
+		"game_state": {},
+		"world_map": WorldMap.serialize(),
+		"owner_duty": {"area_center": {"x": 7, "y": 9}, "area_radius": 8.0},
+	})
+	assert_eq(owner_manager.area_center, Vector2i(7, 9),
+		"The ground the owner works comes back with the course")

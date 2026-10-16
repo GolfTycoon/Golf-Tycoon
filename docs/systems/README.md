@@ -14,6 +14,7 @@ How shots, balls, putts and golfer turns work on the course.
 | --- | --- |
 | [Shot Accuracy](golf-play/shot-accuracy.md) | Accuracy, lie and club modifiers, and the shot simulator |
 | [Player Rounds](golf-play/player-rounds.md) | Playing your own golfer's round and scoring |
+| [The Owner's Golfer on the Course](golf-play/owner-on-the-course.md) | Your golfer working the course between rounds, and the ground they work |
 | [Ball Physics](golf-play/ball-physics.md) | Flight, bounce, roll and landing effects |
 | [Group Turn Order](golf-play/group-turn-order.md) | Who plays next, and when a group is held up |
 | [Putting System](golf-play/putting-system.md) | Make chances, misses and the putting model |

@@ -55,6 +55,11 @@ work; selecting a build tool reveals its section automatically. Shelves scroll
 horizontally while the circle controls remain fixed. Hover/focus states, tooltips
 and accessible names identify every icon; Tab and Enter can navigate the dock.
 
+The **Edit Player Golfer** page carries an **On the course** column. It names the
+ground your own golfer works when they are not playing, and its **Move work area**
+button turns the next click on the course into the new ground. See [The Owner's
+Golfer on the Course](systems/golf-play/owner-on-the-course.md).
+
 ### Status column
 
 The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Its rows, top to bottom:
