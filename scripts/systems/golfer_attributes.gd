@@ -148,11 +148,13 @@ const CART_GARAGE_FUN_BOOST: float = 0.02
 const MAX_COMMENTS: int = 40
 
 ## How many golf-skill points each tier gets, before Golfer Skills adjust them.
+## Points are the skills themselves: every point is +10% of that Golf Skill and
+## the playable ability it feeds (see ability_from_bonus) climbs with them.
 const TIER_POINT_RANGE := {
-	0: [0, 3],    # Beginner
-	1: [1, 6],    # Casual
-	2: [3, 10],   # Serious
-	3: [6, 16],   # Pro
+	0: [0, 5],    # Beginner
+	1: [3, 10],   # Casual
+	2: [8, 18],   # Serious
+	3: [14, 30],  # Pro
 }
 
 ## Odds that a given Golfer Skill is On, by tier.
@@ -437,6 +439,54 @@ func golf_skill_percent(index: int) -> int:
 		return 0
 	return golf_points[index] * PERCENT_PER_POINT
 
+# ===========================================================================
+# Playing abilities derived from Golf Skills
+# ===========================================================================
+
+## The playable ability (0.0-1.0) a Golf Skill bonus produces. The points ARE
+## the skills - this curve is just their playable shape (0 points reads as a
+## middling 0.5, 990% approaches 1.0).
+static func ability_from_bonus(bonus: float) -> float:
+	return 1.0 - 0.5 / (1.0 + bonus)
+
+## The inverse: the points that produce a given ability. Used to hand a
+## simulated golfer's abilities to a live golfer as Golf Skill points.
+static func points_for_ability(ability: float) -> int:
+	var clamped := clampf(ability, 0.05, 0.99)
+	var bonus := 0.5 / (1.0 - clamped) - 1.0
+	return clampi(int(round(bonus * 10.0)), 0, POINTS_PER_GOLF_SKILL)
+
+## How far a golfer is able to drive the ball: the average of Power Hitter and
+## Long Driver points.
+func driving_ability() -> float:
+	return ability_from_bonus((golf_bonus(GolfSkill.POWER_HITTER)
+		+ golf_bonus(GolfSkill.LONG_DRIVER)) * 0.5)
+
+## How and where the ball lands: the average of Accurate Driver and Accurate
+## Irons points.
+func accuracy_ability() -> float:
+	return ability_from_bonus((golf_bonus(GolfSkill.ACCURATE_DRIVER)
+		+ golf_bonus(GolfSkill.ACCURATE_IRONS)) * 0.5)
+
+## Putting precision on the green: the Accurate Putter points.
+func putting_ability() -> float:
+	return ability_from_bonus(golf_bonus(GolfSkill.ACCURATE_PUTTER))
+
+## Escaping trouble: the Recovery Skills points.
+func recovery_ability() -> float:
+	return ability_from_bonus(golf_bonus(GolfSkill.RECOVERY))
+
+## Write a set of playing abilities back onto the Golf Skill points (each pair
+## of driving/accuracy skills receives the same points, so the derived ability
+## matches the given value).
+func apply_abilities(driving: float, accuracy: float, putting: float, recovery: float) -> void:
+	set_golf_points(GolfSkill.POWER_HITTER, points_for_ability(driving))
+	set_golf_points(GolfSkill.LONG_DRIVER, points_for_ability(driving))
+	set_golf_points(GolfSkill.ACCURATE_DRIVER, points_for_ability(accuracy))
+	set_golf_points(GolfSkill.ACCURATE_IRONS, points_for_ability(accuracy))
+	set_golf_points(GolfSkill.ACCURATE_PUTTER, points_for_ability(putting))
+	set_golf_points(GolfSkill.RECOVERY, points_for_ability(recovery))
+
 func set_golf_points(index: int, points: int) -> void:
 	if index >= 0 and index < golf_points.size():
 		golf_points[index] = clampi(points, 0, POINTS_PER_GOLF_SKILL)
@@ -647,7 +697,7 @@ func get_overall_satisfaction() -> float:
 
 ## Attitude penalty from critically low statuses (negative value to subtract).
 ## Each penalty fires once per critical episode.
-func get_mood_penalty() -> float:
+func get_attitude_penalty() -> float:
 	var penalty: float = 0.0
 	if energy < CRITICAL_NEED_THRESHOLD and not _applied_critical_energy:
 		penalty -= 0.05

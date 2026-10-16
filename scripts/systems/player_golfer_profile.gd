@@ -36,6 +36,20 @@ func bonus(index: int) -> float:
 func normalized_skill(index: int) -> float:
 	return 1.0 - 0.5 / (1.0 + bonus(index))
 
+## Playing abilities (0.0-1.0) derived from the allocated Golf Skill points -
+## the same curves every golfer uses (see GolferAttributes).
+func driving_ability() -> float:
+	return GolferAttributes.ability_from_bonus((bonus(0) + bonus(1)) * 0.5)
+
+func accuracy_ability() -> float:
+	return GolferAttributes.ability_from_bonus((bonus(2) + bonus(3)) * 0.5)
+
+func putting_ability() -> float:
+	return normalized_skill(4)
+
+func recovery_ability() -> float:
+	return normalized_skill(8)
+
 func serialize() -> Dictionary:
 	return {"name": golfer_name, "appearance": appearance.duplicate(),
 		"points": points.duplicate(), "initialized": initialized}

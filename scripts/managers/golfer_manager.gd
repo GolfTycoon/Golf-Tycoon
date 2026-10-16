@@ -4,7 +4,7 @@ class_name GolferManager
 
 const GOLFER_SCENE = preload("res://scenes/entities/golfer.tscn")
 
-## Several attitude facilities can stack, but the starting-mood bonus they
+## Several attitude facilities can stack, but the starting-attitude bonus they
 ## grant is capped so a course full of them can't start every guest ecstatic.
 const MAX_ATTITUDE_BONUS: float = 0.2
 
@@ -838,12 +838,6 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.guest_key = FeedbackManager.next_guest_key()
 	golfer.group_id = group_id
 
-	# Set skill levels with some randomness
-	golfer.driving_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.accuracy_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.putting_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-	golfer.recovery_skill = clamp(skill_level + randf_range(-0.1, 0.1), 0.0, 1.0)
-
 	# Set miss tendency: lower skill = stronger bias, random hook vs slice
 	var tendency_magnitude = (1.0 - skill_level) * randf_range(0.2, 0.7)
 	golfer.miss_tendency = tendency_magnitude * (1.0 if randf() > 0.5 else -1.0)
@@ -858,7 +852,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.golfer_selected.connect(_on_golfer_selected)
 
 	# Owning the right facilities shapes the round before it starts: attitude
-	# facilities start every guest in a better mood, and the Resort Hotel
+	# facilities start every guest in a better attitude, and the Resort Hotel
 	# starts them rested enough to shrug off fatigue longer.
 	_apply_facility_bonuses(golfer)
 
@@ -877,7 +871,7 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 
 ## Facilities that work on every guest before they even tee off:
 ##  - Attitude facilities (Tennis Court, Stable, Spa, Swim Club) start each
-##    golfer with a more positive attitude — a bonus to their starting mood.
+##    golfer with a more positive attitude — a bonus to their starting attitude.
 ##  - The Resort Hotel starts each golfer with more stamina: their energy
 ##    drains more slowly as they play, so they stay happier deeper into the
 ##    round (matters most on higher difficulties, where fatigue bites).
@@ -893,8 +887,8 @@ func _apply_facility_bonuses(golfer: Golfer) -> void:
 		if stamina_multiplier < golfer.needs.energy_decay_modifier:
 			golfer.needs.energy_decay_modifier = stamina_multiplier
 	if attitude_bonus > 0.0:
-		golfer.current_mood = clampf(
-			golfer.current_mood + minf(attitude_bonus, MAX_ATTITUDE_BONUS), 0.0, 1.0)
+		golfer.attitude = clampf(
+			golfer.attitude + minf(attitude_bonus, MAX_ATTITUDE_BONUS), 0.0, 1.0)
 
 ## Start a newly spawned guest on the walk from the clubhouse door to the first
 ## open tee. Without a clubhouse (or terrain) the golfer is left where the old
@@ -924,7 +918,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 			regular.initialize_from_tier(int(returning.tier))
 			regular.guest_key = returning.key
 			regular.is_returning_guest = true
-			for field in ["driving_skill","accuracy_skill","putting_skill","recovery_skill","patience","aggression","miss_tendency"]:
+			for field in ["patience","aggression","miss_tendency"]:
 				regular.set(field, returning[field])
 			# A returning guest is the same person: keep their identity, traits
 			# and golf skills. Statuses (Fun, Attitude, Energy, Hunger, Thirst)
@@ -945,7 +939,8 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 	var identity := GolferAttributes.new()
 	identity.randomize_identity(tier)
 
-	# Spawn with default skill (will be overridden by initialize_from_tier)
+	# Spawn with defaults; the tier block below rolls identity, traits, skills
+	# and golf skill points over the top
 	var golfer = spawn_golfer(identity.name, 0.5, group_id)
 	if golfer:
 		golfer.initialize_from_tier(tier)
@@ -1054,12 +1049,6 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 	golfer.group_id = group_id
 	golfer.is_tournament_golfer = true
 
-	# Set default skills (will be overridden by initialize_from_tier)
-	golfer.driving_skill = 0.5
-	golfer.accuracy_skill = 0.5
-	golfer.putting_skill = 0.5
-	golfer.recovery_skill = 0.5
-
 	golfers_container.add_child(golfer)
 	active_golfers.append(golfer)
 	_groups_dirty = true
@@ -1144,7 +1133,7 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 	# Record tier for daily statistics
 	GameManager.daily_stats.record_golfer_tier(finished_golfer.golfer_tier)
 
-	# Tier-based reputation gain, scaled by golfer mood
+	# Tier-based reputation gain, scaled by golfer attitude
 	# Happy golfers spread the word; unhappy golfers hurt reputation
 	var base_rep: float = GolferTier.get_reputation_gain(finished_golfer.golfer_tier) * 0.1
 
@@ -1158,16 +1147,16 @@ func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: i
 	var prestige_mult = CourseRatingSystem.get_prestige_multiplier(GameManager.course_rating)
 	base_rep *= prestige_mult
 
-	# Scale by mood: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
+	# Scale by attitude: happy (>0.6) = positive, neutral (0.4-0.6) = small gain, unhappy (<0.4) = negative
 	var value: float = GameManager.course_rating.get("value", 3.0) / 5.0
-	var mood: float = minf(finished_golfer.current_mood, value + 0.15)
+	var attitude_val: float = minf(finished_golfer.attitude, value + 0.15)
 	var reputation_gain: float
-	if mood >= 0.6:
-		reputation_gain = base_rep * lerpf(0.5, 1.0, (mood - 0.6) / 0.4)
-	elif mood >= 0.4:
+	if attitude_val >= 0.6:
+		reputation_gain = base_rep * lerpf(0.5, 1.0, (attitude_val - 0.6) / 0.4)
+	elif attitude_val >= 0.4:
 		reputation_gain = base_rep * 0.25  # Neutral: minimal gain
 	else:
-		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - mood) / 0.4)  # Unhappy: reputation loss
+		reputation_gain = -base_rep * lerpf(0.0, 1.0, (0.4 - attitude_val) / 0.4)  # Unhappy: reputation loss
 
 	if finished_golfer.hole_scores.size() >= finished_golfer._round_total_holes:
 		GameManager.modify_reputation(reputation_gain)

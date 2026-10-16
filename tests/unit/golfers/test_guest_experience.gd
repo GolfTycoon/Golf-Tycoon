@@ -57,7 +57,7 @@ func test_service_and_value_improvements_raise_visit_score_and_return_intent() -
 	golfer.guest_key = "test"
 	golfer._round_total_holes = 9
 	golfer.paid_round_fee = 500
-	golfer.current_mood = 0.4
+	golfer.attitude = 0.4
 	golfer.needs.energy = 0.1
 	golfer.needs.hunger = 0.1
 	golfer.needs.comfort = 0.1

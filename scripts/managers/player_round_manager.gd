@@ -552,10 +552,7 @@ func _save_skills() -> void:
 	GameManager.player_profile.points = draft.points.duplicate()
 	if is_instance_valid(player):
 		player.player_profile = GameManager.player_profile
-		player.driving_skill = GameManager.player_profile.normalized_skill(1)
-		player.accuracy_skill = GameManager.player_profile.normalized_skill(3)
-		player.putting_skill = GameManager.player_profile.normalized_skill(4)
-		player.recovery_skill = GameManager.player_profile.normalized_skill(8)
+		player.sync_player_profile_skills()
 		if player.awaits_player_shot():
 			update_aim_guide()
 	if GameManager.tournament_manager and GameManager.tournament_manager.has_method("sync_player_skills"):
@@ -623,10 +620,7 @@ func start_round() -> void:
 
 	player = _spawn(draft.golfer_name, GolferTier.Tier.CASUAL, group_id)
 	player.player_profile = draft
-	player.driving_skill = draft.normalized_skill(1)
-	player.accuracy_skill = draft.normalized_skill(3)
-	player.putting_skill = draft.normalized_skill(4)
-	player.recovery_skill = draft.normalized_skill(8)
+	player.sync_player_profile_skills()
 	player.miss_tendency = 0.0
 	player.apply_player_appearance(draft)
 

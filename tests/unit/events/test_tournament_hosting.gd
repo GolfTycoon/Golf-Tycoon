@@ -402,9 +402,9 @@ func test_player_competitor_is_on_the_course() -> void:
 	assert_true(owner_seen, "The owner's golfer is out there playing")
 	assert_eq(group_sizes.values().max(), 2, "Tournament groups are pairs")
 
-func test_player_skills_come_from_the_profile() -> void:
+func test_player_abilities_come_from_the_profile() -> void:
 	GameManager.player_profile.points[4] = 10  # Accurate Putter
 	var sg = tournaments._make_player_sim_golfer()
-	assert_almost_eq(sg.putting_skill, GameManager.player_profile.normalized_skill(4), 0.0001,
+	assert_almost_eq(sg.putting_ability, GameManager.player_profile.putting_ability(), 0.0001,
 		"Allocated skill points carry into the tournament field")
-	assert_gt(sg.putting_skill, 0.5, "Investing in putting beats the baseline")
+	assert_gt(sg.putting_ability, 0.5, "Investing in putting beats the baseline")

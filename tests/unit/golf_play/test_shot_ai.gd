@@ -44,10 +44,10 @@ func _make_golfer(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	var gd = ShotAI.GolferData.new()
 	gd.ball_position = overrides.get("ball_position", Vector2i(5, 20))
 	gd.ball_position_precise = Vector2(gd.ball_position)
-	gd.driving_skill = overrides.get("driving_skill", 0.6)
-	gd.accuracy_skill = overrides.get("accuracy_skill", 0.6)
-	gd.putting_skill = overrides.get("putting_skill", 0.6)
-	gd.recovery_skill = overrides.get("recovery_skill", 0.6)
+	gd.driving_ability = overrides.get("driving_ability", 0.6)
+	gd.accuracy_ability = overrides.get("accuracy_ability", 0.6)
+	gd.putting_ability = overrides.get("putting_ability", 0.6)
+	gd.recovery_ability = overrides.get("recovery_ability", 0.6)
 	gd.miss_tendency = overrides.get("miss_tendency", 0.0)
 	gd.aggression = overrides.get("aggression", 0.5)
 	gd.patience = overrides.get("patience", 0.5)
@@ -60,10 +60,10 @@ func _make_golfer(overrides: Dictionary = {}) -> ShotAI.GolferData:
 ## These mirror golfer_tier.gd TIER_DATA without using randf_range.
 func _make_beginner(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	var defaults: Dictionary = {
-		"driving_skill": 0.4,      # midpoint of [0.3, 0.5]
-		"accuracy_skill": 0.4,
-		"putting_skill": 0.4,
-		"recovery_skill": 0.4,
+		"driving_ability": 0.4,      # midpoint of [0.3, 0.5]
+		"accuracy_ability": 0.4,
+		"putting_ability": 0.4,
+		"recovery_ability": 0.4,
 		"miss_tendency": 0.6,      # midpoint of [0.4, 0.8] — strong slice
 		"aggression": 0.3,         # midpoint of [0.2, 0.4]
 		"patience": 0.75,          # midpoint of [0.6, 0.9]
@@ -73,10 +73,10 @@ func _make_beginner(overrides: Dictionary = {}) -> ShotAI.GolferData:
 
 func _make_casual(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	var defaults: Dictionary = {
-		"driving_skill": 0.6,      # midpoint of [0.5, 0.7]
-		"accuracy_skill": 0.6,
-		"putting_skill": 0.6,
-		"recovery_skill": 0.6,
+		"driving_ability": 0.6,      # midpoint of [0.5, 0.7]
+		"accuracy_ability": 0.6,
+		"putting_ability": 0.6,
+		"recovery_ability": 0.6,
 		"miss_tendency": 0.35,     # midpoint of [0.2, 0.5]
 		"aggression": 0.45,        # midpoint of [0.3, 0.6]
 		"patience": 0.55,          # midpoint of [0.4, 0.7]
@@ -86,10 +86,10 @@ func _make_casual(overrides: Dictionary = {}) -> ShotAI.GolferData:
 
 func _make_serious(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	var defaults: Dictionary = {
-		"driving_skill": 0.775,    # midpoint of [0.7, 0.85]
-		"accuracy_skill": 0.775,
-		"putting_skill": 0.775,
-		"recovery_skill": 0.775,
+		"driving_ability": 0.775,    # midpoint of [0.7, 0.85]
+		"accuracy_ability": 0.775,
+		"putting_ability": 0.775,
+		"recovery_ability": 0.775,
 		"miss_tendency": 0.2,      # midpoint of [0.1, 0.3]
 		"aggression": 0.6,         # midpoint of [0.5, 0.7]
 		"patience": 0.45,          # midpoint of [0.3, 0.6]
@@ -99,10 +99,10 @@ func _make_serious(overrides: Dictionary = {}) -> ShotAI.GolferData:
 
 func _make_pro(overrides: Dictionary = {}) -> ShotAI.GolferData:
 	var defaults: Dictionary = {
-		"driving_skill": 0.915,    # midpoint of [0.85, 0.98]
-		"accuracy_skill": 0.915,
-		"putting_skill": 0.915,
-		"recovery_skill": 0.915,
+		"driving_ability": 0.915,    # midpoint of [0.85, 0.98]
+		"accuracy_ability": 0.915,
+		"putting_ability": 0.915,
+		"recovery_ability": 0.915,
 		"miss_tendency": 0.075,    # midpoint of [0.0, 0.15]
 		"aggression": 0.75,        # midpoint of [0.6, 0.9]
 		"patience": 0.35,          # midpoint of [0.2, 0.5]
@@ -297,7 +297,7 @@ func test_putt_on_flat_green_aims_at_hole() -> void:
 	_setup_hole(Vector2i(2, 20), Vector2i(21, 20), flag, 4)
 
 	# No elevation = flat green
-	var gd = _make_golfer({"ball_position": ball, "putting_skill": 0.8})
+	var gd = _make_golfer({"ball_position": ball, "putting_ability": 0.8})
 	gd.ball_position_precise = Vector2(ball)
 	var decision = ShotAI.decide_shot_for(gd, flag)
 
@@ -320,7 +320,7 @@ func test_putt_on_sloped_green_compensates() -> void:
 		_set_elevation(Vector2i(x, 21), _terrain_grid.BASE_ELEVATION)
 		_set_elevation(Vector2i(x, 22), _terrain_grid.BASE_ELEVATION)
 
-	var gd = _make_golfer({"ball_position": ball, "putting_skill": 0.9})
+	var gd = _make_golfer({"ball_position": ball, "putting_ability": 0.9})
 	gd.ball_position_precise = Vector2(ball)
 	var decision = ShotAI.decide_shot_for(gd, flag)
 
@@ -350,7 +350,7 @@ func test_par5_doesnt_overshoot() -> void:
 	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(37, 19), Vector2i(39, 21))
 	_setup_hole(tee, Vector2i(38, 20), flag, 5)
 
-	var gd = _make_golfer({"ball_position": tee, "driving_skill": 0.7})
+	var gd = _make_golfer({"ball_position": tee, "driving_ability": 0.7})
 	var decision = ShotAI.decide_shot_for(gd, flag)
 
 	# Target should NOT be at the flag — it's unreachable in one shot
@@ -385,16 +385,16 @@ func test_wind_compensation_aims_into_wind() -> void:
 	# Pro golfer should compensate more
 	var pro = _make_golfer({
 		"ball_position": tee,
-		"accuracy_skill": 0.9,
-		"driving_skill": 0.9
+		"accuracy_ability": 0.9,
+		"driving_ability": 0.9
 	})
 	var pro_decision = ShotAI.decide_shot_for(pro, flag)
 
 	# Beginner should compensate less
 	var beginner = _make_golfer({
 		"ball_position": tee,
-		"accuracy_skill": 0.3,
-		"driving_skill": 0.3
+		"accuracy_ability": 0.3,
+		"driving_ability": 0.3
 	})
 	var beginner_decision = ShotAI.decide_shot_for(beginner, flag)
 
@@ -425,7 +425,7 @@ func test_risk_analysis_considers_miss_tendency() -> void:
 	var hooker = _make_golfer({
 		"ball_position": ball,
 		"miss_tendency": -0.5,
-		"accuracy_skill": 0.5,
+		"accuracy_ability": 0.5,
 	})
 	var hook_decision = ShotAI.decide_shot_for(hooker, flag)
 
@@ -433,7 +433,7 @@ func test_risk_analysis_considers_miss_tendency() -> void:
 	var slicer = _make_golfer({
 		"ball_position": ball,
 		"miss_tendency": 0.5,
-		"accuracy_skill": 0.5,
+		"accuracy_ability": 0.5,
 	})
 	var slice_decision = ShotAI.decide_shot_for(slicer, flag)
 
@@ -500,7 +500,7 @@ func test_dogleg_finds_fairway_around_bend() -> void:
 	_paint_rect(TerrainTypes.Type.TREES, Vector2i(10, 12), Vector2i(18, 17))
 	_setup_hole(tee, Vector2i(25, 10), flag, 4)
 
-	var gd = _make_golfer({"ball_position": tee, "driving_skill": 0.7})
+	var gd = _make_golfer({"ball_position": tee, "driving_ability": 0.7})
 	var decision = ShotAI.decide_shot_for(gd, flag)
 
 	# Target should be on the fairway, not in the trees
@@ -528,16 +528,16 @@ func test_beginner_aims_more_toward_green_center() -> void:
 	# Pro: should aim closer to pin
 	var pro = _make_golfer({
 		"ball_position": ball,
-		"accuracy_skill": 0.95,
-		"driving_skill": 0.9,
+		"accuracy_ability": 0.95,
+		"driving_ability": 0.9,
 	})
 	var pro_decision = ShotAI.decide_shot_for(pro, flag)
 
 	# Beginner: should aim more toward green center
 	var beginner = _make_golfer({
 		"ball_position": ball,
-		"accuracy_skill": 0.3,
-		"driving_skill": 0.4,
+		"accuracy_ability": 0.3,
+		"driving_ability": 0.4,
 	})
 	var beginner_decision = ShotAI.decide_shot_for(beginner, flag)
 
@@ -628,10 +628,9 @@ func test_golfer_data_from_golfer_copies_fields() -> void:
 	var golfer = autofree(Golfer.new())
 	golfer.ball_position = Vector2i(10, 15)
 	golfer.ball_position_precise = Vector2(10.5, 15.3)
-	golfer.driving_skill = 0.85
-	golfer.accuracy_skill = 0.75
-	golfer.putting_skill = 0.90
-	golfer.recovery_skill = 0.60
+	# Playing abilities derive from the Golf Skill points; seed them to a
+	# target ability mix (points are integers, so the round trip is close).
+	golfer.attributes.apply_abilities(0.85, 0.75, 0.90, 0.60)
 	golfer.miss_tendency = -0.3
 	golfer.aggression = 0.7
 	golfer.patience = 0.4
@@ -643,10 +642,14 @@ func test_golfer_data_from_golfer_copies_fields() -> void:
 
 	assert_eq(gd.ball_position, Vector2i(10, 15))
 	assert_almost_eq(gd.ball_position_precise.x, 10.5, 0.01)
-	assert_almost_eq(gd.driving_skill, 0.85, 0.001)
-	assert_almost_eq(gd.accuracy_skill, 0.75, 0.001)
-	assert_almost_eq(gd.putting_skill, 0.90, 0.001)
-	assert_almost_eq(gd.recovery_skill, 0.60, 0.001)
+	assert_almost_eq(gd.driving_ability, golfer.driving_ability(), 0.0001)
+	assert_almost_eq(gd.accuracy_ability, golfer.accuracy_ability(), 0.0001)
+	assert_almost_eq(gd.putting_ability, golfer.putting_ability(), 0.0001)
+	assert_almost_eq(gd.recovery_ability, golfer.recovery_ability(), 0.0001)
+	assert_almost_eq(gd.driving_ability, 0.85, 0.02)
+	assert_almost_eq(gd.accuracy_ability, 0.75, 0.02)
+	assert_almost_eq(gd.putting_ability, 0.90, 0.02)
+	assert_almost_eq(gd.recovery_ability, 0.60, 0.02)
 	assert_almost_eq(gd.miss_tendency, -0.3, 0.001)
 	assert_almost_eq(gd.aggression, 0.7, 0.001)
 	assert_eq(gd.current_hole, 2)
@@ -692,7 +695,7 @@ func test_layup_prefers_clear_approach_line() -> void:
 	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(34, 19), Vector2i(36, 21))
 	_setup_hole(tee, Vector2i(35, 20), flag, 5)
 
-	var gd = _make_golfer({"ball_position": tee, "driving_skill": 0.7})
+	var gd = _make_golfer({"ball_position": tee, "driving_ability": 0.7})
 	var decision = ShotAI.decide_shot_for(gd, flag)
 
 	# Target should advance from the tee
@@ -876,7 +879,7 @@ func test_tier_approach_to_guarded_green() -> void:
 # Scenario 21: tier putting — Green reading varies by skill
 # ---------------------------------------------------------------------------
 
-func test_tier_putting_skill_affects_read() -> void:
+func test_tier_putting_ability_affects_read() -> void:
 	var ball = Vector2i(18, 20)
 	var flag = Vector2i(22, 20)
 	_paint_rect(TerrainTypes.Type.GREEN, Vector2i(16, 18), Vector2i(24, 22))

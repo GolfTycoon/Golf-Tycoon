@@ -30,10 +30,10 @@ class ShotDecision:
 class GolferData:
 	var ball_position: Vector2i = Vector2i.ZERO
 	var ball_position_precise: Vector2 = Vector2.ZERO
-	var driving_skill: float = 0.5
-	var accuracy_skill: float = 0.5
-	var putting_skill: float = 0.5
-	var recovery_skill: float = 0.5
+	var driving_ability: float = 0.5
+	var accuracy_ability: float = 0.5
+	var putting_ability: float = 0.5
+	var recovery_ability: float = 0.5
 	var miss_tendency: float = 0.0
 	var aggression: float = 0.5
 	var patience: float = 0.5
@@ -45,10 +45,10 @@ class GolferData:
 		var data: GolferData = GolferData.new()
 		data.ball_position = golfer.ball_position
 		data.ball_position_precise = golfer.ball_position_precise
-		data.driving_skill = golfer.driving_skill
-		data.accuracy_skill = golfer.accuracy_skill
-		data.putting_skill = golfer.putting_skill
-		data.recovery_skill = golfer.recovery_skill
+		data.driving_ability = golfer.driving_ability()
+		data.accuracy_ability = golfer.accuracy_ability()
+		data.putting_ability = golfer.putting_ability()
+		data.recovery_ability = golfer.recovery_ability()
 		data.miss_tendency = golfer.miss_tendency
 		data.aggression = golfer.aggression
 		data.patience = golfer.patience
@@ -204,7 +204,7 @@ static func _decide_putt(gd: GolferData, hole_position: Vector2i, terrain_grid: 
 
 	# Green reading ability scales with putting skill
 	# Pros read 70-90% of the break; beginners read 20-40%
-	var read_ability: float = 0.2 + gd.putting_skill * 0.7
+	var read_ability: float = 0.2 + gd.putting_ability * 0.7
 
 	# The ball will break in the direction of slope, so aim OPPOSITE to slope.
 	# Amount of compensation depends on distance (longer putts break more)
@@ -307,7 +307,7 @@ static func _decide_recovery_shot(
 				score -= _nearby_hazard_penalty(test_pos, terrain_grid, gd.aggression)
 
 				# Recovery skill bonus — skilled recovery players find better escape routes
-				score += gd.recovery_skill * 30.0
+				score += gd.recovery_ability * 30.0
 
 				if score > best_score:
 					best_score = score
@@ -506,7 +506,7 @@ static func _evaluate_all_candidates(
 							scan_dir, test_dist, club
 						)
 						wind_adjusted_landing = Vector2i((Vector2(test_pos) + wind_disp).round())
-						var compensation_factor: float = 0.2 + gd.accuracy_skill * 0.6
+						var compensation_factor: float = 0.2 + gd.accuracy_ability * 0.6
 						aim_point = Vector2i((Vector2(test_pos) - wind_disp * compensation_factor).round())
 
 						if not terrain_grid.is_valid_position(wind_adjusted_landing):
@@ -596,7 +596,7 @@ static func _evaluate_all_candidates(
 									scan_dir, test_dist, club
 								)
 								wind_adjusted_landing = Vector2i((Vector2(test_pos) + wind_disp).round())
-								var compensation_factor: float = 0.2 + gd.accuracy_skill * 0.6
+								var compensation_factor: float = 0.2 + gd.accuracy_ability * 0.6
 								aim_point = Vector2i((Vector2(test_pos) - wind_disp * compensation_factor).round())
 								if not terrain_grid.is_valid_position(wind_adjusted_landing):
 									wind_adjusted_landing = test_pos
@@ -686,7 +686,7 @@ static func _score_landing_zone(
 	var trees_overflown: int = _count_trees_along_path(ball_pos, landing, terrain_grid)
 	var tree_fly_penalty: float = 0.0
 	if trees_overflown > 0:
-		var risk_factor: float = 1.0 - gd.accuracy_skill * 0.3
+		var risk_factor: float = 1.0 - gd.accuracy_ability * 0.3
 		# Dense tree lines (3+ consecutive) are near-impassable
 		var density_multiplier: float = 1.0 + maxf(trees_overflown - 2, 0) * 0.5
 		tree_fly_penalty = 50.0 * trees_overflown * risk_factor * density_multiplier
@@ -877,7 +877,7 @@ static func _apply_green_center_bias(
 		return
 
 	# Pin weight: pros aim 90% at pin, beginners aim 60% at pin (40% at center)
-	var pin_weight: float = clampf(gd.accuracy_skill * 0.6 + 0.4, 0.5, 0.95)
+	var pin_weight: float = clampf(gd.accuracy_ability * 0.6 + 0.4, 0.5, 0.95)
 
 	for candidate in candidates:
 		# Only adjust approach-strategy candidates near the green
@@ -927,15 +927,15 @@ static func _assess_lie_quality(terrain_type: int) -> float:
 static func _get_skill_distance_factor(gd: GolferData, club: int) -> float:
 	match club:
 		Golfer.Club.DRIVER:
-			return 0.40 + gd.driving_skill * 0.55
+			return 0.40 + gd.driving_ability * 0.55
 		Golfer.Club.FAIRWAY_WOOD:
-			return 0.40 + gd.driving_skill * 0.50
+			return 0.40 + gd.driving_ability * 0.50
 		Golfer.Club.IRON:
-			return 0.50 + gd.accuracy_skill * 0.42
+			return 0.50 + gd.accuracy_ability * 0.42
 		Golfer.Club.WEDGE:
-			return 0.80 + gd.accuracy_skill * 0.18
+			return 0.80 + gd.accuracy_ability * 0.18
 		Golfer.Club.PUTTER:
-			return 0.92 + gd.putting_skill * 0.06
+			return 0.92 + gd.putting_ability * 0.06
 		_:
 			return 0.85
 
@@ -943,15 +943,15 @@ static func _get_skill_distance_factor(gd: GolferData, club: int) -> float:
 static func _get_shot_accuracy(gd: GolferData, club: int) -> float:
 	match club:
 		Golfer.Club.DRIVER:
-			return gd.driving_skill * 0.7 + gd.accuracy_skill * 0.3
+			return gd.driving_ability * 0.7 + gd.accuracy_ability * 0.3
 		Golfer.Club.FAIRWAY_WOOD:
-			return gd.driving_skill * 0.5 + gd.accuracy_skill * 0.5
+			return gd.driving_ability * 0.5 + gd.accuracy_ability * 0.5
 		Golfer.Club.IRON:
-			return gd.driving_skill * 0.4 + gd.accuracy_skill * 0.6
+			return gd.driving_ability * 0.4 + gd.accuracy_ability * 0.6
 		Golfer.Club.WEDGE:
-			return gd.accuracy_skill * 0.7 + gd.recovery_skill * 0.3
+			return gd.accuracy_ability * 0.7 + gd.recovery_ability * 0.3
 		Golfer.Club.PUTTER:
-			return gd.putting_skill
+			return gd.putting_ability
 		_:
 			return 0.5
 

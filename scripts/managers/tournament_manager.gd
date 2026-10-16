@@ -51,7 +51,7 @@ var _tournament_moments: Array = []  # TournamentMoment entries across all round
 
 # Live play tracking (round 1 only)
 var _tournament_golfer_ids: Array[int] = []
-var _tournament_scores: Dictionary = {}  # golfer_id -> {name, total_strokes, total_par, holes_completed, is_finished, skill}
+var _tournament_scores: Dictionary = {}  # golfer_id -> {name, total_strokes, total_par, holes_completed, is_finished, ability}
 var _groups_spawned: int = 0
 var _total_groups: int = 0
 var _spawn_timer: float = 0.0
@@ -333,11 +333,11 @@ func _make_player_sim_golfer() -> TournamentSimulator.SimulationGolfer:
 	sg.name = profile.golfer_name if profile and profile.golfer_name != "" else "You"
 	sg.tier = GolferTier.Tier.SERIOUS
 	if profile:
-		# Same skill mapping the owner's own rounds use.
-		sg.driving_skill = profile.normalized_skill(1)
-		sg.accuracy_skill = profile.normalized_skill(3)
-		sg.putting_skill = profile.normalized_skill(4)
-		sg.recovery_skill = profile.normalized_skill(8)
+		# Same ability mapping the owner's own rounds use.
+		sg.driving_ability = profile.driving_ability()
+		sg.accuracy_ability = profile.accuracy_ability()
+		sg.putting_ability = profile.putting_ability()
+		sg.recovery_ability = profile.recovery_ability()
 	sg.miss_tendency = 0.0
 	sg.aggression = 0.5
 	sg.patience = 0.5
@@ -347,7 +347,7 @@ func _make_player_sim_golfer() -> TournamentSimulator.SimulationGolfer:
 func is_player_entry(sim_id: int) -> bool:
 	return sim_id == PLAYER_SIM_ID
 
-## Synchronize the owner's sim golfer skills and active tournament score entry
+## Synchronize the owner's sim golfer abilities and active tournament score entry
 ## with GameManager.player_profile.
 func sync_player_skills() -> void:
 	var profile: PlayerGolferProfile = GameManager.player_profile
@@ -355,14 +355,14 @@ func sync_player_skills() -> void:
 		return
 	var sg = _find_sim_golfer(PLAYER_SIM_ID)
 	if sg:
-		sg.driving_skill = profile.normalized_skill(1)
-		sg.accuracy_skill = profile.normalized_skill(3)
-		sg.putting_skill = profile.normalized_skill(4)
-		sg.recovery_skill = profile.normalized_skill(8)
-		var avg_skill = (sg.driving_skill + sg.accuracy_skill + sg.putting_skill + sg.recovery_skill) / 4.0
+		sg.driving_ability = profile.driving_ability()
+		sg.accuracy_ability = profile.accuracy_ability()
+		sg.putting_ability = profile.putting_ability()
+		sg.recovery_ability = profile.recovery_ability()
+		var avg_ability = (sg.driving_ability + sg.accuracy_ability + sg.putting_ability + sg.recovery_ability) / 4.0
 		for golfer_id in _tournament_scores:
 			if _tournament_scores[golfer_id].get("sim_id") == PLAYER_SIM_ID:
-				_tournament_scores[golfer_id]["skill"] = avg_skill
+				_tournament_scores[golfer_id]["ability"] = avg_ability
 
 # ============================================================================
 # ROUND EXECUTION
@@ -479,11 +479,9 @@ func _spawn_next_group() -> void:
 		var golfer = _golfer_manager.spawn_tournament_golfer(tier, group_id)
 		if golfer:
 			_golfer_manager.seat_golfer_at_hole(golfer, tee_hole)
-			# Apply the simulated golfer's skills to the live golfer
-			golfer.driving_skill = sg.driving_skill
-			golfer.accuracy_skill = sg.accuracy_skill
-			golfer.putting_skill = sg.putting_skill
-			golfer.recovery_skill = sg.recovery_skill
+			# Apply the simulated golfer's playing abilities to the live
+			# golfer as Golf Skill points (the points are the skills)
+			golfer.attributes.apply_abilities(sg.driving_ability, sg.accuracy_ability, sg.putting_ability, sg.recovery_ability)
 			golfer.miss_tendency = sg.miss_tendency
 			golfer.aggression = sg.aggression
 			golfer.patience = sg.patience
@@ -504,7 +502,7 @@ func _spawn_next_group() -> void:
 					golfer.player_profile = GameManager.player_profile
 					_aim_controller.begin_tournament_aim(golfer)
 			_tournament_golfer_ids.append(golfer.golfer_id)
-			var avg_skill = (sg.driving_skill + sg.accuracy_skill + sg.putting_skill + sg.recovery_skill) / 4.0
+			var avg_ability = (sg.driving_ability + sg.accuracy_ability + sg.putting_ability + sg.recovery_ability) / 4.0
 			_tournament_scores[golfer.golfer_id] = {
 				"name": sg.name,
 				"sim_id": sg.id,
@@ -512,7 +510,7 @@ func _spawn_next_group() -> void:
 				"total_par": 0,
 				"holes_completed": 0,
 				"is_finished": false,
-				"skill": avg_skill,
+				"ability": avg_ability,
 				# Index of the hole they are on, plus the holes they have already
 				# carded, so any remaining holes can be filled exactly once.
 				"current_hole": tee_hole,
@@ -617,10 +615,11 @@ func _finish_live_round() -> void:
 			sg = TournamentSimulator.SimulationGolfer.new()
 			sg.id = sim_id
 			sg.name = entry.name
-			sg.driving_skill = entry.skill
-			sg.accuracy_skill = entry.skill
-			sg.putting_skill = entry.skill
-			sg.recovery_skill = entry.skill
+			var entry_ability: float = entry.get("ability", entry.get("skill", 0.7))
+			sg.driving_ability = entry_ability
+			sg.accuracy_ability = entry_ability
+			sg.putting_ability = entry_ability
+			sg.recovery_ability = entry_ability
 
 		var holes_left: int = maxi(circuit_holes - (entry.holes_played as Dictionary).size(), 0)
 		var result = TournamentSimulator.simulate_remaining(sg,

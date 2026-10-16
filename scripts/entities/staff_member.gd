@@ -127,11 +127,11 @@ func _choose_task() -> void:
 		StaffManager.Job.GROUNDSKEEPER:
 			found = _seek_weed()
 		StaffManager.Job.GREETER:
-			found = _seek_golfer(func(g): return 1.0 - g.current_mood + (0.0 if g.needs.thirst > 0.5 else 0.15))
+			found = _seek_golfer(func(g): return 1.0 - g.attitude + (0.0 if g.needs.thirst > 0.5 else 0.15))
 		StaffManager.Job.MARSHAL:
 			found = _seek_golfer(func(g): return g.needs.pace + (0.5 if g.traffic_blocked else 0.0))
 		StaffManager.Job.DRINKS_VENDOR:
-			found = _seek_golfer(func(g): return g.needs.thirst + (0.1 if g.current_mood < 0.5 else 0.0))
+			found = _seek_golfer(func(g): return g.needs.thirst + (0.1 if g.attitude < 0.5 else 0.0))
 	if not found:
 		_wander()
 

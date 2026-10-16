@@ -81,13 +81,13 @@ const STAFF_DATA = {
 		"name": "Club Pro", "job": Job.GREETER, "tier": Tier.STANDARD,
 		"base_salary": 60, "area_radius": 7.0, "move_speed": 48.0,
 		"work_speed": 1.0, "work_seconds": 2.0, "effect": 0.06,
-		"description": "Chats with golfers in a modest area to lift their mood.",
+		"description": "Chats with golfers in a modest area to lift their attitude.",
 	},
 	StaffType.CELEBRITY: {
 		"name": "Celebrity", "job": Job.GREETER, "tier": Tier.PREMIUM,
 		"base_salary": 130, "area_radius": 12.0, "move_speed": 72.0,
 		"work_speed": 1.8, "work_seconds": 2.0, "effect": 0.1,
-		"description": "A name golfers love to meet — a wider area and much bigger mood boost.",
+		"description": "A name golfers love to meet — a wider area and much bigger attitude boost.",
 	},
 	StaffType.RANGER: {
 		"name": "Ranger", "job": Job.MARSHAL, "tier": Tier.STANDARD,

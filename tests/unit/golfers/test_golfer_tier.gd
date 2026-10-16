@@ -12,24 +12,6 @@ func test_tier_data_has_all_tiers() -> void:
 	assert_true(GolferTier.TIER_DATA.has(GolferTier.Tier.SERIOUS))
 	assert_true(GolferTier.TIER_DATA.has(GolferTier.Tier.PRO))
 
-func test_tier_skill_ranges_ordered() -> void:
-	var beginner = GolferTier.TIER_DATA[GolferTier.Tier.BEGINNER].skill_range
-	var casual = GolferTier.TIER_DATA[GolferTier.Tier.CASUAL].skill_range
-	var serious = GolferTier.TIER_DATA[GolferTier.Tier.SERIOUS].skill_range
-	var pro = GolferTier.TIER_DATA[GolferTier.Tier.PRO].skill_range
-
-	assert_lt(beginner[0], casual[0], "Beginner min < Casual min")
-	assert_lt(casual[0], serious[0], "Casual min < Serious min")
-	assert_lt(serious[0], pro[0], "Serious min < Pro min")
-
-func test_tier_skill_ranges_valid() -> void:
-	for tier in GolferTier.TIER_DATA.keys():
-		var data = GolferTier.TIER_DATA[tier]
-		assert_lt(data.skill_range[0], data.skill_range[1],
-			"Skill range min should be less than max for tier %d" % tier)
-		assert_gte(data.skill_range[0], 0.0, "Min skill should be >= 0")
-		assert_lte(data.skill_range[1], 1.0, "Max skill should be <= 1")
-
 func test_tier_reputation_gains_increase() -> void:
 	var bg = GolferTier.TIER_DATA[GolferTier.Tier.BEGINNER].reputation_gain
 	var ca = GolferTier.TIER_DATA[GolferTier.Tier.CASUAL].reputation_gain
@@ -154,33 +136,16 @@ func test_select_tier_returns_valid_tier() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Skill Generation
+# Miss Tendency Generation (skills themselves come from Golf Skill points -
+# see test_golfer_attributes for the per-tier point ranges)
 # ---------------------------------------------------------------------------
 
-func test_generate_skills_within_range() -> void:
-	for tier in GolferTier.TIER_DATA.keys():
-		var data = GolferTier.TIER_DATA[tier]
-		var skills = GolferTier.generate_skills(tier)
-
-		assert_true(skills.has("driving"), "Should have driving skill")
-		assert_true(skills.has("accuracy"), "Should have accuracy skill")
-		assert_true(skills.has("putting"), "Should have putting skill")
-		assert_true(skills.has("recovery"), "Should have recovery skill")
-		assert_true(skills.has("miss_tendency"), "Should have miss_tendency")
-
-		for skill_name in ["driving", "accuracy", "putting", "recovery"]:
-			assert_gte(skills[skill_name], data.skill_range[0],
-				"%s skill for tier %d should be >= min" % [skill_name, tier])
-			assert_lte(skills[skill_name], data.skill_range[1],
-				"%s skill for tier %d should be <= max" % [skill_name, tier])
-
-func test_generate_skills_miss_tendency_within_range() -> void:
+func test_generate_miss_tendency_within_range() -> void:
 	for tier in GolferTier.TIER_DATA.keys():
 		var data = GolferTier.TIER_DATA[tier]
 		var tendency_range = data.tendency_range
 		for _i in range(10):
-			var skills = GolferTier.generate_skills(tier)
-			var tendency = skills.miss_tendency
+			var tendency = GolferTier.generate_miss_tendency(tier)
 			# Magnitude should be within tendency_range, sign can be positive or negative
 			assert_gte(absf(tendency), tendency_range[0],
 				"miss_tendency magnitude for tier %d should be >= min" % tier)

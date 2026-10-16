@@ -1,6 +1,6 @@
 # Staff & Weeds
 
-> Hired staff walk the course inside a designated area and do their job: groundskeepers pull weeds, greeters lift moods, marshals keep pace and vendors serve drinks. Weeds left on the course lower its condition.
+> Hired staff walk the course inside a designated area and do their job: groundskeepers pull weeds, greeters lift attitudes, marshals keep pace and vendors serve drinks. Weeds left on the course lower its condition.
 
 **Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
 **Tests:** `tests/unit/test_staff_manager.gd`, `tests/unit/test_weed_manager.gd`, `tests/unit/test_staff_panel.gd`, `tests/unit/test_staff_service.gd`, `tests/unit/test_staff_area_overlay.gd`, `tests/integration/staff_on_course.gd`
@@ -14,7 +14,7 @@ Hiring an employee puts them on the course. They walk around their **designated 
 | Job | Standard | Premium | What they do |
 | --- | --- | --- | --- |
 | Groundskeeper | Groundskeeper | Technician | Pull weeds that sprout on the turf |
-| Greeter | Club Pro | Celebrity | Chat with golfers to lift their mood |
+| Greeter | Club Pro | Celebrity | Chat with golfers to lift their attitude |
 | Marshal | Ranger | Marshall | Talk to groups to keep the pace moving |
 | Drinks vendor | Soda Vendor | Cart Refresher | Serve thirsty golfers a drink |
 
@@ -38,8 +38,8 @@ Each of the eight staff types is one entry in `StaffManager.STAFF_DATA`.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Groundskeeper | Groundskeeper | Standard | $80 | 6 | 46 | 1.0× | Pulls weeds |
 | Technician | Groundskeeper | Premium | $155 | 11 | 70 | 1.9× | Pulls weeds |
-| Club Pro | Greeter | Standard | $60 | 7 | 48 | 1.0× | +0.06 mood |
-| Celebrity | Greeter | Premium | $130 | 12 | 72 | 1.8× | +0.10 mood |
+| Club Pro | Greeter | Standard | $60 | 7 | 48 | 1.0× | +0.06 attitude |
+| Celebrity | Greeter | Premium | $130 | 12 | 72 | 1.8× | +0.10 attitude |
 | Ranger | Marshal | Standard | $50 | 8 | 50 | 1.0× | +0.28 pace |
 | Marshall | Marshal | Premium | $110 | 13 | 74 | 1.8× | +0.45 pace |
 | Soda Vendor | Drinks vendor | Standard | $40 | 6 | 52 | 1.0× | +0.35 thirst |
@@ -61,7 +61,7 @@ WORKING   countdown of work_seconds / work_speed; then apply the effect
 **Choosing a target** (`_choose_task()`):
 
 - **Groundskeeper:** the nearest weed inside the area (`WeedManager.find_closest_weed()`).
-- **Greeter:** the golfer in the area with the lowest mood.
+- **Greeter:** the golfer in the area with the lowest attitude.
 - **Marshal:** the golfer in the area with the lowest pace. Groups blocked by traffic get a bonus.
 - **Drinks vendor:** the golfer in the area with the lowest thirst.
 - **Nothing to do:** a random point inside the area, so the employee wanders.
@@ -75,12 +75,12 @@ A service only takes effect if the golfer is still within `SERVICE_RANGE_TILES` 
 Each golfer can receive a service at most once every **20 seconds** (`STAFF_HELP_COOLDOWN_SECONDS`), so one employee cannot stand next to a golfer and spam effects.
 
 ```
-receive_greeting(amount)   → mood += amount                    + "cheered up" thought
+receive_greeting(amount)   → attitude += amount                    + "cheered up" thought
 receive_pace_help(amount)  → needs.restore_pace(amount)        + "paced up" thought
 receive_drink(amount)      → needs.restore_thirst(amount)      + "refreshed" thought
 ```
 
-`restore_thirst()` and `restore_pace()` add a small mood bonus (0.04 and 0.03) only when the need actually improved. A fully quenched golfer gains nothing extra.
+`restore_thirst()` and `restore_pace()` add a small attitude bonus (0.04 and 0.03) only when the need actually improved. A fully quenched golfer gains nothing extra.
 
 ### 4. Weed growth
 

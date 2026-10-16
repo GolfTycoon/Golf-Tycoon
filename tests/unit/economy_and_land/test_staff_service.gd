@@ -6,16 +6,16 @@ func _make_golfer() -> Golfer:
 	var golfer := Golfer.new()
 	golfer.golfer_id = 900 + randi() % 100
 	golfer.golfer_name = "Guest"
-	golfer.current_mood = 0.5
+	golfer.attitude = 0.5
 	golfer.attributes = GolferAttributes.new()
 	golfer.needs.setup(GolferTier.Tier.CASUAL, 0.5)
 	return golfer
 
 func test_greeter_cheers_a_golfer_up() -> void:
 	var golfer: Golfer = autofree(_make_golfer())
-	var before: float = golfer.current_mood
+	var before: float = golfer.attitude
 	golfer.receive_greeting(0.08)
-	assert_gt(golfer.current_mood, before, "A greeting should lift the golfer's mood")
+	assert_gt(golfer.attitude, before, "A greeting should lift the golfer's attitude")
 
 func test_greeter_service_sets_a_cooldown() -> void:
 	var golfer: Golfer = autofree(_make_golfer())
@@ -32,10 +32,10 @@ func test_marshal_restores_pace() -> void:
 func test_vendor_quenches_thirst() -> void:
 	var golfer: Golfer = autofree(_make_golfer())
 	golfer.needs.thirst = 0.2
-	var before: float = golfer.current_mood
+	var before: float = golfer.attitude
 	golfer.receive_drink(0.5)
 	assert_gt(golfer.needs.thirst, 0.2, "A drinks vendor should quench thirst")
-	assert_gt(golfer.current_mood, before, "and leave the golfer happier")
+	assert_gt(golfer.attitude, before, "and leave the golfer happier")
 
 func test_cooldown_blocks_a_second_service() -> void:
 	var golfer: Golfer = autofree(_make_golfer())

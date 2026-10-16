@@ -2,7 +2,7 @@
 
 > Golfers react to their round in thought bubbles, and a daily satisfaction rating summarises how their visits went. Strong and weak experiences are both recorded.
 
-**Source:** `scripts/autoload/feedback_manager.gd` (daily satisfaction, end-of-day summary), `scripts/entities/golfer.gd` (feedback triggers, mood)
+**Source:** `scripts/autoload/feedback_manager.gd` (daily satisfaction, end-of-day summary), `scripts/entities/golfer.gd` (feedback triggers, attitude)
 
 ---
 
@@ -185,7 +185,7 @@ Completed-visit satisfaction is a separate measure from the fraction of positive
 
 ```
 value = clamp(fair_round_price / max(paid_fee, 1), 0, 1)
-visit_score = .50 * needs_satisfaction + .25 * mood + .25 * value
+visit_score = .50 * needs_satisfaction + .25 * attitude + .25 * value
 return_intent = clamp(.90 * visit_score + .10 * value, .05, .95)
 ```
 
@@ -197,8 +197,8 @@ Daily reviews, service visits/income, incidents, return counts and customer prof
 
 ## Related
 
-- [Golfer Needs and Statuses](golfer-needs.md) supplies the statuses that shape mood (the Attitude status).
+- [Golfer Needs and Statuses](golfer-needs.md) supplies the statuses that shape the visit - Attitude above all.
 - [Golfer Attributes](golfer-attributes.md) is the full golfer record, comments included.
 - [Golfer Spawning](golfer-spawning.md) covers who visits.
-- [Reputation](../ratings-and-reputation/reputation.md) uses mood to move reputation.
+- [Reputation](../ratings-and-reputation/reputation.md) uses attitude to move reputation.
 - [Course Rating](../ratings-and-reputation/course-rating.md) covers the value rating that prices feed into.

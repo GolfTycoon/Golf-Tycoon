@@ -62,9 +62,22 @@ Random golfers roll identity when they spawn (visiting golfers keep the name of 
 
 ### Traits and skills generation
 
-Each Golfer Trait is an independent coin flip (On or Off). Each Golfer Skill is On with tier-weighted odds (beginners 20-30%, pros 65-75%). The ten Golf Skills are rolled as points from a tier range - Beginner 0-3, Casual 1-6, Serious 3-10, Pro 6-16 per skill - with bonus points where the matching Golfer Skill is On. Draw, Fade and High Backspin points are halved without Imagination (such a golfer cannot use the shots anyway).
+Each Golfer Trait is an independent coin flip (On or Off). Each Golfer Skill is On with tier-weighted odds (beginners 20-30%, pros 65-75%). The ten Golf Skills are rolled as points from a tier range - Beginner 0-5, Casual 3-10, Serious 8-18, Pro 14-30 per skill - with bonus points where the matching Golfer Skill is On. Draw, Fade and High Backspin points are halved without Imagination (such a golfer cannot use the shots anyway).
 
 The owner's ten Golf Skills are the points they allocate on the Player Skills screen (a pool of 10 at creation, each point +10%); both are the same `Golf Skill` values.
+
+### Playing abilities (derived, not stored)
+
+There is no separate set of Playing Skills. Each golfer's playable form is derived on demand from their Golf Skill points through the curve `ability(bonus) = 1 - 0.5 / (1 + bonus)` (0.5 at zero points, approaching 1.0):
+
+| Ability | Derived from |
+| --- | --- |
+| Driving | the average of Power Hitter and Long Driver |
+| Accuracy | the average of Accurate Driver and Accurate Irons |
+| Putting | Accurate Putter |
+| Recovery | Recovery Skills |
+
+The same derivation applies to every golfer, the owner included (the owner's points live on the player profile). Tournament simulations carry the four derived abilities directly, and hand them to live golfers as the equivalent Golf Skill points.
 
 ### How the Golf Skills change shots
 
@@ -73,12 +86,12 @@ Every formula reads the skill as `bonus = points * 0.1` (so 12 points = +120%):
 | Effect | Formula |
 | --- | --- |
 | Drive distance | `factor * (1 + min(0.30, 0.05 * Power Hitter))`, and drivers add `1 + min(0.25, 0.06 * Long Driver)`, then `* 1.1` when Length is On |
-| Club accuracy | `1 - (1 - accuracy) / (1 + bonus)` of the club's Accurate skill (Driver/Fairway Wood → Accurate Driver, Iron/Wedge → Accurate Irons, Putter → Accurate Putter) |
-| Shaped shot accuracy | Same curve on the shape's skill (Draw/Fade/Backspin) when the shape is played |
+| Club accuracy | `1 - 0.5 / (1 + bonus)` of the club's Accurate skill - Driver/Fairway Wood → Accurate Driver, Iron/Wedge → Accurate Irons, Putter → Accurate Putter (the derived ability above) |
+| Shaped shot accuracy | `1 - (1 - accuracy) / (1 + bonus)` on the shape's skill (Draw/Fade/Backspin) when the shape is played |
 | Draw / fade bend | `8° * (0.4 + min(1.2, 0.12 * bonus))` of the matching skill - requires Imagination |
 | High backspin roll-back | `min(1.5, 0.25 * (1 + High Backspin bonus))` tiles back from the landing point on greens and fairways |
 | Bad-lie recovery | `1 - (1 - lie) / (1 + Recovery Skills bonus)` |
-| Putting | Accurate Putter and Luck sharpen make-rate and miss size |
+| Putting | the Accurate Putter ability sharpens make-rate and miss size, and Luck rounds the stroke out |
 | Luck | Smooths every shot's accuracy and halves the worst shank odds at high bonus |
 
 The Accuracy golfer skill divides the whole shot dispersion by 1.35 when On. AI golfers with Imagination pick their shape while aiming: a hazard to the left of the line invites a Fade, to the right a Draw, and a pin within 3.5 tiles invites a High Backspin Shot - each only where the matching Golf Skill has points.
@@ -104,6 +117,13 @@ Every thought a golfer produces while playing is a comment: score reactions (Hol
 ```
 bonus(index)   = points[index] * 0.1        # 0.0 - 9.9 (up to +990%)
 percent(index) = points[index] * 10         # 0% - 990% as the player sees it
+
+# Playing abilities are derived from the points - never stored:
+ability(bonus)     = 1 - 0.5 / (1 + bonus)  # 0.5 at zero points, → 1.0
+driving            = ability(avg(Power Hitter, Long Driver))
+accuracy           = ability(avg(Accurate Driver, Accurate Irons))
+putting            = ability(Accurate Putter)
+recovery           = ability(Recovery Skills)
 ```
 
 ### 2. Status decay per hole (casual; tier 0.8-1.3 multiplier)

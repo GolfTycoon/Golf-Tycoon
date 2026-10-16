@@ -233,11 +233,11 @@ func record_visit(golfer) -> void:
 	var holes: int = maxi(golfer._round_total_holes, 1)
 	var fair := CourseEconomy.fair_round_price(GameManager.reputation,holes,GameManager.current_day,GameManager.current_theme)
 	var value := clampf(fair / maxf(golfer.paid_round_fee,1),0.0,1.0)
-	var score := clampf(golfer.needs.get_overall_satisfaction()*.5 + golfer.current_mood*.25 + value*.25,0.0,1.0)
+	var score := clampf(golfer.needs.get_overall_satisfaction()*.5 + golfer.attitude*.25 + value*.25,0.0,1.0)
 	var intent := clampf(score * .9 + value * .1, .05, .95)
 	var review := {"key":key,"name":golfer.golfer_name,"score":score,"return_intent":intent,"wait_seconds":golfer.traffic_wait_seconds,"services":golfer.amenities_used,"needs":golfer.needs.to_dict(),"fee":golfer.paid_round_fee}
 	visits.append(review)
-	var profile := {"key":key,"name":golfer.golfer_name,"tier":golfer.golfer_tier,"last_day":GameManager.current_day,"intent":intent,"driving_skill":golfer.driving_skill,"accuracy_skill":golfer.accuracy_skill,"putting_skill":golfer.putting_skill,"recovery_skill":golfer.recovery_skill,"patience":golfer.patience,"aggression":golfer.aggression,"miss_tendency":golfer.miss_tendency,"attributes":golfer.attributes.serialize()}
+	var profile := {"key":key,"name":golfer.golfer_name,"tier":golfer.golfer_tier,"last_day":GameManager.current_day,"intent":intent,"patience":golfer.patience,"aggression":golfer.aggression,"miss_tendency":golfer.miss_tendency,"attributes":golfer.attributes.serialize()}
 	for i in range(customers.size()-1,-1,-1):
 		if customers[i].key == key: customers.remove_at(i)
 	customers.append(profile)

@@ -861,8 +861,8 @@ func test_golfers_tab_lists_are_shelves_of_columns_and_populate() -> void:
 	# Test data provider
 	toolbar.golfer_data_provider = func() -> Array:
 		return [
-			{"id": 1, "name": "Golfer Alice", "tier": 1, "hole": 2, "strokes": 3, "mood": 0.8},
-			{"id": 2, "name": "Golfer Bob", "tier": 2, "hole": 5, "strokes": 4, "mood": 0.5},
+			{"id": 1, "name": "Golfer Alice", "tier": 1, "hole": 2, "strokes": 3, "attitude": 0.8},
+			{"id": 2, "name": "Golfer Bob", "tier": 2, "hole": 5, "strokes": 4, "attitude": 0.5},
 		]
 
 	toolbar.record_completed_round({
@@ -888,7 +888,7 @@ func _provide_golfers(count: int) -> void:
 		var rows: Array = []
 		for number in count:
 			rows.append({"id": number + 1, "name": "Golfer%d" % (number + 1), "tier": 1,
-				"hole": number + 1, "strokes": number, "mood": 0.5})
+				"hole": number + 1, "strokes": number, "attitude": 0.5})
 		return rows
 
 ## The golfers in one column, top to bottom, named by their button text.

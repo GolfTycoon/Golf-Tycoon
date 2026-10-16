@@ -666,7 +666,7 @@ func _collect_golfer_rows() -> Array:
 			"tier": golfer.golfer_tier,
 			"hole": golfer.current_hole + 1,
 			"strokes": golfer.total_strokes + golfer.current_strokes,
-			"mood": golfer.current_mood,
+			"attitude": golfer.attitude,
 		})
 	return rows
 
@@ -3706,7 +3706,7 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 		"name": golfer.golfer_name,
 		"total_strokes": total_strokes,
 		"total_par": golfer.total_par,
-		"mood": golfer.current_mood,
+		"attitude": golfer.attitude,
 		"tier": golfer.golfer_tier,
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),

@@ -15,7 +15,6 @@ enum Tier {
 const TIER_DATA: Dictionary = {
 	Tier.BEGINNER: {
 		"name": "Beginner",
-		"skill_range": [0.3, 0.5],
 		"tendency_range": [0.4, 0.8],    # Strong slice/hook bias
 		"spending_modifier": 0.7,        # Prefers budget courses
 		"expectation_tolerance": 0.3,    # Very forgiving
@@ -26,7 +25,6 @@ const TIER_DATA: Dictionary = {
 	},
 	Tier.CASUAL: {
 		"name": "Casual",
-		"skill_range": [0.5, 0.7],
 		"tendency_range": [0.2, 0.5],    # Moderate miss bias
 		"spending_modifier": 1.0,
 		"expectation_tolerance": 0.2,
@@ -37,7 +35,6 @@ const TIER_DATA: Dictionary = {
 	},
 	Tier.SERIOUS: {
 		"name": "Serious",
-		"skill_range": [0.7, 0.85],
 		"tendency_range": [0.1, 0.3],    # Mild miss bias
 		"spending_modifier": 1.5,        # Willing to pay more
 		"expectation_tolerance": 0.1,    # Less forgiving
@@ -48,7 +45,6 @@ const TIER_DATA: Dictionary = {
 	},
 	Tier.PRO: {
 		"name": "Pro",
-		"skill_range": [0.85, 0.98],
 		"tendency_range": [0.0, 0.15],   # Nearly neutral shot shape
 		"spending_modifier": 2.0,        # Expects premium
 		"expectation_tolerance": 0.05,   # Very demanding
@@ -146,25 +142,16 @@ static func _weighted_random_tier(weights: Dictionary) -> Tier:
 
 	return Tier.CASUAL  # Fallback
 
-## Generate skill values for a tier
-static func generate_skills(tier: Tier) -> Dictionary:
+## Generate the miss tendency (hook/slice bias) for a tier.
+## Skills themselves come from the golfer's Golf Skill points (see
+## GolferAttributes.generate_for_tier); only the tendency is tier-rolled here.
+static func generate_miss_tendency(tier: Tier) -> float:
 	var data = TIER_DATA[tier]
-	var range_low: float = data.skill_range[0]
-	var range_high: float = data.skill_range[1]
-
-	# Generate miss tendency (hook/slice bias)
 	# Magnitude comes from tier, sign is random (hook vs slice)
 	var tendency_range = data.tendency_range
 	var tendency_magnitude = randf_range(tendency_range[0], tendency_range[1])
 	var tendency_sign = 1.0 if randf() > 0.5 else -1.0
-
-	return {
-		"driving": randf_range(range_low, range_high),
-		"accuracy": randf_range(range_low, range_high),
-		"putting": randf_range(range_low, range_high),
-		"recovery": randf_range(range_low, range_high),
-		"miss_tendency": tendency_magnitude * tendency_sign,
-	}
+	return tendency_magnitude * tendency_sign
 
 ## Get tier name
 static func get_tier_name(tier: Tier) -> String:

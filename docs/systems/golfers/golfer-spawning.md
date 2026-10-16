@@ -173,17 +173,11 @@ for each tier:
 
 ### 7. Skill Generation (Per Golfer)
 
-Every spawned golfer rolls a full [attribute block](golfer-attributes.md): identity (gendered name, profession, marital status, age), the five Golfer Traits (On/Off), the three Golfer Skills (On/Off) and the ten Golf Skills as points (0-99, each point +10%, up to 990%). The tier's four playing skills are then blended with the matching Golf Skill points so both views agree:
+Every spawned golfer rolls a full [attribute block](golfer-attributes.md): identity (gendered name, profession, marital status, age), the five Golfer Traits (On/Off), the three Golfer Skills (On/Off) and the ten Golf Skills as points (0-99, each point +10%, up to 990%). The points are the skills - there is no separate set of playing skills to roll or blend. When the game needs a playable form (shot accuracy, distance, putting), it derives the four abilities from the points on demand - see [Playing abilities](golfer-attributes.md#playing-abilities-derived-not-stored).
+
+The only playing parameter rolled at spawn is the miss tendency:
 
 ```
-skills = {
-    driving:  0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Power Hitter, Long Driver),
-    accuracy: 0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Accurate Driver, Accurate Irons),
-    putting:  0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Accurate Putter),
-    recovery: 0.5 * randf_range(skill_low, skill_high) + 0.5 * norm(Recovery Skills),
-}
-# norm(x) = 1 - 0.5 / (1 + points[x] * 0.1), clamped to 0.05-0.99
-
 # Miss tendency
 tendency_magnitude = randf_range(tendency_low, tendency_high)
 tendency_sign = +1 or -1 (50/50)

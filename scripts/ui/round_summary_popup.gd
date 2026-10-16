@@ -12,7 +12,7 @@ var _queue: Array = []
 var _panel: PanelContainer = null
 var _name_label: Label = null
 var _score_label: Label = null
-var _mood_label: Label = null
+var _attitude_label: Label = null
 var _fee_label: Label = null
 var _dismiss_timer: SceneTreeTimer = null
 var _is_showing: bool = false
@@ -62,9 +62,9 @@ func _build_panel() -> void:
 	_score_label.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(_score_label)
 
-	_mood_label = Label.new()
-	_mood_label.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(_mood_label)
+	_attitude_label = Label.new()
+	_attitude_label.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(_attitude_label)
 
 	_fee_label = Label.new()
 	_fee_label.add_theme_font_size_override("font_size", 11)
@@ -109,9 +109,9 @@ func _show_next() -> void:
 	_score_label.text = score_text
 	_score_label.add_theme_color_override("font_color", _get_score_color(diff))
 
-	var mood = data.get("mood", 0.5)
-	_mood_label.text = "Satisfaction: %s" % _get_mood_text(mood)
-	_mood_label.add_theme_color_override("font_color", _get_mood_color(mood))
+	var attitude_val = data.get("attitude", data.get("mood", 0.5))
+	_attitude_label.text = "Satisfaction: %s" % _get_attitude_text(attitude_val)
+	_attitude_label.add_theme_color_override("font_color", _get_attitude_color(attitude_val))
 
 	var holes = data.get("holes_played", 0)
 	var total_holes = data.get("total_holes", holes)
@@ -158,14 +158,14 @@ func _on_panel_input(event: InputEvent) -> void:
 func _get_score_color(diff: int) -> Color:
 	return UIConstants.get_score_color(diff)
 
-func _get_mood_text(mood: float) -> String:
-	if mood >= 0.8: return "Very Happy"
-	if mood >= 0.6: return "Satisfied"
-	if mood >= 0.4: return "Neutral"
-	if mood >= 0.2: return "Dissatisfied"
+func _get_attitude_text(attitude_val: float) -> String:
+	if attitude_val >= 0.8: return "Very Happy"
+	if attitude_val >= 0.6: return "Satisfied"
+	if attitude_val >= 0.4: return "Neutral"
+	if attitude_val >= 0.2: return "Dissatisfied"
 	return "Frustrated"
 
-func _get_mood_color(mood: float) -> Color:
-	if mood >= 0.6: return UIConstants.COLOR_MOOD_HAPPY
-	if mood >= 0.4: return UIConstants.COLOR_MOOD_NEUTRAL
-	return UIConstants.COLOR_MOOD_UNHAPPY
+func _get_attitude_color(attitude_val: float) -> Color:
+	if attitude_val >= 0.6: return UIConstants.COLOR_ATTITUDE_HAPPY
+	if attitude_val >= 0.4: return UIConstants.COLOR_ATTITUDE_NEUTRAL
+	return UIConstants.COLOR_ATTITUDE_UNHAPPY

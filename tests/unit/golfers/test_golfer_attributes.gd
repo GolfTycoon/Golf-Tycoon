@@ -361,12 +361,12 @@ func test_overall_satisfaction_reflects_statuses() -> void:
 
 func test_mood_penalty_fires_once_per_critical_episode() -> void:
 	var a = _make({"energy": 0.1})
-	var first = a.get_mood_penalty()
+	var first = a.get_attitude_penalty()
 	assert_lt(first, 0.0, "Critical statuses cost attitude")
-	assert_eq(a.get_mood_penalty(), 0.0, "The penalty does not stack")
+	assert_eq(a.get_attitude_penalty(), 0.0, "The penalty does not stack")
 	a.apply_building_effect("bench")
 	a.energy = 0.1
-	assert_lt(a.get_mood_penalty(), 0.0, "It fires again after recovery")
+	assert_lt(a.get_attitude_penalty(), 0.0, "It fires again after recovery")
 
 func test_need_triggers_fire_once_per_episode() -> void:
 	var a = _make({"energy": 0.2, "thirst": 0.2})

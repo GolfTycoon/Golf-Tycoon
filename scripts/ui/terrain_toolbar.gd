@@ -1563,18 +1563,18 @@ func _make_golfer_row(row_data: Dictionary) -> Control:
 	row.add_theme_constant_override("separation", 3)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var mood: float = row_data.get("mood", 0.5)
-	var mood_dot = Label.new()
-	mood_dot.text = "●"
-	mood_dot.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	if mood >= 0.66:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_HAPPY)
-	elif mood >= 0.33:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_NEUTRAL)
+	var attitude_val: float = row_data.get("attitude", row_data.get("mood", 0.5))
+	var attitude_dot = Label.new()
+	attitude_dot.text = "●"
+	attitude_dot.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	if attitude_val >= 0.66:
+		attitude_dot.add_theme_color_override("font_color", UIConstants.COLOR_ATTITUDE_HAPPY)
+	elif attitude_val >= 0.33:
+		attitude_dot.add_theme_color_override("font_color", UIConstants.COLOR_ATTITUDE_NEUTRAL)
 	else:
-		mood_dot.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_UNHAPPY)
-	mood_dot.tooltip_text = "Mood: %d%%" % int(mood * 100)
-	row.add_child(mood_dot)
+		attitude_dot.add_theme_color_override("font_color", UIConstants.COLOR_ATTITUDE_UNHAPPY)
+	attitude_dot.tooltip_text = "Attitude: %d%%" % int(attitude_val * 100)
+	row.add_child(attitude_dot)
 
 	var golfer_btn = Button.new()
 	golfer_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER

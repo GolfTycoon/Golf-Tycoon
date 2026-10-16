@@ -170,19 +170,6 @@ func _update_display() -> void:
 	experience.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	experience.add_theme_font_size_override("font_size",12)
 	_content_vbox.add_child(experience)
-	# Skills section
-	var skills_label := Label.new()
-	skills_label.text = "Playing Skills"
-	skills_label.add_theme_font_size_override("font_size", 13)
-	_content_vbox.add_child(skills_label)
-
-	_content_vbox.add_child(_create_skill_bar("Driving", _golfer.driving_skill))
-	_content_vbox.add_child(_create_skill_bar("Accuracy", _golfer.accuracy_skill))
-	_content_vbox.add_child(_create_skill_bar("Putting", _golfer.putting_skill))
-	_content_vbox.add_child(_create_skill_bar("Recovery", _golfer.recovery_skill))
-
-	_content_vbox.add_child(HSeparator.new())
-
 	# Current round summary
 	var score_vs_par = _golfer.total_strokes - _golfer.total_par
 	var score_text = "%d (%s%d)" % [_golfer.total_strokes, "+" if score_vs_par > 0 else "", score_vs_par] if _golfer.total_par > 0 else "Not started"
@@ -191,7 +178,6 @@ func _update_display() -> void:
 
 	_content_vbox.add_child(_create_stat_row("Score", score_text, _get_score_color(score_vs_par)))
 	_content_vbox.add_child(_create_stat_row("Hole", "%d" % (_golfer.current_hole + 1), UIConstants.COLOR_TEXT))
-	_content_vbox.add_child(_create_stat_row("Mood", _get_mood_text(_golfer.current_mood), _get_mood_color(_golfer.current_mood)))
 
 	_content_vbox.add_child(HSeparator.new())
 
@@ -263,7 +249,7 @@ func _create_comment_row(text: String, sentiment: String) -> Label:
 		"positive":
 			label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS_MUTED)
 		"negative":
-			label.add_theme_color_override("font_color", UIConstants.COLOR_MOOD_UNHAPPY)
+			label.add_theme_color_override("font_color", UIConstants.COLOR_ATTITUDE_UNHAPPY)
 		_:
 			label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	return label
@@ -275,40 +261,6 @@ func _get_golf_skill_color(percent: int) -> Color:
 	if percent >= 100:
 		return UIConstants.COLOR_BLUE_SOFT
 	return UIConstants.COLOR_TEXT
-
-func _create_skill_bar(skill_name: String, value: float) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-
-	var label := Label.new()
-	label.text = skill_name
-	label.add_theme_font_size_override("font_size", 11)
-	label.custom_minimum_size = Vector2(65, 0)
-	row.add_child(label)
-
-	# Background bar
-	var bg := ColorRect.new()
-	bg.color = UIConstants.COLOR_BG_BUTTON
-	bg.custom_minimum_size = Vector2(140, 12)
-	bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(bg)
-
-	# Fill bar (added as child of bg)
-	var fill := ColorRect.new()
-	var bar_color = UIConstants.COLOR_SCORE_BIRDIE.lerp(UIConstants.COLOR_SCORE_DOUBLE, 1.0 - value)
-	fill.color = bar_color
-	fill.custom_minimum_size = Vector2(140.0 * value, 12)
-	fill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	bg.add_child(fill)
-
-	var val_label := Label.new()
-	val_label.text = "%d" % int(value * 100)
-	val_label.add_theme_font_size_override("font_size", 11)
-	val_label.custom_minimum_size = Vector2(30, 0)
-	val_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(val_label)
-
-	return row
 
 func _create_need_bar(need_name: String, value: float) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -328,11 +280,11 @@ func _create_need_bar(need_name: String, value: float) -> HBoxContainer:
 
 	var fill := ColorRect.new()
 	if value > 0.5:
-		fill.color = UIConstants.COLOR_MOOD_HAPPY
+		fill.color = UIConstants.COLOR_ATTITUDE_HAPPY
 	elif value > 0.3:
-		fill.color = UIConstants.COLOR_MOOD_NEUTRAL
+		fill.color = UIConstants.COLOR_ATTITUDE_NEUTRAL
 	else:
-		fill.color = UIConstants.COLOR_MOOD_UNHAPPY
+		fill.color = UIConstants.COLOR_ATTITUDE_UNHAPPY
 	fill.custom_minimum_size = Vector2(140.0 * value, 12)
 	fill.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	bg.add_child(fill)
@@ -368,15 +320,3 @@ func _get_score_color(diff: int) -> Color:
 
 func _get_hole_score_color(diff: int) -> Color:
 	return UIConstants.get_score_color(diff)
-
-func _get_mood_text(mood: float) -> String:
-	if mood >= 0.8: return "Happy"
-	if mood >= 0.6: return "Content"
-	if mood >= 0.4: return "Neutral"
-	if mood >= 0.2: return "Unhappy"
-	return "Frustrated"
-
-func _get_mood_color(mood: float) -> Color:
-	if mood >= 0.6: return UIConstants.COLOR_MOOD_HAPPY
-	if mood >= 0.4: return UIConstants.COLOR_MOOD_NEUTRAL
-	return UIConstants.COLOR_MOOD_UNHAPPY
