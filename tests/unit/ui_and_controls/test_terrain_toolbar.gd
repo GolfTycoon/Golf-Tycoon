@@ -789,11 +789,13 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
 	assert_eq(page_content.get_child_count(), 2,
-		"The Holes tab holds the hole grid and the Holes Map card")
-	assert_same(page_content.get_child(0), toolbar.hole_grid,
-		"The hole grid is the tab's first content")
+		"The Holes tab holds the Holes Map card and the hole grid")
 	var map_card := _holes_map_card()
 	assert_not_null(map_card, "The Holes Map card is the tab's other content")
+	assert_same(page_content.get_child(0), map_card,
+		"The Holes Map card leads the tab, on the left")
+	assert_same(page_content.get_child(1), toolbar.hole_grid,
+		"The hole grid follows the Holes Map card")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -865,6 +867,24 @@ func test_the_staff_map_card_asks_for_the_course_map_on_staff() -> void:
 	card.pressed.emit()
 	assert_signal_emitted(toolbar, "staff_map_pressed",
 		"Pressing the card emits staff_map_pressed")
+
+## The Holes tab opens on its Holes Map card: the card sits on the left of the
+## shelf and the hole buttons follow it to the right.
+func test_the_holes_map_card_sits_to_the_left_of_the_hole_buttons() -> void:
+	for hole_number in 3:
+		_add_hole_button(hole_number + 1)
+
+	var card := _holes_map_card()
+	assert_not_null(card, "The Holes tab carries a Holes Map card")
+
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	await _settle_layout()
+	assert_lt(card.get_global_rect().position.x,
+		toolbar.hole_grid.get_global_rect().position.x,
+		"The Holes Map card is on the left of the hole buttons")
+	assert_lt(card.get_global_rect().end.x,
+		toolbar.hole_grid.get_global_rect().position.x,
+		"The card clears the hole buttons, which sit to its right")
 
 ## Holes stack three deep and the columns run off to the right, so a course
 ## grows along the axis the page already scrolls on.

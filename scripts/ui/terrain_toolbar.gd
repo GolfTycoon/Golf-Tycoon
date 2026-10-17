@@ -941,16 +941,11 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	# menu owns that hole's open/closed toggle and its statistics. Keep this tab
 	# to the holes themselves — one button each, three to a column, no per-hole
 	# toggle or delete buttons and no group heading.
-	hole_grid = GridContainer.new()
-	hole_grid.name = "HoleGrid"
-	hole_grid.columns = 1
-	hole_grid.add_theme_constant_override("h_separation", 6)
-	hole_grid.add_theme_constant_override("v_separation", 4)
-	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hbox.add_child(hole_grid)
 	# The round the holes make is the Course Map's Routing Holes mode, so
 	# the tab carries a card that opens the map straight onto it. It is an
 	# action rather than a hole, so it stands beside the grid, not in it.
+	# The card leads the tab on the left, so the way into the map comes before
+	# the list of holes it acts on.
 	var map_card := DockActionButton.new()
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
@@ -961,6 +956,13 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	hbox.add_child(map_card)
+	hole_grid = GridContainer.new()
+	hole_grid.name = "HoleGrid"
+	hole_grid.columns = 1
+	hole_grid.add_theme_constant_override("h_separation", 6)
+	hole_grid.add_theme_constant_override("v_separation", 4)
+	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.add_child(hole_grid)
 
 ## Re-seat the hole buttons so they read three deep down each column before the
 ## next column starts. main.gd adds and removes one button per hole, but the

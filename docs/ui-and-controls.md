@@ -59,9 +59,10 @@ its marketing campaigns still read as the groups they were.
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
 work; selecting a build tool reveals its section automatically. The Holes tab,
-now in Manage, also carries a **Holes Map** card beside the hole buttons, and
-the Staff tab a **Staff Map** card beside the roster, which open the
-Course Map straight into its Routing Holes and Staff modes. Shelves scroll
+now in Manage, leads with its **Holes Map** card on the left and then carries
+the hole buttons, and the Staff tab a **Staff Map** card beside the roster,
+which open the Course Map straight into its Routing Holes and Staff modes.
+Shelves scroll
 horizontally while the circle controls remain fixed. Hover/focus states, tooltips
 and accessible names identify every icon; Tab and Enter can navigate the dock.
 
