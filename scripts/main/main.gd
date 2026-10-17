@@ -81,7 +81,6 @@ const MAP_BUTTON_SIZE: float = 26.0
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
-var land_panel: LandPanel = null
 var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
@@ -115,7 +114,7 @@ var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var world_map_screen: WorldMapScreen = null
 ## The Course Map: the isometric overview of the course and its four modes
-## (Land Management, Routing Holes, Course Aura, Staff Management).
+## (Land, Routing Holes, Course Aura, Staff Management).
 var course_map_screen: CourseMapScreen = null
 ## The pause flag from before the Course Map opened. The map freezes the day
 ## while it is up, so this is what the course resumes to on the way out.
@@ -307,7 +306,6 @@ func _ready() -> void:
 	_setup_mini_map()
 	_setup_hole_stats_panel()
 	_setup_tournament_panel()
-	_setup_land_panel()
 	_setup_marketing_panel()
 	_setup_hotkey_panel()
 	_setup_weather_debug_panel()
@@ -463,9 +461,6 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_U:
 				_toggle_tournament_panel()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_L:
-				_toggle_land_panel()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_M and event.shift_pressed:
 				_toggle_course_map()
@@ -679,7 +674,6 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.tournaments_pressed.connect(_toggle_tournament_panel)
 	terrain_toolbar.world_map_pressed.connect(_open_world_map_from_club_tab)
 	terrain_toolbar.course_map_pressed.connect(_open_course_map)
-	terrain_toolbar.land_pressed.connect(_toggle_land_panel)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
 	terrain_toolbar.scorecard_pressed.connect(_toggle_course_scorecard_panel)
@@ -1165,7 +1159,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "LandPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -3723,29 +3717,6 @@ func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
 	if terrain_grid:
 		terrain_grid.toggle_debug_overlay()
-
-# --- Land Panel ---
-
-func _setup_land_panel() -> void:
-	"""Add land panel to the HUD."""
-	var hud = $UI/HUD
-
-	land_panel = LandPanel.new()
-	land_panel.name = "LandPanel"
-	land_panel.close_requested.connect(_on_land_panel_closed)
-	hud.add_child(land_panel)
-	land_panel.hide()
-
-func _on_land_panel_closed() -> void:
-	"""Hide the land panel."""
-	land_panel.hide()
-	if _active_panel == land_panel:
-		_active_panel = null
-
-func _toggle_land_panel() -> void:
-	"""Toggle the land panel visibility."""
-	if land_panel:
-		_toggle_panel(land_panel)
 
 func _on_parcel_purchased(parcel: Vector2i) -> void:
 	"""Generate premium terrain features when a premium/elite parcel is purchased."""

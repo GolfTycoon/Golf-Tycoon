@@ -1118,7 +1118,7 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	for child in ops_box.get_children():
 		if child is ToolButton:
 			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["course_map", "world_map", "land"],
+	assert_eq(tool_types, ["course_map", "world_map"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
@@ -1191,9 +1191,6 @@ func test_action_signals() -> void:
 
 	toolbar._on_tool_button_pressed("tournaments")
 	assert_signal_emitted(toolbar, "tournaments_pressed")
-
-	toolbar._on_tool_button_pressed("land")
-	assert_signal_emitted(toolbar, "land_pressed")
 
 	toolbar._on_tool_button_pressed("marketing")
 	assert_signal_emitted(toolbar, "marketing_pressed")
@@ -2003,7 +2000,7 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 
 func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
 	var expected := {
-		TerrainToolbar.Tab.MAPS: ["course_map", "world_map", "land"],
+		TerrainToolbar.Tab.MAPS: ["course_map", "world_map"],
 		TerrainToolbar.Tab.REVIEW: ["review", "scorecard", "finance"],
 		TerrainToolbar.Tab.MILESTONE: ["milestones"],
 		TerrainToolbar.Tab.MARKETING: ["marketing"],
@@ -2017,6 +2014,6 @@ func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
 			button.pressed.emit()
 			assert_eq(toolbar.current_tab, tab)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
-	for signal_name in ["course_map_pressed", "world_map_pressed", "land_pressed", "course_review_pressed",
+	for signal_name in ["course_map_pressed", "world_map_pressed", "course_review_pressed",
 			"scorecard_pressed", "financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)

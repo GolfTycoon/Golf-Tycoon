@@ -447,7 +447,6 @@ func _keyboard_bindings() -> Array:
 		["H", "Open hole"],
 		["T", "Place tree"],
 		["B", "Place building"],
-		["L", "Land purchase"],
 		["M", "Marketing"],
 		["U", "Tournaments"],
 		["Z", "Analytics"],

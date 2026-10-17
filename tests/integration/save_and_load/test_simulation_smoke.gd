@@ -10,7 +10,7 @@ const DAYS := 4
 const DAY_FRAMES := 1500
 const PANELS: Array[StringName] = [
 	&"_toggle_analytics_panel", &"_toggle_milestones_panel", &"_toggle_course_scorecard_panel",
-	&"_toggle_course_rating_panel", &"_toggle_event_feed", &"_toggle_land_panel",
+	&"_toggle_course_rating_panel", &"_toggle_event_feed",
 	&"_toggle_marketing_panel", &"_toggle_tournament_panel", &"_toggle_seasonal_calendar",
 	&"_toggle_hotkey_panel", &"_toggle_weather_debug_panel", &"_toggle_season_debug_panel",
 	&"_toggle_terrain_debug_overlay",

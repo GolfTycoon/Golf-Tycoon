@@ -28,7 +28,6 @@ signal tournaments_pressed
 signal world_map_pressed
 ## The company's live course as one isometric map: land, holes, aura and staff.
 signal course_map_pressed
-signal land_pressed
 signal marketing_pressed
 signal milestones_pressed
 signal scorecard_pressed
@@ -99,7 +98,6 @@ const TOOL_TAB_MAP := {
 	"play_course": Tab.PLAYER,
 	"tournaments": Tab.PLAYER,
 	"world_map": Tab.MAPS,
-	"land": Tab.MAPS,
 	"course_map": Tab.MAPS,
 	"marketing": Tab.MARKETING,
 	"milestones": Tab.MILESTONE,
@@ -1001,8 +999,7 @@ func _build_manage_tab(hbox: HBoxContainer, tab_index: int) -> void:
 	var actions := {
 		Tab.MAPS: [
 			["course_map", "Course Map", "flag", "Shift+M", "The whole course in one isometric map: buy land, reorder the holes, read the golfers' mood, place your staff"],
-			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
-			["land", "Land", "terrain", "L", "Buy land parcels to expand the course"]],
+			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"]],
 		Tab.REVIEW: [
 			["review", "Review", "review", "", "Course rating, feedback and next steps"],
 			["scorecard", "Scorecard", "holes", "K", "Course scorecard and records"],
@@ -1142,7 +1139,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "world_map", "land", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -1702,8 +1699,6 @@ func _on_tool_button_pressed(tool_type) -> void:
 				course_map_pressed.emit()
 			"world_map":
 				world_map_pressed.emit()
-			"land":
-				land_pressed.emit()
 			"marketing":
 				marketing_pressed.emit()
 			"milestones":

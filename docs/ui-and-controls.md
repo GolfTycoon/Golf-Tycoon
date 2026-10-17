@@ -48,7 +48,7 @@ page. Switching sections remembers the last tab used in each.
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations, Holes |
-| Manage | Maps (World Maps, Land); Review (Review, Scorecard, Financial Overview); Milestone; Marketing; Staff |
+| Manage | Maps (Course Map, World Maps); Review (Review, Scorecard, Financial Overview); Milestone; Marketing; Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
 The player pages share the existing live round and retain their state when tabs
@@ -118,7 +118,7 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 | `T`, `B`, `O`, `H`, `X` | Tool shortcuts. `T` is the Tee Box tool and `H` is Open Hole. |
 | `=`, `.`, `E`, `P` | Switch the tabs |
 | `V`, `+`, `-` | Elevation tools |
-| `F`, `U`, `L`, `M`, `Z`, `G`, `C`, `N` | Management shortcuts |
+| `F`, `U`, `M`, `Z`, `G`, `C`, `N` | Management shortcuts |
 
 Tool shortcuts are also shown on each tool's tooltip. The hotkey panel (`F1`) is the full, authoritative list.
 
