@@ -94,10 +94,11 @@ func test_a_hole_button_opens_the_hole_detail_on_the_holes_tab() -> void:
 	assert_not_null(_detail_button(toolbar._hole_detail, "Open Hole"),
 		"The detail view flips its toggle to Open Hole")
 
-	# ...and the par, which both the detail view and the button's label read back.
+	# ...and the par, which both the detail view and the button's readout read back.
 	main._on_context_par_override(2, 5)
 	await process_frames(3)
-	assert_string_contains(hole_two.text, "P5", "The button reads back the new par")
+	assert_string_contains((hole_two as HoleCardButton).readout_text(), "P5",
+		"The button reads back the new par")
 	assert_string_contains(_detail_text(toolbar._hole_detail), "Hole 2 — Par 5",
 		"The detail view reads back the new par")
 
