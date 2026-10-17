@@ -28,7 +28,7 @@ func test_section_buttons_hide_and_reveal_their_shelf() -> void:
 	assert_true(toolbar.visible, "Manage opens while Golfers is hidden")
 	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
 	toolbar.collapse_section()
-	toolbar.select_tab(TerrainToolbar.Tab.MARKETING)
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	assert_true(toolbar.visible, "Choosing a tab reopens the hidden section")
 
 func test_hidden_section_shows_the_course_where_the_shelf_was() -> void:

@@ -235,12 +235,16 @@ func _catalogue_tiles() -> Array:
 	return toolbar._decoration_shelf.get_children().filter(
 		func(tile): return tile != toolbar._path_tile)
 
-func test_toolbar_has_fourteen_tabs_in_three_sections() -> void:
-	assert_eq(toolbar._tab_buttons.size(), 14)
-	assert_eq(toolbar._pages.size(), 14)
-	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD].size(), 5)
-	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE].size(), 5)
+func test_toolbar_has_eleven_tabs_in_three_sections() -> void:
+	assert_eq(toolbar._tab_buttons.size(), 11)
+	assert_eq(toolbar._pages.size(), 11)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD].size(), 4)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE].size(), 3)
 	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.GOLFERS].size(), 4)
+	assert_false(TerrainToolbar.Tab.HOLES in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD],
+		"Holes moved out of the Build section")
+	assert_true(TerrainToolbar.Tab.HOLES in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE],
+		"and into Manage")
 	for index in TerrainToolbar.TAB_TITLES:
 		assert_eq(toolbar._tab_buttons[index].accessibility_name, TerrainToolbar.TAB_TITLES[index])
 		assert_true(PixelCircleButton.ICONS.has(toolbar._tab_buttons[index].glyph))
@@ -837,6 +841,8 @@ func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
 	card.pressed.emit()
 	assert_signal_emitted(toolbar, "holes_map_pressed",
 		"Pressing the card emits holes_map_pressed")
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE,
+		"The Holes tab answers from the Manage section now")
 
 ## The Staff tab's map card, the way the tab builds it.
 func _staff_map_card() -> DockActionButton:
@@ -1160,13 +1166,11 @@ func test_an_empty_register_keeps_one_column() -> void:
 func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("feed"),
 		"The toolbar no longer maps a feed tool to a tab")
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
-	var ops_box: HBoxContainer = page
 	var tool_types: Array = []
-	for child in ops_box.get_children():
-		if child is ToolButton:
-			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["course_map", "world_map"],
+	for card in _club_cards():
+		tool_types.append(card.tool_type)
+	assert_eq(tool_types, ["course_map", "world_map", "review", "scorecard", "finance",
+		"milestones", "marketing"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
@@ -1174,25 +1178,24 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 ## leads the row - it is this course, one tap away - with the atlas beside it.
 func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 	for tool_type in ["course_map", "world_map"]:
-		assert_eq(TerrainToolbar.TOOL_TAB_MAP.get(tool_type), TerrainToolbar.Tab.MAPS,
+		assert_eq(TerrainToolbar.TOOL_TAB_MAP.get(tool_type), TerrainToolbar.Tab.CLUB,
 			"%s belongs to the Club tab" % tool_type)
 		assert_true(toolbar._is_menu_action(tool_type),
 			"The %s action opens a screen, so it is never a paint tool" % tool_type)
 		assert_false(toolbar._tool_buttons.has(tool_type),
 			"A menu action holds no terrain tool selection")
 
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
-	var ops_box: HBoxContainer = page
-	assert_eq((ops_box.get_child(0) as ToolButton).tool_type, "course_map",
-		"The Course Map leads the operations row")
-	assert_eq((ops_box.get_child(1) as ToolButton).tool_type, "world_map",
+	var cards := _club_cards()
+	assert_eq(cards[0].tool_type, "course_map",
+		"The Course Map leads the Maps column")
+	assert_eq(cards[1].tool_type, "world_map",
 		"with the company's atlas beside it")
 
-	var course_map: ToolButton = ops_box.get_child(0)
+	var course_map: ToolButton = cards[0]
 	assert_string_contains(course_map.text, "Course Map", "The button reads Course Map")
 	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
 	assert_string_contains(course_map.tool_description, "isometric")
-	var world_map: ToolButton = ops_box.get_child(1)
+	var world_map: ToolButton = cards[1]
 	assert_eq(world_map.text, "World Maps", "The button reads World Maps")
 	assert_string_contains(world_map.tool_description, "course sites")
 
@@ -1201,7 +1204,7 @@ func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 	assert_signal_emitted(toolbar, "course_map_pressed")
 	toolbar._on_tool_button_pressed("world_map")
 	assert_signal_emitted(toolbar, "world_map_pressed")
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS,
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB,
 		"Both buttons keep the Club tab open behind them")
 
 func test_action_signals() -> void:
@@ -1990,19 +1993,21 @@ func test_elevation_brush_signals_report_the_new_settings() -> void:
 func test_section_navigation_remembers_tabs_and_shows_only_its_rail() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
 	toolbar.select_section(TerrainToolbar.Section.MANAGE)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS)
-	toolbar.select_tab(TerrainToolbar.Tab.MARKETING)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB,
+		"Manage opens on its front page")
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
 	toolbar.select_section(TerrainToolbar.Section.BUILD)
 	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.ELEVATION)
 	toolbar.select_section(TerrainToolbar.Section.MANAGE)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES,
+		"Manage comes back to the tab last used in it")
 	for index in toolbar._tab_buttons:
 		var button: PixelCircleButton = toolbar._tab_buttons[index]
 		assert_eq(button.visible, index in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE])
-		assert_eq(button.button_pressed, index == TerrainToolbar.Tab.MARKETING)
+		assert_eq(button.button_pressed, index == TerrainToolbar.Tab.HOLES)
 	toolbar.select_tab(-1)
 	toolbar.select_section(50)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING, "Invalid navigation is ignored")
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "Invalid navigation is ignored")
 
 func test_section_button_hides_the_open_section_and_reopens_it() -> void:
 	watch_signals(toolbar)
@@ -2025,7 +2030,7 @@ func test_section_button_hides_the_open_section_and_reopens_it() -> void:
 	assert_false(toolbar.visible)
 	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
 	toolbar.collapse_section()
-	toolbar.select_tab(TerrainToolbar.Tab.REVIEW)
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	assert_true(toolbar.visible, "Choosing a tab reopens the collapsed section")
 	assert_false(toolbar.section_collapsed)
 
@@ -2046,22 +2051,55 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 	player.select(PlayerTab.PAGE_EDIT)
 	assert_eq(toolbar.current_section, TerrainToolbar.Section.BUILD, "Background updates never hijack building")
 
-func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
-	var expected := {
-		TerrainToolbar.Tab.MAPS: ["course_map", "world_map"],
-		TerrainToolbar.Tab.REVIEW: ["review", "scorecard", "finance"],
-		TerrainToolbar.Tab.MILESTONE: ["milestones"],
-		TerrainToolbar.Tab.MARKETING: ["marketing"],
-	}
+## The Club tab folds the old Maps, Review, Milestone and Marketing tabs into
+## one shelf. Each former tab keeps its labelled column, so its actions still
+## read as the group they were.
+func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> void:
+	var expected := [
+		["MAPS", ["course_map", "world_map"]],
+		["REVIEW", ["review", "scorecard", "finance"]],
+		["MILESTONES", ["milestones"]],
+		["MARKETING", ["marketing"]],
+	]
+	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
+	assert_eq(groups.size(), expected.size(), "One column per folded tab")
 	watch_signals(toolbar)
-	for tab in expected:
-		var buttons := toolbar.page_content(tab).get_children()
-		assert_eq(buttons.map(func(button): return button.tool_type), expected[tab])
+	for i in expected.size():
+		var group: VBoxContainer = groups[i]
+		assert_not_null(group, "The folded tab is a labelled column")
+		assert_eq((group.get_child(0) as Label).text, expected[i][0],
+			"The column keeps the name of the tab it folded")
+		var buttons := group.get_child(1).get_children()
+		assert_eq(buttons.map(func(button): return button.tool_type), expected[i][1],
+			"%s holds the actions of the tab it folded" % expected[i][0])
 		for button in buttons:
 			assert_true(button is DockActionButton)
+			assert_true(PixelCircleButton.ICONS.has(button.glyph),
+				"%s draws the icon it asks for" % button.tool_name)
 			button.pressed.emit()
-			assert_eq(toolbar.current_tab, tab)
+			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
 	for signal_name in ["course_map_pressed", "world_map_pressed", "course_review_pressed",
 			"scorecard_pressed", "financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
+
+## The Club tab's four labelled columns fit under the tab bar: one row of
+## action cards plus its heading, with no vertical scroll.
+func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await _settle_layout()
+	var content := toolbar.page_content(TerrainToolbar.Tab.CLUB)
+	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT
+	assert_gt(content.get_combined_minimum_size().y, 0.0, "The Club tab is measured")
+	assert_lte(content.get_combined_minimum_size().y, available,
+		"The headings and the action cards fit under the tab bar")
+
+## Every action card on the Club tab, in reading order: Maps, Review,
+## Milestones, Marketing.
+func _club_cards() -> Array[DockActionButton]:
+	var cards: Array[DockActionButton] = []
+	for group in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+		for child in group.get_child(1).get_children():
+			if child is DockActionButton:
+				cards.append(child)
+	return cards
