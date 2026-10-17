@@ -1300,7 +1300,7 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	var tool_types: Array = []
 	for card in _club_cards():
 		tool_types.append(card.tool_type)
-	assert_eq(tool_types, ["course_map", "world_map", "review", "scorecard", "finance",
+	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "scorecard", "finance",
 		"milestones", "marketing"],
 		"The Club tab's operations no longer include feed")
 
@@ -2188,7 +2188,7 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> void:
 	var expected := [
 		["MAPS", ["course_map", "world_map"]],
-		["REVIEW", ["review", "scorecard", "finance"]],
+		["REVIEW", ["aura_map", "scorecard", "finance"]],
 		["MILESTONES", ["milestones"]],
 		["MARKETING", ["marketing"]],
 	]
@@ -2210,7 +2210,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 			button.pressed.emit()
 			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
-	for signal_name in ["course_map_pressed", "world_map_pressed", "course_review_pressed",
+	for signal_name in ["course_map_pressed", "world_map_pressed", "aura_map_pressed",
 			"scorecard_pressed", "financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
 

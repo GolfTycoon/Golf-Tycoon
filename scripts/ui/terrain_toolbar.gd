@@ -31,6 +31,9 @@ signal course_map_pressed
 ## The Holes tab's shortcut to that map, opened on the mode that is about
 ## the holes themselves: Routing Holes.
 signal holes_map_pressed
+## The Club tab's Review entry now opens the Course Map on Aura, where the
+## full Course Review lives.
+signal aura_map_pressed
 ## Hole management actions emitted from the Holes tab's hole detail view.
 signal hole_move_tee_requested(hole_number: int)
 signal hole_move_green_requested(hole_number: int)
@@ -114,6 +117,7 @@ const TOOL_TAB_MAP := {
 	"course_map": Tab.CLUB,
 	"holes_map": Tab.HOLES,
 	"staff_map": Tab.STAFF,
+	"aura_map": Tab.CLUB,
 	"marketing": Tab.CLUB,
 	"milestones": Tab.CLUB,
 	"scorecard": Tab.CLUB,
@@ -1087,7 +1091,7 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
 		]],
 		["Review", [
-			["review", "Review", "review", "", "Course rating, feedback and next steps"],
+			["aura_map", "Review", "review", "", "Course rating, feedback and next steps — now on the Course Map\'s Aura mode"],
 			["scorecard", "Scorecard", "holes", "K", "Course scorecard and records"],
 			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
 		]],
@@ -1245,7 +1249,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "holes_map", "staff_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -2078,6 +2082,10 @@ func _on_tool_button_pressed(tool_type) -> void:
 				holes_map_pressed.emit()
 			"staff_map":
 				staff_map_pressed.emit()
+			"aura_map":
+				# Review now lives in Aura mode, keep legacy signal for compatibility
+				course_review_pressed.emit()
+				aura_map_pressed.emit()
 			"world_map":
 				world_map_pressed.emit()
 			"marketing":
@@ -2087,7 +2095,9 @@ func _on_tool_button_pressed(tool_type) -> void:
 			"scorecard":
 				scorecard_pressed.emit()
 			"review":
+				# Legacy Review button now opens Aura mode (full review lives there)
 				course_review_pressed.emit()
+				aura_map_pressed.emit()
 			"finance":
 				financial_overview_pressed.emit()
 

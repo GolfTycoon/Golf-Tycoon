@@ -680,7 +680,9 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
 	terrain_toolbar.financial_overview_pressed.connect(_toggle_financial_overview)
-	terrain_toolbar.course_review_pressed.connect(func(): _toggle_panel(course_rating_overlay))
+	terrain_toolbar.course_review_pressed.connect(_open_course_map_aura)
+	if terrain_toolbar.has_signal("aura_map_pressed"):
+		terrain_toolbar.aura_map_pressed.connect(_open_course_map_aura)
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 	terrain_toolbar.brush_shape_changed.connect(func(value: bool):
 		round_brush = value
@@ -867,7 +869,17 @@ func _open_course_map(mode: int = CourseMapView.Mode.LAND) -> void:
 		course_map_screen = CourseMapScreen.new()
 		course_map_screen.name = "CourseMapScreen"
 		course_map_screen.back_requested.connect(_on_course_map_back)
+		if course_map_screen.has_signal("advice_action_requested"):
+			course_map_screen.advice_action_requested.connect(_on_course_map_advice_action)
 		hud.add_child(course_map_screen)
+		if course_map_screen._aura_panel:
+			course_map_screen._aura_panel.rating_updated.connect(_on_aura_rating_updated)
+	else:
+		# Reused screen: ensure advice forwarding is still connected
+		if course_map_screen.has_signal("advice_action_requested") and not course_map_screen.advice_action_requested.is_connected(_on_course_map_advice_action):
+			course_map_screen.advice_action_requested.connect(_on_course_map_advice_action)
+		if course_map_screen._aura_panel and not course_map_screen._aura_panel.rating_updated.is_connected(_on_aura_rating_updated):
+			course_map_screen._aura_panel.rating_updated.connect(_on_aura_rating_updated)
 	course_map_screen.show()
 	course_map_screen.set_mode(mode)
 	course_map_screen.refresh()
@@ -881,6 +893,11 @@ func _open_course_map_routing() -> void:
 ## that is the crew's ground.
 func _open_course_map_staff() -> void:
 	_open_course_map(CourseMapView.Mode.STAFF)
+
+## The Club tab's Review entry and the star rating now open the Course Map
+## on Aura, where the full Course Review lives.
+func _open_course_map_aura() -> void:
+	_open_course_map(CourseMapView.Mode.AURA)
 
 func _close_course_map() -> void:
 	if course_map_screen:
@@ -903,6 +920,30 @@ func _course_map_is_open() -> bool:
 func _on_course_map_back() -> void:
 	_close_course_map()
 	_leave_course_map()
+
+func _on_course_map_advice_action(advice: Dictionary) -> void:
+	# Advice that wasn't a locate (finance, garden, build, observe) comes from
+	# the Aura panel's unified review. Close the map first, then perform the
+	# action on the course.
+	_close_course_map()
+	_leave_course_map()
+	var action := str(advice.get("action", ""))
+	match action:
+		"finance":
+			_toggle_panel(financial_panel)
+		"garden":
+			_on_decoration_placement_pressed()
+		"build":
+			_on_open_hole_pressed()
+		"observe":
+			EventBus.notify(str(advice.get("detail", advice.get("title", ""))), "info")
+		_:
+			if advice.has("position"):
+				_cancel_action()
+				camera.focus_on_smooth(terrain_grid.grid_to_screen_center(advice["position"]))
+				EventBus.notify(str(advice.get("title", "")), "info")
+			else:
+				EventBus.notify(str(advice.get("title", "")), "info")
 
 ## Hand the course back after the map closes: the gameplay UI returns and the day
 ## resumes only if it was running before the map opened.
@@ -1227,7 +1268,7 @@ func _setup_hud_status_column() -> void:
 
 	# Connect status clicks to panels
 	hud_status_column.money_clicked.connect(_on_money_clicked)
-	hud_status_column.rating_clicked.connect(_toggle_course_rating_panel)
+	hud_status_column.rating_clicked.connect(_open_course_map_aura)
 
 	# Add to HUD as first child
 	hud.add_child(hud_status_column)
@@ -4117,37 +4158,32 @@ func _navigate_to_golfer_position(golfer_id: int) -> void:
 # --- Course Rating Overlay ---
 
 func _setup_course_rating_overlay() -> void:
-	"""Add course rating panel (toggled from the status column star rating)."""
-	course_rating_overlay = CourseRatingOverlay.new()
-	course_rating_overlay.name = "CourseRatingOverlay"
-	course_rating_overlay.advice_selected.connect(func(advice: Dictionary):
-		_active_panel = null
-		if advice.has("position"):
-			_cancel_action()
-			camera.focus_on_smooth(terrain_grid.grid_to_screen_center(advice.position))
-			EventBus.notify(advice.title, "info")
-		elif advice.action == "finance": _toggle_panel(financial_panel)
-		elif advice.action == "garden": _on_decoration_placement_pressed()
-		elif advice.action == "build": _on_open_hole_pressed()
-	)
-	course_rating_overlay.close_requested.connect(func():
+	"""Course Review now lives in the Course Map's Aura mode.
+
+	The old overlay is kept as a hidden compatibility node so saves and tests
+	that reference it do not break, but all visible review UI is in
+	CourseMapAuraPanel. The star rating in the HUD now opens the map on Aura.
+	"""
+	# Keep a hidden overlay for backward compatibility (tests may check existence)
+	if course_rating_overlay == null:
+		course_rating_overlay = CourseRatingOverlay.new()
+		course_rating_overlay.name = "CourseRatingOverlay"
+		course_rating_overlay.visible = false
+		$UI/HUD.add_child(course_rating_overlay)
 		course_rating_overlay.hide()
-		if _active_panel == course_rating_overlay:
-			_active_panel = null
-	)
-	course_rating_overlay.rating_updated.connect(func(stars: float):
-		if hud_status_column:
-			hud_status_column.update_rating(stars)
-	)
-	$UI/HUD.add_child(course_rating_overlay)
-	course_rating_overlay.hide()
 	# Update the status column whenever course rating changes (end of day, etc.)
-	EventBus.course_rating_changed.connect(func(rating: Dictionary):
-		if hud_status_column:
-			hud_status_column.update_rating(rating.get("overall", 3.0))
-	)
+	if not EventBus.course_rating_changed.is_connected(_on_course_rating_changed_for_hud):
+		EventBus.course_rating_changed.connect(_on_course_rating_changed_for_hud)
 	# Push initial rating to the status column (deferred so GameManager is ready)
 	_update_status_rating.call_deferred()
+
+func _on_course_rating_changed_for_hud(rating: Dictionary) -> void:
+	if hud_status_column:
+		hud_status_column.update_rating(rating.get("overall", 3.0))
+
+func _on_aura_rating_updated(stars: float) -> void:
+	if hud_status_column:
+		hud_status_column.update_rating(stars)
 
 var _rating_retry_count: int = 0
 
@@ -4170,7 +4206,8 @@ func _update_status_rating() -> void:
 	hud_status_column.update_rating(stars)
 
 func _toggle_course_rating_panel() -> void:
-	_toggle_panel(course_rating_overlay)
+	# Legacy entry point: Review now lives in Course Map Aura mode
+	_open_course_map_aura()
 
 # --- Floating Transaction Text ---
 
