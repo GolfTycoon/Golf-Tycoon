@@ -8,6 +8,27 @@ extends MainSceneTest
 var hole_grid: GridContainer
 
 
+## A course click at `world_position`, through the viewport like the player's.
+func _click_course_world(world_position: Vector2) -> void:
+	main.camera.focus_on(world_position, true)
+	await process_frames(2)
+	var at: Vector2 = main.camera.get_canvas_transform() * world_position
+	var viewport := get_viewport()
+	var motion := InputEventMouseMotion.new()
+	motion.position = at
+	motion.global_position = at
+	viewport.push_input(motion)
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = at
+		event.global_position = at
+		viewport.push_input(event)
+		await process_frames(1)
+	await process_frames(2)
+
+
 func before_all() -> void:
 	await super()
 	await quick_start("Hole tab")
@@ -110,6 +131,41 @@ func test_a_hole_button_opens_the_hole_detail_on_the_holes_tab() -> void:
 		await process_frames(3)
 	assert_true(toolbar._hole_register.visible, "The hole register is back up")
 	assert_false(toolbar._hole_detail.visible, "and the hole detail view is hidden")
+
+
+func test_clicking_a_hole_tee_or_flag_opens_its_hole_tab_detail() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	main._close_hole_context_menu()
+	toolbar.close_hole_detail()
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	toolbar.clear_selection()
+
+	var tee_hole: GameManager.HoleData = GameManager.current_course.holes[1]
+	var tee_world: Vector2 = main.terrain_grid.to_global(
+		main.terrain_grid.grid_to_screen_center(tee_hole.tee_position))
+	await _click_course_world(tee_world)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "Clicking a tee opens the Holes tab")
+	assert_eq(toolbar._selected_hole, tee_hole.hole_number, "The tee's hole is selected")
+	assert_true(toolbar._hole_detail.visible, "The selected hole's detail view is shown")
+	assert_null(main.get_node("UI").get_node_or_null("HoleContextMenu"),
+		"Clicking a tee does not open the floating context menu")
+
+	toolbar.close_hole_detail()
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	var flag_hole: GameManager.HoleData = GameManager.current_course.holes[2]
+	var visualizer: HoleVisualizer = main.hole_manager.get_hole_visualizer(flag_hole.hole_number)
+	assert_not_null(visualizer, "The flag's hole has a visualizer")
+	if visualizer == null:
+		return
+	assert_not_null(visualizer.flag, "The hole visualizer carries its flag")
+	if visualizer.flag == null:
+		return
+	await _click_course_world(visualizer.flag.global_position)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "Clicking a flag opens the Holes tab")
+	assert_eq(toolbar._selected_hole, flag_hole.hole_number, "The flag's hole is selected")
+	assert_true(toolbar._hole_detail.visible, "The selected hole's detail view is shown")
+	assert_null(main.get_node("UI").get_node_or_null("HoleContextMenu"),
+		"Clicking a flag does not open the floating context menu")
 
 
 func test_delete_hole_asks_first_and_the_columns_close_the_gap() -> void:

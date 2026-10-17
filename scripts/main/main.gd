@@ -597,7 +597,7 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
-	# The hole menu can re-par a hole, so its button re-reads the hole.
+	# The Holes tab can re-par a hole, so its card re-reads the hole.
 	EventBus.hole_updated.connect(_refresh_hole_button)
 	# The round's order changed (Course Map, Routing Holes): the hole buttons
 	# and the tee/cup states read the course again.
@@ -1330,10 +1330,9 @@ func _start_painting() -> void:
 		_handle_hole_move_click(grid_pos)
 		return
 
-	# Check if in null selector state — try opening hole context menu
+	# In the null selector state, a hole's tee or cup opens its details on the
+	# Holes tab. During the owner's practice round, leave the click for aiming.
 	if not _has_active_tool():
-		# While the owner is lining up a shot (practice round or tournament),
-		# leave course clicks to aiming instead of opening the hole menu.
 		if is_instance_valid(player_round) and player_round.active:
 			return
 		var mouse_world = camera.get_mouse_world_position()
@@ -1342,7 +1341,7 @@ func _start_painting() -> void:
 		if tile_type == TerrainTypes.Type.TEE_BOX or tile_type == TerrainTypes.Type.GREEN:
 			var hole = hole_manager.get_hole_at_position(grid_pos)
 			if hole:
-				_open_hole_context_menu(hole)
+				_on_hole_button_pressed(hole.hole_number)
 				return
 		return
 
@@ -2982,12 +2981,10 @@ func _on_load_completed(success: bool) -> void:
 func _on_hole_flag_selected(hole_number: int) -> void:
 	if _has_active_tool():
 		return
-	if not GameManager.current_course:
+	# The owner's live round owns clicks on the course so a flag click can aim.
+	if is_instance_valid(player_round) and player_round.active:
 		return
-	for hole in GameManager.current_course.holes:
-		if hole.hole_number == hole_number:
-			_open_hole_context_menu(hole)
-			return
+	_on_hole_button_pressed(hole_number)
 
 func _open_hole_context_menu(hole_data: GameManager.HoleData) -> void:
 	_close_hole_context_menu()
