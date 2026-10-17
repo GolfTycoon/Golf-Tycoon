@@ -603,7 +603,7 @@ func _draw_parcel_price(land: LandManager, parcel: Vector2i, polygon: PackedVect
 func _draw_routing() -> void:
 	var course = GameManager.current_course
 	if course == null or course.holes.is_empty():
-		_draw_empty_note("No holes yet — open one in the Holes tab (H).")
+		_draw_empty_note("No holes yet — paint a tee box and a green, then press H to open the first hole.")
 		return
 	var holes: Array = course.holes
 	# The walks between holes first, so the holes sit on top of them.

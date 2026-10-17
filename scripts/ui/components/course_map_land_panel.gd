@@ -5,7 +5,7 @@ class_name CourseMapLandPanel
 ## The map beside this panel draws the six-by-six parcel grid; this is the
 ## ledger for it. It shows what the company owns, what is for sale and what each
 ## parcel costs, and it is where a parcel is actually bought - the same
-## LandManager.purchase_parcel() the Land panel in the Maps tab calls, so a
+## LandManager.purchase_parcel() the Land panel in the Club tab's map calls, so a
 ## purchase from either place generates the parcel's terrain (see main.gd).
 ##
 ## Picking a parcel on the map selects it here, and picking a row selects it on

@@ -21,10 +21,15 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
 func test_financial_overview_opens_the_existing_panel() -> void:
-	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.REVIEW)
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	await process_frames(2)
-	var cards: Array = main.terrain_toolbar.page_content(TerrainToolbar.Tab.REVIEW).get_children()
-	await click(cards[2])
+	var finance: Button = null
+	for node in nodes_of_class(main.terrain_toolbar.page_content(TerrainToolbar.Tab.CLUB), "Button"):
+		if node.get("tool_type") == "finance":
+			finance = node
+			break
+	assert_not_null(finance, "The Club tab carries the Financial Overview card")
+	await click(finance)
 	assert_true(main.financial_panel.visible)
 	main._on_financial_panel_closed()
 

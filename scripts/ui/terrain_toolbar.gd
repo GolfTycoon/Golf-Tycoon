@@ -42,25 +42,24 @@ signal golfer_row_clicked(golfer_id: int)
 ## member's designated area.
 signal staff_area_move_requested(staff_index: int)
 
-enum Tab { TERRAIN, IMPROVEMENTS, BUILDINGS, ELEVATION, HOLES, GOLFERS, PLAYER, MAPS, STAFF, REVIEW, MILESTONE, MARKETING, EDIT_PLAYER, PLAYER_SKILLS }
+enum Tab { TERRAIN, IMPROVEMENTS, BUILDINGS, ELEVATION, HOLES, GOLFERS, PLAYER, CLUB, STAFF, EDIT_PLAYER, PLAYER_SKILLS }
 enum Section { BUILD, MANAGE, GOLFERS }
 const SECTION_TITLES := ["Build", "Manage", "Golfers"]
 const SECTION_COLORS := [Color("d8bb71"), Color("8dba9b"), Color("87b9cf")]
 const SECTION_TABS := {
-	Section.BUILD: [Tab.TERRAIN, Tab.IMPROVEMENTS, Tab.BUILDINGS, Tab.ELEVATION, Tab.HOLES],
-	Section.MANAGE: [Tab.MAPS, Tab.REVIEW, Tab.MILESTONE, Tab.MARKETING, Tab.STAFF],
+	Section.BUILD: [Tab.TERRAIN, Tab.IMPROVEMENTS, Tab.BUILDINGS, Tab.ELEVATION],
+	Section.MANAGE: [Tab.CLUB, Tab.HOLES, Tab.STAFF],
 	Section.GOLFERS: [Tab.GOLFERS, Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS],
 }
 const TAB_TITLES := {
 	Tab.TERRAIN: "Terrain", Tab.IMPROVEMENTS: "Improvements",
 	Tab.BUILDINGS: "Buildings", Tab.ELEVATION: "Elevations", Tab.HOLES: "Holes",
-	Tab.GOLFERS: "Visiting Golfers", Tab.PLAYER: "Play Course", Tab.MAPS: "Maps",
-	Tab.STAFF: "Staff", Tab.REVIEW: "Review", Tab.MILESTONE: "Milestone",
-	Tab.MARKETING: "Marketing", Tab.EDIT_PLAYER: "Edit Player Golfer",
+	Tab.GOLFERS: "Visiting Golfers", Tab.PLAYER: "Play Course", Tab.CLUB: "Club",
+	Tab.STAFF: "Staff", Tab.EDIT_PLAYER: "Edit Player Golfer",
 	Tab.PLAYER_SKILLS: "Player Golfer Skills",
 }
 const TAB_ICONS := ["terrain", "improvements", "buildings", "elevation", "holes",
-	"golfers", "play", "maps", "staff", "review", "milestone", "marketing", "edit", "skills"]
+	"golfers", "play", "club", "staff", "edit", "skills"]
 const PLAYER_TABS := [Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]
 const HEADER_HEIGHT := 22.0
 
@@ -103,15 +102,15 @@ const TOOL_TAB_MAP := {
 	"gradual": Tab.ELEVATION,
 	"play_course": Tab.PLAYER,
 	"tournaments": Tab.PLAYER,
-	"world_map": Tab.MAPS,
-	"course_map": Tab.MAPS,
+	"world_map": Tab.CLUB,
+	"course_map": Tab.CLUB,
 	"holes_map": Tab.HOLES,
 	"staff_map": Tab.STAFF,
-	"marketing": Tab.MARKETING,
-	"milestones": Tab.MILESTONE,
-	"scorecard": Tab.REVIEW,
-	"review": Tab.REVIEW,
-	"finance": Tab.REVIEW,
+	"marketing": Tab.CLUB,
+	"milestones": Tab.CLUB,
+	"scorecard": Tab.CLUB,
+	"review": Tab.CLUB,
+	"finance": Tab.CLUB,
 }
 
 ## Shift + number keys pick the extra course tiles: the harsher variants of
@@ -190,7 +189,7 @@ var current_tab: int = Tab.TERRAIN
 var current_section: int = Section.BUILD
 ## True while the player has hidden the open section with its section button.
 var section_collapsed: bool = false
-var _last_tabs := {Section.BUILD: Tab.TERRAIN, Section.MANAGE: Tab.MAPS, Section.GOLFERS: Tab.GOLFERS}
+var _last_tabs := {Section.BUILD: Tab.TERRAIN, Section.MANAGE: Tab.CLUB, Section.GOLFERS: Tab.GOLFERS}
 var _tab_buttons: Dictionary = {}
 var _tab_rail: VBoxContainer
 var _page_title: Label
@@ -429,8 +428,8 @@ func _build_page(tab_index: int) -> Control:
 			_build_golfers_tab(hbox)
 		Tab.PLAYER:
 			_build_player_tab(hbox)
-		Tab.MAPS, Tab.REVIEW, Tab.MILESTONE, Tab.MARKETING:
-			_build_manage_tab(hbox, tab_index)
+		Tab.CLUB:
+			_build_club_tab(hbox)
 		Tab.STAFF:
 			_build_staff_tab(hbox)
 
@@ -956,7 +955,9 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
 	map_card.glyph = "holes"
-	map_card.accent_section = Section.BUILD
+	# The Holes tab lives in the Manage section now, so its card wears that
+	# section's colour rather than Build's.
+	map_card.accent_section = Section.MANAGE
 	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	hbox.add_child(map_card)
@@ -1014,28 +1015,43 @@ func select_player_section(index: int) -> void:
 	if index >= 0 and index < PLAYER_TABS.size():
 		select_tab(PLAYER_TABS[index])
 
-func _build_manage_tab(hbox: HBoxContainer, tab_index: int) -> void:
-	var actions := {
-		Tab.MAPS: [
+## The Club tab is the Manage section's front page: the Maps, Review,
+## Milestone and Marketing tabs folded into one shelf. Each former tab keeps
+## its own labelled column, so its actions still read as a group: the
+## company's maps lead, then the course's review and records, its milestones
+## and its marketing campaigns.
+func _build_club_tab(hbox: HBoxContainer) -> void:
+	var groups := [
+		["Maps", [
 			["course_map", "Course Map", "flag", "Shift+M", "The whole course in one isometric map: buy land, reorder the holes, read the golfers' mood, place your staff"],
-			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"]],
-		Tab.REVIEW: [
+			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
+		]],
+		["Review", [
 			["review", "Review", "review", "", "Course rating, feedback and next steps"],
 			["scorecard", "Scorecard", "holes", "K", "Course scorecard and records"],
-			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"]],
-		Tab.MILESTONE: [["milestones", "Milestone", "milestone", "G", "Goals and achievements"]],
-		Tab.MARKETING: [["marketing", "Marketing", "marketing", "M", "Campaigns to attract golfers"]],
-	}
+			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
+		]],
+		["Milestones", [
+			["milestones", "Milestone", "milestone", "G", "Goals and achievements"],
+		]],
+		["Marketing", [
+			["marketing", "Marketing", "marketing", "M", "Campaigns to attract golfers"],
+		]],
+	]
 	hbox.add_theme_constant_override("separation", 10)
-	for action in actions[tab_index]:
-		var button := DockActionButton.new()
-		button.tool_type = action[0]
-		button.tool_name = action[1]
-		button.glyph = action[2]
-		button.hotkey = action[3]
-		button.tool_description = action[4]
-		button.tool_pressed.connect(_on_tool_button_pressed)
-		hbox.add_child(button)
+	for group in groups:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		for action in group[1]:
+			var button := DockActionButton.new()
+			button.tool_type = action[0]
+			button.tool_name = action[1]
+			button.glyph = action[2]
+			button.hotkey = action[3]
+			button.tool_description = action[4]
+			button.tool_pressed.connect(_on_tool_button_pressed)
+			row.add_child(button)
+		hbox.add_child(_make_tab_group(group[0].to_upper(), row, true))
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
