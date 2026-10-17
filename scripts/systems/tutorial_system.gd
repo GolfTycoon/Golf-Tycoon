@@ -56,8 +56,8 @@ const STEP_DATA = {
 	},
 	Step.ADJUST_FEES: {
 		"title": "Step 5: Manage Your Business",
-		"message": "Click the money display at the top to open the Financial Panel.\n\nAdjust your green fee to balance revenue vs. golfer volume.\n\nTip: Press G for milestones, C for calendar, F1 for all hotkeys.",
-		"action": "Open the Financial Panel or skip",
+		"message": "Click the money display at the top to open Financial Overview.\n\nAdjust your green fee to balance revenue vs. golfer volume.\n\nTip: Press G for milestones, C for calendar, F1 for all hotkeys.",
+		"action": "Open Financial Overview or skip",
 		"requires_action": true,
 		"signal": "green_fee_changed",
 		"skippable": true,

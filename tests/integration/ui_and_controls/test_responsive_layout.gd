@@ -93,22 +93,47 @@ func test_tablets_and_desktops_scale_the_world_with_the_window() -> void:
 	assert_almost_eq(main.camera.zoom.x, 1.08, 0.05, "and the camera zoom carries it")
 
 
-func test_popup_panels_clamp_to_the_screen_and_clear_the_bottom_bar() -> void:
-	await set_window(Vector2i(390, 844))
-	var panel: CenteredPanel = main.financial_panel
+func test_financial_overview_fills_the_viewport_and_reflows_at_every_shape() -> void:
+	var panel: FinancialPanel = main.financial_panel
+	var cases: Array = [
+		{"size": Vector2i(1600, 1000), "mode": FinancialOverviewScreen.LayoutMode.DESKTOP},
+		{"size": Vector2i(1024, 768), "mode": FinancialOverviewScreen.LayoutMode.TABLET_LANDSCAPE},
+		{"size": Vector2i(768, 1024), "mode": FinancialOverviewScreen.LayoutMode.TABLET_PORTRAIT},
+		{"size": Vector2i(844, 390), "mode": FinancialOverviewScreen.LayoutMode.PHONE_LANDSCAPE},
+		{"size": Vector2i(390, 844), "mode": FinancialOverviewScreen.LayoutMode.PHONE_PORTRAIT},
+	]
 	panel.show_centered()
 	await process_frames(3)
-	var rect := panel.get_rect()
-	var phone := _view().size
-	assert_true(_view().encloses(rect), "The financial panel is wholly on a 390px phone")
-	assert_lte(rect.end.y, phone.y - 190.0 + 0.5, "and clear of the bottom bar")
-	assert_lte(rect.size.y, phone.y - 24.0 - 198.0 + 1.0, "and clamped to the height there is")
-	# Resized while open, it re-clamps to the desktop.
-	await set_window(Vector2i(1600, 1000))
-	rect = panel.get_rect()
-	assert_gt(rect.size.y, 500.0, "The panel grows again with the window")
-	assert_true(_view().encloses(rect), "and stays on screen")
+	for entry in cases:
+		await set_window(entry["size"])
+		var rect := panel.get_global_rect()
+		var viewport := Rect2(Vector2.ZERO, Vector2(entry["size"]))
+		assert_true(rect_within(rect, viewport), "Financial Overview fits %s" % entry["size"])
+		assert_almost_eq(rect.position.x, 0.0, 1.0, "It starts at the left edge")
+		assert_almost_eq(rect.position.y, 0.0, 1.0, "It starts at the top edge")
+		assert_almost_eq(rect.size.x, float(entry["size"].x), 1.0, "It fills the window width")
+		assert_almost_eq(rect.size.y, float(entry["size"].y), 1.0, "It fills the window height")
+		assert_eq(panel._layout_mode, entry["mode"], "It selects the appropriate responsive composition")
+		assert_not_null(panel.get_node_or_null("FinancialOverviewRoot/Backdrop"), "It uses the World Map backdrop")
+		if entry["mode"] == FinancialOverviewScreen.LayoutMode.DESKTOP:
+			var desktop_board := panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/DashboardContent")
+			assert_not_null(desktop_board, "Desktop gets the financial board")
+			if desktop_board:
+				assert_eq(desktop_board.get_child_count(), 3, "The desktop board has finance, course and marketing columns")
+		else:
+			var tabs := panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/SectionTabs")
+			assert_not_null(tabs, "Compact layouts get the three-section navigator")
+			if tabs:
+				assert_eq(tabs.get_child_count(), 3, "Finance, course and marketing each have a page")
+				if entry["mode"] == FinancialOverviewScreen.LayoutMode.PHONE_PORTRAIT or entry["mode"] == FinancialOverviewScreen.LayoutMode.PHONE_LANDSCAPE:
+					for tab in tabs.get_children():
+						assert_gte(tab.size.y, 44.0, "Phone section tabs meet the touch target")
+	var marketing_tab: Button = panel.get_node("FinancialOverviewRoot/Frame/Page/SectionTabs/MarketingTab")
+	await click(marketing_tab)
+	assert_eq(panel.active_section, FinancialOverviewScreen.Section.MARKETING, "The phone section rail opens the Marketing page")
+	assert_not_null(panel.find_child("CampaignOffer_0", true, false), "The phone can scroll to every campaign offer")
 	panel.hide()
+	await set_window(DESIGN_WINDOW)
 
 
 func test_a_tap_clicks_and_a_drag_pans_the_camera() -> void:

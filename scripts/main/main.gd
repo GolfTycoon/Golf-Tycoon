@@ -67,6 +67,9 @@ var decoration_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
+## Marketing now lives on the Financial Overview screen; retained as a null
+## compatibility reference for older panel call sites.
+var marketing_panel: MarketingPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
 var inspect_btn: PixelCircleButton = null
@@ -77,7 +80,6 @@ const MAP_BUTTON_SIZE: float = 26.0
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
-var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -412,6 +414,17 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
+		# The full-screen dashboard owns gameplay hotkeys while open. Keep its
+		# finance and marketing shortcuts useful as close / page-switch actions.
+		if financial_panel and financial_panel.visible:
+			if event.keycode == KEY_M:
+				financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_F:
+				_toggle_panel(financial_panel)
+				get_viewport().set_input_as_handled()
+			return
+
 		# Don't process any gameplay hotkeys while in main menu
 		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 			return
@@ -454,7 +467,7 @@ func _input(event: InputEvent) -> void:
 		elif not text_input_focused:
 			# Only process single-key hotkeys when not typing in a text field
 			if event.keycode == KEY_F and not event.shift_pressed:
-				_toggle_panel(financial_panel)
+				_toggle_financial_overview()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_U:
 				_toggle_tournament_panel()
@@ -666,7 +679,7 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_size_changed.connect(_on_elevation_brush_size_changed)
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
-	terrain_toolbar.financial_overview_pressed.connect(func(): _toggle_panel(financial_panel))
+	terrain_toolbar.financial_overview_pressed.connect(_toggle_financial_overview)
 	terrain_toolbar.course_review_pressed.connect(func(): _toggle_panel(course_rating_overlay))
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 	terrain_toolbar.brush_shape_changed.connect(func(value: bool):
@@ -1180,7 +1193,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -3535,29 +3548,32 @@ func _building_display_name(building: Building) -> String:
 		display_name = building.building_type.replace("_", " ").capitalize()
 	return display_name
 
-# --- Financial Panel ---
+# --- Financial Overview ---
 
 func _setup_financial_panel() -> void:
-	"""Add financial panel to the HUD."""
+	"""Add the unified full-screen Financial Overview to the HUD."""
 	var hud = $UI/HUD
-
-	# Create financial panel
 	financial_panel = FinancialPanel.new()
-	financial_panel.name = "FinancialPanel"
+	financial_panel.name = "FinancialOverviewScreen"
 	financial_panel.close_requested.connect(_on_financial_panel_closed)
 	hud.add_child(financial_panel)
 	financial_panel.hide()
 
-	# Note: Money click is now handled by HUDStatusColumn.money_clicked signal
-	# Staff management lives in the toolbar Staff tab (not a popup).
-
-func _on_money_clicked() -> void:
-	## Toggle the financial panel when money is clicked.
+func _toggle_financial_overview() -> void:
+	"""Open or close the unified company dashboard on its finance page."""
+	if not financial_panel:
+		return
+	if not financial_panel.visible:
+		financial_panel.select_section(FinancialOverviewScreen.Section.FINANCE)
 	_toggle_panel(financial_panel)
 
+func _on_money_clicked() -> void:
+	_toggle_financial_overview()
+
 func _on_financial_panel_closed() -> void:
-	"""Hide the financial panel."""
-	financial_panel.hide()
+	"""Hide the full-screen dashboard and release the active-panel slot."""
+	if financial_panel:
+		financial_panel.hide()
 	if _active_panel == financial_panel:
 		_active_panel = null
 
@@ -3781,23 +3797,15 @@ func _on_parcel_purchased(parcel: Vector2i) -> void:
 	terrain_grid.end_batch_quiet()
 	terrain_grid.refresh_all_overlays()
 
-# --- Marketing Panel ---
+# --- Marketing (inside Financial Overview) ---
 
 func _setup_marketing_panel() -> void:
-	"""Add marketing panel to the HUD."""
-	var hud = $UI/HUD
-
-	marketing_panel = MarketingPanel.new()
-	marketing_panel.name = "MarketingPanel"
-	marketing_panel.close_requested.connect(_on_marketing_panel_closed)
-	hud.add_child(marketing_panel)
-	marketing_panel.hide()
+	"""Marketing is now a section of Financial Overview, not a popup."""
+	marketing_panel = null
 
 func _on_marketing_panel_closed() -> void:
-	"""Hide the marketing panel."""
-	marketing_panel.hide()
-	if _active_panel == marketing_panel:
-		_active_panel = null
+	"""Compatibility handler: closing Marketing closes the shared dashboard."""
+	_on_financial_panel_closed()
 
 # --- Hotkey Panel ---
 
@@ -3816,9 +3824,14 @@ func _toggle_hotkey_panel() -> void:
 		_toggle_panel(hotkey_panel)
 
 func _toggle_marketing_panel() -> void:
-	"""Toggle the marketing panel visibility."""
-	if marketing_panel:
-		_toggle_panel(marketing_panel)
+	"""Open Financial Overview on the Marketing page, or switch to it if open."""
+	if not financial_panel:
+		return
+	if financial_panel.visible:
+		financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+		return
+	financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+	_toggle_panel(financial_panel)
 
 # --- Weather Debug ---
 

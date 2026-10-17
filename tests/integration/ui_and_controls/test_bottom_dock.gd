@@ -20,7 +20,7 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			await click(main.terrain_toolbar._tab_buttons[tab])
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
-func test_financial_overview_opens_the_existing_panel() -> void:
+func test_financial_overview_opens_as_a_fullscreen_dashboard() -> void:
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	await process_frames(2)
 	var finance: Button = null
@@ -31,6 +31,24 @@ func test_financial_overview_opens_the_existing_panel() -> void:
 	assert_not_null(finance, "The Club tab carries the Financial Overview card")
 	await click(finance)
 	assert_true(main.financial_panel.visible)
+	assert_not_null(main.financial_panel.get_node_or_null("FinancialOverviewRoot/Backdrop"), "The dashboard uses the World Map backdrop")
+	assert_not_null(main.financial_panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/DashboardContent"), "The full-screen dashboard content is present")
+	main._on_financial_panel_closed()
+
+func test_marketing_opens_inside_the_same_financial_overview() -> void:
+	main._toggle_marketing_panel()
+	await process_frames(3)
+	assert_true(main.financial_panel.visible, "Marketing opens the unified dashboard")
+	assert_eq(main.financial_panel.active_section, FinancialOverviewScreen.Section.MARKETING)
+	assert_null(main.marketing_panel, "There is no second Marketing popup")
+	var text := labels_text(main.financial_panel)
+	for channel_name in ["Local Newspaper Ads", "Social Media Campaign", "Golf Magazine Feature", "Radio Advertising", "Tournament Promotion"]:
+		assert_true(text.contains(channel_name), "%s remains available in Marketing" % channel_name)
+	var active_before: int = GameManager.marketing_manager.get_active_campaign_count()
+	main.financial_panel._launch_campaign(MarketingManager.Channel.LOCAL_ADS)
+	await process_frames(3)
+	assert_eq(GameManager.marketing_manager.get_active_campaign_count(), active_before + 1, "A campaign launches from the combined screen")
+	assert_true(labels_text(main.financial_panel).contains("Local Newspaper Ads"), "The active campaign is shown after launch")
 	main._on_financial_panel_closed()
 
 func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
