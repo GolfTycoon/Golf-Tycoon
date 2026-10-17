@@ -1,5 +1,5 @@
 extends MainSceneTest
-## The Course Holes tab on the Quick Start course: one button per hole, three to
+## The Course Holes tab on the Quick Start course: one row per hole, three to
 ## a column, and clicking a hole button opens that hole's management actions and
 ## statistics right on the Holes tab — in place of the hole register, the way
 ## clicking a visitor opens their profile on Visiting Golfers — instead of a
@@ -41,11 +41,27 @@ func _slot_holes() -> Array:
 func test_one_button_per_hole_three_to_a_column() -> void:
 	var hole_count := GameManager.current_course.holes.size()
 	assert_eq(hole_count, 9, "Quick Start builds nine holes")
-	assert_eq(hole_grid.get_child_count(), hole_count, "One button per hole")
-	assert_eq(hole_grid.find_children("*", "Button", true, false).size(), hole_count,
-		"No Open/Close or Delete button sits beside a hole button")
+	assert_eq(hole_grid.get_child_count(), hole_count, "One row per hole")
+	assert_eq(hole_grid.find_children("*", "Button", true, false).size(), hole_count * 2,
+		"Each hole has a detail button and a Locate button")
 	assert_eq(hole_grid.columns, 3, "Nine holes fill three columns of three")
 	assert_eq(_slot_holes(), [1, 4, 7, 2, 5, 8, 3, 6, 9], "The holes read down the columns")
+
+
+func test_locate_buttons_focus_each_hole_without_opening_details() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar.close_hole_detail()
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	for hole in GameManager.current_course.holes:
+		var hole_button: Button = main._find_hole_button(hole.hole_number)
+		var locate := hole_button.get_parent().get_node("LocateHoleButton%d" % hole.hole_number) as Button
+		assert_eq(locate.text, "Locate", "Locate sits beside each hole button")
+		main.camera.focus_on(Vector2(-10000, -10000), true)
+		locate.pressed.emit()
+		var center: Vector2 = (main.terrain_grid.grid_to_screen_center(hole.tee_position) 			+ main.terrain_grid.grid_to_screen_center(hole.green_position)) / 2
+		assert_eq(main.camera._target_position, center, "Locate focuses the tee-to-green midpoint")
+		assert_true(toolbar._hole_register.visible, "Locate leaves the register open")
+		assert_eq(toolbar._selected_hole, 0, "Locate does not select a detail view")
 
 
 func test_a_hole_button_opens_the_hole_detail_on_the_holes_tab() -> void:
@@ -72,7 +88,7 @@ func test_a_hole_button_opens_the_hole_detail_on_the_holes_tab() -> void:
 		toggle_btn.pressed.emit()
 		await process_frames(3)
 	assert_false(GameManager.current_course.holes[1].is_open, "The detail view closed hole 2")
-	var hole_two: Button = hole_grid.get_node("HoleBtn2")
+	var hole_two: Button = main._find_hole_button(2)
 	assert_lt(hole_two.modulate.r, 1.0, "The closed hole's button dims")
 	assert_string_contains(hole_two.tooltip_text, "Closed", "The closed hole says so in its tooltip")
 	assert_not_null(_detail_button(toolbar._hole_detail, "Open Hole"),

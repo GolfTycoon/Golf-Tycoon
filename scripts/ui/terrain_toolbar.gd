@@ -1019,7 +1019,7 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 ## next column starts. main.gd adds and removes one button per hole, but the
 ## grid fills row-major, so the children are put back into column-major order
 ## after every change and the grid is widened to exactly the columns they need.
-## Each button carries its hole number as metadata.
+## Each hole row carries its hole number as metadata.
 func layout_hole_buttons() -> void:
 	if not hole_grid:
 		return
@@ -1621,7 +1621,7 @@ func _has_hole(hole_number: int) -> bool:
 			if hole.hole_number == hole_number:
 				return true
 		return false
-	if hole_grid and hole_grid.has_node("HoleBtn%d" % hole_number):
+	if hole_grid and hole_grid.find_child("HoleBtn%d" % hole_number, true, false):
 		return true
 	return false
 

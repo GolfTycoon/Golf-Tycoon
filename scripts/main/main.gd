@@ -1996,12 +1996,24 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	hole_btn.custom_minimum_size = Vector2(HOLE_BUTTON_WIDTH, 26)
 	hole_btn.set_meta("hole_number", hole_number)
-	# One button per hole. Everything else about that hole — its pin, tees and
+	# The hole button opens details; Locate keeps the register visible.
+	# Everything else about that hole — its pin, tees and
 	# green, its par, whether it is open, its statistics — opens on the Holes
 	# tab in place of the hole grid, the way a visitor card opens on Visiting
 	# Golfers.
 	hole_btn.pressed.connect(_on_hole_button_pressed.bind(hole_number))
-	hole_grid.add_child(hole_btn)
+	var row := HBoxContainer.new()
+	row.name = "HoleRow%d" % hole_number
+	row.set_meta("hole_number", hole_number)
+	row.add_theme_constant_override("separation", 4)
+	row.add_child(hole_btn)
+	var locate := terrain_toolbar._visitor_button("Locate", Color("87b9cf"))
+	locate.name = "LocateHoleButton%d" % hole_number
+	locate.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	locate.tooltip_text = "Center the camera on hole %d" % hole_number
+	locate.pressed.connect(func(): terrain_toolbar.hole_locate_requested.emit(hole_number))
+	row.add_child(locate)
+	hole_grid.add_child(row)
 	# Three holes to a column, so the buttons are re-seated after every change.
 	terrain_toolbar.layout_hole_buttons()
 	# The signal payload seeds the label; the course data owns the open state.
@@ -2046,7 +2058,7 @@ func _refresh_hole_button(hole_number: int) -> void:
 func _find_hole_button(hole_number: int) -> Button:
 	if not hole_grid:
 		return null
-	return hole_grid.get_node_or_null("HoleBtn%d" % hole_number) as Button
+	return hole_grid.find_child("HoleBtn%d" % hole_number, true, false) as Button
 
 func _on_hole_deleted(_hole_number: int) -> void:
 	# Rebuild the buttons so they follow the renumbered holes

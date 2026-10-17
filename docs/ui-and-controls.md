@@ -60,7 +60,8 @@ The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
 work; selecting a build tool reveals its section automatically. The Holes tab,
 now in Manage, leads with a **Holes Map** card on the left, followed by the hole
-buttons, and clicking a hole button opens that hole's actions (move/place tee
+buttons, each with a **Locate** button that centers the camera on that hole without
+leaving the list. Clicking a hole button opens that hole's actions (move/place tee
 and green, cycle par, open/close, locate, delete) and statistics (rating,
 difficulty, revenue, stroke index, scoring averages and score distribution) in
 place of the hole list — the same way clicking a golfer on the Visiting Golfers
