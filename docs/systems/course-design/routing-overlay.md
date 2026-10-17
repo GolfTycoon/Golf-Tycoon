@@ -76,3 +76,5 @@ The largest penalty is **1.0** star, reached at an average walk of about 90 tile
 
 - [Course Rating](../ratings-and-reputation/course-rating.md) explains how the Pace rating feeds the overall score.
 - [Hole Creation](hole-creation.md) covers where greens and tees are placed.
+- [Hole Routing](hole-routing.md) covers reordering the round, which is what moves the legs.
+- [Course Map](course-map.md) draws the same legs in its Routing mode.

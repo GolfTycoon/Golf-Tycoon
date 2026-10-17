@@ -23,12 +23,12 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 | Folder | Contents | Files |
 | --- | --- | --- |
 | `scripts/autoload/` | Global singletons | 11 |
-| `scripts/systems/` | Stateless rules and calculators | 35 |
+| `scripts/systems/` | Stateless rules and calculators | 37 |
 | `scripts/managers/` | Owners of live groups (golfers, land, staff, weeds, tournaments) | 14 |
 | `scripts/entities/` | Scene objects: golfers, balls, buildings, staff | 10 |
 | `scripts/terrain/` | Course surface, grid, overlays and generation | 30 |
-| `scripts/course/` | Hole routes, routing overlay and entity layer | 8 |
-| `scripts/ui/` | Menus, panels, HUD and components | 52 |
+| `scripts/course/` | Hole routes, routing overlay and entity layer | 9 |
+| `scripts/ui/` | Menus, panels, HUD and components | 53 |
 | `scripts/effects/` | Particles and cosmetic effects | 11 |
 | `scripts/tools/` | Course-building tools such as hole creation | 5 |
 | `scripts/utils/` | Shared helpers | 4 |

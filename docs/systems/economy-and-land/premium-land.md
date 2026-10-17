@@ -83,6 +83,7 @@ The Championship needs at least 8 parcels. The old main-menu package picker has 
 
 ## Related
 
+- [Course Map](../course-design/course-map.md) is where a parcel is bought from the map itself (Land mode).
 - [Economy](economy.md) covers how land spending fits into your budget.
 - [World Map](world-map.md) covers where the parcels are.
 - [Course Themes](../course-design/course-themes.md) covers the theme that sets the tier layout.

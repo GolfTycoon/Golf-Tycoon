@@ -25,6 +25,11 @@ const PALETTE_KEYS: Array[String] = [
 	"trees", "trees", "trees", "trees", "trees", "trees", "trees", "trees",
 	"trees", "trees", "trees",
 ]
+## The colour an id the palette has no slot for is drawn with. A plain grey, so
+## a terrain type added without a palette key stands out rather than blending
+## into the grass.
+const UNKNOWN_COLOR := Color(0.3, 0.3, 0.3)
+
 var _grid: TerrainGrid
 var _data: Image
 var _texture: ImageTexture
@@ -81,11 +86,28 @@ func apply_projection(proj: GridProjection) -> void:
 		mat.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
 		mat.set_shader_parameter("is_isometric", _grid.view_isometric)
 
+## The theme colour key one terrain id is painted with, or "" for an id the
+## palette has no slot for.
+static func palette_key(terrain_type: int) -> String:
+	if terrain_type < 0 or terrain_type >= PALETTE_KEYS.size():
+		return ""
+	return PALETTE_KEYS[terrain_type]
+
+## The colour one tile of each terrain is drawn with, on every map of the course:
+## the surface the player plays on, the minimap and the Course Map. Keeping the
+## one lookup here is what stops the three of them disagreeing about what a tile
+## looks like.
+static func map_color(terrain_type: int) -> Color:
+	var key := palette_key(terrain_type)
+	if key.is_empty():
+		return UNKNOWN_COLOR
+	return TerrainPalette.get_color(key)
+
 ## The toolbar's terrain swatches use this same palette and shader as the grid.
 static func make_palette_texture() -> ImageTexture:
 	var colors := Image.create(PALETTE_KEYS.size(), 1, false, Image.FORMAT_RGBA8)
 	for i in range(PALETTE_KEYS.size()):
-		colors.set_pixel(i, 0, TerrainPalette.get_color(PALETTE_KEYS[i]))
+		colors.set_pixel(i, 0, map_color(i))
 	return ImageTexture.create_from_image(colors)
 
 func refresh_palette() -> void:

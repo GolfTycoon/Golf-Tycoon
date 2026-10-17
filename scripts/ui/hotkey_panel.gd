@@ -98,6 +98,7 @@ func _build_ui() -> void:
 		["C", "Calendar"],
 		["N", "Event Feed"],
 		["Shift+R", "Routing overlay"],
+		["Shift+M", "Course Map"],
 	])
 
 	_add_section(vbox, "Camera & View", [

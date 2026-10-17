@@ -26,6 +26,8 @@ signal play_course_pressed
 signal tournaments_pressed
 ## Buy, browse and switch between the company's course sites on the world map.
 signal world_map_pressed
+## The company's live course as one isometric map: land, holes, aura and staff.
+signal course_map_pressed
 signal land_pressed
 signal marketing_pressed
 signal milestones_pressed
@@ -98,6 +100,7 @@ const TOOL_TAB_MAP := {
 	"tournaments": Tab.PLAYER,
 	"world_map": Tab.MAPS,
 	"land": Tab.MAPS,
+	"course_map": Tab.MAPS,
 	"marketing": Tab.MARKETING,
 	"milestones": Tab.MILESTONE,
 	"scorecard": Tab.REVIEW,
@@ -997,6 +1000,7 @@ func select_player_section(index: int) -> void:
 func _build_manage_tab(hbox: HBoxContainer, tab_index: int) -> void:
 	var actions := {
 		Tab.MAPS: [
+			["course_map", "Course Map", "flag", "Shift+M", "The whole course in one isometric map: buy land, reorder the holes, read the golfers' mood, place your staff"],
 			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
 			["land", "Land", "terrain", "L", "Buy land parcels to expand the course"]],
 		Tab.REVIEW: [
@@ -1138,7 +1142,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["world_map", "land", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "world_map", "land", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -1694,6 +1698,8 @@ func _on_tool_button_pressed(tool_type) -> void:
 				play_course_pressed.emit()
 			"tournaments":
 				tournaments_pressed.emit()
+			"course_map":
+				course_map_pressed.emit()
 			"world_map":
 				world_map_pressed.emit()
 			"land":
