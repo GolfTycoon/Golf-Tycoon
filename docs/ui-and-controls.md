@@ -32,6 +32,7 @@
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
 | Course Map | `Shift+M`, Manage → Club → Maps → Course Map, Manage → Holes → Holes Map (opens on Routing Holes), or Manage → Staff → Staff Map (opens on Staff) |
+| Course scorecard | `K`, or Manage → Holes → Scorecard |
 
 ### Bottom dock
 
@@ -49,7 +50,7 @@ page. Switching sections remembers the last tab used in each.
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |
-| Manage | Club (Maps: Course Map, World Maps; Review: Review, Scorecard, Financial Overview; Milestones; Marketing); Holes; Staff |
+| Manage | Club (Maps: Course Map, World Maps; Review: Review, Financial Overview; Milestones; Marketing); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
 The **Club** tab folds what were four separate Manage tabs — Maps, Review,
@@ -60,13 +61,17 @@ its marketing campaigns still read as the groups they were.
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
 work; selecting a build tool reveals its section automatically. The Holes tab,
-now in Manage, leads with a **Holes Map** card on the left, followed by the hole
-buttons, each with a **Locate** button that centers the camera on that hole without
+now in Manage, leads with a **Holes Map** card and a **Scorecard** card on the left,
+followed by the hole buttons, each with a **Locate** button that centers the camera on that hole without
 leaving the list. Clicking a hole button opens that hole's actions (move/place tee
 and green, cycle par, open/close, locate, delete) and statistics (rating,
 difficulty, revenue, stroke index, scoring averages and score distribution) in
 place of the hole list — the same way clicking a golfer on the Visiting Golfers
 tab opens their profile. The Staff tab carries a **Staff Map** card beside the roster.
+The **Scorecard** card (also `K`) takes the shelf in place of the hole list: every
+hole on its OUT and IN nines with par, yardage, stroke index and average score,
+the course's name, rating and totals, and the course records beside them. Its
+**< Holes** button returns to the hole list.
 Both map cards open the Course Map straight into its Routing Holes and Staff
 modes. Shelves scroll horizontally while the circle controls remain fixed.
 Hover/focus states, tooltips and accessible names identify every icon; Tab and

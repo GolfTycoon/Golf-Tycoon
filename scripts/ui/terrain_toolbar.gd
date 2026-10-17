@@ -47,7 +47,6 @@ signal hole_detail_changed(hole_number: int)
 signal staff_map_pressed
 signal marketing_pressed
 signal milestones_pressed
-signal scorecard_pressed
 signal golfer_row_clicked(golfer_id: int)
 ## Ask main.gd to start (index >= 0) or cancel (index < 0) repositioning a staff
 ## member's designated area.
@@ -120,7 +119,7 @@ const TOOL_TAB_MAP := {
 	"aura_map": Tab.CLUB,
 	"marketing": Tab.CLUB,
 	"milestones": Tab.CLUB,
-	"scorecard": Tab.CLUB,
+	"scorecard": Tab.HOLES,
 	"review": Tab.CLUB,
 	"finance": Tab.CLUB,
 }
@@ -196,6 +195,8 @@ var hole_grid: GridContainer = null  # Course holes buttons, three to a column (
 var terrain_grid: TerrainGrid = null  # Course terrain grid, for checking orphaned tee/green tiles
 var _hole_register: HBoxContainer = null
 var _hole_detail: HBoxContainer = null
+var _hole_scorecard: CourseScorecardView = null  # Shown in place of the register
+var _scorecard_open := false
 var _selected_hole: int = 0
 var golfer_data_provider: Callable = Callable()  # -> Array of golfer row dicts
 
@@ -265,6 +266,8 @@ func _ready() -> void:
 	EventBus.holes_reordered.connect(_on_holes_event_reordered)
 	EventBus.hole_difficulty_changed.connect(_on_hole_event_difficulty_changed)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_event)
+	EventBus.hole_created.connect(_on_hole_event_created)
+	EventBus.record_broken.connect(_on_record_broken_event)
 	EventBus.new_game_started.connect(_on_new_game_reset_holes_tab)
 	EventBus.load_completed.connect(_on_load_completed_reset_holes_tab)
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
@@ -286,6 +289,10 @@ func _exit_tree() -> void:
 		EventBus.hole_difficulty_changed.disconnect(_on_hole_event_difficulty_changed)
 	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole_event):
 		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_event)
+	if EventBus.hole_created.is_connected(_on_hole_event_created):
+		EventBus.hole_created.disconnect(_on_hole_event_created)
+	if EventBus.record_broken.is_connected(_on_record_broken_event):
+		EventBus.record_broken.disconnect(_on_record_broken_event)
 	if EventBus.new_game_started.is_connected(_on_new_game_reset_holes_tab):
 		EventBus.new_game_started.disconnect(_on_new_game_reset_holes_tab)
 	if EventBus.load_completed.is_connected(_on_load_completed_reset_holes_tab):
@@ -1004,6 +1011,21 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	_hole_register.add_child(map_card)
 
+	# The course scorecard — every hole's par, yardage, stroke index and average,
+	# with the course records — used to be a popup of its own. It is the Holes
+	# tab's card now, the way the map card opens the Course Map: pressing it
+	# swaps the register for the scorecard view, and its back button returns.
+	var scorecard_card := DockActionButton.new()
+	scorecard_card.name = "ScorecardCard"
+	scorecard_card.tool_type = "scorecard"
+	scorecard_card.tool_name = "Scorecard"
+	scorecard_card.glyph = "holes"
+	scorecard_card.accent_section = Section.MANAGE
+	scorecard_card.hotkey = "K"
+	scorecard_card.tool_description = "The course scorecard: every hole's par, yardage, stroke index and average score, with the course records"
+	scorecard_card.tool_pressed.connect(_on_tool_button_pressed)
+	_hole_register.add_child(scorecard_card)
+
 	hole_grid = GridContainer.new()
 	hole_grid.name = "HoleGrid"
 	hole_grid.columns = 1
@@ -1018,6 +1040,12 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	_hole_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_hole_detail.visible = false
 	hbox.add_child(_hole_detail)
+
+	_hole_scorecard = CourseScorecardView.new()
+	_hole_scorecard.name = "CourseScorecard"
+	_hole_scorecard.visible = false
+	_hole_scorecard.back_requested.connect(close_course_scorecard)
+	hbox.add_child(_hole_scorecard)
 
 ## Re-seat the hole buttons so they read three deep down each column before the
 ## next column starts. main.gd adds and removes one button per hole, but the
@@ -1092,7 +1120,6 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 		]],
 		["Review", [
 			["aura_map", "Review", "review", "", "Course rating, feedback and next steps — now on the Course Map\'s Aura mode"],
-			["scorecard", "Scorecard", "holes", "K", "Course scorecard and records"],
 			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
 		]],
 		["Milestones", [
@@ -1578,6 +1605,7 @@ func _on_refresh_tick() -> void:
 # =============================================================================
 
 func show_hole_detail(hole_number: int) -> void:
+	_scorecard_open = false
 	_selected_hole = hole_number
 	select_tab(Tab.HOLES)
 
@@ -1585,13 +1613,43 @@ func close_hole_detail() -> void:
 	_selected_hole = 0
 	_refresh_holes_tab()
 
+## The Holes tab's Scorecard card and the K shortcut both open the course
+## scorecard here. It replaces the hole register, the way a hole's detail does.
+func show_course_scorecard() -> void:
+	_selected_hole = 0
+	_scorecard_open = true
+	select_tab(Tab.HOLES)
+
+## Back to the hole register from the scorecard.
+func close_course_scorecard() -> void:
+	_scorecard_open = false
+	_refresh_holes_tab()
+
+## True while the Holes tab is up with the course scorecard showing.
+func is_course_scorecard_showing() -> bool:
+	return _scorecard_open and current_tab == Tab.HOLES
+
+func _scorecard_showing() -> bool:
+	return _scorecard_open and _selected_hole == 0 and current_tab == Tab.HOLES and is_visible_in_tree()
+
+## The scorecard reads the course's holes, scores and records, so any change to
+## them rebuilds it while it is on screen. Nothing is rebuilt otherwise.
+func _refresh_scorecard_if_showing() -> void:
+	if _scorecard_showing():
+		_hole_scorecard.refresh()
+
 func _on_hole_event_updated(hole_number: int) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
+	_refresh_scorecard_if_showing()
 
 func _on_hole_event_toggled(hole_number: int, _is_open: bool) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
+	_refresh_scorecard_if_showing()
+
+func _on_hole_event_created(_hole_number: int, _par: int, _distance_yards: int) -> void:
+	_refresh_scorecard_if_showing()
 
 func _on_hole_event_deleted(_hole_number: int) -> void:
 	_selected_hole = 0
@@ -1604,17 +1662,24 @@ func _on_holes_event_reordered(_order: Array) -> void:
 func _on_hole_event_difficulty_changed(hole_number: int, _difficulty: float) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
+	_refresh_scorecard_if_showing()
 
 func _on_golfer_finished_hole_event(_golfer_id: int, hole_number: int, _strokes: int, _par: int) -> void:
 	if _selected_hole == hole_number and is_visible_in_tree() and current_tab == Tab.HOLES:
 		_refresh_holes_tab()
+	_refresh_scorecard_if_showing()
+
+func _on_record_broken_event(_record_type: String, _golfer_name: String, _value: int, _hole_number: int) -> void:
+	_refresh_scorecard_if_showing()
 
 func _on_new_game_reset_holes_tab() -> void:
 	_selected_hole = 0
+	_scorecard_open = false
 	_refresh_holes_tab()
 
 func _on_load_completed_reset_holes_tab(_success: bool) -> void:
 	_selected_hole = 0
+	_scorecard_open = false
 	_refresh_holes_tab()
 
 func _has_hole(hole_number: int) -> bool:
@@ -1643,17 +1708,23 @@ func _find_hole_data(hole_number: int) -> GameManager.HoleData:
 	return fallback
 
 func _refresh_holes_tab() -> void:
-	if _hole_register == null or _hole_detail == null:
+	if _hole_register == null or _hole_detail == null or _hole_scorecard == null:
 		return
 	if _selected_hole > 0 and not _has_hole(_selected_hole):
 		_selected_hole = 0
+	# The hole detail and the scorecard each take the shelf in place of the
+	# register; a picked hole wins if both were ever left open.
 	var showing_detail := _selected_hole > 0
-	_hole_register.visible = not showing_detail
+	var showing_scorecard := _scorecard_open and not showing_detail
+	_hole_register.visible = not showing_detail and not showing_scorecard
 	_hole_detail.visible = showing_detail
+	_hole_scorecard.visible = showing_scorecard
 	if showing_detail:
 		_show_hole(_selected_hole)
 	else:
 		_clear_shelf(_hole_detail)
+	if showing_scorecard and current_tab == Tab.HOLES:
+		_hole_scorecard.refresh()
 	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES else 0)
 
 func _show_hole(hole_number: int) -> void:
@@ -2093,7 +2164,7 @@ func _on_tool_button_pressed(tool_type) -> void:
 			"milestones":
 				milestones_pressed.emit()
 			"scorecard":
-				scorecard_pressed.emit()
+				show_course_scorecard()
 			"review":
 				# Legacy Review button now opens Aura mode (full review lives there)
 				course_review_pressed.emit()

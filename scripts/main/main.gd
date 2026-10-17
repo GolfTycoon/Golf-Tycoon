@@ -98,7 +98,6 @@ var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
-var course_scorecard_panel: CourseScorecardPanel = null
 var shot_heatmap_tracker: ShotHeatmapTracker = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var bulldozer_mode: bool = false
@@ -336,7 +335,6 @@ func _ready() -> void:
 	_setup_notification_toast()
 	_setup_event_feed()
 	_setup_course_rating_overlay()
-	_setup_course_scorecard_panel()
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
@@ -494,7 +492,7 @@ func _input(event: InputEvent) -> void:
 				_toggle_event_feed()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_K:
-				_toggle_course_scorecard_panel()
+				_toggle_course_scorecard()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_R and event.shift_pressed:
 				if routing_overlay:
@@ -698,7 +696,6 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
-	terrain_toolbar.scorecard_pressed.connect(_toggle_course_scorecard_panel)
 	terrain_toolbar.golfer_row_clicked.connect(_on_toolbar_golfer_clicked)
 	terrain_toolbar.staff_area_move_requested.connect(_on_staff_area_move_requested)
 	terrain_toolbar.golfer_data_provider = _collect_golfer_rows
@@ -1234,7 +1231,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -4026,42 +4023,14 @@ func _toggle_seasonal_calendar() -> void:
 	_toggle_panel(seasonal_calendar_panel)
 
 # --- Course Scorecard ---
+# The scorecard lives on the Holes tab now. K opens it there, or puts the hole
+# register back up if the scorecard is already showing.
 
-func _setup_course_scorecard_panel() -> void:
-	course_scorecard_panel = CourseScorecardPanel.new()
-	course_scorecard_panel.name = "CourseScorecardPanel"
-	course_scorecard_panel.close_requested.connect(func():
-		course_scorecard_panel.hide()
-		_active_panel = null
-	)
-	$UI/HUD.add_child(course_scorecard_panel)
-
-	# Refresh scorecard when holes, scores, or records change
-	EventBus.hole_created.connect(func(_num, _par, _dist):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.hole_deleted.connect(func(_num):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.hole_toggled.connect(func(_num, _open):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.golfer_finished_hole.connect(func(_id, _hole, _strokes, _par):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.record_broken.connect(func(_type, _name, _val, _hole):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-
-func _toggle_course_scorecard_panel() -> void:
-	if course_scorecard_panel and not course_scorecard_panel.visible:
-		course_scorecard_panel.refresh()
-	_toggle_panel(course_scorecard_panel)
+func _toggle_course_scorecard() -> void:
+	if terrain_toolbar.is_course_scorecard_showing():
+		terrain_toolbar.close_course_scorecard()
+	else:
+		terrain_toolbar.show_course_scorecard()
 
 func _on_day_changed_for_events(_new_day: int) -> void:
 	# Check if there's a seasonal event starting today
