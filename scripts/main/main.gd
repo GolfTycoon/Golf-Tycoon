@@ -154,6 +154,7 @@ enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN }
 var _hole_move_mode: int = HoleMoveMode.NONE
 var _hole_move_data: GameManager.HoleData = null
 var _hole_context_menu: HoleContextMenu = null
+var _highlighted_hole_number: int = 0
 var routing_overlay: RoutingOverlay = null
 
 func _ready() -> void:
@@ -647,6 +648,14 @@ func _setup_terrain_toolbar() -> void:
 
 	# The course holes buttons now live in the toolbar's Holes tab
 	hole_grid = terrain_toolbar.hole_grid
+	terrain_toolbar.terrain_grid = terrain_grid
+	terrain_toolbar.hole_move_tee_requested.connect(_on_context_move_tee)
+	terrain_toolbar.hole_move_green_requested.connect(_on_context_move_green)
+	terrain_toolbar.hole_toggle_requested.connect(_on_context_toggle_hole)
+	terrain_toolbar.hole_par_override_requested.connect(_on_context_par_override)
+	terrain_toolbar.hole_delete_requested.connect(_on_context_delete_hole)
+	terrain_toolbar.hole_locate_requested.connect(_on_hole_stats_selected)
+	terrain_toolbar.hole_detail_changed.connect(_on_hole_detail_changed)
 
 	# Build tool signals
 	terrain_toolbar.tool_selected.connect(_on_tool_selected)
@@ -1988,8 +1997,9 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	hole_btn.custom_minimum_size = Vector2(HOLE_BUTTON_WIDTH, 26)
 	hole_btn.set_meta("hole_number", hole_number)
 	# One button per hole. Everything else about that hole — its pin, tees and
-	# green, its par, whether it is open, its statistics — sits behind the same
-	# context menu as clicking the hole out on the course.
+	# green, its par, whether it is open, its statistics — opens on the Holes
+	# tab in place of the hole grid, the way a visitor card opens on Visiting
+	# Golfers.
 	hole_btn.pressed.connect(_on_hole_button_pressed.bind(hole_number))
 	hole_grid.add_child(hole_btn)
 	# Three holes to a column, so the buttons are re-seated after every change.
@@ -1998,13 +2008,25 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	_refresh_hole_button(hole_number)
 	_update_status_rating()
 
-## A hole button opens the hole's context menu — the same one the course's tee,
-## green and flag open — rather than the statistics screen.
+## A hole button opens that hole's detail view on the Holes tab — its tee and
+## green actions, par, open/closed toggle, delete action and statistics —
+## in place of the hole grid, the way a visitor card opens on Visiting Golfers.
 func _on_hole_button_pressed(hole_number: int) -> void:
 	var hole = _find_hole_data(hole_number)
 	if not hole:
 		return
-	_open_hole_context_menu(hole)
+	_close_hole_context_menu()
+	if hole_stats_panel and hole_stats_panel.visible:
+		_on_hole_stats_panel_closed()
+	if terrain_toolbar:
+		terrain_toolbar.show_hole_detail(hole_number)
+
+func _on_hole_detail_changed(hole_number: int) -> void:
+	if _highlighted_hole_number > 0 and _highlighted_hole_number != hole_number:
+		hole_manager.highlight_hole(_highlighted_hole_number, false)
+	_highlighted_hole_number = hole_number
+	if _highlighted_hole_number > 0:
+		hole_manager.highlight_hole(_highlighted_hole_number, true)
 
 ## Re-read one hole button from the course data: its par, its yardage and
 ## whether it is open. A closed hole plays nowhere, so its button dims the way
@@ -2017,7 +2039,7 @@ func _refresh_hole_button(hole_number: int) -> void:
 	if not hole:
 		return
 	hole_btn.text = "H%d: P%d (%d yds)" % [hole_number, hole.par, hole.distance_yards]
-	hole_btn.tooltip_text = "Hole %d (Par %d, %d yds)%s - Click for the hole menu" % [
+	hole_btn.tooltip_text = "Hole %d (Par %d, %d yds)%s - Click for hole details" % [
 			hole_number, hole.par, hole.distance_yards, "" if hole.is_open else " - Closed"]
 	hole_btn.modulate = Color(1, 1, 1) if hole.is_open else Color(0.5, 0.5, 0.5)
 
@@ -3052,7 +3074,7 @@ func _enter_hole_move_mode(mode: int, hole_data: GameManager.HoleData) -> void:
 func _cancel_hole_move_mode() -> void:
 	if _hole_move_mode == HoleMoveMode.NONE:
 		return
-	if _hole_move_data:
+	if _hole_move_data and _hole_move_data.hole_number != _highlighted_hole_number:
 		hole_manager.highlight_hole(_hole_move_data.hole_number, false)
 	_hole_move_mode = HoleMoveMode.NONE
 	_hole_move_data = null

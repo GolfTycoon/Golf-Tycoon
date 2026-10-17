@@ -786,14 +786,24 @@ func test_pinned_brush_dock_leaves_every_tile_diamond_clear() -> void:
 func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar.hole_grid, "hole_grid should exist")
 	assert_true(toolbar.hole_grid is GridContainer, "hole_grid should be a GridContainer")
+	assert_not_null(toolbar._hole_register, "The Holes tab builds a hole register")
+	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
 	assert_eq(page_content.get_child_count(), 2,
-		"The Holes tab holds the hole grid and the Holes Map card")
-	assert_same(page_content.get_child(0), toolbar.hole_grid,
-		"The hole grid is the tab's first content")
+		"The Holes tab holds the hole register and the hole detail view")
+	assert_same(page_content.get_child(0), toolbar._hole_register,
+		"The hole register leads the tab")
+	assert_same(page_content.get_child(1), toolbar._hole_detail,
+		"with the hole detail view beside it")
+	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
+	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
+	assert_eq(toolbar._hole_register.get_child_count(), 2,
+		"The hole register holds the hole grid and the Holes Map card")
+	assert_same(toolbar._hole_register.get_child(0), toolbar.hole_grid,
+		"The hole grid is the register's first content")
 	var map_card := _holes_map_card()
-	assert_not_null(map_card, "The Holes Map card is the tab's other content")
+	assert_not_null(map_card, "The Holes Map card is the register's other content")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -804,7 +814,7 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 		"The redundant COURSE HOLES heading is removed")
 
 	# Add a sample hole button and verify containment: the button is the whole
-	# of a hole's per-hole UI, with no toggle or delete button beside it.
+	# of a hole's per-hole UI in the register, with no toggle or delete button beside it.
 	_add_hole_button(1)
 	assert_true(toolbar.hole_grid.has_node("HoleBtn1"))
 	assert_eq(toolbar.hole_grid.get_child_count(), 1, "One hole is one button")
@@ -822,7 +832,7 @@ func _add_hole_button(hole_number: int) -> Button:
 
 ## The Holes tab's map card, the way the tab builds it.
 func _holes_map_card() -> DockActionButton:
-	for child in toolbar.page_content(TerrainToolbar.Tab.HOLES).get_children():
+	for child in toolbar._hole_register.get_children():
 		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
 			return child
 	return null
@@ -902,8 +912,127 @@ func test_a_full_course_of_holes_stays_inside_the_bottom_bar() -> void:
 	assert_gt(grid.get_combined_minimum_size().y, 0.0, "The hole buttons are measured")
 	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) \
 			- TerrainToolbar.HEADER_HEIGHT
-	assert_lte(grid.get_combined_minimum_size().y, available,
+	var content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
+	assert_lte(content.get_combined_minimum_size().y, available,
 		"Three rows of hole buttons fit under the tab bar")
+
+	toolbar.show_hole_detail(1)
+	await _settle_layout()
+	assert_true(toolbar._hole_detail.visible, "The hole detail view opened")
+	assert_lte(content.get_combined_minimum_size().y, available,
+		"An open hole detail view fits under the tab bar too")
+
+## A hole button opens that hole's detail view in place of the hole register,
+## and the way back puts the register up again.
+func test_a_hole_button_opens_the_hole_detail_over_the_register() -> void:
+	var hole_btn := _add_hole_button(1)
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	assert_true(toolbar._hole_register.visible, "The hole register leads the tab")
+	assert_false(toolbar._hole_detail.visible, "with no hole detail over it")
+
+	watch_signals(toolbar)
+	hole_btn.pressed.emit()
+	assert_eq(toolbar._selected_hole, 1, "The button names the hole it opens")
+	assert_true(toolbar._hole_detail.visible, "The hole detail takes the page")
+	assert_false(toolbar._hole_register.visible, "and the hole register steps aside")
+	assert_signal_emitted_with_parameters(toolbar, "hole_detail_changed", [1])
+
+	(toolbar._hole_detail.get_child(0) as Button).pressed.emit()
+	assert_eq(toolbar._selected_hole, 0, "The way back closes the hole detail")
+	assert_true(toolbar._hole_register.visible, "and the hole register is up again")
+	assert_false(toolbar._hole_detail.visible, "with the detail view cleared away")
+
+## All content from the hole context menu and hole statistics panel lives on the
+## Holes tab detail view: header, orphan warning, actions, hole info, scoring
+## statistics and score distribution.
+func test_hole_detail_shows_actions_info_and_statistics_and_emits_signals() -> void:
+	var grid := TerrainGrid.new()
+	grid.grid_width = 16
+	grid.grid_height = 16
+	add_child_autofree(grid)
+	toolbar.terrain_grid = grid
+
+	GameManager.current_course = GameManager.CourseData.new()
+	var hole := GameManager.HoleData.new()
+	hole.hole_number = 2
+	hole.par = 4
+	hole.distance_yards = 380
+	hole.difficulty_rating = 4.5
+	hole.stroke_index = 3
+	hole.total_revenue = 1250
+	hole.tee_position = Vector2i(2, 2)
+	hole.green_position = Vector2i(10, 10)
+	hole.hole_position = Vector2i(10, 10)
+	grid.set_tile(hole.green_position, TerrainTypes.Type.GREEN)
+	# Leave tee_position as grass so the orphan warning and Place Tee show up.
+	GameManager.current_course.add_hole(hole)
+
+	var stats := GameManager.HoleStatistics.new(2)
+	stats.record_score(1, 4)
+	stats.record_score(2, 4)
+	stats.record_score(3, 4)
+	stats.record_score(4, 4)
+	stats.record_score(5, 4)
+	stats.record_score(6, 4)
+	GameManager.hole_statistics[2] = stats
+
+	_add_hole_button(2)
+	toolbar.show_hole_detail(2)
+
+	var detail_text := ""
+	for node in toolbar._hole_detail.find_children("*", "Label", true, false):
+		detail_text += (node as Label).text + "\n"
+	assert_string_contains(detail_text, "Hole 2 — Par 4")
+	assert_string_contains(detail_text, "OPEN")
+	assert_string_contains(detail_text, "380 yards  •  Diff: 4.5")
+	assert_string_contains(detail_text, "Warning: Missing tee")
+	assert_string_contains(detail_text, "Hole Information")
+	assert_string_contains(detail_text, "Rating: 4.5")
+	assert_string_contains(detail_text, "Difficulty: 4.5 / 10")
+	assert_string_contains(detail_text, "Revenue: $1,250")
+	assert_string_contains(detail_text, "Stroke Index: 3")
+	assert_string_contains(detail_text, "Scoring Statistics")
+	assert_string_contains(detail_text, "Rounds Played: 6")
+	assert_string_contains(detail_text, "Best Score: 1")
+	assert_string_contains(detail_text, "Score Distribution")
+	assert_string_contains(detail_text, "Holes-in-One: 1")
+	assert_string_contains(detail_text, "Eagles: 2")
+	assert_string_contains(detail_text, "Birdies: 1")
+	assert_string_contains(detail_text, "Pars: 1")
+	assert_string_contains(detail_text, "Bogeys: 1")
+	assert_string_contains(detail_text, "Double+: 1")
+
+	var locate_btn := toolbar._hole_detail.find_child("LocateHoleButton", true, false) as Button
+	var tee_btn := toolbar._hole_detail.find_child("MoveTeeButton", true, false) as Button
+	var green_btn := toolbar._hole_detail.find_child("MoveGreenButton", true, false) as Button
+	var par_btn := toolbar._hole_detail.find_child("CycleParButton", true, false) as Button
+	var toggle_btn := toolbar._hole_detail.find_child("ToggleHoleButton", true, false) as Button
+	var delete_btn := toolbar._hole_detail.find_child("DeleteHoleButton", true, false) as Button
+	assert_not_null(locate_btn)
+	assert_not_null(tee_btn)
+	assert_eq(tee_btn.text, "Place Tee", "An orphaned tee asks to Place Tee")
+	assert_not_null(green_btn)
+	assert_eq(green_btn.text, "Move Green", "A painted green offers Move Green")
+	assert_not_null(par_btn)
+	assert_string_contains(par_btn.text, "Cycle Par  [Par 4 (auto)]")
+	assert_not_null(toggle_btn)
+	assert_eq(toggle_btn.text, "Close Hole")
+	assert_not_null(delete_btn)
+	assert_eq(delete_btn.text, "Delete Hole")
+
+	watch_signals(toolbar)
+	locate_btn.pressed.emit()
+	tee_btn.pressed.emit()
+	green_btn.pressed.emit()
+	par_btn.pressed.emit()
+	toggle_btn.pressed.emit()
+	delete_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(toolbar, "hole_locate_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_move_tee_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_move_green_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_par_override_requested", [2, 5])
+	assert_signal_emitted_with_parameters(toolbar, "hole_toggle_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_delete_requested", [2])
 
 ## A hole that goes takes its button with it and the rest re-seat, which is the
 ## rebuild main.gd runs whenever the holes are renumbered.

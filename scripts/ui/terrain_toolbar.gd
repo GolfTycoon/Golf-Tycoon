@@ -31,6 +31,14 @@ signal course_map_pressed
 ## The Holes tab's shortcut to that map, opened on the mode that is about
 ## the holes themselves: Routing Holes.
 signal holes_map_pressed
+## Hole management actions emitted from the Holes tab's hole detail view.
+signal hole_move_tee_requested(hole_number: int)
+signal hole_move_green_requested(hole_number: int)
+signal hole_toggle_requested(hole_number: int)
+signal hole_par_override_requested(hole_number: int, new_par: int)
+signal hole_delete_requested(hole_number: int)
+signal hole_locate_requested(hole_number: int)
+signal hole_detail_changed(hole_number: int)
 ## The Staff tab's shortcut to that map, opened on the mode that is about
 ## the crew: Staff.
 signal staff_map_pressed
@@ -181,6 +189,10 @@ const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unu
 const BULLDOZER_TOOLTIP := "Demolish decorations, walking paths and buildings. Click or drag over them. Fees: $5 per path tile, $20 per decoration or building. Course Terrain tiles are not affected — any Course Terrain tile replaces any other, including trees."
 
 var hole_grid: GridContainer = null  # Course holes buttons, three to a column (filled by main.gd)
+var terrain_grid: TerrainGrid = null  # Course terrain grid, for checking orphaned tee/green tiles
+var _hole_register: HBoxContainer = null
+var _hole_detail: HBoxContainer = null
+var _selected_hole: int = 0
 var golfer_data_provider: Callable = Callable()  # -> Array of golfer row dicts
 
 var _current_tool: int = -1
@@ -243,6 +255,14 @@ var _staff_panel: StaffPanel = null
 func _ready() -> void:
 	_build_ui()
 	EventBus.theme_changed.connect(_on_theme_changed)
+	EventBus.hole_updated.connect(_on_hole_event_updated)
+	EventBus.hole_toggled.connect(_on_hole_event_toggled)
+	EventBus.hole_deleted.connect(_on_hole_event_deleted)
+	EventBus.holes_reordered.connect(_on_holes_event_reordered)
+	EventBus.hole_difficulty_changed.connect(_on_hole_event_difficulty_changed)
+	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_event)
+	EventBus.new_game_started.connect(_on_new_game_reset_holes_tab)
+	EventBus.load_completed.connect(_on_load_completed_reset_holes_tab)
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	apply_screen()
@@ -250,6 +270,22 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.disconnect(_on_theme_changed)
+	if EventBus.hole_updated.is_connected(_on_hole_event_updated):
+		EventBus.hole_updated.disconnect(_on_hole_event_updated)
+	if EventBus.hole_toggled.is_connected(_on_hole_event_toggled):
+		EventBus.hole_toggled.disconnect(_on_hole_event_toggled)
+	if EventBus.hole_deleted.is_connected(_on_hole_event_deleted):
+		EventBus.hole_deleted.disconnect(_on_hole_event_deleted)
+	if EventBus.holes_reordered.is_connected(_on_holes_event_reordered):
+		EventBus.holes_reordered.disconnect(_on_holes_event_reordered)
+	if EventBus.hole_difficulty_changed.is_connected(_on_hole_event_difficulty_changed):
+		EventBus.hole_difficulty_changed.disconnect(_on_hole_event_difficulty_changed)
+	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole_event):
+		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_event)
+	if EventBus.new_game_started.is_connected(_on_new_game_reset_holes_tab):
+		EventBus.new_game_started.disconnect(_on_new_game_reset_holes_tab)
+	if EventBus.load_completed.is_connected(_on_load_completed_reset_holes_tab):
+		EventBus.load_completed.disconnect(_on_load_completed_reset_holes_tab)
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
 
@@ -937,17 +973,24 @@ func _make_elevation_brush_shape_notch() -> ElevationBrushNotchButton:
 	return notch
 
 func _build_holes_tab(hbox: HBoxContainer) -> void:
-	# The Course Terrain tab owns the Open Hole action, and each hole's context
-	# menu owns that hole's open/closed toggle and its statistics. Keep this tab
-	# to the holes themselves — one button each, three to a column, no per-hole
-	# toggle or delete buttons and no group heading.
+	# The Course Terrain tab owns the Open Hole action. When no hole is picked,
+	# the tab shows the course holes register — one button per hole, three to a
+	# column, beside the Holes Map card. Clicking a hole button opens that
+	# hole's management actions and statistics in place of the register, the
+	# same way clicking a visitor opens their profile on Visiting Golfers.
+	_hole_register = HBoxContainer.new()
+	_hole_register.name = "HoleRegister"
+	_hole_register.add_theme_constant_override("separation", 8)
+	_hole_register.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.add_child(_hole_register)
+
 	hole_grid = GridContainer.new()
 	hole_grid.name = "HoleGrid"
 	hole_grid.columns = 1
 	hole_grid.add_theme_constant_override("h_separation", 6)
 	hole_grid.add_theme_constant_override("v_separation", 4)
 	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hbox.add_child(hole_grid)
+	_hole_register.add_child(hole_grid)
 	# The round the holes make is the Course Map's Routing Holes mode, so
 	# the tab carries a card that opens the map straight onto it. It is an
 	# action rather than a hole, so it stands beside the grid, not in it.
@@ -960,7 +1003,14 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.accent_section = Section.MANAGE
 	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
-	hbox.add_child(map_card)
+	_hole_register.add_child(map_card)
+
+	_hole_detail = HBoxContainer.new()
+	_hole_detail.name = "HoleDetail"
+	_hole_detail.add_theme_constant_override("separation", 14)
+	_hole_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_hole_detail.visible = false
+	hbox.add_child(_hole_detail)
 
 ## Re-seat the hole buttons so they read three deep down each column before the
 ## next column starts. main.gd adds and removes one button per hole, but the
@@ -976,6 +1026,13 @@ func layout_hole_buttons() -> void:
 			buttons.append(child)
 	buttons.sort_custom(func(a: Control, b: Control) -> bool:
 		return int(a.get_meta("hole_number", 0)) < int(b.get_meta("hole_number", 0)))
+	for control in buttons:
+		if control is Button and not control.has_meta("_hole_detail_bound"):
+			control.set_meta("_hole_detail_bound", true)
+			control.pressed.connect(func():
+				var number := int(control.get_meta("hole_number", 0))
+				if number > 0:
+					show_hole_detail(number))
 	if buttons.is_empty():
 		hole_grid.columns = 1
 		return
@@ -1465,9 +1522,13 @@ func _show_page(tab_index: int) -> void:
 		_pages[i].visible = i == view_index
 	if tab_index in PLAYER_TABS:
 		player_tab.select(PLAYER_TABS.find(tab_index))
+	if tab_index != Tab.HOLES and _selected_hole > 0:
+		hole_detail_changed.emit(0)
 	match tab_index:
 		Tab.IMPROVEMENTS:
 			refresh_decoration_unlocks()
+		Tab.HOLES:
+			_refresh_holes_tab()
 		Tab.GOLFERS:
 			_refresh_golfer_lists()
 		Tab.PLAYER:
@@ -1496,12 +1557,279 @@ func _on_refresh_tick() -> void:
 		return
 	if current_tab == Tab.GOLFERS:
 		_refresh_golfer_lists()
+	elif current_tab == Tab.HOLES and _selected_hole > 0:
+		_refresh_holes_tab()
 	elif current_tab in PLAYER_TABS:
 		_refresh_player_skills()
 	elif current_tab == Tab.IMPROVEMENTS:
 		# Star rating, reputation and hole count all move during play, so the
 		# open decoration shelf keeps up with what has been unlocked.
 		refresh_decoration_unlocks()
+
+# =============================================================================
+# Holes tab
+# =============================================================================
+
+func show_hole_detail(hole_number: int) -> void:
+	_selected_hole = hole_number
+	select_tab(Tab.HOLES)
+
+func close_hole_detail() -> void:
+	_selected_hole = 0
+	_refresh_holes_tab()
+
+func _on_hole_event_updated(hole_number: int) -> void:
+	if _selected_hole == hole_number:
+		_refresh_holes_tab()
+
+func _on_hole_event_toggled(hole_number: int, _is_open: bool) -> void:
+	if _selected_hole == hole_number:
+		_refresh_holes_tab()
+
+func _on_hole_event_deleted(_hole_number: int) -> void:
+	_selected_hole = 0
+	_refresh_holes_tab()
+
+func _on_holes_event_reordered(_order: Array) -> void:
+	_selected_hole = 0
+	_refresh_holes_tab()
+
+func _on_hole_event_difficulty_changed(hole_number: int, _difficulty: float) -> void:
+	if _selected_hole == hole_number:
+		_refresh_holes_tab()
+
+func _on_golfer_finished_hole_event(_golfer_id: int, hole_number: int, _strokes: int, _par: int) -> void:
+	if _selected_hole == hole_number and is_visible_in_tree() and current_tab == Tab.HOLES:
+		_refresh_holes_tab()
+
+func _on_new_game_reset_holes_tab() -> void:
+	_selected_hole = 0
+	_refresh_holes_tab()
+
+func _on_load_completed_reset_holes_tab(_success: bool) -> void:
+	_selected_hole = 0
+	_refresh_holes_tab()
+
+func _has_hole(hole_number: int) -> bool:
+	if hole_number <= 0:
+		return false
+	if GameManager and GameManager.current_course and not GameManager.current_course.holes.is_empty():
+		for hole in GameManager.current_course.holes:
+			if hole.hole_number == hole_number:
+				return true
+		return false
+	if hole_grid and hole_grid.has_node("HoleBtn%d" % hole_number):
+		return true
+	return false
+
+func _find_hole_data(hole_number: int) -> GameManager.HoleData:
+	if GameManager and GameManager.current_course:
+		for hole in GameManager.current_course.holes:
+			if hole.hole_number == hole_number:
+				return hole
+	var fallback := GameManager.HoleData.new()
+	fallback.hole_number = hole_number
+	fallback.par = 4
+	fallback.distance_yards = 350
+	fallback.difficulty_rating = 3.0
+	fallback.is_open = true
+	return fallback
+
+func _refresh_holes_tab() -> void:
+	if _hole_register == null or _hole_detail == null:
+		return
+	if _selected_hole > 0 and not _has_hole(_selected_hole):
+		_selected_hole = 0
+	var showing_detail := _selected_hole > 0
+	_hole_register.visible = not showing_detail
+	_hole_detail.visible = showing_detail
+	if showing_detail:
+		_show_hole(_selected_hole)
+	else:
+		_clear_shelf(_hole_detail)
+	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES else 0)
+
+func _show_hole(hole_number: int) -> void:
+	_clear_shelf(_hole_detail)
+	var hole_data := _find_hole_data(hole_number)
+	var tee_orphaned := false
+	var green_orphaned := false
+	if is_instance_valid(terrain_grid):
+		tee_orphaned = terrain_grid.get_tile(hole_data.tee_position) != TerrainTypes.Type.TEE_BOX
+		green_orphaned = terrain_grid.get_tile(hole_data.green_position) != TerrainTypes.Type.GREEN
+
+	var back := _visitor_button("< Holes", Color("e2c681"))
+	back.name = "BackButton"
+	back.tooltip_text = "Return to the course holes list"
+	back.pressed.connect(func():
+		close_hole_detail())
+	_hole_detail.add_child(back)
+
+	var identity := VBoxContainer.new()
+	identity.name = "HoleIdentity"
+	identity.add_theme_constant_override("separation", 2)
+	_hole_detail.add_child(identity)
+	identity.add_child(_visitor_label("Hole %d — Par %d" % [hole_data.hole_number, hole_data.par], Color("e2c681")))
+	identity.add_child(_visitor_label("OPEN" if hole_data.is_open else "CLOSED",
+		Color("83c9a4") if hole_data.is_open else UIConstants.COLOR_WARNING))
+	identity.add_child(_visitor_label("%d yards  •  Diff: %.1f" % [hole_data.distance_yards, hole_data.difficulty_rating],
+		UIConstants.COLOR_TEXT_MUTED))
+	if tee_orphaned or green_orphaned:
+		var missing := "tee & green" if tee_orphaned and green_orphaned else ("tee" if tee_orphaned else "green")
+		identity.add_child(_visitor_label("Warning: Missing %s" % missing, UIConstants.COLOR_WARNING))
+	var locate := _visitor_button("Locate hole", Color("87b9cf"))
+	locate.name = "LocateHoleButton"
+	locate.tooltip_text = "Center the camera on Hole %d" % hole_data.hole_number
+	locate.pressed.connect(func(): hole_locate_requested.emit(hole_data.hole_number))
+	identity.add_child(locate)
+
+	var layout_actions := VBoxContainer.new()
+	layout_actions.name = "HoleLayoutActions"
+	layout_actions.add_theme_constant_override("separation", 4)
+	_hole_detail.add_child(layout_actions)
+
+	var tee_label := "Place Tee" if tee_orphaned else "Move Tee"
+	var tee_btn := _visitor_button(tee_label, UIConstants.COLOR_WARNING if tee_orphaned else Color("8dba9b"))
+	tee_btn.name = "MoveTeeButton"
+	if tee_orphaned:
+		tee_btn.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+	tee_btn.pressed.connect(func(): hole_move_tee_requested.emit(hole_data.hole_number))
+	layout_actions.add_child(tee_btn)
+
+	var green_label := "Place Green" if green_orphaned else "Move Green"
+	var green_btn := _visitor_button(green_label, UIConstants.COLOR_WARNING if green_orphaned else Color("8dba9b"))
+	green_btn.name = "MoveGreenButton"
+	if green_orphaned:
+		green_btn.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+	green_btn.pressed.connect(func(): hole_move_green_requested.emit(hole_data.hole_number))
+	layout_actions.add_child(green_btn)
+
+	var auto_par := GolfRules.calculate_par(hole_data.distance_yards)
+	var par_text := "Par %d" % hole_data.par
+	if hole_data.par_override > 0:
+		par_text += "*"
+	else:
+		par_text += " (auto)"
+	var par_btn := _visitor_button("Cycle Par  [%s]" % par_text, Color("d8bb71"))
+	par_btn.name = "CycleParButton"
+	par_btn.pressed.connect(func():
+		var new_par := _cycle_hole_par(hole_data.par, auto_par)
+		hole_par_override_requested.emit(hole_data.hole_number, new_par))
+	layout_actions.add_child(par_btn)
+
+	var state_actions := VBoxContainer.new()
+	state_actions.name = "HoleStateActions"
+	state_actions.add_theme_constant_override("separation", 4)
+	_hole_detail.add_child(state_actions)
+
+	var toggle_label := "Close Hole" if hole_data.is_open else "Open Hole"
+	var toggle_color := UIConstants.COLOR_DANGER if hole_data.is_open else UIConstants.COLOR_SUCCESS
+	var toggle_btn := _visitor_button(toggle_label, toggle_color)
+	toggle_btn.name = "ToggleHoleButton"
+	toggle_btn.add_theme_color_override("font_color", toggle_color)
+	toggle_btn.pressed.connect(func(): hole_toggle_requested.emit(hole_data.hole_number))
+	state_actions.add_child(toggle_btn)
+
+	var sep := HSeparator.new()
+	sep.add_theme_constant_override("separation", 4)
+	sep.add_theme_stylebox_override("separator", StyleBoxLine.new())
+	state_actions.add_child(sep)
+
+	var delete_btn := _visitor_button("Delete Hole", UIConstants.COLOR_DANGER)
+	delete_btn.name = "DeleteHoleButton"
+	delete_btn.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+	delete_btn.add_theme_color_override("font_hover_color", UIConstants.COLOR_DANGER_DIM)
+	delete_btn.tooltip_text = "Remove Hole %d and renumber the holes after it. Asks first." \
+		% hole_data.hole_number
+	delete_btn.pressed.connect(func(): hole_delete_requested.emit(hole_data.hole_number))
+	state_actions.add_child(delete_btn)
+
+	var info_col := VBoxContainer.new()
+	info_col.name = "HoleInformation"
+	info_col.add_theme_constant_override("separation", 2)
+	_hole_detail.add_child(info_col)
+	info_col.add_child(_visitor_label("Hole Information", Color("87b9cf")))
+	info_col.add_child(_visitor_label("Par: %s  •  Distance: %d yards" % [par_text.trim_prefix("Par "), hole_data.distance_yards]))
+	var diff_color := _hole_difficulty_color(hole_data.difficulty_rating)
+	info_col.add_child(_visitor_label("Rating: %.1f  •  Difficulty: %.1f / 10" % [
+		hole_data.difficulty_rating, hole_data.difficulty_rating], diff_color))
+	var rev_text := "$%s" % _format_hole_number(hole_data.total_revenue) if hole_data.total_revenue > 0 else "No revenue yet"
+	var rev_color := UIConstants.COLOR_SUCCESS if hole_data.total_revenue > 0 else UIConstants.COLOR_TEXT_MUTED
+	info_col.add_child(_visitor_label("Revenue: %s" % rev_text, rev_color))
+	if hole_data.stroke_index > 0:
+		info_col.add_child(_visitor_label("Stroke Index: %d" % hole_data.stroke_index))
+
+	var stats: GameManager.HoleStatistics = GameManager.get_hole_statistics(hole_data.hole_number) if GameManager else null
+	var scoring_col := VBoxContainer.new()
+	scoring_col.name = "ScoringStatistics"
+	scoring_col.add_theme_constant_override("separation", 2)
+	_hole_detail.add_child(scoring_col)
+	scoring_col.add_child(_visitor_label("Scoring Statistics", Color("87b9cf")))
+	if stats and stats.total_rounds > 0:
+		scoring_col.add_child(_visitor_label("Rounds Played: %d" % stats.total_rounds))
+		var avg_score: float = stats.get_average_score()
+		var avg_to_par: float = stats.get_average_to_par(hole_data.par)
+		var avg_color := UIConstants.COLOR_SUCCESS if avg_to_par <= 0.0 else UIConstants.COLOR_WARNING
+		if avg_to_par > 0.5:
+			avg_color = UIConstants.COLOR_DANGER
+		var avg_text := "%.2f" % avg_score
+		if avg_to_par != 0.0:
+			avg_text += " (%s%.2f)" % ["+" if avg_to_par > 0.0 else "", avg_to_par]
+		scoring_col.add_child(_visitor_label("Average Score: %s" % avg_text, avg_color))
+		if stats.best_score > 0:
+			var best_color := UIConstants.COLOR_GOLD if stats.best_score == 1 else UIConstants.COLOR_INFO
+			scoring_col.add_child(_visitor_label("Best Score: %d" % stats.best_score, best_color))
+
+		var dist_entries: Array = []
+		if stats.holes_in_one > 0:
+			dist_entries.append(["Holes-in-One: %d" % stats.holes_in_one, UIConstants.COLOR_GOLD])
+		if stats.eagles > 0:
+			dist_entries.append(["Eagles: %d" % stats.eagles, UIConstants.COLOR_GOLD_DIM])
+		if stats.birdies > 0:
+			dist_entries.append(["Birdies: %d" % stats.birdies, UIConstants.COLOR_INFO])
+		dist_entries.append(["Pars: %d" % stats.pars, UIConstants.COLOR_TEXT_DIM])
+		if stats.bogeys > 0:
+			dist_entries.append(["Bogeys: %d" % stats.bogeys, UIConstants.COLOR_DANGER_MUTED])
+		if stats.double_bogeys_plus > 0:
+			dist_entries.append(["Double+: %d" % stats.double_bogeys_plus, UIConstants.COLOR_DANGER])
+
+		var dist_col: VBoxContainer = null
+		for i in dist_entries.size():
+			if i % 4 == 0:
+				dist_col = VBoxContainer.new()
+				dist_col.name = "ScoreDistribution" if i == 0 else "ScoreDistributionContinued"
+				dist_col.add_theme_constant_override("separation", 2)
+				_hole_detail.add_child(dist_col)
+				dist_col.add_child(_visitor_label("Score Distribution" + (" (continued)" if i > 0 else ""), Color("87b9cf")))
+			dist_col.add_child(_visitor_label(str(dist_entries[i][0]), dist_entries[i][1]))
+	else:
+		scoring_col.add_child(_visitor_label("No rounds played yet", UIConstants.COLOR_TEXT_MUTED))
+
+func _hole_difficulty_color(difficulty: float) -> Color:
+	if difficulty < 4.0:
+		return UIConstants.COLOR_SUCCESS
+	elif difficulty < 7.0:
+		return UIConstants.COLOR_WARNING
+	return UIConstants.COLOR_DANGER
+
+func _cycle_hole_par(current_par: int, auto_par: int) -> int:
+	var min_par: int = maxi(3, auto_par - 1)
+	var max_par: int = mini(6, auto_par + 1)
+	var next_par: int = current_par + 1
+	if next_par > max_par:
+		next_par = min_par
+	return next_par
+
+func _format_hole_number(n: int) -> String:
+	var s := str(n)
+	var result := ""
+	var count := 0
+	for i in range(s.length() - 1, -1, -1):
+		if count > 0 and count % 3 == 0:
+			result = "," + result
+		result = s[i] + result
+		count += 1
+	return result
 
 # =============================================================================
 # Golfer tab
