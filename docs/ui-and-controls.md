@@ -59,12 +59,12 @@ its marketing campaigns still read as the groups they were.
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
 work; selecting a build tool reveals its section automatically. The Holes tab,
-now in Manage, carries a **Holes Map** card beside the hole buttons, and
-clicking a hole button opens that hole's actions (move/place tee and green,
-cycle par, open/close, locate, delete) and statistics (rating, difficulty,
-revenue, stroke index, scoring averages and score distribution) in place of the
-hole list — the same way clicking a golfer on the Visiting Golfers tab opens
-their profile. The Staff tab carries a **Staff Map** card beside the roster.
+now in Manage, leads with a **Holes Map** card on the left, followed by the hole
+buttons, and clicking a hole button opens that hole's actions (move/place tee
+and green, cycle par, open/close, locate, delete) and statistics (rating,
+difficulty, revenue, stroke index, scoring averages and score distribution) in
+place of the hole list — the same way clicking a golfer on the Visiting Golfers
+tab opens their profile. The Staff tab carries a **Staff Map** card beside the roster.
 Both map cards open the Course Map straight into its Routing Holes and Staff
 modes. Shelves scroll horizontally while the circle controls remain fixed.
 Hover/focus states, tooltips and accessible names identify every icon; Tab and

@@ -974,26 +974,21 @@ func _make_elevation_brush_shape_notch() -> ElevationBrushNotchButton:
 
 func _build_holes_tab(hbox: HBoxContainer) -> void:
 	# The Course Terrain tab owns the Open Hole action. When no hole is picked,
-	# the tab shows the course holes register — one button per hole, three to a
-	# column, beside the Holes Map card. Clicking a hole button opens that
-	# hole's management actions and statistics in place of the register, the
-	# same way clicking a visitor opens their profile on Visiting Golfers.
+	# the tab shows the course holes register — the Holes Map card leading on
+	# the left, then one button per hole, three to a column. Clicking a hole
+	# button opens that hole's management actions and statistics in place of
+	# the register, the same way clicking a visitor opens their profile on
+	# Visiting Golfers.
 	_hole_register = HBoxContainer.new()
 	_hole_register.name = "HoleRegister"
 	_hole_register.add_theme_constant_override("separation", 8)
 	_hole_register.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	hbox.add_child(_hole_register)
 
-	hole_grid = GridContainer.new()
-	hole_grid.name = "HoleGrid"
-	hole_grid.columns = 1
-	hole_grid.add_theme_constant_override("h_separation", 6)
-	hole_grid.add_theme_constant_override("v_separation", 4)
-	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_hole_register.add_child(hole_grid)
 	# The round the holes make is the Course Map's Routing Holes mode, so
 	# the tab carries a card that opens the map straight onto it. It is an
-	# action rather than a hole, so it stands beside the grid, not in it.
+	# action rather than a hole, so it stands beside the grid, not in it —
+	# and it leads the register on the left, before the hole buttons.
 	var map_card := DockActionButton.new()
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
@@ -1004,6 +999,14 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	_hole_register.add_child(map_card)
+
+	hole_grid = GridContainer.new()
+	hole_grid.name = "HoleGrid"
+	hole_grid.columns = 1
+	hole_grid.add_theme_constant_override("h_separation", 6)
+	hole_grid.add_theme_constant_override("v_separation", 4)
+	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_hole_register.add_child(hole_grid)
 
 	_hole_detail = HBoxContainer.new()
 	_hole_detail.name = "HoleDetail"

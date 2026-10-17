@@ -799,11 +799,13 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
 	assert_eq(toolbar._hole_register.get_child_count(), 2,
-		"The hole register holds the hole grid and the Holes Map card")
-	assert_same(toolbar._hole_register.get_child(0), toolbar.hole_grid,
-		"The hole grid is the register's first content")
+		"The hole register holds the Holes Map card and the hole grid")
 	var map_card := _holes_map_card()
 	assert_not_null(map_card, "The Holes Map card is the register's other content")
+	assert_same(toolbar._hole_register.get_child(0), map_card,
+		"The Holes Map card leads the register on the left")
+	assert_same(toolbar._hole_register.get_child(1), toolbar.hole_grid,
+		"and the hole buttons follow it")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
