@@ -28,6 +28,12 @@ signal tournaments_pressed
 signal world_map_pressed
 ## The company's live course as one isometric map: land, holes, aura and staff.
 signal course_map_pressed
+## The Holes tab's shortcut to that map, opened on the mode that is about
+## the holes themselves: Routing Holes.
+signal holes_map_pressed
+## The Staff tab's shortcut to that map, opened on the mode that is about
+## the crew: Staff.
+signal staff_map_pressed
 signal marketing_pressed
 signal milestones_pressed
 signal scorecard_pressed
@@ -99,6 +105,8 @@ const TOOL_TAB_MAP := {
 	"tournaments": Tab.PLAYER,
 	"world_map": Tab.MAPS,
 	"course_map": Tab.MAPS,
+	"holes_map": Tab.HOLES,
+	"staff_map": Tab.STAFF,
 	"marketing": Tab.MARKETING,
 	"milestones": Tab.MILESTONE,
 	"scorecard": Tab.REVIEW,
@@ -941,6 +949,17 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	hole_grid.add_theme_constant_override("v_separation", 4)
 	hole_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	hbox.add_child(hole_grid)
+	# The round the holes make is the Course Map's Routing Holes mode, so
+	# the tab carries a card that opens the map straight onto it. It is an
+	# action rather than a hole, so it stands beside the grid, not in it.
+	var map_card := DockActionButton.new()
+	map_card.tool_type = "holes_map"
+	map_card.tool_name = "Holes Map"
+	map_card.glyph = "holes"
+	map_card.accent_section = Section.BUILD
+	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
+	map_card.tool_pressed.connect(_on_tool_button_pressed)
+	hbox.add_child(map_card)
 
 ## Re-seat the hole buttons so they read three deep down each column before the
 ## next column starts. main.gd adds and removes one button per hole, but the
@@ -1027,6 +1046,17 @@ func _build_staff_tab(hbox: HBoxContainer) -> void:
 	_staff_panel.area_move_requested.connect(func(index: int):
 		staff_area_move_requested.emit(index))
 	hbox.add_child(_staff_panel)
+	# The crew's ground is the Course Map's Staff mode, so the tab
+	# carries a card that opens the map straight onto it. It is an
+	# action rather than a roster row, so it stands beside the panel,
+	# not inside it.
+	var map_card := DockActionButton.new()
+	map_card.tool_type = "staff_map"
+	map_card.tool_name = "Staff Map"
+	map_card.glyph = "staff"
+	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
+	map_card.tool_pressed.connect(_on_tool_button_pressed)
+	hbox.add_child(map_card)
 
 ## Reflect the active area-repositioning mode back into the roster buttons.
 func set_staff_area_mode_index(index: int) -> void:
@@ -1139,7 +1169,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -1697,6 +1727,10 @@ func _on_tool_button_pressed(tool_type) -> void:
 				tournaments_pressed.emit()
 			"course_map":
 				course_map_pressed.emit()
+			"holes_map":
+				holes_map_pressed.emit()
+			"staff_map":
+				staff_map_pressed.emit()
 			"world_map":
 				world_map_pressed.emit()
 			"marketing":

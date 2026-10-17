@@ -120,6 +120,52 @@ func test_the_hotkey_toggles_the_map_and_its_own_keys_do_not_reach_the_course() 
 	assert_false(GameManager.is_paused, "and hands the day back")
 
 
+## The Holes tab's Holes Map card: the Course Map straight into Routing
+## Holes, the mode that is the round the holes make.
+func test_the_holes_tabs_map_card_opens_the_map_on_routing_holes() -> void:
+	assert_false(main._course_map_is_open(), "the map starts closed")
+	var card := await dock_row(TerrainToolbar.Tab.HOLES, "holes_map")
+	assert_not_null(card, "the Holes tab carries a Holes Map card")
+	assert_eq(str(card.get("tool_name")), "Holes Map", "and says what it is")
+
+	await click(card)
+	await process_frames(2)
+
+	assert_true(main._course_map_is_open(), "the card opens the Course Map")
+	assert_true(GameManager.is_paused, "and freezes the day like any entry")
+	var screen: CourseMapScreen = main.course_map_screen
+	assert_eq(screen.mode, MODE_ROUTING, "on Routing Holes")
+	assert_eq(screen.map.mode, MODE_ROUTING, "and the map draws the route")
+	assert_true(screen._routing_panel.visible, "with the Routing panel beside it")
+	assert_eq(screen._routing_panel.get_parent(), screen._panel_scroll,
+		"inside the panel frame")
+	assert_string_contains(screen._strip_label.text, "Reorder the holes",
+		"and the strip says what the mode is about")
+
+
+## The Staff tab's Staff Map card: the Course Map straight into
+## Staff, the mode that is the crew's ground.
+func test_the_staff_tabs_map_card_opens_the_map_on_staff() -> void:
+	assert_false(main._course_map_is_open(), "the map starts closed")
+	var card := await dock_row(TerrainToolbar.Tab.STAFF, "staff_map")
+	assert_not_null(card, "the Staff tab carries a Staff Map card")
+	assert_eq(str(card.get("tool_name")), "Staff Map", "and says what it is")
+
+	await click(card)
+	await process_frames(2)
+
+	assert_true(main._course_map_is_open(), "the card opens the Course Map")
+	assert_true(GameManager.is_paused, "and freezes the day like any entry")
+	var screen: CourseMapScreen = main.course_map_screen
+	assert_eq(screen.mode, MODE_STAFF, "on Staff")
+	assert_eq(screen.map.mode, MODE_STAFF, "and the map draws the crew's ground")
+	assert_true(screen._staff_panel.visible, "with the Staff panel beside it")
+	assert_eq(screen._staff_panel.get_parent(), screen._panel_scroll,
+		"inside the panel frame")
+	assert_string_contains(screen._strip_label.text, "Hire, fire",
+		"and the strip says what the mode is about")
+
+
 ## Resizing the game window while the map is up (or turning a tablet) is the one
 ## thing the screen has to survive: the frames around the map are rebuilt, the
 ## map and the four panels are not, and the map keeps working afterwards.

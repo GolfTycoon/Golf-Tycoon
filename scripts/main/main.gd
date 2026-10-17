@@ -674,6 +674,8 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.tournaments_pressed.connect(_toggle_tournament_panel)
 	terrain_toolbar.world_map_pressed.connect(_open_world_map_from_club_tab)
 	terrain_toolbar.course_map_pressed.connect(_open_course_map)
+	terrain_toolbar.holes_map_pressed.connect(_open_course_map_routing)
+	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
 	terrain_toolbar.scorecard_pressed.connect(_toggle_course_scorecard_panel)
@@ -828,9 +830,12 @@ func _on_quit_pressed() -> void:
 ## same way the world map does. It edits the live course in place, so a parcel
 ## bought or a hole moved is there the moment the course is handed back.
 
-## The Maps tab's Course Map button, and the Shift+M hotkey.
-func _open_course_map() -> void:
+## The Maps tab's Course Map button, and the Shift+M hotkey. `mode` is the
+## mode the map opens on: Land unless the caller asks for another — the
+## Holes tab's Holes Map button asks for Routing Holes.
+func _open_course_map(mode: int = CourseMapView.Mode.LAND) -> void:
 	if _course_map_is_open():
+		course_map_screen.set_mode(mode)
 		return
 	_course_map_restore_paused = GameManager.is_paused
 	GameManager.is_paused = true
@@ -846,7 +851,18 @@ func _open_course_map() -> void:
 		course_map_screen.back_requested.connect(_on_course_map_back)
 		hud.add_child(course_map_screen)
 	course_map_screen.show()
+	course_map_screen.set_mode(mode)
 	course_map_screen.refresh()
+
+## The Holes tab's Holes Map button: the Course Map on Routing Holes,
+## the mode that is the round the holes make.
+func _open_course_map_routing() -> void:
+	_open_course_map(CourseMapView.Mode.ROUTING)
+
+## The Staff tab's Staff Map button: the Course Map on Staff, the mode
+## that is the crew's ground.
+func _open_course_map_staff() -> void:
+	_open_course_map(CourseMapView.Mode.STAFF)
 
 func _close_course_map() -> void:
 	if course_map_screen:

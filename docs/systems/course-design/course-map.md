@@ -1,8 +1,8 @@
 # Course Map
 
-> One isometric view of the whole course in four modes: buy the land around it, reorder its holes, read where golfers are happy and unhappy, and post the crew. Opens with **Shift+M**, or **Manage → Maps → Course Map**.
+> One isometric view of the whole course in four modes: buy the land around it, reorder its holes, read where golfers are happy and unhappy, and post the crew. Opens with **Shift+M**, with **Manage → Maps → Course Map**, with the Holes tab's **Holes Map** card (straight into Routing Holes), or with the Staff tab's **Staff Map** card (straight into Staff).
 
-**Source:** `scripts/ui/course_map_screen.gd` (composition, modes, strip, keys), `scripts/ui/components/course_map_view.gd` (the drawn map, its picking and its legend), `scripts/ui/components/course_map_style.gd` (frames, type and money), `scripts/ui/components/course_map_land_panel.gd`, `scripts/ui/components/course_map_routing_panel.gd`, `scripts/ui/components/course_map_aura_panel.gd`, `scripts/ui/components/course_map_staff_panel.gd`, `scripts/main/main.gd` (`_open_course_map()`, `Shift+M`), `scripts/ui/terrain_toolbar.gd` (the Course Map button)
+**Source:** `scripts/ui/course_map_screen.gd` (composition, modes, strip, keys), `scripts/ui/components/course_map_view.gd` (the drawn map, its picking and its legend), `scripts/ui/components/course_map_style.gd` (frames, type and money), `scripts/ui/components/course_map_land_panel.gd`, `scripts/ui/components/course_map_routing_panel.gd`, `scripts/ui/components/course_map_aura_panel.gd`, `scripts/ui/components/course_map_staff_panel.gd`, `scripts/main/main.gd` (`_open_course_map()`, `Shift+M`), `scripts/ui/terrain_toolbar.gd` (the Course Map button, and the Holes and Staff tabs' map cards)
 **Tests:** `tests/unit/ui_and_controls/test_course_map_layout.gd`, `tests/unit/ui_and_controls/test_course_map_terrain.gd`, `tests/integration/ui_and_controls/test_course_map_screen.gd`
 
 ---
@@ -22,7 +22,10 @@ steps aside, so nothing on the course moves under your hands; **Back** (or
 Escape) hands the day back exactly where it was.
 
 Open it from **Manage → Maps → Course Map**, or with **Shift+M** anywhere in the
-game. **M** on its own is still Marketing.
+game. The Holes tab's **Holes Map** card opens it straight into Routing
+Holes, the mode that is the round itself, and the Staff tab's **Staff Map**
+card opens it straight into Staff, the mode that is the crew's ground.
+**M** on its own is still Marketing.
 
 ### The four modes
 

@@ -30,7 +30,7 @@
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
-| Course Map | `Shift+M`, or Manage → Maps → Course Map |
+| Course Map | `Shift+M`, Manage → Maps → Course Map, or Build → Holes → Holes Map (opens on Routing Holes), or Manage → Staff → Staff Map (opens on Staff) |
 
 ### Bottom dock
 
@@ -53,7 +53,9 @@ page. Switching sections remembers the last tab used in each.
 
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
-work; selecting a build tool reveals its section automatically. Shelves scroll
+work; selecting a build tool reveals its section automatically. The Holes tab also carries a **Holes Map** card beside the hole buttons, and
+the Staff tab a **Staff Map** card beside the roster, which open the
+Course Map straight into its Routing Holes and Staff modes. Shelves scroll
 horizontally while the circle controls remain fixed. Hover/focus states, tooltips
 and accessible names identify every icon; Tab and Enter can navigate the dock.
 

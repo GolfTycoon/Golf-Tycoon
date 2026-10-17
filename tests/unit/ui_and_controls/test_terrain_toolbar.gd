@@ -784,12 +784,16 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_true(toolbar.hole_grid is GridContainer, "hole_grid should be a GridContainer")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 1,
-		"The Holes tab contains only the hole grid")
+	assert_eq(page_content.get_child_count(), 2,
+		"The Holes tab holds the hole grid and the Holes Map card")
 	assert_same(page_content.get_child(0), toolbar.hole_grid,
-		"The hole grid is the tab's direct content")
+		"The hole grid is the tab's first content")
+	var map_card := _holes_map_card()
+	assert_not_null(map_card, "The Holes Map card is the tab's other content")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
-	assert_eq(page.find_children("*", "ToolButton", true, false).size(), 0,
+	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
+		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
+	assert_eq(open_hole_cards.size(), 0,
 		"The Open Hole action is not duplicated on the Holes tab")
 	assert_false(page.find_children("*", "Label", true, false)
 		.any(func(label): return label.text == "COURSE HOLES"),
@@ -811,6 +815,50 @@ func _add_hole_button(hole_number: int) -> Button:
 	toolbar.hole_grid.add_child(hole_btn)
 	toolbar.layout_hole_buttons()
 	return hole_btn
+
+## The Holes tab's map card, the way the tab builds it.
+func _holes_map_card() -> DockActionButton:
+	for child in toolbar.page_content(TerrainToolbar.Tab.HOLES).get_children():
+		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
+			return child
+	return null
+
+## The Holes Map card opens the Course Map on Routing Holes: pressing it
+## asks main.gd for exactly that.
+func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
+	var card := _holes_map_card()
+	assert_not_null(card, "The Holes tab carries a Holes Map card")
+	assert_eq(str(card.tool_name), "Holes Map", "and says what it is")
+	assert_eq(str(card.hotkey), "", "claiming no hotkey of its own")
+	assert_string_contains(card.tool_description, "Routing Holes",
+		"and its tooltip says which mode it opens")
+
+	watch_signals(toolbar)
+	card.pressed.emit()
+	assert_signal_emitted(toolbar, "holes_map_pressed",
+		"Pressing the card emits holes_map_pressed")
+
+## The Staff tab's map card, the way the tab builds it.
+func _staff_map_card() -> DockActionButton:
+	for child in toolbar.page_content(TerrainToolbar.Tab.STAFF).get_children():
+		if child is DockActionButton and str(child.get("tool_type")) == "staff_map":
+			return child
+	return null
+
+## The Staff Map card opens the Course Map on Staff: pressing it
+## asks main.gd for exactly that.
+func test_the_staff_map_card_asks_for_the_course_map_on_staff() -> void:
+	var card := _staff_map_card()
+	assert_not_null(card, "The Staff tab carries a Staff Map card")
+	assert_eq(str(card.tool_name), "Staff Map", "and says what it is")
+	assert_eq(str(card.hotkey), "", "claiming no hotkey of its own")
+	assert_string_contains(card.tool_description, "Staff",
+		"and its tooltip says which mode it opens")
+
+	watch_signals(toolbar)
+	card.pressed.emit()
+	assert_signal_emitted(toolbar, "staff_map_pressed",
+		"Pressing the card emits staff_map_pressed")
 
 ## Holes stack three deep and the columns run off to the right, so a course
 ## grows along the axis the page already scrolls on.
