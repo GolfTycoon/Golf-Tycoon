@@ -46,6 +46,22 @@ func _painted(tile: Vector2i) -> Color:
 	return image.get_pixel(px, py)
 
 
+## Sample the texture at the UV assigned to a tile's position on the drawn
+## diamond. Sampling the image alone misses a texture stretched over the wrong
+## polygon: all the visible tiles then read from the same tiny patch of it.
+func _projected_color(tile: Vector2i) -> Color:
+	view._ensure_texture()
+	var quad := view._terrain_polygon()
+	var across: Vector2 = quad[1] - quad[0]
+	var down: Vector2 = quad[3] - quad[0]
+	var offset: Vector2 = view._local_of_grid(Vector2(tile) + Vector2(0.5, 0.5)) - quad[0]
+	var uv := Vector2(offset.cross(down), across.cross(offset)) / across.cross(down)
+	var image: Image = view._map_texture.get_image()
+	return image.get_pixel(
+		clampi(floori(uv.x * image.get_width()), 0, image.get_width() - 1),
+		clampi(floori(uv.y * image.get_height()), 0, image.get_height() - 1))
+
+
 func test_the_map_paints_every_tile_with_the_colour_of_its_terrain() -> void:
 	var painted := {
 		Vector2i(3, 4): TerrainTypes.Type.BUNKER,
@@ -60,6 +76,32 @@ func test_the_map_paints_every_tile_with_the_colour_of_its_terrain() -> void:
 		var terrain_type: int = painted[tile]
 		_assert_painted(_painted(tile), CourseSurface.map_color(terrain_type),
 			"tile %d, %d reads as %s" % [tile.x, tile.y, TerrainTypes.get_type_name(terrain_type)])
+
+
+func test_projected_tiles_keep_their_distinct_colours_in_every_orientation() -> void:
+	# The image can contain all the right colours yet look uniform if its quad
+	# uses world-pixel bounds instead of the grid's tile counts. Check the four
+	# corners used for drawing AND the colour sampled at projected tile centres.
+	var painted := {
+		Vector2i(3, 4): TerrainTypes.Type.BUNKER,
+		Vector2i(8, 9): TerrainTypes.Type.WATER,
+		Vector2i(12, 2): TerrainTypes.Type.TREES,
+		Vector2i(1, 14): TerrainTypes.Type.GREEN,
+	}
+	for tile in painted:
+		grid.set_tile(tile, int(painted[tile]))
+	var corners := [Vector2.ZERO, Vector2(SIDE, 0), Vector2(SIDE, SIDE), Vector2(0, SIDE)]
+	for orientation in range(GridProjection.ORIENTATION_COUNT):
+		grid.set_view_orientation(orientation)
+		var quad := view._terrain_polygon()
+		for i in range(4):
+			assert_eq(quad[i], view._local_of_grid(corners[i]),
+				"the texture's corner %d follows the grid in orientation %d" % [i, orientation])
+		for tile in painted:
+			_assert_painted(_projected_color(tile), CourseSurface.map_color(int(painted[tile])),
+				"%s tile at %s in orientation %d" % [TerrainTypes.get_type_name(int(painted[tile])), tile, orientation])
+		_assert_painted(_projected_color(Vector2i(6, 6)), CourseSurface.map_color(TerrainTypes.Type.GRASS),
+			"grass still fills the rest of the course in orientation %d" % orientation)
 
 
 func test_the_ground_stays_coloured_under_a_walking_path() -> void:

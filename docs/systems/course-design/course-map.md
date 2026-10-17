@@ -91,8 +91,11 @@ There is no camera and no scene tree behind it.
 - One texture of the terrain is generated per terrain revision (`TEXTURE_SIDE`
   px, or `COMPACT_TEXTURE_SIDE` on the small shapes), coloured from each
   terrain type's palette colour — the same one the minimap and the course
-  surface draw with — and stretched onto the diamond. Terrain edits (from the
-  map's own modes or from the course behind it) dirty it.
+  surface draw with — and stretched onto the diamond formed by the grid's tile
+  corners. The texture quad uses tile counts, not `world_bounds().size` (which
+  is measured in world pixels), so its colours line up with the tile grid and
+  mode overlays. Terrain edits (from the map's own modes or from the course
+  behind it) dirty it.
 - Each mode lays its own wash over the course, no deeper than it takes to make
   the mode's marks read (`SCRIM_LAND`, `SCRIM_OVERLAY`, `SCRIM_AURA`), and the
   Land mode dims land that is out of reach rather than blacking it out, so the

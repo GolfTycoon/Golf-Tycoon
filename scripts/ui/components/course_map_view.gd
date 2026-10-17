@@ -492,9 +492,14 @@ func _draw_tile_grid() -> void:
 	for y in range(1, height):
 		draw_line(_local_of_grid(Vector2(0, y)), _local_of_grid(Vector2(width, y)), color, 1.0)
 
+## The texture's UVs cover the tile grid, not the world-space pixel bounds.
+## Use the same grid corners as the tile grid and the mode overlays so each
+## terrain colour lands on the tile it represents.
+func _terrain_polygon() -> PackedVector2Array:
+	return _polygon_of_rect(Vector2.ZERO, Vector2(_terrain_grid.grid_width, _terrain_grid.grid_height))
+
 func _draw_diamond() -> void:
-	var bounds := _map_bounds()
-	var outline := _polygon_of_rect(Vector2.ZERO, bounds.size)
+	var outline := _terrain_polygon()
 	if _map_texture:
 		draw_polygon(outline, PackedColorArray([Color.WHITE]),
 			PackedVector2Array([Vector2.ZERO, Vector2(1, 0), Vector2.ONE, Vector2(0, 1)]), _map_texture)
