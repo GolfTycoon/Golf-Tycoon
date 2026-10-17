@@ -25,10 +25,6 @@ var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up 
 @onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
 const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
-## Every hole button opens that hole's context menu, so they all read at one
-## width instead of following each hole's par and yardage text.
-const HOLE_BUTTON_WIDTH := 132
-
 # New UI components
 var player_round: PlayerRoundManager
 
@@ -1983,18 +1979,16 @@ func _on_day_changed(_new_day: int) -> void:
 	# Operating costs are now calculated at end of day before summary
 	pass
 
-func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+func _on_hole_created(hole_number: int, _par: int, _distance_yards: int) -> void:
 	StrokeIndexCalculator.recalculate_for_course()
 	if not hole_grid:
 		return
-	var hole_btn = Button.new()
+	# Each hole joins the register as a pixel-art hole card: its number on the
+	# tee-marked plate, its own little course window and its par and yardage.
+	# The card fills in its map from the course data in _refresh_hole_button.
+	var hole_btn := HoleCardButton.new()
 	hole_btn.name = "HoleBtn%d" % hole_number
-	hole_btn.text = "H%d: P%d (%d yds)" % [hole_number, par, distance_yards]
-	hole_btn.flat = false
-	hole_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hole_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	hole_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	hole_btn.custom_minimum_size = Vector2(HOLE_BUTTON_WIDTH, 26)
 	hole_btn.set_meta("hole_number", hole_number)
 	# The hole button opens details; Locate keeps the register visible.
 	# Everything else about that hole — its pin, tees and
@@ -2011,6 +2005,9 @@ func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
 	locate.name = "LocateHoleButton%d" % hole_number
 	locate.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	locate.tooltip_text = "Center the camera on hole %d" % hole_number
+	# The card is taller than the old text row, so the Locate chip rides at the
+	# card's middle rather than hanging off its top corner.
+	locate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	locate.pressed.connect(func(): terrain_toolbar.hole_locate_requested.emit(hole_number))
 	row.add_child(locate)
 	hole_grid.add_child(row)
@@ -2040,9 +2037,10 @@ func _on_hole_detail_changed(hole_number: int) -> void:
 	if _highlighted_hole_number > 0:
 		hole_manager.highlight_hole(_highlighted_hole_number, true)
 
-## Re-read one hole button from the course data: its par, its yardage and
-## whether it is open. A closed hole plays nowhere, so its button dims the way
-## the row's Open/Closed toggle used to.
+## Re-read one hole button from the course data: its par, its yardage, its
+## real tee and cup cells (which the card's course window faces along) and
+## whether it is open. A closed hole plays nowhere, so its card dims the way
+## the row's Open/Closed toggle used to, and the window's own map fades grey.
 func _refresh_hole_button(hole_number: int) -> void:
 	var hole_btn := _find_hole_button(hole_number)
 	if not hole_btn:
@@ -2050,7 +2048,9 @@ func _refresh_hole_button(hole_number: int) -> void:
 	var hole := _find_hole_data(hole_number)
 	if not hole:
 		return
-	hole_btn.text = "H%d: P%d (%d yds)" % [hole_number, hole.par, hole.distance_yards]
+	if hole_btn is HoleCardButton:
+		(hole_btn as HoleCardButton).set_hole(hole_number, hole.par, hole.distance_yards,
+			hole.is_open, hole.tee_position, hole.hole_position)
 	hole_btn.tooltip_text = "Hole %d (Par %d, %d yds)%s - Click for hole details" % [
 			hole_number, hole.par, hole.distance_yards, "" if hole.is_open else " - Closed"]
 	hole_btn.modulate = Color(1, 1, 1) if hole.is_open else Color(0.5, 0.5, 0.5)
