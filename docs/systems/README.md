@@ -42,6 +42,8 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | [Course Themes](course-design/course-themes.md) | The ten course themes and their effects |
 | [Course Wildlife](course-design/course-wildlife.md) | Ducks, butterflies and fountain spray |
 | [Hole Creation](course-design/hole-creation.md) | Tee boxes, cups and opening a hole |
+| [Course Map](course-design/course-map.md) | The whole course in one isometric screen: land, routing, aura and staff |
+| [Hole Routing & the Order of Play](course-design/hole-routing.md) | Reordering the round, flipping holes, par and the route report |
 | [Buildings on the Grid](course-design/isometric-buildings.md) | How buildings are drawn in isometric view |
 | [Tee Aim Arrow](course-design/tee-aim-arrow.md) | The aiming arrow on each tee |
 | [Terrain Types](course-design/terrain-types.md) | Every terrain type, its cost and its shot rules |
@@ -88,6 +90,7 @@ Who visits the course and how they feel about it.
 | [Golfer Needs and Statuses](golfers/golfer-needs.md) | Fun, Attitude, Energy, Hunger, Thirst and how they decay |
 | [Golfer Spawning](golfers/golfer-spawning.md) | Arrival rate, tiers, group size and landing zones |
 | [Satisfaction and Feedback](golfers/satisfaction-feedback.md) | Thought bubbles, daily satisfaction and visitor return |
+| [Course Aura](golfers/course-aura.md) | Where golfers spoke up on the course, and how they felt |
 
 ## Ratings and Reputation
 

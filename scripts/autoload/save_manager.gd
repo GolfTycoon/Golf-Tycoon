@@ -317,6 +317,10 @@ func _build_save_data() -> Dictionary:
 	if GameManager.shot_heatmap_tracker:
 		data["shot_heatmap"] = GameManager.shot_heatmap_tracker.serialize()
 
+	# Course aura: where golfers have been happy and unhappy
+	if GameManager.course_aura:
+		data["course_aura"] = GameManager.course_aura.serialize()
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -498,6 +502,10 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Shot heatmap
 	if GameManager.shot_heatmap_tracker and data.has("shot_heatmap"):
 		GameManager.shot_heatmap_tracker.deserialize(data["shot_heatmap"])
+
+	# Course aura (saves written before it existed simply have none)
+	if GameManager.course_aura:
+		GameManager.course_aura.deserialize(data.get("course_aura", {}))
 
 	# Golfers: Always clear on load - they will respawn naturally when the day
 	# resumes (day now always starts automatically). This avoids complex mid-action state restoration.

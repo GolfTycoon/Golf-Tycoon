@@ -150,6 +150,7 @@ modifier = min(1.0, 0.6 + 0.12 × standard_marshals + 0.20 × premium_marshals)
 
 ## Related
 
+- [Course Map](../course-design/course-map.md) shows every area on one map and is where hires, moves and fires are done from (Staff mode).
 - [Economy](economy.md) covers payroll and daily costs.
 - [The Owner's Golfer on the Course](../golf-play/owner-on-the-course.md) covers the same work done by the player's own golfer.
 - [Course Rating](../ratings-and-reputation/course-rating.md) explains how condition and pace feed the star rating.

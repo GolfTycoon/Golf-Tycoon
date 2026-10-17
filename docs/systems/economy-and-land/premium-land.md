@@ -2,7 +2,7 @@
 
 > Expanding the course means buying land parcels on a 6×6 map. Premium and Elite parcels cost more and come with terrain already built. Prebuilt packages lay out playable holes on land you already own.
 
-**Source:** `scripts/managers/land_manager.gd` (`BASE_PARCEL_COST`, `COST_ESCALATION`, `TIER_COST_MULTIPLIER`, `ELITE_REPUTATION_REQUIREMENT`, tier layout, purchase rules), `scripts/terrain/premium_feature_generator.gd` (feature generation), `scripts/systems/prebuilt_course_generator.gd` (`PACKAGE_COSTS`, `PACKAGE_NAMES`, package layouts), `scripts/ui/land_panel.gd`
+**Source:** `scripts/managers/land_manager.gd` (`BASE_PARCEL_COST`, `COST_ESCALATION`, `TIER_COST_MULTIPLIER`, `ELITE_REPUTATION_REQUIREMENT`, tier layout, purchase rules), `scripts/terrain/premium_feature_generator.gd` (feature generation), `scripts/systems/prebuilt_course_generator.gd` (`PACKAGE_COSTS`, `PACKAGE_NAMES`, package layouts), `scripts/ui/components/course_map_land_panel.gd` (the Course Map's Land mode)
 
 ---
 
@@ -83,6 +83,7 @@ The Championship needs at least 8 parcels. The old main-menu package picker has 
 
 ## Related
 
+- [Course Map](../course-design/course-map.md) is where a parcel is bought from the map itself (Land mode).
 - [Economy](economy.md) covers how land spending fits into your budget.
 - [World Map](world-map.md) covers where the parcels are.
 - [Course Themes](../course-design/course-themes.md) covers the theme that sets the tier layout.

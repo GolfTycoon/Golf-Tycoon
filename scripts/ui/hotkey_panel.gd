@@ -91,13 +91,13 @@ func _build_ui() -> void:
 	_add_section(vbox, "Management Panels", [
 		["F", "Finances"],
 		["U", "Tournaments"],
-		["L", "Land"],
 		["M", "Marketing"],
 		["Z", "Analytics"],
 		["G", "Milestones"],
 		["C", "Calendar"],
 		["N", "Event Feed"],
 		["Shift+R", "Routing overlay"],
+		["Shift+M", "Course Map"],
 	])
 
 	_add_section(vbox, "Camera & View", [

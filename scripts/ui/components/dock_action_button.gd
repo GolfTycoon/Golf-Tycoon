@@ -2,12 +2,15 @@ extends ToolButton
 class_name DockActionButton
 ## Management shortcuts use the same pixel frame as the title-screen cards.
 var glyph := "maps"
+## The section whose colour frames the card: the Manage section's own for
+## the actions on its tabs, the Build section's for the Holes tab's map card.
+var accent_section: int = TerrainToolbar.Section.MANAGE
 
 func _create_styles() -> void:
 	pass
 
 func _apply_styles() -> void:
-	PixelButtonStyle.paint_primary(self, TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.MANAGE])
+	PixelButtonStyle.paint_primary(self, TerrainToolbar.SECTION_COLORS[accent_section])
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_outline_color"]:
 		add_theme_color_override(state, Color.TRANSPARENT)
 

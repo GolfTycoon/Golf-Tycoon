@@ -40,6 +40,9 @@ signal decoration_removed(position: Vector2i)
 # Course Design Signals
 signal hole_created(hole_number: int, par: int, distance_yards: int)
 signal hole_updated(hole_number: int)
+## The order of play changed (holes moved, or the course played the other way
+## round). `order` is the hole numbers in the new play order.
+signal holes_reordered(order: Array)
 signal hole_selected(hole_number: int)
 signal hole_deleted(hole_number: int)
 signal hole_toggled(hole_number: int, is_open: bool)

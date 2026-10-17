@@ -30,7 +30,8 @@
 | Company | Money, reputation, calendar, milestones, the unlimited-money flag, owned locations and unlocked land |
 | Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
 | Entities | Buildings, decorations, path furniture, trees placed as entities |
-| Holes | Tee and cup positions, par, yardage |
+| Holes | Tee and cup positions, par, yardage, and the order they are played in (the saved list *is* the round) |
+| Course Aura | Where golfers spoke up: the newest comments kept, each with its cell, sentiment, trigger, hole and day |
 
 The stroke index is not saved. It is recalculated after each load.
 | Economy | Green fee, daily accounts, loan balance, yearly totals and feedback totals |

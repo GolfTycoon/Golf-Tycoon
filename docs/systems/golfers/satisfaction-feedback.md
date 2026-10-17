@@ -197,6 +197,7 @@ Daily reviews, service visits/income, incidents, return counts and customer prof
 
 ## Related
 
+- [Course Aura](course-aura.md) keeps the same comments against the ground they were made on.
 - [Golfer Needs and Statuses](golfer-needs.md) supplies the statuses that shape the visit - Attitude above all.
 - [Golfer Attributes](golfer-attributes.md) is the full golfer record, comments included.
 - [Golfer Spawning](golfer-spawning.md) covers who visits.
