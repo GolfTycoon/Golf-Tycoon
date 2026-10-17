@@ -4,7 +4,7 @@
 
 **Source:** `scripts/systems/stroke_index_calculator.gd` (`calculate()`), `scripts/autoload/game_manager.gd` (`HoleData.stroke_index`)
 **Depends on:** [Difficulty Calculator](difficulty-calculator.md) ratings (1.0 to 10.0)
-**Used by:** `scripts/ui/course_scorecard_panel.gd`, `scripts/ui/hole_stats_panel.gd`
+**Used by:** `scripts/ui/components/course_scorecard_view.gd`, `scripts/ui/hole_stats_panel.gd`
 
 ---
 
