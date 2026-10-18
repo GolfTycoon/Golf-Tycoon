@@ -25,10 +25,6 @@ var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up 
 @onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
 const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
-## Every hole button opens that hole's context menu, so they all read at one
-## width instead of following each hole's par and yardage text.
-const HOLE_BUTTON_WIDTH := 132
-
 # New UI components
 var player_round: PlayerRoundManager
 
@@ -71,6 +67,9 @@ var decoration_registry: Dictionary = {}
 var entity_layer: EntityLayer = null
 var building_info_panel: BuildingInfoPanel = null
 var financial_panel: FinancialPanel = null
+## Marketing now lives on the Financial Overview screen; retained as a null
+## compatibility reference for older panel call sites.
+var marketing_panel: MarketingPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
 var inspect_btn: PixelCircleButton = null
@@ -81,7 +80,6 @@ const MAP_BUTTON_SIZE: float = 26.0
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
-var marketing_panel: MarketingPanel = null
 var hotkey_panel: HotkeyPanel = null
 var weather_debug_panel: WeatherDebugPanel = null
 var season_debug_panel: SeasonDebugPanel = null
@@ -100,7 +98,6 @@ var milestones_panel: MilestonesPanel = null
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
-var course_scorecard_panel: CourseScorecardPanel = null
 var shot_heatmap_tracker: ShotHeatmapTracker = null
 var _active_panel: CenteredPanel = null  # Tracks the currently open panel to prevent stacking
 var bulldozer_mode: bool = false
@@ -154,6 +151,7 @@ enum HoleMoveMode { NONE, MOVING_TEE, MOVING_GREEN }
 var _hole_move_mode: int = HoleMoveMode.NONE
 var _hole_move_data: GameManager.HoleData = null
 var _hole_context_menu: HoleContextMenu = null
+var _highlighted_hole_number: int = 0
 var routing_overlay: RoutingOverlay = null
 
 func _ready() -> void:
@@ -337,7 +335,6 @@ func _ready() -> void:
 	_setup_notification_toast()
 	_setup_event_feed()
 	_setup_course_rating_overlay()
-	_setup_course_scorecard_panel()
 	_setup_floating_text()
 	_setup_shot_trails()
 	_setup_shot_heatmap()
@@ -415,6 +412,17 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
+		# The full-screen dashboard owns gameplay hotkeys while open. Keep its
+		# finance and marketing shortcuts useful as close / page-switch actions.
+		if financial_panel and financial_panel.visible:
+			if event.keycode == KEY_M:
+				financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_F:
+				_toggle_panel(financial_panel)
+				get_viewport().set_input_as_handled()
+			return
+
 		# Don't process any gameplay hotkeys while in main menu
 		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 			return
@@ -457,7 +465,7 @@ func _input(event: InputEvent) -> void:
 		elif not text_input_focused:
 			# Only process single-key hotkeys when not typing in a text field
 			if event.keycode == KEY_F and not event.shift_pressed:
-				_toggle_panel(financial_panel)
+				_toggle_financial_overview()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_U:
 				_toggle_tournament_panel()
@@ -484,7 +492,7 @@ func _input(event: InputEvent) -> void:
 				_toggle_event_feed()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_K:
-				_toggle_course_scorecard_panel()
+				_toggle_course_scorecard()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_R and event.shift_pressed:
 				if routing_overlay:
@@ -600,7 +608,7 @@ func _connect_signals() -> void:
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_toggled.connect(_on_hole_toggled)
-	# The hole menu can re-par a hole, so its button re-reads the hole.
+	# The Holes tab can re-par a hole, so its card re-reads the hole.
 	EventBus.hole_updated.connect(_refresh_hole_button)
 	# The round's order changed (Course Map, Routing Holes): the hole buttons
 	# and the tee/cup states read the course again.
@@ -647,6 +655,14 @@ func _setup_terrain_toolbar() -> void:
 
 	# The course holes buttons now live in the toolbar's Holes tab
 	hole_grid = terrain_toolbar.hole_grid
+	terrain_toolbar.terrain_grid = terrain_grid
+	terrain_toolbar.hole_move_tee_requested.connect(_on_context_move_tee)
+	terrain_toolbar.hole_move_green_requested.connect(_on_context_move_green)
+	terrain_toolbar.hole_toggle_requested.connect(_on_context_toggle_hole)
+	terrain_toolbar.hole_par_override_requested.connect(_on_context_par_override)
+	terrain_toolbar.hole_delete_requested.connect(_on_context_delete_hole)
+	terrain_toolbar.hole_locate_requested.connect(_on_hole_stats_selected)
+	terrain_toolbar.hole_detail_changed.connect(_on_hole_detail_changed)
 
 	# Build tool signals
 	terrain_toolbar.tool_selected.connect(_on_tool_selected)
@@ -661,8 +677,10 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_size_changed.connect(_on_elevation_brush_size_changed)
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
-	terrain_toolbar.financial_overview_pressed.connect(func(): _toggle_panel(financial_panel))
-	terrain_toolbar.course_review_pressed.connect(func(): _toggle_panel(course_rating_overlay))
+	terrain_toolbar.financial_overview_pressed.connect(_toggle_financial_overview)
+	terrain_toolbar.course_review_pressed.connect(_open_course_map_aura)
+	if terrain_toolbar.has_signal("aura_map_pressed"):
+		terrain_toolbar.aura_map_pressed.connect(_open_course_map_aura)
 	terrain_toolbar.brush_size_changed.connect(_on_brush_size_changed)
 	terrain_toolbar.brush_shape_changed.connect(func(value: bool):
 		round_brush = value
@@ -678,7 +696,6 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
 	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
-	terrain_toolbar.scorecard_pressed.connect(_toggle_course_scorecard_panel)
 	terrain_toolbar.golfer_row_clicked.connect(_on_toolbar_golfer_clicked)
 	terrain_toolbar.staff_area_move_requested.connect(_on_staff_area_move_requested)
 	terrain_toolbar.golfer_data_provider = _collect_golfer_rows
@@ -830,7 +847,7 @@ func _on_quit_pressed() -> void:
 ## same way the world map does. It edits the live course in place, so a parcel
 ## bought or a hole moved is there the moment the course is handed back.
 
-## The Maps tab's Course Map button, and the Shift+M hotkey. `mode` is the
+## The Club tab's Land Parcels button, and the Shift+M hotkey. `mode` is the
 ## mode the map opens on: Land unless the caller asks for another — the
 ## Holes tab's Holes Map button asks for Routing Holes.
 func _open_course_map(mode: int = CourseMapView.Mode.LAND) -> void:
@@ -849,7 +866,17 @@ func _open_course_map(mode: int = CourseMapView.Mode.LAND) -> void:
 		course_map_screen = CourseMapScreen.new()
 		course_map_screen.name = "CourseMapScreen"
 		course_map_screen.back_requested.connect(_on_course_map_back)
+		if course_map_screen.has_signal("advice_action_requested"):
+			course_map_screen.advice_action_requested.connect(_on_course_map_advice_action)
 		hud.add_child(course_map_screen)
+		if course_map_screen._aura_panel:
+			course_map_screen._aura_panel.rating_updated.connect(_on_aura_rating_updated)
+	else:
+		# Reused screen: ensure advice forwarding is still connected
+		if course_map_screen.has_signal("advice_action_requested") and not course_map_screen.advice_action_requested.is_connected(_on_course_map_advice_action):
+			course_map_screen.advice_action_requested.connect(_on_course_map_advice_action)
+		if course_map_screen._aura_panel and not course_map_screen._aura_panel.rating_updated.is_connected(_on_aura_rating_updated):
+			course_map_screen._aura_panel.rating_updated.connect(_on_aura_rating_updated)
 	course_map_screen.show()
 	course_map_screen.set_mode(mode)
 	course_map_screen.refresh()
@@ -863,6 +890,11 @@ func _open_course_map_routing() -> void:
 ## that is the crew's ground.
 func _open_course_map_staff() -> void:
 	_open_course_map(CourseMapView.Mode.STAFF)
+
+## The Club tab's Review entry and the star rating now open the Course Map
+## on Aura, where the full Course Review lives.
+func _open_course_map_aura() -> void:
+	_open_course_map(CourseMapView.Mode.AURA)
 
 func _close_course_map() -> void:
 	if course_map_screen:
@@ -885,6 +917,30 @@ func _course_map_is_open() -> bool:
 func _on_course_map_back() -> void:
 	_close_course_map()
 	_leave_course_map()
+
+func _on_course_map_advice_action(advice: Dictionary) -> void:
+	# Advice that wasn't a locate (finance, garden, build, observe) comes from
+	# the Aura panel's unified review. Close the map first, then perform the
+	# action on the course.
+	_close_course_map()
+	_leave_course_map()
+	var action := str(advice.get("action", ""))
+	match action:
+		"finance":
+			_toggle_panel(financial_panel)
+		"garden":
+			_on_decoration_placement_pressed()
+		"build":
+			_on_open_hole_pressed()
+		"observe":
+			EventBus.notify(str(advice.get("detail", advice.get("title", ""))), "info")
+		_:
+			if advice.has("position"):
+				_cancel_action()
+				camera.focus_on_smooth(terrain_grid.grid_to_screen_center(advice["position"]))
+				EventBus.notify(str(advice.get("title", "")), "info")
+			else:
+				EventBus.notify(str(advice.get("title", "")), "info")
 
 ## Hand the course back after the map closes: the gameplay UI returns and the day
 ## resumes only if it was running before the map opened.
@@ -1175,7 +1231,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "CourseScorecardPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1209,7 +1265,7 @@ func _setup_hud_status_column() -> void:
 
 	# Connect status clicks to panels
 	hud_status_column.money_clicked.connect(_on_money_clicked)
-	hud_status_column.rating_clicked.connect(_toggle_course_rating_panel)
+	hud_status_column.rating_clicked.connect(_open_course_map_aura)
 
 	# Add to HUD as first child
 	hud.add_child(hud_status_column)
@@ -1325,10 +1381,9 @@ func _start_painting() -> void:
 		_handle_hole_move_click(grid_pos)
 		return
 
-	# Check if in null selector state — try opening hole context menu
+	# In the null selector state, a hole's tee or cup opens its details on the
+	# Holes tab. During the owner's practice round, leave the click for aiming.
 	if not _has_active_tool():
-		# While the owner is lining up a shot (practice round or tournament),
-		# leave course clicks to aiming instead of opening the hole menu.
 		if is_instance_valid(player_round) and player_round.active:
 			return
 		var mouse_world = camera.get_mouse_world_position()
@@ -1337,7 +1392,7 @@ func _start_painting() -> void:
 		if tile_type == TerrainTypes.Type.TEE_BOX or tile_type == TerrainTypes.Type.GREEN:
 			var hole = hole_manager.get_hole_at_position(grid_pos)
 			if hole:
-				_open_hole_context_menu(hole)
+				_on_hole_button_pressed(hole.hole_number)
 				return
 		return
 
@@ -1974,41 +2029,68 @@ func _on_day_changed(_new_day: int) -> void:
 	# Operating costs are now calculated at end of day before summary
 	pass
 
-func _on_hole_created(hole_number: int, par: int, distance_yards: int) -> void:
+func _on_hole_created(hole_number: int, _par: int, _distance_yards: int) -> void:
 	StrokeIndexCalculator.recalculate_for_course()
 	if not hole_grid:
 		return
-	var hole_btn = Button.new()
+	# Each hole joins the register as a pixel-art hole card: its number on the
+	# tee-marked plate, its own little course window and its par and yardage.
+	# The card fills in its map from the course data in _refresh_hole_button.
+	var hole_btn := HoleCardButton.new()
 	hole_btn.name = "HoleBtn%d" % hole_number
-	hole_btn.text = "H%d: P%d (%d yds)" % [hole_number, par, distance_yards]
-	hole_btn.flat = false
-	hole_btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hole_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	hole_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	hole_btn.custom_minimum_size = Vector2(HOLE_BUTTON_WIDTH, 26)
 	hole_btn.set_meta("hole_number", hole_number)
-	# One button per hole. Everything else about that hole — its pin, tees and
-	# green, its par, whether it is open, its statistics — sits behind the same
-	# context menu as clicking the hole out on the course.
+	# The hole button opens details; Locate keeps the register visible.
+	# Everything else about that hole — its pin, tees and
+	# green, its par, whether it is open, its statistics — opens on the Holes
+	# tab in place of the hole grid, the way a visitor card opens on Visiting
+	# Golfers.
 	hole_btn.pressed.connect(_on_hole_button_pressed.bind(hole_number))
-	hole_grid.add_child(hole_btn)
+	var row := HBoxContainer.new()
+	row.name = "HoleRow%d" % hole_number
+	row.set_meta("hole_number", hole_number)
+	row.add_theme_constant_override("separation", 4)
+	row.add_child(hole_btn)
+	var locate := terrain_toolbar._visitor_button("Locate", Color("87b9cf"))
+	locate.name = "LocateHoleButton%d" % hole_number
+	locate.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	locate.tooltip_text = "Center the camera on hole %d" % hole_number
+	# The card is taller than the old text row, so the Locate chip rides at the
+	# card's middle rather than hanging off its top corner.
+	locate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	locate.pressed.connect(func(): terrain_toolbar.hole_locate_requested.emit(hole_number))
+	row.add_child(locate)
+	hole_grid.add_child(row)
 	# Three holes to a column, so the buttons are re-seated after every change.
 	terrain_toolbar.layout_hole_buttons()
 	# The signal payload seeds the label; the course data owns the open state.
 	_refresh_hole_button(hole_number)
 	_update_status_rating()
 
-## A hole button opens the hole's context menu — the same one the course's tee,
-## green and flag open — rather than the statistics screen.
+## A hole button opens that hole's detail view on the Holes tab — its tee and
+## green actions, par, open/closed toggle, delete action and statistics —
+## in place of the hole grid, the way a visitor card opens on Visiting Golfers.
 func _on_hole_button_pressed(hole_number: int) -> void:
 	var hole = _find_hole_data(hole_number)
 	if not hole:
 		return
-	_open_hole_context_menu(hole)
+	_close_hole_context_menu()
+	if hole_stats_panel and hole_stats_panel.visible:
+		_on_hole_stats_panel_closed()
+	if terrain_toolbar:
+		terrain_toolbar.show_hole_detail(hole_number)
 
-## Re-read one hole button from the course data: its par, its yardage and
-## whether it is open. A closed hole plays nowhere, so its button dims the way
-## the row's Open/Closed toggle used to.
+func _on_hole_detail_changed(hole_number: int) -> void:
+	if _highlighted_hole_number > 0 and _highlighted_hole_number != hole_number:
+		hole_manager.highlight_hole(_highlighted_hole_number, false)
+	_highlighted_hole_number = hole_number
+	if _highlighted_hole_number > 0:
+		hole_manager.highlight_hole(_highlighted_hole_number, true)
+
+## Re-read one hole button from the course data: its par, its yardage, its
+## real tee and cup cells (which the card's course window faces along) and
+## whether it is open. A closed hole plays nowhere, so its card dims the way
+## the row's Open/Closed toggle used to, and the window's own map fades grey.
 func _refresh_hole_button(hole_number: int) -> void:
 	var hole_btn := _find_hole_button(hole_number)
 	if not hole_btn:
@@ -2016,15 +2098,17 @@ func _refresh_hole_button(hole_number: int) -> void:
 	var hole := _find_hole_data(hole_number)
 	if not hole:
 		return
-	hole_btn.text = "H%d: P%d (%d yds)" % [hole_number, hole.par, hole.distance_yards]
-	hole_btn.tooltip_text = "Hole %d (Par %d, %d yds)%s - Click for the hole menu" % [
+	if hole_btn is HoleCardButton:
+		(hole_btn as HoleCardButton).set_hole(hole_number, hole.par, hole.distance_yards,
+			hole.is_open, hole.tee_position, hole.hole_position)
+	hole_btn.tooltip_text = "Hole %d (Par %d, %d yds)%s - Click for hole details" % [
 			hole_number, hole.par, hole.distance_yards, "" if hole.is_open else " - Closed"]
 	hole_btn.modulate = Color(1, 1, 1) if hole.is_open else Color(0.5, 0.5, 0.5)
 
 func _find_hole_button(hole_number: int) -> Button:
 	if not hole_grid:
 		return null
-	return hole_grid.get_node_or_null("HoleBtn%d" % hole_number) as Button
+	return hole_grid.find_child("HoleBtn%d" % hole_number, true, false) as Button
 
 func _on_hole_deleted(_hole_number: int) -> void:
 	# Rebuild the buttons so they follow the renumbered holes
@@ -2948,12 +3032,10 @@ func _on_load_completed(success: bool) -> void:
 func _on_hole_flag_selected(hole_number: int) -> void:
 	if _has_active_tool():
 		return
-	if not GameManager.current_course:
+	# The owner's live round owns clicks on the course so a flag click can aim.
+	if is_instance_valid(player_round) and player_round.active:
 		return
-	for hole in GameManager.current_course.holes:
-		if hole.hole_number == hole_number:
-			_open_hole_context_menu(hole)
-			return
+	_on_hole_button_pressed(hole_number)
 
 func _open_hole_context_menu(hole_data: GameManager.HoleData) -> void:
 	_close_hole_context_menu()
@@ -3052,7 +3134,7 @@ func _enter_hole_move_mode(mode: int, hole_data: GameManager.HoleData) -> void:
 func _cancel_hole_move_mode() -> void:
 	if _hole_move_mode == HoleMoveMode.NONE:
 		return
-	if _hole_move_data:
+	if _hole_move_data and _hole_move_data.hole_number != _highlighted_hole_number:
 		hole_manager.highlight_hole(_hole_move_data.hole_number, false)
 	_hole_move_mode = HoleMoveMode.NONE
 	_hole_move_data = null
@@ -3504,29 +3586,32 @@ func _building_display_name(building: Building) -> String:
 		display_name = building.building_type.replace("_", " ").capitalize()
 	return display_name
 
-# --- Financial Panel ---
+# --- Financial Overview ---
 
 func _setup_financial_panel() -> void:
-	"""Add financial panel to the HUD."""
+	"""Add the unified full-screen Financial Overview to the HUD."""
 	var hud = $UI/HUD
-
-	# Create financial panel
 	financial_panel = FinancialPanel.new()
-	financial_panel.name = "FinancialPanel"
+	financial_panel.name = "FinancialOverviewScreen"
 	financial_panel.close_requested.connect(_on_financial_panel_closed)
 	hud.add_child(financial_panel)
 	financial_panel.hide()
 
-	# Note: Money click is now handled by HUDStatusColumn.money_clicked signal
-	# Staff management lives in the toolbar Staff tab (not a popup).
-
-func _on_money_clicked() -> void:
-	## Toggle the financial panel when money is clicked.
+func _toggle_financial_overview() -> void:
+	"""Open or close the unified company dashboard on its finance page."""
+	if not financial_panel:
+		return
+	if not financial_panel.visible:
+		financial_panel.select_section(FinancialOverviewScreen.Section.FINANCE)
 	_toggle_panel(financial_panel)
 
+func _on_money_clicked() -> void:
+	_toggle_financial_overview()
+
 func _on_financial_panel_closed() -> void:
-	"""Hide the financial panel."""
-	financial_panel.hide()
+	"""Hide the full-screen dashboard and release the active-panel slot."""
+	if financial_panel:
+		financial_panel.hide()
 	if _active_panel == financial_panel:
 		_active_panel = null
 
@@ -3750,23 +3835,15 @@ func _on_parcel_purchased(parcel: Vector2i) -> void:
 	terrain_grid.end_batch_quiet()
 	terrain_grid.refresh_all_overlays()
 
-# --- Marketing Panel ---
+# --- Marketing (inside Financial Overview) ---
 
 func _setup_marketing_panel() -> void:
-	"""Add marketing panel to the HUD."""
-	var hud = $UI/HUD
-
-	marketing_panel = MarketingPanel.new()
-	marketing_panel.name = "MarketingPanel"
-	marketing_panel.close_requested.connect(_on_marketing_panel_closed)
-	hud.add_child(marketing_panel)
-	marketing_panel.hide()
+	"""Marketing is now a section of Financial Overview, not a popup."""
+	marketing_panel = null
 
 func _on_marketing_panel_closed() -> void:
-	"""Hide the marketing panel."""
-	marketing_panel.hide()
-	if _active_panel == marketing_panel:
-		_active_panel = null
+	"""Compatibility handler: closing Marketing closes the shared dashboard."""
+	_on_financial_panel_closed()
 
 # --- Hotkey Panel ---
 
@@ -3785,9 +3862,14 @@ func _toggle_hotkey_panel() -> void:
 		_toggle_panel(hotkey_panel)
 
 func _toggle_marketing_panel() -> void:
-	"""Toggle the marketing panel visibility."""
-	if marketing_panel:
-		_toggle_panel(marketing_panel)
+	"""Open Financial Overview on the Marketing page, or switch to it if open."""
+	if not financial_panel:
+		return
+	if financial_panel.visible:
+		financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+		return
+	financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
+	_toggle_panel(financial_panel)
 
 # --- Weather Debug ---
 
@@ -3941,42 +4023,14 @@ func _toggle_seasonal_calendar() -> void:
 	_toggle_panel(seasonal_calendar_panel)
 
 # --- Course Scorecard ---
+# The scorecard lives on the Holes tab now. K opens it there, or puts the hole
+# register back up if the scorecard is already showing.
 
-func _setup_course_scorecard_panel() -> void:
-	course_scorecard_panel = CourseScorecardPanel.new()
-	course_scorecard_panel.name = "CourseScorecardPanel"
-	course_scorecard_panel.close_requested.connect(func():
-		course_scorecard_panel.hide()
-		_active_panel = null
-	)
-	$UI/HUD.add_child(course_scorecard_panel)
-
-	# Refresh scorecard when holes, scores, or records change
-	EventBus.hole_created.connect(func(_num, _par, _dist):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.hole_deleted.connect(func(_num):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.hole_toggled.connect(func(_num, _open):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.golfer_finished_hole.connect(func(_id, _hole, _strokes, _par):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-	EventBus.record_broken.connect(func(_type, _name, _val, _hole):
-		if course_scorecard_panel.visible:
-			course_scorecard_panel.refresh()
-	)
-
-func _toggle_course_scorecard_panel() -> void:
-	if course_scorecard_panel and not course_scorecard_panel.visible:
-		course_scorecard_panel.refresh()
-	_toggle_panel(course_scorecard_panel)
+func _toggle_course_scorecard() -> void:
+	if terrain_toolbar.is_course_scorecard_showing():
+		terrain_toolbar.close_course_scorecard()
+	else:
+		terrain_toolbar.show_course_scorecard()
 
 func _on_day_changed_for_events(_new_day: int) -> void:
 	# Check if there's a seasonal event starting today
@@ -4073,37 +4127,32 @@ func _navigate_to_golfer_position(golfer_id: int) -> void:
 # --- Course Rating Overlay ---
 
 func _setup_course_rating_overlay() -> void:
-	"""Add course rating panel (toggled from the status column star rating)."""
-	course_rating_overlay = CourseRatingOverlay.new()
-	course_rating_overlay.name = "CourseRatingOverlay"
-	course_rating_overlay.advice_selected.connect(func(advice: Dictionary):
-		_active_panel = null
-		if advice.has("position"):
-			_cancel_action()
-			camera.focus_on_smooth(terrain_grid.grid_to_screen_center(advice.position))
-			EventBus.notify(advice.title, "info")
-		elif advice.action == "finance": _toggle_panel(financial_panel)
-		elif advice.action == "garden": _on_decoration_placement_pressed()
-		elif advice.action == "build": _on_open_hole_pressed()
-	)
-	course_rating_overlay.close_requested.connect(func():
+	"""Course Review now lives in the Course Map's Aura mode.
+
+	The old overlay is kept as a hidden compatibility node so saves and tests
+	that reference it do not break, but all visible review UI is in
+	CourseMapAuraPanel. The star rating in the HUD now opens the map on Aura.
+	"""
+	# Keep a hidden overlay for backward compatibility (tests may check existence)
+	if course_rating_overlay == null:
+		course_rating_overlay = CourseRatingOverlay.new()
+		course_rating_overlay.name = "CourseRatingOverlay"
+		course_rating_overlay.visible = false
+		$UI/HUD.add_child(course_rating_overlay)
 		course_rating_overlay.hide()
-		if _active_panel == course_rating_overlay:
-			_active_panel = null
-	)
-	course_rating_overlay.rating_updated.connect(func(stars: float):
-		if hud_status_column:
-			hud_status_column.update_rating(stars)
-	)
-	$UI/HUD.add_child(course_rating_overlay)
-	course_rating_overlay.hide()
 	# Update the status column whenever course rating changes (end of day, etc.)
-	EventBus.course_rating_changed.connect(func(rating: Dictionary):
-		if hud_status_column:
-			hud_status_column.update_rating(rating.get("overall", 3.0))
-	)
+	if not EventBus.course_rating_changed.is_connected(_on_course_rating_changed_for_hud):
+		EventBus.course_rating_changed.connect(_on_course_rating_changed_for_hud)
 	# Push initial rating to the status column (deferred so GameManager is ready)
 	_update_status_rating.call_deferred()
+
+func _on_course_rating_changed_for_hud(rating: Dictionary) -> void:
+	if hud_status_column:
+		hud_status_column.update_rating(rating.get("overall", 3.0))
+
+func _on_aura_rating_updated(stars: float) -> void:
+	if hud_status_column:
+		hud_status_column.update_rating(stars)
 
 var _rating_retry_count: int = 0
 
@@ -4126,7 +4175,8 @@ func _update_status_rating() -> void:
 	hud_status_column.update_rating(stars)
 
 func _toggle_course_rating_panel() -> void:
-	_toggle_panel(course_rating_overlay)
+	# Legacy entry point: Review now lives in Course Map Aura mode
+	_open_course_map_aura()
 
 # --- Floating Transaction Text ---
 

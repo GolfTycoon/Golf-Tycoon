@@ -2,8 +2,8 @@ extends ToolButton
 class_name DockActionButton
 ## Management shortcuts use the same pixel frame as the title-screen cards.
 var glyph := "maps"
-## The section whose colour frames the card: the Manage section's own for
-## the actions on its tabs, the Build section's for the Holes tab's map card.
+## The section whose colour frames the card. Every dock action now lives in
+## the Manage section, so all of them wear its green.
 var accent_section: int = TerrainToolbar.Section.MANAGE
 
 func _create_styles() -> void:

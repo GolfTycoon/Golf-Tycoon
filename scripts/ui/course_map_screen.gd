@@ -2,7 +2,7 @@ extends Control
 class_name CourseMapScreen
 ## CourseMapScreen - the whole course on one isometric map, in four modes.
 ##
-## Opened from the Maps tab's Course Map button or with Shift+M, and it freezes
+## Opened from the Club tab's Land Parcels button or with Shift+M, and it freezes
 ## the course while it is up (see main.gd). It edits the live game in place: a
 ## parcel bought here is bought, a hole moved here is moved, and the course
 ## behind the screen is the same course it hands back.
@@ -38,6 +38,7 @@ class_name CourseMapScreen
 ## the words live in one place whatever shape the screen is.
 
 signal back_requested()
+signal advice_action_requested(advice: Dictionary)
 
 ## The five compositions. Same shape as WorldMapScreen's, and pure so every
 ## breakpoint can be checked without a window (see layout_mode_for).
@@ -77,7 +78,7 @@ const MODES: Array = [
 	{
 		"mode": CourseMapView.Mode.AURA,
 		"name": "Aura",
-		"blurb": "Where golfers are happy and where they are not",
+		"blurb": "Course review, guest experience and where golfers are happy and unhappy",
 	},
 	{
 		"mode": CourseMapView.Mode.STAFF,
@@ -149,6 +150,7 @@ func _ready() -> void:
 	EventBus.holes_reordered.connect(_on_course_changed)
 	EventBus.hole_updated.connect(_on_hole_changed)
 	EventBus.hole_deleted.connect(_on_hole_changed)
+	EventBus.course_rating_changed.connect(_on_course_changed_rating)
 	_build_structure()
 	refresh()
 
@@ -162,6 +164,8 @@ func _exit_tree() -> void:
 	for signal_name in ["hole_updated", "hole_deleted"]:
 		if EventBus.is_connected(signal_name, _on_hole_changed):
 			EventBus.disconnect(signal_name, _on_hole_changed)
+	if EventBus.course_rating_changed.is_connected(_on_course_changed_rating):
+		EventBus.course_rating_changed.disconnect(_on_course_changed_rating)
 
 func _build_panels() -> void:
 	_land_panel = CourseMapLandPanel.new()
@@ -184,6 +188,7 @@ func _build_panels() -> void:
 
 	_aura_panel.cell_selected.connect(func(cell): _select("aura", cell))
 	_aura_panel.hole_selected.connect(_on_aura_hole_selected)
+	_aura_panel.advice_selected.connect(_on_aura_advice_selected)
 
 	_staff_panel.staff_selected.connect(func(index): _select("staff", index))
 	_staff_panel.move_requested.connect(_on_staff_move_requested)
@@ -1169,6 +1174,22 @@ func _on_aura_hole_selected(hole_number: int) -> void:
 	set_mode(CourseMapView.Mode.ROUTING)
 	_select("hole", hole_number)
 
+## Advice from the unified review/aura panel. Locate actions stay on the map,
+## other actions are forwarded to main.gd (which closes the map and opens finance etc).
+func _on_aura_advice_selected(advice: Dictionary) -> void:
+	if advice.has("position"):
+		var pos: Vector2i = advice["position"]
+		# Focus the map on the problematic ground
+		if map:
+			map.focus_on_grid_point(Vector2(pos) + Vector2(0.5, 0.5), 1.9)
+		# Also select the aura cell containing it if we are in aura mode
+		if mode == CourseMapView.Mode.AURA:
+			_select("aura", CourseAura.cell_of(pos))
+		EventBus.notify(str(advice.get("title", "Advice")), "info")
+		return
+	# For non-locate advice, let main.gd handle (close map + open panel)
+	advice_action_requested.emit(advice)
+
 # =============================================================================
 # STAFF
 # =============================================================================
@@ -1287,6 +1308,9 @@ func _on_staff_fire_requested(index: int) -> void:
 # =============================================================================
 # LIVE COURSE
 # =============================================================================
+
+func _on_course_changed_rating(_rating: Dictionary) -> void:
+	_refresh_after_course()
 
 ## Anything that changes the course's shape or its order - from the map, from
 ## the toolbar's own tools, or from a loaded save - re-reads the whole screen.

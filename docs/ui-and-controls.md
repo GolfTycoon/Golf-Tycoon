@@ -13,7 +13,8 @@
 - **Main menu.** Headed by the game logo (`assets/ui/logo.png`). Start New Game, Quick Start, Continue, Load Game, Settings and Quit. Every card and tile is a pixel-art sprite window (`PixelButtonStyle`): notched corners instead of rounded ones, an ink outline, a two-pixel accent trim and a bevel lit from above over a flat translucent fill, generated as nine-patch textures so the border stays crisp at any window size. Hover brightens the trim, pressing flips the bevel so the card sinks, focus floats a notched ring clear of the frame, and a disabled card greys out. Each action also carries a 16x16 sprite of its own (`PixelIcon`), painted in the card's accent: a pennant for Start New Game, a lightning bolt for Quick Start, the play triangle for Continue, a floppy disk for Load Game, a polo shirt for Golfer Skins, a cog for Settings and a doorway arrow for Quit. Sprites scale in whole multiples of their grid so their pixels stay square; the squat and phone layouts drop them together with the tile captions, because a tile too narrow for a sentence is too narrow for an emblem. Every word on the screen is set in Pixelify Sans (`assets/fonts/`, SIL Open Font License 1.1): the hero and Continue card titles in the bold weight, the compact utility tiles in the semibold one, and the card captions, the rail kicker and the version line in the regular one, so the type reads as part of the same pixel art.
 - **Start New Game.** Company name (or roll for a random one), difficulty (Easy, Normal or Hard), starting money ($100K, $150K, $200K or Unlimited), generated holes, the Weather, Wind and Seasons options, and a **Guided tutorial** switch. It shares the title menu's `MenuBackdrop`, notched `PixelButtonStyle` frames, Pixelify Sans typography and nearest-filtered sprite art; its choice cards light their accent when selected, the company field and course plan sit in recessed pixel frames, and the gold Choose Location action keeps the same chunky bevel. Setup-specific icons (difficulty, money, weather, wind, seasons, dice, check, switch, arrow and tutorial book) are hard-edged character-grid sprites. The switch sits in the title bar on the wide and landscape layouts and under its own heading on tablets and phones. The tutorial only walks an empty first course, so with generated holes the switch is faded and the summary reads "Not used". See [World Map](systems/economy-and-land/world-map.md#the-guided-tutorial).
 - **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features off, 3 generated holes), buys a random location the company can afford and starts playing it straight away.
-- **World Map.** A spinning globe with a pin for each destination, a list of locations each with a **Buy & Play** button (or **Play** once owned), a selected-site dossier with **Buy** beside **Buy & Play**, and Reset World — dressed in the same pixel-art language as the title screen and Start New Game: notched `PixelButtonStyle` frames on every card, button and field, Pixelify Sans throughout (bold for the heading, treasury and call to action, semibold for names, kickers and buttons, regular for captions), `PixelIcon` sprites for the treasury coin, the per-location pennants and the map legend, and the golf-flag `MenuFlagMark` itself drawn as a 16x16 sprite. The globe is the planet shader run in `GlobeMap.LandStyle.PIXEL`: every fragment resolves into a chunky hard-edged cell in the menu palette (deep ink-teal sea, golf-green land, sandy tropics), using detailed Natural Earth 1:50m coastlines with islands and lake rings; destinations are sprite pins (gold-bracketed when selected) whose hover tags are little notched pixel frames. It opens from the **World Maps** button under **Manage → Maps**, and from Start New Game / Quick Start. The course behind it freezes while the globe is up, so switching sites never loses a day's work. See [World Map](systems/economy-and-land/world-map.md).
+- **World Map.** A spinning globe with a pin for each destination, a list of locations each with a **Buy & Play** button (or **Play** once owned), a selected-site dossier with **Buy** beside **Buy & Play**, and Reset World — dressed in the same pixel-art language as the title screen and Start New Game: notched `PixelButtonStyle` frames on every card, button and field, Pixelify Sans throughout (bold for the heading, treasury and call to action, semibold for names, kickers and buttons, regular for captions), `PixelIcon` sprites for the treasury coin, the per-location pennants and the map legend, and the golf-flag `MenuFlagMark` itself drawn as a 16x16 sprite. The globe is the planet shader run in `GlobeMap.LandStyle.PIXEL`: every fragment resolves into a chunky hard-edged cell in the menu palette (deep ink-teal sea, golf-green land, sandy tropics), using detailed Natural Earth 1:50m coastlines with islands and lake rings; destinations are sprite pins (gold-bracketed when selected) whose hover tags are little notched pixel frames. It opens from the **World Maps** button under **Manage → Club → Maps**, and from Start New Game / Quick Start. The course behind it freezes while the globe is up, so switching sites never loses a day's work. See [World Map](systems/economy-and-land/world-map.md).
+- **Financial Overview.** A fullscreen clubhouse dashboard over the same `MenuBackdrop` as the World Map. Desktop lays out the year-to-date ledger, course controls and status, and marketing campaigns side by side. Tablet and phone layouts use a fixed three-page rail (**Finances**, **Course**, **Marketing**) above a scrollable workspace; phone landscape keeps the same pages in a compact, short-screen composition. It carries forward the balance, revenue and expense breakdown, year-over-year comparison, booking interval, green-fee controls and warning, reputation, golfer count, loans, seasonal forecast and official course ratings, alongside marketing reach, daily spend, campaign history, active campaign timers and all five launch offers. Open it from the money display or **Manage → Club → Review → Financial Overview**; **M** opens it directly on the Marketing page. The World Map's clubhouse artwork, pixel-framed cards and Pixelify Sans styling are shared throughout.
 - **Course Map.** The whole course in one isometric diamond, in the title screen's own dress: the `MenuBackdrop` clubhouse artwork behind it, notched `PixelButtonStyle` frames, Pixelify Sans type. Four modes sit across the top on desktop and portrait shapes (a compact rail on landscape ones): **Land** (buy parcels, read the ones you own), **Routing** (reorder the holes, flip them, set par, open or shut them), **Aura** (green, amber and red cells where golfers were happy and unhappy) and **Staff** (each employee's working area, hiring, firing and posting them). One line under the map says what is picked or what the map is waiting for, with the mode's own **Buy** / **Cancel** / **Clear** beside it. Drag to pan, wheel or pinch to zoom, `F` to frame the course. On phones the panel is a bottom sheet that peeks and lifts (portrait) or slides in over the map (landscape); on a landscape tablet it folds away behind a **Hide**/**Show** toggle. The course freezes while the map is up. See [Course Map](systems/course-design/course-map.md).
 - **Pause menu.** Resume, Save Game, Load Game, Settings, Quit to Menu and Quit to Desktop. The camera still moves while paused.
 - **Settings.** Four categories (Audio, Display, Gameplay, Controls) laid out for each window size. Desktop uses a category rail, the control cards and an "at a glance" panel. Tablets keep the rail beside or above the cards. Phones use four equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category includes the keyboard shortcut reference.
@@ -24,13 +25,14 @@
 
 | Panel | How to open |
 | --- | --- |
-| Financial dashboard | Manage → Review → Financial Overview, or click the money display |
+| Financial Overview (fullscreen) | Manage → Club → Review → Financial Overview, or click the money display; `M` opens its Marketing page |
 | Tournament panel | From the HUD |
 | Event feed | From the HUD |
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
-| Course Map | `Shift+M`, Manage → Maps → Course Map, or Build → Holes → Holes Map (opens on Routing Holes), or Manage → Staff → Staff Map (opens on Staff) |
+| Course Map | `Shift+M`, Manage → Club → Maps → Land Parcels, Manage → Holes → Holes Map (opens on Routing Holes), or Manage → Staff → Staff Map (opens on Staff) |
+| Course scorecard | `K`, or Manage → Holes → Scorecard |
 
 ### Bottom dock
 
@@ -47,17 +49,33 @@ page. Switching sections remembers the last tab used in each.
 
 | Section | Tabs and actions |
 | --- | --- |
-| Build | Terrain, Improvements, Buildings, Elevations, Holes |
-| Manage | Maps (Course Map, World Maps); Review (Review, Scorecard, Financial Overview); Milestone; Marketing; Staff |
+| Build | Terrain, Improvements, Buildings, Elevations |
+| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview; Milestones); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
+
+The **Club** tab folds what were four separate Manage tabs — Maps, Review,
+and Milestone — into one shelf. Each keeps a labelled column of its
+own, so the company's maps, the course's review and records, its milestones and
+its marketing campaigns still read as the groups they were.
 
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
-work; selecting a build tool reveals its section automatically. The Holes tab also carries a **Holes Map** card beside the hole buttons, and
-the Staff tab a **Staff Map** card beside the roster, which open the
-Course Map straight into its Routing Holes and Staff modes. Shelves scroll
-horizontally while the circle controls remain fixed. Hover/focus states, tooltips
-and accessible names identify every icon; Tab and Enter can navigate the dock.
+work; selecting a build tool reveals its section automatically. The Holes tab,
+now in Manage, leads with a **Holes Map** card and a **Scorecard** card on the left,
+followed by the hole buttons, each with a **Locate** button that centers the camera on that hole without
+leaving the list. Clicking a hole button opens that hole's actions (move/place tee
+and green, cycle par, open/close, locate, delete) and statistics (rating,
+difficulty, revenue, stroke index, scoring averages and score distribution) in
+place of the hole list — the same way clicking a golfer on the Visiting Golfers
+tab opens their profile. The Staff tab carries a **Staff Map** card beside the roster.
+The **Scorecard** card (also `K`) takes the shelf in place of the hole list: every
+hole on its OUT and IN nines with par, yardage, stroke index and average score,
+the course's name, rating and totals, and the course records beside them. Its
+**< Holes** button returns to the hole list.
+Both map cards open the Course Map straight into its Routing Holes and Staff
+modes. Shelves scroll horizontally while the circle controls remain fixed.
+Hover/focus states, tooltips and accessible names identify every icon; Tab and
+Enter can navigate the dock.
 
 The **Edit Player Golfer** page carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**

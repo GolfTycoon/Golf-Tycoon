@@ -1,5 +1,5 @@
 extends MainSceneTest
-## The Course Map over a real course: opened from the Maps tab and with Shift+M,
+## The Course Map over a real course: opened from the Club tab and with Shift+M,
 ## and its four modes editing the live game - buying land, moving holes, reading
 ## the golfers' mood and posting staff.
 ##
@@ -82,7 +82,7 @@ func panel_words(panel: Control) -> String:
 
 func test_the_maps_tab_row_opens_the_map_and_back_hands_the_course_back() -> void:
 	assert_false(main._course_map_is_open(), "the map starts closed")
-	var row := await dock_row(TerrainToolbar.Tab.MAPS, "course_map")
+	var row := await dock_row(TerrainToolbar.Tab.CLUB, "course_map")
 	assert_not_null(row, "the Maps tab carries a Course Map row")
 	assert_eq(str(row.get("hotkey")), "Shift+M", "and says which key opens it")
 	await click(row)

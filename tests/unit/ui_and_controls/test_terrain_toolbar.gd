@@ -235,12 +235,16 @@ func _catalogue_tiles() -> Array:
 	return toolbar._decoration_shelf.get_children().filter(
 		func(tile): return tile != toolbar._path_tile)
 
-func test_toolbar_has_fourteen_tabs_in_three_sections() -> void:
-	assert_eq(toolbar._tab_buttons.size(), 14)
-	assert_eq(toolbar._pages.size(), 14)
-	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD].size(), 5)
-	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE].size(), 5)
+func test_toolbar_has_eleven_tabs_in_three_sections() -> void:
+	assert_eq(toolbar._tab_buttons.size(), 11)
+	assert_eq(toolbar._pages.size(), 11)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD].size(), 4)
+	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE].size(), 3)
 	assert_eq(TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.GOLFERS].size(), 4)
+	assert_false(TerrainToolbar.Tab.HOLES in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.BUILD],
+		"Holes moved out of the Build section")
+	assert_true(TerrainToolbar.Tab.HOLES in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE],
+		"and into Manage")
 	for index in TerrainToolbar.TAB_TITLES:
 		assert_eq(toolbar._tab_buttons[index].accessibility_name, TerrainToolbar.TAB_TITLES[index])
 		assert_true(PixelCircleButton.ICONS.has(toolbar._tab_buttons[index].glyph))
@@ -782,14 +786,31 @@ func test_pinned_brush_dock_leaves_every_tile_diamond_clear() -> void:
 func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar.hole_grid, "hole_grid should exist")
 	assert_true(toolbar.hole_grid is GridContainer, "hole_grid should be a GridContainer")
+	assert_not_null(toolbar._hole_register, "The Holes tab builds a hole register")
+	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 2,
-		"The Holes tab holds the hole grid and the Holes Map card")
-	assert_same(page_content.get_child(0), toolbar.hole_grid,
-		"The hole grid is the tab's first content")
+	assert_eq(page_content.get_child_count(), 3,
+		"The Holes tab holds the hole register, the hole detail view and the course scorecard")
+	assert_same(page_content.get_child(0), toolbar._hole_register,
+		"The hole register leads the tab")
+	assert_same(page_content.get_child(1), toolbar._hole_detail,
+		"with the hole detail view beside it")
+	assert_same(page_content.get_child(2), toolbar._hole_scorecard,
+		"and the course scorecard after it")
+	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
+	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
+	assert_false(toolbar._hole_scorecard.visible, "and so does the scorecard")
+	assert_eq(toolbar._hole_register.get_child_count(), 3,
+		"The hole register holds the Holes Map card, the Scorecard card and the hole grid")
 	var map_card := _holes_map_card()
-	assert_not_null(map_card, "The Holes Map card is the tab's other content")
+	assert_not_null(map_card, "The Holes Map card is the register's other content")
+	assert_same(toolbar._hole_register.get_child(0), map_card,
+		"The Holes Map card leads the register on the left")
+	assert_same(toolbar._hole_register.get_child(1), _scorecard_card(),
+		"the Scorecard card follows it")
+	assert_same(toolbar._hole_register.get_child(2), toolbar.hole_grid,
+		"and the hole buttons come after both cards")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -800,7 +821,7 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 		"The redundant COURSE HOLES heading is removed")
 
 	# Add a sample hole button and verify containment: the button is the whole
-	# of a hole's per-hole UI, with no toggle or delete button beside it.
+	# of a hole's per-hole UI in the register, with no toggle or delete button beside it.
 	_add_hole_button(1)
 	assert_true(toolbar.hole_grid.has_node("HoleBtn1"))
 	assert_eq(toolbar.hole_grid.get_child_count(), 1, "One hole is one button")
@@ -818,7 +839,7 @@ func _add_hole_button(hole_number: int) -> Button:
 
 ## The Holes tab's map card, the way the tab builds it.
 func _holes_map_card() -> DockActionButton:
-	for child in toolbar.page_content(TerrainToolbar.Tab.HOLES).get_children():
+	for child in toolbar._hole_register.get_children():
 		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
 			return child
 	return null
@@ -837,6 +858,8 @@ func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
 	card.pressed.emit()
 	assert_signal_emitted(toolbar, "holes_map_pressed",
 		"Pressing the card emits holes_map_pressed")
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE,
+		"The Holes tab answers from the Manage section now")
 
 ## The Staff tab's map card, the way the tab builds it.
 func _staff_map_card() -> DockActionButton:
@@ -859,6 +882,93 @@ func test_the_staff_map_card_asks_for_the_course_map_on_staff() -> void:
 	card.pressed.emit()
 	assert_signal_emitted(toolbar, "staff_map_pressed",
 		"Pressing the card emits staff_map_pressed")
+
+## The Holes tab's Scorecard card, the way the tab builds it.
+func _scorecard_card() -> DockActionButton:
+	for child in toolbar._hole_register.get_children():
+		if child is DockActionButton and str(child.get("tool_type")) == "scorecard":
+			return child
+	return null
+
+## The course scorecard used to be a Club tab popup. It is the Holes tab's now,
+## opened by a card beside the Holes Map card, and the K shortcut still reaches it.
+func test_the_scorecard_moved_from_the_club_tab_to_the_holes_tab() -> void:
+	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("scorecard"), TerrainToolbar.Tab.HOLES,
+		"The scorecard belongs to the Holes tab")
+	for card in _club_cards():
+		assert_ne(card.tool_type, "scorecard", "The Club tab no longer carries a Scorecard card")
+	var card := _scorecard_card()
+	assert_not_null(card, "The Holes tab carries a Scorecard card")
+	assert_eq(str(card.tool_name), "Scorecard", "and says what it is")
+	assert_eq(str(card.hotkey), "K", "The card shows the K shortcut that still opens it")
+	assert_string_contains(card.tool_description, "stroke index",
+		"and its tooltip says what the scorecard shows")
+
+## Pressing the Scorecard card swaps the hole register for the scorecard on the
+## Holes tab, and its back button puts the register back up.
+func test_the_scorecard_card_opens_the_scorecard_over_the_register() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	_scorecard_card().pressed.emit()
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "The card opens the Holes tab")
+	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE, "in the Manage section")
+	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard is up")
+	assert_true(toolbar._hole_scorecard.visible, "and takes the shelf")
+	assert_false(toolbar._hole_register.visible, "in place of the hole register")
+	assert_false(toolbar._hole_detail.visible, "and the hole detail stays shut")
+
+	var back := toolbar._hole_scorecard.find_child("BackButton", false, false) as Button
+	assert_not_null(back, "The scorecard has a way back to the holes")
+	back.pressed.emit()
+	assert_false(toolbar.is_course_scorecard_showing(), "Back closes the scorecard")
+	assert_true(toolbar._hole_register.visible, "and the hole register is up again")
+	assert_false(toolbar._hole_scorecard.visible, "with the scorecard put away")
+
+## K opens the scorecard, or puts the register back when it is already up, the
+## same toggle the popup had. Picking a hole takes the scorecard away for it.
+func test_the_scorecard_toggles_and_a_hole_pick_replaces_it() -> void:
+	toolbar.show_course_scorecard()
+	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard opens")
+	toolbar.close_course_scorecard()
+	assert_false(toolbar.is_course_scorecard_showing(), "and closes again")
+
+	_add_hole_button(1)
+	toolbar.show_course_scorecard()
+	toolbar.show_hole_detail(1)
+	assert_false(toolbar.is_course_scorecard_showing(), "Picking a hole replaces the scorecard")
+	assert_false(toolbar._hole_scorecard.visible, "The scorecard steps aside")
+	assert_true(toolbar._hole_detail.visible, "and the hole's detail takes the shelf")
+
+## Leaving for another tab and coming back keeps the scorecard where it was, as
+## a hole's detail view is kept.
+func test_the_scorecard_stays_open_across_tabs() -> void:
+	toolbar.show_course_scorecard()
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	assert_false(toolbar.is_course_scorecard_showing(), "Off the Holes tab it is not on screen")
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	assert_true(toolbar.is_course_scorecard_showing(), "and it is still open when the tab returns")
+
+## A full course of holes, with a record on every hole, still fits inside the
+## bottom bar with the scorecard open: the records scroll rather than grow it.
+func test_a_full_course_scorecard_stays_inside_the_bottom_bar() -> void:
+	GameManager.current_course = GameManager.CourseData.new()
+	for hole_number in range(1, 19):
+		var hole := GameManager.HoleData.new()
+		hole.hole_number = hole_number
+		hole.par = 4
+		hole.distance_yards = 350
+		hole.stroke_index = hole_number
+		GameManager.current_course.add_hole(hole)
+		GameManager.course_records["best_per_hole"][hole_number] = CourseRecords.RecordEntry.new(
+			"Visitor %d" % hole_number, 4, 1, hole_number)
+
+	toolbar.show_course_scorecard()
+	await _settle_layout()
+	assert_true(toolbar._hole_scorecard.visible, "The scorecard is up")
+	var content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
+	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT
+	assert_gt(content.get_combined_minimum_size().y, 0.0, "The scorecard is measured")
+	assert_lte(content.get_combined_minimum_size().y, available,
+		"The nines and the records fit under the tab bar")
 
 ## Holes stack three deep and the columns run off to the right, so a course
 ## grows along the axis the page already scrolls on.
@@ -896,8 +1006,127 @@ func test_a_full_course_of_holes_stays_inside_the_bottom_bar() -> void:
 	assert_gt(grid.get_combined_minimum_size().y, 0.0, "The hole buttons are measured")
 	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) \
 			- TerrainToolbar.HEADER_HEIGHT
-	assert_lte(grid.get_combined_minimum_size().y, available,
+	var content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
+	assert_lte(content.get_combined_minimum_size().y, available,
 		"Three rows of hole buttons fit under the tab bar")
+
+	toolbar.show_hole_detail(1)
+	await _settle_layout()
+	assert_true(toolbar._hole_detail.visible, "The hole detail view opened")
+	assert_lte(content.get_combined_minimum_size().y, available,
+		"An open hole detail view fits under the tab bar too")
+
+## A hole button opens that hole's detail view in place of the hole register,
+## and the way back puts the register up again.
+func test_a_hole_button_opens_the_hole_detail_over_the_register() -> void:
+	var hole_btn := _add_hole_button(1)
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	assert_true(toolbar._hole_register.visible, "The hole register leads the tab")
+	assert_false(toolbar._hole_detail.visible, "with no hole detail over it")
+
+	watch_signals(toolbar)
+	hole_btn.pressed.emit()
+	assert_eq(toolbar._selected_hole, 1, "The button names the hole it opens")
+	assert_true(toolbar._hole_detail.visible, "The hole detail takes the page")
+	assert_false(toolbar._hole_register.visible, "and the hole register steps aside")
+	assert_signal_emitted_with_parameters(toolbar, "hole_detail_changed", [1])
+
+	(toolbar._hole_detail.get_child(0) as Button).pressed.emit()
+	assert_eq(toolbar._selected_hole, 0, "The way back closes the hole detail")
+	assert_true(toolbar._hole_register.visible, "and the hole register is up again")
+	assert_false(toolbar._hole_detail.visible, "with the detail view cleared away")
+
+## All content from the hole context menu and hole statistics panel lives on the
+## Holes tab detail view: header, orphan warning, actions, hole info, scoring
+## statistics and score distribution.
+func test_hole_detail_shows_actions_info_and_statistics_and_emits_signals() -> void:
+	var grid := TerrainGrid.new()
+	grid.grid_width = 16
+	grid.grid_height = 16
+	add_child_autofree(grid)
+	toolbar.terrain_grid = grid
+
+	GameManager.current_course = GameManager.CourseData.new()
+	var hole := GameManager.HoleData.new()
+	hole.hole_number = 2
+	hole.par = 4
+	hole.distance_yards = 380
+	hole.difficulty_rating = 4.5
+	hole.stroke_index = 3
+	hole.total_revenue = 1250
+	hole.tee_position = Vector2i(2, 2)
+	hole.green_position = Vector2i(10, 10)
+	hole.hole_position = Vector2i(10, 10)
+	grid.set_tile(hole.green_position, TerrainTypes.Type.GREEN)
+	# Leave tee_position as grass so the orphan warning and Place Tee show up.
+	GameManager.current_course.add_hole(hole)
+
+	var stats := GameManager.HoleStatistics.new(2)
+	stats.record_score(1, 4)
+	stats.record_score(2, 4)
+	stats.record_score(3, 4)
+	stats.record_score(4, 4)
+	stats.record_score(5, 4)
+	stats.record_score(6, 4)
+	GameManager.hole_statistics[2] = stats
+
+	_add_hole_button(2)
+	toolbar.show_hole_detail(2)
+
+	var detail_text := ""
+	for node in toolbar._hole_detail.find_children("*", "Label", true, false):
+		detail_text += (node as Label).text + "\n"
+	assert_string_contains(detail_text, "Hole 2 — Par 4")
+	assert_string_contains(detail_text, "OPEN")
+	assert_string_contains(detail_text, "380 yards  •  Diff: 4.5")
+	assert_string_contains(detail_text, "Warning: Missing tee")
+	assert_string_contains(detail_text, "Hole Information")
+	assert_string_contains(detail_text, "Rating: 4.5")
+	assert_string_contains(detail_text, "Difficulty: 4.5 / 10")
+	assert_string_contains(detail_text, "Revenue: $1,250")
+	assert_string_contains(detail_text, "Stroke Index: 3")
+	assert_string_contains(detail_text, "Scoring Statistics")
+	assert_string_contains(detail_text, "Rounds Played: 6")
+	assert_string_contains(detail_text, "Best Score: 1")
+	assert_string_contains(detail_text, "Score Distribution")
+	assert_string_contains(detail_text, "Holes-in-One: 1")
+	assert_string_contains(detail_text, "Eagles: 2")
+	assert_string_contains(detail_text, "Birdies: 1")
+	assert_string_contains(detail_text, "Pars: 1")
+	assert_string_contains(detail_text, "Bogeys: 1")
+	assert_string_contains(detail_text, "Double+: 1")
+
+	var locate_btn := toolbar._hole_detail.find_child("LocateHoleButton", true, false) as Button
+	var tee_btn := toolbar._hole_detail.find_child("MoveTeeButton", true, false) as Button
+	var green_btn := toolbar._hole_detail.find_child("MoveGreenButton", true, false) as Button
+	var par_btn := toolbar._hole_detail.find_child("CycleParButton", true, false) as Button
+	var toggle_btn := toolbar._hole_detail.find_child("ToggleHoleButton", true, false) as Button
+	var delete_btn := toolbar._hole_detail.find_child("DeleteHoleButton", true, false) as Button
+	assert_not_null(locate_btn)
+	assert_not_null(tee_btn)
+	assert_eq(tee_btn.text, "Place Tee", "An orphaned tee asks to Place Tee")
+	assert_not_null(green_btn)
+	assert_eq(green_btn.text, "Move Green", "A painted green offers Move Green")
+	assert_not_null(par_btn)
+	assert_string_contains(par_btn.text, "Cycle Par  [Par 4 (auto)]")
+	assert_not_null(toggle_btn)
+	assert_eq(toggle_btn.text, "Close Hole")
+	assert_not_null(delete_btn)
+	assert_eq(delete_btn.text, "Delete Hole")
+
+	watch_signals(toolbar)
+	locate_btn.pressed.emit()
+	tee_btn.pressed.emit()
+	green_btn.pressed.emit()
+	par_btn.pressed.emit()
+	toggle_btn.pressed.emit()
+	delete_btn.pressed.emit()
+	assert_signal_emitted_with_parameters(toolbar, "hole_locate_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_move_tee_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_move_green_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_par_override_requested", [2, 5])
+	assert_signal_emitted_with_parameters(toolbar, "hole_toggle_requested", [2])
+	assert_signal_emitted_with_parameters(toolbar, "hole_delete_requested", [2])
 
 ## A hole that goes takes its button with it and the rest re-seat, which is the
 ## rebuild main.gd runs whenever the holes are renumbered.
@@ -1160,13 +1389,11 @@ func test_an_empty_register_keeps_one_column() -> void:
 func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("feed"),
 		"The toolbar no longer maps a feed tool to a tab")
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
-	var ops_box: HBoxContainer = page
 	var tool_types: Array = []
-	for child in ops_box.get_children():
-		if child is ToolButton:
-			tool_types.append(child.tool_type)
-	assert_eq(tool_types, ["course_map", "world_map"],
+	for card in _club_cards():
+		tool_types.append(card.tool_type)
+	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "finance",
+		"milestones"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
@@ -1174,25 +1401,24 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 ## leads the row - it is this course, one tap away - with the atlas beside it.
 func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 	for tool_type in ["course_map", "world_map"]:
-		assert_eq(TerrainToolbar.TOOL_TAB_MAP.get(tool_type), TerrainToolbar.Tab.MAPS,
+		assert_eq(TerrainToolbar.TOOL_TAB_MAP.get(tool_type), TerrainToolbar.Tab.CLUB,
 			"%s belongs to the Club tab" % tool_type)
 		assert_true(toolbar._is_menu_action(tool_type),
 			"The %s action opens a screen, so it is never a paint tool" % tool_type)
 		assert_false(toolbar._tool_buttons.has(tool_type),
 			"A menu action holds no terrain tool selection")
 
-	var page: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.MAPS)
-	var ops_box: HBoxContainer = page
-	assert_eq((ops_box.get_child(0) as ToolButton).tool_type, "course_map",
-		"The Course Map leads the operations row")
-	assert_eq((ops_box.get_child(1) as ToolButton).tool_type, "world_map",
+	var cards := _club_cards()
+	assert_eq(cards[0].tool_type, "course_map",
+		"The Course Map leads the Maps column")
+	assert_eq(cards[1].tool_type, "world_map",
 		"with the company's atlas beside it")
 
-	var course_map: ToolButton = ops_box.get_child(0)
-	assert_string_contains(course_map.text, "Course Map", "The button reads Course Map")
+	var course_map: ToolButton = cards[0]
+	assert_string_contains(course_map.text, "Land Parcels", "The button reads Land Parcels")
 	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
 	assert_string_contains(course_map.tool_description, "isometric")
-	var world_map: ToolButton = ops_box.get_child(1)
+	var world_map: ToolButton = cards[1]
 	assert_eq(world_map.text, "World Maps", "The button reads World Maps")
 	assert_string_contains(world_map.tool_description, "course sites")
 
@@ -1201,7 +1427,7 @@ func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 	assert_signal_emitted(toolbar, "course_map_pressed")
 	toolbar._on_tool_button_pressed("world_map")
 	assert_signal_emitted(toolbar, "world_map_pressed")
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS,
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB,
 		"Both buttons keep the Club tab open behind them")
 
 func test_action_signals() -> void:
@@ -1245,9 +1471,6 @@ func test_action_signals() -> void:
 
 	toolbar._on_tool_button_pressed("milestones")
 	assert_signal_emitted(toolbar, "milestones_pressed")
-
-	toolbar._on_tool_button_pressed("scorecard")
-	assert_signal_emitted(toolbar, "scorecard_pressed")
 
 func test_open_hole_button_is_disabled_until_a_pair_is_ready() -> void:
 	toolbar.set_open_hole_state(false, "Paint a tee box to go with the waiting green.")
@@ -1990,19 +2213,21 @@ func test_elevation_brush_signals_report_the_new_settings() -> void:
 func test_section_navigation_remembers_tabs_and_shows_only_its_rail() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
 	toolbar.select_section(TerrainToolbar.Section.MANAGE)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MAPS)
-	toolbar.select_tab(TerrainToolbar.Tab.MARKETING)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB,
+		"Manage opens on its front page")
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
 	toolbar.select_section(TerrainToolbar.Section.BUILD)
 	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.ELEVATION)
 	toolbar.select_section(TerrainToolbar.Section.MANAGE)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING)
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES,
+		"Manage comes back to the tab last used in it")
 	for index in toolbar._tab_buttons:
 		var button: PixelCircleButton = toolbar._tab_buttons[index]
 		assert_eq(button.visible, index in TerrainToolbar.SECTION_TABS[TerrainToolbar.Section.MANAGE])
-		assert_eq(button.button_pressed, index == TerrainToolbar.Tab.MARKETING)
+		assert_eq(button.button_pressed, index == TerrainToolbar.Tab.HOLES)
 	toolbar.select_tab(-1)
 	toolbar.select_section(50)
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.MARKETING, "Invalid navigation is ignored")
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "Invalid navigation is ignored")
 
 func test_section_button_hides_the_open_section_and_reopens_it() -> void:
 	watch_signals(toolbar)
@@ -2025,7 +2250,7 @@ func test_section_button_hides_the_open_section_and_reopens_it() -> void:
 	assert_false(toolbar.visible)
 	toolbar.toggle_section(TerrainToolbar.Section.MANAGE)
 	toolbar.collapse_section()
-	toolbar.select_tab(TerrainToolbar.Tab.REVIEW)
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	assert_true(toolbar.visible, "Choosing a tab reopens the collapsed section")
 	assert_false(toolbar.section_collapsed)
 
@@ -2046,22 +2271,58 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 	player.select(PlayerTab.PAGE_EDIT)
 	assert_eq(toolbar.current_section, TerrainToolbar.Section.BUILD, "Background updates never hijack building")
 
-func test_manage_actions_live_on_the_requested_tabs_and_emit_signals() -> void:
-	var expected := {
-		TerrainToolbar.Tab.MAPS: ["course_map", "world_map"],
-		TerrainToolbar.Tab.REVIEW: ["review", "scorecard", "finance"],
-		TerrainToolbar.Tab.MILESTONE: ["milestones"],
-		TerrainToolbar.Tab.MARKETING: ["marketing"],
-	}
+## The Club tab folds the old Maps, Review and Milestone tabs into
+## one shelf. Each former tab keeps its labelled column, so its actions still
+## read as the group they were.
+func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> void:
+	var expected := [
+		["MAPS", ["course_map", "world_map"]],
+		["REVIEW", ["aura_map", "finance"]],
+		["MILESTONES", ["milestones"]],
+	]
+	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
+	assert_eq(groups.size(), expected.size(), "One column per folded tab")
 	watch_signals(toolbar)
-	for tab in expected:
-		var buttons := toolbar.page_content(tab).get_children()
-		assert_eq(buttons.map(func(button): return button.tool_type), expected[tab])
+	for i in expected.size():
+		var group: VBoxContainer = groups[i]
+		assert_not_null(group, "The folded tab is a labelled column")
+		assert_eq((group.get_child(0) as Label).text, expected[i][0],
+			"The column keeps the name of the tab it folded")
+		var buttons := group.get_child(1).get_children()
+		assert_eq(buttons.map(func(button): return button.tool_type), expected[i][1],
+			"%s holds the actions of the tab it folded" % expected[i][0])
 		for button in buttons:
 			assert_true(button is DockActionButton)
+			assert_true(PixelCircleButton.ICONS.has(button.glyph),
+				"%s draws the icon it asks for" % button.tool_name)
 			button.pressed.emit()
-			assert_eq(toolbar.current_tab, tab)
+			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
-	for signal_name in ["course_map_pressed", "world_map_pressed", "course_review_pressed",
-			"scorecard_pressed", "financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
+	for signal_name in ["course_map_pressed", "world_map_pressed", "aura_map_pressed",
+			"financial_overview_pressed", "milestones_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
+
+func test_the_club_tab_has_no_marketing_button() -> void:
+	for card in _club_cards():
+		assert_ne(card.tool_type, "marketing", "Marketing is not a Club tab action")
+
+## The Club tab's three labelled columns fit under the tab bar: one row of
+## action cards plus its heading, with no vertical scroll.
+func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await _settle_layout()
+	var content := toolbar.page_content(TerrainToolbar.Tab.CLUB)
+	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT
+	assert_gt(content.get_combined_minimum_size().y, 0.0, "The Club tab is measured")
+	assert_lte(content.get_combined_minimum_size().y, available,
+		"The headings and the action cards fit under the tab bar")
+
+## Every action card on the Club tab, in reading order: Maps, Review,
+## Milestones.
+func _club_cards() -> Array[DockActionButton]:
+	var cards: Array[DockActionButton] = []
+	for group in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+		for child in group.get_child(1).get_children():
+			if child is DockActionButton:
+				cards.append(child)
+	return cards
