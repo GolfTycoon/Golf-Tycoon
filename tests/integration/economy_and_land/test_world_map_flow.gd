@@ -84,7 +84,7 @@ func test_the_main_menu_offers_the_agreed_actions() -> void:
 	var labels: Array = []
 	for button in _buttons(main.main_menu):
 		labels.append(button.text)
-	for expected in ["Start New Game", "Quick Start", "Continue", "Load Game", "Settings", "Quit"]:
+	for expected in ["Start New Game", "Quick Start", "Continue", "Load Game", "Achievements", "Settings", "Quit"]:
 		assert_has(labels, expected, "The main menu has a %s button" % expected)
 	for retired in ["New Game", "Credits", "Prebuilt Course"]:
 		assert_does_not_have(labels, retired, "%s is no longer on the main menu" % retired)

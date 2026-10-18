@@ -46,7 +46,9 @@ signal hole_detail_changed(hole_number: int)
 ## the crew: Staff.
 signal staff_map_pressed
 signal marketing_pressed
-signal milestones_pressed
+signal course_milestones_pressed
+signal world_milestones_pressed
+signal achievements_pressed
 signal golfer_row_clicked(golfer_id: int)
 ## Ask main.gd to start (index >= 0) or cancel (index < 0) repositioning a staff
 ## member's designated area.
@@ -118,7 +120,9 @@ const TOOL_TAB_MAP := {
 	"staff_map": Tab.STAFF,
 	"aura_map": Tab.CLUB,
 	"marketing": Tab.CLUB,
-	"milestones": Tab.CLUB,
+	"course_milestones": Tab.CLUB,
+	"world_milestones": Tab.CLUB,
+	"achievements": Tab.CLUB,
 	"scorecard": Tab.HOLES,
 	"review": Tab.CLUB,
 	"finance": Tab.CLUB,
@@ -1122,7 +1126,9 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
 		]],
 		["Milestones", [
-			["milestones", "Milestone", "milestone", "G", "Goals and achievements"],
+			["course_milestones", "Course Milestones", "milestone", "G", "Per-location goals for this save"],
+			["world_milestones", "World Milestones", "world", "Shift+G", "Company goals across every course location"],
+			["achievements", "Achievements", "achievement", "Shift+T", "Career honours that stay unlocked between saves"],
 		]],
 	]
 	hbox.add_theme_constant_override("separation", 10)
@@ -1272,7 +1278,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "milestones", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -2157,8 +2163,12 @@ func _on_tool_button_pressed(tool_type) -> void:
 				world_map_pressed.emit()
 			"marketing":
 				marketing_pressed.emit()
-			"milestones":
-				milestones_pressed.emit()
+			"course_milestones":
+				course_milestones_pressed.emit()
+			"world_milestones":
+				world_milestones_pressed.emit()
+			"achievements":
+				achievements_pressed.emit()
 			"scorecard":
 				show_course_scorecard()
 			"review":

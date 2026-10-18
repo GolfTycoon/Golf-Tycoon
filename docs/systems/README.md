@@ -55,6 +55,7 @@ Money, land, staff and the world map.
 | Doc | What it covers |
 | --- | --- |
 | [Economy](economy-and-land/economy.md) | Income, costs, loans, milestones and difficulty presets |
+| [Milestones & Achievements](economy-and-land/milestones-and-achievements.md) | The per-location, world and career goal tracks and their two screens |
 | [Premium Land](economy-and-land/premium-land.md) | Land parcels, tiers and prebuilt courses |
 | [Staff and Weeds](economy-and-land/staff-and-weeds.md) | Hired staff, weeds and course condition |
 | [World Map](economy-and-land/world-map.md) | Locations, the globe, company and site state |

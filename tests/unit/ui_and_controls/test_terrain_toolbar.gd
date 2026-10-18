@@ -1393,7 +1393,7 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	for card in _club_cards():
 		tool_types.append(card.tool_type)
 	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "finance",
-		"milestones"],
+		"course_milestones", "world_milestones", "achievements"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
@@ -1469,8 +1469,14 @@ func test_action_signals() -> void:
 	toolbar._on_tool_button_pressed("marketing")
 	assert_signal_emitted(toolbar, "marketing_pressed")
 
-	toolbar._on_tool_button_pressed("milestones")
-	assert_signal_emitted(toolbar, "milestones_pressed")
+	toolbar._on_tool_button_pressed("course_milestones")
+	assert_signal_emitted(toolbar, "course_milestones_pressed")
+
+	toolbar._on_tool_button_pressed("world_milestones")
+	assert_signal_emitted(toolbar, "world_milestones_pressed")
+
+	toolbar._on_tool_button_pressed("achievements")
+	assert_signal_emitted(toolbar, "achievements_pressed")
 
 func test_open_hole_button_is_disabled_until_a_pair_is_ready() -> void:
 	toolbar.set_open_hole_state(false, "Paint a tee box to go with the waiting green.")
@@ -2278,7 +2284,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 	var expected := [
 		["MAPS", ["course_map", "world_map"]],
 		["REVIEW", ["aura_map", "finance"]],
-		["MILESTONES", ["milestones"]],
+		["MILESTONES", ["course_milestones", "world_milestones", "achievements"]],
 	]
 	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
 	assert_eq(groups.size(), expected.size(), "One column per folded tab")
@@ -2299,7 +2305,8 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
 	for signal_name in ["course_map_pressed", "world_map_pressed", "aura_map_pressed",
-			"financial_overview_pressed", "milestones_pressed"]:
+			"financial_overview_pressed", "course_milestones_pressed",
+			"world_milestones_pressed", "achievements_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
 
 func test_the_club_tab_has_no_marketing_button() -> void:

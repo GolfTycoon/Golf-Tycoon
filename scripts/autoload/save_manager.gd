@@ -67,6 +67,12 @@ func save_game(save_name: String = "") -> bool:
 	if save_name.is_empty():
 		save_name = "autosave"
 
+	# Saving a game flushes the career shelf too: achievement unlocks live
+	# in the settings file, not in the save, but a session that saves should
+	# never leave them behind.
+	if milestone_manager:
+		milestone_manager.persist_achievements()
+
 	var save_path = SAVE_DIR + save_name + ".save"
 	var save_data: Dictionary = _build_save_data()
 

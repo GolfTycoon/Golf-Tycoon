@@ -24,6 +24,8 @@ const ICONS := {
 	"club": [".........", "...xxx...", "..x...x..", "xxxxxxxxx", "x.......x", "x.......x", "x.......x", "xxxxxxxxx", "........."],
 	"review": ["..xxxxx..", ".xx...xx.", ".x.x.x.x.", ".x..x..x.", ".x.x.x.x.", ".xx...xx.", "..xxxxx..", "..xx.xx..", "..x...x.."],
 	"milestone": ["..xxxxx..", "xxx...xxx", "x.x...x.x", "xxx...xxx", "..xxxxx..", "...xxx...", "....x....", "...xxx...", "..xxxxx.."],
+	"world": ["..xxxxx..", ".x.....x.", "x..xxx..x", "x.x...x.x", "x..xxx..x", "x.x...x.x", "x..xxx..x", ".x.....x.", "..xxxxx.."],
+	"achievement": ["..xxxxx..", ".xxxxxxx.", "xx.xxx.xx", "xx.xxx.xx", ".xxxxxxx.", "..xxxxx..", "...xxx...", "...xxx...", "..xxxxx.."],
 	"marketing": ["......xx.", "....xxxx.", "xxxxxxxx.", "xxxxxxxx.", "xxxxxxxx.", "....xxxx.", "..xx..xx.", "..xx.....", "...xx...."],
 	"staff": ["...xxx...", "..xxxxx..", "...xxx...", ".........", "..xxxxx..", ".xxx.xxx.", ".xxx.xxx.", ".xxxxxxx.", "..xxxxx.."],
 	"edit": ["......xx.", ".....xxxx", "....xxxx.", "...xxxx..", "..xxxx...", ".xxxx....", ".xxx.....", ".xx......", "xxxxxxxxx"],

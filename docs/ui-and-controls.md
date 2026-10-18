@@ -32,6 +32,9 @@
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
 | Course Map | `Shift+M`, Manage → Club → Maps → Land Parcels, Manage → Holes → Holes Map (opens on Routing Holes), or Manage → Staff → Staff Map (opens on Staff) |
+| Course Milestones screen (fullscreen) | `G`, or Manage → Club → Milestones → Course Milestones |
+| World Milestones screen (fullscreen) | `Shift+G`, or Manage → Club → Milestones → World Milestones |
+| Achievements screen (fullscreen) | `Shift+T`, Manage → Club → Milestones → Achievements, or the Achievements tile on the main menu |
 | Course scorecard | `K`, or Manage → Holes → Scorecard |
 
 ### Bottom dock
@@ -50,13 +53,20 @@ page. Switching sections remembers the last tab used in each.
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |
-| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview; Milestones); Holes (Holes Map, Scorecard, the hole buttons); Staff |
+| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
 The **Club** tab folds what were four separate Manage tabs — Maps, Review,
 and Milestone — into one shelf. Each keeps a labelled column of its
 own, so the company's maps, the course's review and records, its milestones and
-its marketing campaigns still read as the groups they were.
+its marketing campaigns still read as the groups they were. The Milestones
+column carries three screens: **Course Milestones** (`G`, per-location goals
+for this save), **World Milestones** (`Shift+G`, company goals across every
+course location) and **Achievements** (`Shift+T`, career honours that stay
+unlocked between saves). All three are fullscreen on the World Map's
+background, freeze the day while they are up, and flip between each other
+through the Course / World / Achievements switch they share. The Achievements
+tile on the main menu opens the same trophy room over the title screen.
 
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
@@ -138,7 +148,7 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 | `T`, `B`, `O`, `H`, `X` | Tool shortcuts. `T` is the Tee Box tool and `H` is Open Hole. |
 | `=`, `.`, `E`, `P` | Switch the tabs |
 | `V`, `+`, `-` | Elevation tools |
-| `F`, `U`, `M`, `Z`, `G`, `C`, `N` | Management shortcuts |
+| `F`, `U`, `M`, `Z`, `G`, `C`, `N` | Management shortcuts (`G` Course Milestones, `Shift+G` World Milestones, `Shift+T` Achievements) |
 
 Tool shortcuts are also shown on each tool's tooltip. The hotkey panel (`F1`) is the full, authoritative list.
 

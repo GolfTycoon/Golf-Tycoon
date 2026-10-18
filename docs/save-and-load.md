@@ -12,7 +12,7 @@
 | File | Path | Contents |
 | --- | --- | --- |
 | Saves | `user://saves/` | One JSON file per save slot |
-| Settings | `user://settings.cfg` | Display, audio and gameplay settings |
+| Settings | `user://settings.cfg` | Display, audio and gameplay settings, the tutorial flag, and the achievement unlocks that stay with the player between saves |
 | Autosave | `user://saves/autosave` | Written automatically |
 
 `user://` is Godot's per-user data folder. Its location depends on your operating system.
@@ -27,7 +27,7 @@
 
 | Area | Saved |
 | --- | --- |
-| Company | Money, reputation, calendar, milestones, the unlimited-money flag, owned locations and unlocked land |
+| Company | Money, reputation, calendar, the Course Location and World Milestones earned in this save, the unlimited-money flag, owned locations and unlocked land |
 | Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
 | Entities | Buildings, decorations, path furniture, trees placed as entities |
 | Holes | Tee and cup positions, par, yardage, and the order they are played in (the saved list *is* the round) |
@@ -43,6 +43,8 @@ The stroke index is not saved. It is recalculated after each load.
 | Golfers | **Not saved.** They respawn when the simulation resumes. |
 
 Older saves may still contain bunker-depth metadata. It is ignored on load: every standard Bunker tile is shallow, and new saves omit that retired field.
+
+**Achievements are not in saves.** They stay unlocked between saves and live in `user://settings.cfg` instead (see [Milestones & Achievements](systems/economy-and-land/milestones-and-achievements.md)). The milestone block in a save carries only the per-save tracks: each course location's progress and the company's world milestones. Saves from before the three tracks keep one flat completed list, which migrates on load.
 
 ## Locations and Company State
 

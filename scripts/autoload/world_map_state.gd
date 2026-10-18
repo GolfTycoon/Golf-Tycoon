@@ -16,6 +16,10 @@ extends Node
 ##    file) so it is exactly as they left it when they come back.
 
 signal world_reset()
+## A brand-new company was rolled (Start New Game / Quick Start / Reset from
+## nothing). Unlike world_reset - which also fires when a save re-loads its
+## world - this marks the start of a new save: per-save goals lock again.
+signal company_started()
 signal location_purchased(location_id: String)
 signal active_location_changed(location_id: String)
 
@@ -131,6 +135,7 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	# the world map prices locations against the budget the player chose.
 	apply_company_settings(true)
 	world_reset.emit()
+	company_started.emit()
 
 ## Re-roll the pre-cleared land (and therefore the prices) of every location the
 ## player does not own yet. Owned land is never taken away. Once the player has

@@ -1,25 +1,25 @@
 extends MainSceneTest
 ## The title screen at phone, rotated-phone, tablet and desktop window sizes:
-## each of its four arrangements (see MainMenu.layout_mode_for) puts all seven
+## each of its four arrangements (see MainMenu.layout_mode_for) puts all eight
 ## actions on screen, apart and big enough to tap; the game's name is the logo
 ## image rather than a typed wordmark, with no tagline under it; and a drawn
 ## backdrop covers the window behind the menu.
 
-const ACTIONS := ["Start New Game", "Quick Start", "Continue", "Load Game", "Golfer Skins", "Settings", "Quit"]
+const ACTIONS := ["Start New Game", "Quick Start", "Continue", "Load Game", "Achievements", "Golfer Skins", "Settings", "Quit"]
 
 
 func _menu() -> Control:
 	return main.main_menu
 
 
-## Everything that has to hold for the seven actions at one window size.
+## Everything that has to hold for the eight actions at one window size.
 func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 	var menu := _menu()
 	var buttons := nodes_of_class(menu, "Button")
 	var labels: Array = []
 	for button in buttons:
 		labels.append(button.text)
-	assert_eq(buttons.size(), ACTIONS.size(), "%s: seven actions" % tag)
+	assert_eq(buttons.size(), ACTIONS.size(), "%s: eight actions" % tag)
 	for expected in ACTIONS:
 		assert_has(labels, expected, "%s: has a %s action" % [tag, expected])
 
