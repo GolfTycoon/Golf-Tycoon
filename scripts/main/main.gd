@@ -847,7 +847,7 @@ func _on_quit_pressed() -> void:
 ## same way the world map does. It edits the live course in place, so a parcel
 ## bought or a hole moved is there the moment the course is handed back.
 
-## The Club tab's Course Map button, and the Shift+M hotkey. `mode` is the
+## The Club tab's Land Parcels button, and the Shift+M hotkey. `mode` is the
 ## mode the map opens on: Land unless the caller asks for another — the
 ## Holes tab's Holes Map button asks for Routing Holes.
 func _open_course_map(mode: int = CourseMapView.Mode.LAND) -> void:

@@ -1393,7 +1393,7 @@ func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
 	for card in _club_cards():
 		tool_types.append(card.tool_type)
 	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "finance",
-		"milestones", "marketing"],
+		"milestones"],
 		"The Club tab's operations no longer include feed")
 
 ## The World Map button moved from the pause menu into the Club tab's
@@ -1415,7 +1415,7 @@ func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 		"with the company's atlas beside it")
 
 	var course_map: ToolButton = cards[0]
-	assert_string_contains(course_map.text, "Course Map", "The button reads Course Map")
+	assert_string_contains(course_map.text, "Land Parcels", "The button reads Land Parcels")
 	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
 	assert_string_contains(course_map.tool_description, "isometric")
 	var world_map: ToolButton = cards[1]
@@ -2271,7 +2271,7 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 	player.select(PlayerTab.PAGE_EDIT)
 	assert_eq(toolbar.current_section, TerrainToolbar.Section.BUILD, "Background updates never hijack building")
 
-## The Club tab folds the old Maps, Review, Milestone and Marketing tabs into
+## The Club tab folds the old Maps, Review and Milestone tabs into
 ## one shelf. Each former tab keeps its labelled column, so its actions still
 ## read as the group they were.
 func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> void:
@@ -2279,7 +2279,6 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 		["MAPS", ["course_map", "world_map"]],
 		["REVIEW", ["aura_map", "finance"]],
 		["MILESTONES", ["milestones"]],
-		["MARKETING", ["marketing"]],
 	]
 	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
 	assert_eq(groups.size(), expected.size(), "One column per folded tab")
@@ -2300,10 +2299,14 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
 	for signal_name in ["course_map_pressed", "world_map_pressed", "aura_map_pressed",
-			"financial_overview_pressed", "milestones_pressed", "marketing_pressed"]:
+			"financial_overview_pressed", "milestones_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
 
-## The Club tab's four labelled columns fit under the tab bar: one row of
+func test_the_club_tab_has_no_marketing_button() -> void:
+	for card in _club_cards():
+		assert_ne(card.tool_type, "marketing", "Marketing is not a Club tab action")
+
+## The Club tab's three labelled columns fit under the tab bar: one row of
 ## action cards plus its heading, with no vertical scroll.
 func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
@@ -2315,7 +2318,7 @@ func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
 		"The headings and the action cards fit under the tab bar")
 
 ## Every action card on the Club tab, in reading order: Maps, Review,
-## Milestones, Marketing.
+## Milestones.
 func _club_cards() -> Array[DockActionButton]:
 	var cards: Array[DockActionButton] = []
 	for group in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():

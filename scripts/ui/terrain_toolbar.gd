@@ -1108,14 +1108,13 @@ func select_player_section(index: int) -> void:
 		select_tab(PLAYER_TABS[index])
 
 ## The Club tab is the Manage section's front page: the Maps, Review,
-## Milestone and Marketing tabs folded into one shelf. Each former tab keeps
+## and Milestone tabs folded into one shelf. Each former tab keeps
 ## its own labelled column, so its actions still read as a group: the
-## company's maps lead, then the course's review and records, its milestones
-## and its marketing campaigns.
+## company's maps lead, then the course's review and records and its milestones.
 func _build_club_tab(hbox: HBoxContainer) -> void:
 	var groups := [
 		["Maps", [
-			["course_map", "Course Map", "flag", "Shift+M", "The whole course in one isometric map: buy land, reorder the holes, read the golfers' mood, place your staff"],
+			["course_map", "Land Parcels", "flag", "Shift+M", "The whole course in one isometric map: buy land, reorder the holes, read the golfers' mood, place your staff"],
 			["world_map", "World Maps", "maps", "", "Buy, browse and switch between the company's course sites"],
 		]],
 		["Review", [
@@ -1124,9 +1123,6 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 		]],
 		["Milestones", [
 			["milestones", "Milestone", "milestone", "G", "Goals and achievements"],
-		]],
-		["Marketing", [
-			["marketing", "Marketing", "marketing", "M", "Campaigns to attract golfers"],
 		]],
 	]
 	hbox.add_theme_constant_override("separation", 10)

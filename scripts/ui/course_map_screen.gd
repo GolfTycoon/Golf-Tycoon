@@ -2,7 +2,7 @@ extends Control
 class_name CourseMapScreen
 ## CourseMapScreen - the whole course on one isometric map, in four modes.
 ##
-## Opened from the Club tab's Course Map button or with Shift+M, and it freezes
+## Opened from the Club tab's Land Parcels button or with Shift+M, and it freezes
 ## the course while it is up (see main.gd). It edits the live game in place: a
 ## parcel bought here is bought, a hole moved here is moved, and the course
 ## behind the screen is the same course it hands back.
