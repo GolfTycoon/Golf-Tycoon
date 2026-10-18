@@ -20,6 +20,10 @@ const SIZES := [
 ## Checkpoints on the shelf, so the archive has rows to lay out.
 const SEEDED_SAVES := ["integration_layout_one", "integration_layout_two"]
 const CHECKPOINT := "integration_layout_checkpoint"
+## The benchmark's run shelf, kept off the player's own file.
+const HISTORY_PATH := "user://test_settings_benchmark_history.json"
+
+var _old_history_path := ""
 
 
 func before_all() -> void:
@@ -195,23 +199,32 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 
 func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 	await set_window(DESIGN_WINDOW)
+	_old_history_path = BenchmarkHistory.history_path
+	BenchmarkHistory.history_path = HISTORY_PATH
+	BenchmarkHistory.clear()
 	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
 	await process_frames(5)
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
 	var run_button := menu.find_child("RunBenchmarkButton", true, false) as Button
 	var copy_button := menu.find_child("CopyBenchmarkReportButton", true, false) as Button
+	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
 	assert_not_null(run_button, "Display settings offer a benchmark")
 	assert_not_null(copy_button, "A completed run can be copied for device comparison")
+	assert_not_null(results_button, "and the full results screen is one press away")
 	if run_button == null or copy_button == null:
 		return
 	assert_true(copy_button.disabled, "A report cannot be copied before a run")
+	assert_not_null(menu.find_child("BenchmarkStars", true, false),
+		"the card carries the last run's star rating")
+	assert_not_null(menu.find_child("BenchmarkScoreMeter", true, false), "and its score meter")
 
 	# Shorten only this test run; the player-facing benchmark keeps its full
-	# warm-up, frame sample and CPU workload durations.
+	# warm-up, frame sample, GPU ladder and CPU workload durations.
 	var runner := menu._benchmark_runner
 	runner.warmup_duration_usec = 15_000
 	runner.frame_sample_duration_usec = 60_000
+	runner.gpu_step_duration_usec = 20_000
 	runner.cpu_sample_duration_usec = 60_000
 	runner.cpu_budget_usec_per_frame = 200
 	run_button.pressed.emit()
@@ -222,12 +235,56 @@ func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 	assert_gt(runner._frame_times_ms.size(), 0, "frame pacing is sampled")
 	assert_gt(runner._work_units, 0, "the deterministic CPU workload runs")
 	assert_false(copy_button.disabled, "The completed report can be copied")
-	assert_string_contains(menu._benchmark_report_text, "GTB-1", "the report carries its benchmark version")
+	assert_string_contains(menu._benchmark_report_text, PerformanceBenchmark.BENCHMARK_VERSION,
+		"the report carries its benchmark version")
 	assert_string_contains(menu._benchmark_report_text, "CPU script score", "the report contains a comparable CPU score")
+	assert_string_contains(menu._benchmark_report_text, "Device rating", "and the scorecard's rating")
 	assert_string_contains(menu._benchmark_status_text, "Complete", "completion is shown in Settings")
+	assert_false(BenchmarkHistory.load_runs().is_empty(),
+		"the finished run lands on the shelf the results screen reads")
 
 	copy_button.pressed.emit()
-	assert_string_contains(menu._benchmark_status_text, "copied", "copying confirms the report was placed on the clipboard")
+	assert_string_contains(menu._benchmark_status_text, "clipboard",
+		"copying says what happened, with or without a clipboard")
+	BenchmarkHistory.clear()
+	BenchmarkHistory.history_path = _old_history_path
+
+
+func test_the_settings_open_the_benchmark_results_screen_over_themselves() -> void:
+	await set_window(DESIGN_WINDOW)
+	_old_history_path = BenchmarkHistory.history_path
+	BenchmarkHistory.history_path = HISTORY_PATH
+	main._show_settings_menu()
+	await process_frames(5)
+	var menu := main.get_node_or_null("UI/HUD/SettingsMenu") as SettingsMenu
+	assert_not_null(menu, "the pause menu opens the settings office")
+	if menu == null:
+		return
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
+	assert_not_null(results_button, "the Display card offers the results screen")
+	if results_button == null:
+		return
+	results_button.pressed.emit()
+	await process_frames(3)
+	var screen := main.get_node_or_null("UI/HUD/BenchmarkResultsScreen") as BenchmarkResultsScreen
+	assert_not_null(screen, "the game opens the results screen over the settings menu")
+	if screen:
+		assert_not_null(screen.find_child("FrameChart", true, false), "with its frame chart")
+		assert_not_null(screen.find_child("ScorecardPanel", true, false), "and its scorecard")
+		var back := screen.find_child("BackButton", true, false) as Button
+		assert_not_null(back)
+		if back:
+			back.pressed.emit()
+			await process_frames(3)
+		assert_null(main.get_node_or_null("UI/HUD/BenchmarkResultsScreen"),
+			"and backing out closes it again")
+	assert_not_null(main.get_node_or_null("UI/HUD/SettingsMenu"),
+		"the settings office is still open behind it")
+	menu.free()
+	BenchmarkHistory.clear()
+	BenchmarkHistory.history_path = _old_history_path
 
 
 func test_the_game_opens_the_archive_in_the_right_mode() -> void:

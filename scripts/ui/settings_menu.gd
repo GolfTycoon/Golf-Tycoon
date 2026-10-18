@@ -9,6 +9,9 @@ class_name SettingsMenu
 ## keeps its original live behavior and saves changes to user://settings.cfg.
 
 signal close_requested
+## The Display category's benchmark card asks Main to open the fullscreen
+## Benchmark Results screen over the settings menu.
+signal results_requested
 
 enum Category { AUDIO, DISPLAY, CONTROLS }
 enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
@@ -47,9 +50,14 @@ var _benchmark_status_label: Label
 var _benchmark_summary_label: Label
 var _benchmark_details_label: Label
 var _benchmark_progress_bar: ProgressBar
+var _benchmark_results_button: Button
+var _benchmark_stars_row: BenchmarkVisuals.StarRow
+var _benchmark_score_meter: BenchmarkVisuals.SegmentMeter
 var _benchmark_running: bool = false
 var _benchmark_progress: float = 0.0
-var _benchmark_status_text: String = "Ready to run. A test takes about five seconds."
+var _benchmark_stars: int = 0
+var _benchmark_score: float = 0.0
+var _benchmark_status_text: String = "Ready to run. A test takes about seven seconds."
 var _benchmark_summary_text: String = "No results yet. Run from a course view for the most useful frame-rate sample."
 var _benchmark_details_text: String = "For fair comparisons, use the same save, camera view, resolution, VSync and power mode. Reports stay local unless you copy them."
 var _benchmark_report_text: String = ""
@@ -63,6 +71,7 @@ func _ready() -> void:
 	_benchmark_runner.progress_changed.connect(_on_benchmark_progress)
 	_benchmark_runner.completed.connect(_on_benchmark_completed)
 	add_child(_benchmark_runner)
+	_adopt_last_benchmark()
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
@@ -109,6 +118,9 @@ func _build() -> void:
 	_benchmark_summary_label = null
 	_benchmark_details_label = null
 	_benchmark_progress_bar = null
+	_benchmark_results_button = null
+	_benchmark_stars_row = null
+	_benchmark_score_meter = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -452,7 +464,7 @@ func _build_display_cards(mode: int) -> Array[Control]:
 
 func _build_benchmark_card(mode: int) -> PanelContainer:
 	var benchmark := _make_group("DEVICE BENCHMARK",
-		"Measure live frame pacing and a repeatable CPU workload to help compare devices and diagnose slowdowns.", mode)
+		"Measure frame pacing, the GPU fill rate and a repeatable CPU workload, then open the results screen for the full scorecard.", mode)
 	var body: VBoxContainer = benchmark["body"]
 	body.add_child(_make_separator())
 
@@ -461,6 +473,24 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_benchmark_summary_label = summary
 	body.add_child(summary)
+
+	# The last run's rating in miniature: the five stars it earned and a
+	# segmented meter for the score behind them.
+	var rating := HBoxContainer.new()
+	rating.name = "BenchmarkRating"
+	rating.add_theme_constant_override("separation", 8)
+	var stars := BenchmarkVisuals.make_star_row(_benchmark_stars, 16, "BenchmarkStars")
+	stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_benchmark_stars_row = stars
+	rating.add_child(stars)
+	var meter := BenchmarkVisuals.make_meter(_benchmark_score / 100.0,
+		BenchmarkVisuals.score_color(_benchmark_score), "BenchmarkScoreMeter", 12)
+	meter.custom_minimum_size.y = 10
+	meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_benchmark_score_meter = meter
+	rating.add_child(meter)
+	body.add_child(rating)
 
 	var details := _label(_benchmark_details_text, 10, COLOR_MUTED)
 	details.name = "BenchmarkDetails"
@@ -473,7 +503,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	actions.add_theme_constant_override("separation", 7)
 	var run_button := Button.new()
 	run_button.name = "RunBenchmarkButton"
-	run_button.tooltip_text = "Run a short local test of frame pacing and script CPU throughput."
+	run_button.tooltip_text = "Run the local test: frame pacing, the GPU fill ladder and script CPU throughput."
 	run_button.custom_minimum_size = Vector2(0, 44)
 	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
@@ -485,6 +515,22 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	run_button.pressed.connect(_start_benchmark)
 	_benchmark_run_button = run_button
 	actions.add_child(run_button)
+
+	var results_button := Button.new()
+	results_button.name = "BenchmarkResultsButton"
+	results_button.text = "Full results"
+	results_button.tooltip_text = "Open the Benchmark Results screen: charts, the scorecard and past runs."
+	results_button.custom_minimum_size = Vector2(0, 44)
+	results_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	results_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(results_button, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	results_button.add_theme_color_override("font_color", COLOR_TEXT)
+	results_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	results_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	results_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	results_button.pressed.connect(func(): results_requested.emit())
+	_benchmark_results_button = results_button
+	actions.add_child(results_button)
 
 	var copy_button := Button.new()
 	copy_button.name = "CopyBenchmarkReportButton"
@@ -788,25 +834,64 @@ func _on_benchmark_progress(message: String, fraction: float) -> void:
 	_benchmark_progress = fraction
 	_refresh_benchmark_controls()
 
+## Pick up a run another screen finished (the results screen runs the same
+## benchmark), so the card opens showing the newest report on this machine.
+func _adopt_last_benchmark() -> void:
+	var result := PerformanceBenchmark.last_result
+	if result.is_empty():
+		return
+	_benchmark_report_text = str(result.get("report_text", ""))
+	_benchmark_summary_text = _benchmark_summary_for(result)
+	_benchmark_details_text = _benchmark_details_for(result)
+	_benchmark_status_text = "Complete. Copy the report to compare devices; nothing is uploaded."
+	_apply_benchmark_score(result)
+
+func _apply_benchmark_score(result: Dictionary) -> void:
+	var score: Dictionary = result.get("score", PerformanceBenchmark.score_result(result))
+	_benchmark_stars = int(score.get("stars", 0))
+	_benchmark_score = float(score.get("overall", 0.0))
+
+## The card's headline: the tier and the score first, then the frame pacing.
+func _benchmark_summary_for(result: Dictionary) -> String:
+	var score: Dictionary = result.get("score", PerformanceBenchmark.score_result(result))
+	var frame: Dictionary = result.get("frame", {})
+	if int(frame.get("sample_count", 0)) <= 0:
+		return PerformanceBenchmark.format_summary(result)
+	return "%s · %d/100 · avg %.1f FPS · 1%% low %.1f FPS" % [
+		str(score.get("tier", "Unrated")), int(round(float(score.get("overall", 0.0)))),
+		float(frame.get("average_fps", 0.0)), float(frame.get("one_percent_low_fps", 0.0)),
+	]
+
+## The card's second line: what the run pointed at, GPU included.
+func _benchmark_details_for(result: Dictionary) -> String:
+	var frame: Dictionary = result.get("frame", {})
+	var engine: Dictionary = result.get("engine", {})
+	var gpu: Dictionary = result.get("gpu", {})
+	if int(frame.get("sample_count", 0)) <= 0:
+		return "No frame samples were captured. Run again with the settings screen visible for a full frame-pacing sample."
+	var gpu_text := "GPU %.0f MPix/s" % float(gpu.get("peak_megapixels_per_second", 0.0)) \
+		if bool(gpu.get("available", false)) else "GPU test skipped"
+	return "Frame p95 %.1f ms · game process %.1f ms/frame · %s. Open the full results for the scorecard and past runs." % [
+		float(frame.get("p95_frame_ms", 0.0)), float(engine.get("process_ms_per_frame", 0.0)),
+		gpu_text,
+	]
+
 func _on_benchmark_completed(result: Dictionary) -> void:
 	_benchmark_running = false
 	_benchmark_progress = 1.0
 	_benchmark_report_text = str(result.get("report_text", ""))
-	_benchmark_summary_text = PerformanceBenchmark.format_summary(result)
-	var frame: Dictionary = result.get("frame", {})
-	var engine: Dictionary = result.get("engine", {})
-	if int(frame.get("sample_count", 0)) > 0:
-		_benchmark_details_text = "Frame p95 %.1f ms · game process %.1f ms/frame. High process time suggests CPU-side work; low FPS with low process time can point to rendering, a frame cap or other factors." % [
-			float(frame.get("p95_frame_ms", 0.0)),
-			float(engine.get("process_ms_per_frame", 0.0)),
-		]
-	else:
-		_benchmark_details_text = "No frame samples were captured. Run again with the settings screen visible for a full frame-pacing sample."
+	_benchmark_summary_text = _benchmark_summary_for(result)
+	_apply_benchmark_score(result)
+	_benchmark_details_text = _benchmark_details_for(result)
 	_benchmark_status_text = "Complete. Copy the report to compare devices; nothing is uploaded."
 	_refresh_benchmark_controls()
 
 func _copy_benchmark_report() -> void:
 	if _benchmark_report_text.is_empty() or _benchmark_running:
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		_benchmark_status_text = "This window has no clipboard to copy into. The report stays on this machine."
+		_refresh_benchmark_controls()
 		return
 	DisplayServer.clipboard_set(_benchmark_report_text)
 	_benchmark_status_text = "Report copied. It includes device and hardware details; nothing was uploaded."
@@ -828,6 +913,11 @@ func _refresh_benchmark_controls() -> void:
 	if is_instance_valid(_benchmark_progress_bar):
 		_benchmark_progress_bar.value = _benchmark_progress
 		_benchmark_progress_bar.visible = _benchmark_running
+	if is_instance_valid(_benchmark_stars_row):
+		_benchmark_stars_row.set_stars(_benchmark_stars)
+	if is_instance_valid(_benchmark_score_meter):
+		_benchmark_score_meter.set_fraction(_benchmark_score / 100.0,
+			BenchmarkVisuals.score_color(_benchmark_score))
 
 func _select_category(category: int) -> void:
 	if category == _category:

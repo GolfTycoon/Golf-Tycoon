@@ -1250,6 +1250,7 @@ func _on_main_menu_settings() -> void:
 	settings.name = "SettingsMenu"
 	# No need to re-show anything when closing from main menu
 	settings.close_requested.connect(func(): pass)
+	settings.results_requested.connect(_show_benchmark_results)
 	$UI/HUD.add_child(settings)
 
 func _on_main_menu_load_panel_closed() -> void:
@@ -1271,7 +1272,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -4439,7 +4440,26 @@ func _show_settings_menu() -> void:
 		if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
 			_show_pause_menu()
 	)
+	settings.results_requested.connect(_show_benchmark_results)
 	$UI/HUD.add_child(settings)
+
+
+## The Benchmark Results screen opens over the settings menu, so closing it
+## drops the player back where they were, mid-settings.
+func _show_benchmark_results() -> void:
+	var hud = $UI/HUD
+	var existing := hud.get_node_or_null("BenchmarkResultsScreen")
+	if existing:
+		existing.move_to_front()
+		return
+	var screen := BenchmarkResultsScreen.new()
+	screen.name = "BenchmarkResultsScreen"
+	screen.back_requested.connect(func():
+		if is_instance_valid(screen):
+			screen.queue_free()
+	)
+	hud.add_child(screen)
+	screen.move_to_front()
 
 func _on_pause_quit_to_menu() -> void:
 	_close_pause_menu()

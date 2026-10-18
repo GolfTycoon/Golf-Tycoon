@@ -8,6 +8,9 @@ class_name PixelIcon
 ## studio, a cog for Settings and a doorway arrow for Quit. The World Map
 ## atlas reuses the same sprite kit for its own marks: a dollar coin for the
 ## company treasury and a teardrop map pin for the destinations and legend.
+## The Benchmark Results screen adds four more: a chip for the CPU workload, a
+## graphics card for the GPU fill test, a pulse trace for frame pacing and a
+## memory stick for the run's footprint.
 ## They are sprites
 ## in the old sense - a grid of characters, one per pixel, painted from a
 ## palette derived from the card's own accent - so a gold card gets a gold
@@ -23,7 +26,8 @@ class_name PixelIcon
 ## because the menu rebuilds itself whenever the window crosses a layout
 ## breakpoint.
 
-enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR, COIN, PIN, TROPHY, STAR }
+enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR, COIN, PIN, TROPHY, STAR,
+	CHIP, GPU, PULSE, MEMORY }
 
 ## Side of the sprite grid, in source pixels.
 const GRID := 16
@@ -234,6 +238,78 @@ const ART := {
 		"......XDDX......",
 		"......XDDX......",
 		".......XX.......",
+		"................",
+	],
+	Kind.CHIP: [
+		"................",
+		"....X..X..X.....",
+		"....X..X..X.....",
+		"..XXXXXXXXXXXX..",
+		"..XLLLLLLLLLLX..",
+		"XXLAAAAAAAAAAXXX",
+		"XXLAACCCCCAAAXXX",
+		"..LAACCCCCAADA..",
+		"..LAACCCCCAADA..",
+		"XXLAACCCCCAAAXXX",
+		"XXLAAAAAAAAAAXXX",
+		"..XDAAAAAAAAAX..",
+		"..XDDDDDDDDDDX..",
+		"....X..X..X.....",
+		"....X..X..X.....",
+		"................",
+	],
+	Kind.GPU: [
+		"................",
+		"X...............",
+		"XXXXXXXXXXXXXXXX",
+		"XLLLLLLLLLLLLLLX",
+		"XLA....CC....AAX",
+		"XLAA..CWWMWC.AAX",
+		"XLA..CWMMMMWC.AX",
+		"XLAA.CMMXXMMC.AX",
+		"XLA..CWMMMMWC.AX",
+		"XLAA..CWWMWC.AAX",
+		"XLA....CC....AAX",
+		"XDAAAAAAAAAAAAAX",
+		"XDDDDDDDDDDDDDDX",
+		".XX.XX.XX.XX.XX.",
+		"................",
+		"................",
+	],
+	Kind.PULSE: [
+		"................",
+		"..XXXXXXXXXXXX..",
+		"..XLLLLLLLLLLX..",
+		"..XAAAAWAAAAAX..",
+		"..XAAAAWAAAAAX..",
+		"..XAAAWWAAAAAX..",
+		"..XAAAWAWAAAAX..",
+		"..XWAAWAWWWWWX..",
+		"..XWWWAAWAAAAX..",
+		"..XAAAAAWAAAAX..",
+		"..XDDDDDDDDDDX..",
+		"..XXXXXXXXXXXX..",
+		"......XXXX......",
+		"......XXXX......",
+		".....XXXXXX.....",
+		"................",
+	],
+	Kind.MEMORY: [
+		"................",
+		"................",
+		"................",
+		"..XXXXXXXXXXXX..",
+		"..XLLLLLLLLLLX..",
+		"..XACMACMACMAX..",
+		"..XAMMAMMAMMAX..",
+		"..XAMMAMMAMMAX..",
+		"..XAMMAMMAMMAX..",
+		"..XDDDDDDDDDDX..",
+		"..XDDDDDDDDDDX..",
+		"..XXXXXXXXXXXX..",
+		"...X..X..X..X...",
+		"................",
+		"................",
 		"................",
 	],
 }
