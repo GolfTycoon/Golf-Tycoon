@@ -2,36 +2,37 @@ extends Control
 class_name MainMenu
 ## MainMenu - Title screen.
 ##
-## Seven actions: Start New Game (company setup → world map), Quick Start
-## (default options → world map), Continue (newest save), Load Game, Golfer
-## Skins (the skin studio), Settings and Quit.
+## Eight actions: Start New Game (company setup → world map), Quick Start
+## (default options → world map), Continue (newest save), Load Game,
+## Achievements (the career trophy room), Golfer Skins (the skin studio),
+## Settings and Quit.
 ##
 ## The old screen was one centred column of six identical buttons with a
 ## "Design. Build. Manage." tagline under the title. The tagline is gone and
-## the six actions are now laid out by weight instead of being listed:
+## the actions are now laid out by weight instead of being listed:
 ##
 ##  * Start New Game and Quick Start are hero cards - big targets, each with
 ##    one line saying what it does.
 ##  * Continue is a card carrying the newest save (course, day, slot), so a
 ##    returning player can see what they are about to resume.
-##  * Load Game, Golfer Skins, Settings and Quit are compact tiles, kept
-##    together at the quiet end of the layout so Quit never sits beside a
-##    primary action.
+##  * Load Game, Achievements, Golfer Skins, Settings and Quit are compact
+##    tiles, kept together at the quiet end of the layout so Quit never sits
+##    beside a primary action.
 ##
 ## The screen rebuilds itself when the window crosses a layout breakpoint
-## (see layout_mode_for), so the same six actions use the space well at every
+## (see layout_mode_for), so the same actions use the space well at every
 ## size:
 ##
 ##  * WIDE (>= 1120x620) - clubhouse split: logo, hero pair and the version
 ##    line on the left; a rail with the Continue card and the utility tiles
 ##    down the right.
 ##  * TABLET (>= 700x620) - centred column: logo, hero pair side by side, a
-##    full-width Continue card, then a utility row of three.
+##    full-width Continue card, then the utility tiles in two tidy rows.
 ##  * LANDSCAPE (wide but short - a rotated phone or a squat browser window) -
 ##    logo on the left, a compact action block on the right, so nothing has
 ##    to be scrolled to.
-##  * PHONE - one scrollable column of full-width cards with a two-up utility
-##    row; every target stays at least 46 px tall.
+##  * PHONE - one scrollable column of full-width cards with two-up utility
+##    rows; every target stays at least 46 px tall.
 ##
 ## Layout is container-driven inside each mode, so a live drag-resize only
 ## rebuilds the tree when the arrangement itself changes.
@@ -40,8 +41,9 @@ class_name MainMenu
 ## a nine-patch sprite window - notched corners, ink outline, accent trim and
 ## a bevel lit from above - and each action carries a 16x16 sprite of its own
 ## (PixelIcon): a pennant for Start New Game, a bolt for Quick Start, the play
-## triangle for Continue, a floppy for Load Game, a polo shirt for Golfer
-## Skins, a cog for Settings and a doorway arrow for Quit.
+## triangle for Continue, a floppy for Load Game, a trophy for Achievements,
+## a polo shirt for Golfer Skins, a cog for Settings and a doorway arrow for
+## Quit.
 ##
 ## The scenery behind it (MenuBackdrop) is the shared background image. The
 ## heading is the game logo (assets/ui/logo.png), not a typed wordmark.
@@ -50,6 +52,7 @@ signal start_new_game_requested()
 signal quick_start_requested()
 signal continue_requested(save_name: String)
 signal load_game_requested()
+signal achievements_requested()
 signal edit_golfer_skins_requested()
 signal settings_requested()
 signal quit_requested()
@@ -280,7 +283,7 @@ func _build_landscape() -> void:
 	row.add_theme_constant_override("separation", int(clampf(view.x * 0.030, 16.0, 34.0)))
 	_frame(page, view, LANDSCAPE_MAX_WIDTH).add_child(row)
 
-	var hero_height := clampf(view.y * 0.290, 96.0, 150.0)
+	var hero_height := clampf(view.y * 0.265, 92.0, 150.0)
 	var hero_font := int(clampf(view.y / 21.0, 18.0, 24.0))
 	var caption_font := int(clampf(view.y / 42.0, 11.0, 14.0))
 
@@ -306,8 +309,9 @@ func _build_landscape() -> void:
 	actions.add_child(_make_hero_row(hero_height, hero_font, caption_font))
 	actions.add_child(_make_continue_card(clampf(view.y * 0.225, 76.0, 116.0), hero_font, caption_font))
 	# No captions on the squat tiles: at ~150 px wide a sentence would only be
-	# trimmed to an ellipsis.
-	actions.add_child(_make_utility_rows(clampf(view.y * 0.160, 52.0, 76.0), hero_font - 3, 0, false))
+	# trimmed to an ellipsis. The eight actions fold into two rows so the
+	# whole menu still fits a rotated phone without scrolling.
+	actions.add_child(_make_utility_rows(clampf(view.y * 0.115, 44.0, 56.0), hero_font - 3, 0, false))
 
 ## Phone: one column, cards stacked full width, Load and Settings sharing a
 ## row to save vertical space, Quit on its own quiet line at the bottom.
@@ -334,6 +338,7 @@ func _build_phone() -> void:
 	column.add_child(_make_continue_card(clampf(view.y * 0.110, 78.0, 104.0), hero_font - 1, caption_font))
 	column.add_child(_make_phone_utility_row(clampf(view.y * 0.085, 54.0, 76.0), hero_font - 2))
 	column.add_child(_make_phone_extra_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
+	column.add_child(_make_phone_quit_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
 	column.add_child(_make_status_line(true, caption_font))
 
 # =============================================================================
@@ -549,14 +554,15 @@ func _make_continue_card(height: float, title_font: int, caption_font: int) -> B
 	button.pressed.connect(func(): continue_requested.emit(continue_save_name()))
 	return button
 
-## Load Game / Golfer Skins / Settings / Quit: side by side when the row is
-## roomy, stacked down the rail when it is not. `caption_font` 0 leaves the
-## tiles as plain labels (the squat-window layout, where a caption would only
-## be truncated).
+## Load Game / Achievements / Golfer Skins / Settings / Quit: stacked down
+## the wide rail, or two tidy rows (three over two) beside the hero cards.
+## `caption_font` 0 leaves the tiles as plain labels (the squat-window
+## layout, where a caption would only be truncated).
 func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		stacked: bool) -> Control:
 	var tiles: Array[Button] = [
 		_make_load_tile(height, title_font, caption_font),
+		_make_achievements_tile(height, title_font, caption_font),
 		_make_golfer_skins_tile(height, title_font, caption_font),
 		_make_settings_tile(height, title_font, caption_font),
 		_make_quit_tile(height, title_font, caption_font),
@@ -569,33 +575,48 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 			column.add_child(tile)
 		return column
 
-	var row := HBoxContainer.new()
-	row.name = "UtilityRows"
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 14)
-	for tile in tiles:
-		row.add_child(tile)
-	return row
+	var rows := VBoxContainer.new()
+	rows.name = "UtilityRows"
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_theme_constant_override("separation", 10)
+	for row_tiles: Array in [tiles.slice(0, 3), tiles.slice(3, 5)]:
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 14)
+		for tile in row_tiles:
+			row.add_child(tile)
+		rows.add_child(row)
+	return rows
 
-## Phone utility row: Load and Settings share one line. No captions - the
-## column is only ~180 px wide, and the labels say it all at this size.
+## Phone utility row: Load Game and Achievements share one line. No
+## captions - the column is only ~180 px wide, and the labels say it all at
+## this size.
 func _make_phone_utility_row(height: float, title_font: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "UtilityRows"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 12)
 	row.add_child(_make_load_tile(height, title_font, 0))
-	row.add_child(_make_settings_tile(height, title_font, 0))
+	row.add_child(_make_achievements_tile(height, title_font, 0))
 	return row
 
-## Phone second utility row: Golfer Skins and Quit. Both are the quiet end of
-## the menu, so they share a line rather than pushing the hero cards off it.
+## Phone second utility row: Golfer Skins and Settings share a line, so the
+## quiet end of the menu stays compact.
 func _make_phone_extra_row(height: float, title_font: int, caption_font: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "UtilityRows"
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 12)
 	row.add_child(_make_golfer_skins_tile(height, title_font, caption_font))
+	row.add_child(_make_settings_tile(height, title_font, 0))
+	return row
+
+## Phone third utility row: Quit on its own quiet line at the bottom, as far
+## from the hero cards as the column allows.
+func _make_phone_quit_row(height: float, title_font: int, caption_font: int) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "UtilityRows"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_make_quit_tile(height, title_font, caption_font))
 	return row
 
@@ -612,6 +633,17 @@ func _make_load_tile(height: float, title_font: int, caption_font: int) -> Butto
 		button.tooltip_text = "No saved games yet"
 	_load_button = button
 	button.pressed.connect(func(): load_game_requested.emit())
+	return button
+
+## Achievements: the career trophy room, where honours stay unlocked
+## between saves.
+func _make_achievements_tile(height: float, title_font: int, caption_font: int) -> Button:
+	var button := _make_tile("Achievements", "Career honours that never expire",
+		"Career achievements that stay unlocked between every save",
+		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
+		PixelIcon.Kind.TROPHY)
+	button.name = "AchievementsButton"
+	button.pressed.connect(func(): achievements_requested.emit())
 	return button
 
 ## Golfer Skins: the studio where the player paints the golfers' shirts, caps,

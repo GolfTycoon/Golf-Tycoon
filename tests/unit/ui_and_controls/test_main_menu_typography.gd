@@ -44,7 +44,7 @@ static func _drawn_font(control: Control) -> Font:
 func test_the_action_titles_are_set_in_pixelify_sans_bold() -> void:
 	var menu := _menu()
 	var buttons := _nodes_of_class(menu, "Button")
-	assert_eq(buttons.size(), 7, "the seven actions")
+	assert_eq(buttons.size(), 8, "the eight actions")
 	for button in buttons:
 		var expected := TITLE_PATH if button.name in HERO_CARDS else SUBTITLE_PATH
 		assert_eq(_drawn_font(button).resource_path, expected,

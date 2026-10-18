@@ -16,7 +16,7 @@ You start with money on your books, and every day the course earns and spends. K
 1. **Green fees.** The main income. Each golfer pays a fee for each open hole. You set the fee from **$1 to $200**, but the most you can charge is **$10 per open hole**. A 3-hole course can charge at most $30.
 2. **Buildings.** Amenities such as snack bars, pubs, pro shops and driving ranges earn money from golfers who use them. Use depends on how close the golfer is and on their need. Landmark facilities (the Airstrip, Castle, Casino and Theme Park) raise the green fee per hole instead.
 3. **Tournaments.** Hosting one brings in gate money and sponsorships. Tournaments mostly build reputation. Most tiers break even or lose money. See [Tournament System](../events/tournament-system.md).
-4. **Construction milestones.** One-off rewards for building holes. See construction milestones (section 7 of the algorithm).
+4. **Milestone rewards.** One-off rewards for building and operating. See [Milestones & Achievements](milestones-and-achievements.md).
 
 ### Money out
 
@@ -138,19 +138,19 @@ repay(amount):
     loan_balance −= amount;  money −= amount
 ```
 
-### 7. Construction milestones
+### 7. Milestone rewards
 
-Course-building milestones pay a one-off reward. They do not grant reputation, except the par-3 course milestone.
+Course Location Milestones (per site) and World Milestones (per company) pay one-off money and reputation rewards when they unlock; they are listed in full in [Milestones & Achievements](milestones-and-achievements.md). Course-building milestones do not grant reputation, except the par-3 course milestone.
 
 | Milestone | Requirement | Reward |
 | --- | --- | --- |
-| First Tee | Build 1 hole | $300 |
-| Front Three | Build 3 holes | $600 |
-| The Front Nine | Build 9 holes | $2,000 |
-| Full Course | Build 18 holes | $4,000 |
+| First Tee | Build 1 hole at a location | $300 |
+| Front Three | Build 3 holes at a location | $600 |
+| The Front Nine | Build 9 holes at a location | $2,000 |
+| Full Course | Build 18 holes at a location | $4,000 |
 | Short Game Special | Build a course of all par 3s | $2,000 and +5 reputation |
 
-Milestones need a recorded completed round before reputation and star milestones can fire. Loading a save does not pay milestone rewards again.
+Milestones need a recorded completed round before reputation and star milestones can fire. Loading a save does not pay milestone rewards again; starting a new company locks every milestone again (Achievements stay unlocked between saves).
 
 ### 8. Staff
 
@@ -224,7 +224,7 @@ Green fee sensitivity sets how harshly overpricing lowers the value rating. See 
 | Stagnation floor | `game_manager.gd` `STAGNATION_REPUTATION_FLOOR` | 40 | Decay stops below this |
 | Groundskeeper coverage | `staff_manager.gd` | 70% of weed pressure | How much a full crew reduces weeds |
 | Weed pressure | `weed_manager.gd` `WEEDS_PER_HOLE_FULL_PRESSURE` | 4.0 per hole | How fast weeds drag condition down |
-| Milestone rewards | `milestone_system.gd` | $300 / $600 / $2,000 / $4,000 | Construction rewards |
+| Milestone rewards | `milestone_system.gd` | $300 / $600 / $2,000 / $4,000 | Per-location construction rewards |
 
 ---
 

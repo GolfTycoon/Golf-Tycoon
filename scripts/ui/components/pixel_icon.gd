@@ -23,7 +23,7 @@ class_name PixelIcon
 ## because the menu rebuilds itself whenever the window crosses a layout
 ## breakpoint.
 
-enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR, COIN, PIN }
+enum Kind { FLAG, BOLT, PLAY, FLOPPY, SHIRT, GEAR, DOOR, COIN, PIN, TROPHY, STAR }
 
 ## Side of the sprite grid, in source pixels.
 const GRID := 16
@@ -198,6 +198,42 @@ const ART := {
 		".......XX.......",
 		"................",
 		"................",
+		"................",
+	],
+	Kind.TROPHY: [
+		"................",
+		"...XXXXXXXXXX...",
+		"...XLLLLLLLAX...",
+		"X..XLAAAAAAAX..X",
+		"XX.XLAAAAAAAX.XX",
+		"XX.XLAAAAAAAX.XX",
+		".XXXLAAAAAAAXXX.",
+		"...XDAAAAAADX...",
+		"....XAAAAAAX....",
+		"....XDAAAAAX....",
+		".....XAAAAX.....",
+		".....XAAAAX.....",
+		"...XXXXXXXXXX...",
+		"..XXXXXXXXXXXX..",
+		"................",
+		"................",
+	],
+	Kind.STAR: [
+		"................",
+		".......XX.......",
+		"......XLLX......",
+		"......XLLX......",
+		".....XLLLLX.....",
+		"X....XLAAAX....X",
+		"XX...XLAAAX...XX",
+		"XXXX.XLAAAX.XXXX",
+		"XXXX.XDAAAX.XXXX",
+		"XX...XDAAAX...XX",
+		"X....XDAAAX....X",
+		".....XDDDDX.....",
+		"......XDDX......",
+		"......XDDX......",
+		".......XX.......",
 		"................",
 	],
 }

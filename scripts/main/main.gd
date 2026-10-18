@@ -94,7 +94,23 @@ var _was_paused_before_pause_menu: bool = false
 var _pause_session_active: bool = false  # True while the pause menu (or its Save/Load/Settings sub-panels) is open
 var _just_loaded_game: bool = false  # Set when a save just loaded successfully, consumed by the save/load panel
 var milestone_manager: MilestoneManager = null
-var milestones_panel: MilestonesPanel = null
+## Where a goal screen was opened from: the Club tab freezes the course and
+## hands it back on the way out; the title screen's Achievements tile comes
+## home to the menu instead.
+enum GoalScreenOrigin { CLUB_TAB, TITLE_SCREEN }
+## The three fullscreen goal screens: Course Milestones (per-location goals
+## for this save), World Milestones (company goals for this save) and
+## Achievements (career honours kept between saves). All three sit on the
+## World Map's backdrop and hand the course back the way the Course Map
+## does.
+var course_milestones_screen: CourseMilestonesScreen = null
+var world_milestones_screen: WorldMilestonesScreen = null
+var achievements_screen: AchievementsScreen = null
+## The pause flag from before a goal screen opened. The screens freeze the
+## day while they are up, so this is what the course resumes to on the way
+## out.
+var _goal_screen_restore_paused: bool = false
+var _goal_screen_origin: int = GoalScreenOrigin.CLUB_TAB
 var seasonal_calendar_panel: SeasonalCalendarPanel = null
 var tutorial_system: TutorialSystem = null
 var course_rating_overlay: CourseRatingOverlay = null
@@ -390,10 +406,10 @@ func _input(event: InputEvent) -> void:
 			_stop_elevation_painting()
 	# Keyboard shortcuts - handled in _input so UI controls don't swallow them
 	if event is InputEventKey and event.pressed and not event.echo:
-		# The World Map is a screen of its own: while it is up, no gameplay
-		# hotkey (Escape included) reaches the course behind it. Its own Back
-		# button and Escape close it.
-		if _world_map_is_open() or _course_map_is_open():
+		# The World Map and the goal screens are screens of their own: while
+		# one is up, no gameplay hotkey (Escape included) reaches the course
+		# behind it. Their own Back button and Escape close them.
+		if _world_map_is_open() or _course_map_is_open() or _goal_screen_is_open():
 			return
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
@@ -479,8 +495,14 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_Z:
 				_toggle_analytics_panel()
 				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_G and event.shift_pressed:
+				_toggle_world_milestones_screen()
+				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_G:
-				_toggle_milestones_panel()
+				_toggle_course_milestones_screen()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_T and event.shift_pressed:
+				_toggle_achievements_screen()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_C:
 				_toggle_seasonal_calendar()
@@ -695,7 +717,9 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.holes_map_pressed.connect(_open_course_map_routing)
 	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
-	terrain_toolbar.milestones_pressed.connect(_toggle_milestones_panel)
+	terrain_toolbar.course_milestones_pressed.connect(_toggle_course_milestones_screen)
+	terrain_toolbar.world_milestones_pressed.connect(_toggle_world_milestones_screen)
+	terrain_toolbar.achievements_pressed.connect(_toggle_achievements_screen)
 	terrain_toolbar.golfer_row_clicked.connect(_on_toolbar_golfer_clicked)
 	terrain_toolbar.staff_area_move_requested.connect(_on_staff_area_move_requested)
 	terrain_toolbar.golfer_data_provider = _collect_golfer_rows
@@ -785,18 +809,25 @@ func _initialize_game() -> void:
 func _show_main_menu() -> void:
 	_close_world_map()
 	_close_course_map()
+	_close_goal_screens()
 	main_menu = MainMenu.new()
 	main_menu.name = "MainMenu"
 	main_menu.start_new_game_requested.connect(_on_menu_start_new_game)
 	main_menu.quick_start_requested.connect(_on_menu_quick_start)
 	main_menu.continue_requested.connect(_on_menu_continue)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
+	main_menu.achievements_requested.connect(_on_menu_achievements)
 	main_menu.edit_golfer_skins_requested.connect(_on_menu_edit_golfer_skins)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.quit_requested.connect(_on_quit_pressed)
 	$UI/HUD.add_child(main_menu)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
+
+## The title screen's Achievements tile: the career trophy room opens over
+## the menu on the shared backdrop, and its Back comes home to the menu.
+func _on_menu_achievements() -> void:
+	_open_goal_screen(MenuScreenKit.GoalTrack.ACHIEVEMENTS, GoalScreenOrigin.TITLE_SCREEN)
 
 func _hide_main_menu() -> void:
 	if main_menu:
@@ -1106,6 +1137,9 @@ func _on_main_menu_new_game(course_name: String, theme_type: int, difficulty: in
 	_set_gameplay_ui_visible(true)
 
 	GameManager.new_game(course_name, theme_type, chosen_difficulty, options)
+	if milestone_manager:
+		# A brand-new company: per-save milestones lock again.
+		milestone_manager.reset_for_new_save()
 
 	# Center camera on the middle of the grid
 	_center_camera_on_course()
@@ -1136,6 +1170,9 @@ func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package
 	_prebuilt_money = GameManager.money
 	_prebuilt_pending = package_id
 	GameManager.new_game(course_name, theme_type, difficulty)
+	if milestone_manager:
+		# A brand-new company: per-save milestones lock again.
+		milestone_manager.reset_for_new_save()
 
 	_center_camera_on_course()
 	current_tool = -1
@@ -1160,6 +1197,9 @@ func _on_main_menu_quick_start(course_name: String = "", theme_type: int = -1,
 	# Flag so _on_new_game_started knows to build the quick-start course
 	_quick_start_pending = true
 	GameManager.new_game(course_name if not course_name.is_empty() else "Quick Start Course", theme, difficulty)
+	if milestone_manager:
+		# A brand-new company: per-save milestones lock again.
+		milestone_manager.reset_for_new_save()
 
 	_center_camera_on_course()
 	current_tool = -1
@@ -1231,7 +1271,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "MilestonesPanel", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -3982,27 +4022,136 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 		"total_holes": golfer._round_total_holes if golfer._round_total_holes > 0 else GameManager.get_open_hole_count(),
 	})
 
-# --- Milestone System ---
+# --- Milestone & Achievement Screens ---
 
 func _setup_milestone_system() -> void:
 	milestone_manager = MilestoneManager.new()
 	milestone_manager.name = "MilestoneManager"
 	add_child(milestone_manager)
 
-	milestones_panel = MilestonesPanel.new()
-	milestones_panel.name = "MilestonesPanel"
-	milestones_panel.set_milestone_manager(milestone_manager)
-	milestones_panel.close_requested.connect(func():
-		milestones_panel.hide()
-		_active_panel = null
-	)
-	$UI/HUD.add_child(milestones_panel)
-
 	# Update SaveManager reference to include milestone manager
 	SaveManager.milestone_manager = milestone_manager
 
-func _toggle_milestones_panel() -> void:
-	_toggle_panel(milestones_panel)
+## The G hotkey and the Club tab's Course Milestones button: the fullscreen
+## per-location goal book, or back to the course if it is already up.
+func _toggle_course_milestones_screen() -> void:
+	_toggle_goal_screen(MenuScreenKit.GoalTrack.COURSE)
+
+## The Shift+G hotkey and the Club tab's World Milestones button: the
+## fullscreen book of company goals across every course location.
+func _toggle_world_milestones_screen() -> void:
+	_toggle_goal_screen(MenuScreenKit.GoalTrack.WORLD)
+
+## The Shift+T hotkey, the Club tab's Achievements button and the title
+## screen's Achievements tile: the trophy room, where career honours stay
+## unlocked between saves.
+func _toggle_achievements_screen() -> void:
+	_toggle_goal_screen(MenuScreenKit.GoalTrack.ACHIEVEMENTS)
+
+## Toggle one of the goal screens: already up on that track, it goes away;
+## up on another track, the view flips; closed, it opens from the Club tab.
+func _toggle_goal_screen(track: int) -> void:
+	if _goal_screen_is_open():
+		if _goal_screen_shown(track):
+			_on_goal_screen_back()
+		else:
+			_switch_goal_screen(track)
+		return
+	_open_goal_screen(track, GoalScreenOrigin.CLUB_TAB)
+
+## Open (or raise) the goal screens. From the Club tab the day freezes and
+## the gameplay UI stands down, the same way the World Map and the Course
+## Map take the window; from the title screen the menu steps aside and Back
+## comes home to it.
+func _open_goal_screen(track: int, origin: int) -> void:
+	if origin == GoalScreenOrigin.TITLE_SCREEN:
+		_hide_main_menu()
+		_set_gameplay_ui_visible(false)
+	elif not _goal_screen_is_open():
+		_goal_screen_restore_paused = GameManager.is_paused
+		GameManager.is_paused = true
+		_set_gameplay_ui_visible(false)
+	_goal_screen_origin = origin
+	var hud := $UI/HUD
+	if course_milestones_screen == null:
+		course_milestones_screen = CourseMilestonesScreen.new()
+		course_milestones_screen.name = "CourseMilestonesScreen"
+		course_milestones_screen.set_milestone_manager(milestone_manager)
+		course_milestones_screen.back_requested.connect(_on_goal_screen_back)
+		course_milestones_screen.track_requested.connect(_switch_goal_screen)
+		hud.add_child(course_milestones_screen)
+	if world_milestones_screen == null:
+		world_milestones_screen = WorldMilestonesScreen.new()
+		world_milestones_screen.name = "WorldMilestonesScreen"
+		world_milestones_screen.set_milestone_manager(milestone_manager)
+		world_milestones_screen.back_requested.connect(_on_goal_screen_back)
+		world_milestones_screen.track_requested.connect(_switch_goal_screen)
+		hud.add_child(world_milestones_screen)
+	if achievements_screen == null:
+		achievements_screen = AchievementsScreen.new()
+		achievements_screen.name = "AchievementsScreen"
+		achievements_screen.set_milestone_manager(milestone_manager)
+		achievements_screen.back_requested.connect(_on_goal_screen_back)
+		achievements_screen.track_requested.connect(_switch_goal_screen)
+		hud.add_child(achievements_screen)
+	_show_goal_screen(track)
+
+## Flip between the three goal screens without leaving them.
+func _switch_goal_screen(track: int) -> void:
+	if not _goal_screen_is_open():
+		_open_goal_screen(track, _goal_screen_origin)
+		return
+	_show_goal_screen(track)
+
+## Raise one goal screen and stand the other two down.
+func _show_goal_screen(track: int) -> void:
+	course_milestones_screen.visible = track == MenuScreenKit.GoalTrack.COURSE
+	world_milestones_screen.visible = track == MenuScreenKit.GoalTrack.WORLD
+	achievements_screen.visible = track == MenuScreenKit.GoalTrack.ACHIEVEMENTS
+	if course_milestones_screen.visible:
+		course_milestones_screen.move_to_front()
+		course_milestones_screen.refresh()
+	elif world_milestones_screen.visible:
+		world_milestones_screen.move_to_front()
+		world_milestones_screen.refresh()
+	else:
+		achievements_screen.move_to_front()
+		achievements_screen.refresh()
+
+func _goal_screen_shown(track: int) -> bool:
+	match track:
+		MenuScreenKit.GoalTrack.COURSE:
+			return course_milestones_screen != null and course_milestones_screen.visible
+		MenuScreenKit.GoalTrack.WORLD:
+			return world_milestones_screen != null and world_milestones_screen.visible
+		_:
+			return achievements_screen != null and achievements_screen.visible
+
+func _close_goal_screens() -> void:
+	for screen: Control in [course_milestones_screen, world_milestones_screen, achievements_screen]:
+		if screen:
+			screen.queue_free()
+	course_milestones_screen = null
+	world_milestones_screen = null
+	achievements_screen = null
+
+## True while any goal screen is up. They take the whole window, so the
+## course behind them must not answer gameplay hotkeys while one is open.
+func _goal_screen_is_open() -> bool:
+	for screen: Control in [course_milestones_screen, world_milestones_screen, achievements_screen]:
+		if screen != null and not screen.is_queued_for_deletion() and screen.visible:
+			return true
+	return false
+
+func _on_goal_screen_back() -> void:
+	var origin := _goal_screen_origin
+	_close_goal_screens()
+	match origin:
+		GoalScreenOrigin.TITLE_SCREEN:
+			_show_main_menu()
+		_:
+			_set_gameplay_ui_visible(true)
+			GameManager.is_paused = _goal_screen_restore_paused
 
 # --- Seasonal Calendar ---
 
