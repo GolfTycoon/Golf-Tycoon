@@ -202,6 +202,10 @@ func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 	_old_history_path = BenchmarkHistory.history_path
 	BenchmarkHistory.history_path = HISTORY_PATH
 	BenchmarkHistory.clear()
+	# The card adopts the newest finished run, and in a full-suite process
+	# another file's tour may have left one behind: start from none, so
+	# "no report to copy yet" is this test's to assert.
+	PerformanceBenchmark.last_result = {}
 	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
 	await process_frames(5)
 	menu._select_category(SettingsMenu.Category.DISPLAY)
@@ -217,15 +221,16 @@ func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 	if run_button == null or quick_button == null or copy_button == null:
 		return
 	assert_eq(run_button.text, "Run course tour", "the headline run is the course tour")
-	# With no course view to borrow the tour asks for one instead of
-	# starting; with a course open it hands the request to Main.
+	# A Settings menu standing in for the Main Menu's may run benchmarks:
+	# the tour prepares its own course, so it asks Main to start without
+	# any course being open.
+	assert_true(menu.benchmarks_allowed(), "this menu counts as Main Menu Settings")
+	assert_false(run_button.disabled, "so the tour can be pressed")
+	assert_false(quick_button.disabled, "and so can the quick check")
 	watch_signals(menu)
 	run_button.pressed.emit()
-	if GameManager.current_course == null:
-		assert_string_contains(menu._benchmark_status_text, "Open a course first",
-			"the tour explains it needs an open course")
-	else:
-		assert_signal_emitted(menu, "tour_requested", "the tour request reaches Main")
+	assert_signal_emitted(menu, "tour_requested",
+		"the tour request reaches Main - no open course needed")
 	run_button = quick_button
 	assert_true(copy_button.disabled, "A report cannot be copied before a run")
 	assert_not_null(menu.find_child("BenchmarkStars", true, false),
@@ -261,6 +266,58 @@ func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 		"copying says what happened, with or without a clipboard")
 	BenchmarkHistory.clear()
 	BenchmarkHistory.history_path = _old_history_path
+	PerformanceBenchmark.last_result = {}
+
+
+func test_settings_from_the_pause_menu_cannot_run_a_benchmark() -> void:
+	await set_window(DESIGN_WINDOW)
+	main._show_settings_menu()
+	await process_frames(5)
+	var menu := main.get_node_or_null("UI/HUD/SettingsMenu") as SettingsMenu
+	assert_not_null(menu, "the pause session opens the settings office")
+	if menu == null:
+		return
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var tour_button := menu.find_child("RunBenchmarkButton", true, false) as Button
+	var quick_button := menu.find_child("QuickCheckButton", true, false) as Button
+	assert_not_null(tour_button, "the tour button is on the card")
+	assert_not_null(quick_button, "and the quick check beside it")
+	if tour_button == null or quick_button == null:
+		menu.free()
+		return
+	assert_true(tour_button.disabled, "the tour cannot be pressed from here")
+	assert_true(quick_button.disabled, "nor the quick check")
+	watch_signals(menu)
+	tour_button.pressed.emit()
+	quick_button.pressed.emit()
+	await process_frames(2)
+	assert_signal_not_emitted(menu, "tour_requested",
+		"even a forced press asks Main for nothing")
+	assert_false(menu._benchmark_runner.is_running(),
+		"and the quick check never starts")
+	assert_string_contains(menu._benchmark_status_text, "Main Menu",
+		"the card says where benchmarks do run")
+	menu.free()
+	await process_frames(2)
+
+	# The same office opened from the Main Menu runs them freely.
+	main._on_main_menu_settings()
+	await process_frames(5)
+	var from_menu := main.get_node_or_null("UI/HUD/SettingsMenu") as SettingsMenu
+	assert_not_null(from_menu, "the Main Menu opens the settings office")
+	if from_menu == null:
+		return
+	assert_eq(from_menu.origin, SettingsMenu.Origin.MAIN_MENU,
+		"and this one knows it came from the Main Menu")
+	from_menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var menu_tour := from_menu.find_child("RunBenchmarkButton", true, false) as Button
+	var menu_quick := from_menu.find_child("QuickCheckButton", true, false) as Button
+	assert_false(menu_tour.disabled, "the tour can run from Main Menu Settings")
+	assert_false(menu_quick.disabled, "and so can the quick check")
+	from_menu.free()
+	await process_frames(2)
 
 
 func test_the_settings_open_the_benchmark_results_screen_over_themselves() -> void:
@@ -273,6 +330,10 @@ func test_the_settings_open_the_benchmark_results_screen_over_themselves() -> vo
 	assert_not_null(menu, "the pause menu opens the settings office")
 	if menu == null:
 		return
+	assert_eq(menu.origin, SettingsMenu.Origin.PAUSE_MENU,
+		"the pause session's Settings know where they were opened from")
+	assert_false(menu.benchmarks_allowed(),
+		"so no benchmark may run from them")
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
 	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
@@ -284,6 +345,10 @@ func test_the_settings_open_the_benchmark_results_screen_over_themselves() -> vo
 	var screen := main.get_node_or_null("UI/HUD/BenchmarkResultsScreen") as BenchmarkResultsScreen
 	assert_not_null(screen, "the game opens the results screen over the settings menu")
 	if screen:
+		assert_false(screen.benchmarks_allowed,
+			"and the Main Menu rule follows into the results screen")
+		var screen_run := screen.find_child("RunBenchmarkButton", true, false) as Button
+		assert_true(screen_run.disabled, "its Run stands down too - viewing only")
 		assert_not_null(screen.find_child("FrameChart", true, false), "with its frame chart")
 		assert_not_null(screen.find_child("ScorecardPanel", true, false), "and its scorecard")
 		var back := screen.find_child("BackButton", true, false) as Button

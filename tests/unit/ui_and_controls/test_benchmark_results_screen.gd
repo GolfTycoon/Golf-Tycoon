@@ -410,9 +410,9 @@ func test_the_scorecard_grades_every_metric_and_only_reads_out_the_scene() -> vo
 	assert_string_contains(total, "Tour")
 
 ## A tour record in the shape CourseBenchmarkTour writes.
-func _tour_record(name: String, holes: int, build_ms: float, sim_fps: float) -> Dictionary:
+func _tour_record(record_name: String, holes: int, build_ms: float, sim_fps: float) -> Dictionary:
 	return {
-		"id": name.to_lower(), "name": name,
+		"id": record_name.to_lower(), "name": record_name,
 		"description": "Parkland · Generated · %d holes · 8 golfers · Normal 1×" % holes,
 		"holes": holes, "holes_built": holes, "speed": 1,
 		"build": {"total_ms": build_ms},
@@ -435,6 +435,7 @@ func _tour_report() -> Dictionary:
 		_tour_record("Beta 18", 18, 900.0, 60.0),
 	]
 	report["tour"] = {"suite": "test", "suite_name": "Test tour",
+		"prepare": {"prepared": true, "prepare_ms": 88.0, "steps_ms": {}},
 		"scenarios": records,
 		"rollup": PerformanceBenchmark.summarize_tour(records),
 		"restored": true, "cancelled": false}
@@ -460,8 +461,11 @@ func test_the_tour_panel_lists_every_course_the_tour_built() -> void:
 		assert_string_contains(text, "Alpha 9", "%s: rows name the courses" % label)
 		assert_string_contains(text, "Beta 18", "%s: every one of them" % label)
 		assert_string_contains(text, "build 900 ms", "%s: build times are readable" % label)
+		assert_string_contains(text, "Benchmark course prepared in 88 ms",
+			"%s: preparing the course is reported as part of the run" % label)
 		assert_string_contains(text, "Generation by size", "%s: the rollups follow" % label)
-		assert_string_contains(text, "restored: yes", "%s: the restore is confirmed" % label)
+		assert_string_contains(text, "Main menu restored: yes",
+			"%s: the return to the title screen is confirmed" % label)
 
 func test_a_quick_check_report_shows_no_tour_panel_without_a_course() -> void:
 	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
@@ -499,6 +503,30 @@ func test_with_a_course_open_run_starts_the_tour() -> void:
 		[CourseBenchmarkScenarios.SUITE_QUICK, CourseBenchmarkScenarios.SUITE_FULL],
 		"the full tour follows the picker")
 	assert_false(screen._running, "the screen itself runs nothing for a tour")
+
+func test_away_from_the_main_menu_the_screen_runs_nothing() -> void:
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+	var screen := BenchmarkResultsScreen.new()
+	screen.benchmarks_allowed = false
+	screen.tour_available = true
+	add_child_autofree(screen)
+	await process_frames(2)
+	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
+	var quick := screen.find_child("QuickCheckButton", true, false) as Button
+	assert_not_null(run, "the run button is still shown")
+	assert_true(run.disabled, "but it cannot be pressed away from the Main Menu")
+	assert_true(quick.disabled, "and neither can the quick check")
+	var requested: Array = []
+	screen.tour_requested.connect(func(suite_id: String) -> void: requested.append(suite_id))
+	run.pressed.emit()
+	quick.pressed.emit()
+	await process_frames(2)
+	assert_eq(requested, [], "no tour is requested")
+	assert_false(screen._running, "and the quick check never starts")
+	assert_false(screen._runner.is_running(), "nor its runner")
+	assert_string_contains(screen._status_text, "Main Menu",
+		"the screen says where benchmarks do run")
 
 func test_the_rating_shows_the_stars_the_tier_and_the_change() -> void:
 	BenchmarkHistory.append_run(_report())

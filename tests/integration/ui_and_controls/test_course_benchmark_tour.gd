@@ -78,7 +78,7 @@ func test_the_tour_builds_seeded_courses_on_screen_and_restores_the_players() ->
 	var tour := _tour()
 	var completed: Array = []
 	var progress: Array = []
-	tour.completed.connect(func(result: Dictionary) -> void: completed.append(result))
+	tour.completed.connect(func(run_result: Dictionary) -> void: completed.append(run_result))
 	tour.progress_changed.connect(func(status: Dictionary) -> void: progress.append(status))
 
 	var scenarios: Array = [
@@ -119,11 +119,13 @@ func test_the_tour_builds_seeded_courses_on_screen_and_restores_the_players() ->
 		return
 	var result: Dictionary = completed[0]
 	assert_false(progress.is_empty(), "progress was published while it ran")
-	assert_eq(str(result.get("benchmark_version", "")), "GTB-3",
+	assert_eq(str(result.get("benchmark_version", "")), "GTB-4",
 		"the result carries the tour benchmark version")
 
 	var tour_data: Dictionary = result.get("tour", {})
 	assert_true(bool(tour_data.get("restored", false)), "the run reports its restore")
+	assert_false(bool(tour_data.get("prepare", {}).get("prepared", true)),
+		"this tour borrowed the open course instead of preparing one")
 	var records: Array = tour_data.get("scenarios", [])
 	assert_eq(records.size(), 2, "both test courses were toured")
 	for entry in records:
@@ -137,8 +139,10 @@ func test_the_tour_builds_seeded_courses_on_screen_and_restores_the_players() ->
 		assert_gt(int(counts.get("golfers_spawned", 0)), 0,
 			"%s: golfers took to the course" % label)
 		var phases: Dictionary = record.get("phases", {})
-		for phase in ["camera", "simulate", "edit"]:
+		for phase in ["prepare", "camera", "simulate", "edit"]:
 			assert_true(phases.has(phase), "%s: the %s phase ran" % [label, phase])
+		assert_gt(int(phases.get("prepare", {}).get("sample_count", 0)), 0,
+			"%s: preparing the course (build and settle) was sampled" % label)
 		assert_gt(int(phases.get("camera", {}).get("sample_count", 0)), 0,
 			"%s: camera movement was sampled" % label)
 		assert_gt(int(phases.get("simulate", {}).get("sample_count", 0)), 0,
@@ -168,7 +172,7 @@ func test_cancelling_the_tour_puts_the_players_course_back() -> void:
 	var tour := _tour()
 	tour.simulate_duration_usec = 30_000_000  # long enough to cancel mid-run
 	var cancelled: Array = []
-	tour.cancelled.connect(func(result: Dictionary) -> void: cancelled.append(result))
+	tour.cancelled.connect(func(run_result: Dictionary) -> void: cancelled.append(run_result))
 	var runs_before := BenchmarkHistory.load_runs().size()
 
 	assert_true(tour.start_scenarios([CourseBenchmarkScenarios.scenario_with({
@@ -196,13 +200,19 @@ func test_cancelling_the_tour_puts_the_players_course_back() -> void:
 	_assert_fingerprint(before, "after cancelling")
 
 
-func test_the_tour_refuses_without_a_course_to_borrow() -> void:
-	# Main guards the entry points; the runner itself refuses a second run
+func test_main_only_starts_the_tour_from_main_menu_settings() -> void:
+	# Main guards the entry point: benchmarks run only when Settings was
+	# accessed from the Main Menu. The runner itself refuses a second run
 	# while one is underway.
 	var tour := _tour()
 	assert_false(tour.is_running(), "no tour is running between tests")
+	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+		"with no Main Menu Settings behind it, Main refuses the tour")
+	assert_false(tour.is_running(), "and nothing started")
+	main._on_main_menu_settings()
+	await process_frames(2)
 	assert_true(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
-		"Main starts the quick tour from the open course")
+		"Main Menu Settings unlock the tour")
 	assert_true(main._benchmark_tour_active, "Main marks the tour as owning the view")
 	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
 		"a second tour cannot start over the first")

@@ -95,6 +95,11 @@ var pause_menu: PauseMenu = null
 ## Escape cancels it instead of opening the pause menu.
 var course_benchmark_tour: CourseBenchmarkTour = null
 var _benchmark_tour_active: bool = false
+## True only while the live Settings menu (or the Benchmark Results opened
+## from it, or a running tour) descends from one opened on the Main Menu.
+## Benchmarks may only run under it: measuring the device is a title-screen
+## job, so a game in progress is never the test scene.
+var _settings_opened_from_main_menu: bool = false
 var _was_paused_before_pause_menu: bool = false
 var _pause_session_active: bool = false  # True while the pause menu (or its Save/Load/Settings sub-panels) is open
 var _just_loaded_game: bool = false  # Set when a save just loaded successfully, consumed by the save/load panel
@@ -1278,6 +1283,8 @@ func _on_main_menu_settings() -> void:
 	"""Show settings from main menu."""
 	var settings = SettingsMenu.new()
 	settings.name = "SettingsMenu"
+	settings.origin = SettingsMenu.Origin.MAIN_MENU
+	_settings_opened_from_main_menu = true
 	# No need to re-show anything when closing from main menu
 	settings.close_requested.connect(func(): pass)
 	settings.results_requested.connect(_show_benchmark_results)
@@ -4462,9 +4469,11 @@ func _on_pause_settings() -> void:
 	_show_settings_menu()
 
 func _show_settings_menu() -> void:
-	"""Show the settings menu overlay."""
+	"""Show the settings menu overlay (the pause session's Settings)."""
 	var settings = SettingsMenu.new()
 	settings.name = "SettingsMenu"
+	settings.origin = SettingsMenu.Origin.PAUSE_MENU
+	_settings_opened_from_main_menu = false
 	settings.camera = camera
 	settings.close_requested.connect(func():
 		# Re-show pause menu when settings closes (if not from main menu)
@@ -4476,19 +4485,20 @@ func _show_settings_menu() -> void:
 	$UI/HUD.add_child(settings)
 
 
-## Run the course benchmark tour: the menus come down, the tour builds its
-## seeded test courses on the live course view one at a time (themes, hole
-## counts, fields of golfers, camera moves, terrain editing and game speeds
-## per CourseBenchmarkScenarios), then the player's course is restored and
-## the Benchmark Results open on the report. Refuses - with a notice and
-## every menu left standing - when there is no course to borrow.
+## Run the course benchmark tour - from Main Menu Settings only. The
+## menus come down, the tour prepares its own throwaway course (timed and
+## sampled as part of the benchmark), builds its seeded test courses on it
+## one at a time (themes, hole counts, fields of golfers, camera moves,
+## terrain editing and game speeds per CourseBenchmarkScenarios), takes
+## the course down, and the Benchmark Results open over the Main Menu on
+## the report. Refuses - with a notice and every menu left standing -
+## when Settings was not accessed from the Main Menu.
 func start_course_benchmark(suite_id: String) -> bool:
 	if _benchmark_tour_active or course_benchmark_tour == null \
 			or course_benchmark_tour.is_running():
 		return false
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU \
-			or GameManager.current_course == null:
-		EventBus.notify("Open a course first - the benchmark tour builds its test courses on the course view, then puts yours back.", "info")
+	if not _settings_opened_from_main_menu:
+		EventBus.notify("Benchmarks run from the Main Menu - open Settings there to measure this device.", "info")
 		return false
 	if tournament_manager and tournament_manager.is_tournament_in_progress():
 		EventBus.notify("The benchmark tour cannot run during a tournament.", "error")
@@ -4503,19 +4513,36 @@ func start_course_benchmark(suite_id: String) -> bool:
 		if panel:
 			panel.queue_free()
 	_close_pause_menu()
+	_hide_main_menu()
+	_set_gameplay_ui_visible(true)
 	if not course_benchmark_tour.start(suite_id):
 		EventBus.notify("The benchmark tour could not start.", "error")
+		_show_main_menu()
 		return false
 	_benchmark_tour_active = true
 	return true
 
 func _on_course_benchmark_completed(_result: Dictionary) -> void:
 	_benchmark_tour_active = false
+	_return_from_benchmark_tour()
 	_show_benchmark_results()
 
-func _on_course_benchmark_cancelled(_result: Dictionary) -> void:
+func _on_course_benchmark_cancelled(result: Dictionary) -> void:
 	_benchmark_tour_active = false
-	EventBus.notify("Benchmark tour cancelled - your course was restored exactly as it was.", "info")
+	_return_from_benchmark_tour()
+	var prepared: bool = bool(result.get("tour", {}).get("prepare", {}).get("prepared", false))
+	EventBus.notify("Benchmark tour cancelled - the benchmark course was taken down; nothing was saved." if prepared \
+		else "Benchmark tour cancelled - your course was restored exactly as it was.", "info")
+
+## A tour started from the Main Menu hands the title screen back: the tour
+## has already torn its throwaway course down and returned the game to
+## menu mode, so the Main Menu comes back up over the bare view (and under
+## the results screen a finished tour is about to open).
+func _return_from_benchmark_tour() -> void:
+	if _settings_opened_from_main_menu \
+			and GameManager.current_mode == GameManager.GameMode.MAIN_MENU \
+			and main_menu == null:
+		_show_main_menu()
 
 ## The Benchmark Results screen opens over the settings menu, so closing it
 ## drops the player back where they were, mid-settings.
@@ -4527,10 +4554,12 @@ func _show_benchmark_results() -> void:
 		return
 	var screen := BenchmarkResultsScreen.new()
 	screen.name = "BenchmarkResultsScreen"
-	# The tour needs the live course behind the menus; from the title
-	# screen the screen falls back to its quick device check instead.
-	screen.tour_available = GameManager.current_mode != GameManager.GameMode.MAIN_MENU \
-		and GameManager.current_course != null
+	# Benchmarks only run when Settings was accessed from the Main Menu;
+	# the tour prepares its own course there, so it is the headline run.
+	# Reached any other way the screen still shows every past report -
+	# it simply runs nothing.
+	screen.benchmarks_allowed = _settings_opened_from_main_menu
+	screen.tour_available = _settings_opened_from_main_menu
 	screen.tour_requested.connect(start_course_benchmark)
 	screen.back_requested.connect(func():
 		if is_instance_valid(screen):

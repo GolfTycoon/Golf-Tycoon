@@ -19,7 +19,8 @@ class_name BenchmarkHistory
 ## gpu_megapixels_per_second, average_fps, one_percent_low_fps, p95_frame_ms,
 ## stutter_percent, static_memory_mb, and - for a course-tour run - tour_suite,
 ## tour_scenarios, tour_worst_scenario, tour_worst_fps, tour_generation_ms,
-## tour_editing_tiles_per_second.
+## tour_editing_tiles_per_second, tour_prepare_ms (the throwaway course the
+## benchmark prepared from the Main Menu; absent on older records).
 
 const FILE_VERSION := 1
 const DEFAULT_HISTORY_PATH := "user://benchmark_history.json"
@@ -84,6 +85,9 @@ static func record_from(result: Dictionary) -> Dictionary:
 		record["tour_generation_ms"] = round1(float(generation.get("total_ms", 0.0)))
 		record["tour_editing_tiles_per_second"] = round1(
 			float(editing.get("tiles_per_second", 0.0)))
+		var prepare: Dictionary = tour.get("prepare", {})
+		if not prepare.is_empty():
+			record["tour_prepare_ms"] = round1(float(prepare.get("prepare_ms", 0.0)))
 	return record
 
 ## The runs on the shelf, oldest first. A missing or unreadable file is an

@@ -112,20 +112,21 @@ func test_scenarios_describe_themselves() -> void:
 	assert_string_contains(text, "8 golfers", "the field")
 
 ## Tour records in the shape CourseBenchmarkTour writes them: a build
-## breakdown, what actually got placed and spawned, and the three sampled
-## phases under `phases`.
-func _record(name: String, holes: int, build_ms: float, spawned: int,
+## breakdown, what actually got placed and spawned, and the four sampled
+## phases under `phases` (preparation is the build and the settle).
+func _record(record_name: String, holes: int, build_ms: float, spawned: int,
 		visiting: int, speed: int, cam_fps: float, sim_fps: float,
 		days: float, tiles: int, vertices: int,
-		paint_ms: float, elevation_ms: float) -> Dictionary:
+		paint_ms: float, elevation_ms: float, prep_fps: float = 40.0) -> Dictionary:
 	return {
-		"id": name.to_lower(), "name": name, "description": "%s · %d holes" % [name, holes],
+		"id": record_name.to_lower(), "name": record_name, "description": "%s · %d holes" % [record_name, holes],
 		"holes": holes, "holes_built": holes, "speed": speed,
 		"build": {"total_ms": build_ms},
 		"counts": {"buildings": 2, "decorations": 3, "path_tiles": 100,
 			"golfers_spawned": spawned, "visiting_spawned": visiting,
 			"terrain_patch_tiles": 50},
 		"phases": {
+			"prepare": {"average_fps": prep_fps, "sample_count": 40},
 			"camera": {"average_fps": cam_fps, "sample_count": 100},
 			"simulate": {"average_fps": sim_fps, "one_percent_low_fps": sim_fps * 0.8,
 				"process_ms_per_frame": 3.0, "days_advanced": days,
@@ -137,9 +138,9 @@ func _record(name: String, holes: int, build_ms: float, spawned: int,
 
 func _tour_records() -> Array:
 	return [
-		_record("Alpha", 9, 400.0, 12, 0, 1, 118.0, 100.0, 1.0, 300, 0, 10.0, 0.0),
-		_record("Beta", 18, 900.0, 32, 8, 8, 90.0, 60.0, 3.0, 200, 100, 10.0, 10.0),
-		_record("Gamma", 9, 200.0, 0, 0, 1, 140.0, 130.0, 0.5, 0, 0, 0.0, 0.0),
+		_record("Alpha", 9, 400.0, 12, 0, 1, 118.0, 100.0, 1.0, 300, 0, 10.0, 0.0, 30.0),
+		_record("Beta", 18, 900.0, 32, 8, 8, 90.0, 60.0, 3.0, 200, 100, 10.0, 10.0, 20.0),
+		_record("Gamma", 9, 200.0, 0, 0, 1, 140.0, 130.0, 0.5, 0, 0, 0.0, 0.0, 55.0),
 	]
 
 func test_tour_rollups_compare_the_games_subsystems() -> void:
@@ -166,6 +167,11 @@ func test_tour_rollups_compare_the_games_subsystems() -> void:
 	assert_eq(by_speed.size(), 2, "Normal and Ultra speeds are separated")
 	assert_almost_eq(float(by_speed[1]["days_per_second"]), 1.5, 0.001,
 		"Ultra advanced 3 game-days in 2 seconds")
+	var preparation: Dictionary = summary["preparation"]
+	assert_eq(int(preparation["scenarios_sampled"]), 3,
+		"every course's preparation (build and settle) was sampled")
+	assert_almost_eq(float(preparation["average_fps"]), 35.0, 0.001,
+		"preparation pacing averages the three courses")
 	var editing: Dictionary = summary["editing"]
 	assert_eq(int(editing["tiles_changed"]), 500, "painted tiles total")
 	assert_eq(int(editing["vertices_changed"]), 100, "elevation vertices total")
@@ -181,6 +187,8 @@ func test_tour_rows_feed_the_results_table() -> void:
 	assert_eq(rows.size(), 3, "one row per toured course")
 	assert_eq(str(rows[1]["name"]), "Beta", "rows keep tour order")
 	assert_string_contains(str(rows[1]["detail"]), "18 holes", "rows describe the course")
+	assert_almost_eq(float(rows[1]["prepare_fps"]), 20.0, 0.001,
+		"rows carry how preparing the course ran")
 	assert_almost_eq(float(rows[1]["sim_fps"]), 60.0, 0.001, "rows carry the sim rate")
 	assert_string_contains(str(rows[1]["edit_text"]), "tiles/vertices",
 		"edited rows quote the brush work")
@@ -189,7 +197,7 @@ func test_tour_rows_feed_the_results_table() -> void:
 	assert_eq(PerformanceBenchmark.tour_scenario_rows({}), [],
 		"a quick check has no tour rows")
 
-func _report_result(with_tour: bool) -> Dictionary:
+func _report_result(with_tour: bool, prepared: bool = true) -> Dictionary:
 	var result := {
 		"benchmark_version": PerformanceBenchmark.BENCHMARK_VERSION,
 		"started_at_unix": 1_700_000_000,
@@ -207,6 +215,7 @@ func _report_result(with_tour: bool) -> Dictionary:
 	}
 	if with_tour:
 		result["tour"] = {"suite": "test", "suite_name": "Test tour",
+			"prepare": {"prepared": prepared, "prepare_ms": 123.0, "steps_ms": {}},
 			"scenarios": _tour_records(),
 			"rollup": PerformanceBenchmark.summarize_tour(_tour_records()),
 			"restored": true}
@@ -214,16 +223,28 @@ func _report_result(with_tour: bool) -> Dictionary:
 
 func test_a_tour_report_names_every_course_it_built() -> void:
 	var text := PerformanceBenchmark.format_report(_report_result(true))
-	assert_string_contains(text, "GTB-3", "the tour report carries the new version")
+	assert_string_contains(text, "GTB-4", "the tour report carries the new version")
 	assert_string_contains(text, "Course tour Test tour", "the tour is headed by suite")
+	assert_string_contains(text, "benchmark course prepared in 123 ms",
+		"preparing the course is part of the benchmark, and timed")
 	assert_string_contains(text, "3 courses built on screen", "it says what happened")
 	assert_string_contains(text, "Beta", "each toured course is listed")
+	assert_string_contains(text, "Course preparation (building and settling",
+		"each course's preparation is measured too")
 	assert_string_contains(text, "Simulation by field", "golfer-field comparisons included")
 	assert_string_contains(text, "Simulation by speed", "game-speed comparisons included")
 	assert_string_contains(text, "Terrain editing", "editing throughput included")
+	assert_string_contains(text, "main menu restored: yes",
+		"the report confirms the title screen came back")
+	assert_string_contains(text, "same tour suite from Main Menu Settings",
+		"and how to compare fairly")
+
+func test_a_borrowed_course_tour_report_still_confirms_the_restore() -> void:
+	var text := PerformanceBenchmark.format_report(_report_result(true, false))
 	assert_string_contains(text, "player's course restored: yes",
-		"the report confirms the player's course came back")
-	assert_string_contains(text, "same tour suite", "and how to compare fairly")
+		"a tour that borrowed an open course confirms it came back")
+	assert_false(text.contains("benchmark course prepared"),
+		"and claims no prepared course it did not make")
 
 func test_a_quick_check_report_still_reads_as_before() -> void:
 	var text := PerformanceBenchmark.format_report(_report_result(false))
@@ -242,6 +263,8 @@ func test_history_records_the_tour_alongside_the_headline_numbers() -> void:
 		"and that course's frame rate")
 	assert_almost_eq(float(record["tour_generation_ms"]), 1500.0, 0.05,
 		"and total build time")
+	assert_almost_eq(float(record["tour_prepare_ms"]), 123.0, 0.05,
+		"and what preparing the benchmark course cost")
 	var quick := BenchmarkHistory.record_from(_report_result(false))
 	assert_false(quick.has("tour_suite"), "a quick check shelves no tour fields")
 	BenchmarkHistory.clear()

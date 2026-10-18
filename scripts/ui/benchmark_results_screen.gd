@@ -34,10 +34,16 @@ class_name BenchmarkResultsScreen
 ## report on the clipboard, and nothing here is uploaded.
 
 signal back_requested()
-## Asks Main to close this screen and run the course benchmark tour on the
-## live course view. Only emitted while `tour_available` (a course open
-## behind the menus); without one, Run falls back to the quick check.
+## Asks Main to close this screen and run the course benchmark tour, which
+## prepares its own throwaway course. Only emitted while the screen may
+## run benchmarks at all (`benchmarks_allowed`: reached from Main Menu
+## Settings) and `tour_available`; otherwise Run falls back to the quick
+## check - or, away from the Main Menu, stands down entirely.
 signal tour_requested(suite_id: String)
+
+## Why the run buttons stand down when this screen was not reached from
+## Main Menu Settings (the same wording as the Settings card's).
+const BENCHMARK_GATE_TEXT := "Benchmarks run from the Main Menu - open Settings there to measure this device. Nothing here touches the game in progress."
 
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
@@ -67,9 +73,15 @@ var _run_button: Button = null
 var _quick_button: Button = null
 var _suite_picker: OptionButton = null
 var _copy_button: Button = null
-## Set by Main before the screen is added: a course is open behind the
-## menus, so the headline Run starts the on-screen course tour and the
-## suite picker shows. Without a course, Run is the quick device check.
+## Set by Main before the screen is added: the screen was reached from
+## Main Menu Settings, so its runs may start. Without it the screen is
+## read-only - the last report, the shelf and copying still work, but no
+## benchmark runs over a game in progress. Main always sets it in the
+## game; the default keeps a bare test harness runnable.
+var benchmarks_allowed: bool = true
+## Set by Main before the screen is added: the headline Run starts the
+## on-screen course tour (which prepares its own course) and the suite
+## picker shows. Without it, Run is the quick device check.
 var tour_available: bool = false
 var _suite_id: String = CourseBenchmarkScenarios.SUITE_QUICK
 ## Where a copied report goes. Empty means the display server's clipboard; a
@@ -92,6 +104,8 @@ func _ready() -> void:
 	if not PerformanceBenchmark.last_result.is_empty():
 		_result = PerformanceBenchmark.last_result
 		_status_text = _completed_status_text()
+	elif not benchmarks_allowed:
+		_status_text = BENCHMARK_GATE_TEXT
 	_history = BenchmarkHistory.load_runs()
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
@@ -349,8 +363,9 @@ func _build_footer() -> Control:
 	run.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run.size_flags_stretch_ratio = 2.0 if not compact else 1.6
 	run.add_theme_font_size_override("font_size", 13)
-	run.tooltip_text = "Build and play the benchmark courses on screen; your course is restored afterwards." \
-		if tour_available else "Run the quick device check on this screen."
+	run.tooltip_text = BENCHMARK_GATE_TEXT if not benchmarks_allowed \
+		else ("Prepare and play the benchmark courses on screen; the throwaway course is taken down afterwards." \
+		if tour_available else "Run the quick device check on this screen.")
 	Kit.paint_utility_button(run, true)
 	run.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	run.pressed.connect(_start_run)
@@ -408,14 +423,15 @@ func _build_footer() -> Control:
 	return footer
 
 func _refresh_actions() -> void:
+	var runs_locked := _running or not benchmarks_allowed
 	if is_instance_valid(_run_button):
 		_run_button.text = "Running..." if _running \
 			else ("Run course tour" if tour_available else "Run benchmark")
-		_run_button.disabled = _running
+		_run_button.disabled = runs_locked
 	if is_instance_valid(_quick_button):
-		_quick_button.disabled = _running
+		_quick_button.disabled = runs_locked
 	if is_instance_valid(_suite_picker):
-		_suite_picker.disabled = _running
+		_suite_picker.disabled = runs_locked
 	if is_instance_valid(_copy_button):
 		_copy_button.disabled = _running or _result.is_empty()
 	if is_instance_valid(_status_label):
@@ -951,6 +967,9 @@ func _build_tour_panel() -> PanelContainer:
 	var editing: Dictionary = rollup.get("editing", {})
 	var totals: Dictionary = rollup.get("totals", {})
 	var lines: Array[String] = []
+	var tour_prepare: Dictionary = tour.get("prepare", {})
+	if bool(tour_prepare.get("prepared", false)):
+		lines.append("Benchmark course prepared in %.0f ms; preparing each course is part of the measured sample." % float(tour_prepare.get("prepare_ms", 0.0)))
 	lines.append("Built %d courses in %.0f ms total (slowest %s, %.0f ms)." % [
 		int(rollup.get("scenario_count", 0)), float(generation.get("total_ms", 0.0)),
 		str(generation.get("slowest_scenario", "-")),
@@ -977,12 +996,14 @@ func _build_tour_panel() -> PanelContainer:
 		lines.append("Terrain editing moved %s tiles/vertices at %.0f per second of brush work." % [
 			PerformanceBenchmark.format_integer(edited),
 			float(editing.get("tiles_per_second", 0.0))])
-	lines.append("Totals: %d holes · %d buildings · %d decorations · %s path tiles · %d golfers (%d visiting). Player's course restored: %s." % [
+	var restored_text := ("Main menu restored" if bool(tour_prepare.get("prepared", false)) \
+		else "Player's course restored") + ": " + ("yes" if bool(tour.get("restored", false)) else "no")
+	lines.append("Totals: %d holes · %d buildings · %d decorations · %s path tiles · %d golfers (%d visiting). %s." % [
 		int(totals.get("holes", 0)), int(totals.get("buildings", 0)),
 		int(totals.get("decorations", 0)),
 		PerformanceBenchmark.format_integer(int(totals.get("path_tiles", 0))),
 		int(totals.get("golfers_spawned", 0)), int(totals.get("visiting_spawned", 0)),
-		"yes" if bool(tour.get("restored", false)) else "no"])
+		restored_text])
 	for line in lines:
 		var label := Kit.make_label(line, 10, Kit.COLOR_TEXT_QUIET)
 		label.name = "TourRollup"
@@ -1015,7 +1036,8 @@ func _build_tour_row(row: Dictionary, index: int) -> Control:
 	detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text.add_child(detail)
 	box.add_child(text)
-	var numbers := "build %.0f ms\nsim %.1f FPS · cam %.1f\n%s" % [
+	var numbers := "prep %.1f FPS · build %.0f ms\nsim %.1f FPS · cam %.1f\n%s" % [
+		float(row.get("prepare_fps", 0.0)),
 		float(row.get("build_ms", 0.0)), float(row.get("sim_fps", 0.0)),
 		float(row.get("camera_fps", 0.0)), str(row.get("edit_text", ""))]
 	var value := Kit.make_label(numbers, 10, Kit.COLOR_TEXT_SECONDARY)
@@ -1321,14 +1343,19 @@ func _panel_stack(panel: PanelContainer, separation: int) -> VBoxContainer:
 # RUNNING THE TEST
 # =============================================================================
 
-## The headline Run: with a course open behind the menus it starts the
-## on-screen course tour (Main closes this screen and reopens it on the
-## finished report); from the title screen it is the quick check.
+## The headline Run: reached from Main Menu Settings with the tour on
+## offer it starts the on-screen course tour (Main closes this screen and
+## reopens it on the finished report); otherwise it is the quick check.
+## Away from the Main Menu nothing runs at all.
 func _start_run() -> void:
 	if _running:
 		return
+	if not benchmarks_allowed:
+		_status_text = BENCHMARK_GATE_TEXT
+		_refresh_actions()
+		return
 	if tour_available:
-		_status_text = "Starting the course tour - watch it build. Esc cancels and restores your course."
+		_status_text = "Starting the course tour - watch it prepare and build. Esc cancels and takes the benchmark course down."
 		_refresh_actions()
 		tour_requested.emit(_suite_id)
 		return
@@ -1336,6 +1363,10 @@ func _start_run() -> void:
 
 func _start_quick_check() -> void:
 	if _running or not is_instance_valid(_runner):
+		return
+	if not benchmarks_allowed:
+		_status_text = BENCHMARK_GATE_TEXT
+		_refresh_actions()
 		return
 	_running = true
 	_progress = 0.0
@@ -1388,6 +1419,8 @@ func _clear_history() -> void:
 	_build()
 
 func _scenario_name() -> String:
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return "Main menu"
 	var day := GameManager.current_day if GameManager.current_day > 0 else 0
 	return "Course view (day %d)" % day if day > 0 else "Course view"
 

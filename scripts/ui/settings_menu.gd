@@ -12,9 +12,18 @@ signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
 ## Benchmark Results screen over the settings menu.
 signal results_requested
-## ...or to close the menus and run the course benchmark tour on the live
-## course view (Main owns the tour runner; it restores the course after).
+## ...or to close the menus and run the course benchmark tour, which
+## prepares its own throwaway course (Main owns the tour runner). Only
+## emitted when this menu was opened from the Main Menu - benchmarks run
+## from the title screen only, never over a game in progress.
 signal tour_requested(suite_id: String)
+
+## Where this menu was opened from. Main sets it before adding the menu:
+## MAIN_MENU from the title screen, PAUSE_MENU from an in-game pause
+## session. It decides whether the benchmarks may run (see
+## benchmarks_allowed): measuring is a title-screen job, so a paused game
+## is never borrowed, paused mid-frame, as the test scene.
+enum Origin { MAIN_MENU, PAUSE_MENU }
 
 enum Category { AUDIO, DISPLAY, CONTROLS }
 enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
@@ -39,6 +48,22 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 var camera: IsometricCamera = null
 var close_label: String = "Done"
 
+## Set by Main before the menu is added (see Origin). The default treats a
+## host that does not say - a test harness adding the menu directly - as
+## the title screen; Main always sets it in the game.
+var origin: int = Origin.MAIN_MENU
+
+## Why the run buttons stand down away from the Main Menu, worded once for
+## the card, the tooltips and the refused-run messages.
+const BENCHMARK_GATE_TEXT := "Benchmarks run from the Main Menu - open Settings there to measure this device. Nothing here touches the game in progress."
+
+## The benchmarks (the course tour and the quick check alike) only run
+## when this menu was accessed from the Main Menu screen. Viewing the
+## last run, the full results and past runs is not running one, and stays
+## available wherever Settings was opened from.
+func benchmarks_allowed() -> bool:
+	return origin == Origin.MAIN_MENU
+
 var _category: int = Category.AUDIO
 var _layout_mode: int = LayoutMode.PHONE
 var _built_size := Vector2.ZERO
@@ -61,9 +86,9 @@ var _benchmark_running: bool = false
 var _benchmark_progress: float = 0.0
 var _benchmark_stars: int = 0
 var _benchmark_score: float = 0.0
-var _benchmark_status_text: String = "Ready. The course tour builds its test courses on screen (about 35 seconds); the quick check takes about seven."
+var _benchmark_status_text: String = "Ready. The course tour prepares its own course and builds its test courses on screen (about 35 seconds); the quick check takes about seven."
 var _benchmark_summary_text: String = "No results yet. The course tour builds fixed test courses - every course type, hole count and game speed - so runs compare on any device."
-var _benchmark_details_text: String = "The tour borrows the course view and restores your course afterwards; your save is never written. Reports stay local unless you copy them."
+var _benchmark_details_text: String = "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay local unless you copy them."
 var _benchmark_report_text: String = ""
 
 func _ready() -> void:
@@ -76,6 +101,8 @@ func _ready() -> void:
 	_benchmark_runner.completed.connect(_on_benchmark_completed)
 	add_child(_benchmark_runner)
 	_adopt_last_benchmark()
+	if not benchmarks_allowed():
+		_benchmark_status_text = BENCHMARK_GATE_TEXT
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
@@ -468,8 +495,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	return cards
 
 func _build_benchmark_card(mode: int) -> PanelContainer:
-	var benchmark := _make_group("COURSE BENCHMARK",
-		"Build fixed test courses on screen - course types, terrain, buildings, holes, golfers, camera moves, editing and game speeds - and measure each part. Your course is restored afterwards.", mode)
+	var card_text := "Prepare a throwaway benchmark course, then build fixed test courses on screen - preparing each one, course types, terrain, buildings, holes, golfers, camera moves, editing and game speeds - and measure each part. The course is taken down afterwards." \
+		if benchmarks_allowed() else BENCHMARK_GATE_TEXT + " The last run and the full results still show here."
+	var benchmark := _make_group("COURSE BENCHMARK", card_text, mode)
 	var body: VBoxContainer = benchmark["body"]
 	body.add_child(_make_separator())
 
@@ -513,7 +541,8 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	var tour_button := Button.new()
 	tour_button.name = "RunBenchmarkButton"
 	tour_button.text = "Run course tour"
-	tour_button.tooltip_text = "Close the menus and watch the benchmark build and play its test courses (quick suite, about 35 seconds). Your course is restored afterwards."
+	tour_button.tooltip_text = ("Close the menus and watch the benchmark prepare and play its test courses (quick suite, about 35 seconds). The throwaway course is taken down afterwards." \
+		if benchmarks_allowed() else BENCHMARK_GATE_TEXT)
 	tour_button.custom_minimum_size = Vector2(0, 44)
 	tour_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tour_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
@@ -528,7 +557,8 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	var run_button := Button.new()
 	run_button.name = "QuickCheckButton"
 	run_button.text = "Quick check"
-	run_button.tooltip_text = "The seven-second device check on its own: frame pacing of this screen, the GPU fill ladder and script CPU throughput."
+	run_button.tooltip_text = ("The seven-second device check on its own: frame pacing of this screen, the GPU fill ladder and script CPU throughput." \
+		if benchmarks_allowed() else BENCHMARK_GATE_TEXT)
 	run_button.custom_minimum_size = Vector2(0, 44)
 	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
@@ -839,23 +869,26 @@ func _build_footer(mode: int) -> Control:
 	footer.add_child(done)
 	return footer
 
-## The headline run: Main closes this menu and tours its test courses on the
-## course view. From the title screen there is no course view to borrow, so
-## the card says so instead of asking.
+## The headline run: Main closes this menu and the tour prepares its own
+## throwaway course to build its test courses on. Only a menu accessed
+## from the Main Menu may ask - away from it the card says so instead.
 func _request_tour() -> void:
 	if _benchmark_running:
 		return
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU \
-			or GameManager.current_course == null:
-		_benchmark_status_text = "Open a course first - the tour builds its test courses on the course view, then puts yours back. The quick check works here."
+	if not benchmarks_allowed():
+		_benchmark_status_text = BENCHMARK_GATE_TEXT
 		_refresh_benchmark_controls()
 		return
-	_benchmark_status_text = "Starting the course tour - watch it build. Esc cancels and restores your course."
+	_benchmark_status_text = "Starting the course tour - watch it prepare and build. Esc cancels and takes the benchmark course down."
 	_refresh_benchmark_controls()
 	tour_requested.emit(CourseBenchmarkScenarios.SUITE_QUICK)
 
 func _start_benchmark() -> void:
 	if _benchmark_running or not is_instance_valid(_benchmark_runner):
+		return
+	if not benchmarks_allowed():
+		_benchmark_status_text = BENCHMARK_GATE_TEXT
+		_refresh_benchmark_controls()
 		return
 	_benchmark_running = true
 	_benchmark_progress = 0.0
@@ -952,11 +985,12 @@ func _copy_benchmark_report() -> void:
 	_refresh_benchmark_controls()
 
 func _refresh_benchmark_controls() -> void:
+	var runs_locked := _benchmark_running or not benchmarks_allowed()
 	if is_instance_valid(_benchmark_tour_button):
-		_benchmark_tour_button.disabled = _benchmark_running
+		_benchmark_tour_button.disabled = runs_locked
 	if is_instance_valid(_benchmark_run_button):
 		_benchmark_run_button.text = "Running..." if _benchmark_running else "Quick check"
-		_benchmark_run_button.disabled = _benchmark_running
+		_benchmark_run_button.disabled = runs_locked
 	if is_instance_valid(_benchmark_copy_button):
 		_benchmark_copy_button.disabled = _benchmark_running or _benchmark_report_text.is_empty()
 	if is_instance_valid(_benchmark_status_label):

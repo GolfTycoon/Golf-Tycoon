@@ -2,17 +2,18 @@ extends Node
 class_name PerformanceBenchmark
 ## PerformanceBenchmark - a repeatable, local diagnostic for comparing devices.
 ##
-## The headline benchmark is the course tour (CourseBenchmarkTour): it builds
+## The headline benchmark is the course tour (CourseBenchmarkTour): run from
+## Main Menu Settings, it prepares its own throwaway course, then builds
 ## the fixed, seeded courses of CourseBenchmarkScenarios on screen - every
 ## course type, hole count, golfer field, camera move, edit plan and game
-## speed - and samples each phase, so the same work is measured on every
-## machine and a slow number names the subsystem that is slow. The tour's
-## samples and timings are summarized here (summarize_tour) and graded with
-## the same scorecard as ever.
+## speed - and samples each phase, preparation included, so the same work is
+## measured on every machine and a slow number names the subsystem that is
+## slow. The tour's samples and timings are summarized here (summarize_tour)
+## and graded with the same scorecard as ever.
 ##
-## This node is the quick device check the tour finishes with (and Settings
-## can run on its own). It walks four phases, each sliced into short per-frame
-## steps so the screen behind it stays responsive:
+## This node is the quick device check the tour finishes with (and Main Menu
+## Settings can run on its own). It walks four phases, each sliced into short
+## per-frame steps so the screen behind it stays responsive:
 ##
 ##  1. WARM_UP - let the engine settle before anything is measured.
 ##  2. FRAME_PACING - sample the live scene: frame times, process and physics
@@ -37,10 +38,13 @@ signal completed(result: Dictionary)
 
 enum Phase { IDLE, WARM_UP, FRAME_PACING, GPU_LOAD, CPU_WORKLOAD }
 
-## GTB-3 is the course tour: GTB-2 sampled whatever scene was open, so its
-## frame pacing is not comparable with a tour's fixed courses. The CPU and
-## GPU workloads are unchanged from GTB-2 and stay comparable.
-const BENCHMARK_VERSION := "GTB-3"
+## GTB-4 runs the course tour from the Main Menu on a course the benchmark
+## prepares itself, with the preparation (the throwaway session plus each
+## course's build-and-settle) sampled into the headline frame pacing.
+## GTB-3 toured courses borrowed from an open game without those frames, so
+## its frame pacing is not comparable with GTB-4's. The CPU and GPU
+## workloads are unchanged from GTB-2 and stay comparable.
+const BENCHMARK_VERSION := "GTB-4"
 const DEFAULT_WARMUP_USEC := 350_000
 const DEFAULT_FRAME_SAMPLE_USEC := 2_500_000
 ## Per overdraw level of the GPU test; three of them make the ladder.
@@ -741,11 +745,12 @@ static func scorecard_rows(result: Dictionary) -> Array:
 # =============================================================================
 
 ## Reduce a tour's per-scenario records (CourseBenchmarkTour's shape: build
-## timings, course counts, and a frame summary per camera/simulate/edit
-## phase) to the rollups that say which part of the game costs what:
-## generation by hole count, simulation by golfer field and by game speed,
-## camera against simulation, and editing throughput. Pure arithmetic over
-## the records, so the maths is testable without building a single course.
+## timings, course counts, and a frame summary per prepare/camera/simulate/
+## edit phase) to the rollups that say which part of the game costs what:
+## generation by hole count, preparation pacing, simulation by golfer field
+## and by game speed, camera against simulation, and editing throughput.
+## Pure arithmetic over the records, so the maths is testable without
+## building a single course.
 static func summarize_tour(scenarios: Array) -> Dictionary:
 	var generation := {
 		"total_ms": 0.0, "average_ms": 0.0,
@@ -753,6 +758,7 @@ static func summarize_tour(scenarios: Array) -> Dictionary:
 	}
 	var sim_fps: Array[float] = []
 	var camera_fps: Array[float] = []
+	var prepare_fps: Array[float] = []
 	var worst_fps := 0.0
 	var worst_scenario := ""
 	var best_fps := 0.0
@@ -769,13 +775,13 @@ static func summarize_tour(scenarios: Array) -> Dictionary:
 		"golfers_spawned": 0, "visiting_spawned": 0, "terrain_patch_tiles": 0}
 	for entry in scenarios:
 		var scenario: Dictionary = entry
-		var name := str(scenario.get("name", scenario.get("id", "Course")))
+		var scenario_name := str(scenario.get("name", scenario.get("id", "Course")))
 		var build: Dictionary = scenario.get("build", {})
 		var build_ms := float(build.get("total_ms", 0.0))
 		generation["total_ms"] = float(generation["total_ms"]) + build_ms
 		if build_ms >= float(generation["slowest_ms"]):
 			generation["slowest_ms"] = build_ms
-			generation["slowest_scenario"] = name
+			generation["slowest_scenario"] = scenario_name
 		var holes := int(scenario.get("holes_built", scenario.get("holes", 0)))
 		if holes > 0:
 			var bucket: Dictionary = build_by_holes.get(holes, {"total": 0.0, "runs": 0})
@@ -794,10 +800,10 @@ static func summarize_tour(scenarios: Array) -> Dictionary:
 			sim_fps.append(fps)
 			if worst_scenario.is_empty() or fps < worst_fps:
 				worst_fps = fps
-				worst_scenario = name
+				worst_scenario = scenario_name
 			if best_scenario.is_empty() or fps > best_fps:
 				best_fps = fps
-				best_scenario = name
+				best_scenario = scenario_name
 			var golfers := int(counts.get("golfers_spawned", 0))
 			_group_phase(sim_by_golfers, golfers, sim)
 			_group_phase(sim_by_speed, int(scenario.get("speed", 1)), sim)
@@ -805,6 +811,10 @@ static func summarize_tour(scenarios: Array) -> Dictionary:
 		if int(camera.get("sample_count", 0)) > 0 \
 				and float(camera.get("average_fps", 0.0)) > 0.0:
 			camera_fps.append(float(camera["average_fps"]))
+		var prepare: Dictionary = phases.get("prepare", {})
+		if int(prepare.get("sample_count", 0)) > 0 \
+				and float(prepare.get("average_fps", 0.0)) > 0.0:
+			prepare_fps.append(float(prepare["average_fps"]))
 		var edit: Dictionary = phases.get("edit", {})
 		var tiles := int(edit.get("tiles_changed", 0))
 		var vertices := int(edit.get("vertices_changed", 0))
@@ -830,6 +840,10 @@ static func summarize_tour(scenarios: Array) -> Dictionary:
 	return {
 		"scenario_count": scenarios.size(),
 		"generation": generation,
+		"preparation": {
+			"scenarios_sampled": prepare_fps.size(),
+			"average_fps": _mean(prepare_fps),
+		},
 		"simulation": {
 			"scenarios_sampled": sim_fps.size(),
 			"average_fps": sim_average,
@@ -903,6 +917,7 @@ static func tour_scenario_rows(result: Dictionary) -> Array:
 	for entry in tour.get("scenarios", []):
 		var scenario: Dictionary = entry
 		var phases: Dictionary = scenario.get("phases", {})
+		var prepare: Dictionary = phases.get("prepare", {})
 		var sim: Dictionary = phases.get("simulate", {})
 		var camera: Dictionary = phases.get("camera", {})
 		var edit: Dictionary = phases.get("edit", {})
@@ -919,6 +934,7 @@ static func tour_scenario_rows(result: Dictionary) -> Array:
 			"holes": int(scenario.get("holes_built", scenario.get("holes", 0))),
 			"golfers": int(counts.get("golfers_spawned", 0)),
 			"visiting": int(counts.get("visiting_spawned", 0)),
+			"prepare_fps": float(prepare.get("average_fps", 0.0)),
 			"sim_fps": float(sim.get("average_fps", 0.0)),
 			"sim_low_fps": float(sim.get("one_percent_low_fps", 0.0)),
 			"sim_process_ms": float(sim.get("process_ms_per_frame", 0.0)),
@@ -938,17 +954,35 @@ static func _tour_report_lines(result: Dictionary) -> PackedStringArray:
 	if rollup.is_empty():
 		rollup = summarize_tour(tour.get("scenarios", []))
 	var generation: Dictionary = rollup.get("generation", {})
+	var preparation: Dictionary = rollup.get("preparation", {})
+	var prepare: Dictionary = tour.get("prepare", {})
 	var simulation: Dictionary = rollup.get("simulation", {})
 	var editing: Dictionary = rollup.get("editing", {})
 	var totals: Dictionary = rollup.get("totals", {})
-	lines.append("Course tour %s: %d courses built on screen in %.0f ms total (slowest %s, %.0f ms) | player's course restored: %s" % [
-		str(tour.get("suite_name", tour.get("suite", "tour"))),
-		int(rollup.get("scenario_count", 0)),
-		float(generation.get("total_ms", 0.0)),
-		str(generation.get("slowest_scenario", "-")),
-		float(generation.get("slowest_ms", 0.0)),
-		"yes" if bool(tour.get("restored", false)) else "no",
-	])
+	if bool(prepare.get("prepared", false)):
+		lines.append("Course tour %s: benchmark course prepared in %.0f ms | %d courses built on screen in %.0f ms total (slowest %s, %.0f ms) | main menu restored: %s" % [
+			str(tour.get("suite_name", tour.get("suite", "tour"))),
+			float(prepare.get("prepare_ms", 0.0)),
+			int(rollup.get("scenario_count", 0)),
+			float(generation.get("total_ms", 0.0)),
+			str(generation.get("slowest_scenario", "-")),
+			float(generation.get("slowest_ms", 0.0)),
+			"yes" if bool(tour.get("restored", false)) else "no",
+		])
+	else:
+		lines.append("Course tour %s: %d courses built on screen in %.0f ms total (slowest %s, %.0f ms) | player's course restored: %s" % [
+			str(tour.get("suite_name", tour.get("suite", "tour"))),
+			int(rollup.get("scenario_count", 0)),
+			float(generation.get("total_ms", 0.0)),
+			str(generation.get("slowest_scenario", "-")),
+			float(generation.get("slowest_ms", 0.0)),
+			"yes" if bool(tour.get("restored", false)) else "no",
+		])
+	if int(preparation.get("scenarios_sampled", 0)) > 0:
+		lines.append("Course preparation (building and settling each course): %.1f FPS average across %d courses, pooled into the frame pacing below" % [
+			float(preparation.get("average_fps", 0.0)),
+			int(preparation["scenarios_sampled"]),
+		])
 	var index := 1
 	for row in tour_scenario_rows(result):
 		var entry: Dictionary = row
@@ -1031,7 +1065,7 @@ static func format_report(result: Dictionary) -> String:
 		str(engine.get("node_count", 0)), str(engine.get("render_objects", 0)),
 		str(engine.get("render_primitives", 0))])
 	# A tour report names every course it built; the frame pacing below it is
-	# the pooled camera and simulation sample across all of them.
+	# the pooled preparation, camera and simulation sample across all of them.
 	lines.append_array(_tour_report_lines(result))
 	if int(frame.get("sample_count", 0)) > 0:
 		lines.append("Frame pacing (%s s): %.1f FPS avg | 1%% low %.1f FPS | p95 %.1f ms | %s frames >33 ms" % [
@@ -1086,7 +1120,7 @@ static func format_report(result: Dictionary) -> String:
 				str(entry["detail"])])
 	lines.append("")
 	if result.has("tour"):
-		lines.append("For fair comparisons, run the same tour suite at the same resolution, VSync and power mode; the courses, seeds, golfers and camera moves are fixed by the suite.")
+		lines.append("For fair comparisons, run the same tour suite from Main Menu Settings at the same resolution, VSync and power mode; the benchmark prepares its own throwaway course, and the preparation, courses, seeds, golfers and camera moves are fixed by the suite.")
 	else:
 		lines.append("For fair comparisons, use the same course/save, camera view, resolution, VSync and power mode.")
 	lines.append("Frame pacing and the GPU fill test measure this machine; the CPU score is a fixed script workload.")

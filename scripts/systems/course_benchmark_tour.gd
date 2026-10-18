@@ -3,8 +3,18 @@ class_name CourseBenchmarkTour
 ## CourseBenchmarkTour - builds and plays the benchmark course matrix on
 ## screen, one course at a time, and times every part of it.
 ##
-## For each scenario in CourseBenchmarkScenarios the tour, live on the
-## player's course view:
+## The tour runs from the Main Menu (Main only starts it from Main Menu
+## Settings), where no game is open, so before the first scenario it:
+##
+##  0. PREPARE - makes the throwaway course session the tour builds on: a
+##     fresh course record, cleared ground, the land the layouts need, and
+##     the camera over the site. Preparation is part of the benchmark - it
+##     is timed step by step and its frames are sampled into the headline
+##     pacing, exactly like each course's own build-and-settle (recorded
+##     per course as the "prepare" phase).
+##
+## For each scenario in CourseBenchmarkScenarios the tour then, live on the
+## course view:
 ##
 ##  1. BUILD - resets to bare land, sets the course type (theme), generates
 ##     natural terrain from the scenario seed, lays out its holes, stamps
@@ -12,6 +22,9 @@ class_name CourseBenchmarkTour
 ##     decorations, lays the walking-path network, and spawns its field of
 ##     golfers (asking the visiting-golfer pool for its share first). Every
 ##     stage is timed and runs on its own frame, so the course visibly grows.
+##     The frames of the build and the settle that follows it are sampled
+##     as the course's preparation phase and pooled into the headline
+##     frame pacing: preparing a course is part of what is being measured.
 ##  2. CAMERA - drives the scenario's camera plan (still / pan / zoom / a
 ##     tour of the tees and greens / a tour with a view rotation) while the
 ##     frame times are sampled.
@@ -23,18 +36,21 @@ class_name CourseBenchmarkTour
 ##  5. DEVICE - finishes with the quick device check (PerformanceBenchmark:
 ##     GPU fill ladder and fixed CPU workload) on the last course built.
 ##
-## The real course is never at risk: the tour starts by capturing the whole
-## game as in-memory save data (SaveManager.capture_course_snapshot), runs
-## under benchmark suppression (no autosave, no milestone or achievement
-## progress, unlimited funds so a tour cannot bankrupt the company), and
-## ends - finish or cancel alike - by restoring the snapshot and the
-## captured camera, speed and pause state.
+## Nothing real is ever at risk. From the Main Menu there is no course to
+## borrow: the tour prepares its own throwaway session and ends - finish or
+## cancel alike - by tearing it down and handing the title screen back as
+## empty as it found it. Driven directly on an open course (tests and
+## harnesses), it instead captures the whole game as in-memory save data
+## (SaveManager.capture_course_snapshot) and restores that snapshot. Either
+## way it runs under benchmark suppression (no autosave, no milestone or
+## achievement progress, unlimited funds so a tour cannot bankrupt the
+## company) and returns the captured camera, speed and pause state.
 
 signal progress_changed(status: Dictionary)
 signal completed(result: Dictionary)
 signal cancelled(result: Dictionary)
 
-enum Phase { IDLE, BUILD, SETTLE, CAMERA, SIMULATE, EDIT, DEVICE, RESTORE }
+enum Phase { IDLE, PREPARE, BUILD, SETTLE, CAMERA, SIMULATE, EDIT, DEVICE, RESTORE }
 
 ## A fixed mid-summer day for every toured course, so seasons and the
 ## calendar cost the same on every machine. Day 152 is 1 June 2000.
@@ -47,6 +63,13 @@ const STAGE_LABELS := {
 	"holes": "Laying out holes", "terrain": "Stamping terrain types",
 	"buildings": "Placing buildings & improvements",
 	"paths": "Laying walking paths", "spawn": "Sending out the golfers",
+}
+## Preparing the throwaway course from the Main Menu, one step per frame
+## like the build stages, each timed into the run's prepare record.
+const PREPARE_STEPS: Array[String] = ["session", "ground", "land", "camera"]
+const PREPARE_LABELS := {
+	"session": "Opening the benchmark course", "ground": "Clearing the ground",
+	"land": "Granting the land", "camera": "Framing the course",
 }
 ## Brush stamps an edit plan paints before its phase ends.
 const EDIT_STAMP_BUDGETS := {"paint": 110, "elevation": 70, "both": 130, "stress": 280}
@@ -123,6 +146,14 @@ var _edit_vertices: int = 0
 var _edit_paths: int = 0
 var _snapshot: Dictionary = {}
 var _captured: Dictionary = {}
+## True when the tour prepared its own throwaway course because none was
+## open (the Main Menu run); false when it borrowed the player's course.
+var _prepared_course: bool = false
+var _prepare_step: int = 0
+var _prepare_steps_ms: Dictionary = {}
+var _prepare_record: Dictionary = {}
+## When the current scenario's build-and-settle sampling began.
+var _scenario_started_usec: int = 0
 var _device_result: Dictionary = {}
 var _buildings_data: Dictionary = {}
 var _decorations_data: Dictionary = {}
@@ -164,7 +195,9 @@ func estimated_seconds(suite_id: String) -> int:
 	var scenarios: Array = CourseBenchmarkScenarios.suite_by_id(suite_id).get("scenarios", [])
 	var per_course := (float(settle_duration_usec + camera_duration_usec
 		+ simulate_duration_usec) / 1_000_000.0) + 2.5
-	return int(round(per_course * float(scenarios.size()))) + (7 if run_device_check else 0)
+	var prepare_allowance := 2 if GameManager.current_course == null else 0
+	return int(round(per_course * float(scenarios.size()))) + prepare_allowance \
+		+ (7 if run_device_check else 0)
 
 func start(suite_id: String) -> bool:
 	var suite := CourseBenchmarkScenarios.suite_by_id(suite_id)
@@ -177,11 +210,26 @@ func start_scenarios(scenarios: Array, suite_id: String, suite_name: String) -> 
 	if is_running() or scenarios.is_empty():
 		return false
 	if _grid == null or _camera == null or _entities == null or _hole_tool == null \
-			or _golfers == null or GameManager.current_course == null:
+			or _golfers == null:
 		return false
-	_snapshot = SaveManager.capture_course_snapshot()
-	if _snapshot.is_empty():
-		return false
+	# With no course open - the Main Menu - the tour prepares its own
+	# throwaway course as its first, timed phase. With one open it borrows
+	# it under a snapshot, and timing that snapshot is its preparation.
+	_prepared_course = GameManager.current_course == null
+	_prepare_record = {}
+	_prepare_steps_ms = {}
+	_prepare_step = 0
+	_snapshot = {}
+	if not _prepared_course:
+		var snapshot_started := Time.get_ticks_usec()
+		_snapshot = SaveManager.capture_course_snapshot()
+		if _snapshot.is_empty():
+			return false
+		_prepare_record = {
+			"prepared": false,
+			"prepare_ms": float(Time.get_ticks_usec() - snapshot_started) / 1000.0,
+			"steps_ms": {},
+		}
 	_scenarios = scenarios.duplicate(true)
 	_suite_id = suite_id
 	_suite_name = suite_name
@@ -210,7 +258,10 @@ func start_scenarios(scenarios: Array, suite_id: String, suite_name: String) -> 
 	_set_host_undo_suppressed(true)
 	_show_overlay()
 	set_process(true)
-	_begin_scenario()
+	if _prepared_course:
+		_begin_prepare()
+	else:
+		_begin_scenario()
 	return true
 
 func cancel() -> void:
@@ -227,6 +278,17 @@ func _capture_session() -> void:
 		"unlimited_money": GameManager.unlimited_money,
 		"spawn_cooldown": _golfers.min_spawn_cooldown_seconds if _golfers else 90.0,
 		"achievements": AchievementStore.load_state(),
+		# The title-screen scalars a prepared tour hands back when it tears
+		# its throwaway course down (a borrowed course returns by snapshot).
+		"mode": int(GameManager.current_mode),
+		"course_name": GameManager.course_name,
+		"theme": int(GameManager.current_theme),
+		"day": GameManager.current_day,
+		"money": GameManager.money,
+		"reputation": GameManager.reputation,
+		"green_fee": GameManager.green_fee,
+		"land": GameManager.land_manager.serialize() \
+			if GameManager.land_manager != null else {},
 	}
 
 func _set_host_undo_suppressed(suppressed: bool) -> void:
@@ -246,10 +308,19 @@ func _show_overlay() -> void:
 func _process(_delta: float) -> void:
 	var now := Time.get_ticks_usec()
 	match _phase:
+		Phase.PREPARE:
+			_sample_frame(now)
+			_process_prepare_step(now)
 		Phase.BUILD:
+			# Preparing this course is part of the benchmark: the frames of
+			# the build (and the settle after it) are sampled like any
+			# other phase and pooled into the headline pacing.
+			_sample_frame(now)
 			_process_build_stage()
 		Phase.SETTLE:
+			_sample_frame(now)
 			if now - _phase_started_usec >= settle_duration_usec:
+				_finish_timed_phase("prepare", now, true, _scenario_started_usec)
 				_begin_timed_phase(Phase.CAMERA, now)
 				_build_waypoints()
 			else:
@@ -315,7 +386,17 @@ func _begin_scenario() -> void:
 	_build_stage = 0
 	_rotated = false
 	_phase = Phase.BUILD
-	_publish("Building the course", Time.get_ticks_usec(), true)
+	# A fresh frame collection for the preparation sample (build + settle).
+	# _phase_started_usec still marks the settle's start when the build
+	# completes, so the collection's own start is kept separately.
+	_scenario_started_usec = Time.get_ticks_usec()
+	_last_frame_usec = 0
+	_frame_ms.clear()
+	_process_ms.clear()
+	_physics_ms.clear()
+	_phase_start_day = GameManager.current_day
+	_phase_start_day_progress = GameManager._day_progress
+	_publish("Building the course", _scenario_started_usec, true)
 
 func _next_scenario() -> void:
 	_records.append(_current)
@@ -361,13 +442,15 @@ func _sample_frame(now: int) -> void:
 	_process_ms.append(maxf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.0))
 	_physics_ms.append(maxf(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, 0.0))
 
-func _finish_timed_phase(key: String, now: int, pool: bool) -> void:
+func _finish_timed_phase(key: String, now: int, pool: bool,
+		started_usec: int = 0) -> void:
 	var summary := PerformanceBenchmark.summarize_frame_times(_frame_ms)
 	summary["series_ms"] = PerformanceBenchmark.downsample_series(_frame_ms, 60)
 	summary["worst_frame_ms"] = _frame_ms.max() if not _frame_ms.is_empty() else 0.0
 	summary["process_ms_per_frame"] = _average_of(_process_ms)
 	summary["physics_ms_per_frame"] = _average_of(_physics_ms)
-	summary["sample_seconds"] = float(now - _phase_started_usec) / 1_000_000.0
+	summary["sample_seconds"] = float(now - (started_usec if started_usec > 0 \
+		else _phase_started_usec)) / 1_000_000.0
 	summary["days_advanced"] = float(GameManager.current_day - _phase_start_day) \
 		+ (GameManager._day_progress - _phase_start_day_progress) \
 		/ GameManager.SECONDS_PER_GAME_DAY
@@ -408,18 +491,111 @@ func _enforce_speed() -> void:
 		GameManager.set_speed(wanted as GameManager.GameSpeed)
 
 # =============================================================================
+# PREPARE - the throwaway course a Main Menu tour builds on, timed & sampled
+# =============================================================================
+
+func _begin_prepare() -> void:
+	_scenario = _scenarios[0]
+	_prepare_step = 0
+	_prepare_steps_ms = {}
+	_begin_timed_phase(Phase.PREPARE, Time.get_ticks_usec())
+	_publish("Preparing the benchmark course", Time.get_ticks_usec(), true)
+
+func _process_prepare_step(now: int) -> void:
+	if _prepare_step >= PREPARE_STEPS.size():
+		_finish_prepare(now)
+		return
+	var step := PREPARE_STEPS[_prepare_step]
+	_publish("Preparing the benchmark course: %s" % str(PREPARE_LABELS.get(step, step)),
+		now, true)
+	var started := Time.get_ticks_usec()
+	match step:
+		"session": _prepare_session()
+		"ground": _prepare_ground()
+		"land": _prepare_land()
+		"camera": _prepare_camera()
+	_prepare_steps_ms["%s_ms" % step] = float(Time.get_ticks_usec() - started) / 1000.0
+	_prepare_step += 1
+
+## The session a new game would open, minus everything that persists: a
+## fresh course record under the first scenario's course type, on the
+## fixed benchmark day, simulating. Benchmark suppression (already up)
+## keeps it off the autosave slot and the goal books.
+func _prepare_session() -> void:
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.course_name = "Benchmark — preparing"
+	var theme := int(_scenario.get("theme", CourseTheme.Type.PARKLAND))
+	GameManager.current_theme = theme
+	var colors := ColorblindMode.remap_colors(
+		CourseTheme.get_terrain_colors(theme), GameManager.colorblind_mode)
+	TerrainPalette.set_theme_colors(colors)
+	EventBus.theme_changed.emit(theme)
+	GameManager.current_day = BENCHMARK_DAY
+	GameManager._day_progress = 0.0
+	GameManager.set_mode(GameManager.GameMode.SIMULATING)
+	GameManager.set_speed(GameManager.GameSpeed.NORMAL)
+	_hole_tool.current_hole_number = 1
+
+## Bare ground: whatever the title screen left on the view goes, and the
+## grid returns to its new-course state.
+func _prepare_ground() -> void:
+	_golfers.clear_all_golfers()
+	if _ball_manager != null:
+		_ball_manager.clear_all_balls()
+	if GameManager.weed_manager != null:
+		GameManager.weed_manager.clear_all()
+	if GameManager.staff_manager != null:
+		GameManager.staff_manager.clear_all_staff()
+	_entities.clear_all()
+	if _hole_manager != null:
+		_hole_manager.clear_visualizations()
+	_grid.reset_for_new_course()
+
+## The parcels the first layout needs (each scenario's reset stage
+## re-grants for its own hole count, as it does on a borrowed course).
+func _prepare_land() -> void:
+	if GameManager.land_manager != null:
+		GameManager.land_manager.grant_parcels(
+			WorldLocations.get_required_parcels(int(_scenario.get("holes", 9))))
+
+func _prepare_camera() -> void:
+	_grid.refresh_all_overlays()
+	_frame_on_anchor(_camera.min_zoom + 0.1, true)
+
+## Preparation joins the headline sample like every other measured phase,
+## and its wall time and step times ride in the report's prepare record.
+func _finish_prepare(now: int) -> void:
+	var summary := PerformanceBenchmark.summarize_frame_times(_frame_ms)
+	summary["series_ms"] = PerformanceBenchmark.downsample_series(_frame_ms, 60)
+	summary["worst_frame_ms"] = _frame_ms.max() if not _frame_ms.is_empty() else 0.0
+	summary["process_ms_per_frame"] = _average_of(_process_ms)
+	summary["physics_ms_per_frame"] = _average_of(_physics_ms)
+	summary["sample_seconds"] = float(now - _phase_started_usec) / 1_000_000.0
+	_tour_frame_ms.append_array(_frame_ms)
+	_tour_process_ms.append_array(_process_ms)
+	_tour_physics_ms.append_array(_physics_ms)
+	_tour_sample_seconds += float(summary["sample_seconds"])
+	_prepare_record = {
+		"prepared": true,
+		"prepare_ms": float(now - _phase_started_usec) / 1000.0,
+		"steps_ms": _prepare_steps_ms.duplicate(),
+		"frame": summary,
+	}
+	_begin_scenario()
+
+# =============================================================================
 # BUILD STAGES - one per frame, each timed
 # =============================================================================
 
 func _process_build_stage() -> void:
 	if _build_stage >= BUILD_STAGES.size():
-		var build: Dictionary = _current.get("build", {})
+		var finished_build: Dictionary = _current.get("build", {})
 		var total := 0.0
-		for key in build:
+		for key in finished_build:
 			if key != "total_ms":
-				total += float(build[key])
-		build["total_ms"] = total
-		_current["build"] = build
+				total += float(finished_build[key])
+		finished_build["total_ms"] = total
+		_current["build"] = finished_build
 		_phase = Phase.SETTLE
 		_phase_started_usec = Time.get_ticks_usec()
 		return
@@ -756,7 +932,7 @@ func _drive_camera(now: int) -> void:
 	if _waypoints.is_empty():
 		return
 	if str(_scenario.get("camera", "")) == "tour_rotate" and not _rotated \
-			and now - _phase_started_usec >= camera_duration_usec / 2:
+			and (now - _phase_started_usec) * 2 >= camera_duration_usec:
 		_rotated = true
 		if _host != null and _host.has_method("_on_view_rotate_cw"):
 			_host.call("_on_view_rotate_cw")
@@ -896,7 +1072,8 @@ func _finish_tour(was_cancelled: bool) -> void:
 	if _phase == Phase.RESTORE or _phase == Phase.IDLE:
 		return
 	_phase = Phase.RESTORE
-	_publish("Putting your course back...", Time.get_ticks_usec(), true)
+	_publish("Taking the benchmark course down..." if _prepared_course \
+		else "Putting your course back...", Time.get_ticks_usec(), true)
 	if _device_runner != null and _device_runner.is_running():
 		_device_runner.cancel()
 	if not _current.is_empty() and not _records.has(_current):
@@ -928,8 +1105,8 @@ func _build_result(was_cancelled: bool, restored: bool) -> Dictionary:
 			"device check skipped", 0.0)
 		result["cpu"] = {"work_units": 0, "compute_ms": 0.0, "units_per_second": 0.0}
 		result["memory"] = PerformanceBenchmark.collect_memory()
-	# The headline frame pacing is the tour itself: every camera move and
-	# simulation sample pooled, on courses fixed by the suite.
+	# The headline frame pacing is the tour itself: every preparation,
+	# camera and simulation sample pooled, on courses fixed by the suite.
 	if not _tour_frame_ms.is_empty():
 		var frame := PerformanceBenchmark.summarize_frame_times(_tour_frame_ms)
 		frame["series_ms"] = PerformanceBenchmark.downsample_series(
@@ -944,9 +1121,14 @@ func _build_result(was_cancelled: bool, restored: bool) -> Dictionary:
 			maxi(int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)), 0))
 		result["engine"] = engine
 		result["frame_sample_seconds"] = _tour_sample_seconds
+	var prepare: Dictionary = _prepare_record.duplicate(true)
+	if prepare.is_empty():
+		prepare = {"prepared": _prepared_course, "prepare_ms": 0.0,
+			"steps_ms": _prepare_steps_ms.duplicate()}
 	result["tour"] = {
 		"suite": _suite_id,
 		"suite_name": _suite_name,
+		"prepare": prepare,
 		"scenarios": _records.duplicate(true),
 		"rollup": PerformanceBenchmark.summarize_tour(_records),
 		"restored": restored,
@@ -960,11 +1142,45 @@ func _build_result(was_cancelled: bool, restored: bool) -> Dictionary:
 	result["report_text"] = PerformanceBenchmark.format_report(result)
 	return result
 
-## Give the player's game back: the snapshot first (it rebuilds the course
-## and announces a load), then the session state a save does not carry -
-## camera, game speed, pause, funds flag and the spawn cooldown.
+## Take the throwaway course down: golfers, entities and ground cleared,
+## the course record dropped (the title screen's state, as at boot), the
+## captured land and scalars back, and the game in the mode it was found
+## in (the Main Menu). Nothing here announces a load - there is no course
+## left to load.
+func _teardown_prepared_course() -> bool:
+	_prepare_ground()
+	GameManager.current_course = null
+	_grid.refresh_all_overlays()
+	GameManager.course_name = str(_captured.get("course_name", "New Course"))
+	var theme := int(_captured.get("theme", CourseTheme.Type.PARKLAND))
+	GameManager.current_theme = theme
+	var colors := ColorblindMode.remap_colors(
+		CourseTheme.get_terrain_colors(theme), GameManager.colorblind_mode)
+	TerrainPalette.set_theme_colors(colors)
+	EventBus.theme_changed.emit(theme)
+	GameManager.current_day = int(_captured.get("day", 1))
+	GameManager._day_progress = 0.0
+	GameManager.money = int(_captured.get("money", GameManager.money))
+	GameManager.reputation = float(_captured.get("reputation", GameManager.reputation))
+	GameManager.green_fee = int(_captured.get("green_fee", GameManager.green_fee))
+	var land: Dictionary = _captured.get("land", {})
+	if GameManager.land_manager != null and not land.is_empty():
+		GameManager.land_manager.deserialize(land)
+	GameManager.set_mode(int(_captured.get("mode", GameManager.GameMode.MAIN_MENU))
+		as GameManager.GameMode)
+	return true
+
+## Give the game back the way the tour found it. A borrowed course returns
+## by snapshot (which rebuilds it and announces a load); a course the tour
+## prepared itself is torn down to the bare title-screen state instead.
+## Either way the session state a save does not carry - camera, game
+## speed, pause, funds flag and the spawn cooldown - follows after.
 func _restore_session() -> bool:
-	var restored := SaveManager.restore_course_snapshot(_snapshot)
+	var restored: bool
+	if _prepared_course:
+		restored = _teardown_prepared_course()
+	else:
+		restored = SaveManager.restore_course_snapshot(_snapshot)
 	_snapshot = {}
 	_restore_orientation()
 	_camera.benchmark_controlled = false
@@ -999,6 +1215,8 @@ func _publish(phase_text: String, now: int, force: bool = false) -> void:
 	_last_publish_usec = now
 	var within := 0.0
 	match _phase:
+		Phase.PREPARE: within = 0.08 * float(_prepare_step) \
+			/ float(maxi(PREPARE_STEPS.size(), 1))
 		Phase.BUILD: within = 0.25 * float(_build_stage) / float(BUILD_STAGES.size())
 		Phase.SETTLE: within = 0.30
 		Phase.CAMERA: within = 0.30 + 0.20 * _phase_fraction(now, camera_duration_usec)
@@ -1016,7 +1234,8 @@ func _publish(phase_text: String, now: int, force: bool = false) -> void:
 		live = "%.0f FPS · %.1f ms" % [1000.0 / maxf(last_ms, 0.001), last_ms]
 	if _golfers != null and not _golfers.active_golfers.is_empty():
 		live += " · %d golfers on course" % _golfers.active_golfers.size()
-	live += " · your course will be restored"
+	live += " · the main menu will be restored" if _prepared_course \
+		else " · your course will be restored"
 	var status := {
 		"suite_name": _suite_name,
 		"scenario_index": mini(_scenario_index, maxi(_scenarios.size() - 1, 0)),
