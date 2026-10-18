@@ -193,6 +193,43 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	menu._save_controls_settings()
 
 
+func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
+	await set_window(DESIGN_WINDOW)
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(5)
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var run_button := menu.find_child("RunBenchmarkButton", true, false) as Button
+	var copy_button := menu.find_child("CopyBenchmarkReportButton", true, false) as Button
+	assert_not_null(run_button, "Display settings offer a benchmark")
+	assert_not_null(copy_button, "A completed run can be copied for device comparison")
+	if run_button == null or copy_button == null:
+		return
+	assert_true(copy_button.disabled, "A report cannot be copied before a run")
+
+	# Shorten only this test run; the player-facing benchmark keeps its full
+	# warm-up, frame sample and CPU workload durations.
+	var runner := menu._benchmark_runner
+	runner.warmup_duration_usec = 15_000
+	runner.frame_sample_duration_usec = 60_000
+	runner.cpu_sample_duration_usec = 60_000
+	runner.cpu_budget_usec_per_frame = 200
+	run_button.pressed.emit()
+	assert_true(runner.is_running(), "The button starts the benchmark")
+	assert_true(run_button.disabled, "The run button is locked while measuring")
+	await get_tree().create_timer(0.5, true, false, true).timeout
+	assert_false(runner.is_running(), "The short test benchmark completes")
+	assert_gt(runner._frame_times_ms.size(), 0, "frame pacing is sampled")
+	assert_gt(runner._work_units, 0, "the deterministic CPU workload runs")
+	assert_false(copy_button.disabled, "The completed report can be copied")
+	assert_string_contains(menu._benchmark_report_text, "GTB-1", "the report carries its benchmark version")
+	assert_string_contains(menu._benchmark_report_text, "CPU script score", "the report contains a comparable CPU score")
+	assert_string_contains(menu._benchmark_status_text, "Complete", "completion is shown in Settings")
+
+	copy_button.pressed.emit()
+	assert_string_contains(menu._benchmark_status_text, "copied", "copying confirms the report was placed on the clipboard")
+
+
 func test_the_game_opens_the_archive_in_the_right_mode() -> void:
 	await set_window(DESIGN_WINDOW)
 	main._on_main_menu_load()

@@ -2,7 +2,7 @@ extends Control
 class_name SettingsMenu
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
-## Preferences are grouped into Audio, Display, Gameplay and Controls. Wide
+## Preferences are grouped into Audio, Display and Controls. Wide
 ## desktop windows use a navigation rail beside the control cards and a small
 ## course context panel; tablets keep the cards roomy, while phones use a
 ## swipeable category strip and one scrollable settings column. Every control
@@ -40,11 +40,29 @@ var _bg: ColorRect
 var _panel: Control
 var _reference_course_label: Label
 var _reference_day_label: Label
+var _benchmark_runner: PerformanceBenchmark
+var _benchmark_run_button: Button
+var _benchmark_copy_button: Button
+var _benchmark_status_label: Label
+var _benchmark_summary_label: Label
+var _benchmark_details_label: Label
+var _benchmark_progress_bar: ProgressBar
+var _benchmark_running: bool = false
+var _benchmark_progress: float = 0.0
+var _benchmark_status_text: String = "Ready to run. A test takes about five seconds."
+var _benchmark_summary_text: String = "No results yet. Run from a course view for the most useful frame-rate sample."
+var _benchmark_details_text: String = "For fair comparisons, use the same save, camera view, resolution, VSync and power mode. Reports stay local unless you copy them."
+var _benchmark_report_text: String = ""
 
 func _ready() -> void:
 	name = "SettingsMenu"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_benchmark_runner = PerformanceBenchmark.new()
+	_benchmark_runner.name = "PerformanceBenchmark"
+	_benchmark_runner.progress_changed.connect(_on_benchmark_progress)
+	_benchmark_runner.completed.connect(_on_benchmark_completed)
+	add_child(_benchmark_runner)
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
@@ -77,12 +95,20 @@ func _on_screen_changed(window_size: Vector2, _world_scale: float) -> void:
 
 func _build() -> void:
 	for child in get_children():
+		if child == _benchmark_runner:
+			continue
 		remove_child(child)
 		child.queue_free()
 	_bg = null
 	_panel = null
 	_reference_course_label = null
 	_reference_day_label = null
+	_benchmark_run_button = null
+	_benchmark_copy_button = null
+	_benchmark_status_label = null
+	_benchmark_summary_label = null
+	_benchmark_details_label = null
+	_benchmark_progress_bar = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -403,6 +429,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	_add_ui_scale_control(performance_body, mode)
 	cards.append(performance["panel"])
 
+	var benchmark := _build_benchmark_card(mode)
+	cards.append(benchmark)
+
 	var accessibility := _make_group("ACCESSIBILITY", "Alternative course colours for colour-vision needs.", mode)
 	var accessibility_body: VBoxContainer = accessibility["body"]
 	accessibility_body.add_child(_label("Course colour palette", 12, COLOR_TEXT))
@@ -420,6 +449,80 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	accessibility_body.add_child(color_options)
 	cards.append(accessibility["panel"])
 	return cards
+
+func _build_benchmark_card(mode: int) -> PanelContainer:
+	var benchmark := _make_group("DEVICE BENCHMARK",
+		"Measure live frame pacing and a repeatable CPU workload to help compare devices and diagnose slowdowns.", mode)
+	var body: VBoxContainer = benchmark["body"]
+	body.add_child(_make_separator())
+
+	var summary := _label(_benchmark_summary_text, 11, COLOR_TEXT)
+	summary.name = "BenchmarkSummary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_summary_label = summary
+	body.add_child(summary)
+
+	var details := _label(_benchmark_details_text, 10, COLOR_MUTED)
+	details.name = "BenchmarkDetails"
+	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_details_label = details
+	body.add_child(details)
+
+	var actions := HBoxContainer.new()
+	actions.name = "BenchmarkActions"
+	actions.add_theme_constant_override("separation", 7)
+	var run_button := Button.new()
+	run_button.name = "RunBenchmarkButton"
+	run_button.tooltip_text = "Run a short local test of frame pacing and script CPU throughput."
+	run_button.custom_minimum_size = Vector2(0, 44)
+	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(run_button, COLOR_GOLD, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	run_button.add_theme_color_override("font_color", COLOR_TEXT)
+	run_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	run_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	run_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	run_button.pressed.connect(_start_benchmark)
+	_benchmark_run_button = run_button
+	actions.add_child(run_button)
+
+	var copy_button := Button.new()
+	copy_button.name = "CopyBenchmarkReportButton"
+	copy_button.text = "Copy report"
+	copy_button.tooltip_text = "Copy the device and performance report to the clipboard; it is not uploaded."
+	copy_button.custom_minimum_size = Vector2(0, 44)
+	copy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(copy_button, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	copy_button.add_theme_color_override("font_color", COLOR_TEXT)
+	copy_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	copy_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	copy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	copy_button.pressed.connect(_copy_benchmark_report)
+	_benchmark_copy_button = copy_button
+	actions.add_child(copy_button)
+	body.add_child(actions)
+
+	var status := _label(_benchmark_status_text, 10, COLOR_QUIET)
+	status.name = "BenchmarkStatus"
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_status_label = status
+	body.add_child(status)
+
+	var progress := ProgressBar.new()
+	progress.name = "BenchmarkProgress"
+	progress.min_value = 0.0
+	progress.max_value = 1.0
+	progress.value = _benchmark_progress
+	progress.show_percentage = false
+	progress.custom_minimum_size.y = 7
+	progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	progress.visible = _benchmark_running
+	_benchmark_progress_bar = progress
+	body.add_child(progress)
+
+	_refresh_benchmark_controls()
+	return benchmark["panel"]
 
 func _build_controls_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
@@ -660,6 +763,71 @@ func _build_footer(mode: int) -> Control:
 	done.pressed.connect(_on_close)
 	footer.add_child(done)
 	return footer
+
+func _start_benchmark() -> void:
+	if _benchmark_running or not is_instance_valid(_benchmark_runner):
+		return
+	_benchmark_running = true
+	_benchmark_progress = 0.0
+	_benchmark_report_text = ""
+	_benchmark_summary_text = "Running the benchmark..."
+	_benchmark_details_text = "Frame pacing is measured first; the CPU workload then runs in short slices to keep the screen responsive."
+	_benchmark_status_text = "Preparing benchmark..."
+	var in_course := GameManager.current_mode != GameManager.GameMode.MAIN_MENU
+	var context := {"scenario": "Paused course view" if in_course else "Main menu"}
+	if in_course:
+		context["day"] = GameManager.current_day
+	if not _benchmark_runner.start(context):
+		_benchmark_running = false
+		_benchmark_status_text = "The benchmark is already running."
+	_refresh_benchmark_controls()
+
+func _on_benchmark_progress(message: String, fraction: float) -> void:
+	_benchmark_running = true
+	_benchmark_status_text = message
+	_benchmark_progress = fraction
+	_refresh_benchmark_controls()
+
+func _on_benchmark_completed(result: Dictionary) -> void:
+	_benchmark_running = false
+	_benchmark_progress = 1.0
+	_benchmark_report_text = str(result.get("report_text", ""))
+	_benchmark_summary_text = PerformanceBenchmark.format_summary(result)
+	var frame: Dictionary = result.get("frame", {})
+	var engine: Dictionary = result.get("engine", {})
+	if int(frame.get("sample_count", 0)) > 0:
+		_benchmark_details_text = "Frame p95 %.1f ms · game process %.1f ms/frame. High process time suggests CPU-side work; low FPS with low process time can point to rendering, a frame cap or other factors." % [
+			float(frame.get("p95_frame_ms", 0.0)),
+			float(engine.get("process_ms_per_frame", 0.0)),
+		]
+	else:
+		_benchmark_details_text = "No frame samples were captured. Run again with the settings screen visible for a full frame-pacing sample."
+	_benchmark_status_text = "Complete. Copy the report to compare devices; nothing is uploaded."
+	_refresh_benchmark_controls()
+
+func _copy_benchmark_report() -> void:
+	if _benchmark_report_text.is_empty() or _benchmark_running:
+		return
+	DisplayServer.clipboard_set(_benchmark_report_text)
+	_benchmark_status_text = "Report copied. It includes device and hardware details; nothing was uploaded."
+	_refresh_benchmark_controls()
+
+func _refresh_benchmark_controls() -> void:
+	if is_instance_valid(_benchmark_run_button):
+		_benchmark_run_button.text = "Running..." if _benchmark_running \
+			else ("Run again" if not _benchmark_report_text.is_empty() else "Run benchmark")
+		_benchmark_run_button.disabled = _benchmark_running
+	if is_instance_valid(_benchmark_copy_button):
+		_benchmark_copy_button.disabled = _benchmark_running or _benchmark_report_text.is_empty()
+	if is_instance_valid(_benchmark_status_label):
+		_benchmark_status_label.text = _benchmark_status_text
+	if is_instance_valid(_benchmark_summary_label):
+		_benchmark_summary_label.text = _benchmark_summary_text
+	if is_instance_valid(_benchmark_details_label):
+		_benchmark_details_label.text = _benchmark_details_text
+	if is_instance_valid(_benchmark_progress_bar):
+		_benchmark_progress_bar.value = _benchmark_progress
+		_benchmark_progress_bar.visible = _benchmark_running
 
 func _select_category(category: int) -> void:
 	if category == _category:
