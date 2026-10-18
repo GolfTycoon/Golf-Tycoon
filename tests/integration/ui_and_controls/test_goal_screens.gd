@@ -143,6 +143,8 @@ func test_the_main_menu_achievement_tile_opens_the_trophy_room_and_comes_home() 
 	assert_not_null(screen, "the trophy room opens")
 	if screen:
 		assert_true(screen.visible)
+		assert_null(screen.find_child("TrackSwitch", true, false),
+			"the title-menu trophy room has no Course, World or Achievements navigation")
 
 	var back := screen.find_child("BackButton", true, false) as Button
 	if back:

@@ -4062,7 +4062,8 @@ func _toggle_goal_screen(track: int) -> void:
 ## Open (or raise) the goal screens. From the Club tab the day freezes and
 ## the gameplay UI stands down, the same way the World Map and the Course
 ## Map take the window; from the title screen the menu steps aside and Back
-## comes home to it.
+## comes home to it. The title-screen trophy room is standalone, so it omits
+## the cross-track navigation shown on the in-game goal screens.
 func _open_goal_screen(track: int, origin: int) -> void:
 	if origin == GoalScreenOrigin.TITLE_SCREEN:
 		_hide_main_menu()
@@ -4087,12 +4088,15 @@ func _open_goal_screen(track: int, origin: int) -> void:
 		world_milestones_screen.back_requested.connect(_on_goal_screen_back)
 		world_milestones_screen.track_requested.connect(_switch_goal_screen)
 		hud.add_child(world_milestones_screen)
-	if achievements_screen == null:
+	var create_achievements_screen := achievements_screen == null
+	if create_achievements_screen:
 		achievements_screen = AchievementsScreen.new()
 		achievements_screen.name = "AchievementsScreen"
 		achievements_screen.set_milestone_manager(milestone_manager)
 		achievements_screen.back_requested.connect(_on_goal_screen_back)
 		achievements_screen.track_requested.connect(_switch_goal_screen)
+	achievements_screen.track_navigation_enabled = origin == GoalScreenOrigin.CLUB_TAB
+	if create_achievements_screen:
 		hud.add_child(achievements_screen)
 	_show_goal_screen(track)
 

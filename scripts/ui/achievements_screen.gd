@@ -31,6 +31,9 @@ const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 enum Filter { ALL, UNLOCKED, LOCKED }
 
 var milestone_manager: MilestoneManager = null
+## The title-menu entry is a standalone trophy room; the in-game entry keeps
+## the switch for jumping between all three goal tracks.
+var track_navigation_enabled: bool = true
 
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
@@ -157,10 +160,11 @@ func _build_header() -> Control:
 
 	if not compact:
 		header.add_child(_build_unlocked_chip())
-		var switch := Kit.make_track_switch(Kit.GoalTrack.ACHIEVEMENTS,
-			func(track: int): track_requested.emit(track))
-		switch.size_flags_horizontal = Control.SIZE_SHRINK_END
-		header.add_child(switch)
+		if track_navigation_enabled:
+			var switch := Kit.make_track_switch(Kit.GoalTrack.ACHIEVEMENTS,
+				func(track: int): track_requested.emit(track))
+			switch.size_flags_horizontal = Control.SIZE_SHRINK_END
+			header.add_child(switch)
 	return header
 
 func _build_unlocked_chip() -> PanelContainer:
@@ -570,19 +574,28 @@ func _build_phone_body(columns: int) -> Control:
 	body.add_theme_constant_override("separation", 8)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	# The phone header keeps only Back and the title, so the track switch and
-	# the unlocked tally lead the body where they can breathe.
-	var nav := HBoxContainer.new()
-	nav.name = "TrackNav"
-	nav.add_theme_constant_override("separation", 8)
-	var switch := Kit.make_track_switch(Kit.GoalTrack.ACHIEVEMENTS,
-		func(track: int): track_requested.emit(track))
-	switch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nav.add_child(switch)
-	var chip := _build_unlocked_chip()
-	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	nav.add_child(chip)
-	body.add_child(nav)
+	# The phone header keeps only Back and the title, so navigation and the
+	# unlocked tally lead the body where they can breathe. From the title menu,
+	# the trophy room is standalone: keep the tally but omit the track switch.
+	if track_navigation_enabled:
+		var nav := HBoxContainer.new()
+		nav.name = "TrackNav"
+		nav.add_theme_constant_override("separation", 8)
+		var switch := Kit.make_track_switch(Kit.GoalTrack.ACHIEVEMENTS,
+			func(track: int): track_requested.emit(track))
+		switch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nav.add_child(switch)
+		var chip := _build_unlocked_chip()
+		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		nav.add_child(chip)
+		body.add_child(nav)
+	else:
+		var stats_row := HBoxContainer.new()
+		stats_row.name = "AchievementStatsRow"
+		stats_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stats_row.alignment = BoxContainer.ALIGNMENT_END
+		stats_row.add_child(_build_unlocked_chip())
+		body.add_child(stats_row)
 
 	var featured := _build_featured_panel()
 	featured.size_flags_vertical = Control.SIZE_SHRINK_END

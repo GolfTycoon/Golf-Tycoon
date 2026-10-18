@@ -35,11 +35,12 @@ func after_each() -> void:
 	manager = null
 	super()
 
-func _screen(size: Vector2i) -> AchievementsScreen:
+func _screen(size: Vector2i, track_navigation_enabled: bool = true) -> AchievementsScreen:
 	get_window().size = size
 	await process_frames(2)
 	var screen := AchievementsScreen.new()
 	screen.set_milestone_manager(manager)
+	screen.track_navigation_enabled = track_navigation_enabled
 	add_child_autofree(screen)
 	return screen
 
@@ -129,6 +130,18 @@ func test_smaller_windows_still_carry_the_filter_switch() -> void:
 		var screen: AchievementsScreen = await _screen(size)
 		assert_not_null(screen.find_child("FilterSwitch", true, false),
 			"%s can still filter All / Unlocked / Locked" % size)
+
+func test_title_menu_entry_hides_track_navigation_at_every_size() -> void:
+	for size in [DESIGN_WINDOW, Vector2i(1024, 768), Vector2i(768, 1024),
+			Vector2i(844, 390), Vector2i(390, 844)]:
+		var screen: AchievementsScreen = await _screen(size, false)
+		assert_null(screen.find_child("TrackSwitch", true, false),
+			"%s hides the whole track switch" % size)
+		for track_button in ["Track_course", "Track_world", "Track_achievements"]:
+			assert_null(screen.find_child(track_button, true, false),
+				"%s does not show %s" % [size, track_button])
+		assert_not_null(screen.find_child("UnlockedStat", true, false),
+			"%s keeps the unlocked tally" % size)
 
 # ---------------------------------------------------------------------------
 # The career honours
