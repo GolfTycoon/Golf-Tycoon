@@ -207,13 +207,26 @@ func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
 	var run_button := menu.find_child("RunBenchmarkButton", true, false) as Button
+	var quick_button := menu.find_child("QuickCheckButton", true, false) as Button
 	var copy_button := menu.find_child("CopyBenchmarkReportButton", true, false) as Button
 	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
 	assert_not_null(run_button, "Display settings offer a benchmark")
+	assert_not_null(quick_button, "and the quick device check beside the tour")
 	assert_not_null(copy_button, "A completed run can be copied for device comparison")
 	assert_not_null(results_button, "and the full results screen is one press away")
-	if run_button == null or copy_button == null:
+	if run_button == null or quick_button == null or copy_button == null:
 		return
+	assert_eq(run_button.text, "Run course tour", "the headline run is the course tour")
+	# With no course view to borrow the tour asks for one instead of
+	# starting; with a course open it hands the request to Main.
+	watch_signals(menu)
+	run_button.pressed.emit()
+	if GameManager.current_course == null:
+		assert_string_contains(menu._benchmark_status_text, "Open a course first",
+			"the tour explains it needs an open course")
+	else:
+		assert_signal_emitted(menu, "tour_requested", "the tour request reaches Main")
+	run_button = quick_button
 	assert_true(copy_button.disabled, "A report cannot be copied before a run")
 	assert_not_null(menu.find_child("BenchmarkStars", true, false),
 		"the card carries the last run's star rating")

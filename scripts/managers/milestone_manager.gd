@@ -192,8 +192,14 @@ func get_total_count() -> int:
 
 ## ── Completing goals ─────────────────────────────────────────────────────
 
+## Restoring a save is not newly earned progress, and neither is a benchmark
+## tour playing on its throwaway courses: neither may complete a goal, move
+## a career counter or unlock an achievement.
+func _progress_suppressed() -> bool:
+	return SaveManager._is_loading or SaveManager.benchmark_suppression
+
 func _complete_milestone(m: MilestoneSystem.Milestone, location_id: String = "") -> void:
-	if SaveManager._is_loading:
+	if _progress_suppressed():
 		return
 	match m.track:
 		MilestoneSystem.Track.LOCATION:
@@ -237,14 +243,14 @@ func _find_milestone(defs: Array, milestone_id: String) -> MilestoneSystem.Miles
 	return null
 
 func _check_location(milestone_id: String, condition: bool) -> void:
-	if not condition or SaveManager._is_loading:
+	if not condition or _progress_suppressed():
 		return
 	var m := _find_milestone(location_milestones, milestone_id)
 	if m:
 		_complete_milestone(m)
 
 func _check_world(milestone_id: String, condition: bool) -> void:
-	if not condition or SaveManager._is_loading:
+	if not condition or _progress_suppressed():
 		return
 	var m := _find_milestone(world_milestones, milestone_id)
 	if m:
@@ -281,7 +287,7 @@ func _check_hall_of_fame() -> void:
 ## Move a career counter and unlock whatever it reaches. `mode` is "sum",
 ## "max" (the counter keeps the highest value seen) or "flag" (0/1).
 func _bump_counter(counter: String, value: int, mode: String = "sum") -> void:
-	if SaveManager._is_loading:
+	if _progress_suppressed():
 		return
 	var counters: Dictionary = achievement_state.get("counters", {})
 	var current := int(counters.get(counter, 0))

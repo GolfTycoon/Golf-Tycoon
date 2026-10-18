@@ -35,6 +35,13 @@ var milestone_manager: MilestoneManager = null
 ## Flag to prevent autosave during load operations
 var _is_loading: bool = false
 
+## True while the course benchmark tour runs on a throwaway copy of the
+## player's course (CourseBenchmarkTour). A benchmark day must never reach
+## the autosave slot, and benchmark play must never move a milestone or a
+## career achievement, so every guard that already honours `_is_loading`
+## honours this too. Nothing is written to disk under it, by design.
+var benchmark_suppression: bool = false
+
 ## Name of the last slot that was manually saved/loaded (not autosave)
 var current_save_name: String = ""
 
@@ -47,7 +54,7 @@ func _ready() -> void:
 
 ## Snapshot at every year rollover so the year that just ended is preserved.
 func _on_year_ended(_finished_year: int) -> void:
-	if _is_loading:
+	if _is_loading or benchmark_suppression:
 		return
 	save_game("autosave")
 
@@ -149,6 +156,27 @@ func switch_to_location(snapshot: Dictionary) -> bool:
 	_apply_save_data(data)
 	# Rebuilding the hole list, visualisations and camera is exactly what the
 	# load path already does, so announce the swap like a load.
+	EventBus.load_completed.emit(true)
+	return true
+
+## ── Benchmark tour: borrow the live course, then give it back ─────────────
+## The course benchmark tour builds its own courses on the player's course
+## view so they can be watched. These two calls are how it leaves the real
+## course exactly as it found it: the same full save data a save slot would
+## hold, kept in memory and never written to disk as a slot.
+
+## The whole live game as save data, deep-copied so the tour cannot reach
+## back into it while it plays on the throwaway courses.
+func capture_course_snapshot() -> Dictionary:
+	return _build_save_data().duplicate(true)
+
+## Make a snapshot from capture_course_snapshot() the live game again.
+## Announced like a load, because rebuilding the hole list, visualisations
+## and camera is exactly what the load path does.
+func restore_course_snapshot(snapshot: Dictionary) -> bool:
+	if snapshot.is_empty():
+		return false
+	_apply_save_data(snapshot.duplicate(true))
 	EventBus.load_completed.emit(true)
 	return true
 
@@ -641,14 +669,15 @@ func _read_save_metadata(path: String) -> Dictionary:
 ## thrash the disk, so we save on a fixed cadence plus every year rollover.
 func _on_day_changed(new_day: int) -> void:
 	# Don't autosave while loading a game (would overwrite with partial state)
-	if _is_loading:
+	# or while a benchmark tour plays on a throwaway course.
+	if _is_loading or benchmark_suppression:
 		return
 	if new_day % GameManager.AUTOSAVE_INTERVAL_DAYS != 0:
 		return
 	call_deferred("_save_after_day_change", new_day)
 
 func _save_after_day_change(day: int) -> void:
-	if not _is_loading and GameManager.current_day == day:
+	if not _is_loading and not benchmark_suppression and GameManager.current_day == day:
 		save_game("autosave")
 
 # ─── User Settings (audio, preferences — not per-save) ────────────

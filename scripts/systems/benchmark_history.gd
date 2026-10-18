@@ -17,7 +17,9 @@ class_name BenchmarkHistory
 ## loads): at_unix, benchmark_version, game_version, platform, device_model,
 ## cpu_name, gpu, resolution, scenario, overall, stars, tier, cpu_units_per_second,
 ## gpu_megapixels_per_second, average_fps, one_percent_low_fps, p95_frame_ms,
-## stutter_percent, static_memory_mb.
+## stutter_percent, static_memory_mb, and - for a course-tour run - tour_suite,
+## tour_scenarios, tour_worst_scenario, tour_worst_fps, tour_generation_ms,
+## tour_editing_tiles_per_second.
 
 const FILE_VERSION := 1
 const DEFAULT_HISTORY_PATH := "user://benchmark_history.json"
@@ -43,7 +45,7 @@ static func record_from(result: Dictionary) -> Dictionary:
 	var score: Dictionary = result.get("score", PerformanceBenchmark.score_result(result))
 	var context: Dictionary = result.get("context", {})
 	var sample_count := maxi(int(frame.get("sample_count", 0)), 1)
-	return {
+	var record := {
 		"at_unix": int(result.get("started_at_unix", 0)),
 		"benchmark_version": str(result.get("benchmark_version", "")),
 		"game_version": str(result.get("game_version", "")),
@@ -66,6 +68,23 @@ static func record_from(result: Dictionary) -> Dictionary:
 			/ float(sample_count)),
 		"static_memory_mb": round1(float(memory.get("static_mb", 0.0))),
 	}
+	# A tour run also leaves the shape of its tour behind, so the shelf can
+	# say which course was heaviest without keeping the whole report.
+	var tour: Dictionary = result.get("tour", {})
+	if not tour.is_empty():
+		var rollup: Dictionary = tour.get("rollup", {})
+		var simulation: Dictionary = rollup.get("simulation", {})
+		var generation: Dictionary = rollup.get("generation", {})
+		var editing: Dictionary = rollup.get("editing", {})
+		record["tour_suite"] = str(tour.get("suite", ""))
+		record["tour_scenarios"] = int(rollup.get("scenario_count",
+			(tour.get("scenarios", []) as Array).size()))
+		record["tour_worst_scenario"] = str(simulation.get("worst_scenario", ""))
+		record["tour_worst_fps"] = round1(float(simulation.get("worst_fps", 0.0)))
+		record["tour_generation_ms"] = round1(float(generation.get("total_ms", 0.0)))
+		record["tour_editing_tiles_per_second"] = round1(
+			float(editing.get("tiles_per_second", 0.0)))
+	return record
 
 ## The runs on the shelf, oldest first. A missing or unreadable file is an
 ## empty shelf rather than an error.

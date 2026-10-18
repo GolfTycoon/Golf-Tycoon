@@ -12,6 +12,9 @@ signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
 ## Benchmark Results screen over the settings menu.
 signal results_requested
+## ...or to close the menus and run the course benchmark tour on the live
+## course view (Main owns the tour runner; it restores the course after).
+signal tour_requested(suite_id: String)
 
 enum Category { AUDIO, DISPLAY, CONTROLS }
 enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
@@ -45,6 +48,7 @@ var _reference_course_label: Label
 var _reference_day_label: Label
 var _benchmark_runner: PerformanceBenchmark
 var _benchmark_run_button: Button
+var _benchmark_tour_button: Button
 var _benchmark_copy_button: Button
 var _benchmark_status_label: Label
 var _benchmark_summary_label: Label
@@ -57,9 +61,9 @@ var _benchmark_running: bool = false
 var _benchmark_progress: float = 0.0
 var _benchmark_stars: int = 0
 var _benchmark_score: float = 0.0
-var _benchmark_status_text: String = "Ready to run. A test takes about seven seconds."
-var _benchmark_summary_text: String = "No results yet. Run from a course view for the most useful frame-rate sample."
-var _benchmark_details_text: String = "For fair comparisons, use the same save, camera view, resolution, VSync and power mode. Reports stay local unless you copy them."
+var _benchmark_status_text: String = "Ready. The course tour builds its test courses on screen (about 35 seconds); the quick check takes about seven."
+var _benchmark_summary_text: String = "No results yet. The course tour builds fixed test courses - every course type, hole count and game speed - so runs compare on any device."
+var _benchmark_details_text: String = "The tour borrows the course view and restores your course afterwards; your save is never written. Reports stay local unless you copy them."
 var _benchmark_report_text: String = ""
 
 func _ready() -> void:
@@ -113,6 +117,7 @@ func _build() -> void:
 	_reference_course_label = null
 	_reference_day_label = null
 	_benchmark_run_button = null
+	_benchmark_tour_button = null
 	_benchmark_copy_button = null
 	_benchmark_status_label = null
 	_benchmark_summary_label = null
@@ -463,8 +468,8 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	return cards
 
 func _build_benchmark_card(mode: int) -> PanelContainer:
-	var benchmark := _make_group("DEVICE BENCHMARK",
-		"Measure frame pacing, the GPU fill rate and a repeatable CPU workload, then open the results screen for the full scorecard.", mode)
+	var benchmark := _make_group("COURSE BENCHMARK",
+		"Build fixed test courses on screen - course types, terrain, buildings, holes, golfers, camera moves, editing and game speeds - and measure each part. Your course is restored afterwards.", mode)
 	var body: VBoxContainer = benchmark["body"]
 	body.add_child(_make_separator())
 
@@ -498,23 +503,47 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	_benchmark_details_label = details
 	body.add_child(details)
 
-	var actions := HBoxContainer.new()
+	var actions := VBoxContainer.new()
 	actions.name = "BenchmarkActions"
 	actions.add_theme_constant_override("separation", 7)
+	var run_row := HBoxContainer.new()
+	run_row.name = "BenchmarkRunRow"
+	run_row.add_theme_constant_override("separation", 7)
+	actions.add_child(run_row)
+	var tour_button := Button.new()
+	tour_button.name = "RunBenchmarkButton"
+	tour_button.text = "Run course tour"
+	tour_button.tooltip_text = "Close the menus and watch the benchmark build and play its test courses (quick suite, about 35 seconds). Your course is restored afterwards."
+	tour_button.custom_minimum_size = Vector2(0, 44)
+	tour_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tour_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(tour_button, COLOR_GOLD, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	tour_button.add_theme_color_override("font_color", COLOR_TEXT)
+	tour_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	tour_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	tour_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tour_button.pressed.connect(_request_tour)
+	_benchmark_tour_button = tour_button
+	run_row.add_child(tour_button)
 	var run_button := Button.new()
-	run_button.name = "RunBenchmarkButton"
-	run_button.tooltip_text = "Run the local test: frame pacing, the GPU fill ladder and script CPU throughput."
+	run_button.name = "QuickCheckButton"
+	run_button.text = "Quick check"
+	run_button.tooltip_text = "The seven-second device check on its own: frame pacing of this screen, the GPU fill ladder and script CPU throughput."
 	run_button.custom_minimum_size = Vector2(0, 44)
 	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
-	MenuStyle.paint_card(run_button, COLOR_GOLD, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	MenuStyle.paint_card(run_button, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
 	run_button.add_theme_color_override("font_color", COLOR_TEXT)
 	run_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
 	run_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
 	run_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	run_button.pressed.connect(_start_benchmark)
 	_benchmark_run_button = run_button
-	actions.add_child(run_button)
+	run_row.add_child(run_button)
+	var report_row := HBoxContainer.new()
+	report_row.name = "BenchmarkReportRow"
+	report_row.add_theme_constant_override("separation", 7)
+	actions.add_child(report_row)
 
 	var results_button := Button.new()
 	results_button.name = "BenchmarkResultsButton"
@@ -530,7 +559,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	results_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	results_button.pressed.connect(func(): results_requested.emit())
 	_benchmark_results_button = results_button
-	actions.add_child(results_button)
+	report_row.add_child(results_button)
 
 	var copy_button := Button.new()
 	copy_button.name = "CopyBenchmarkReportButton"
@@ -546,7 +575,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	copy_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	copy_button.pressed.connect(_copy_benchmark_report)
 	_benchmark_copy_button = copy_button
-	actions.add_child(copy_button)
+	report_row.add_child(copy_button)
 	body.add_child(actions)
 
 	var status := _label(_benchmark_status_text, 10, COLOR_QUIET)
@@ -810,14 +839,29 @@ func _build_footer(mode: int) -> Control:
 	footer.add_child(done)
 	return footer
 
+## The headline run: Main closes this menu and tours its test courses on the
+## course view. From the title screen there is no course view to borrow, so
+## the card says so instead of asking.
+func _request_tour() -> void:
+	if _benchmark_running:
+		return
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU \
+			or GameManager.current_course == null:
+		_benchmark_status_text = "Open a course first - the tour builds its test courses on the course view, then puts yours back. The quick check works here."
+		_refresh_benchmark_controls()
+		return
+	_benchmark_status_text = "Starting the course tour - watch it build. Esc cancels and restores your course."
+	_refresh_benchmark_controls()
+	tour_requested.emit(CourseBenchmarkScenarios.SUITE_QUICK)
+
 func _start_benchmark() -> void:
 	if _benchmark_running or not is_instance_valid(_benchmark_runner):
 		return
 	_benchmark_running = true
 	_benchmark_progress = 0.0
 	_benchmark_report_text = ""
-	_benchmark_summary_text = "Running the benchmark..."
-	_benchmark_details_text = "Frame pacing is measured first; the CPU workload then runs in short slices to keep the screen responsive."
+	_benchmark_summary_text = "Running the quick check..."
+	_benchmark_details_text = "Frame pacing of this screen is measured first; the CPU workload then runs in short slices to keep the screen responsive."
 	_benchmark_status_text = "Preparing benchmark..."
 	var in_course := GameManager.current_mode != GameManager.GameMode.MAIN_MENU
 	var context := {"scenario": "Paused course view" if in_course else "Main menu"}
@@ -871,6 +915,16 @@ func _benchmark_details_for(result: Dictionary) -> String:
 		return "No frame samples were captured. Run again with the settings screen visible for a full frame-pacing sample."
 	var gpu_text := "GPU %.0f MPix/s" % float(gpu.get("peak_megapixels_per_second", 0.0)) \
 		if bool(gpu.get("available", false)) else "GPU test skipped"
+	var tour: Dictionary = result.get("tour", {})
+	if not tour.is_empty():
+		var rollup: Dictionary = tour.get("rollup", {})
+		var simulation: Dictionary = rollup.get("simulation", {})
+		return "Course tour: %d courses · heaviest %s at %.1f FPS · frame p95 %.1f ms · %s. Open the full results for every course." % [
+			int(rollup.get("scenario_count", 0)),
+			str(simulation.get("worst_scenario", "-")),
+			float(simulation.get("worst_fps", 0.0)),
+			float(frame.get("p95_frame_ms", 0.0)), gpu_text,
+		]
 	return "Frame p95 %.1f ms · game process %.1f ms/frame · %s. Open the full results for the scorecard and past runs." % [
 		float(frame.get("p95_frame_ms", 0.0)), float(engine.get("process_ms_per_frame", 0.0)),
 		gpu_text,
@@ -898,9 +952,10 @@ func _copy_benchmark_report() -> void:
 	_refresh_benchmark_controls()
 
 func _refresh_benchmark_controls() -> void:
+	if is_instance_valid(_benchmark_tour_button):
+		_benchmark_tour_button.disabled = _benchmark_running
 	if is_instance_valid(_benchmark_run_button):
-		_benchmark_run_button.text = "Running..." if _benchmark_running \
-			else ("Run again" if not _benchmark_report_text.is_empty() else "Run benchmark")
+		_benchmark_run_button.text = "Running..." if _benchmark_running else "Quick check"
 		_benchmark_run_button.disabled = _benchmark_running
 	if is_instance_valid(_benchmark_copy_button):
 		_benchmark_copy_button.disabled = _benchmark_running or _benchmark_report_text.is_empty()

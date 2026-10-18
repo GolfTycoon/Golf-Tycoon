@@ -34,6 +34,10 @@ class_name BenchmarkResultsScreen
 ## report on the clipboard, and nothing here is uploaded.
 
 signal back_requested()
+## Asks Main to close this screen and run the course benchmark tour on the
+## live course view. Only emitted while `tour_available` (a course open
+## behind the menus); without one, Run falls back to the quick check.
+signal tour_requested(suite_id: String)
 
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
@@ -60,7 +64,14 @@ var _live_fps_label: Label = null
 var _status_label: Label = null
 var _progress_bar: MenuScreenKit.PixelBar = null
 var _run_button: Button = null
+var _quick_button: Button = null
+var _suite_picker: OptionButton = null
 var _copy_button: Button = null
+## Set by Main before the screen is added: a course is open behind the
+## menus, so the headline Run starts the on-screen course tour and the
+## suite picker shows. Without a course, Run is the quick device check.
+var tour_available: bool = false
+var _suite_id: String = CourseBenchmarkScenarios.SUITE_QUICK
 ## Where a copied report goes. Empty means the display server's clipboard; a
 ## window with none (some Wayland and headless setups) is told so rather than
 ## failing silently.
@@ -145,6 +156,8 @@ func _build() -> void:
 	_status_label = null
 	_progress_bar = null
 	_run_button = null
+	_quick_button = null
+	_suite_picker = null
 	_copy_button = null
 
 	var backdrop := MenuBackdrop.new()
@@ -314,17 +327,57 @@ func _build_footer() -> Control:
 	actions.add_theme_constant_override("separation", 7)
 	actions.custom_minimum_size.y = 46.0 if compact else 50.0
 
+	if tour_available:
+		var picker := OptionButton.new()
+		picker.name = "TourSuitePicker"
+		picker.add_item("Quick tour · 4 courses", 0)
+		picker.add_item("Full tour · 11 courses", 1)
+		picker.select(1 if _suite_id == CourseBenchmarkScenarios.SUITE_FULL else 0)
+		picker.tooltip_text = "The quick tour touches every subsystem once; the full tour builds every course type."
+		picker.custom_minimum_size = Vector2(0, 46.0)
+		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		picker.add_theme_font_size_override("font_size", 12)
+		picker.item_selected.connect(func(index: int):
+			_suite_id = CourseBenchmarkScenarios.SUITE_FULL if index == 1 \
+				else CourseBenchmarkScenarios.SUITE_QUICK)
+		actions.add_child(picker)
+		_suite_picker = picker
+
 	var run := Button.new()
 	run.name = "RunBenchmarkButton"
 	run.custom_minimum_size = Vector2(0, 46.0)
 	run.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run.size_flags_stretch_ratio = 2.0 if not compact else 1.6
 	run.add_theme_font_size_override("font_size", 13)
+	run.tooltip_text = "Build and play the benchmark courses on screen; your course is restored afterwards." \
+		if tour_available else "Run the quick device check on this screen."
 	Kit.paint_utility_button(run, true)
 	run.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	run.pressed.connect(_start_run)
 	actions.add_child(run)
 	_run_button = run
+
+	if tour_available:
+		var quick := Button.new()
+		quick.name = "QuickCheckButton"
+		quick.text = "Quick check"
+		quick.tooltip_text = "The seven-second GPU/CPU device check on its own, without the course tour."
+		quick.custom_minimum_size = Vector2(0, 46.0)
+		quick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		quick.add_theme_font_size_override("font_size", 12)
+		Kit.paint_utility_button(quick, false)
+		quick.pressed.connect(_start_quick_check)
+		actions.add_child(quick)
+		_quick_button = quick
+
+	# With the tour controls in the bar, the report buttons take a row of
+	# their own so nothing has to shrink below a tappable size on a phone.
+	var copy_parent: HBoxContainer = actions
+	if tour_available:
+		copy_parent = HBoxContainer.new()
+		copy_parent.name = "ReportBar"
+		copy_parent.add_theme_constant_override("separation", 7)
+		copy_parent.custom_minimum_size.y = 46.0 if compact else 50.0
 
 	var copy := Button.new()
 	copy.name = "CopyReportButton"
@@ -335,7 +388,7 @@ func _build_footer() -> Control:
 	copy.add_theme_font_size_override("font_size", 12)
 	Kit.paint_utility_button(copy, false)
 	copy.pressed.connect(_copy_report)
-	actions.add_child(copy)
+	copy_parent.add_child(copy)
 	_copy_button = copy
 
 	var clear := Button.new()
@@ -346,16 +399,23 @@ func _build_footer() -> Control:
 	clear.add_theme_font_size_override("font_size", 12)
 	Kit.paint_utility_button(clear, false)
 	clear.pressed.connect(_clear_history)
-	actions.add_child(clear)
+	copy_parent.add_child(clear)
 	footer.add_child(actions)
+	if copy_parent != actions:
+		footer.add_child(copy_parent)
 
 	_refresh_actions()
 	return footer
 
 func _refresh_actions() -> void:
 	if is_instance_valid(_run_button):
-		_run_button.text = "Running..." if _running else "Run benchmark"
+		_run_button.text = "Running..." if _running \
+			else ("Run course tour" if tour_available else "Run benchmark")
 		_run_button.disabled = _running
+	if is_instance_valid(_quick_button):
+		_quick_button.disabled = _running
+	if is_instance_valid(_suite_picker):
+		_suite_picker.disabled = _running
 	if is_instance_valid(_copy_button):
 		_copy_button.disabled = _running or _result.is_empty()
 	if is_instance_valid(_status_label):
@@ -412,6 +472,8 @@ func _build_desktop_body() -> Control:
 	engine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lower.add_child(engine)
 	middle.add_child(lower)
+	if _show_tour_panel():
+		middle.add_child(_build_tour_panel())
 	body.add_child(middle)
 
 	var right := VBoxContainer.new()
@@ -476,6 +538,8 @@ func _build_tablet_body(landscape: bool) -> Control:
 		history.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bottom.add_child(history)
 		column.add_child(bottom)
+		if _show_tour_panel():
+			column.add_child(_build_tour_panel())
 		column.add_child(_build_device_panel())
 	else:
 		column.add_child(_build_frame_chart_panel())
@@ -490,6 +554,8 @@ func _build_tablet_body(landscape: bool) -> Control:
 		pair.add_child(engine)
 		column.add_child(pair)
 		column.add_child(_build_scorecard_panel())
+		if _show_tour_panel():
+			column.add_child(_build_tour_panel())
 		column.add_child(_build_history_panel())
 		column.add_child(_build_device_panel())
 	return scroll
@@ -517,6 +583,8 @@ func _build_phone_body(landscape: bool) -> Control:
 		right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		right.add_child(_build_frame_chart_panel())
 		right.add_child(_build_scorecard_panel())
+		if _show_tour_panel():
+			right.add_child(_build_tour_panel())
 		right.add_child(_build_gpu_panel())
 		right.add_child(_build_history_panel())
 		right.add_child(_build_engine_panel())
@@ -534,6 +602,8 @@ func _build_phone_body(landscape: bool) -> Control:
 	column.add_child(_build_frame_chart_panel())
 	column.add_child(_build_gpu_panel())
 	column.add_child(_build_scorecard_panel())
+	if _show_tour_panel():
+		column.add_child(_build_tour_panel())
 	column.add_child(_build_history_panel())
 	column.add_child(_build_engine_panel())
 	column.add_child(_build_device_panel())
@@ -832,6 +902,128 @@ func _build_engine_panel() -> PanelContainer:
 		stack.add_child(_build_detail_row(int(row[0]), str(row[1]), str(row[2])))
 	return panel
 
+## Whether this screen has a tour to show or to offer: a finished tour in
+## the report, or a course open behind it that one could run on.
+func _show_tour_panel() -> bool:
+	return tour_available or not (_result.get("tour", {}) as Dictionary).is_empty()
+
+## The tour's scorecard-by-course: a bar per built course at its simulation
+## frame rate, then a row per course with what it was, what building it cost
+## and how its camera, simulation and editing phases ran, and the rollups
+## that compare the game's subsystems against each other.
+func _build_tour_panel() -> PanelContainer:
+	var panel := _panel("TourPanel", MenuStyle.with_alpha(Kit.COLOR_GOLD, 0.55), 13)
+	var stack := _panel_stack(panel, 7)
+	var tour: Dictionary = _result.get("tour", {})
+	var suite_name := str(tour.get("suite_name", "Course tour"))
+	var head := Kit.make_kicker("Course tour · %s" % suite_name, 11)
+	head.name = "TourTitle"
+	stack.add_child(head)
+
+	var rows := PerformanceBenchmark.tour_scenario_rows(_result)
+	if rows.is_empty():
+		var empty := Kit.make_label("No tour in this report yet. Run the course tour to watch fixed test courses being built and played - every course type, hole count, golfer field, camera move, terrain edit and game speed - then read each course's numbers here.", 11, Kit.COLOR_TEXT_QUIET)
+		empty.name = "TourEmpty"
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		stack.add_child(empty)
+		return panel
+
+	var values: Array[float] = []
+	var labels: Array[String] = []
+	for row in rows:
+		var entry: Dictionary = row
+		values.append(float(entry.get("sim_fps", 0.0)))
+		labels.append("%dh" % int(entry.get("holes", 0)))
+	var chart := BenchmarkVisuals.make_bar_chart(values, labels, "FPS", "TourScenarioChart")
+	chart.custom_minimum_size.y = _chart_height() * 0.55
+	stack.add_child(chart)
+	var chart_caption := Kit.make_label("Simulation FPS per toured course (label: holes)", 9,
+		Kit.COLOR_TEXT_QUIET)
+	stack.add_child(chart_caption)
+
+	var index := 0
+	for row in rows:
+		stack.add_child(_build_tour_row(row, index))
+		index += 1
+
+	var rollup: Dictionary = tour.get("rollup", {})
+	var generation: Dictionary = rollup.get("generation", {})
+	var editing: Dictionary = rollup.get("editing", {})
+	var totals: Dictionary = rollup.get("totals", {})
+	var lines: Array[String] = []
+	lines.append("Built %d courses in %.0f ms total (slowest %s, %.0f ms)." % [
+		int(rollup.get("scenario_count", 0)), float(generation.get("total_ms", 0.0)),
+		str(generation.get("slowest_scenario", "-")),
+		float(generation.get("slowest_ms", 0.0))])
+	var build_by_holes := PackedStringArray()
+	for group in generation.get("by_hole_count", []):
+		var entry: Dictionary = group
+		build_by_holes.append("%d holes: %.0f ms" % [int(entry.get("holes", 0)),
+			float(entry.get("average_ms", 0.0))])
+	if not build_by_holes.is_empty():
+		lines.append("Generation by size: " + " · ".join(build_by_holes))
+	var simulation: Dictionary = rollup.get("simulation", {})
+	var by_speed := PackedStringArray()
+	for group in simulation.get("by_speed", []):
+		var entry: Dictionary = group
+		by_speed.append("%s %.1f FPS (%.2f days/s)" % [
+			CourseBenchmarkScenarios.speed_name(int(entry.get("speed", 1))),
+			float(entry.get("average_fps", 0.0)),
+			float(entry.get("days_per_second", 0.0))])
+	if not by_speed.is_empty():
+		lines.append("Simulation by game speed: " + " · ".join(by_speed))
+	var edited := int(editing.get("tiles_changed", 0)) + int(editing.get("vertices_changed", 0))
+	if edited > 0:
+		lines.append("Terrain editing moved %s tiles/vertices at %.0f per second of brush work." % [
+			PerformanceBenchmark.format_integer(edited),
+			float(editing.get("tiles_per_second", 0.0))])
+	lines.append("Totals: %d holes · %d buildings · %d decorations · %s path tiles · %d golfers (%d visiting). Player's course restored: %s." % [
+		int(totals.get("holes", 0)), int(totals.get("buildings", 0)),
+		int(totals.get("decorations", 0)),
+		PerformanceBenchmark.format_integer(int(totals.get("path_tiles", 0))),
+		int(totals.get("golfers_spawned", 0)), int(totals.get("visiting_spawned", 0)),
+		"yes" if bool(tour.get("restored", false)) else "no"])
+	for line in lines:
+		var label := Kit.make_label(line, 10, Kit.COLOR_TEXT_QUIET)
+		label.name = "TourRollup"
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		stack.add_child(label)
+	return panel
+
+func _build_tour_row(row: Dictionary, index: int) -> Control:
+	var striped := index % 2 == 1
+	var fill := MenuStyle.with_alpha(Kit.COLOR_SURFACE_INSET, 0.85) if striped \
+		else MenuStyle.with_alpha(Kit.COLOR_SURFACE_RAISED, 0.6)
+	var line := Kit.make_panel(fill, MenuStyle.with_alpha(Kit.COLOR_MINT, 0.30))
+	line.name = "TourRow_%d" % index
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	line.add_child(margin)
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	text.add_child(Kit.make_semibold_label(str(row.get("name", "")), 11,
+		Kit.COLOR_TEXT_BRIGHT))
+	var detail := Kit.make_label(str(row.get("detail", "")), 9, Kit.COLOR_TEXT_QUIET)
+	detail.clip_text = true
+	detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	text.add_child(detail)
+	box.add_child(text)
+	var numbers := "build %.0f ms\nsim %.1f FPS · cam %.1f\n%s" % [
+		float(row.get("build_ms", 0.0)), float(row.get("sim_fps", 0.0)),
+		float(row.get("camera_fps", 0.0)), str(row.get("edit_text", ""))]
+	var value := Kit.make_label(numbers, 10, Kit.COLOR_TEXT_SECONDARY)
+	value.name = "TourNumbers"
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(value)
+	return line
+
 ## The golf scorecard: each metric graded Eagle to Double, with the scene load
 ## as the ungraded line at the bottom.
 func _build_scorecard_panel() -> PanelContainer:
@@ -1129,7 +1321,20 @@ func _panel_stack(panel: PanelContainer, separation: int) -> VBoxContainer:
 # RUNNING THE TEST
 # =============================================================================
 
+## The headline Run: with a course open behind the menus it starts the
+## on-screen course tour (Main closes this screen and reopens it on the
+## finished report); from the title screen it is the quick check.
 func _start_run() -> void:
+	if _running:
+		return
+	if tour_available:
+		_status_text = "Starting the course tour - watch it build. Esc cancels and restores your course."
+		_refresh_actions()
+		tour_requested.emit(_suite_id)
+		return
+	_start_quick_check()
+
+func _start_quick_check() -> void:
 	if _running or not is_instance_valid(_runner):
 		return
 	_running = true

@@ -409,6 +409,97 @@ func test_the_scorecard_grades_every_metric_and_only_reads_out_the_scene() -> vo
 	assert_string_contains(total, "72 / 100")
 	assert_string_contains(total, "Tour")
 
+## A tour record in the shape CourseBenchmarkTour writes.
+func _tour_record(name: String, holes: int, build_ms: float, sim_fps: float) -> Dictionary:
+	return {
+		"id": name.to_lower(), "name": name,
+		"description": "Parkland · Generated · %d holes · 8 golfers · Normal 1×" % holes,
+		"holes": holes, "holes_built": holes, "speed": 1,
+		"build": {"total_ms": build_ms},
+		"counts": {"buildings": 2, "decorations": 3, "path_tiles": 100,
+			"golfers_spawned": 8, "visiting_spawned": 2, "terrain_patch_tiles": 50},
+		"phases": {
+			"camera": {"average_fps": sim_fps + 10.0, "sample_count": 50},
+			"simulate": {"average_fps": sim_fps, "one_percent_low_fps": sim_fps * 0.8,
+				"process_ms_per_frame": 3.0, "days_advanced": 1.0,
+				"sample_seconds": 2.0, "sample_count": 50},
+			"edit": {"tiles_changed": 120, "vertices_changed": 30,
+				"paint_ms": 5.0, "elevation_ms": 5.0},
+		},
+	}
+
+func _tour_report() -> Dictionary:
+	var report := _report()
+	var records: Array = [
+		_tour_record("Alpha 9", 9, 400.0, 100.0),
+		_tour_record("Beta 18", 18, 900.0, 60.0),
+	]
+	report["tour"] = {"suite": "test", "suite_name": "Test tour",
+		"scenarios": records,
+		"rollup": PerformanceBenchmark.summarize_tour(records),
+		"restored": true, "cancelled": false}
+	return report
+
+func test_the_tour_panel_lists_every_course_the_tour_built() -> void:
+	PerformanceBenchmark.last_result = _tour_report()
+	for entry in SIZES:
+		var size: Vector2i = entry[0]
+		var label: String = entry[1]
+		var screen: BenchmarkResultsScreen = await _screen(size)
+		var panel := screen.find_child("TourPanel", true, false)
+		assert_not_null(panel, "%s: a tour report gets its tour panel" % label)
+		if panel == null:
+			continue
+		assert_not_null(screen.find_child("TourScenarioChart", true, false),
+			"%s: the per-course frame rates are charted" % label)
+		assert_not_null(screen.find_child("TourRow_0", true, false),
+			"%s: the first toured course has a row" % label)
+		assert_not_null(screen.find_child("TourRow_1", true, false),
+			"%s: and the second" % label)
+		var text := _labels_text(panel)
+		assert_string_contains(text, "Alpha 9", "%s: rows name the courses" % label)
+		assert_string_contains(text, "Beta 18", "%s: every one of them" % label)
+		assert_string_contains(text, "build 900 ms", "%s: build times are readable" % label)
+		assert_string_contains(text, "Generation by size", "%s: the rollups follow" % label)
+		assert_string_contains(text, "restored: yes", "%s: the restore is confirmed" % label)
+
+func test_a_quick_check_report_shows_no_tour_panel_without_a_course() -> void:
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	assert_null(screen.find_child("TourPanel", true, false),
+		"the plain GTB-2 fixture has no tour to show")
+	assert_null(screen.find_child("TourSuitePicker", true, false),
+		"and no course behind it means no suite picker")
+	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
+	assert_eq(run.text, "Run benchmark", "Run stays the quick check here")
+
+func test_with_a_course_open_run_starts_the_tour() -> void:
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+	var screen := BenchmarkResultsScreen.new()
+	screen.tour_available = true
+	add_child_autofree(screen)
+	await process_frames(2)
+	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
+	var quick := screen.find_child("QuickCheckButton", true, false) as Button
+	var picker := screen.find_child("TourSuitePicker", true, false) as OptionButton
+	assert_not_null(picker, "the suite picker shows")
+	assert_not_null(quick, "the quick check keeps its own button")
+	assert_eq(run.text, "Run course tour", "the headline run is the tour")
+	assert_not_null(screen.find_child("TourPanel", true, false),
+		"the panel invites a tour even before one is in the report")
+	var requested: Array = []
+	screen.tour_requested.connect(func(suite_id: String) -> void: requested.append(suite_id))
+	run.pressed.emit()
+	assert_eq(requested, [CourseBenchmarkScenarios.SUITE_QUICK],
+		"the quick tour is the default")
+	picker.select(1)
+	picker.item_selected.emit(1)
+	run.pressed.emit()
+	assert_eq(requested,
+		[CourseBenchmarkScenarios.SUITE_QUICK, CourseBenchmarkScenarios.SUITE_FULL],
+		"the full tour follows the picker")
+	assert_false(screen._running, "the screen itself runs nothing for a tour")
+
 func test_the_rating_shows_the_stars_the_tier_and_the_change() -> void:
 	BenchmarkHistory.append_run(_report())
 	var older := _report()
