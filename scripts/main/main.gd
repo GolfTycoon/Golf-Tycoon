@@ -458,6 +458,18 @@ func _process(_delta: float) -> void:
 	_update_mini_map_camera()
 	_update_tile_inspector()
 
+## The course hotkeys this scene dispatches. InputBindings owns their keys and
+## Settings edits them; this list keeps one scene from claiming another's.
+const COURSE_SHORTCUTS: Array[String] = [
+	"pause_menu", "simulation_pause", "quick_save", "undo", "redo", "toggle_help",
+	"financial_overview", "marketing", "tournaments", "analytics",
+	"course_milestones", "world_milestones", "achievements", "calendar",
+	"event_feed", "course_scorecard", "course_map", "routing_overlay",
+	"shot_heatmap", "shot_heatmap_mode", "fairway_width_overlay",
+	"weather_debug", "terrain_debug", "season_debug",
+	"rotate_camera", "rotate_camera_cw", "gamepad_rotate_ccw", "gamepad_rotate_cw",
+]
+
 func _input(event: InputEvent) -> void:
 	# The benchmark tour owns the keyboard while it runs: Escape cancels it
 	# (and restores the player's course); every other hotkey stands down so
@@ -469,11 +481,11 @@ func _input(event: InputEvent) -> void:
 			course_benchmark_tour.cancel()
 		get_viewport().set_input_as_handled()
 		return
-	# Controller Start (or P) is the pause shortcut on the course. While the
-	# pause menu is up it resumes, matching Escape; other screens keep their
-	# own back handling and ignore it.
-	if event.is_action_pressed("pause_menu") and not event.is_echo():
-		# P is also a pause key, so a focused text field keeps its letter.
+	# Controller Start (or its keyboard binding, P by default) opens the pause
+	# menu on the course. While the pause menu is up it resumes, matching
+	# Escape; other screens keep their own back handling and ignore it.
+	if InputBindings.matches(event, "pause_menu"):
+		# Its key is also a letter, so a focused text field keeps it.
 		var focused := get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
@@ -492,13 +504,14 @@ func _input(event: InputEvent) -> void:
 		_focus_gameplay_hud()
 		get_viewport().set_input_as_handled()
 		return
-	# Controller X/Y rotate the course view whenever the course owns input.
+	# Controller X/Y (or whatever they are rebound to) rotate the course view
+	# whenever the course owns input.
 	if _gameplay_input_active():
-		if event.is_action_pressed("gamepad_rotate_ccw"):
+		if InputBindings.matches(event, "gamepad_rotate_ccw"):
 			_on_view_rotate_ccw()
 			get_viewport().set_input_as_handled()
 			return
-		if event.is_action_pressed("gamepad_rotate_cw"):
+		if InputBindings.matches(event, "gamepad_rotate_cw"):
 			_on_view_rotate_cw()
 			get_viewport().set_input_as_handled()
 			return
@@ -539,13 +552,18 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
+		# The binding registry answers "which action did this key or button
+		# fire?" with its modifiers compared exactly, so a rebound key behaves
+		# like the default one and Ctrl+S never counts as a plain S.
+		var action := InputBindings.action_for_event(event, COURSE_SHORTCUTS)
+
 		# The full-screen dashboard owns gameplay hotkeys while open. Keep its
 		# finance and marketing shortcuts useful as close / page-switch actions.
 		if financial_panel and financial_panel.visible:
-			if event.keycode == KEY_M:
+			if action == "marketing":
 				financial_panel.select_section(FinancialOverviewScreen.Section.MARKETING)
 				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_F:
+			elif action == "financial_overview":
 				_toggle_panel(financial_panel)
 				get_viewport().set_input_as_handled()
 			return
@@ -562,16 +580,17 @@ func _input(event: InputEvent) -> void:
 		var focused = get_viewport().gui_get_focus_owner()
 		var text_input_focused = focused is LineEdit or focused is TextEdit
 
-		# F1 help works in any mode (including main menu)
-		if event.keycode == KEY_F1:
+		# The help sheet and the debug panels work from any mode and even
+		# while a screen owns the keyboard.
+		if action == "toggle_help":
 			_toggle_hotkey_panel()
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_F2:
+		if action == "weather_debug":
 			_toggle_weather_debug_panel()
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_F4:
+		if action == "season_debug":
 			_toggle_season_debug_panel()
 			get_viewport().set_input_as_handled()
 			return
@@ -581,94 +600,69 @@ func _input(event: InputEvent) -> void:
 		if has_node("/root/InputManager") and InputManager.has_visible_scope():
 			return
 
-		if event.is_command_or_control_pressed():
-			if event.keycode == KEY_S:
+		if action.is_empty():
+			return
+		# Letters stay letters in a text field; modified shortcuts (quick save,
+		# undo, redo) still work while typing.
+		if text_input_focused and not (event.ctrl_pressed or event.meta_pressed or event.alt_pressed):
+			return
+
+		match action:
+			"quick_save":
 				SaveManager.save_game("quicksave")
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_Z and not event.shift_pressed:
+			"undo":
 				_perform_undo()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_Z and event.shift_pressed:
+			"redo":
 				_perform_redo()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_Y:
-				_perform_redo()
-				get_viewport().set_input_as_handled()
-		elif not text_input_focused:
-			# Only process single-key hotkeys when not typing in a text field
-			if event.keycode == KEY_F and not event.shift_pressed:
+			"financial_overview":
 				_toggle_financial_overview()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_U:
+			"tournaments":
 				_toggle_tournament_panel()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_M and event.shift_pressed:
+			"course_map":
 				_toggle_course_map()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_M:
+			"marketing":
 				_toggle_marketing_panel()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_Z:
+			"analytics":
 				_toggle_analytics_panel()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_G and event.shift_pressed:
+			"world_milestones":
 				_toggle_world_milestones_screen()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_G:
+			"course_milestones":
 				_toggle_course_milestones_screen()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_T and event.shift_pressed:
+			"achievements":
 				_toggle_achievements_screen()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_C:
+			"calendar":
 				_toggle_seasonal_calendar()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_F3:
+			"terrain_debug":
 				_toggle_terrain_debug_overlay()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_N:
+			"event_feed":
 				_toggle_event_feed()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_K:
+			"course_scorecard":
 				_toggle_course_scorecard()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_R and event.shift_pressed:
+			"routing_overlay":
 				if routing_overlay:
 					routing_overlay.toggle()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_V:
-				if event.shift_pressed:
-					if terrain_grid.is_shot_heatmap_enabled():
-						terrain_grid.cycle_shot_heatmap_mode()
-				else:
-					terrain_grid.toggle_shot_heatmap()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_J:
-				terrain_grid.toggle_fairway_width_overlay()
-				HoleVisualizer.carry_annotations_visible = not HoleVisualizer.carry_annotations_visible
-				for vis in hole_manager.get_all_hole_visualizers():
-					vis._update_carry_annotations()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_Q:
-				# Rotate the course view.
-				if event.shift_pressed:
-					_on_view_rotate_cw()
-				else:
-					_on_view_rotate_ccw()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_SPACE:
+			"shot_heatmap_mode":
+				if terrain_grid.is_shot_heatmap_enabled():
+					terrain_grid.cycle_shot_heatmap_mode()
+			"shot_heatmap":
+				terrain_grid.toggle_shot_heatmap()
+			"fairway_width_overlay":
+				_toggle_fairway_width_overlay()
+			"rotate_camera":
+				_on_view_rotate_ccw()
+			"rotate_camera_cw":
+				_on_view_rotate_cw()
+			"simulation_pause":
 				# With a HUD control focused, Space activates it (ui_accept)
 				# instead of pausing.
 				if get_viewport().gui_get_focus_owner() != null:
 					return
-				# Space = pause/play toggle
-				if GameManager.current_mode == GameManager.GameMode.SIMULATING:
-					if GameManager.current_speed == GameManager.GameSpeed.PAUSED:
-						GameManager.set_speed(GameManager.GameSpeed.NORMAL)
-					else:
-						GameManager.set_speed(GameManager.GameSpeed.PAUSED)
-					_update_button_states()
-					get_viewport().set_input_as_handled()
+				if GameManager.current_mode != GameManager.GameMode.SIMULATING:
+					return
+				_toggle_simulation_pause()
+			_:
+				return
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Nothing paints, places or measures on a course the benchmark tour is
@@ -2171,6 +2165,16 @@ func _refresh_hole_layout_ui() -> void:
 
 func _on_speed_selected(speed: int) -> void:
 	GameManager.set_speed(speed)
+
+## Space (or its rebinding) pauses and resumes the clock while the course is
+## simulating. The key is only dispatched in SIMULATING mode (see _input), so
+## this helper has one job.
+func _toggle_simulation_pause() -> void:
+	if GameManager.current_speed == GameManager.GameSpeed.PAUSED:
+		GameManager.set_speed(GameManager.GameSpeed.NORMAL)
+	else:
+		GameManager.set_speed(GameManager.GameSpeed.PAUSED)
+	_update_button_states()
 
 func _on_fast_forward_pressed() -> void:
 	"""The single fast-forward button swaps between Fast (3x) and Ultra (8x)."""
@@ -4009,6 +4013,14 @@ func _toggle_terrain_debug_overlay() -> void:
 	"""Toggle the terrain debug overlay (F3)."""
 	if terrain_grid:
 		terrain_grid.toggle_debug_overlay()
+
+## J (or its rebinding): the fairway width overlay and the carry annotations
+## travel together.
+func _toggle_fairway_width_overlay() -> void:
+	terrain_grid.toggle_fairway_width_overlay()
+	HoleVisualizer.carry_annotations_visible = not HoleVisualizer.carry_annotations_visible
+	for vis in hole_manager.get_all_hole_visualizers():
+		vis._update_carry_annotations()
 
 func _on_parcel_purchased(parcel: Vector2i) -> void:
 	"""Generate premium terrain features when a premium/elite parcel is purchased."""

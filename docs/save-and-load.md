@@ -12,7 +12,7 @@
 | File | Path | Contents |
 | --- | --- | --- |
 | Saves | `user://saves/` | One JSON file per save slot |
-| Settings | `user://settings.cfg` | Display, audio and gameplay settings, the tutorial flag, and the achievement unlocks that stay with the player between saves |
+| Settings | `user://settings.cfg` | Display, audio, gameplay and rebindable control settings, the tutorial flag, and the achievement unlocks that stay with the player between saves |
 | Autosave | `user://saves/autosave` | Written automatically |
 
 `user://` is Godot's per-user data folder. Its location depends on your operating system.

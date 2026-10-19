@@ -1,6 +1,6 @@
 # Architecture
 
-> How Golf Tycoon is put together: a Godot 4.6 project in GDScript, one main scene, thirteen autoload singletons, and systems that talk to each other through signals on `EventBus`.
+> How Golf Tycoon is put together: a Godot 4.6 project in GDScript, one main scene, fifteen autoload singletons, and systems that talk to each other through signals on `EventBus`.
 
 **Source:** `project.godot` (autoloads, input map), `scenes/main/main.tscn` (scene tree), `scripts/main/main.gd` (game controller), `scripts/autoload/event_bus.gd` (signal hub)
 
@@ -22,7 +22,7 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 
 | Folder | Contents | Files |
 | --- | --- | --- |
-| `scripts/autoload/` | Global singletons | 11 |
+| `scripts/autoload/` | Global singletons | 13 |
 | `scripts/systems/` | Stateless rules and calculators | 37 |
 | `scripts/managers/` | Owners of live groups (golfers, land, staff, weeds, tournaments) | 14 |
 | `scripts/entities/` | Scene objects: golfers, balls, buildings, staff | 10 |
@@ -49,11 +49,13 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 | Name | Script | Role |
 | --- | --- | --- |
 | `Screen` | `scripts/autoload/screen_manager.gd` | Responsive layout: window size, panel rectangles, compact mode |
+| `InputManager` | `scripts/autoload/input_manager.gd` | Device tracking, focus scopes and keyboard/gamepad navigation |
 | `TouchInput` | `scripts/autoload/touch_input.gd` | Turns touch gestures into clicks, pans and pinch zoom |
 | `GameManager` | `scripts/autoload/game_manager.gd` | Money, reputation, day and time, game mode, speed, economy rules |
 | `EventBus` | `scripts/autoload/event_bus.gd` | Signal hub for all cross-system events |
 | `WorldMap` | `scripts/autoload/world_map_state.gd` | Company world: owned locations, unlocked land, active site |
 | `SaveManager` | `scripts/autoload/save_manager.gd` | Saves and loads the game (see [Save & Load](save-and-load.md)) |
+| `InputBindings` | `scripts/autoload/input_bindings.gd` | Rebindable course controls, their defaults and saved overrides |
 | `FeedbackManager` | `scripts/autoload/feedback_manager.gd` | Daily golfer satisfaction and feedback totals |
 | `ShadowSystem` | `scripts/systems/shadow_system.gd` | Shared shadow direction and intensity |
 | `UIConstants` | `scripts/autoload/ui_constants.gd` | Shared sizes, spacing and colours |

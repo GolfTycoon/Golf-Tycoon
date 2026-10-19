@@ -2,6 +2,9 @@ extends CenteredPanel
 class_name HotkeyPanel
 ## HotkeyPanel - Shows all keyboard shortcuts grouped by category
 
+## Keycap labels for rebindable actions, keyed by InputBindings action id.
+var _binding_labels: Dictionary = {}
+
 ## Escape, controller B or a right-click closes the help sheet. It is opened by
 ## F1 from any screen, so it has no owner to hand a close_requested to.
 func _unhandled_input(event: InputEvent) -> void:
@@ -11,7 +14,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _build_ui() -> void:
-	custom_minimum_size = Vector2(480, 520)
+	_binding_labels.clear()
+	custom_minimum_size = Vector2(520, 540)
 
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -32,10 +36,11 @@ func _build_ui() -> void:
 	main_vbox.add_child(title)
 
 	var subtitle = Label.new()
-	subtitle.text = "Every screen works with a mouse, keyboard, controller or touch. F1 toggles this panel."
+	subtitle.text = "Every screen works with a mouse, keyboard, controller or touch. Rebind the course controls in Settings → Controls; F1 toggles this panel."
 	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	main_vbox.add_child(subtitle)
 
 	main_vbox.add_child(HSeparator.new())
@@ -51,119 +56,56 @@ func _build_ui() -> void:
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
 
-	# Two-column layout using GridContainer per section
-	_add_section(vbox, "Terrain Tools", [
-		["1", "Fairway"],
-		["2", "Rough"],
-		["3", "Green"],
-		["4", "Tee Box"],
-		["5", "Bunker"],
-		["6", "Water"],
-		["7", "Out of Bounds"],
-		["8", "Path (Improvements tab)"],
-		["9", "Firm Fairway"],
-		["0", "Waste Bunker"],
-		["Shift+2", "Deep Rough"],
-		["Shift+5", "Pot Bunker"],
-		["Shift+6", "Stream"],
-		["Shift+7", "Rocks"],
-		["Shift+9", "Small Boulders"],
-		["Shift+0", "Large Boulders"],
-		["Shift+8", "Brush"],
-		["Shift+F", "Wild Flowers"],
-	])
+	# Every rebindable action, grouped exactly as Settings groups them. The
+	# labels are kept so a rebind refreshes them without rebuilding the panel.
+	if not InputBindings.bindings_changed.is_connected(_on_binding_changed):
+		InputBindings.bindings_changed.connect(_on_binding_changed)
+	if not InputBindings.bindings_reset.is_connected(_on_bindings_reset):
+		InputBindings.bindings_reset.connect(_on_bindings_reset)
+	for group in InputBindings.groups():
+		_add_binding_section(vbox, str(group.get("id", "")), str(group.get("title", "")))
 
-	_add_section(vbox, "Objects & Placement", [
-		["T", "Trees"],
-		["B", "Buildings"],
-		["O", "Decorations (Improvements tab)"],
-		["H", "Open Hole"],
-		["X", "Bulldozer (improvements & buildings)"],
-	])
-
-	_add_section(vbox, "Toolbar Tabs", [
-		["=", "Course Terrain tab"],
-		[".", "Improvements tab"],
-		["E", "Elevation tab"],
-		["P", "Staff tab"],
-	])
-
-	_add_section(vbox, "Elevation", [
-		["V", "Vertex selector"],
-		["+", "Flat Square selector"],
-		["-", "Gradual Square selector"],
-		["Right Click", "Raise with the selected tool"],
-		["Left Click", "Lower with the selected tool"],
-	])
-
-	_add_section(vbox, "Management Panels", [
-		["F", "Finances"],
-		["U", "Tournaments"],
-		["M", "Marketing"],
-		["Z", "Analytics"],
-		["G", "Course Milestones"],
-		["Shift+G", "World Milestones"],
-		["Shift+T", "Achievements"],
-		["C", "Calendar"],
-		["N", "Event Feed"],
-		["Shift+R", "Routing overlay"],
-		["Shift+M", "Course Map"],
-	])
-
-	_add_section(vbox, "Camera & View", [
-		["WASD", "Pan camera"],
-		["Middle Mouse Drag", "Pan camera"],
-		["Scroll / [ ]", "Zoom in/out"],
-		["While paused", "Camera can still pan & zoom"],
-		["Q", "Rotate course counter-clockwise"],
-		["Shift+Q", "Rotate course clockwise"],
-		["Tab", "Toggle minimap"],
-		["Shift+Tab", "Focus the bottom-left controls"],
-		["V", "Shot heatmap"],
-		["Shift+V", "Cycle heatmap mode"],
-		["J", "Fairway width + carry overlay"],
-		["F3", "Debug overlay"],
-	])
-
-	_add_section(vbox, "General", [
-		["Space", "Pause / Resume"],
-		["Ctrl+S", "Quick save"],
-		["Ctrl+Z", "Undo"],
-		["Ctrl+Shift+Z", "Redo"],
-		["Esc", "Cancel / Deselect tool"],
-		["Enter", "Click at the keyboard pointer"],
-		["Arrows", "Move the keyboard pointer"],
-		["F1", "This help panel"],
-		["F2", "Weather debug"],
-		["F4", "Season debug"],
-	])
-
-	_add_section(vbox, "Menus & Screens", [
+	# Controls that are part of the input language rather than a course action:
+	# menus, the pointer, touch and the Course Map's own keys.
+	_add_section(vbox, "Fixed - Menus & Navigation", [
 		["Arrows / D-pad", "Move focus"],
 		["Enter / A", "Select the focused control"],
 		["Esc / B", "Back, cancel or close"],
 		["Tab / LB, RB", "Next or previous control"],
-		["Start", "Pause menu on the course"],
-		["View / Back, LB / RB", "Focus the bottom-left controls"],
+		["Right stick", "Move the pointer on a screen"],
+		["Left stick", "Focus navigation, or pan the course"],
 	])
 
-	_add_section(vbox, "Gamepad (on the course)", [
-		["Left Stick", "Pan the camera"],
-		["Right Stick", "Move the pointer (also on screens)"],
-		["A", "Click at the pointer"],
-		["B", "Cancel / deselect"],
-		["X / Y", "Rotate course counter-clockwise / clockwise"],
-		["LT / RT", "Zoom out / in"],
-		["Start", "Pause / resume"],
-	])
-
-	_add_section(vbox, "Touch", [
+	_add_section(vbox, "Fixed - Mouse & Touch", [
+		["Left click", "Select, paint or place"],
+		["Right click", "Cancel, or raise terrain"],
+		["Middle drag", "Pan the camera"],
+		["Wheel / pinch", "Zoom in and out"],
 		["Tap", "Select or place"],
-		["One-finger drag", "Pan, paint or scroll a list"],
+		["One-finger drag", "Pan, paint or scroll"],
 		["Two-finger drag", "Pan and pinch to zoom"],
 		["Two-finger tap", "Cancel or close"],
-		["Drag a slider", "Set its value"],
 	])
+
+	_add_section(vbox, "Fixed - Course Map", [
+		["1 to 4", "Land, Routing, Aura and Staff modes"],
+		["F", "Frame the whole course"],
+		["+ / -", "Zoom the map"],
+		["Esc", "Back out one step"],
+	])
+
+	_add_section(vbox, "Fixed - On the Course", [
+		["Tab", "Toggle the minimap"],
+		["Ctrl + click drag", "Measure a distance"],
+		["Right / left click", "Raise / lower terrain with an elevation tool"],
+	])
+
+	var note = Label.new()
+	note.text = "Keycaps show the binding you have now. Change them in Settings → Controls; the game's menu keys stay fixed."
+	note.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	note.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(note)
 
 	# Close button
 	main_vbox.add_child(HSeparator.new())
@@ -173,7 +115,32 @@ func _build_ui() -> void:
 	close_btn.pressed.connect(func(): hide())
 	main_vbox.add_child(close_btn)
 
-func _add_section(parent: VBoxContainer, section_name: String, shortcuts: Array) -> void:
+## The current keycap text for one action, in the panel.
+func _binding_label(action: String) -> String:
+	return InputBindings.binding_text(action)
+
+func _add_binding_section(parent: VBoxContainer, group_id: String, group_title: String) -> void:
+	var actions := InputBindings.actions_in_group(group_id)
+	if actions.is_empty():
+		return
+	var rows: Array = []
+	for action in actions:
+		rows.append([_binding_label(action), InputBindings.action_label(action), action])
+	_add_section(parent, group_title, rows, true)
+
+func _on_binding_changed(action: String) -> void:
+	var label := _binding_labels.get(action) as Label
+	if is_instance_valid(label):
+		label.text = _binding_label(action)
+
+func _on_bindings_reset() -> void:
+	for action in _binding_labels:
+		var label := _binding_labels[action] as Label
+		if is_instance_valid(label):
+			label.text = _binding_label(str(action))
+
+func _add_section(parent: VBoxContainer, section_name: String, shortcuts: Array,
+		bindable: bool = false) -> void:
 	var header = Label.new()
 	header.text = section_name
 	header.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
@@ -182,22 +149,28 @@ func _add_section(parent: VBoxContainer, section_name: String, shortcuts: Array)
 
 	var grid = GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 2)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(grid)
 
 	for shortcut in shortcuts:
 		var key_label = Label.new()
 		key_label.text = shortcut[0]
-		key_label.custom_minimum_size = Vector2(110, 0)
-		key_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+		key_label.custom_minimum_size = Vector2(150 if bindable else 125, 0)
+		key_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM if bindable else UIConstants.FONT_SIZE_BASE)
 		key_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		key_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		grid.add_child(key_label)
+		if bindable and shortcut.size() > 2:
+			_binding_labels[str(shortcut[2])] = key_label
 
 		var desc_label = Label.new()
 		desc_label.text = shortcut[1]
+		desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		desc_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 		desc_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		grid.add_child(desc_label)
 
 	# Small spacer after section

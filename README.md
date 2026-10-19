@@ -80,6 +80,8 @@ To start a game, choose **Quick Start** on the main menu, or **Start New Game** 
 
 Every screen works with a mouse, a keyboard, both together, a gamepad or a touchscreen. Menus and panels use focus: arrows or the D-pad move, `Enter`/`A` selects, `Esc`/`B` goes back, and `Tab`/`LB`/`RB` steps through controls. On the course a keyboard or controller moves an on-screen pointer, so painting, placing and aiming need no mouse.
 
+**Every course control can be rebound.** Open **Settings → Controls**, click a keycap and press the key or controller button you want. A key already in use is taken from the other action (and swapped when that leaves it with nothing), `Backspace` unbinds, and each row's ↺ or **Reset All Controls** puts the defaults back. Bindings apply immediately, are saved to `user://settings.cfg` and show up in the `F1` shortcut sheet. Menu navigation (`Esc`, `Tab`, `Enter`, the arrows and `A`/`B`) stays fixed.
+
 | Action | Keys, mouse and gamepad |
 | --- | --- |
 | Pan the camera | `W` `A` `S` `D`, middle-mouse drag, or the left stick |

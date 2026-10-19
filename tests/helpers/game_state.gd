@@ -6,8 +6,9 @@ extends RefCounted
 ## pauses, the locations its company buys — would still be there for every test
 ## that runs after it. capture() records every field of both (arrays and
 ## dictionaries are copied, so changes made to them in place are undone too),
-## the seasons switch and the engine's time scale, and restore() puts them all
-## back. An object the test freed meanwhile is put back as null.
+## the seasons switch, the engine's time scale and the player's key bindings,
+## and restore() puts them all back. An object the test freed meanwhile is put
+## back as null.
 ##
 ## Used by GameTest around every unit test, and by MainSceneTest around each
 ## integration script.
@@ -22,6 +23,7 @@ static func capture() -> Dictionary:
 		"world_map": _fields_of(WorldMap, []),
 		"seasons_disabled": SeasonSystem.disabled,
 		"time_scale": Engine.time_scale,
+		"input_bindings": InputBindings.capture_state(),
 	}
 
 static func restore(state: Dictionary) -> void:
@@ -29,6 +31,9 @@ static func restore(state: Dictionary) -> void:
 	_put_back(GameManager, state.get("game_manager", {}))
 	SeasonSystem.disabled = state.get("seasons_disabled", false)
 	Engine.time_scale = state.get("time_scale", 1.0)
+	var bindings: Variant = state.get("input_bindings", {})
+	if bindings is Dictionary:
+		InputBindings.restore_state(bindings)
 
 ## Every script variable of `node` but the `skipped` ones, by name.
 static func _fields_of(node: Node, skipped: Array[String]) -> Dictionary:

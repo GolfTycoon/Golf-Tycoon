@@ -126,7 +126,7 @@ func handle_input_event(event: InputEvent, bypass_ui_hover_check: bool = false) 
 		var pinch_direction := -1.0 if GameManager.invert_zoom_scroll else 1.0
 		_zoom_camera_smooth((1.0 - event.factor) * pinch_zoom_speed * pinch_direction)
 
-	# Keyboard zoom hotkeys: ] to zoom in, [ to zoom out
+	# Keyboard zoom hotkeys (rebindable in Settings; ] and [ by default).
 	if event is InputEventKey and event.pressed:
 		# Don't process any gameplay hotkeys while in main menu
 		if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
@@ -135,9 +135,9 @@ func handle_input_event(event: InputEvent, bypass_ui_hover_check: bool = false) 
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
-		if event.keycode == KEY_BRACKETRIGHT:
+		if InputBindings.matches(event, "camera_zoom_in"):
 			_zoom_camera_smooth(zoom_speed * 2)
-		elif event.keycode == KEY_BRACKETLEFT:
+		elif InputBindings.matches(event, "camera_zoom_out"):
 			_zoom_camera_smooth(-zoom_speed * 2)
 
 func _handle_keyboard_input(delta: float) -> void:
