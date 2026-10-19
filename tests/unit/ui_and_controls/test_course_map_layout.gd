@@ -36,32 +36,32 @@ func _resize(holder: Control, view: Vector2) -> void:
 # ---------------------------------------------------------------------------
 
 func test_desktop_windows_get_the_tab_bar_and_a_side_panel() -> void:
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1600, 1000)), CourseMapScreen.LayoutMode.DESKTOP)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1280, 800)), CourseMapScreen.LayoutMode.DESKTOP)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1920, 1080)), CourseMapScreen.LayoutMode.DESKTOP)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1600, 1000)), MenuScreenKit.LayoutMode.DESKTOP)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1280, 800)), MenuScreenKit.LayoutMode.DESKTOP)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1920, 1080)), MenuScreenKit.LayoutMode.DESKTOP)
 
 
 func test_tablet_orientation_chooses_between_the_rail_and_the_sheet() -> void:
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1024, 768)), CourseMapScreen.LayoutMode.TABLET_LANDSCAPE)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(768, 1024)), CourseMapScreen.LayoutMode.TABLET_PORTRAIT)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(700, 900)), CourseMapScreen.LayoutMode.TABLET_PORTRAIT)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1024, 768)), MenuScreenKit.LayoutMode.TABLET_LANDSCAPE)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(768, 1024)), MenuScreenKit.LayoutMode.TABLET_PORTRAIT)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(700, 900)), MenuScreenKit.LayoutMode.TABLET_PORTRAIT)
 
 
 func test_phone_landscape_gets_the_compact_rail_and_sheet() -> void:
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(844, 390)), CourseMapScreen.LayoutMode.PHONE_LANDSCAPE)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(640, 360)), CourseMapScreen.LayoutMode.PHONE_LANDSCAPE)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1920, 500)), CourseMapScreen.LayoutMode.PHONE_LANDSCAPE)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(844, 390)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(640, 360)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1920, 500)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
 
 
 func test_phone_portrait_gets_the_bottom_sheet() -> void:
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(390, 844)), CourseMapScreen.LayoutMode.PHONE_PORTRAIT)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(320, 568)), CourseMapScreen.LayoutMode.PHONE_PORTRAIT)
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(600, 900)), CourseMapScreen.LayoutMode.PHONE_PORTRAIT)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(390, 844)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(320, 568)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(600, 900)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT)
 
 
 func test_a_short_window_never_gets_the_desktop_composition() -> void:
-	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1200, 650)), CourseMapScreen.LayoutMode.TABLET_LANDSCAPE)
-	assert_ne(CourseMapScreen.layout_mode_for(Vector2(1600, 600)), CourseMapScreen.LayoutMode.DESKTOP)
+	assert_eq(CourseMapScreen.layout_mode_for(Vector2(1200, 650)), MenuScreenKit.LayoutMode.TABLET_LANDSCAPE)
+	assert_ne(CourseMapScreen.layout_mode_for(Vector2(1600, 600)), MenuScreenKit.LayoutMode.DESKTOP)
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ func test_a_short_window_never_gets_the_desktop_composition() -> void:
 
 func test_the_desktop_screen_shows_the_tabs_the_map_and_the_panel_beside_it() -> void:
 	var screen := await _screen_at(Vector2(1600, 1000))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.DESKTOP)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.DESKTOP)
 	assert_null(screen._rail_stack, "the modes are tabs across the top, not a rail")
 	assert_not_null(screen._tab_row)
 	assert_eq(screen._tab_buttons.size(), CourseMapScreen.MODES.size(), "one tab per mode")
@@ -165,7 +165,7 @@ func test_the_legend_is_about_the_mode_the_map_is_in() -> void:
 
 func test_the_tablet_landscape_puts_the_modes_on_a_rail_and_can_fold_the_panel() -> void:
 	var screen := await _screen_at(Vector2(1024, 768))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.TABLET_LANDSCAPE)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.TABLET_LANDSCAPE)
 	assert_null(screen._tab_row, "the modes are on a rail, not in the top bar")
 	assert_not_null(screen._rail_stack)
 	assert_eq(screen._rail_stack.get_child_count(), CourseMapScreen.MODES.size())
@@ -182,7 +182,7 @@ func test_the_tablet_landscape_puts_the_modes_on_a_rail_and_can_fold_the_panel()
 
 func test_the_tablet_portrait_stacks_the_panel_under_the_map() -> void:
 	var screen := await _screen_at(Vector2(768, 1024))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.TABLET_PORTRAIT)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.TABLET_PORTRAIT)
 	assert_not_null(screen._tab_row, "a portrait tablet keeps the tabs")
 	assert_null(screen._rail_stack)
 	assert_null(screen._sheet, "the sheet is for phones; the tablet stacks its panel")
@@ -193,7 +193,7 @@ func test_the_tablet_portrait_stacks_the_panel_under_the_map() -> void:
 
 func test_the_phone_landscape_slides_the_panel_in_over_the_map() -> void:
 	var screen := await _screen_at(Vector2(844, 390))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.PHONE_LANDSCAPE)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
 	assert_not_null(screen._rail_stack, "height is what a landscape phone has least of")
 	assert_not_null(screen._sheet)
 	assert_false(screen._sheet.visible, "the panel starts out of the way")
@@ -210,7 +210,7 @@ func test_the_phone_landscape_slides_the_panel_in_over_the_map() -> void:
 
 func test_the_phone_portrait_keeps_the_strip_in_view_while_the_sheet_peeks() -> void:
 	var screen := await _screen_at(Vector2(390, 844))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.PHONE_PORTRAIT)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.PHONE_PORTRAIT)
 	assert_not_null(screen._tab_row)
 	assert_not_null(screen._sheet)
 	assert_true(screen._sheet.visible, "the handle peeks along the bottom edge")
@@ -241,11 +241,11 @@ func test_resizing_the_window_keeps_the_map_and_the_panels() -> void:
 	# A tablet portrait, then a phone on its side, then back: every shape the
 	# screen knows, and the panels are carried through all of them.
 	await _resize(holder, Vector2(768, 1024))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.TABLET_PORTRAIT, "the window reshaped the map")
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.TABLET_PORTRAIT, "the window reshaped the map")
 	await _resize(holder, Vector2(900, 420))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.PHONE_LANDSCAPE)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
 	await _resize(holder, Vector2(1600, 1000))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.DESKTOP)
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.DESKTOP)
 
 	assert_true(is_instance_valid(map), "the map survived every reshape")
 	assert_eq(screen.map, map, "and it is the same control, so the view is unchanged")

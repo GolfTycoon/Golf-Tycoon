@@ -1,5 +1,6 @@
 extends Control
 class_name SaveLoadPanel
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## Responsive save desk and course archive.
 ##
 ## The Save and Load flows share the same archive, but each has its own clear
@@ -11,12 +12,11 @@ signal panel_closed
 signal quit_to_menu_requested
 
 enum ScreenMode { SAVE, LOAD }
-enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
 
-const DESKTOP_MIN_WIDTH := 1180.0
-const DESKTOP_MIN_HEIGHT := 700.0
-const TABLET_MIN_WIDTH := 700.0
-const TABLET_MIN_HEIGHT := 620.0
+const DESKTOP_MIN_WIDTH := MenuScreenKit.DESKTOP_MIN_WIDTH
+const DESKTOP_MIN_HEIGHT := MenuScreenKit.DESKTOP_MIN_HEIGHT
+const TABLET_MIN_WIDTH := MenuScreenKit.TABLET_MIN_WIDTH
+const TABLET_MIN_HEIGHT := MenuScreenKit.TABLET_MIN_HEIGHT
 const MAX_SAVE_NAME_LENGTH := 40
 
 const COLOR_SURFACE := MenuStyle.SHEET_BG
@@ -36,7 +36,7 @@ var allow_save: bool = true
 var camera: IsometricCamera = null
 
 var _mode: int = ScreenMode.LOAD
-var _layout_mode: int = LayoutMode.PHONE
+var _layout_mode: int = Kit.LayoutMode.PHONE_PORTRAIT
 var _built_size := Vector2.ZERO
 var _selected_save_name := ""
 var _draft_name := ""
@@ -48,7 +48,6 @@ var _save_count_label: Label
 var _load_detail_host: VBoxContainer
 var _confirmation_overlay: Control
 var _header_title: Label
-var _header_subtitle: Label
 
 func _ready() -> void:
 	name = "SaveLoadPanel"
@@ -73,13 +72,7 @@ func _exit_tree() -> void:
 ## Pure layout decision, kept public so phone, tablet and desktop breakpoints
 ## can be checked without constructing a window.
 static func layout_mode_for(view: Vector2) -> int:
-	if view.x >= DESKTOP_MIN_WIDTH and view.y >= DESKTOP_MIN_HEIGHT and view.x > view.y:
-		return LayoutMode.DESKTOP
-	if view.x >= TABLET_MIN_WIDTH and view.y >= TABLET_MIN_HEIGHT:
-		return LayoutMode.TABLET
-	if view.x > view.y and view.y < TABLET_MIN_HEIGHT:
-		return LayoutMode.LANDSCAPE
-	return LayoutMode.PHONE
+	return Kit.layout_mode_for(view)
 
 ## Remove filesystem-sensitive characters while keeping ordinary spaces,
 ## punctuation and non-English course names. A blank result is rejected by the
@@ -128,7 +121,6 @@ func _build() -> void:
 	_save_count_label = null
 	_load_detail_host = null
 	_header_title = null
-	_header_subtitle = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -160,77 +152,27 @@ func _build() -> void:
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return int(clampf(minf(view.x, view.y) * 0.026, 22.0, 38.0))
-		LayoutMode.TABLET:
+		Kit.LayoutMode.TABLET_LANDSCAPE:
 			return int(clampf(minf(view.x, view.y) * 0.023, 14.0, 26.0))
-		LayoutMode.LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 6
 		_:
 			return int(clampf(view.x * 0.030, 9.0, 16.0))
 
 func _page_gap(mode: int) -> int:
 	match mode:
-		LayoutMode.DESKTOP: return 13
-		LayoutMode.TABLET: return 10
-		LayoutMode.LANDSCAPE: return 5
+		Kit.LayoutMode.DESKTOP: return 13
+		Kit.LayoutMode.TABLET_LANDSCAPE: return 10
+		Kit.LayoutMode.PHONE_LANDSCAPE: return 5
 		_: return 8
 
 func _build_header(mode: int) -> Control:
-	var compact := mode == LayoutMode.LANDSCAPE or mode == LayoutMode.PHONE
-	var header := HBoxContainer.new()
-	header.name = "ArchiveHeader"
-	header.custom_minimum_size.y = (44.0 if mode == LayoutMode.LANDSCAPE else 52.0) if compact else 74.0
-	header.add_theme_constant_override("separation", 10 if not compact else 6)
-
-	var back := Button.new()
-	back.name = "BackButton"
-	back.text = "‹ Back" if not compact else "‹"
-	back.tooltip_text = "Return to the previous screen"
-	back.custom_minimum_size = Vector2(86.0 if not compact else 46.0, 40.0 if mode == LayoutMode.LANDSCAPE else 44.0)
-	back.add_theme_font_size_override("font_size", 14 if not compact else 18)
-	_paint_secondary_button(back, false)
-	back.pressed.connect(_on_back_pressed)
-	header.add_child(back)
-
-	var mark := MenuFlagMark.new()
-	mark.name = "GolfMark"
-	mark.mark_size = 46.0 if mode == LayoutMode.DESKTOP else (38.0 if mode == LayoutMode.TABLET else (30.0 if mode == LayoutMode.PHONE else 26.0))
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(mark)
-
-	var title_box := VBoxContainer.new()
-	title_box.name = "TitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	title_box.add_theme_constant_override("separation", 0)
-	var kicker := _label("THE CLUBHOUSE ARCHIVE", 10 if compact else 11, COLOR_GOLD)
-	kicker.name = "Kicker"
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 8)
-	_header_title = _label("", 20 if compact else 28, COLOR_TEXT)
-	_header_title.name = "Title"
-	title_row.add_child(_header_title)
-	title_box.add_child(kicker)
-	title_box.add_child(title_row)
-	# The compact arrangements have no room for the subtitle, so it is only
-	# built where it is shown: a label left out of the tree is never freed.
-	if not compact:
-		_header_subtitle = _label("A little care now makes it easy to pick up the perfect round later.",
-			13, COLOR_MUTED)
-		_header_subtitle.name = "Subtitle"
-		title_box.add_child(_header_subtitle)
-	header.add_child(title_box)
-
-	var close := Button.new()
-	close.name = "CloseButton"
-	close.text = "×"
-	close.tooltip_text = "Close archive"
-	close.custom_minimum_size = Vector2(46, 40 if mode == LayoutMode.LANDSCAPE else 46)
-	close.add_theme_font_size_override("font_size", 23)
-	_paint_secondary_button(close, false)
-	close.pressed.connect(_on_back_pressed)
-	header.add_child(close)
+	var header := Kit.make_screen_header(mode, "Load a course", "The clubhouse archive",
+		"A little care now makes it easy to pick up the perfect round later.",
+		_on_back_pressed)
+	_header_title = header.find_child("Title", true, false) as Label
 	_update_header_copy()
 	return header
 
@@ -246,15 +188,15 @@ func _build_mode_switch(mode: int) -> Control:
 	var bar := HBoxContainer.new()
 	bar.name = "ArchiveModeSwitch"
 	bar.add_theme_constant_override("separation", 6)
-	bar.custom_minimum_size.y = 40.0 if mode == LayoutMode.LANDSCAPE else 46.0
-	var surface_pad := 3 if mode == LayoutMode.LANDSCAPE else 5
+	bar.custom_minimum_size.y = 40.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46.0
+	var surface_pad := 3 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 5
 	if not allow_save:
 		var load_only := PanelContainer.new()
 		load_only.name = "LoadOnlyLabel"
 		load_only.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		load_only.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
 			MenuStyle.with_alpha(COLOR_GOLD, 0.30), MenuStyle.CARD_RADIUS, 12, 5, 1))
-		var label := _label("LOAD A SAVED COURSE", 11 if mode == LayoutMode.PHONE else 12, COLOR_GOLD)
+		var label := Kit.make_label("LOAD A SAVED COURSE", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12, COLOR_GOLD)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		load_only.add_child(label)
@@ -279,8 +221,8 @@ func _build_mode_switch(mode: int) -> Control:
 		button.tooltip_text = str(entry[2])
 		button.toggle_mode = true
 		button.button_pressed = _mode == target_mode
-		button.custom_minimum_size = Vector2(150 if mode == LayoutMode.DESKTOP else 128, 36 if mode == LayoutMode.LANDSCAPE else 40)
-		button.add_theme_font_size_override("font_size", 12 if mode == LayoutMode.PHONE else 13)
+		button.custom_minimum_size = Vector2(150 if mode == Kit.LayoutMode.DESKTOP else 128, 36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 40)
+		button.add_theme_font_size_override("font_size", 12 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 13)
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		MenuStyle.paint_choice(button, COLOR_MINT, 8)
 		button.add_theme_color_override("font_color", COLOR_MUTED)
@@ -296,7 +238,7 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 	if split:
 		body = HBoxContainer.new()
 		body.name = "SplitWorkspace"
-		body.add_theme_constant_override("separation", 12 if mode == LayoutMode.DESKTOP else 8)
+		body.add_theme_constant_override("separation", 12 if mode == Kit.LayoutMode.DESKTOP else 8)
 	else:
 		body = VBoxContainer.new()
 		body.name = "StackedWorkspace"
@@ -313,7 +255,7 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 
 	if split:
 		focus.custom_minimum_size.x = _focus_width(mode, view)
-		focus.size_flags_stretch_ratio = 0.88 if mode == LayoutMode.LANDSCAPE else 0.92
+		focus.size_flags_stretch_ratio = 0.88 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 0.92
 		archive.size_flags_stretch_ratio = 1.38
 		body.add_child(focus)
 		body.add_child(archive)
@@ -324,33 +266,33 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 	return body
 
 func _uses_split_workspace(mode: int, view: Vector2) -> bool:
-	if mode == LayoutMode.DESKTOP or mode == LayoutMode.LANDSCAPE:
+	if mode == Kit.LayoutMode.DESKTOP or mode == Kit.LayoutMode.PHONE_LANDSCAPE:
 		return true
-	return mode == LayoutMode.TABLET and view.x > view.y
+	return Kit.is_tablet(mode) and view.x > view.y
 
 func _focus_width(mode: int, view: Vector2) -> float:
-	if mode == LayoutMode.LANDSCAPE:
+	if mode == Kit.LayoutMode.PHONE_LANDSCAPE:
 		return clampf(view.x * 0.39, 275.0, 350.0)
-	if mode == LayoutMode.TABLET:
+	if Kit.is_tablet(mode):
 		return clampf(view.x * 0.40, 320.0, 420.0)
 	return clampf(view.x * 0.34, 370.0, 500.0)
 
 func _focus_height(mode: int, view: Vector2) -> float:
-	if mode == LayoutMode.TABLET:
+	if Kit.is_tablet(mode):
 		return clampf(view.y * 0.31, 205.0, 286.0)
 	return clampf(view.y * 0.31, 184.0, 250.0)
 
 func _build_focus_card(mode: int, view: Vector2) -> PanelContainer:
-	var panel := _make_card(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_GOLD, 0.30), MenuStyle.CARD_RADIUS + 2)
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_GOLD, 0.30))
 	panel.name = "SaveWorkspace" if _mode == ScreenMode.SAVE else "LoadDossier"
 	var margin := MarginContainer.new()
-	var pad := 18 if mode == LayoutMode.DESKTOP else (14 if mode == LayoutMode.TABLET else 11)
+	var pad := 18 if mode == Kit.LayoutMode.DESKTOP else (14 if Kit.is_tablet(mode) else 11)
 	_set_margins(margin, pad)
 	panel.add_child(margin)
 	var content := VBoxContainer.new()
 	content.name = "FocusContent"
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 6 if mode == LayoutMode.LANDSCAPE else 11)
+	content.add_theme_constant_override("separation", 6 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 11)
 	margin.add_child(content)
 
 	if _mode == ScreenMode.SAVE:
@@ -361,14 +303,14 @@ func _build_focus_card(mode: int, view: Vector2) -> PanelContainer:
 	return panel
 
 func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
-	var compact := mode == LayoutMode.LANDSCAPE or mode == LayoutMode.PHONE
-	content.add_child(_label("SAVE A CHECKPOINT", 10 if compact else 11, COLOR_GOLD))
-	var heading := _label("Keep this course in the books.", 19 if mode == LayoutMode.DESKTOP else 16, COLOR_TEXT)
+	var compact := Kit.is_phone(mode)
+	content.add_child(Kit.make_label("SAVE A CHECKPOINT", 10 if compact else 11, COLOR_GOLD))
+	var heading := Kit.make_label("Keep this course in the books.", 19 if mode == Kit.LayoutMode.DESKTOP else 16, COLOR_TEXT)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	heading.visible = mode != LayoutMode.LANDSCAPE
+	heading.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	content.add_child(heading)
 
-	var course_card := _make_card(COLOR_RAISED, MenuStyle.with_alpha(COLOR_MINT, 0.20), 9)
+	var course_card := Kit.make_panel(COLOR_RAISED, MenuStyle.with_alpha(COLOR_MINT, 0.20))
 	course_card.name = "LiveCourseSummary"
 	var summary_margin := MarginContainer.new()
 	_set_margins(summary_margin, 9 if compact else 12)
@@ -377,17 +319,17 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	course_row.add_theme_constant_override("separation", 9)
 	summary_margin.add_child(course_row)
 	var mark := MenuFlagMark.new()
-	mark.mark_size = (26 if mode == LayoutMode.LANDSCAPE else 30) if compact else 38
+	mark.mark_size = (26 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 30) if compact else 38
 	course_row.add_child(mark)
 	var course_info := VBoxContainer.new()
 	course_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	course_info.alignment = BoxContainer.ALIGNMENT_CENTER
 	course_info.add_theme_constant_override("separation", 1)
-	var course_name := _label(GameManager.course_name, 13 if compact else 15, COLOR_TEXT)
+	var course_name := Kit.make_label(GameManager.course_name, 13 if compact else 15, COLOR_TEXT)
 	course_name.clip_text = true
 	course_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	course_info.add_child(course_name)
-	var day_info := _label("DAY %02d  ·  %s" % [GameManager.current_day, _format_money(GameManager.money)], 10 if compact else 11, COLOR_MUTED)
+	var day_info := Kit.make_label("DAY %02d  ·  %s" % [GameManager.current_day, _format_money(GameManager.money)], 10 if compact else 11, COLOR_MUTED)
 	day_info.clip_text = true
 	course_info.add_child(day_info)
 	course_row.add_child(course_info)
@@ -395,7 +337,7 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 
 	var name_row := VBoxContainer.new()
 	name_row.add_theme_constant_override("separation", 4)
-	var name_label := _label("SAVE SLOT NAME", 9 if compact else 10, COLOR_QUIET)
+	var name_label := Kit.make_label("SAVE SLOT NAME", 9 if compact else 10, COLOR_QUIET)
 	name_row.add_child(name_label)
 	_save_name_input = LineEdit.new()
 	_save_name_input.name = "SaveNameInput"
@@ -403,27 +345,26 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	_save_name_input.text = _draft_name
 	_save_name_input.max_length = MAX_SAVE_NAME_LENGTH + 12
 	_save_name_input.clear_button_enabled = true
-	_save_name_input.custom_minimum_size.y = (38 if mode == LayoutMode.LANDSCAPE else 42) if compact else 46
+	_save_name_input.custom_minimum_size.y = (38 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 42) if compact else 46
 	_save_name_input.add_theme_font_size_override("font_size", 13 if compact else 14)
 	_save_name_input.add_theme_color_override("font_color", COLOR_TEXT)
 	_save_name_input.add_theme_color_override("font_placeholder_color", COLOR_QUIET)
-	_save_name_input.add_theme_stylebox_override("normal", _field_style(COLOR_INSET, COLOR_BORDER))
-	_save_name_input.add_theme_stylebox_override("focus", _field_style(COLOR_INSET, COLOR_GOLD))
+	PixelButtonStyle.paint_field(_save_name_input, MenuStyle.with_alpha(COLOR_GOLD, 0.6), COLOR_INSET, 8)
 	_save_name_input.text_submitted.connect(func(_submitted: String): _on_save_pressed())
 	_save_name_input.text_changed.connect(func(value: String): _draft_name = value)
 	name_row.add_child(_save_name_input)
 	content.add_child(name_row)
 
-	_save_status_label = _label("Stored on this device · changes are never uploaded.", 10, COLOR_QUIET)
+	_save_status_label = Kit.make_label("Stored on this device · changes are never uploaded.", 10, COLOR_QUIET)
 	_save_status_label.name = "SaveStatus"
 	_save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_save_status_label.visible = mode != LayoutMode.LANDSCAPE
+	_save_status_label.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	content.add_child(_save_status_label)
 
 	var save_button := Button.new()
 	save_button.name = "SaveCheckpointButton"
 	save_button.text = "Save checkpoint  ›"
-	save_button.custom_minimum_size.y = (40 if mode == LayoutMode.LANDSCAPE else 46) if compact else 52
+	save_button.custom_minimum_size.y = (40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46) if compact else 52
 	save_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	save_button.add_theme_font_size_override("font_size", 14 if compact else 16)
 	MenuStyle.paint_primary(save_button, 10)
@@ -434,14 +375,13 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	save_button.pressed.connect(_on_save_pressed)
 	content.add_child(save_button)
 
-
 func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) -> void:
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
-	var compact := mode == LayoutMode.LANDSCAPE or mode == LayoutMode.PHONE
+	var compact := Kit.is_phone(mode)
 	var selected := _find_save(_selected_save_name)
-	content.add_child(_label("SELECTED CLUBHOUSE", 10 if compact else 11, COLOR_GOLD))
+	content.add_child(Kit.make_label("SELECTED CLUBHOUSE", 10 if compact else 11, COLOR_GOLD))
 	if selected.is_empty():
 		content.add_child(_build_empty_dossier(compact))
 		return
@@ -449,18 +389,18 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 10)
 	var mark := MenuFlagMark.new()
-	mark.mark_size = (36 if mode == LayoutMode.LANDSCAPE else 44) if compact else 58
+	mark.mark_size = (36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 44) if compact else 58
 	title_row.add_child(mark)
 	var title_box := VBoxContainer.new()
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	title_box.add_theme_constant_override("separation", 2)
-	var slot_name := _label(str(selected.get("name", "Unknown save")), 15 if compact else 19, COLOR_TEXT)
+	var slot_name := Kit.make_label(str(selected.get("name", "Unknown save")), 15 if compact else 19, COLOR_TEXT)
 	slot_name.name = "SelectedSaveName"
 	slot_name.clip_text = true
 	slot_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_box.add_child(slot_name)
-	var course := _label(str(selected.get("course_name", "Unknown course")), 11 if compact else 13, COLOR_MUTED)
+	var course := Kit.make_label(str(selected.get("course_name", "Unknown course")), 11 if compact else 13, COLOR_MUTED)
 	course.name = "SelectedCourseName"
 	course.clip_text = true
 	course.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -475,13 +415,13 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 		stats.add_child(_build_stat_tile(str(stat[0]), str(stat[1]), compact, mode))
 	content.add_child(stats)
 
-	var timestamp := _label("LAST PLAYED  ·  %s" % _format_timestamp(str(selected.get("timestamp", ""))), 9 if compact else 10, COLOR_QUIET)
+	var timestamp := Kit.make_label("LAST PLAYED  ·  %s" % _format_timestamp(str(selected.get("timestamp", ""))), 9 if compact else 10, COLOR_QUIET)
 	timestamp.name = "SelectedSaveTimestamp"
 	timestamp.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	timestamp.visible = mode != LayoutMode.LANDSCAPE
+	timestamp.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	content.add_child(timestamp)
 
-	if mode != LayoutMode.LANDSCAPE:
+	if mode != Kit.LayoutMode.PHONE_LANDSCAPE:
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		spacer.custom_minimum_size.y = 2
@@ -490,7 +430,7 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 	var load_button := Button.new()
 	load_button.name = "LoadSelectedButton"
 	load_button.text = "Load this course  ›"
-	load_button.custom_minimum_size.y = 40 if mode == LayoutMode.LANDSCAPE else (46 if compact else 52)
+	load_button.custom_minimum_size.y = 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (46 if compact else 52)
 	load_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	load_button.add_theme_font_size_override("font_size", 14 if compact else 16)
 	MenuStyle.paint_primary(load_button, 10)
@@ -505,10 +445,10 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 	delete_button.name = "DeleteSelectedButton"
 	delete_button.text = "Delete this save"
 	delete_button.custom_minimum_size.y = 40
-	delete_button.visible = mode != LayoutMode.LANDSCAPE
+	delete_button.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	delete_button.add_theme_font_size_override("font_size", 12)
-	_paint_secondary_button(delete_button, true)
+	Kit.paint_danger_button(delete_button)
 	delete_button.pressed.connect(_on_delete_selected_pressed)
 	content.add_child(delete_button)
 	if view.x < 390:
@@ -524,30 +464,30 @@ func _build_empty_dossier(compact: bool) -> Control:
 	mark.mark_size = 42 if compact else 58
 	mark.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	empty.add_child(mark)
-	var title := _label("No saved courses yet", 15, COLOR_TEXT)
+	var title := Kit.make_label("No saved courses yet", 15, COLOR_TEXT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	empty.add_child(title)
-	var copy := _label("Create a checkpoint from the Save screen and it will appear here.", 11, COLOR_MUTED)
+	var copy := Kit.make_label("Create a checkpoint from the Save screen and it will appear here.", 11, COLOR_MUTED)
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	empty.add_child(copy)
 	return empty
 
 func _build_stat_tile(caption: String, value: String, compact: bool, mode: int) -> PanelContainer:
-	var tile := _make_card(COLOR_RAISED, MenuStyle.with_alpha(COLOR_BORDER, 0.30), 8)
+	var tile := Kit.make_panel(COLOR_RAISED, MenuStyle.with_alpha(COLOR_BORDER, 0.30))
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var margin := MarginContainer.new()
-	_set_margins(margin, (5 if mode == LayoutMode.LANDSCAPE else 8) if compact else 10)
+	_set_margins(margin, (5 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 8) if compact else 10)
 	tile.add_child(margin)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 2)
 	margin.add_child(stack)
-	var value_label := _label(value, 13 if compact else 16, COLOR_GOLD)
+	var value_label := Kit.make_label(value, 13 if compact else 16, COLOR_GOLD)
 	value_label.name = "Value"
 	value_label.clip_text = true
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(value_label)
-	var caption_label := _label(caption, 8 if compact else 9, COLOR_QUIET)
+	var caption_label := Kit.make_label(caption, 8 if compact else 9, COLOR_QUIET)
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(caption_label)
 	return tile
@@ -563,15 +503,15 @@ func _save_stats(save_info: Dictionary) -> Array:
 	]
 
 func _build_archive_card(mode: int) -> PanelContainer:
-	var panel := _make_card(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_BORDER, 0.42), MenuStyle.CARD_RADIUS + 2)
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_BORDER, 0.42))
 	panel.name = "SaveArchive"
 	var margin := MarginContainer.new()
-	_set_margins(margin, 16 if mode == LayoutMode.DESKTOP else (12 if mode == LayoutMode.TABLET else 9))
+	_set_margins(margin, 16 if mode == Kit.LayoutMode.DESKTOP else (12 if Kit.is_tablet(mode) else 9))
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 8 if mode == LayoutMode.LANDSCAPE else 11)
+	stack.add_theme_constant_override("separation", 8 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 11)
 	margin.add_child(stack)
 
 	var heading_row := HBoxContainer.new()
@@ -579,12 +519,12 @@ func _build_archive_card(mode: int) -> PanelContainer:
 	var heading_box := VBoxContainer.new()
 	heading_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_box.add_theme_constant_override("separation", 1)
-	heading_box.add_child(_label("YOUR CLUBHOUSE LIBRARY", 10 if mode == LayoutMode.PHONE else 11, COLOR_GOLD))
-	var title := _label("Saved courses", 17 if mode == LayoutMode.PHONE else 20, COLOR_TEXT)
+	heading_box.add_child(Kit.make_label("YOUR CLUBHOUSE LIBRARY", 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_GOLD))
+	var title := Kit.make_label("Saved courses", 17 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 20, COLOR_TEXT)
 	title.name = "ArchiveTitle"
 	heading_box.add_child(title)
 	heading_row.add_child(heading_box)
-	_save_count_label = _label("", 10, COLOR_MUTED)
+	_save_count_label = Kit.make_label("", 10, COLOR_MUTED)
 	_save_count_label.name = "SaveCount"
 	_save_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_save_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -603,7 +543,7 @@ func _build_archive_card(mode: int) -> PanelContainer:
 	_save_list_container = VBoxContainer.new()
 	_save_list_container.name = "SaveList"
 	_save_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_save_list_container.add_theme_constant_override("separation", 7 if mode == LayoutMode.LANDSCAPE else 9)
+	_save_list_container.add_theme_constant_override("separation", 7 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 9)
 	list_scroll.add_child(_save_list_container)
 	_render_save_rows(mode)
 	return panel
@@ -628,17 +568,17 @@ func _build_empty_archive(mode: int) -> Control:
 	var box := PanelContainer.new()
 	box.name = "EmptyArchive"
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.custom_minimum_size.y = 144 if mode == LayoutMode.DESKTOP else 112
+	box.custom_minimum_size.y = 144 if mode == Kit.LayoutMode.DESKTOP else 112
 	box.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
 		MenuStyle.with_alpha(COLOR_BORDER, 0.24), 12, 14, 12, 1))
 	var content := VBoxContainer.new()
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.add_theme_constant_override("separation", 5)
 	box.add_child(content)
-	var title := _label("The first page is still blank.", 14, COLOR_TEXT)
+	var title := Kit.make_label("The first page is still blank.", 14, COLOR_TEXT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(title)
-	var detail := _label("Save a course to keep your clubhouse ready for another day.", 11, COLOR_MUTED)
+	var detail := Kit.make_label("Save a course to keep your clubhouse ready for another day.", 11, COLOR_MUTED)
 	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(detail)
@@ -646,7 +586,7 @@ func _build_empty_archive(mode: int) -> Control:
 
 func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	var save_name := str(save_info.get("name", "Unknown save"))
-	var compact := mode == LayoutMode.PHONE or mode == LayoutMode.LANDSCAPE
+	var compact := Kit.is_phone(mode)
 	var selected := save_name == _selected_save_name
 	var row := Button.new()
 	row.name = "SaveRow_%s" % save_name.validate_node_name()
@@ -654,7 +594,7 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	row.toggle_mode = true
 	row.button_pressed = selected
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.custom_minimum_size.y = 64 if mode == LayoutMode.LANDSCAPE else (70 if compact else 82)
+	row.custom_minimum_size.y = 64 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (70 if compact else 82)
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.tooltip_text = "Select %s" % save_name
 	MenuStyle.paint_choice(row, COLOR_MINT, 10)
@@ -679,7 +619,7 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	text_box.add_theme_constant_override("separation", 2)
-	var name_label := _label(save_name, 13 if compact else 15, COLOR_TEXT)
+	var name_label := Kit.make_label(save_name, 13 if compact else 15, COLOR_TEXT)
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text_box.add_child(name_label)
@@ -688,14 +628,14 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 		int(save_info.get("day", 0)),
 		_format_timestamp(str(save_info.get("timestamp", ""))),
 	]
-	var info_label := _label(detail_text, 9 if compact else 10, COLOR_MUTED)
+	var info_label := Kit.make_label(detail_text, 9 if compact else 10, COLOR_MUTED)
 	info_label.clip_text = true
 	info_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text_box.add_child(info_label)
 	content.add_child(text_box)
 
 	var badge_text := "AUTO" if save_name.to_lower() == "autosave" else ("CURRENT" if save_name == SaveManager.current_save_name else "SELECT")
-	var badge := _label(badge_text, 8 if compact else 9, COLOR_GOLD if selected or badge_text == "AUTO" else COLOR_QUIET)
+	var badge := Kit.make_label(badge_text, 8 if compact else 9, COLOR_GOLD if selected or badge_text == "AUTO" else COLOR_QUIET)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	badge.custom_minimum_size.x = 43 if compact else 52
@@ -706,30 +646,30 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 func _build_footer(mode: int) -> Control:
 	var footer := HBoxContainer.new()
 	footer.name = "ArchiveFooter"
-	footer.custom_minimum_size.y = 40 if mode == LayoutMode.LANDSCAPE else 46
+	footer.custom_minimum_size.y = 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46
 	footer.add_theme_constant_override("separation", 8)
-	var note := _label("LOCAL SAVE  ·  %d COURSE%s" % [_saves.size(), "" if _saves.size() == 1 else "S"], 10, COLOR_QUIET)
+	var note := Kit.make_label("LOCAL SAVE  ·  %d COURSE%s" % [_saves.size(), "" if _saves.size() == 1 else "S"], 10, COLOR_QUIET)
 	note.name = "ArchiveFooterNote"
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == LayoutMode.DESKTOP or mode == LayoutMode.TABLET
+	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
 	footer.add_child(note)
 	if allow_save:
 		var quit := Button.new()
 		quit.name = "QuitToMenuButton"
 		quit.text = "Quit to menu"
-		quit.custom_minimum_size = Vector2(130 if mode != LayoutMode.PHONE else 0, 40)
+		quit.custom_minimum_size = Vector2(130 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 40)
 		quit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		quit.add_theme_font_size_override("font_size", 11)
-		_paint_secondary_button(quit, true)
+		Kit.paint_danger_button(quit)
 		quit.pressed.connect(_on_quit_to_menu_pressed)
 		footer.add_child(quit)
 	var back := Button.new()
 	back.name = "FooterBackButton"
 	back.text = "Back to course" if allow_save else "Back"
-	back.custom_minimum_size = Vector2(142 if mode != LayoutMode.PHONE else 0, 42)
-	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == LayoutMode.PHONE else Control.SIZE_SHRINK_END
+	back.custom_minimum_size = Vector2(142 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 42)
+	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
 	back.add_theme_font_size_override("font_size", 12)
 	MenuStyle.paint_primary(back, 9)
 	back.add_theme_color_override("font_color", MenuStyle.INK)
@@ -871,10 +811,10 @@ func _show_confirmation(title_text: String, message_text: String, confirm_text: 
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 12)
 	panel.add_child(content)
-	var title := _label(title_text, 19, accent)
+	var title := Kit.make_label(title_text, 19, accent)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(title)
-	var message := _label(message_text, 13, COLOR_MUTED)
+	var message := Kit.make_label(message_text, 13, COLOR_MUTED)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	message.custom_minimum_size.x = panel.custom_minimum_size.x - 44.0
@@ -886,7 +826,7 @@ func _show_confirmation(title_text: String, message_text: String, confirm_text: 
 	cancel.text = "Keep it"
 	cancel.custom_minimum_size = Vector2(0, 44)
 	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_paint_secondary_button(cancel, false)
+	Kit.paint_utility_button(cancel, false)
 	cancel.pressed.connect(func(): _close_confirmation())
 	buttons.add_child(cancel)
 	var confirm := Button.new()
@@ -894,7 +834,7 @@ func _show_confirmation(title_text: String, message_text: String, confirm_text: 
 	confirm.custom_minimum_size = Vector2(0, 44)
 	confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if dangerous:
-		_paint_secondary_button(confirm, true)
+		Kit.paint_danger_button(confirm)
 	else:
 		MenuStyle.paint_primary(confirm, 9)
 		confirm.add_theme_color_override("font_color", MenuStyle.INK)
@@ -1021,27 +961,3 @@ func _is_interactive_control(control: Control) -> bool:
 func _set_margins(container: MarginContainer, margin: int) -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		container.add_theme_constant_override("margin_" + side, margin)
-
-func _make_card(bg: Color, border: Color, radius: int) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", MenuStyle.panel(bg, border, radius, 0, 0, 1))
-	return panel
-
-func _field_style(bg: Color, border: Color) -> StyleBoxFlat:
-	return MenuStyle.panel(bg, border, 1, 8, 5, 1)
-
-func _label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-func _paint_secondary_button(button: Button, danger: bool) -> void:
-	var accent := UIConstants.COLOR_DANGER if danger else COLOR_MINT
-	MenuStyle.paint_card(button, accent, 0.0, 8, COLOR_TEXT, COLOR_TEXT)
-	button.add_theme_color_override("font_color", COLOR_TEXT)
-	button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-	button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND

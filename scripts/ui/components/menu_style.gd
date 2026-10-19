@@ -48,71 +48,30 @@ static func flat(bg: Color, border: Color, border_width: int, radius: int,
 static func with_alpha(color: Color, alpha: float) -> Color:
 	return Color(color.r, color.g, color.b, alpha)
 
-## Paint a card button: dark translucent panel, accent border, a hover that
-## lights the border up, and content margins that keep the button's own label
-## clear of a caption strip along the bottom edge.
+## Paint a card button. Every menu card is the notched pixel frame of
+## PixelButtonStyle (the title screen's recipe), so the screens share one look.
+## `caption_block` reserves a strip under the label; `pad` is the content margin.
 static func paint_card(button: Button, accent: Color, caption_block: float, pad: int,
 		text_color: Color, hover_color: Color) -> void:
-	var bottom := pad + int(caption_block)
-	var styles := {
-		"normal": flat(CARD_BG, with_alpha(accent, 0.42), 1, CARD_RADIUS, pad, pad, bottom),
-		"hover": flat(CARD_BG_HOVER, accent, 2, CARD_RADIUS, pad - 1, pad - 1, bottom - 1),
-		"pressed": flat(CARD_BG_PRESSED, accent, 2, CARD_RADIUS, pad - 1, pad - 1, bottom - 1),
-		"focus": flat(Color(0, 0, 0, 0), with_alpha(accent, 0.75), 2, CARD_RADIUS, pad, pad, bottom),
-		"disabled": flat(CARD_BG_DISABLED, with_alpha(accent, 0.18), 1, CARD_RADIUS, pad, pad, bottom),
-	}
-	var font_colors := {
-		"normal": text_color,
-		"hover": hover_color,
-		"pressed": text_color,
-		"focus": hover_color,
-		"disabled": UIConstants.COLOR_TEXT_MUTED,
-	}
-	for state in styles:
-		button.add_theme_stylebox_override(state, styles[state])
-		# "normal" is the Button theme's plain `font_color`.
-		button.add_theme_color_override("font_color" if state == "normal" else "font_%s_color" % state,
-			font_colors[state])
+	PixelButtonStyle.paint_card(button, accent, caption_block, pad, text_color, hover_color)
 
-## Paint a selectable (toggle) card. Unselected it is an ordinary card; the
-## selected one fills with a wash of its accent and carries a full-strength
-## border, so the choice reads at a glance even without colour (the border
-## weight changes too).
-static func paint_choice(button: Button, accent: Color, radius: int = CARD_RADIUS) -> void:
-	var selected_bg := CARD_BG.lerp(Color(accent.r, accent.g, accent.b, 0.95), 0.15)
-	var selected_hover := CARD_BG_HOVER.lerp(Color(accent.r, accent.g, accent.b, 0.95), 0.20)
-	var styles := {
-		"normal": flat(CARD_BG, with_alpha(accent, 0.30), 1, radius, 0, 0, 0),
-		"hover": flat(CARD_BG_HOVER, with_alpha(accent, 0.85), 1, radius, 0, 0, 0),
-		"pressed": flat(selected_bg, accent, 2, radius, 0, 0, 0),
-		"hover_pressed": flat(selected_hover, accent, 2, radius, 0, 0, 0),
-		"focus": flat(Color(0, 0, 0, 0), with_alpha(UIConstants.COLOR_TEXT, 0.55), 2, radius + 2, 0, 0, 0),
-		"disabled": flat(CARD_BG_DISABLED, with_alpha(accent, 0.15), 1, radius, 0, 0, 0),
-	}
-	# The focus ring sits just outside the card so it never hides the border
-	# that marks the selection.
-	(styles["focus"] as StyleBoxFlat).set_expand_margin_all(3.0)
-	for state in styles:
-		button.add_theme_stylebox_override(state, styles[state])
+## Paint a selectable (toggle) card: a quiet pixel frame that sinks and lights
+## its trim when selected. `radius` is kept for the existing call sites; the
+## pixel frame has no corner radius.
+static func paint_choice(button: Button, accent: Color, _radius: int = CARD_RADIUS) -> void:
+	PixelButtonStyle.paint_choice(button, accent)
 
-## Paint the screen's one solid call to action: a gold fill with dark ink.
-static func paint_primary(button: Button, radius: int = CARD_RADIUS) -> void:
-	var gold := ACCENT_PRIMARY
-	var styles := {
-		"normal": flat(gold, gold.lightened(0.25), 1, radius, 0, 0, 0),
-		"hover": flat(gold.lightened(0.12), Color(1, 1, 1, 0.85), 2, radius, 0, 0, 0),
-		"pressed": flat(gold.darkened(0.12), gold.darkened(0.3), 2, radius, 0, 0, 0),
-		"focus": flat(Color(0, 0, 0, 0), with_alpha(UIConstants.COLOR_TEXT, 0.8), 2, radius + 3, 0, 0, 0),
-		"disabled": flat(with_alpha(gold, 0.35), with_alpha(gold, 0.2), 1, radius, 0, 0, 0),
-	}
-	(styles["focus"] as StyleBoxFlat).set_expand_margin_all(4.0)
-	for state in styles:
-		button.add_theme_stylebox_override(state, styles[state])
+## Paint the screen's one solid call to action: the gold pixel slab with dark
+## ink type. `_radius` is kept for the existing call sites.
+static func paint_primary(button: Button, _radius: int = CARD_RADIUS) -> void:
+	PixelButtonStyle.paint_primary(button)
 
-## A rounded panel (cards, rails, insets) with its own padding.
-static func panel(bg: Color, border: Color, radius: int, pad_x: int, pad_y: int,
-		border_width: int = 1) -> StyleBoxFlat:
-	return flat(bg, border, border_width, radius, pad_x, pad_y, pad_y)
+## A panel frame (cards, rails, insets): the notched pixel frame with its own
+## padding. `radius` and `border_width` are kept for the existing call sites;
+## the pixel frame has one fixed trim weight and no corner radius.
+static func panel(bg: Color, border: Color, _radius: int, pad_x: int, pad_y: int,
+		_border_width: int = 1) -> StyleBox:
+	return PixelButtonStyle.panel_style(border, bg, pad_x, pad_y)
 
 ## Height of `lines` lines of text at `font_size` in the game's font, including
 ## Label's line spacing between them. Lets builders size cards up front

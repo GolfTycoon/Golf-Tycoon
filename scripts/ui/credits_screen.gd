@@ -1,6 +1,12 @@
 extends Control
 class_name CreditsScreen
-## CreditsScreen - Simple credits/about screen for the main menu
+## CreditsScreen - the credits and about dialog.
+##
+## A small modal over a dimmed backdrop, dressed in the same shared chrome as
+## every other menu: the notched pixel panel (MenuScreenKit.make_panel), the
+## bold title face, gold kicker captions and the utility Close card.
+
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
 signal close_requested
 
@@ -8,7 +14,6 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_ui()
-
 	if has_node("/root/InputManager"):
 		InputManager.register_scope(self)
 
@@ -25,53 +30,37 @@ func _build_ui() -> void:
 	add_child(center)
 
 	# Panel
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.12, 0.1, 0.95)
-	style.border_color = UIConstants.COLOR_PRIMARY
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 30
-	style.content_margin_right = 30
-	style.content_margin_top = 24
-	style.content_margin_bottom = 24
-	panel.add_theme_stylebox_override("panel", style)
+	var panel := Kit.make_panel(Kit.COLOR_SURFACE, Kit.COLOR_BORDER_SOFT)
 	panel.custom_minimum_size = Vector2(420, 0)
 	center.add_child(panel)
 
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 24)
+	panel.add_child(margin)
+
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
-	panel.add_child(vbox)
+	margin.add_child(vbox)
 
 	# Title
-	var title := Label.new()
-	title.text = "Golf Tycoon"
-	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
-	title.add_theme_color_override("font_color", Color(0.85, 0.95, 0.75))
+	var title := Kit.make_title_label("Golf Tycoon", 30)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	# Version
-	var version := Label.new()
-	version.text = "v0.4.5"
-	version.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	version.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	var version := Kit.make_label("v0.4.5", 13, Kit.COLOR_TEXT_SECONDARY)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(version)
-
 	vbox.add_child(HSeparator.new())
 
 	# Credits entries
 	_add_credit_section(vbox, "Engine", ["Godot 4.6 (MIT License)"])
 	_add_credit_section(vbox, "License", ["GPL-3.0 - Open Source"])
-
 	vbox.add_child(HSeparator.new())
 
 	# Description
-	var desc := Label.new()
-	desc.text = "Design courses, manage operations, and host tournaments."
-	desc.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	desc.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	var desc := Kit.make_label("Design courses, manage operations, and host tournaments.", 13, Kit.COLOR_TEXT_SECONDARY)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	vbox.add_child(desc)
@@ -82,27 +71,24 @@ func _build_ui() -> void:
 	vbox.add_child(spacer)
 
 	var close_btn := Button.new()
+	close_btn.name = "CloseButton"
 	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(200, 36)
-	close_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
+	close_btn.custom_minimum_size = Vector2(200, 40)
+	close_btn.add_theme_font_size_override("font_size", 15)
+	Kit.paint_utility_button(close_btn, false)
 	close_btn.pressed.connect(_on_close)
+
 	var btn_center := CenterContainer.new()
 	btn_center.add_child(close_btn)
 	vbox.add_child(btn_center)
 
 func _add_credit_section(parent: VBoxContainer, header_text: String, names: Array) -> void:
-	var header := Label.new()
-	header.text = header_text
-	header.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	header.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	var header := Kit.make_kicker(header_text, 12)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	parent.add_child(header)
 
 	for entry in names:
-		var name_label := Label.new()
-		name_label.text = entry
-		name_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-		name_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
+		var name_label := Kit.make_label(str(entry), 15, Kit.COLOR_TEXT_BRIGHT)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		parent.add_child(name_label)
 
@@ -118,4 +104,3 @@ func _input(event: InputEvent) -> void:
 
 func _on_close() -> void:
 	close_requested.emit()
-	queue_free()

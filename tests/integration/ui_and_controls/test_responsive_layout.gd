@@ -96,11 +96,11 @@ func test_tablets_and_desktops_scale_the_world_with_the_window() -> void:
 func test_financial_overview_fills_the_viewport_and_reflows_at_every_shape() -> void:
 	var panel: FinancialPanel = main.financial_panel
 	var cases: Array = [
-		{"size": Vector2i(1600, 1000), "mode": FinancialOverviewScreen.LayoutMode.DESKTOP},
-		{"size": Vector2i(1024, 768), "mode": FinancialOverviewScreen.LayoutMode.TABLET_LANDSCAPE},
-		{"size": Vector2i(768, 1024), "mode": FinancialOverviewScreen.LayoutMode.TABLET_PORTRAIT},
-		{"size": Vector2i(844, 390), "mode": FinancialOverviewScreen.LayoutMode.PHONE_LANDSCAPE},
-		{"size": Vector2i(390, 844), "mode": FinancialOverviewScreen.LayoutMode.PHONE_PORTRAIT},
+		{"size": Vector2i(1600, 1000), "mode": MenuScreenKit.LayoutMode.DESKTOP},
+		{"size": Vector2i(1024, 768), "mode": MenuScreenKit.LayoutMode.TABLET_LANDSCAPE},
+		{"size": Vector2i(768, 1024), "mode": MenuScreenKit.LayoutMode.TABLET_PORTRAIT},
+		{"size": Vector2i(844, 390), "mode": MenuScreenKit.LayoutMode.PHONE_LANDSCAPE},
+		{"size": Vector2i(390, 844), "mode": MenuScreenKit.LayoutMode.PHONE_PORTRAIT},
 	]
 	panel.show_centered()
 	await process_frames(3)
@@ -115,7 +115,7 @@ func test_financial_overview_fills_the_viewport_and_reflows_at_every_shape() -> 
 		assert_almost_eq(rect.size.y, float(entry["size"].y), 1.0, "It fills the window height")
 		assert_eq(panel._layout_mode, entry["mode"], "It selects the appropriate responsive composition")
 		assert_not_null(panel.get_node_or_null("FinancialOverviewRoot/Backdrop"), "It uses the World Map backdrop")
-		if entry["mode"] == FinancialOverviewScreen.LayoutMode.DESKTOP:
+		if entry["mode"] == MenuScreenKit.LayoutMode.DESKTOP:
 			var desktop_board := panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/DashboardContent")
 			assert_not_null(desktop_board, "Desktop gets the financial board")
 			if desktop_board:
@@ -125,7 +125,7 @@ func test_financial_overview_fills_the_viewport_and_reflows_at_every_shape() -> 
 			assert_not_null(tabs, "Compact layouts get the three-section navigator")
 			if tabs:
 				assert_eq(tabs.get_child_count(), 3, "Finance, course and marketing each have a page")
-				if entry["mode"] == FinancialOverviewScreen.LayoutMode.PHONE_PORTRAIT or entry["mode"] == FinancialOverviewScreen.LayoutMode.PHONE_LANDSCAPE:
+				if entry["mode"] == MenuScreenKit.LayoutMode.PHONE_PORTRAIT or entry["mode"] == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE:
 					for tab in tabs.get_children():
 						assert_gte(tab.size.y, 44.0, "Phone section tabs meet the touch target")
 	var marketing_tab: Button = panel.get_node("FinancialOverviewRoot/Frame/Page/SectionTabs/MarketingTab")
@@ -193,7 +193,7 @@ func test_the_world_map_fits_every_window() -> void:
 	var world_screen: Node = main.get_node("UI/HUD/WorldMapScreen")
 	assert_true(world_screen.get_node_or_null("Backdrop") is MenuBackdrop,
 		"The world map shares the title screen's backdrop")
-	assert_true(world_screen.get_node_or_null("Frame/Page/AtlasHeader/TitleBlock/Mark") is MenuFlagMark,
+	assert_true(world_screen.get_node_or_null("Frame/Page/ScreenHeader/FlagMark") is MenuFlagMark,
 		"and its golf-flag mark")
 	var globe: Rect2 = world_screen.globe.get_global_rect()
 	assert_true(_view().encloses(globe), "The desktop globe is wholly on screen")
@@ -203,7 +203,7 @@ func test_the_world_map_fits_every_window() -> void:
 
 	# Tablets: the selected site beside the globe, every destination on a shelf.
 	await set_window(Vector2i(1024, 768))
-	assert_eq(world_screen._layout_mode, WorldMapScreen.LayoutMode.TABLET_LANDSCAPE, "A landscape tablet gets the tablet atlas")
+	assert_eq(world_screen._layout_mode, MenuScreenKit.LayoutMode.TABLET_LANDSCAPE, "A landscape tablet gets the tablet atlas")
 	assert_true(world_screen._horizontal_directory, "with the swipeable destination shelf")
 	assert_true(_view().encloses(world_screen.globe.get_global_rect()), "The tablet globe is wholly on screen")
 	assert_true(_view().encloses(world_screen._featured_action.get_global_rect()), "and the selected site's action")
@@ -212,7 +212,7 @@ func test_the_world_map_fits_every_window() -> void:
 	assert_true(rect_within(first_card.get_global_rect(), world_screen._directory_scroll.get_global_rect()),
 		"The first destination card is visible on the shelf")
 	await set_window(Vector2i(768, 1024))
-	assert_eq(world_screen._layout_mode, WorldMapScreen.LayoutMode.TABLET_PORTRAIT, "A portrait tablet gets the tall atlas")
+	assert_eq(world_screen._layout_mode, MenuScreenKit.LayoutMode.TABLET_PORTRAIT, "A portrait tablet gets the tall atlas")
 	assert_true(_view().encloses(world_screen.globe.get_global_rect()), "The portrait globe is wholly on screen")
 	assert_true(_view().encloses(world_screen._featured_action.get_global_rect()), "and the selected site's action")
 

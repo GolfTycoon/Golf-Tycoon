@@ -1,5 +1,6 @@
 extends CenteredPanel
 class_name FinancialOverviewScreen
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## FinancialOverviewScreen - the full-screen company dashboard.
 ##
 ## The World Map's MenuBackdrop, pixel-framed cards and Pixelify Sans carry
@@ -9,13 +10,8 @@ class_name FinancialOverviewScreen
 
 signal close_requested
 
-enum LayoutMode { DESKTOP, TABLET_LANDSCAPE, TABLET_PORTRAIT, PHONE_LANDSCAPE, PHONE_PORTRAIT }
 enum Section { FINANCE, COURSE, MARKETING }
 
-const DESKTOP_MIN_WIDTH := 1180.0
-const DESKTOP_MIN_HEIGHT := 680.0
-const TABLET_MIN_WIDTH := 680.0
-const TABLET_MIN_HEIGHT := 620.0
 
 const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
 const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
@@ -68,13 +64,7 @@ func _exit_tree() -> void:
 ## Kept pure so the five responsive compositions can be tested without a
 ## window, matching the World Map and Course Map breakpoints.
 static func layout_mode_for(view: Vector2) -> int:
-	if view.x >= DESKTOP_MIN_WIDTH and view.y >= DESKTOP_MIN_HEIGHT and view.x > view.y:
-		return LayoutMode.DESKTOP
-	if view.x >= TABLET_MIN_WIDTH and view.y >= TABLET_MIN_HEIGHT:
-		return LayoutMode.TABLET_LANDSCAPE if view.x >= view.y else LayoutMode.TABLET_PORTRAIT
-	if view.x > view.y and view.y < TABLET_MIN_HEIGHT:
-		return LayoutMode.PHONE_LANDSCAPE
-	return LayoutMode.PHONE_PORTRAIT
+	return Kit.layout_mode_for(view)
 
 func _window_size() -> Vector2:
 	if has_node("/root/Screen"):
@@ -178,7 +168,7 @@ func _build_structure() -> void:
 
 	_page.add_child(_build_header())
 	_page.add_child(_build_metric_strip())
-	if _layout_mode != LayoutMode.DESKTOP:
+	if _layout_mode != Kit.LayoutMode.DESKTOP:
 		_page.add_child(_build_section_tabs())
 	var content := _build_responsive_content()
 	content.name = "DashboardContent"
@@ -223,7 +213,7 @@ func select_section(section: int) -> void:
 	if section < Section.FINANCE or section > Section.MARKETING:
 		return
 	active_section = section
-	if visible and _layout_mode != LayoutMode.DESKTOP:
+	if visible and _layout_mode != Kit.LayoutMode.DESKTOP:
 		_build_structure()
 
 ## Escape or controller B closes the dashboard, matching its Close button.
@@ -239,98 +229,47 @@ func _close_pressed() -> void:
 
 func _outer_padding(mode: int) -> int:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return int(clampf(minf(_built_size.x, _built_size.y) * 0.024, 20.0, 34.0))
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			return int(clampf(minf(_built_size.x, _built_size.y) * 0.021, 14.0, 24.0))
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 8
 		_:
 			return int(clampf(_built_size.x * 0.028, 9.0, 14.0))
 
 func _page_separation() -> int:
 	match _layout_mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return 12
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			return 9
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 6
 		_:
 			return 8
 
 func _is_phone() -> bool:
-	return _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT
+	return _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE or _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT
 
 func _is_touch_layout() -> bool:
 	return _is_phone() or DisplayServer.is_touchscreen_available()
 
 func _font_size(base: int) -> int:
-	if _layout_mode == LayoutMode.PHONE_LANDSCAPE:
+	if _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE:
 		return maxi(10, base - 2)
-	if _layout_mode == LayoutMode.PHONE_PORTRAIT:
+	if _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT:
 		return maxi(11, base - 1)
-	if _layout_mode == LayoutMode.TABLET_PORTRAIT:
+	if _layout_mode == Kit.LayoutMode.TABLET_PORTRAIT:
 		return maxi(11, base - 1)
 	return base
 
 func _build_header() -> Control:
-	var compact := _is_phone()
-	var header := HBoxContainer.new()
-	header.name = "OverviewHeader"
-	header.add_theme_constant_override("separation", 8 if not compact else 5)
-	header.custom_minimum_size.y = 60.0 if _layout_mode == LayoutMode.DESKTOP else (54.0 if not compact else 44.0)
-
-	var back := CourseMapStyle.button("‹  Back", false, _font_size(12))
-	back.name = "BackToCourse"
-	back.tooltip_text = "Return to the course"
-	back.accessibility_name = "Close financial overview and return to the course"
-	back.custom_minimum_size = Vector2(88 if not compact else 42, 44 if _is_touch_layout() else 40)
-	if compact:
-		back.text = "‹"
-	back.pressed.connect(_close_pressed)
-	header.add_child(back)
-
-	var title_block := HBoxContainer.new()
-	title_block.name = "TitleBlock"
-	title_block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_block.add_theme_constant_override("separation", 7 if compact else 10)
-	var mark := MenuFlagMark.new()
-	mark.name = "FlagMark"
-	mark.mark_size = 20.0 if compact else (26.0 if _layout_mode == LayoutMode.DESKTOP else 24.0)
-	title_block.add_child(mark)
-
-	var title_stack := VBoxContainer.new()
-	title_stack.add_theme_constant_override("separation", 0)
-	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var title := CourseMapStyle.title("Financial Overview", _font_size(25 if not compact else 20))
-	title.name = "Title"
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_stack.add_child(title)
-	if not compact:
-		var subtitle := CourseMapStyle.label(
-			"COMPANY LEDGER  /  %s" % GameCalendar.format_date(GameManager.current_day),
-			_font_size(11), TEXT_QUIET, BODY_FONT)
-		subtitle.name = "DateLine"
-		title_stack.add_child(subtitle)
-	title_block.add_child(title_stack)
-	header.add_child(title_block)
-
-	if not compact:
-		var treasury := _make_treasury_chip()
-		header.add_child(treasury)
-
-	var close := CourseMapStyle.button("Close", false, _font_size(12))
-	close.name = "CloseButton"
-	close.tooltip_text = "Close the financial overview"
-	close.accessibility_name = "Close financial overview"
-	close.custom_minimum_size = Vector2(72 if not compact else 56, 44 if _is_touch_layout() else 40)
-	if compact:
-		close.text = "DONE"
-	close.pressed.connect(_close_pressed)
-	header.add_child(close)
-	return header
+	var trailing: Control = null
+	if not _is_phone():
+		trailing = _make_treasury_chip()
+	return Kit.make_screen_header(_layout_mode, "Financial Overview", "Company ledger",
+		GameCalendar.format_date(GameManager.current_day), _close_pressed, trailing)
 
 func _make_treasury_chip() -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -355,7 +294,7 @@ func _build_metric_strip() -> Control:
 	var stats := _period_stats()
 	var grid := GridContainer.new()
 	grid.name = "KeyFigures"
-	grid.columns = 4 if _layout_mode == LayoutMode.DESKTOP or _layout_mode == LayoutMode.TABLET_LANDSCAPE or _layout_mode == LayoutMode.PHONE_LANDSCAPE else 2
+	grid.columns = 4 if _layout_mode == Kit.LayoutMode.DESKTOP or _layout_mode == Kit.LayoutMode.TABLET_LANDSCAPE or _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE else 2
 	grid.add_theme_constant_override("h_separation", 8 if not _is_phone() else 5)
 	grid.add_theme_constant_override("v_separation", 6)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -416,9 +355,9 @@ func _on_section_tab_pressed(section: int) -> void:
 	select_section(section)
 
 func _build_responsive_content() -> Control:
-	if _layout_mode == LayoutMode.DESKTOP:
+	if _layout_mode == Kit.LayoutMode.DESKTOP:
 		return _build_desktop_board()
-	if _layout_mode == LayoutMode.TABLET_LANDSCAPE:
+	if _layout_mode == Kit.LayoutMode.TABLET_LANDSCAPE:
 		return _build_landscape_section()
 	return _build_vertical_section()
 

@@ -30,8 +30,8 @@ func test_company_cash_is_visible_and_updates_in_the_treasury() -> void:
 	if cash == null:
 		return
 	var compact := (
-		screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_LANDSCAPE
-		or screen._layout_mode == WorldMapScreen.LayoutMode.PHONE_PORTRAIT)
+		screen._layout_mode == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE
+		or screen._layout_mode == MenuScreenKit.LayoutMode.PHONE_PORTRAIT)
 	assert_eq(cash.text, "$123K" if compact else "$123,456",
 		"the World Map displays the current company balance")
 	var text_width := cash.get_theme_font("font").get_string_size(

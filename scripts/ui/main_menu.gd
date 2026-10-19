@@ -242,7 +242,7 @@ func _build_wide() -> void:
 	rail_column.add_theme_constant_override("separation", 12)
 	rail.add_child(rail_column)
 
-	rail_column.add_child(_make_kicker("YOUR COURSE", caption_font))
+	rail_column.add_child(MenuScreenKit.make_kicker("YOUR COURSE", caption_font))
 	rail_column.add_child(_make_continue_card(
 		clampf(view.y * 0.185, 118.0, 200.0), hero_font - 2, caption_font))
 	rail_column.add_child(_make_rule(0.0, 1.0, true, _with_alpha(UIConstants.COLOR_BORDER, 0.5)))
@@ -490,16 +490,6 @@ func _make_status_line(centered: bool, font_size: int) -> Control:
 	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
 	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if centered else Control.SIZE_SHRINK_BEGIN
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-func _make_kicker(text: String, font_size: int) -> Label:
-	var label := Label.new()
-	label.name = "Kicker"
-	label.text = text
-	label.add_theme_font_override("font", BODY_FONT)
-	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
-	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
 

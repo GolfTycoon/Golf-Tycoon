@@ -176,10 +176,10 @@ func test_resizing_the_window_while_the_map_is_up_leaves_it_working() -> void:
 
 	await set_window(Vector2i(768, 1024))
 	assert_true(main._course_map_is_open(), "the map is still up after the resize")
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.TABLET_PORTRAIT, "reshaped for the new window")
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.TABLET_PORTRAIT, "reshaped for the new window")
 	assert_eq(screen.map, map, "the same map control came through it, so the view is unchanged")
 	await set_window(Vector2i(1600, 1000))
-	assert_eq(screen.layout, CourseMapScreen.LayoutMode.DESKTOP, "and again on the way back")
+	assert_eq(screen.layout, MenuScreenKit.LayoutMode.DESKTOP, "and again on the way back")
 
 	for i in panels.size():
 		assert_true(is_instance_valid(panels[i]), "panel %d survived the reshape" % i)

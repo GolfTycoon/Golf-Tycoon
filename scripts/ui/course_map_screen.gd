@@ -1,5 +1,6 @@
 extends Control
 class_name CourseMapScreen
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## CourseMapScreen - the whole course on one isometric map, in four modes.
 ##
 ## Opened from the Club tab's Land Parcels button or with Shift+M, and it freezes
@@ -42,12 +43,7 @@ signal advice_action_requested(advice: Dictionary)
 
 ## The five compositions. Same shape as WorldMapScreen's, and pure so every
 ## breakpoint can be checked without a window (see layout_mode_for).
-enum LayoutMode { DESKTOP, TABLET_LANDSCAPE, TABLET_PORTRAIT, PHONE_LANDSCAPE, PHONE_PORTRAIT }
 
-const DESKTOP_MIN_WIDTH := 1180.0
-const DESKTOP_MIN_HEIGHT := 680.0
-const TABLET_MIN_WIDTH := 680.0
-const TABLET_MIN_HEIGHT := 620.0
 
 const RAIL_WIDTH := 96.0
 const RAIL_WIDTH_PHONE := 78.0
@@ -87,7 +83,7 @@ const MODES: Array = [
 	},
 ]
 
-var layout: int = LayoutMode.DESKTOP
+var layout: int = Kit.LayoutMode.DESKTOP
 var mode: int = CourseMapView.Mode.LAND
 ## What is picked: {"kind": "parcel"|"hole"|"aura"|"staff", "value": ...}.
 var selection: Dictionary = {}
@@ -257,24 +253,18 @@ func set_mode(new_mode: int) -> void:
 ## The composition this viewport calls for. Pure, so the breakpoints can be
 ## checked without a window.
 static func layout_mode_for(view: Vector2) -> int:
-	if view.x >= DESKTOP_MIN_WIDTH and view.y >= DESKTOP_MIN_HEIGHT and view.x > view.y:
-		return LayoutMode.DESKTOP
-	if view.x >= TABLET_MIN_WIDTH and view.y >= TABLET_MIN_HEIGHT:
-		return LayoutMode.TABLET_LANDSCAPE if view.x >= view.y else LayoutMode.TABLET_PORTRAIT
-	if view.x > view.y and view.y < TABLET_MIN_HEIGHT:
-		return LayoutMode.PHONE_LANDSCAPE
-	return LayoutMode.PHONE_PORTRAIT
+	return Kit.layout_mode_for(view)
 
 ## True where the map is drawn small: the phone shapes and the portrait tablet,
 ## where the panel takes half the height.
 func _map_is_small() -> bool:
-	return layout != LayoutMode.DESKTOP and layout != LayoutMode.TABLET_LANDSCAPE
+	return layout != Kit.LayoutMode.DESKTOP and layout != Kit.LayoutMode.TABLET_LANDSCAPE
 
 func _uses_rail() -> bool:
-	return layout == LayoutMode.TABLET_LANDSCAPE or layout == LayoutMode.PHONE_LANDSCAPE
+	return layout == Kit.LayoutMode.TABLET_LANDSCAPE or layout == Kit.LayoutMode.PHONE_LANDSCAPE
 
 func _uses_sheet() -> bool:
-	return layout == LayoutMode.PHONE_LANDSCAPE or layout == LayoutMode.PHONE_PORTRAIT
+	return layout == Kit.LayoutMode.PHONE_LANDSCAPE or layout == Kit.LayoutMode.PHONE_PORTRAIT
 
 func _view_size() -> Vector2:
 	if size.x > 0.0 and size.y > 0.0:
@@ -333,20 +323,20 @@ func _build_structure() -> void:
 	_root = MarginContainer.new()
 	_root.name = "Root"
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var pad := 14 if layout == LayoutMode.DESKTOP else (10 if not _uses_sheet() else 6)
+	var pad := 14 if layout == Kit.LayoutMode.DESKTOP else (10 if not _uses_sheet() else 6)
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
 		_root.add_theme_constant_override(side, pad)
 	add_child(_root)
 
 	var column := VBoxContainer.new()
 	column.name = "Column"
-	column.add_theme_constant_override("separation", 8 if layout == LayoutMode.DESKTOP else 6)
+	column.add_theme_constant_override("separation", 8 if layout == Kit.LayoutMode.DESKTOP else 6)
 	_root.add_child(column)
 	column.add_child(_build_header())
 	column.add_child(_build_body())
-	if layout == LayoutMode.PHONE_LANDSCAPE:
+	if layout == Kit.LayoutMode.PHONE_LANDSCAPE:
 		_root.add_child(_build_sheet_layer())
-	elif layout == LayoutMode.PHONE_PORTRAIT:
+	elif layout == Kit.LayoutMode.PHONE_PORTRAIT:
 		# Portrait has the height to spare, so the sheet is a row of the
 		# composition rather than a thing floating over the map: the strip
 		# under the map stays visible while the panel is folded away.
@@ -380,53 +370,30 @@ func _detach(control: Node) -> void:
 		control.get_parent().remove_child(control)
 
 func _build_header() -> Control:
-	var header := HBoxContainer.new()
-	header.name = "Header"
-	header.add_theme_constant_override("separation", 8 if not _uses_sheet() else 5)
-
-	var title_box := HBoxContainer.new()
-	title_box.name = "TitleBox"
-	title_box.add_theme_constant_override("separation", 8)
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var flag := CourseMapStyle.icon(PixelIcon.Kind.FLAG, 22 if layout == LayoutMode.DESKTOP else 18,
-		CourseMapStyle.GOLD)
-	title_box.add_child(flag)
-	var words := VBoxContainer.new()
-	words.add_theme_constant_override("separation", 0)
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title_label = CourseMapStyle.title("Course map", 19 if layout == LayoutMode.DESKTOP else 16)
-	_title_label.name = "TitleLabel"
-	_title_label.clip_text = true
-	words.add_child(_title_label)
-	_subtitle_label = CourseMapStyle.label("", 11 if layout == LayoutMode.DESKTOP else 10,
-		CourseMapStyle.TEXT_SECONDARY)
-	_subtitle_label.name = "Subtitle"
-	_subtitle_label.clip_text = true
-	words.add_child(_subtitle_label)
-	title_box.add_child(words)
-	header.add_child(title_box)
-
+	var group := HBoxContainer.new()
+	group.name = "HeaderActions"
+	group.add_theme_constant_override("separation", 8 if not _uses_sheet() else 5)
+	group.size_flags_horizontal = Control.SIZE_SHRINK_END
 	if not _uses_rail():
 		_tab_row = _build_tabs()
-		header.add_child(_tab_row)
+		group.add_child(_tab_row)
 
-	if layout == LayoutMode.DESKTOP:
-		header.add_child(_build_money_block())
+	if layout == Kit.LayoutMode.DESKTOP:
+		group.add_child(_build_money_block())
 
-	if layout == LayoutMode.PHONE_LANDSCAPE:
+	if layout == Kit.LayoutMode.PHONE_LANDSCAPE:
 		var details := CourseMapStyle.icon_button("Details", CourseMapStyle.MINT, 11)
 		details.name = "DetailsButton"
 		details.custom_minimum_size = Vector2(64, 34)
 		details.tooltip_text = "Show or hide the mode's panel"
 		details.pressed.connect(_toggle_sheet)
-		header.add_child(details)
+		group.add_child(details)
 
-	var back := CourseMapStyle.icon_button("Back", CourseMapStyle.QUIT, 11)
-	back.name = "BackButton"
-	back.custom_minimum_size = Vector2(56, 34)
-	back.tooltip_text = "Close the map (Esc)"
-	back.pressed.connect(func(): back_requested.emit())
-	header.add_child(back)
+	var header := Kit.make_screen_header(layout, "Course map", "Course planner",
+		_subtitle_text(), func(): back_requested.emit(), group)
+	_title_label = header.find_child("Title", true, false) as Label
+	_title_label.name = "TitleLabel"
+	_subtitle_label = header.find_child("Subtitle", true, false) as Label
 	return header
 
 func _build_money_block() -> Control:
@@ -463,14 +430,14 @@ func _build_tabs() -> HBoxContainer:
 	return row
 
 func _build_body() -> Control:
-	var landscape := layout != LayoutMode.TABLET_PORTRAIT and layout != LayoutMode.PHONE_PORTRAIT
+	var landscape := layout != Kit.LayoutMode.TABLET_PORTRAIT and layout != Kit.LayoutMode.PHONE_PORTRAIT
 	var body: BoxContainer
 	if landscape:
 		body = HBoxContainer.new()
 	else:
 		body = VBoxContainer.new()
 	body.name = "Body"
-	body.add_theme_constant_override("separation", 8 if layout == LayoutMode.DESKTOP else 6)
+	body.add_theme_constant_override("separation", 8 if layout == Kit.LayoutMode.DESKTOP else 6)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	if _uses_rail():
@@ -506,7 +473,7 @@ func _build_rail() -> Control:
 	frame.name = "ModeRail"
 	frame.add_theme_stylebox_override("panel",
 		CourseMapStyle.panel(CourseMapStyle.SURFACE_RAISED, CourseMapStyle.MINT, 6, 6))
-	frame.custom_minimum_size.x = RAIL_WIDTH if layout == LayoutMode.TABLET_LANDSCAPE else RAIL_WIDTH_PHONE
+	frame.custom_minimum_size.x = RAIL_WIDTH if layout == Kit.LayoutMode.TABLET_LANDSCAPE else RAIL_WIDTH_PHONE
 	frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_rail_stack = VBoxContainer.new()
 	_rail_stack.name = "RailButtons"
@@ -514,9 +481,9 @@ func _build_rail() -> Control:
 	frame.add_child(_rail_stack)
 	_tab_buttons.clear()
 	for entry in MODES:
-		var control := CourseMapStyle.choice(str(entry["name"]), 12 if layout == LayoutMode.TABLET_LANDSCAPE else 11)
+		var control := CourseMapStyle.choice(str(entry["name"]), 12 if layout == Kit.LayoutMode.TABLET_LANDSCAPE else 11)
 		control.name = "Mode_%s" % str(entry["name"])
-		control.custom_minimum_size.y = 54.0 if layout == LayoutMode.TABLET_LANDSCAPE else 46.0
+		control.custom_minimum_size.y = 54.0 if layout == Kit.LayoutMode.TABLET_LANDSCAPE else 46.0
 		control.tooltip_text = str(entry["blurb"])
 		var target := int(entry["mode"])
 		control.pressed.connect(func(): set_mode(target))
@@ -532,17 +499,17 @@ func _build_panel_column() -> PanelContainer:
 	frame.add_theme_stylebox_override("panel",
 		CourseMapStyle.panel(CourseMapStyle.SURFACE, CourseMapStyle.BORDER, 8, 8))
 	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if layout == LayoutMode.TABLET_PORTRAIT:
+	if layout == Kit.LayoutMode.TABLET_PORTRAIT:
 		frame.custom_minimum_size.y = TABLET_SHEET_HEIGHT
 		frame.size_flags_vertical = Control.SIZE_SHRINK_END
 	else:
-		frame.custom_minimum_size.x = PANEL_WIDTH_DESKTOP if layout == LayoutMode.DESKTOP \
+		frame.custom_minimum_size.x = PANEL_WIDTH_DESKTOP if layout == Kit.LayoutMode.DESKTOP \
 			else PANEL_WIDTH_TABLET
 
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 6)
 	frame.add_child(stack)
-	if layout == LayoutMode.TABLET_LANDSCAPE:
+	if layout == Kit.LayoutMode.TABLET_LANDSCAPE:
 		stack.add_child(_build_panel_bar())
 	stack.add_child(_build_panel_scroll())
 	return frame
@@ -737,7 +704,7 @@ func _layout_sheet() -> void:
 	if _sheet == null:
 		return
 	var view := _view_size()
-	if layout == LayoutMode.PHONE_LANDSCAPE:
+	if layout == Kit.LayoutMode.PHONE_LANDSCAPE:
 		var width := clampf(view.x * SHEET_WIDTH_RATIO, 250.0, 430.0)
 		_sheet.anchor_left = 1.0
 		_sheet.anchor_right = 1.0
@@ -1061,7 +1028,7 @@ func _refresh_tabs() -> void:
 func _refresh_title() -> void:
 	if _title_label == null:
 		return
-	_title_label.text = "Course map" if layout == LayoutMode.DESKTOP \
+	_title_label.text = "Course map" if layout == Kit.LayoutMode.DESKTOP \
 		else "Course map — %s" % _mode_name()
 	if _subtitle_label:
 		_subtitle_label.text = _subtitle_text()
