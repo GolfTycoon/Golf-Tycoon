@@ -226,6 +226,13 @@ func select_section(section: int) -> void:
 	if visible and _layout_mode != LayoutMode.DESKTOP:
 		_build_structure()
 
+## Escape or controller B closes the dashboard, matching its Close button.
+func _unhandled_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("cancel"):
+		get_viewport().set_input_as_handled()
+		_close_pressed()
+
+
 func _close_pressed() -> void:
 	close_requested.emit()
 	hide()

@@ -107,6 +107,9 @@ func _ready() -> void:
 	_build()
 	refresh()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _window_size() -> Vector2:
 	if has_node("/root/Screen"):
 		return Screen.window_size

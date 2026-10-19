@@ -117,6 +117,9 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)

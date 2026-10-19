@@ -128,18 +128,19 @@ const TOOL_TAB_MAP := {
 	"finance": Tab.CLUB,
 }
 
-## Shift + number keys pick the extra course tiles: the harsher variants of
-## Rough (2), Bunker (5) and Water (6), then the stony ground — Rocks (7),
-## Small Boulders (9) and Large Boulders (0) — and Brush (8).
-const SHIFT_TERRAIN_HOTKEYS := {
-	KEY_2: TerrainTypes.Type.DEEP_ROUGH,
-	KEY_5: TerrainTypes.Type.POT_BUNKER,
-	KEY_6: TerrainTypes.Type.STREAM,
-	KEY_7: TerrainTypes.Type.ROCKS,
-	KEY_8: TerrainTypes.Type.BRUSH,
-	KEY_9: TerrainTypes.Type.SMALL_BOULDERS,
-	KEY_0: TerrainTypes.Type.LARGE_BOULDERS,
-}
+## The tool hotkeys this shelf dispatches. InputBindings owns their keys and
+## the Settings screen edits them; this list keeps main.gd from claiming a
+## course-tool key it does not handle.
+const TOOL_SHORTCUTS: Array[String] = [
+	"terrain_fairway", "terrain_rough", "terrain_green", "terrain_tee",
+	"terrain_bunker", "terrain_water", "terrain_out_of_bounds", "terrain_path",
+	"terrain_firm_fairway", "terrain_waste_bunker", "terrain_deep_rough",
+	"terrain_pot_bunker", "terrain_stream", "terrain_rocks", "terrain_brush",
+	"terrain_small_boulders", "terrain_large_boulders", "terrain_flowers",
+	"tool_trees", "tool_building", "tool_decoration", "tool_open_hole",
+	"tool_bulldozer", "tab_terrain", "tab_improvements", "tab_elevation",
+	"elevation_vertex", "elevation_flat", "elevation_gradual",
+]
 
 const TOOL_ROW_HEIGHT := 30
 const COURSE_TILE_COLUMNS := 8  # Top row runs tee -> out of bounds, bottom row fairway -> large boulders
@@ -981,7 +982,7 @@ func _make_elevation_brush_size_notch() -> ElevationBrushSizeNotch:
 func _make_elevation_brush_shape_notch() -> ElevationBrushNotchButton:
 	var notch := ElevationBrushNotchButton.new()
 	notch.name = "ElevationBrushShapeNotch"
-	notch.focus_mode = Control.FOCUS_NONE
+	notch.focus_mode = Control.FOCUS_ALL
 	notch.toggle_mode = true
 	notch.pressed.connect(_on_elevation_brush_shape_toggled)
 	_elevation_brush_shape_buttons.append(notch)
@@ -1326,7 +1327,7 @@ func _create_brush_row() -> HBoxContainer:
 ## room for. A toggle button that swaps between Square and Circle icons.
 func _create_brush_shape(cell_size: Vector2 = Vector2(32, 26)) -> Button:
 	var shape := Button.new()
-	shape.focus_mode = Control.FOCUS_NONE
+	shape.focus_mode = Control.FOCUS_ALL
 	shape.custom_minimum_size = cell_size
 	shape.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	shape.toggle_mode = true
@@ -1365,7 +1366,7 @@ func _create_brush_step_button(caption: String, tip: String, action: Callable) -
 	btn.tooltip_text = tip
 	btn.accessibility_name = tip
 	btn.accessibility_description = tip
-	btn.focus_mode = Control.FOCUS_NONE
+	btn.focus_mode = Control.FOCUS_ALL
 	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	btn.pressed.connect(action)
 	_style_dock_cell(btn)
@@ -2196,92 +2197,86 @@ func _input(event: InputEvent) -> void:
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.is_command_or_control_pressed():
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+
+	var focused = get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return
+
+	var action := InputBindings.action_for_event(event, TOOL_SHORTCUTS)
+	if action.is_empty():
+		return
+
+	match action:
+		"terrain_fairway":
+			_on_tool_button_pressed(TerrainTypes.Type.FAIRWAY)
+		"terrain_rough":
+			_on_tool_button_pressed(TerrainTypes.Type.ROUGH)
+		"terrain_green":
+			_on_tool_button_pressed(TerrainTypes.Type.GREEN)
+		"terrain_tee":
+			_on_tool_button_pressed(TerrainTypes.Type.TEE_BOX)
+		"terrain_bunker":
+			_on_tool_button_pressed(TerrainTypes.Type.BUNKER)
+		"terrain_water":
+			_on_tool_button_pressed(TerrainTypes.Type.WATER)
+		"terrain_out_of_bounds":
+			_on_tool_button_pressed(TerrainTypes.Type.OUT_OF_BOUNDS)
+		"terrain_path":
+			_on_tool_button_pressed(TerrainTypes.WALKING_PATH_TOOL)
+		"terrain_firm_fairway":
+			_on_tool_button_pressed(TerrainTypes.Type.FIRM_FAIRWAY)
+		"terrain_waste_bunker":
+			_on_tool_button_pressed(TerrainTypes.Type.WASTE_BUNKER)
+		"terrain_deep_rough":
+			_on_tool_button_pressed(TerrainTypes.Type.DEEP_ROUGH)
+		"terrain_pot_bunker":
+			_on_tool_button_pressed(TerrainTypes.Type.POT_BUNKER)
+		"terrain_stream":
+			_on_tool_button_pressed(TerrainTypes.Type.STREAM)
+		"terrain_rocks":
+			_on_tool_button_pressed(TerrainTypes.Type.ROCKS)
+		"terrain_brush":
+			_on_tool_button_pressed(TerrainTypes.Type.BRUSH)
+		"terrain_small_boulders":
+			_on_tool_button_pressed(TerrainTypes.Type.SMALL_BOULDERS)
+		"terrain_large_boulders":
+			_on_tool_button_pressed(TerrainTypes.Type.LARGE_BOULDERS)
+		"terrain_flowers":
+			select_tab(Tab.TERRAIN)
+			_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
+		"tool_trees":
+			select_tab(Tab.TERRAIN)
+			var theme_trees: Array = CourseTheme.get_tree_types(GameManager.current_theme)
+			if not theme_trees.is_empty():
+				_on_tool_button_pressed(theme_trees[0])
+		"tool_building":
+			_on_tool_button_pressed("building")
+		"tool_decoration":
+			_on_tool_button_pressed("decoration")
+		"tool_open_hole":
+			_on_tool_button_pressed("open_hole")
+		"tool_bulldozer":
+			_on_tool_button_pressed("bulldozer")
+		"tab_terrain":
+			select_tab(Tab.TERRAIN)
+		"tab_improvements":
+			select_tab(Tab.IMPROVEMENTS)
+		"tab_elevation":
+			select_tab(Tab.ELEVATION)
+		"elevation_vertex":
+			select_tab(Tab.ELEVATION)
+			_on_tool_button_pressed("vertex")
+		"elevation_flat":
+			select_tab(Tab.ELEVATION)
+			_on_tool_button_pressed("flat")
+		"elevation_gradual":
+			select_tab(Tab.ELEVATION)
+			_on_tool_button_pressed("gradual")
+		_:
 			return
-
-		var focused = get_viewport().gui_get_focus_owner()
-		if focused is LineEdit or focused is TextEdit:
-			return
-
-		if event.shift_pressed:
-			match event.keycode:
-				KEY_1:  # Shift+1 = !
-					select_tab(Tab.TERRAIN)
-					_on_tool_button_pressed(TerrainTypes.Type.BUNKER)
-					get_viewport().set_input_as_handled()
-					return
-				# Deep Rough, Pot Bunker, Stream, Rocks, Brush, the
-				# boulder fields.
-				KEY_2, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0:
-					_on_tool_button_pressed(SHIFT_TERRAIN_HOTKEYS[event.keycode])
-					get_viewport().set_input_as_handled()
-					return
-				KEY_EQUAL:  # Shift+= = + selects the Flat Square selector
-					_on_tool_button_pressed("flat")
-					get_viewport().set_input_as_handled()
-					return
-				KEY_MINUS:  # Shift+- = _ selects the Gradual Square selector
-					_on_tool_button_pressed("gradual")
-					get_viewport().set_input_as_handled()
-					return
-				KEY_R:  # Shift+R = routing overlay (handled in main.gd)
-					return
-
-		match event.keycode:
-			KEY_EQUAL:  # = opens the Course Terrain tab
-				select_tab(Tab.TERRAIN)
-				get_viewport().set_input_as_handled()
-			KEY_PERIOD:  # . opens the Improvements tab
-				select_tab(Tab.IMPROVEMENTS)
-				get_viewport().set_input_as_handled()
-			KEY_E:  # E opens the Elevation tab
-				select_tab(Tab.ELEVATION)
-				get_viewport().set_input_as_handled()
-			KEY_V:  # V selects the Vertex selector
-				_on_tool_button_pressed("vertex")
-			KEY_MINUS:  # - selects the Gradual Square selector
-				_on_tool_button_pressed("gradual")
-			KEY_1:
-				_on_tool_button_pressed(TerrainTypes.Type.FAIRWAY)
-			KEY_2:
-				_on_tool_button_pressed(TerrainTypes.Type.ROUGH)
-			KEY_3:
-				_on_tool_button_pressed(TerrainTypes.Type.GREEN)
-			KEY_4:
-				_on_tool_button_pressed(TerrainTypes.Type.TEE_BOX)
-			KEY_5:
-				_on_tool_button_pressed(TerrainTypes.Type.BUNKER)
-			KEY_6:
-				_on_tool_button_pressed(TerrainTypes.Type.WATER)
-			KEY_7:
-				_on_tool_button_pressed(TerrainTypes.Type.OUT_OF_BOUNDS)
-			KEY_8:
-				_on_tool_button_pressed(TerrainTypes.WALKING_PATH_TOOL)
-			KEY_9:
-				_on_tool_button_pressed(TerrainTypes.Type.FIRM_FAIRWAY)
-			KEY_0:
-				_on_tool_button_pressed(TerrainTypes.Type.WASTE_BUNKER)
-			KEY_T:
-				select_tab(Tab.TERRAIN)
-				var theme_trees: Array = CourseTheme.get_tree_types(GameManager.current_theme) if GameManager else []
-				if not theme_trees.is_empty():
-					_on_tool_button_pressed(theme_trees[0])
-			KEY_F:
-				if event.shift_pressed:
-					select_tab(Tab.TERRAIN)
-					_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)
-			KEY_B:
-				_on_tool_button_pressed("building")
-			KEY_O:
-				_on_tool_button_pressed("decoration")
-			KEY_H:
-				_on_tool_button_pressed("open_hole")
-			KEY_X:
-				_on_tool_button_pressed("bulldozer")
-			KEY_P:
-				select_tab(Tab.STAFF)
-				get_viewport().set_input_as_handled()
+	get_viewport().set_input_as_handled()
 
 # =============================================================================
 # Public API

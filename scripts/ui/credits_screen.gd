@@ -9,6 +9,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_ui()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _build_ui() -> void:
 	# Semi-transparent overlay
 	var bg := ColorRect.new()
@@ -108,6 +111,10 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			_on_close()
 			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		_on_close()
+		get_viewport().set_input_as_handled()
 
 func _on_close() -> void:
 	close_requested.emit()

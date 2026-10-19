@@ -3,10 +3,10 @@ class_name SettingsMenu
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
 ## Preferences are grouped into Audio, Display and Controls. Wide
-## desktop windows use a navigation rail beside the control cards and a small
-## course context panel; tablets keep the cards roomy, while phones use a
-## swipeable category strip and one scrollable settings column. Every control
-## keeps its original live behavior and saves changes to user://settings.cfg.
+## desktop windows use a navigation rail beside the control cards; tablets
+## keep the cards roomy, while phones use a swipeable category strip and one
+## scrollable settings column. Every control keeps its original live behavior
+## and saves changes to user://settings.cfg.
 
 signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
@@ -76,8 +76,6 @@ var _layout_mode: int = LayoutMode.PHONE
 var _built_size := Vector2.ZERO
 var _bg: ColorRect
 var _panel: Control
-var _reference_course_label: Label
-var _reference_day_label: Label
 var _benchmark_run_button: Button
 var _benchmark_status_label: Label
 var _benchmark_summary_label: Label
@@ -90,6 +88,17 @@ var _benchmark_score: float = 0.0
 var _benchmark_status_text: String = "Ready. The tour prepares its own course and builds every test course on screen - about 95 seconds. Esc cancels it."
 var _benchmark_summary_text: String = "No results yet. Every run builds the same fixed test courses - every course type, hole count and game speed - so runs compare on any device."
 var _benchmark_details_text: String = "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay on this machine."
+## The Controls page's editable keycaps and their reset buttons, keyed by
+## InputBindings action. They are rebuilt with the page; the signal handlers
+## refresh their captions in place instead of rebuilding the page, so focus
+## and scroll position survive a rebind.
+var _binding_buttons: Dictionary = {}
+var _binding_reset_buttons: Dictionary = {}
+var _controls_status_label: Label = null
+var _reset_all_controls_button: Button = null
+## The action whose row is listening for the next key, or "" when none is.
+var _capturing_action: String = ""
+var _controls_status_text: String = "Click a binding, then press a key or controller button. Esc cancels; Backspace unbinds."
 
 func _ready() -> void:
 	name = "SettingsMenu"
@@ -102,9 +111,20 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+	if not InputBindings.bindings_changed.is_connected(_on_binding_changed):
+		InputBindings.bindings_changed.connect(_on_binding_changed)
+	if not InputBindings.bindings_reset.is_connected(_on_bindings_reset):
+		InputBindings.bindings_reset.connect(_on_bindings_reset)
+
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
+	if InputBindings.bindings_changed.is_connected(_on_binding_changed):
+		InputBindings.bindings_changed.disconnect(_on_binding_changed)
+	if InputBindings.bindings_reset.is_connected(_on_bindings_reset):
+		InputBindings.bindings_reset.disconnect(_on_bindings_reset)
 
 ## Pure responsive breakpoint decision, also used by the layout tests.
 static func layout_mode_for(view: Vector2) -> int:
@@ -134,8 +154,6 @@ func _build() -> void:
 		child.queue_free()
 	_bg = null
 	_panel = null
-	_reference_course_label = null
-	_reference_day_label = null
 	_benchmark_run_button = null
 	_benchmark_status_label = null
 	_benchmark_summary_label = null
@@ -143,6 +161,11 @@ func _build() -> void:
 	_benchmark_results_button = null
 	_benchmark_stars_row = null
 	_benchmark_score_meter = null
+	_binding_buttons.clear()
+	_binding_reset_buttons.clear()
+	_controls_status_label = null
+	_reset_all_controls_button = null
+	_capturing_action = ""
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -257,11 +280,6 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		content.size_flags_stretch_ratio = 1.0
 		row.add_child(content)
-		if mode == LayoutMode.DESKTOP:
-			var context := _build_context_card(mode)
-			context.custom_minimum_size.x = clampf(view.x * 0.17, 240.0, 292.0)
-			context.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			row.add_child(context)
 		return row
 
 	var stack := VBoxContainer.new()
@@ -573,41 +591,269 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	_refresh_benchmark_controls()
 	return benchmark["panel"]
 
+## The Controls page: one editable keycap per rebindable action, grouped the
+## way InputBindings groups them, plus the camera's own invert-zoom toggle.
+## Changes apply live and save at once; the intro card carries the listening
+## hint, the result message and Reset All.
 func _build_controls_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
-	var camera_card := _make_group("CAMERA", "Choose the zoom direction that feels natural.", mode)
-	var camera_body: VBoxContainer = camera_card["body"]
-	_add_toggle_row(camera_body, "Invert Scroll Zoom", "Reverse the scroll wheel zoom direction.",
-		GameManager.invert_zoom_scroll, _on_invert_zoom_toggled, mode)
-	cards.append(camera_card["panel"])
-
-	var shortcuts := _make_group("KEYBOARD SHORTCUTS", "A quick reference for the clubhouse desk.", mode)
-	var shortcuts_body: VBoxContainer = shortcuts["body"]
-	for binding in _keyboard_bindings():
-		shortcuts_body.add_child(_build_keybinding_row(str(binding[0]), str(binding[1]), mode))
-	cards.append(shortcuts["panel"])
+	cards.append(_build_controls_intro_card(mode))
+	for group in InputBindings.groups():
+		var group_id := str(group.get("id", ""))
+		var group_card := _make_group(str(group.get("title", group_id)).to_upper(),
+			str(group.get("description", "")), mode)
+		var body: VBoxContainer = group_card["body"]
+		if group_id == "camera":
+			_add_toggle_row(body, "Invert Scroll Zoom", "Reverse the scroll wheel zoom direction.",
+				GameManager.invert_zoom_scroll, _on_invert_zoom_toggled, mode)
+			body.add_child(_make_separator())
+		for action in InputBindings.actions_in_group(group_id):
+			body.add_child(_build_binding_row(action, mode))
+		cards.append(group_card["panel"])
 	return cards
 
-func _keyboard_bindings() -> Array:
-	return [
-		["Esc", "Pause menu"],
-		["Space", "Pause / resume"],
-		["F1", "Help and shortcut reference"],
-		["Ctrl + S", "Quick save"],
-		["Ctrl + Z", "Undo"],
-		["Ctrl + Shift + Z", "Redo"],
-		["H", "Open hole"],
-		["T", "Place tree"],
-		["B", "Place building"],
-		["M", "Marketing"],
-		["U", "Tournaments"],
-		["Z", "Analytics"],
-		["G", "Milestones"],
-		["C", "Calendar"],
-		["WASD", "Pan camera"],
-		["Q", "Rotate camera"],
-		["Scroll", "Zoom in / out"],
-	]
+func _build_controls_intro_card(mode: int) -> Control:
+	var intro := _make_group("EDIT CONTROLS",
+		"Every course action can be rebound to the key or controller button that suits you.", mode)
+	var body: VBoxContainer = intro["body"]
+
+	var status := _label(_controls_status_text, 10 if mode == LayoutMode.PHONE else 11, COLOR_MINT)
+	status.name = "ControlsStatus"
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_controls_status_label = status
+	body.add_child(status)
+
+	var note := _label("Click a keycap to listen. Esc cancels, Backspace unbinds, and the arrow button resets one control. Mouse, touch and the menu keys (Esc, Tab, Enter and the arrows) stay fixed.",
+		9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_child(note)
+	body.add_child(_make_separator())
+
+	var reset_all := Button.new()
+	reset_all.name = "ResetAllControlsButton"
+	reset_all.text = "Reset All Controls"
+	reset_all.tooltip_text = "Put every course control back on its default key or button. Changes save as you make them."
+	reset_all.custom_minimum_size = Vector2(0, 44)
+	reset_all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset_all.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(reset_all, COLOR_GOLD, 0.0, 8, COLOR_TEXT, COLOR_TEXT)
+	reset_all.add_theme_color_override("font_color", COLOR_TEXT)
+	reset_all.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	reset_all.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	reset_all.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	reset_all.disabled = not InputBindings.has_custom_bindings()
+	reset_all.pressed.connect(_reset_all_controls)
+	_reset_all_controls_button = reset_all
+	body.add_child(reset_all)
+	return intro["panel"]
+
+## One action's row: what it does, its current keycap and a per-action reset.
+func _build_binding_row(action: String, mode: int) -> Control:
+	var row := HBoxContainer.new()
+	row.name = "BindingRow_%s" % action
+	row.custom_minimum_size.y = 44
+	row.add_theme_constant_override("separation", 7)
+
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	copy.add_theme_constant_override("separation", 0)
+	var action_label := _label(InputBindings.action_label(action), 11 if mode == LayoutMode.PHONE else 12, COLOR_TEXT)
+	action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(action_label)
+	var hint := InputBindings.action_hint(action)
+	if not hint.is_empty():
+		var hint_label := _label(hint, 9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		copy.add_child(hint_label)
+	row.add_child(copy)
+
+	var keycap := Button.new()
+	keycap.name = "Binding_%s" % action
+	keycap.text = InputBindings.binding_text(action)
+	_update_keycap_tooltip(action, keycap)
+	keycap.custom_minimum_size = Vector2(98 if mode == LayoutMode.PHONE else 130, 44)
+	keycap.add_theme_font_size_override("font_size", 9 if mode == LayoutMode.PHONE else 10)
+	keycap.clip_text = true
+	keycap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	keycap.focus_mode = Control.FOCUS_ALL
+	keycap.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_paint_keycap(keycap, false)
+	keycap.pressed.connect(_begin_rebinding.bind(action))
+	_binding_buttons[action] = keycap
+	row.add_child(keycap)
+
+	var reset := Button.new()
+	reset.name = "Reset_%s" % action
+	reset.text = "↺"
+	reset.tooltip_text = "Reset %s to its default (%s)." % [
+		InputBindings.action_label(action), InputBindings.default_binding_text(action)]
+	reset.custom_minimum_size = Vector2(40, 44)
+	reset.add_theme_font_size_override("font_size", 16)
+	reset.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_paint_utility_button(reset)
+	reset.disabled = not InputBindings.is_customized(action)
+	reset.pressed.connect(_reset_one_binding.bind(action))
+	_binding_reset_buttons[action] = reset
+	row.add_child(reset)
+	return row
+
+func _paint_keycap(button: Button, listening: bool) -> void:
+	var accent := COLOR_GOLD if listening else COLOR_MINT
+	MenuStyle.paint_card(button, accent, 0.0, 6, accent, COLOR_TEXT)
+	button.add_theme_color_override("font_color", accent)
+	button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	button.add_theme_color_override("font_pressed_color", accent)
+
+## Start listening on one row. Clicking the keycap again, clicking elsewhere,
+## Escape or B leaves the binding as it was.
+func _begin_rebinding(action: String) -> void:
+	if not InputBindings.has_action(action):
+		return
+	if not _capturing_action.is_empty():
+		_restore_binding_button(_capturing_action)
+	_capturing_action = action
+	var button := _binding_buttons.get(action) as Button
+	if is_instance_valid(button):
+		button.text = "Press a key…"
+		_paint_keycap(button, true)
+	_set_controls_status("Listening for %s. Press a key or controller button; Esc cancels, Backspace unbinds." % InputBindings.action_label(action))
+
+func _restore_binding_button(action: String) -> void:
+	var button := _binding_buttons.get(action) as Button
+	if is_instance_valid(button):
+		button.text = InputBindings.binding_text(action)
+		_update_keycap_tooltip(action, button)
+		_paint_keycap(button, false)
+
+func _update_keycap_tooltip(action: String, button: Button) -> void:
+	button.tooltip_text = "%s: %s. Click, then press a key or controller button." % [
+		InputBindings.action_label(action), InputBindings.binding_text(action)]
+
+## Returns true when the event belonged to the capture and must not reach the
+## rest of the screen. A mouse press cancels the capture but is passed on, so
+## clicking another keycap starts on that row.
+func _handle_capture(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if not key.pressed or key.echo:
+			return true
+		if key.keycode == KEY_ESCAPE:
+			_finish_capture("Binding unchanged.")
+			return true
+		if key.keycode == KEY_BACKSPACE or key.keycode == KEY_DELETE:
+			_unbind_captured_action()
+			return true
+		if key.keycode in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META, KEY_CAPSLOCK, KEY_NUMLOCK, KEY_SCROLLLOCK]:
+			return true
+		_apply_captured_event(event)
+		return true
+	if event is InputEventJoypadButton:
+		var button := event as InputEventJoypadButton
+		if not button.pressed:
+			return true
+		if button.button_index == JOY_BUTTON_B:
+			_finish_capture("Binding unchanged.")
+			return true
+		_apply_captured_event(event)
+		return true
+	if event is InputEventJoypadMotion:
+		var motion := event as InputEventJoypadMotion
+		if absf(motion.axis_value) < InputBindings.JOY_MOTION_CAPTURE_THRESHOLD:
+			return false
+		_apply_captured_event(event)
+		return true
+	if event is InputEventMouseButton and event.pressed:
+		_finish_capture("Binding unchanged.")
+		return false
+	return false
+
+func _apply_captured_event(event: InputEvent) -> void:
+	if _capturing_action.is_empty():
+		return
+	var action := _capturing_action
+	var label := InputBindings.action_label(action)
+	var result := InputBindings.assign_binding(action, event)
+	if not bool(result.get("ok", false)):
+		# A reserved key keeps the row listening so the player can try again.
+		_set_controls_status(str(result.get("message", "That cannot be bound.")))
+		return
+	if bool(result.get("unchanged", false)):
+		_finish_capture("%s is already bound to %s." % [label, InputBindings.binding_text(action)])
+		return
+	var message := "Bound %s to %s." % [label, InputBindings.binding_text(action)]
+	var conflicts: Array = result.get("conflicts", [])
+	if not conflicts.is_empty():
+		var names: Array[String] = []
+		for other in conflicts:
+			names.append(InputBindings.action_label(str(other)))
+		if bool(result.get("swapped", false)):
+			message += " %s took over the key it replaced." % ", ".join(names)
+		else:
+			message += " Removed it from %s." % ", ".join(names)
+	_finish_capture(message)
+
+func _unbind_captured_action() -> void:
+	if _capturing_action.is_empty():
+		return
+	var action := _capturing_action
+	var label := InputBindings.action_label(action)
+	InputBindings.clear_binding(action)
+	_finish_capture("%s is unbound. ↺ restores its default (%s)." % [
+		label, InputBindings.default_binding_text(action)])
+
+func _finish_capture(message: String) -> void:
+	var action := _capturing_action
+	_capturing_action = ""
+	_restore_binding_button(action)
+	_refresh_binding_rows()
+	_set_controls_status(message)
+	var button := _binding_buttons.get(action) as Button
+	if is_instance_valid(button):
+		button.grab_focus()
+
+func _reset_one_binding(action: String) -> void:
+	if not _capturing_action.is_empty():
+		_finish_capture("")
+	InputBindings.reset_binding(action)
+	_refresh_binding_rows()
+	_set_controls_status("%s is back on its default (%s)." % [
+		InputBindings.action_label(action), InputBindings.default_binding_text(action)])
+
+func _reset_all_controls() -> void:
+	if not _capturing_action.is_empty():
+		_finish_capture("")
+	InputBindings.reset_all()
+	_refresh_binding_rows()
+	_set_controls_status("All controls are back on their defaults.")
+
+func _on_binding_changed(_action: String) -> void:
+	_refresh_binding_rows()
+
+func _on_bindings_reset() -> void:
+	_refresh_binding_rows()
+
+## Refresh captions and reset availability in place (a rebind must not rebuild
+## the page and throw away focus or scroll position).
+func _refresh_binding_rows() -> void:
+	for action in _binding_buttons:
+		var button := _binding_buttons[action] as Button
+		if not is_instance_valid(button) or action == _capturing_action:
+			continue
+		button.text = InputBindings.binding_text(str(action))
+		_update_keycap_tooltip(str(action), button)
+		_paint_keycap(button, false)
+	for action in _binding_reset_buttons:
+		var reset := _binding_reset_buttons[action] as Button
+		if is_instance_valid(reset):
+			reset.disabled = not InputBindings.is_customized(str(action))
+	if is_instance_valid(_reset_all_controls_button):
+		_reset_all_controls_button.disabled = not InputBindings.has_custom_bindings()
+
+func _set_controls_status(text: String) -> void:
+	_controls_status_text = text
+	if is_instance_valid(_controls_status_label):
+		_controls_status_label.text = text
 
 func _make_group(title: String, description: String, mode: int) -> Dictionary:
 	var panel := _make_card(COLOR_RAISED, MenuStyle.with_alpha(COLOR_BORDER, 0.32), 12)
@@ -712,70 +958,6 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	toggle.toggled.connect(func(value: bool): on_change.call(value))
 	row.add_child(toggle)
 	parent.add_child(row)
-
-func _build_keybinding_row(key: String, action: String, mode: int) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var keycap := PanelContainer.new()
-	keycap.custom_minimum_size = Vector2(82 if mode == LayoutMode.PHONE else 112, 29)
-	keycap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	keycap.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_INSET,
-		MenuStyle.with_alpha(COLOR_MINT, 0.27), 7, 6, 3, 1))
-	var key_label := _label(key, 9 if mode == LayoutMode.PHONE else 10, COLOR_MINT)
-	key_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	keycap.add_child(key_label)
-	row.add_child(keycap)
-	var action_label := _label(action, 10 if mode == LayoutMode.PHONE else 11, COLOR_MUTED)
-	action_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(action_label)
-	return row
-
-func _build_context_card(mode: int) -> PanelContainer:
-	var panel := _make_card(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_GOLD, 0.34), MenuStyle.CARD_RADIUS + 2)
-	panel.name = "CourseContextCard"
-	var margin := MarginContainer.new()
-	_set_margins(margin, 16)
-	panel.add_child(margin)
-	var stack := VBoxContainer.new()
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 9)
-	margin.add_child(stack)
-	stack.add_child(_label("AT A GLANCE", 10, COLOR_GOLD))
-	var mark := MenuFlagMark.new()
-	mark.mark_size = 70
-	mark.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	stack.add_child(mark)
-	stack.add_child(_label("Your clubhouse", 19, COLOR_TEXT))
-	stack.add_child(_label("Preferences are saved separately from course checkpoints, so your sound, display and controls stay yours.", 11, COLOR_MUTED))
-	var separator := _make_separator()
-	stack.add_child(separator)
-	stack.add_child(_label("CURRENT SESSION", 9, COLOR_QUIET))
-	_reference_course_label = _label("", 14, COLOR_TEXT)
-	_reference_course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(_reference_course_label)
-	_reference_day_label = _label("", 11, COLOR_GOLD)
-	stack.add_child(_reference_day_label)
-	var footer := Control.new()
-	footer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_child(footer)
-	var badge := _make_status_chip("LOCAL PREFERENCES", mode)
-	badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	stack.add_child(badge)
-	_update_context_copy()
-	return panel
-
-func _update_context_copy() -> void:
-	if not is_instance_valid(_reference_course_label) or not is_instance_valid(_reference_day_label):
-		return
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
-		_reference_course_label.text = "Ready for the first tee"
-		_reference_day_label.text = "TITLE SCREEN"
-	else:
-		_reference_course_label.text = GameManager.course_name
-		_reference_day_label.text = "DAY %02d" % GameManager.current_day
 
 func _make_status_chip(text: String, mode: int) -> PanelContainer:
 	var chip := PanelContainer.new()
@@ -965,17 +1147,16 @@ func _category_name(category: int) -> String:
 	return ["Audio", "Display", "Controls"][category]
 
 func _category_title(category: int) -> String:
-	return ["Sound & ambience", "Screen & accessibility", "Course preferences", "Your controls"][category]
+	return ["Sound & ambience", "Screen & accessibility", "Your controls"][category]
 
 func _category_short_description(category: int) -> String:
-	return ["Mixer", "Screen", "Course", "Keys"][category]
+	return ["Mixer", "Screen", "Keys"][category]
 
 func _category_description(category: int) -> String:
 	return [
 		"Balance the master, effects and ambient volume for the course.",
 		"Adjust how the game looks and feels on this display.",
-		"Choose the tee-box options used when creating holes.",
-		"Tune camera zoom and check the keyboard shortcuts.",
+		"Rebind every course action, reset one control or reset them all.",
 	][category]
 
 func _make_separator() -> HSeparator:
@@ -1012,10 +1193,21 @@ func _on_close() -> void:
 	queue_free()
 
 func _input(event: InputEvent) -> void:
+	# A listening keycap consumes the next key or controller button before
+	# Escape can close the menu, the GUI can press a button, or a gameplay
+	# hotkey can reach the course behind it.
+	if not _capturing_action.is_empty():
+		if _handle_capture(event):
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			_on_close()
 			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		_on_close()
+		get_viewport().set_input_as_handled()
 		return
 	if camera != null and _is_camera_event(event):
 		camera.handle_input_event(event, true)

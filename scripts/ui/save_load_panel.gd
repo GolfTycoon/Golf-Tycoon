@@ -63,6 +63,9 @@ func _ready() -> void:
 	_ensure_selection()
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
@@ -974,6 +977,13 @@ func _input(event: InputEvent) -> void:
 			else:
 				_on_back_pressed()
 			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		if is_instance_valid(_confirmation_overlay):
+			_close_confirmation()
+		else:
+			_on_back_pressed()
+		get_viewport().set_input_as_handled()
 		return
 	if camera != null and _is_camera_event(event):
 		camera.handle_input_event(event, true)

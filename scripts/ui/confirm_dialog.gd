@@ -24,6 +24,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_ui()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _build_ui() -> void:
 	# Semi-transparent overlay
 	var bg = ColorRect.new()
@@ -83,6 +86,8 @@ func _build_ui() -> void:
 	cancel_btn.custom_minimum_size = Vector2(140, 38)
 	cancel_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	cancel_btn.pressed.connect(_on_cancel)
+	# Destructive confirmations default to the safe answer.
+	cancel_btn.set_meta(InputManager.DEFAULT_FOCUS_META, true)
 	btn_row.add_child(cancel_btn)
 
 	var confirm_btn = Button.new()
@@ -98,6 +103,10 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			_on_cancel()
 			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		_on_cancel()
+		get_viewport().set_input_as_handled()
 
 func _on_confirm() -> void:
 	confirmed.emit()

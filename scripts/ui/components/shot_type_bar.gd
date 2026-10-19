@@ -132,7 +132,7 @@ func _make_button(index: int) -> Button:
 	button.tooltip_text = "%s — %s" % [shot["title"], shot["description"]]
 	button.toggle_mode = true
 	button.button_group = _group
-	button.focus_mode = Control.FOCUS_NONE
+	button.focus_mode = Control.FOCUS_ALL
 	button.custom_minimum_size.y = BUTTON_HEIGHT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.set_meta("shot_type", index)

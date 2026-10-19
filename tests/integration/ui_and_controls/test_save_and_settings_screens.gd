@@ -142,6 +142,7 @@ func test_the_settings_office_fits_every_window() -> void:
 		await process_frames(6)
 		var layout := SettingsMenu.layout_mode_for(Vector2(size))
 		assert_eq(menu._layout_mode, layout, "%s: the arrangement for %s" % [tag, size])
+		assert_null(menu.find_child("CourseContextCard", true, false), "%s: the at-a-glance section is removed" % tag)
 		var categories := 0
 		for category in SettingsMenu.Category.values():
 			if menu.find_child("Category_%s" % menu._category_key(category), true, false):

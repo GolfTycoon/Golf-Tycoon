@@ -126,6 +126,9 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _on_screen_changed(window_size: Vector2, _world_scale: float) -> void:
 	if _current_layout() != _layout_mode:
 		_build()
@@ -520,6 +523,8 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 		"Customise your game settings, then buy the location for your first course and start playing",
 		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.FLAG)
 	button.name = "StartNewGameButton"
+	# The primary action is where a keyboard/controller player starts.
+	button.set_meta(InputManager.DEFAULT_FOCUS_META, true)
 	button.pressed.connect(func(): start_new_game_requested.emit())
 	return button
 
@@ -546,12 +551,16 @@ func _make_continue_card(height: float, title_font: int, caption_font: int) -> B
 			newest.get("course_name", ""), int(newest.get("day", 0)), newest.get("name", "")]
 		accent = ACCENT_SECONDARY
 
+	# The slot the card names, bound now: the press plays the checkpoint the
+	# caption describes rather than asking the disk again, so a save written
+	# while the menu was up can never leave the two disagreeing.
+	var slot := str(newest.get("name", ""))
 	var button := _make_card("Continue", caption, tooltip, height, title_font, caption_font,
 		accent, PixelIcon.Kind.PLAY, newest.is_empty())
 	button.name = "ContinueButton"
 	button.disabled = newest.is_empty()
 	_continue_button = button
-	button.pressed.connect(func(): continue_requested.emit(continue_save_name()))
+	button.pressed.connect(func(): continue_requested.emit(slot))
 	return button
 
 ## Load Game / Achievements / Golfer Skins / Settings / Quit: stacked down
@@ -788,12 +797,14 @@ static func _with_alpha(color: Color, alpha: float) -> Color:
 # INPUT
 # =============================================================================
 
-## The newest save name, or an empty string when there is none.
+## The slot the Continue card plays: the newest save in the list the card was
+## built from, or an empty string when there is none. Read from that snapshot
+## rather than from the disk again, so this always agrees with the course,
+## day and slot the card is showing.
 func continue_save_name() -> String:
-	var saves = SaveManager.get_save_list()
-	if saves.is_empty():
+	if _saves.is_empty():
 		return ""
-	return str(saves[0].get("name", ""))
+	return str(_saves[0].get("name", ""))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:

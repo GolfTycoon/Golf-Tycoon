@@ -118,7 +118,7 @@ func _build_ui() -> void:
 	_collapse_button = Button.new()
 	_collapse_button.flat = true
 	_collapse_button.text = "-"
-	_collapse_button.focus_mode = Control.FOCUS_NONE
+	_collapse_button.focus_mode = Control.FOCUS_ALL
 	_collapse_button.custom_minimum_size = Vector2(20, 18)
 	_collapse_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	_collapse_button.tooltip_text = "Collapse / expand the status column"
@@ -137,7 +137,7 @@ func _build_ui() -> void:
 
 	_money_button = Button.new()
 	_money_button.flat = true
-	_money_button.focus_mode = Control.FOCUS_NONE
+	_money_button.focus_mode = Control.FOCUS_ALL
 	_money_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
 	_money_button.pressed.connect(_on_money_pressed)
 	_money_button.tooltip_text = "Click to view financial details"
@@ -171,7 +171,7 @@ func _build_ui() -> void:
 	# Reputation
 	_reputation_button = Button.new()
 	_reputation_button.flat = true
-	_reputation_button.focus_mode = Control.FOCUS_NONE
+	_reputation_button.focus_mode = Control.FOCUS_ALL
 	_reputation_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	_reputation_button.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_reputation_button.pressed.connect(_on_reputation_pressed)
@@ -181,7 +181,7 @@ func _build_ui() -> void:
 	# Course rating
 	_rating_button = Button.new()
 	_rating_button.flat = true
-	_rating_button.focus_mode = Control.FOCUS_NONE
+	_rating_button.focus_mode = Control.FOCUS_ALL
 	_rating_button.text = "-- (-.--)"
 	_rating_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
 	_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
