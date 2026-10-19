@@ -3,10 +3,10 @@ class_name SettingsMenu
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
 ## Preferences are grouped into Audio, Display and Controls. Wide
-## desktop windows use a navigation rail beside the control cards and a small
-## course context panel; tablets keep the cards roomy, while phones use a
-## swipeable category strip and one scrollable settings column. Every control
-## keeps its original live behavior and saves changes to user://settings.cfg.
+## desktop windows use a navigation rail beside the control cards; tablets
+## keep the cards roomy, while phones use a swipeable category strip and one
+## scrollable settings column. Every control keeps its original live behavior
+## and saves changes to user://settings.cfg.
 
 signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
@@ -76,8 +76,6 @@ var _layout_mode: int = LayoutMode.PHONE
 var _built_size := Vector2.ZERO
 var _bg: ColorRect
 var _panel: Control
-var _reference_course_label: Label
-var _reference_day_label: Label
 var _benchmark_run_button: Button
 var _benchmark_status_label: Label
 var _benchmark_summary_label: Label
@@ -156,8 +154,6 @@ func _build() -> void:
 		child.queue_free()
 	_bg = null
 	_panel = null
-	_reference_course_label = null
-	_reference_day_label = null
 	_benchmark_run_button = null
 	_benchmark_status_label = null
 	_benchmark_summary_label = null
@@ -284,11 +280,6 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		content.size_flags_stretch_ratio = 1.0
 		row.add_child(content)
-		if mode == LayoutMode.DESKTOP:
-			var context := _build_context_card(mode)
-			context.custom_minimum_size.x = clampf(view.x * 0.17, 240.0, 292.0)
-			context.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			row.add_child(context)
 		return row
 
 	var stack := VBoxContainer.new()
@@ -967,50 +958,6 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	toggle.toggled.connect(func(value: bool): on_change.call(value))
 	row.add_child(toggle)
 	parent.add_child(row)
-
-func _build_context_card(mode: int) -> PanelContainer:
-	var panel := _make_card(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_GOLD, 0.34), MenuStyle.CARD_RADIUS + 2)
-	panel.name = "CourseContextCard"
-	var margin := MarginContainer.new()
-	_set_margins(margin, 16)
-	panel.add_child(margin)
-	var stack := VBoxContainer.new()
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 9)
-	margin.add_child(stack)
-	stack.add_child(_label("AT A GLANCE", 10, COLOR_GOLD))
-	var mark := MenuFlagMark.new()
-	mark.mark_size = 70
-	mark.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	stack.add_child(mark)
-	stack.add_child(_label("Your clubhouse", 19, COLOR_TEXT))
-	stack.add_child(_label("Preferences are saved separately from course checkpoints, so your sound, display and controls stay yours.", 11, COLOR_MUTED))
-	var separator := _make_separator()
-	stack.add_child(separator)
-	stack.add_child(_label("CURRENT SESSION", 9, COLOR_QUIET))
-	_reference_course_label = _label("", 14, COLOR_TEXT)
-	_reference_course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(_reference_course_label)
-	_reference_day_label = _label("", 11, COLOR_GOLD)
-	stack.add_child(_reference_day_label)
-	var footer := Control.new()
-	footer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_child(footer)
-	var badge := _make_status_chip("LOCAL PREFERENCES", mode)
-	badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	stack.add_child(badge)
-	_update_context_copy()
-	return panel
-
-func _update_context_copy() -> void:
-	if not is_instance_valid(_reference_course_label) or not is_instance_valid(_reference_day_label):
-		return
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
-		_reference_course_label.text = "Ready for the first tee"
-		_reference_day_label.text = "TITLE SCREEN"
-	else:
-		_reference_course_label.text = GameManager.course_name
-		_reference_day_label.text = "DAY %02d" % GameManager.current_day
 
 func _make_status_chip(text: String, mode: int) -> PanelContainer:
 	var chip := PanelContainer.new()
