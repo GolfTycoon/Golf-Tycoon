@@ -6,9 +6,13 @@ extends GameTest
 const SaveManagerScript := preload("res://scripts/autoload/save_manager.gd")
 const SAVE_DIR_PATH := "user://saves/"
 const TEST_SAVE := "unit_test_checkpoint"
+## A pair of checkpoints for the ordering tests, named so that neither the
+## directory order nor the name order agrees with the order they are written.
+const TIE_SAVE_A := "unit_test_tie_aaa"
+const TIE_SAVE_Z := "unit_test_tie_zzz"
 
 func after_each() -> void:
-	for save_name in [TEST_SAVE, "my.save.v2"]:
+	for save_name in [TEST_SAVE, "my.save.v2", TIE_SAVE_A, TIE_SAVE_Z]:
 		var path: String = SAVE_DIR_PATH + save_name + ".save"
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
@@ -258,3 +262,46 @@ func test_save_list_keeps_dots_inside_the_save_name() -> void:
 	_write_save("my.save.v2", {"timestamp": "2000-01-01T00:00:00",
 		"game_state": {"course_name": "X", "current_day": 1}})
 	assert_false(_listed("my.save.v2").is_empty(), "The name keeps its inner '.save' text")
+
+## The title screen's Continue card plays whichever save is first in the list,
+## so the newest has to be the same save on every read. A stamp is only good
+## to the second, and two checkpoints written inside one second — a year-end
+## autosave landing beside a manual save — leave it nothing to sort by, so
+## the top of the list used to be whichever the directory listed first.
+func test_save_list_keeps_the_newest_save_the_same_between_reads() -> void:
+	var same_second := "2026-10-01T09:30:00"
+	_write_save(TIE_SAVE_A, {"timestamp": same_second,
+		"game_state": {"course_name": "Written First", "current_day": 1}})
+	_write_save(TIE_SAVE_Z, {"timestamp": same_second,
+		"game_state": {"course_name": "Written Over It", "current_day": 2}})
+
+	var expected: Array = [TIE_SAVE_Z, TIE_SAVE_A]
+	var readings: Array = []
+	for read in range(5):
+		var order: Array = []
+		for entry in SaveManager.get_save_list():
+			var save_name := str(entry.get("name", ""))
+			if save_name.begins_with("unit_test_tie_"):
+				order.append(save_name)
+		readings.append(order)
+		assert_eq(order, expected, "read %d lists the same two, newest first" % read)
+	assert_eq(readings[0], readings[4], "and the newest is the same save on the last read as the first")
+	assert_ne(int(_listed(TIE_SAVE_Z).get("modified_time", 0)), 0,
+		"each entry carries the file's own modified time to break the tie with")
+
+## The tie-break only breaks ties: a save stamped a day earlier is the older of
+## the two however the names happen to sort, so the card never resumes it over
+## the one actually played last.
+func test_save_list_puts_the_newer_stamp_first_whatever_the_names_say() -> void:
+	# The alphabetically-first name carries the newer stamp, so a name sort
+	# would put the older save on top.
+	_write_save(TIE_SAVE_A, {"timestamp": "2026-10-02T09:30:00",
+		"game_state": {"course_name": "Played Last", "current_day": 9}})
+	_write_save(TIE_SAVE_Z, {"timestamp": "2026-10-01T09:30:00",
+		"game_state": {"course_name": "Played First", "current_day": 8}})
+	var order: Array = []
+	for entry in SaveManager.get_save_list():
+		var save_name := str(entry.get("name", ""))
+		if save_name.begins_with("unit_test_tie_"):
+			order.append(save_name)
+	assert_eq(order, [TIE_SAVE_A, TIE_SAVE_Z], "the newer stamp leads, name second")

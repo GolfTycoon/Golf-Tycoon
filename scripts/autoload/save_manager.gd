@@ -235,13 +235,33 @@ func get_save_list() -> Array[Dictionary]:
 			var save_name = file_name.trim_suffix(".save")
 			var metadata = _read_save_metadata(SAVE_DIR + file_name)
 			metadata["name"] = save_name
+			# The file's own modified time: a second opinion on age for when
+			# the stamp inside the file cannot tell two saves apart.
+			metadata["modified_time"] = FileAccess.get_modified_time(SAVE_DIR + file_name)
 			saves.append(metadata)
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
-	# Sort by timestamp descending (newest first)
-	saves.sort_custom(func(a, b): return a.get("timestamp", "") > b.get("timestamp", ""))
+	# Newest first. The stamp in a save is only good to the second, so two
+	# written inside one second — a year-end autosave landing beside a manual
+	# checkpoint — used to sort arbitrarily and the top of this list, which
+	# the title screen's Continue card plays, changed between runs.
+	saves.sort_custom(_is_newer_save)
 	return saves
+
+## Whether save entry `a` is the newer of the two. Each step only breaks a tie
+## left by the one before it, so the newest save is always the same save
+## rather than whichever order the directory happened to list them in.
+static func _is_newer_save(a: Dictionary, b: Dictionary) -> bool:
+	var stamp_a := str(a.get("timestamp", ""))
+	var stamp_b := str(b.get("timestamp", ""))
+	if stamp_a != stamp_b:
+		return stamp_a > stamp_b
+	var modified_a := int(a.get("modified_time", 0))
+	var modified_b := int(b.get("modified_time", 0))
+	if modified_a != modified_b:
+		return modified_a > modified_b
+	return str(a.get("name", "")) > str(b.get("name", ""))
 
 ## Build the full save data dictionary
 func _build_save_data() -> Dictionary:

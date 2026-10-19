@@ -976,6 +976,15 @@ func _hide_main_menu() -> void:
 		main_menu = null
 	_disconnect_main_menu_load_signal()
 
+## Hand the player the course a save just restored. The title screen and the
+## gameplay HUD are the two halves of one trade — the menu was hiding the
+## course while it was up — so leaving the menu is the same set of moves
+## whichever way in the save arrived, the archive or the Continue card.
+func _leave_title_screen_for_course() -> void:
+	_hide_main_menu()
+	_close_world_map()
+	_set_gameplay_ui_visible(true)
+
 ## Start New Game: company setup first, then the world map.
 func _on_menu_start_new_game() -> void:
 	_hide_main_menu()
@@ -1006,10 +1015,21 @@ func _on_menu_quick_start() -> void:
 	WorldMap.set_active_location(location_id)
 	_start_new_course_at_location(location_id, true)
 
+## Continue: play the newest checkpoint straight away, the shortcut past the
+## archive. The load itself is the archive's; what Continue adds is taking the
+## player into the course once it lands (see _leave_title_screen_for_course).
+##
+## A checkpoint that will not come back — deleted while the menu was up, or
+## written by a version this build cannot read — leaves the title screen
+## standing. load_game() has already said why, and the menu is the one place
+## left to pick another save or start over; swapping it for an empty course
+## would strand the player with nothing to go back to.
 func _on_menu_continue(save_name: String) -> void:
 	if save_name.is_empty():
 		return
-	SaveManager.load_game(save_name)
+	if not SaveManager.load_game(save_name):
+		return
+	_leave_title_screen_for_course()
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
@@ -1405,9 +1425,7 @@ func _on_main_menu_load_completed(success: bool) -> void:
 	"""A save was loaded from the main menu — dismiss menu and show game."""
 	_disconnect_main_menu_load_signal()
 	if success:
-		_hide_main_menu()
-		_close_world_map()
-		_set_gameplay_ui_visible(true)
+		_leave_title_screen_for_course()
 
 func _disconnect_main_menu_load_signal() -> void:
 	if EventBus.load_completed.is_connected(_on_main_menu_load_completed):

@@ -23,6 +23,12 @@
 - **Save menu:** Pause menu, then Save, which uses named slots. The archive lists each save with its course, day, balance and hole count. Saving over an existing name asks first.
 - **Autosave:** every 30 game days, and at the end of each year.
 
+## Loading
+
+- **Continue** (main menu): plays the newest save without opening the archive, and takes the player onto that course. A save that will not come back — deleted while the menu was up, or written by a version this build cannot read — leaves the title screen standing and says why.
+- **Load Game** (main menu) or **Pause menu → Load**: the archive, where any slot can be picked.
+- The archive lists saves newest first, and the title screen's Continue card plays whichever is on top. The stamp inside a save is only good to the second, so two written within one second — a year-end autosave landing beside a manual save — are ordered by the file's own modified time, then by slot name. The newest save is always the same save.
+
 ## What Is Saved
 
 | Area | Saved |
