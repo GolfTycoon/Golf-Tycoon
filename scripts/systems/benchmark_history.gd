@@ -9,9 +9,11 @@ class_name BenchmarkHistory
 ## comparison graph and a list with the change against the newest run beside
 ## each one.
 ##
-## The file is local, tiny and optional - it holds the numbers from the report
-## and nothing else, and `clear()` wipes it. Records are capped so a player who
-## benchmarks every build does not grow the file forever.
+## The file is local and optional - it holds the numbers from the report and
+## the report itself, and `clear()` wipes it. Records are capped so a player
+## who benchmarks every build does not grow the file forever, and a report
+## keeps only what the results screen can draw (see `shelf_report`), so a
+## full shelf of twelve full-tour runs stays in the hundreds of kilobytes.
 ##
 ## Record shape (all keys optional when read back, so an older file still
 ## loads): at_unix, benchmark_version, game_version, platform, device_model,
@@ -21,8 +23,13 @@ class_name BenchmarkHistory
 ## tour_scenarios, tour_worst_scenario, tour_worst_fps, tour_generation_ms,
 ## tour_editing_tiles_per_second, tour_prepare_ms (the throwaway course the
 ## benchmark prepared from the Main Menu; absent on older records).
+##
+## `report` is the result the record came from, so the results screen can
+## open a past run and draw it again. Records written before it existed
+## simply have no report: their numbers still chart and compare, they just
+## cannot be reopened.
 
-const FILE_VERSION := 1
+const FILE_VERSION := 2
 const DEFAULT_HISTORY_PATH := "user://benchmark_history.json"
 ## Runs kept on the shelf.
 const MAX_RUNS := 12
@@ -36,8 +43,9 @@ const METRIC_KEYS := ["overall", "average_fps", "one_percent_low_fps", "cpu_unit
 ## Tests point this at a scratch file instead of the player's.
 static var history_path: String = DEFAULT_HISTORY_PATH
 
-## The compact record a finished report leaves behind. Rounded, so the file
-## stays readable and small.
+## The compact record a finished report leaves behind - rounded, so the
+## comparison chart and the list stay readable - plus the report itself, so
+## a past run can be opened again from the shelf.
 static func record_from(result: Dictionary) -> Dictionary:
 	var frame: Dictionary = result.get("frame", {})
 	var cpu: Dictionary = result.get("cpu", {})
@@ -88,7 +96,58 @@ static func record_from(result: Dictionary) -> Dictionary:
 		var prepare: Dictionary = tour.get("prepare", {})
 		if not prepare.is_empty():
 			record["tour_prepare_ms"] = round1(float(prepare.get("prepare_ms", 0.0)))
+	record["report"] = shelf_report(result)
 	return record
+
+## The result a record keeps so the results screen can draw that run again:
+## the report as it finished, minus the frame series of each tour phase.
+## Nothing draws those - the screen's oscilloscope is the run's pooled
+## series - and eleven courses' worth of them would double the shelf for
+## pixels no one looks at. The result handed in is never modified.
+static func shelf_report(result: Dictionary) -> Dictionary:
+	if result.is_empty():
+		return {}
+	var report: Dictionary = result.duplicate(true)
+	var tour: Variant = report.get("tour", null)
+	if not (tour is Dictionary):
+		return report
+	var tour_data: Dictionary = tour
+	var scenarios: Variant = tour_data.get("scenarios", null)
+	if not (scenarios is Array):
+		return report
+	var kept: Array = []
+	for scenario in scenarios:
+		if not (scenario is Dictionary):
+			kept.append(scenario)
+			continue
+		var course: Dictionary = (scenario as Dictionary).duplicate(true)
+		var phases: Variant = course.get("phases", null)
+		if phases is Dictionary:
+			var phase_data: Dictionary = phases
+			for key in phase_data.keys():
+				var phase: Variant = phase_data[key]
+				if not (phase is Dictionary):
+					continue
+				var trimmed: Dictionary = (phase as Dictionary).duplicate(true)
+				trimmed.erase("series_ms")
+				phase_data[key] = trimmed
+		kept.append(course)
+	tour_data["scenarios"] = kept
+	report["tour"] = tour_data
+	return report
+
+## The report a record carries, or an empty dictionary for a record written
+## before past reports were kept.
+static func report_of(record: Dictionary) -> Dictionary:
+	if record.is_empty():
+		return {}
+	var report: Variant = record.get("report", null)
+	return report if report is Dictionary else {}
+
+## Whether the results screen can open this record: it kept the whole
+## report, not just the numbers a comparison needs.
+static func has_report(record: Dictionary) -> bool:
+	return not report_of(record).is_empty()
 
 ## The runs on the shelf, oldest first. A missing or unreadable file is an
 ## empty shelf rather than an error.
@@ -120,7 +179,9 @@ static func save_runs(runs: Array) -> void:
 	var file := FileAccess.open(history_path, FileAccess.WRITE)
 	if file == null:
 		return
-	file.store_string(JSON.stringify({"version": FILE_VERSION, "runs": trimmed}, "\t"))
+	# Written compact: a record now carries the whole report, and indenting
+	# eleven courses' worth of numbers would double the file for nothing.
+	file.store_string(JSON.stringify({"version": FILE_VERSION, "runs": trimmed}))
 	file.close()
 
 ## Append a finished report to the shelf and return the shelf, oldest first.

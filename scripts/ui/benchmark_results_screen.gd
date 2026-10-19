@@ -64,8 +64,14 @@ const METRICS := [METRIC_OVERALL, METRIC_FPS, METRIC_CPU, METRIC_GPU]
 ## Runs listed in the past-runs panel.
 const HISTORY_ROWS := 5
 
+## The report the screen is drawing: the run that finished last, or - once a
+## row on the shelf is picked - that past run's own report.
 var _result: Dictionary = {}
 var _history: Array = []
+## Which shelf row the screen is showing: -1 is "the run in memory", any
+## other value is an index into `_history`. Picking a row shows that run's
+## report, charts and dossier; picking the newest one comes back to now.
+var _selected_index: int = -1
 var _history_metric: String = METRIC_OVERALL
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
@@ -99,8 +105,14 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if not PerformanceBenchmark.last_result.is_empty():
 		_result = PerformanceBenchmark.last_result
-	_status_text = _default_status_text()
 	_history = BenchmarkHistory.load_runs()
+	if _result.is_empty():
+		# Opened cold - Past Results with nothing finished in this session:
+		# show the newest run the shelf still holds rather than an empty one.
+		_show_latest_shelved_run()
+	else:
+		_adopt_shelf_row()
+	_status_text = _default_status_text()
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
@@ -144,6 +156,8 @@ func _on_screen_changed(window_size: Vector2, _scale: float) -> void:
 
 func refresh() -> void:
 	_history = BenchmarkHistory.load_runs()
+	_apply_selection()
+	_adopt_shelf_row()
 	_build()
 
 # =============================================================================
@@ -629,7 +643,7 @@ func _build_delta_row() -> Control:
 	var row := HBoxContainer.new()
 	row.name = "RatingDelta"
 	row.add_theme_constant_override("separation", 7)
-	var previous := BenchmarkHistory.previous_of(_history)
+	var previous := _displayed_previous()
 	if previous.is_empty() or _result.is_empty():
 		var hint := Kit.make_label("Run the test again to see how this device changes.", 10,
 			Kit.COLOR_TEXT_QUIET)
@@ -648,8 +662,23 @@ func _build_delta_row() -> Control:
 	row.add_child(delta)
 	var note := Kit.make_label("overall score against the run before it", 10, Kit.COLOR_TEXT_QUIET)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.clip_text = true
+	note.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(note)
 	return row
+
+## The run before the one at `index` on the shelf, newest last.
+## `BenchmarkHistory.previous_of` counts from the newest, so a shelf index
+## has to be turned around on the way in.
+func _previous_of_run(index: int) -> Dictionary:
+	return BenchmarkHistory.previous_of(_history, _history.size() - 1 - index)
+
+## The run before the one on screen: the row above the picked one, or the
+## one before the newest when the screen is showing the run in memory.
+func _displayed_previous() -> Dictionary:
+	if _selected_index < 0:
+		return BenchmarkHistory.previous_of(_history)
+	return _previous_of_run(_selected_index)
 
 func _build_run_meta_row() -> Control:
 	var row := HBoxContainer.new()
@@ -659,6 +688,11 @@ func _build_run_meta_row() -> Control:
 	var chip := Kit.make_chip(scenario, MenuStyle.ACCENT_UTILITY, Kit.COLOR_TEXT_QUIET, 10)
 	chip.name = "ScenarioChip"
 	row.add_child(chip)
+	if _showing_past_run():
+		var past := Kit.make_chip("PAST RUN", Kit.COLOR_GOLD, UIConstants.COLOR_TEXT, 9)
+		past.name = "PastRunChip"
+		past.tooltip_text = "An older run from the shelf, not this session\'s."
+		row.add_child(past)
 	var when := Kit.make_label(BenchmarkHistory.time_label(int(_result.get("started_at_unix", 0))),
 		10, Kit.COLOR_TEXT_QUIET)
 	when.name = "RunTime"
@@ -1157,18 +1191,31 @@ func _select_metric(metric: String) -> void:
 	_history_metric = metric
 	_build()
 
+## One run on the shelf, as a button: pressing it opens that run's report
+## on this screen. The picked row stays lit, and the row's own numbers are
+## the comparison the shelf is for.
 func _build_history_row(record: Dictionary, index: int) -> Control:
 	var newest: Dictionary = BenchmarkHistory.latest(_history)
-	var previous := BenchmarkHistory.previous_of(_history, index)
-	var line := Kit.make_panel(MenuStyle.with_alpha(Kit.COLOR_SURFACE_RAISED, 0.6),
-		MenuStyle.with_alpha(Kit.COLOR_BORDER_SOFT, 0.35))
-	line.name = "Run_%d" % index
+	var previous := _previous_of_run(index)
+	var selected := index == _selected_index
+	var keeps_report := BenchmarkHistory.has_report(record)
+	var row := Button.new()
+	row.name = "Run_%d" % index
+	row.toggle_mode = true
+	row.button_pressed = selected
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.custom_minimum_size.y = 44.0
+	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	row.tooltip_text = ("This run is on screen." if selected \
+		else ("Open this run\'s report" if keeps_report \
+			else "Only this run\'s numbers were kept, not its report"))
+	MenuStyle.paint_choice(row, Kit.COLOR_MINT, 10)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8)
 	margin.add_theme_constant_override("margin_right", 8)
 	margin.add_theme_constant_override("margin_top", 4)
 	margin.add_theme_constant_override("margin_bottom", 4)
-	line.add_child(margin)
+	row.add_child(margin)
 	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", 7)
 	margin.add_child(box)
@@ -1208,7 +1255,75 @@ func _build_history_row(record: Dictionary, index: int) -> Control:
 	delta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	numbers.add_child(delta_label)
 	box.add_child(numbers)
-	return line
+	# The row carries content, so the content lets the click through to it.
+	_ignore_mouse(margin)
+	row.pressed.connect(_select_run.bind(index))
+	return row
+
+## Open the run a shelf row stands for. A record written before past reports
+## were kept says so instead of emptying the screen.
+func _select_run(index: int) -> void:
+	if index < 0 or index >= _history.size():
+		return
+	var record: Dictionary = _history[index]
+	if not BenchmarkHistory.has_report(record):
+		_status_text = "That run was recorded before past reports were kept - only its numbers are on the shelf."
+		_refresh_actions()
+		return
+	if index == _selected_index:
+		return
+	_selected_index = index
+	_result = BenchmarkHistory.report_of(record)
+	var when := BenchmarkHistory.time_label(int(record.get("at_unix", 0)))
+	_status_text = "Showing the run from %s - %d of %d on the shelf. Copy report copies this one." % [
+		when, index + 1, _history.size()]
+	_build()
+
+## Put the selected run on screen: the shelf row's report when there is a
+## row with one, the run in memory otherwise. A selection that has gone off
+## the end of the shelf - or whose row kept no report - drops back rather
+## than emptying the screen.
+func _apply_selection() -> void:
+	if _selected_index >= 0 and _selected_index < _history.size():
+		var report := BenchmarkHistory.report_of(_history[_selected_index])
+		if not report.is_empty():
+			_result = report
+			return
+		_selected_index = -1
+	_result = PerformanceBenchmark.last_result
+
+## The run in memory is normally the newest one on the shelf too: light its
+## row, so the shelf says which run the screen is showing without anything
+## having been picked. The run itself stays the one in memory - it is the
+## freshest copy of it.
+func _adopt_shelf_row() -> void:
+	if _selected_index >= 0 or _result.is_empty() or _history.is_empty():
+		return
+	var newest: Dictionary = _history[_history.size() - 1]
+	if int(newest.get("at_unix", -1)) == int(_result.get("started_at_unix", -2)):
+		_selected_index = _history.size() - 1
+
+## The newest run the shelf can still reopen, for a screen opened cold.
+func _show_latest_shelved_run() -> void:
+	for index in range(_history.size() - 1, -1, -1):
+		if BenchmarkHistory.has_report(_history[index]):
+			_selected_index = index
+			_result = BenchmarkHistory.report_of(_history[index])
+			return
+
+## Whether the report on screen is one of the older runs rather than the run
+## in memory: the rating panel says so, because a past score is not a
+## current one.
+func _showing_past_run() -> bool:
+	return _selected_index >= 0 and _selected_index < _history.size() - 1
+
+## Buttons that carry content: the content ignores the mouse, so a click
+## anywhere on the row is a click on the row.
+func _ignore_mouse(control: Control) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in control.get_children():
+		if child is Control:
+			_ignore_mouse(child)
 
 ## The machine behind the numbers, one line at a time.
 func _build_device_panel() -> PanelContainer:
@@ -1325,6 +1440,10 @@ func _write_clipboard(text: String) -> bool:
 func _clear_history() -> void:
 	BenchmarkHistory.clear()
 	_history = []
+	# The run being read is gone with the shelf; the screen falls back to
+	# the run in memory, or to an empty report when there is none.
+	_selected_index = -1
+	_apply_selection()
 	_status_text = "The past runs are forgotten. A finished tour lands here again as soon as one ends."
 	_build()
 

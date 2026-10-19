@@ -611,6 +611,188 @@ func test_clearing_the_shelf_empties_it() -> void:
 	assert_null(screen.find_child("Run_0", true, false), "and on screen")
 
 # ---------------------------------------------------------------------------
+# Opening a past run
+# ---------------------------------------------------------------------------
+
+## Two runs with the same shape but different numbers, the older one first.
+func _shelf_of_two() -> void:
+	var older := _report()
+	older["started_at_unix"] = 1_759_000_000
+	older["score"]["overall"] = 41.0
+	older["score"]["stars"] = 2
+	older["score"]["tier"] = "Municipal"
+	older["score"]["verdict"] = "Municipal pace. Playable, with the odd stumble."
+	older["frame"]["average_fps"] = 31.0
+	older["frame"]["average_frame_ms"] = 32.3
+	older["frame"]["series_ms"] = [30.0, 32.0, 34.0]
+	older["device_model"] = "Old tablet"
+	older["report_text"] = "Golf Tycoon benchmark GTB-2\\nThe older run"
+	BenchmarkHistory.append_run(older)
+	BenchmarkHistory.append_run(_report())
+
+func test_clicking_a_past_run_shows_that_runs_report() -> void:
+	_shelf_of_two()
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	var older_row := screen.find_child("Run_0", true, false) as Button
+	assert_not_null(older_row, "the older run has its row")
+	if older_row == null:
+		return
+	older_row.pressed.emit()
+	await process_frames(3)
+	var rating := _labels_text(screen.find_child("RatingPanel", true, false))
+	assert_string_contains(rating, "Municipal", "the rating is the past run's tier")
+	assert_string_contains(rating, "41 / 100 overall score", "and its score")
+	assert_not_null(screen.find_child("PastRunChip", true, false),
+		"and the screen says this is a past run, not the current one")
+	var chart := screen.find_child("FrameChart", true, false) as BenchmarkVisuals.FrameChart
+	assert_not_null(chart)
+	if chart:
+		assert_eq(chart.values.size(), 3, "the oscilloscope draws that run's frames")
+		assert_almost_eq(chart.average_ms, 32.3, 0.001, "at that run's pace")
+	var dossier := _labels_text(screen.find_child("DevicePanel", true, false))
+	assert_string_contains(dossier, "Old tablet", "and the machine it ran on")
+	var shown := screen.find_child("Run_0", true, false) as Button
+	assert_true(shown.button_pressed, "the picked row stays lit")
+
+func test_copying_a_past_run_copies_that_runs_report() -> void:
+	_shelf_of_two()
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	var older_row := screen.find_child("Run_0", true, false) as Button
+	if older_row == null:
+		return
+	older_row.pressed.emit()
+	await process_frames(3)
+	var copied: Array = []
+	screen.clipboard_writer = func(text: String): copied.append(text)
+	var copy := screen.find_child("CopyReportButton", true, false) as Button
+	assert_not_null(copy)
+	if copy == null:
+		return
+	copy.pressed.emit()
+	assert_eq(copied.size(), 1, "the report on screen is handed to the clipboard")
+	assert_string_contains(str(copied[0]), "The older run",
+		"and it is the past run's report, not the newest one")
+
+func test_the_newest_run_can_be_picked_again() -> void:
+	_shelf_of_two()
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	var older_row := screen.find_child("Run_0", true, false) as Button
+	var newest_row := screen.find_child("Run_1", true, false) as Button
+	if older_row == null or newest_row == null:
+		return
+	older_row.pressed.emit()
+	await process_frames(3)
+	newest_row = screen.find_child("Run_1", true, false) as Button
+	newest_row.pressed.emit()
+	await process_frames(3)
+	var rating := _labels_text(screen.find_child("RatingPanel", true, false))
+	assert_string_contains(rating, "Tour", "the newest run is back on screen")
+	assert_string_contains(rating, "72 / 100 overall score")
+	assert_null(screen.find_child("PastRunChip", true, false),
+		"and it is no longer flagged as a past run")
+
+func test_a_run_without_a_kept_report_says_so_instead_of_emptying_the_screen() -> void:
+	BenchmarkHistory.append_run(_report())
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	var runs := BenchmarkHistory.load_runs()
+	runs[0].erase("report")
+	BenchmarkHistory.save_runs(runs)
+	screen.refresh()
+	await process_frames(3)
+	var row := screen.find_child("Run_0", true, false) as Button
+	assert_not_null(row)
+	if row == null:
+		return
+	row.pressed.emit()
+	await process_frames(3)
+	assert_string_contains(screen._status_text, "before past reports were kept",
+		"the screen says why that run cannot be opened")
+	var rating := _labels_text(screen.find_child("RatingPanel", true, false))
+	assert_string_contains(rating, "72 / 100 overall score",
+		"and keeps showing the run it was already on")
+
+func test_clearing_the_shelf_drops_the_run_being_read() -> void:
+	_shelf_of_two()
+	PerformanceBenchmark.last_result = {}
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	assert_string_contains(_labels_text(screen.find_child("RatingPanel", true, false)),
+		"Tour", "opened cold, the newest run on the shelf is on screen")
+	var older_row := screen.find_child("Run_0", true, false) as Button
+	if older_row:
+		older_row.pressed.emit()
+		await process_frames(3)
+		assert_string_contains(_labels_text(screen.find_child("RatingPanel", true, false)),
+			"Municipal", "and picking the older one shows it")
+	var clear := screen.find_child("ClearHistoryButton", true, false) as Button
+	assert_not_null(clear)
+	if clear == null:
+		return
+	clear.pressed.emit()
+	await process_frames(3)
+	assert_null(screen.find_child("Run_0", true, false), "the shelf is empty")
+	assert_string_contains(_labels_text(screen.find_child("RatingPanel", true, false)),
+		"Unrated", "and the screen is back to a report it has not measured")
+
+func test_a_real_mouse_click_anywhere_on_a_row_opens_that_run() -> void:
+	_shelf_of_two()
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	var row := screen.find_child("Run_0", true, false) as Button
+	assert_not_null(row)
+	if row == null:
+		return
+	# The row carries stars, labels and numbers: a click on any of them has
+	# to reach the row, not be swallowed by the child underneath it.
+	var centre := (row as Button).get_global_rect().get_center()
+	var pressed := InputEventMouseButton.new()
+	pressed.position = centre
+	pressed.button_index = MOUSE_BUTTON_LEFT
+	pressed.pressed = true
+	Input.parse_input_event(pressed)
+	var released := InputEventMouseButton.new()
+	released.position = centre
+	released.button_index = MOUSE_BUTTON_LEFT
+	released.pressed = false
+	Input.parse_input_event(released)
+	await process_frames(3)
+	assert_string_contains(_labels_text(screen.find_child("RatingPanel", true, false)),
+		"Municipal", "the click opened that run")
+
+func test_every_run_row_opens_the_run_it_stands_for() -> void:
+	for index in range(3):
+		var run := _report()
+		run["started_at_unix"] = 1_759_000_000 + index * 100_000
+		run["score"]["overall"] = 40.0 + float(index) * 20.0
+		run["score"]["stars"] = index + 1
+		BenchmarkHistory.append_run(run)
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	for index in range(3):
+		var row := screen.find_child("Run_%d" % index, true, false) as Button
+		assert_not_null(row, "run %d has a row" % index)
+		if row == null:
+			return
+		row.pressed.emit()
+		await process_frames(3)
+		assert_string_contains(_labels_text(screen.find_child("RatingPanel", true, false)),
+			"%d / 100 overall score" % int(40 + index * 20),
+			"row %d opens the run it stands for" % index)
+
+## Each row is measured against the run before it in time, not against
+## itself, so the oldest row has nothing to compare to.
+func test_each_row_is_compared_against_the_run_before_it() -> void:
+	for index in range(3):
+		var run := _report()
+		run["started_at_unix"] = 1_759_000_000 + index * 100_000
+		run["score"]["overall"] = 40.0 + float(index) * 20.0
+		BenchmarkHistory.append_run(run)
+	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
+	assert_string_contains(_labels_text(screen.find_child("Run_0", true, false)), "\u2014",
+		"the oldest row compares against nothing")
+	assert_string_contains(_labels_text(screen.find_child("Run_1", true, false)), "+50%",
+		"the middle row is measured against the oldest run")
+	assert_string_contains(_labels_text(screen.find_child("Run_2", true, false)), "+33%",
+		"the newest row is measured against the middle run")
+
+# ---------------------------------------------------------------------------
 # Running a test from the screen
 # ---------------------------------------------------------------------------
 

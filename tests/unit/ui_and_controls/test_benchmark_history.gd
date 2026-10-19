@@ -106,6 +106,88 @@ func test_clearing_the_shelf_forgets_every_run() -> void:
 	assert_false(FileAccess.file_exists(HISTORY_PATH), "the file itself goes")
 
 # ---------------------------------------------------------------------------
+# Reopening a past run
+# ---------------------------------------------------------------------------
+
+func test_a_record_keeps_the_report_so_that_run_can_be_opened_again() -> void:
+	var result := _run(1_700_000_000, 72.4, 60.0, 900_000.0, 640.0)
+	result["report_text"] = "Golf Tycoon benchmark GTB-2\\nTest report"
+	BenchmarkHistory.append_run(result)
+	var record: Dictionary = BenchmarkHistory.latest(BenchmarkHistory.load_runs())
+	assert_true(BenchmarkHistory.has_report(record), "the record says it can be reopened")
+	var kept: Dictionary = BenchmarkHistory.report_of(record)
+	assert_eq(int(kept.get("started_at_unix", 0)), 1_700_000_000, "it is that run")
+	assert_eq(int((kept.get("frame", {}) as Dictionary).get("sample_count", 0)), 150,
+		"with the frame pacing the oscilloscope draws")
+	assert_eq(int(round(float((kept.get("score", {}) as Dictionary).get("overall", 0.0)) * 10.0)),
+		724, "and the score it was graded")
+	assert_eq(str(kept.get("report_text", "")), "Golf Tycoon benchmark GTB-2\\nTest report",
+		"copying a past run copies that run's own report")
+	# The run in hand is never rewritten by being shelved.
+	assert_eq(int(result["frame"]["sample_count"]), 150)
+	assert_false(result.has("report"))
+
+func test_a_shelf_report_drops_the_per_phase_frame_series_nothing_draws() -> void:
+	var result := _run(1_700_000_000, 72.4, 60.0, 900_000.0, 640.0)
+	result["tour"] = _tour()
+	var kept := BenchmarkHistory.shelf_report(result)
+	var course: Dictionary = (kept["tour"]["scenarios"] as Array)[0]
+	var sim_phase: Dictionary = course["phases"]["simulate"]
+	assert_false(sim_phase.has("series_ms"),
+		"eleven courses' worth of phase traces would double the shelf for pixels no one looks at")
+	assert_almost_eq(float(sim_phase.get("average_fps", 0.0)), 60.0, 0.001,
+		"but the number the results table prints stays")
+	assert_eq(str(course.get("name", "")), "Alpha 9", "every course is still there")
+	# ...and the report the player is looking at keeps its own copy.
+	assert_true(((result["tour"]["scenarios"] as Array)[0]["phases"]["simulate"] \
+		as Dictionary).has("series_ms"), "the result in hand is untouched")
+
+func test_a_record_written_before_reports_were_kept_cannot_be_reopened() -> void:
+	BenchmarkHistory.append_run(_run(1_000, 60.0, 45.0, 500_000.0, 300.0))
+	var record: Dictionary = BenchmarkHistory.latest(BenchmarkHistory.load_runs())
+	record.erase("report")
+	assert_false(BenchmarkHistory.has_report(record), "an older record says so")
+	assert_eq(BenchmarkHistory.report_of(record), {}, "and hands back nothing to open")
+	assert_eq(BenchmarkHistory.report_of({}), {}, "so does an empty record")
+
+func test_the_report_survives_a_round_trip_through_the_file() -> void:
+	var result := _run(1_700_000_000, 72.4, 60.0, 900_000.0, 640.0)
+	result["tour"] = _tour()
+	BenchmarkHistory.append_run(result)
+	var record: Dictionary = BenchmarkHistory.latest(BenchmarkHistory.load_runs())
+	assert_true(BenchmarkHistory.has_report(record), "the report is written to the shelf")
+	var kept_tour := BenchmarkHistory.report_of(record).get("tour", {}) as Dictionary
+	assert_eq((kept_tour.get("scenarios", []) as Array).size(), 2,
+		"and reads back with its courses")
+	assert_eq(str(kept_tour.get("suite_name", "")), "Full course tour",
+		"whole, as the tour wrote it")
+
+## A tour section in the shape CourseBenchmarkTour writes.
+func _tour() -> Dictionary:
+	return {
+		"suite": "full", "suite_name": "Full course tour",
+		"prepare": {"prepared": true, "prepare_ms": 88.0, "steps_ms": {}},
+		"scenarios": [
+			{"id": "alpha", "name": "Alpha 9", "description": "Parkland · 9 holes",
+				"build": {"total_ms": 400.0}, "holes_built": 9,
+				"counts": {"golfers_spawned": 8, "visiting_spawned": 2},
+				"phases": {"prepare": {"average_fps": 50.0, "series_ms": [16.0, 17.0]},
+					"camera": {"average_fps": 70.0, "series_ms": [14.0, 15.0]},
+					"simulate": {"average_fps": 60.0, "one_percent_low_fps": 48.0,
+						"process_ms_per_frame": 3.0, "series_ms": [16.0, 16.5, 17.0]},
+					"edit": {"tiles_changed": 120, "vertices_changed": 30}}},
+			{"id": "beta", "name": "Beta 18", "description": "Links · 18 holes",
+				"build": {"total_ms": 900.0}, "holes_built": 18,
+				"counts": {"golfers_spawned": 16, "visiting_spawned": 4},
+				"phases": {"prepare": {"average_fps": 40.0}, "camera": {"average_fps": 60.0},
+					"simulate": {"average_fps": 45.0, "one_percent_low_fps": 36.0,
+						"process_ms_per_frame": 4.0},
+					"edit": {"tiles_changed": 0, "vertices_changed": 0}}},
+		],
+		"restored": true, "cancelled": false,
+	}
+
+# ---------------------------------------------------------------------------
 # The comparisons the screen draws
 # ---------------------------------------------------------------------------
 
