@@ -25,7 +25,7 @@ func _report(cpu_units: float, fps: float, one_percent_low: float, megapixels: f
 		gpu_available: bool = true, frames_over_33: int = 0, samples: int = 150) -> Dictionary:
 	return {
 		"benchmark_version": "GTB-2",
-		"game_version": "0.4.4",
+		"game_version": "0.4.5",
 		"engine_version": "4.6.stable",
 		"build_type": "Release",
 		"device_model": "Test device",
