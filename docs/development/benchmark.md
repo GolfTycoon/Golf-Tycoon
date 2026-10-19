@@ -1,17 +1,19 @@
 # Device Benchmark
 
-> How the game measures the machine it is running on: frame pacing, a GPU fill-rate ladder, a fixed script-CPU workload, the five-star scorecard they add up to, the shelf of past runs, and the Benchmark Results screen that draws all of it.
+> How the game measures the machine it is running on: the course tour - the only benchmark there is - the frame pacing, GPU fill-rate ladder and fixed script-CPU workload it ends with, the five-star scorecard they add up to, the shelf of past runs, and the Benchmark Results screen that draws all of it.
 
-**Source:** `scripts/systems/performance_benchmark.gd` (the runner, the GPU test, the scorecard), `scripts/systems/benchmark_history.gd` (the run shelf), `scripts/ui/benchmark_results_screen.gd` (the results screen), `scripts/ui/components/benchmark_visuals.gd` (the charts and meters), `scripts/ui/components/pixel_icon.gd` (the chip, graphics card, pulse and memory sprites), `scripts/ui/settings_menu.gd` (the Display card that starts it)
+**Source:** `scripts/systems/course_benchmark_tour.gd` (the tour, the only benchmark), `scripts/systems/course_benchmark_scenarios.gd` (the fixed course matrix it builds), `scripts/systems/performance_benchmark.gd` (the device check the tour ends with, the GPU test, the scorecard), `scripts/systems/benchmark_history.gd` (the run shelf), `scripts/ui/benchmark_results_screen.gd` (the results screen), `scripts/ui/components/benchmark_visuals.gd` (the charts and meters), `scripts/ui/components/pixel_icon.gd` (the chip, graphics card, pulse and memory sprites), `scripts/ui/settings_menu.gd` (the Display card that starts it)
 **Tests:** `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_course_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/integration/ui_and_controls/test_course_benchmark_tour.gd`, `tests/integration/ui_and_controls/test_benchmark_from_main_menu.gd`
 
 ---
 
 ## Plain English
 
-**Benchmarks run only from Main Menu Settings** (**Settings → Display** on the title screen). Measuring is a title-screen job: a game in progress is never the test scene, so Settings reached from the pause menu shows the last run and the full results but runs nothing. The headline run there is the **course tour**: it prepares its own throwaway course (timed and sampled as part of the benchmark), builds the fixed seeded courses of `CourseBenchmarkScenarios` on it - preparing each one, camera moves, golfers at every game speed, terrain editing - then takes the course down and hands the Main Menu back. A game in progress is never opened, borrowed or written.
+**The benchmark runs only from Main Menu Settings** (**Settings → Display** on the title screen). Measuring is a title-screen job: a game in progress is never the test scene, so Settings reached from the pause menu shows the last run and the past results but runs nothing.
 
-The **quick check** beside it measures this machine on its own. One press runs four short tests, in about seven seconds, while the screen behind them stays responsive:
+There is one benchmark, and it is the **full course tour**. It prepares its own throwaway course (timed and sampled as part of the benchmark), then builds every fixed seeded course of `CourseBenchmarkScenarios` on it - preparing each one, camera moves, golfers at every game speed, terrain editing - then takes the course down and hands the Main Menu back. A game in progress is never opened, borrowed or written. One press of **Run Benchmark** runs the whole suite: eleven courses in about 95 seconds, every course type, hole count, field size and game speed, so two runs on two machines are the same work.
+
+The tour ends on the course it built last with a short **device check** of the machine itself, four tests whose screen stays responsive while they run:
 
 1. **Warm-up**, so the engine is settled before anything is timed.
 2. **Frame pacing**, which samples the live scene: how long each frame took, how much of that was game script and how much was physics, and how many objects the renderer drew.
@@ -20,15 +22,15 @@ The **quick check** beside it measures this machine on its own. One press runs f
 
 Those four become a **performance scorecard**: each metric is graded Eagle, Birdie, Par, Bogey or Double, and together they give the device a rating out of 100 and a five-star tier, from Championship down to Practice Range.
 
-**Full results** opens the **Benchmark Results screen**, which spreads the report out as instruments: an oscilloscope with one column per sampled frame, the GPU load ladder as bars, a segmented meter per metric, the scorecard, the machine's dossier, and a chart of the past runs kept on the shelf so a change of settings (or a different device) can be compared instead of guessed at.
+**Past Results** opens the **Benchmark Results screen**, which spreads the last report out as instruments - an oscilloscope with one column per sampled frame, the GPU load ladder as bars, a segmented meter per metric, the scorecard, the machine's dossier - and charts the runs kept on the shelf beside it, so a change of settings (or a different device) can be compared instead of guessed at.
 
-Everything here stays on the machine. Copying a report puts it on the clipboard - it carries device and hardware details - and nothing is ever uploaded.
+Everything here stays on the machine. Copying a report (from the results screen) puts it on the clipboard - it carries device and hardware details - and nothing is ever uploaded.
 
 ## Algorithm
 
 ### The runner
 
-`PerformanceBenchmark` is a `Node` that walks `Phase`: `WARM_UP → FRAME_PACING → GPU_LOAD → CPU_WORKLOAD`, sliced per frame from `_process()`. It reports `progress_changed(message, fraction)` as it goes and `completed(result)` at the end, and refuses a second `start()` while one is running. `cancel()` stops it and takes the GPU canvas down.
+`CourseBenchmarkTour` owns the run: it walks `Phase` `PREPARE → BUILD → SETTLE → CAMERA → SIMULATE → EDIT → DEVICE` for every course of the suite, then `RESTORE` to take the throwaway course down (the tour's own header comment is the reference for those phases). The tour's last phase hands over to `PerformanceBenchmark`, a `Node` that walks `Phase`: `WARM_UP → FRAME_PACING → GPU_LOAD → CPU_WORKLOAD`, sliced per frame from `_process()`. It reports `progress_changed(message, fraction)` as it goes and `completed(result)` at the end, and refuses a second `start()` while one is running. `cancel()` stops it and takes the GPU canvas down.
 
 Frame pacing samples `_sample_frame()`: the time since the previous frame, and `Performance.TIME_PROCESS` for the script's share. The samples are kept, bucketed down to at most `MAX_SERIES_SAMPLES` points by `downsample_series()`, and stored in the result as `frame.series_ms` - that is what the oscilloscope draws.
 
@@ -78,7 +80,7 @@ stars   = clamp(round(overall / 20), 0, 5)
 
 ### The report and the shelf
 
-`format_report()` writes the plain-text report the copy button puts on the clipboard: versions, device, GPU and renderer, resolution and VSync, the scene, frame pacing, game CPU times, the GPU ladder, memory, the rating and the scorecard. It is versioned - `BENCHMARK_VERSION` is `GTB-4` - because only reports of the same version are comparable. GTB-4 is the Main Menu tour with course preparation in the measured sample; GTB-3 toured a borrowed open course without it.
+`format_report()` writes the plain-text report the copy button puts on the clipboard: versions, device, GPU and renderer, resolution and VSync, the scene, frame pacing, game CPU times, the GPU ladder, memory, the rating and the scorecard. It is versioned - `BENCHMARK_VERSION` is `GTB-5` - because only reports of the same version are comparable. GTB-5 is the full Main Menu tour, eleven courses with course preparation in the measured sample; GTB-4 ran the short four-course tour, GTB-3 toured a borrowed open course without those frames.
 
 `BenchmarkHistory` keeps the last `MAX_RUNS` runs as small records in `user://benchmark_history.json`. `record_from()` rounds what it keeps (score, stars, tier, the four metrics, the stutter percentage, memory, the scene, the machine) and `change_percent()`, `series_of()` and `best_of()` are what the screen's comparison chart and its "+12%" deltas are made of. A missing or malformed file is an empty shelf, never an error.
 
@@ -94,13 +96,13 @@ stars   = clamp(round(overall / 20), 0, 5)
 
 The charts are drawn, not themed, by `BenchmarkVisuals`: `FrameChart` (one quantised column per frame, mint under the 60 FPS budget, gold to 33 ms, muted red over it, with both budget lines dashed across it), `BarChart` (the GPU ladder and the shelf), `SegmentMeter` (a metric's meter, lit to its score in the colour that score earns) and `StarRow` (the rating, in the game's own star sprite). Chart heights track the window (`_chart_height()`), so a short window shrinks the oscilloscope instead of pushing the page off the bottom.
 
-The screen runs a benchmark itself, so it can be opened cold and watched filling in, and it is reached from **Settings → Display → Full results** (`SettingsMenu.results_requested`, which `main.gd` opens over the settings menu). The Main Menu rule follows it: reached from pause-menu Settings the screen is read-only (`benchmarks_allowed` is false and its run buttons stand down), so the results screen is never a way around the gate. `SettingsMenu.origin` records where the menu was accessed from; `main.gd` sets it in `_on_main_menu_settings()` / `_show_settings_menu()` and refuses `start_course_benchmark()` unless the live menus descend from the Main Menu one.
+It is the **Past Results** of the Settings card (**Settings → Display → Past Results**, `SettingsMenu.results_requested`, which `main.gd` opens over the settings menu), and its **Run Benchmark** starts the tour itself, so it can be opened cold and watched filling in. The Main Menu rule follows it: reached from pause-menu Settings the screen is read-only (`benchmarks_allowed` and `tour_available` are false and Run stands down), so the results screen is never a way around the gate - reading the last report, the shelf and copying always work. `SettingsMenu.origin` records where the menu was accessed from; `main.gd` sets it in `_on_main_menu_settings()` / `_show_settings_menu()` and refuses `start_course_benchmark()` unless the live menus descend from the Main Menu one.
 
 ## Tuning Levers
 
 | Constant | Value | File |
 | --- | --- | --- |
-| `BENCHMARK_VERSION` | `GTB-4` | `performance_benchmark.gd` |
+| `BENCHMARK_VERSION` | `GTB-5` | `performance_benchmark.gd` |
 | `DEFAULT_WARMUP_USEC` | 350,000 (0.35 s) | `performance_benchmark.gd` |
 | `DEFAULT_FRAME_SAMPLE_USEC` | 2,500,000 (2.5 s) | `performance_benchmark.gd` |
 | `DEFAULT_GPU_STEP_USEC` | 700,000 per level (2.1 s total) | `performance_benchmark.gd` |
@@ -119,8 +121,9 @@ The screen runs a benchmark itself, so it can be opened cold and watched filling
 | `MAX_RUNS` | 12 | `benchmark_history.gd` |
 | `DEFAULT_HISTORY_PATH` | `user://benchmark_history.json` | `benchmark_history.gd` |
 | `HISTORY_ROWS` | 5 | `benchmark_results_screen.gd` |
+| `SUITE_FULL` / `SUITE_IDS` | `full` / `[full]` | `course_benchmark_scenarios.gd` |
 
-Comparing two reports is only fair when the run measured the same thing: for the tour, the same suite run from Main Menu Settings at the same resolution, VSync and power mode (the benchmark prepares its own course, and the preparation, courses, seeds and camera moves are fixed); for a quick check, the same screen and settings. Frame pacing and the GPU test measure the machine as it was at that moment; only the script-CPU score is a fixed workload.
+Comparing two reports is only fair when the run measured the same thing: the tour run from Main Menu Settings at the same resolution, VSync and power mode (the benchmark prepares its own course, and the preparation, courses, seeds, golfers and camera moves are fixed, which is why every run is the full suite). Frame pacing and the GPU test measure the machine as it was at that moment; only the script-CPU score is a fixed workload.
 
 ## Related
 

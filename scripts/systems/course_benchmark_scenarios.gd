@@ -46,9 +46,13 @@ class_name CourseBenchmarkScenarios
 ##   weather             "clear" or "rain" (rain only applies when the
 ##                       company enabled weather; the tour records which)
 
-const SUITE_QUICK := "quick"
+## The tour is the game's only benchmark, and it is always the full one:
+## every course below is built and measured on every run, so two runs on
+## two machines are the same work.
 const SUITE_FULL := "full"
-const SUITE_IDS: Array[String] = [SUITE_QUICK, SUITE_FULL]
+const SUITE_IDS: Array[String] = [SUITE_FULL]
+## The name the tour banner and the report carry.
+const SUITE_NAME := "Full course tour"
 
 const CAMERA_PLANS: Array[String] = ["still", "pan", "zoom", "tour", "tour_rotate"]
 const EDIT_PLANS: Array[String] = ["none", "paint", "elevation", "both", "stress"]
@@ -64,9 +68,10 @@ const THEME := CourseTheme.Type
 # THE MATRIX
 # =============================================================================
 
-## Every scenario of the full tour, in running order: a baseline first, the
-## themed courses and one-variable sweeps after it, and the worst case last so
-## the tour builds to its heaviest scene.
+## Every scenario of the tour - the game's only benchmark - in running order:
+## a baseline first, the themed courses and one-variable sweeps after it, and
+## the worst case last so the tour builds to its heaviest scene. Every course
+## here is built on every run, so two runs are the same work on two machines.
 static func full_suite() -> Array:
 	return [
 		_scenario("baseline_parkland_9", "Baseline — Parkland 9", THEME.PARKLAND,
@@ -129,33 +134,14 @@ static func full_suite() -> Array:
 			32, 0.5, GameManager.GameSpeed.ULTRA, "tour_rotate", "both"),
 	]
 
-## The short tour Settings runs: the baseline, a dense Fast course, the Ultra
-## speed check and the full-facilities 18 — every subsystem touched once.
-const QUICK_SCENARIO_IDS: Array[String] = [
-	"baseline_parkland_9", "woodland_dense_9", "city_executive_ultra",
-	"resort_facilities_18",
-]
+## The suite a run starts from, shaped for the tour banner and the report.
+## The full tour is the only benchmark, so every id - including an unknown
+## one a caller may still carry - resolves to it rather than to an empty run.
+static func suite_by_id(_suite_id: String) -> Dictionary:
+	return {"id": SUITE_FULL, "name": SUITE_NAME, "scenarios": full_suite()}
 
-static func quick_suite() -> Array:
-	var picked: Array = []
-	for scenario in full_suite():
-		if str(scenario.get("id", "")) in QUICK_SCENARIO_IDS:
-			picked.append(scenario)
-	return picked
-
-## A suite by its stable id, shaped for the tour banner and the report.
-## Unknown ids fall back to the quick tour rather than an empty run.
-static func suite_by_id(suite_id: String) -> Dictionary:
-	match suite_id:
-		SUITE_FULL:
-			return {"id": SUITE_FULL, "name": "Full course tour",
-				"scenarios": full_suite()}
-		_:
-			return {"id": SUITE_QUICK, "name": "Quick course tour",
-				"scenarios": quick_suite()}
-
-static func suite_name(suite_id: String) -> String:
-	return str(suite_by_id(suite_id).get("name", "Quick course tour"))
+static func suite_name(_suite_id: String) -> String:
+	return SUITE_NAME
 
 static func _scenario(id: String, name: String, theme: int, layout: String,
 		holes: int, seed_value: int, terrain_patches: Array, patch_blobs: int,

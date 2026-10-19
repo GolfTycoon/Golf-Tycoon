@@ -6,9 +6,10 @@ class_name BenchmarkResultsScreen
 ## spreads the whole report out as instruments: a frame-time oscilloscope, a
 ## GPU load ladder, segmented meters for every metric, a golf scorecard that
 ## grades the machine Eagle-to-Double, the shelf of past runs to compare
-## against, and the device dossier behind all of it. It can run a fresh
-## benchmark itself, so a player can open it, press Run and watch the charts
-## fill in.
+## against, and the device dossier behind all of it. It is the **Past Results**
+## of the Settings card, and from Main Menu Settings it can start the course
+## tour itself - the game's only benchmark - so a player can open it cold,
+## press Run Benchmark and watch the report fill in.
 ##
 ## The composition suits each window shape:
 ##
@@ -30,20 +31,26 @@ class_name BenchmarkResultsScreen
 ## added - chip, graphics card, pulse trace and memory stick) and charts drawn
 ## in whole pixels by BenchmarkVisuals.
 ##
-## Reports and the run shelf stay on the machine: the copy button puts the
-## report on the clipboard, and nothing here is uploaded.
+## Reports and the shelf of past runs stay on the machine: the copy button
+## puts a report on the clipboard, and nothing here is uploaded.
 
 signal back_requested()
-## Asks Main to close this screen and run the course benchmark tour, which
-## prepares its own throwaway course. Only emitted while the screen may
-## run benchmarks at all (`benchmarks_allowed`: reached from Main Menu
-## Settings) and `tour_available`; otherwise Run falls back to the quick
-## check - or, away from the Main Menu, stands down entirely.
+## Asks Main to close this screen and run the course benchmark tour - the
+## game's only benchmark - which prepares its own throwaway course. Only
+## emitted while the screen may run it at all (`benchmarks_allowed` and
+## `tour_available`: reached from Main Menu Settings); away from the Main
+## Menu, Run stands down entirely.
 signal tour_requested(suite_id: String)
 
-## Why the run buttons stand down when this screen was not reached from
+## Why the Run button stands down when this screen was not reached from
 ## Main Menu Settings (the same wording as the Settings card's).
 const BENCHMARK_GATE_TEXT := "Benchmarks run from the Main Menu - open Settings there to measure this device. Nothing here touches the game in progress."
+
+## What Run Benchmark offers on a screen with nothing to show yet.
+const BENCHMARK_READY_TEXT := "Run Benchmark prepares a throwaway course and builds every test course on it - about 95 seconds. Esc cancels it."
+
+## What Run Benchmark says once it has handed the screen to the tour.
+const BENCHMARK_STARTING_TEXT := "Starting the course tour - watch it prepare, build and play every test course. Esc cancels and takes the benchmark course down."
 
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
@@ -57,21 +64,15 @@ const METRICS := [METRIC_OVERALL, METRIC_FPS, METRIC_CPU, METRIC_GPU]
 ## Runs listed in the past-runs panel.
 const HISTORY_ROWS := 5
 
-var _runner: PerformanceBenchmark = null
 var _result: Dictionary = {}
 var _history: Array = []
 var _history_metric: String = METRIC_OVERALL
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
-var _running: bool = false
-var _progress: float = 0.0
-var _status_text: String = "Run the test to measure this device."
+var _status_text: String = ""
 var _live_fps_label: Label = null
 var _status_label: Label = null
-var _progress_bar: MenuScreenKit.PixelBar = null
 var _run_button: Button = null
-var _quick_button: Button = null
-var _suite_picker: OptionButton = null
 var _copy_button: Button = null
 ## Set by Main before the screen is added: the screen was reached from
 ## Main Menu Settings, so its runs may start. Without it the screen is
@@ -79,11 +80,11 @@ var _copy_button: Button = null
 ## benchmark runs over a game in progress. Main always sets it in the
 ## game; the default keeps a bare test harness runnable.
 var benchmarks_allowed: bool = true
-## Set by Main before the screen is added: the headline Run starts the
-## on-screen course tour (which prepares its own course) and the suite
-## picker shows. Without it, Run is the quick device check.
+## Set by Main before the screen is added: Run Benchmark starts the on-screen
+## course tour (which prepares its own course), the only benchmark there is.
+## Without it - or away from the Main Menu - Run stands down and the screen
+## is a reader for the last report and the past runs.
 var tour_available: bool = false
-var _suite_id: String = CourseBenchmarkScenarios.SUITE_QUICK
 ## Where a copied report goes. Empty means the display server's clipboard; a
 ## window with none (some Wayland and headless setups) is told so rather than
 ## failing silently.
@@ -96,16 +97,9 @@ func _ready() -> void:
 	name = "BenchmarkResultsScreen"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_runner = PerformanceBenchmark.new()
-	_runner.name = "PerformanceBenchmark"
-	_runner.progress_changed.connect(_on_run_progress)
-	_runner.completed.connect(_on_run_completed)
-	add_child(_runner)
 	if not PerformanceBenchmark.last_result.is_empty():
 		_result = PerformanceBenchmark.last_result
-		_status_text = _completed_status_text()
-	elif not benchmarks_allowed:
-		_status_text = BENCHMARK_GATE_TEXT
+	_status_text = _default_status_text()
 	_history = BenchmarkHistory.load_runs()
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
@@ -125,7 +119,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## The live frame-rate ticker in the header. It only rewrites one label, so
 ## the screen stays cheap while it is open.
 func _process(delta: float) -> void:
-	if _running or _live_fps_label == null or not is_instance_valid(_live_fps_label):
+	if _live_fps_label == null or not is_instance_valid(_live_fps_label):
 		return
 	_fps_accumulator += delta
 	_fps_frames += 1
@@ -159,8 +153,6 @@ func refresh() -> void:
 func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for child in get_children():
-		if child == _runner:
-			continue
 		remove_child(child)
 		child.queue_free()
 
@@ -168,10 +160,7 @@ func _build() -> void:
 	_built_size = _window_size()
 	_live_fps_label = null
 	_status_label = null
-	_progress_bar = null
 	_run_button = null
-	_quick_button = null
-	_suite_picker = null
 	_copy_button = null
 
 	var backdrop := MenuBackdrop.new()
@@ -317,82 +306,42 @@ func _build_footer() -> Control:
 	footer.name = "Footer"
 	footer.add_theme_constant_override("separation", 6)
 
-	var status_row := HBoxContainer.new()
-	status_row.name = "StatusRow"
-	status_row.add_theme_constant_override("separation", 8)
 	var status := Kit.make_label(_status_text, 10 if compact else 11, Kit.COLOR_TEXT_QUIET)
 	status.name = "StatusLine"
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.custom_minimum_size.x = clampf(_built_size.x * 0.40, 180.0, 520.0)
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status_label = status
-	status_row.add_child(status)
-	var bar := Kit.make_progress_bar(_progress, Kit.COLOR_GOLD, 8.0)
-	bar.name = "RunProgress"
-	bar.custom_minimum_size = Vector2(120.0, 8.0)
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.visible = _running
-	_progress_bar = bar
-	status_row.add_child(bar)
-	footer.add_child(status_row)
+	footer.add_child(status)
 
+	# A phone gives the headline run a row of its own and the report buttons
+	# the next one, so nothing has to shrink below a tappable size; a wider
+	# window fits all three side by side.
 	var actions := HBoxContainer.new()
 	actions.name = "ActionBar"
 	actions.add_theme_constant_override("separation", 7)
 	actions.custom_minimum_size.y = 46.0 if compact else 50.0
-
-	if tour_available:
-		var picker := OptionButton.new()
-		picker.name = "TourSuitePicker"
-		picker.add_item("Quick tour · 4 courses", 0)
-		picker.add_item("Full tour · 11 courses", 1)
-		picker.select(1 if _suite_id == CourseBenchmarkScenarios.SUITE_FULL else 0)
-		picker.tooltip_text = "The quick tour touches every subsystem once; the full tour builds every course type."
-		picker.custom_minimum_size = Vector2(0, 46.0)
-		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		picker.add_theme_font_size_override("font_size", 12)
-		picker.item_selected.connect(func(index: int):
-			_suite_id = CourseBenchmarkScenarios.SUITE_FULL if index == 1 \
-				else CourseBenchmarkScenarios.SUITE_QUICK)
-		actions.add_child(picker)
-		_suite_picker = picker
+	var report_parent: HBoxContainer = actions
+	if compact:
+		report_parent = HBoxContainer.new()
+		report_parent.name = "ReportBar"
+		report_parent.add_theme_constant_override("separation", 7)
+		report_parent.custom_minimum_size.y = 46.0
 
 	var run := Button.new()
 	run.name = "RunBenchmarkButton"
+	run.text = "Run Benchmark"
+	run.tooltip_text = BENCHMARK_GATE_TEXT if not _can_run() \
+		else "Close this screen and watch the tour prepare, build and play every test course (about 95 seconds). Esc cancels it."
 	run.custom_minimum_size = Vector2(0, 46.0)
 	run.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	run.size_flags_stretch_ratio = 2.0 if not compact else 1.6
+	run.size_flags_stretch_ratio = 1.6
 	run.add_theme_font_size_override("font_size", 13)
-	run.tooltip_text = BENCHMARK_GATE_TEXT if not benchmarks_allowed \
-		else ("Prepare and play the benchmark courses on screen; the throwaway course is taken down afterwards." \
-		if tour_available else "Run the quick device check on this screen.")
 	Kit.paint_utility_button(run, true)
 	run.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	run.pressed.connect(_start_run)
 	actions.add_child(run)
 	_run_button = run
-
-	if tour_available:
-		var quick := Button.new()
-		quick.name = "QuickCheckButton"
-		quick.text = "Quick check"
-		quick.tooltip_text = "The seven-second GPU/CPU device check on its own, without the course tour."
-		quick.custom_minimum_size = Vector2(0, 46.0)
-		quick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		quick.add_theme_font_size_override("font_size", 12)
-		Kit.paint_utility_button(quick, false)
-		quick.pressed.connect(_start_quick_check)
-		actions.add_child(quick)
-		_quick_button = quick
-
-	# With the tour controls in the bar, the report buttons take a row of
-	# their own so nothing has to shrink below a tappable size on a phone.
-	var copy_parent: HBoxContainer = actions
-	if tour_available:
-		copy_parent = HBoxContainer.new()
-		copy_parent.name = "ReportBar"
-		copy_parent.add_theme_constant_override("separation", 7)
-		copy_parent.custom_minimum_size.y = 46.0 if compact else 50.0
 
 	var copy := Button.new()
 	copy.name = "CopyReportButton"
@@ -403,42 +352,36 @@ func _build_footer() -> Control:
 	copy.add_theme_font_size_override("font_size", 12)
 	Kit.paint_utility_button(copy, false)
 	copy.pressed.connect(_copy_report)
-	copy_parent.add_child(copy)
+	report_parent.add_child(copy)
 	_copy_button = copy
 
 	var clear := Button.new()
 	clear.name = "ClearHistoryButton"
-	clear.text = "Clear shelf"
-	clear.tooltip_text = "Forget every past run kept on this machine."
+	clear.text = "Clear past runs"
+	clear.tooltip_text = "Forget every run kept on this machine."
 	clear.custom_minimum_size = Vector2(0, 46.0)
+	clear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	clear.add_theme_font_size_override("font_size", 12)
 	Kit.paint_utility_button(clear, false)
 	clear.pressed.connect(_clear_history)
-	copy_parent.add_child(clear)
+	report_parent.add_child(clear)
 	footer.add_child(actions)
-	if copy_parent != actions:
-		footer.add_child(copy_parent)
+	if report_parent != actions:
+		footer.add_child(report_parent)
 
 	_refresh_actions()
 	return footer
 
+## The action bar after a rebuild: Run stands down away from the Main Menu
+## (or without a tour to run), and copying needs a report behind it. The
+## report buttons are always live - reading is not running.
 func _refresh_actions() -> void:
-	var runs_locked := _running or not benchmarks_allowed
 	if is_instance_valid(_run_button):
-		_run_button.text = "Running..." if _running \
-			else ("Run course tour" if tour_available else "Run benchmark")
-		_run_button.disabled = runs_locked
-	if is_instance_valid(_quick_button):
-		_quick_button.disabled = runs_locked
-	if is_instance_valid(_suite_picker):
-		_suite_picker.disabled = runs_locked
+		_run_button.disabled = not _can_run()
 	if is_instance_valid(_copy_button):
-		_copy_button.disabled = _running or _result.is_empty()
+		_copy_button.disabled = _result.is_empty()
 	if is_instance_valid(_status_label):
 		_status_label.text = _status_text
-	if is_instance_valid(_progress_bar):
-		_progress_bar.set_fraction(_progress)
-		_progress_bar.visible = _running
 
 # =============================================================================
 # BODY: DESKTOP - three columns of instruments
@@ -1343,57 +1286,24 @@ func _panel_stack(panel: PanelContainer, separation: int) -> VBoxContainer:
 # RUNNING THE TEST
 # =============================================================================
 
-## The headline Run: reached from Main Menu Settings with the tour on
-## offer it starts the on-screen course tour (Main closes this screen and
-## reopens it on the finished report); otherwise it is the quick check.
-## Away from the Main Menu nothing runs at all.
+## The one run there is: reached from Main Menu Settings, Run Benchmark asks
+## Main to close this screen and start the course tour, which prepares its own
+## throwaway course and builds every test course of the suite on it. Main
+## reopens this screen on the finished report. Away from the Main Menu -
+## or without a tour on offer - nothing runs, and the screen says where it
+## is allowed instead.
 func _start_run() -> void:
-	if _running:
-		return
-	if not benchmarks_allowed:
+	if not _can_run():
 		_status_text = BENCHMARK_GATE_TEXT
 		_refresh_actions()
 		return
-	if tour_available:
-		_status_text = "Starting the course tour - watch it prepare and build. Esc cancels and takes the benchmark course down."
-		_refresh_actions()
-		tour_requested.emit(_suite_id)
-		return
-	_start_quick_check()
-
-func _start_quick_check() -> void:
-	if _running or not is_instance_valid(_runner):
-		return
-	if not benchmarks_allowed:
-		_status_text = BENCHMARK_GATE_TEXT
-		_refresh_actions()
-		return
-	_running = true
-	_progress = 0.0
-	_status_text = "Preparing the test..."
+	_status_text = BENCHMARK_STARTING_TEXT
 	_refresh_actions()
-	if not _runner.start({"scenario": _scenario_name()}):
-		_running = false
-		_status_text = "A test is already running."
-		_refresh_actions()
-
-func _on_run_progress(message: String, fraction: float) -> void:
-	_running = true
-	_progress = fraction
-	_status_text = message
-	_refresh_actions()
-
-func _on_run_completed(result: Dictionary) -> void:
-	_running = false
-	_progress = 1.0
-	_result = result
-	_history = BenchmarkHistory.load_runs()
-	_status_text = _completed_status_text()
-	_build()
+	tour_requested.emit(CourseBenchmarkScenarios.SUITE_FULL)
 
 func _copy_report() -> void:
 	var report := str(_result.get("report_text", ""))
-	if report.is_empty() or _running:
+	if report.is_empty():
 		return
 	if not _write_clipboard(report):
 		_status_text = "This window has no clipboard to copy into. The report stays on this machine."
@@ -1415,14 +1325,25 @@ func _write_clipboard(text: String) -> bool:
 func _clear_history() -> void:
 	BenchmarkHistory.clear()
 	_history = []
-	_status_text = "The shelf is empty. Runs land here again as soon as one finishes."
+	_status_text = "The past runs are forgotten. A finished tour lands here again as soon as one ends."
 	_build()
 
-func _scenario_name() -> String:
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
-		return "Main menu"
-	var day := GameManager.current_day if GameManager.current_day > 0 else 0
-	return "Course view (day %d)" % day if day > 0 else "Course view"
+## Whether the screen may start a run: reached from Main Menu Settings
+## (`benchmarks_allowed`) and with the tour on offer (`tour_available`).
+## Everything else on the screen - the report, the shelf, copying - is
+## reading, and stays available wherever the screen was opened from.
+func _can_run() -> bool:
+	return benchmarks_allowed and tour_available
+
+## The line under the action bar when nothing has just happened: the gate
+## away from the Main Menu, an invitation to run where it is allowed, or
+## the newest report's own verdict.
+func _default_status_text() -> String:
+	if not _can_run():
+		return BENCHMARK_GATE_TEXT
+	if not _result.is_empty():
+		return _completed_status_text()
+	return BENCHMARK_READY_TEXT
 
 func _completed_status_text() -> String:
 	var score := _score()

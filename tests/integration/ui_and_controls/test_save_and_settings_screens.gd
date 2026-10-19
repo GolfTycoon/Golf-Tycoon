@@ -197,73 +197,47 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	menu._save_controls_settings()
 
 
-func test_the_settings_benchmark_runs_and_copies_a_device_report() -> void:
+func test_the_settings_benchmark_offers_a_run_and_the_past_results() -> void:
 	await set_window(DESIGN_WINDOW)
 	_old_history_path = BenchmarkHistory.history_path
 	BenchmarkHistory.history_path = HISTORY_PATH
 	BenchmarkHistory.clear()
 	# The card adopts the newest finished run, and in a full-suite process
-	# another file's tour may have left one behind: start from none, so
-	# "no report to copy yet" is this test's to assert.
+	# another file's tour may have left one behind: start from none.
 	PerformanceBenchmark.last_result = {}
 	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
 	await process_frames(5)
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
 	var run_button := menu.find_child("RunBenchmarkButton", true, false) as Button
-	var quick_button := menu.find_child("QuickCheckButton", true, false) as Button
-	var copy_button := menu.find_child("CopyBenchmarkReportButton", true, false) as Button
-	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
-	assert_not_null(run_button, "Display settings offer a benchmark")
-	assert_not_null(quick_button, "and the quick device check beside the tour")
-	assert_not_null(copy_button, "A completed run can be copied for device comparison")
-	assert_not_null(results_button, "and the full results screen is one press away")
-	if run_button == null or quick_button == null or copy_button == null:
+	var past_button := menu.find_child("PastResultsButton", true, false) as Button
+	assert_not_null(run_button, "Display settings offer the benchmark")
+	assert_not_null(past_button, "and the past results beside it")
+	if run_button == null or past_button == null:
 		return
-	assert_eq(run_button.text, "Run course tour", "the headline run is the course tour")
-	# A Settings menu standing in for the Main Menu's may run benchmarks:
+	assert_eq(run_button.text, "Run Benchmark", "the run button runs the tour")
+	var card_buttons: Array[String] = []
+	for child in run_button.get_parent().get_children():
+		if child is Button:
+			card_buttons.append(str((child as Button).name))
+	assert_eq(card_buttons, ["RunBenchmarkButton", "PastResultsButton"],
+		"and those two are the only buttons on the benchmark card")
+	# A Settings menu standing in for the Main Menu's may run the benchmark:
 	# the tour prepares its own course, so it asks Main to start without
 	# any course being open.
 	assert_true(menu.benchmarks_allowed(), "this menu counts as Main Menu Settings")
-	assert_false(run_button.disabled, "so the tour can be pressed")
-	assert_false(quick_button.disabled, "and so can the quick check")
+	assert_false(run_button.disabled, "so the run can be pressed")
 	watch_signals(menu)
 	run_button.pressed.emit()
 	assert_signal_emitted(menu, "tour_requested",
 		"the tour request reaches Main - no open course needed")
-	run_button = quick_button
-	assert_true(copy_button.disabled, "A report cannot be copied before a run")
+	assert_signal_emitted_with_parameters(menu, "tour_requested",
+		[CourseBenchmarkScenarios.SUITE_FULL])
+	assert_string_contains(menu._benchmark_status_text, "Starting the course tour",
+		"the card says what it started")
 	assert_not_null(menu.find_child("BenchmarkStars", true, false),
 		"the card carries the last run's star rating")
 	assert_not_null(menu.find_child("BenchmarkScoreMeter", true, false), "and its score meter")
-
-	# Shorten only this test run; the player-facing benchmark keeps its full
-	# warm-up, frame sample, GPU ladder and CPU workload durations.
-	var runner := menu._benchmark_runner
-	runner.warmup_duration_usec = 15_000
-	runner.frame_sample_duration_usec = 60_000
-	runner.gpu_step_duration_usec = 20_000
-	runner.cpu_sample_duration_usec = 60_000
-	runner.cpu_budget_usec_per_frame = 200
-	run_button.pressed.emit()
-	assert_true(runner.is_running(), "The button starts the benchmark")
-	assert_true(run_button.disabled, "The run button is locked while measuring")
-	await get_tree().create_timer(0.5, true, false, true).timeout
-	assert_false(runner.is_running(), "The short test benchmark completes")
-	assert_gt(runner._frame_times_ms.size(), 0, "frame pacing is sampled")
-	assert_gt(runner._work_units, 0, "the deterministic CPU workload runs")
-	assert_false(copy_button.disabled, "The completed report can be copied")
-	assert_string_contains(menu._benchmark_report_text, PerformanceBenchmark.BENCHMARK_VERSION,
-		"the report carries its benchmark version")
-	assert_string_contains(menu._benchmark_report_text, "CPU script score", "the report contains a comparable CPU score")
-	assert_string_contains(menu._benchmark_report_text, "Device rating", "and the scorecard's rating")
-	assert_string_contains(menu._benchmark_status_text, "Complete", "completion is shown in Settings")
-	assert_false(BenchmarkHistory.load_runs().is_empty(),
-		"the finished run lands on the shelf the results screen reads")
-
-	copy_button.pressed.emit()
-	assert_string_contains(menu._benchmark_status_text, "clipboard",
-		"copying says what happened, with or without a clipboard")
 	BenchmarkHistory.clear()
 	BenchmarkHistory.history_path = _old_history_path
 	PerformanceBenchmark.last_result = {}
@@ -279,23 +253,21 @@ func test_settings_from_the_pause_menu_cannot_run_a_benchmark() -> void:
 		return
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
-	var tour_button := menu.find_child("RunBenchmarkButton", true, false) as Button
-	var quick_button := menu.find_child("QuickCheckButton", true, false) as Button
-	assert_not_null(tour_button, "the tour button is on the card")
-	assert_not_null(quick_button, "and the quick check beside it")
-	if tour_button == null or quick_button == null:
+	var run_button := menu.find_child("RunBenchmarkButton", true, false) as Button
+	var past_button := menu.find_child("PastResultsButton", true, false) as Button
+	assert_not_null(run_button, "the run button is on the card")
+	assert_not_null(past_button, "and the past results beside it")
+	if run_button == null or past_button == null:
 		menu.free()
 		return
-	assert_true(tour_button.disabled, "the tour cannot be pressed from here")
-	assert_true(quick_button.disabled, "nor the quick check")
+	assert_true(run_button.disabled, "the run cannot be pressed from here")
+	assert_false(past_button.disabled,
+		"but reading the past results is not running a benchmark")
 	watch_signals(menu)
-	tour_button.pressed.emit()
-	quick_button.pressed.emit()
+	run_button.pressed.emit()
 	await process_frames(2)
 	assert_signal_not_emitted(menu, "tour_requested",
 		"even a forced press asks Main for nothing")
-	assert_false(menu._benchmark_runner.is_running(),
-		"and the quick check never starts")
 	assert_string_contains(menu._benchmark_status_text, "Main Menu",
 		"the card says where benchmarks do run")
 	menu.free()
@@ -312,10 +284,8 @@ func test_settings_from_the_pause_menu_cannot_run_a_benchmark() -> void:
 		"and this one knows it came from the Main Menu")
 	from_menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
-	var menu_tour := from_menu.find_child("RunBenchmarkButton", true, false) as Button
-	var menu_quick := from_menu.find_child("QuickCheckButton", true, false) as Button
-	assert_false(menu_tour.disabled, "the tour can run from Main Menu Settings")
-	assert_false(menu_quick.disabled, "and so can the quick check")
+	var menu_run := from_menu.find_child("RunBenchmarkButton", true, false) as Button
+	assert_false(menu_run.disabled, "the benchmark can run from Main Menu Settings")
 	from_menu.free()
 	await process_frames(2)
 
@@ -336,7 +306,7 @@ func test_the_settings_open_the_benchmark_results_screen_over_themselves() -> vo
 		"so no benchmark may run from them")
 	menu._select_category(SettingsMenu.Category.DISPLAY)
 	await process_frames(2)
-	var results_button := menu.find_child("BenchmarkResultsButton", true, false) as Button
+	var results_button := menu.find_child("PastResultsButton", true, false) as Button
 	assert_not_null(results_button, "the Display card offers the results screen")
 	if results_button == null:
 		return

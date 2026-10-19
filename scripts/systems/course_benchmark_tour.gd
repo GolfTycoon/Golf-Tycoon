@@ -33,8 +33,8 @@ class_name CourseBenchmarkTour
 ##  4. EDIT - paints terrain brush stamps, lays Path improvements and
 ##     sculpts elevation with the player's own tools on a sacrificial
 ##     patch, timing the brush work itself.
-##  5. DEVICE - finishes with the quick device check (PerformanceBenchmark:
-##     GPU fill ladder and fixed CPU workload) on the last course built.
+##  5. DEVICE - finishes with the device check (PerformanceBenchmark: GPU
+##     fill ladder and fixed CPU workload) on the last course built.
 ##
 ## Nothing real is ever at risk. From the Main Menu there is no course to
 ## borrow: the tour prepares its own throwaway session and ends - finish or

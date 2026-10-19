@@ -40,7 +40,7 @@ Golf Tycoon is a 2D isometric simulation written in **GDScript** for **Godot 4.6
 - **Living calendar.** Seasons, weather, wind and seasonal events change play throughout the year.
 - **Golfer skins.** Paint and re-colour the golfers' clothing in the built-in studio.
 - **Touch and desktop.** Responsive layout for small windows, touch screens and the web build.
-- **Device benchmark.** From Main Menu Settings, prepare a throwaway benchmark course and tour fixed test courses on it - preparation, frame pacing, the GPU fill rate and script throughput all measured - then read the result as a five-star device scorecard on a fullscreen results screen: a frame-time oscilloscope, a GPU load ladder, a golf-graded scorecard and a local shelf of past runs to compare devices against. Nothing is uploaded, and no game in progress is ever the test scene.
+- **Device benchmark.** From Main Menu Settings, **Run Benchmark** prepares a throwaway benchmark course and tours every fixed test course on it - preparation, frame pacing, the GPU fill rate and script throughput all measured - then read the result as a five-star device scorecard on the fullscreen **Past Results** screen: a frame-time oscilloscope, a GPU load ladder, a golf-graded scorecard and a local shelf of past runs to compare devices against. Nothing is uploaded, and no game in progress is ever the test scene.
 
 ## Screenshots
 

@@ -61,7 +61,7 @@ func test_main_refuses_the_tour_until_settings_come_from_the_main_menu() -> void
 		"the scene opens on the Main Menu")
 	assert_null(GameManager.current_course, "with no course open behind it")
 	var tour := _tour()
-	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"the tour refuses before Settings were ever opened from the Main Menu")
 	assert_false(tour.is_running(), "and nothing started")
 
@@ -74,7 +74,7 @@ func test_main_refuses_the_tour_until_settings_come_from_the_main_menu() -> void
 		assert_false(from_pause.benchmarks_allowed(), "but they may run nothing")
 		from_pause.free()
 		await process_frames(2)
-	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"pause Settings leave the tour refused")
 
 
@@ -148,7 +148,7 @@ func test_main_runs_the_tour_from_main_menu_settings_and_returns_there() -> void
 		assert_true(menu.benchmarks_allowed(), "and may run benchmarks")
 	assert_not_null(main.main_menu, "the Main Menu is up before the run")
 
-	assert_true(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_true(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"Main starts the tour from Main Menu Settings")
 	assert_true(tour.is_running(), "the tour is underway")
 	assert_null(main.main_menu, "the Main Menu steps aside while it runs")

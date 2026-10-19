@@ -90,7 +90,7 @@ var tournament_leaderboard: TournamentLeaderboard = null
 var scores_dock: ScoresDock = null
 var tournament_results_popup: TournamentResultsPopup = null
 var pause_menu: PauseMenu = null
-## The course benchmark tour runner (Settings → Display → Course Benchmark).
+## The course benchmark tour runner (Settings → Display → Benchmark).
 ## While it runs it owns the course view: gameplay input stands down and
 ## Escape cancels it instead of opening the pause menu.
 var course_benchmark_tour: CourseBenchmarkTour = null
@@ -4485,14 +4485,16 @@ func _show_settings_menu() -> void:
 	$UI/HUD.add_child(settings)
 
 
-## Run the course benchmark tour - from Main Menu Settings only. The
-## menus come down, the tour prepares its own throwaway course (timed and
-## sampled as part of the benchmark), builds its seeded test courses on it
-## one at a time (themes, hole counts, fields of golfers, camera moves,
-## terrain editing and game speeds per CourseBenchmarkScenarios), takes
-## the course down, and the Benchmark Results open over the Main Menu on
-## the report. Refuses - with a notice and every menu left standing -
-## when Settings was not accessed from the Main Menu.
+## Run the course benchmark tour - the game's only benchmark - from Main
+## Menu Settings only. The menus come down, the tour prepares its own
+## throwaway course (timed and sampled as part of the benchmark), builds
+## every seeded test course of the suite on it one at a time (themes, hole
+## counts, fields of golfers, camera moves, terrain editing and game speeds
+## per CourseBenchmarkScenarios), takes the course down, and the Benchmark
+## Results open over the Main Menu on the report. Refuses - with a notice
+## and every menu left standing - when Settings was not accessed from the
+## Main Menu. The menus ask for the full suite (`SUITE_FULL`); the suite id
+## is passed through so a harness can drive a shorter list of courses.
 func start_course_benchmark(suite_id: String) -> bool:
 	if _benchmark_tour_active or course_benchmark_tour == null \
 			or course_benchmark_tour.is_running():

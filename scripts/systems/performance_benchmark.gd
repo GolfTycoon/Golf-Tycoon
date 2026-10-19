@@ -2,18 +2,19 @@ extends Node
 class_name PerformanceBenchmark
 ## PerformanceBenchmark - a repeatable, local diagnostic for comparing devices.
 ##
-## The headline benchmark is the course tour (CourseBenchmarkTour): run from
-## Main Menu Settings, it prepares its own throwaway course, then builds
-## the fixed, seeded courses of CourseBenchmarkScenarios on screen - every
-## course type, hole count, golfer field, camera move, edit plan and game
-## speed - and samples each phase, preparation included, so the same work is
-## measured on every machine and a slow number names the subsystem that is
-## slow. The tour's samples and timings are summarized here (summarize_tour)
-## and graded with the same scorecard as ever.
+## The benchmark is the course tour (CourseBenchmarkTour), and the tour is
+## always the full one: run from Main Menu Settings, it prepares its own
+## throwaway course, then builds every fixed, seeded course of
+## CourseBenchmarkScenarios on screen - every course type, hole count, golfer
+## field, camera move, edit plan and game speed - and samples each phase,
+## preparation included, so the same work is measured on every machine and a
+## slow number names the subsystem that is slow. The tour's samples and
+## timings are summarized here (summarize_tour) and graded with the same
+## scorecard as ever.
 ##
-## This node is the quick device check the tour finishes with (and Main Menu
-## Settings can run on its own). It walks four phases, each sliced into short
-## per-frame steps so the screen behind it stays responsive:
+## This node is the device check the tour finishes with. It walks four
+## phases, each sliced into short per-frame steps so the screen behind it
+## stays responsive:
 ##
 ##  1. WARM_UP - let the engine settle before anything is measured.
 ##  2. FRAME_PACING - sample the live scene: frame times, process and physics
@@ -27,7 +28,7 @@ class_name PerformanceBenchmark
 ##     actually performed rather than by the frames it waited through.
 ##
 ## The result carries a golf-style scorecard and a five-star device rating
-## (see score_result) plus the device details a comparison needs. The quick
+## (see score_result) plus the device details a comparison needs. The device
 ## check never edits the course; the tour edits only its own throwaway
 ## courses and restores the player's afterwards. Neither uploads anything;
 ## a finished run is optionally appended to the local BenchmarkHistory so
@@ -38,13 +39,15 @@ signal completed(result: Dictionary)
 
 enum Phase { IDLE, WARM_UP, FRAME_PACING, GPU_LOAD, CPU_WORKLOAD }
 
-## GTB-4 runs the course tour from the Main Menu on a course the benchmark
-## prepares itself, with the preparation (the throwaway session plus each
-## course's build-and-settle) sampled into the headline frame pacing.
-## GTB-3 toured courses borrowed from an open game without those frames, so
-## its frame pacing is not comparable with GTB-4's. The CPU and GPU
-## workloads are unchanged from GTB-2 and stay comparable.
-const BENCHMARK_VERSION := "GTB-4"
+## GTB-5 is the full course tour - the game's only benchmark - run from the
+## Main Menu on a course the benchmark prepares itself, with the preparation
+## (the throwaway session plus each course's build-and-settle) sampled into
+## the headline frame pacing. GTB-4 ran the short four-course tour, so its
+## pacing covers a quarter of the courses GTB-5's does and the two are not
+## comparable. GTB-3 toured courses borrowed from an open game without those
+## frames. The CPU and GPU workloads are unchanged from GTB-2 and stay
+## comparable.
+const BENCHMARK_VERSION := "GTB-5"
 const DEFAULT_WARMUP_USEC := 350_000
 const DEFAULT_FRAME_SAMPLE_USEC := 2_500_000
 ## Per overdraw level of the GPU test; three of them make the ladder.
@@ -1120,7 +1123,7 @@ static func format_report(result: Dictionary) -> String:
 				str(entry["detail"])])
 	lines.append("")
 	if result.has("tour"):
-		lines.append("For fair comparisons, run the same tour suite from Main Menu Settings at the same resolution, VSync and power mode; the benchmark prepares its own throwaway course, and the preparation, courses, seeds, golfers and camera moves are fixed by the suite.")
+		lines.append("For fair comparisons, run the tour from Main Menu Settings at the same resolution, VSync and power mode; the benchmark prepares its own throwaway course, and the preparation, courses, seeds, golfers and camera moves are fixed.")
 	else:
 		lines.append("For fair comparisons, use the same course/save, camera view, resolution, VSync and power mode.")
 	lines.append("Frame pacing and the GPU fill test measure this machine; the CPU score is a fixed script workload.")

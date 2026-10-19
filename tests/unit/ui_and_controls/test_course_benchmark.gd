@@ -1,10 +1,10 @@
 extends GutTest
-## The course benchmark tour's matrix and arithmetic: the suites must cover
-## the game's real variables (every course type, hole count, terrain type,
-## improvement, golfer field, camera move, edit style and game speed), the
-## seeded scenarios must be ones the generators can actually build, and the
-## per-course numbers must roll up into subsystem comparisons the report and
-## the results screen read.
+## The course benchmark tour's matrix and arithmetic: the one suite - the
+## full tour - must cover the game's real variables (every course type, hole
+## count, terrain type, improvement, golfer field, camera move, edit style
+## and game speed), the seeded scenarios must be ones the generators can
+## actually build, and the per-course numbers must roll up into subsystem
+## comparisons the report and the results screen read.
 
 func _building_ids() -> Array[String]:
 	var ids: Array[String] = []
@@ -17,17 +17,14 @@ func _building_ids() -> Array[String]:
 			ids.append(str(key))
 	return ids
 
-func test_the_suites_are_buildable_scenarios() -> void:
+func test_the_suite_is_buildable_scenarios() -> void:
 	var building_ids := _building_ids()
 	assert_false(building_ids.is_empty(), "the building catalog loads for validation")
 	assert_eq(CourseBenchmarkScenarios.validate_suite(
 		CourseBenchmarkScenarios.full_suite(), building_ids), [],
-		"the full suite passes its own validation against the live catalog")
-	assert_eq(CourseBenchmarkScenarios.validate_suite(
-		CourseBenchmarkScenarios.quick_suite(), building_ids), [],
-		"and so does the quick suite")
+		"the tour's suite passes its own validation against the live catalog")
 
-func test_the_full_suite_covers_every_course_variable() -> void:
+func test_the_tour_covers_every_course_variable() -> void:
 	var full := CourseBenchmarkScenarios.full_suite()
 	assert_eq(full.size(), 11, "the full tour visits eleven courses")
 	assert_eq(CourseBenchmarkScenarios.covered(full, "theme").size(),
@@ -70,25 +67,20 @@ func test_the_full_suite_covers_every_course_variable() -> void:
 	for scenario in full:
 		assert_ne(int(scenario["seed"]), 0, "no scenario uses the random seed 0")
 
-func test_the_quick_suite_is_a_faster_slice_of_the_full_one() -> void:
-	var quick := CourseBenchmarkScenarios.quick_suite()
-	var full_ids: Array = []
-	for scenario in CourseBenchmarkScenarios.full_suite():
-		full_ids.append(str(scenario["id"]))
-	assert_eq(quick.size(), 4, "four courses")
-	for scenario in quick:
-		assert_true(full_ids.has(str(scenario["id"])),
-			"%s is part of the full suite" % str(scenario["id"]))
-	for holes in [9, 18]:
-		assert_true(CourseBenchmarkScenarios.covered(quick, "holes").has(holes),
-			"the quick tour still builds %d holes" % holes)
-	assert_true(CourseBenchmarkScenarios.covered(quick, "speed")
-		.has(int(GameManager.GameSpeed.ULTRA)), "and still runs at Ultra speed")
-	assert_eq(CourseBenchmarkScenarios.suite_name(
-		CourseBenchmarkScenarios.SUITE_QUICK), "Quick course tour", "suites carry names")
-	assert_eq((CourseBenchmarkScenarios.suite_by_id(
-		CourseBenchmarkScenarios.SUITE_FULL).get("scenarios", []) as Array).size(),
-		11, "the full suite is reachable by id")
+func test_the_only_suite_is_the_full_tour_whatever_it_is_asked_for() -> void:
+	var scenarios := CourseBenchmarkScenarios.full_suite()
+	assert_eq(scenarios.size(), 11, "the tour visits eleven courses")
+	# There is one benchmark, so any id - including one a caller still
+	# carries from an older build - resolves to the full tour rather than
+	# to a shorter run or an empty one.
+	for suite_id in [CourseBenchmarkScenarios.SUITE_FULL, "quick", "anything else"]:
+		assert_eq((CourseBenchmarkScenarios.suite_by_id(suite_id)
+			.get("scenarios", []) as Array).size(), 11,
+			"'%s' is the full tour" % suite_id)
+		assert_eq(CourseBenchmarkScenarios.suite_name(suite_id), "Full course tour",
+			"'%s' is named as what it is" % suite_id)
+	assert_eq(CourseBenchmarkScenarios.SUITE_IDS,
+		[CourseBenchmarkScenarios.SUITE_FULL], "the full tour is the only suite")
 
 func test_validation_catches_unbuildable_scenarios() -> void:
 	var building_ids := _building_ids()
@@ -195,7 +187,7 @@ func test_tour_rows_feed_the_results_table() -> void:
 	assert_string_contains(str(rows[2]["edit_text"]), "no editing",
 		"an unedited course says so")
 	assert_eq(PerformanceBenchmark.tour_scenario_rows({}), [],
-		"a quick check has no tour rows")
+		"a report with no tour behind it has no tour rows")
 
 func _report_result(with_tour: bool, prepared: bool = true) -> Dictionary:
 	var result := {
@@ -223,7 +215,7 @@ func _report_result(with_tour: bool, prepared: bool = true) -> Dictionary:
 
 func test_a_tour_report_names_every_course_it_built() -> void:
 	var text := PerformanceBenchmark.format_report(_report_result(true))
-	assert_string_contains(text, "GTB-4", "the tour report carries the new version")
+	assert_string_contains(text, "GTB-5", "the tour report carries the current version")
 	assert_string_contains(text, "Course tour Test tour", "the tour is headed by suite")
 	assert_string_contains(text, "benchmark course prepared in 123 ms",
 		"preparing the course is part of the benchmark, and timed")
@@ -236,7 +228,7 @@ func test_a_tour_report_names_every_course_it_built() -> void:
 	assert_string_contains(text, "Terrain editing", "editing throughput included")
 	assert_string_contains(text, "main menu restored: yes",
 		"the report confirms the title screen came back")
-	assert_string_contains(text, "same tour suite from Main Menu Settings",
+	assert_string_contains(text, "run the tour from Main Menu Settings",
 		"and how to compare fairly")
 
 func test_a_borrowed_course_tour_report_still_confirms_the_restore() -> void:
@@ -246,10 +238,10 @@ func test_a_borrowed_course_tour_report_still_confirms_the_restore() -> void:
 	assert_false(text.contains("benchmark course prepared"),
 		"and claims no prepared course it did not make")
 
-func test_a_quick_check_report_still_reads_as_before() -> void:
+func test_a_report_without_a_tour_keeps_its_own_fairness_note() -> void:
 	var text := PerformanceBenchmark.format_report(_report_result(false))
 	assert_false(text.contains("Course tour"), "no tour section without a tour")
-	assert_string_contains(text, "same course/save", "the old fairness note stays")
+	assert_string_contains(text, "same course/save", "the device-check fairness note stays")
 
 func test_history_records_the_tour_alongside_the_headline_numbers() -> void:
 	var old_path := BenchmarkHistory.history_path
@@ -265,7 +257,7 @@ func test_history_records_the_tour_alongside_the_headline_numbers() -> void:
 		"and total build time")
 	assert_almost_eq(float(record["tour_prepare_ms"]), 123.0, 0.05,
 		"and what preparing the benchmark course cost")
-	var quick := BenchmarkHistory.record_from(_report_result(false))
-	assert_false(quick.has("tour_suite"), "a quick check shelves no tour fields")
+	var device_only := BenchmarkHistory.record_from(_report_result(false))
+	assert_false(device_only.has("tour_suite"), "a run with no tour shelves no tour fields")
 	BenchmarkHistory.clear()
 	BenchmarkHistory.history_path = old_path

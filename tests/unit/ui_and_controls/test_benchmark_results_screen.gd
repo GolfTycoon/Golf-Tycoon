@@ -467,16 +467,18 @@ func test_the_tour_panel_lists_every_course_the_tour_built() -> void:
 		assert_string_contains(text, "Main menu restored: yes",
 			"%s: the return to the title screen is confirmed" % label)
 
-func test_a_quick_check_report_shows_no_tour_panel_without_a_course() -> void:
+func test_a_report_with_no_tour_behind_it_shows_no_tour_panel() -> void:
 	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
 	assert_null(screen.find_child("TourPanel", true, false),
 		"the plain GTB-2 fixture has no tour to show")
-	assert_null(screen.find_child("TourSuitePicker", true, false),
-		"and no course behind it means no suite picker")
 	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
-	assert_eq(run.text, "Run benchmark", "Run stays the quick check here")
+	assert_not_null(run, "the run button is on the bar")
+	if run:
+		assert_eq(run.text, "Run Benchmark", "and it runs the one benchmark there is")
+		assert_true(run.disabled,
+			"but it stands down here: the screen was not opened from the Main Menu")
 
-func test_with_a_course_open_run_starts_the_tour() -> void:
+func test_run_benchmark_asks_for_the_full_tour() -> void:
 	get_window().size = Vector2i(1600, 1000)
 	await process_frames(2)
 	var screen := BenchmarkResultsScreen.new()
@@ -484,25 +486,20 @@ func test_with_a_course_open_run_starts_the_tour() -> void:
 	add_child_autofree(screen)
 	await process_frames(2)
 	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
-	var quick := screen.find_child("QuickCheckButton", true, false) as Button
-	var picker := screen.find_child("TourSuitePicker", true, false) as OptionButton
-	assert_not_null(picker, "the suite picker shows")
-	assert_not_null(quick, "the quick check keeps its own button")
-	assert_eq(run.text, "Run course tour", "the headline run is the tour")
+	assert_not_null(run, "the run button is on the bar")
+	if run == null:
+		return
+	assert_eq(run.text, "Run Benchmark", "the headline run is the course tour")
+	assert_false(run.disabled, "and it can be pressed from the Main Menu")
 	assert_not_null(screen.find_child("TourPanel", true, false),
 		"the panel invites a tour even before one is in the report")
 	var requested: Array = []
 	screen.tour_requested.connect(func(suite_id: String) -> void: requested.append(suite_id))
 	run.pressed.emit()
-	assert_eq(requested, [CourseBenchmarkScenarios.SUITE_QUICK],
-		"the quick tour is the default")
-	picker.select(1)
-	picker.item_selected.emit(1)
-	run.pressed.emit()
-	assert_eq(requested,
-		[CourseBenchmarkScenarios.SUITE_QUICK, CourseBenchmarkScenarios.SUITE_FULL],
-		"the full tour follows the picker")
-	assert_false(screen._running, "the screen itself runs nothing for a tour")
+	assert_eq(requested, [CourseBenchmarkScenarios.SUITE_FULL],
+		"and it asks for the full tour - the only one there is")
+	assert_string_contains(screen._status_text, "Starting the course tour",
+		"the screen says what it is doing")
 
 func test_away_from_the_main_menu_the_screen_runs_nothing() -> void:
 	get_window().size = Vector2i(1600, 1000)
@@ -513,18 +510,17 @@ func test_away_from_the_main_menu_the_screen_runs_nothing() -> void:
 	add_child_autofree(screen)
 	await process_frames(2)
 	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
-	var quick := screen.find_child("QuickCheckButton", true, false) as Button
+	var copy := screen.find_child("CopyReportButton", true, false) as Button
 	assert_not_null(run, "the run button is still shown")
 	assert_true(run.disabled, "but it cannot be pressed away from the Main Menu")
-	assert_true(quick.disabled, "and neither can the quick check")
 	var requested: Array = []
 	screen.tour_requested.connect(func(suite_id: String) -> void: requested.append(suite_id))
 	run.pressed.emit()
-	quick.pressed.emit()
 	await process_frames(2)
 	assert_eq(requested, [], "no tour is requested")
-	assert_false(screen._running, "and the quick check never starts")
-	assert_false(screen._runner.is_running(), "nor its runner")
+	assert_not_null(copy, "reading the report is not running a benchmark")
+	if copy:
+		assert_false(copy.disabled, "so copying still works here")
 	assert_string_contains(screen._status_text, "Main Menu",
 		"the screen says where benchmarks do run")
 
@@ -618,30 +614,23 @@ func test_clearing_the_shelf_empties_it() -> void:
 # Running a test from the screen
 # ---------------------------------------------------------------------------
 
-func test_the_screen_runs_a_benchmark_of_its_own() -> void:
+func test_run_benchmark_hands_the_screen_over_to_the_tour() -> void:
 	PerformanceBenchmark.last_result = {}
 	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))
-	screen._runner.warmup_duration_usec = 0
-	screen._runner.frame_sample_duration_usec = 12_000
-	screen._runner.gpu_step_duration_usec = 5_000
-	screen._runner.cpu_sample_duration_usec = 12_000
+	screen.tour_available = true
+	await process_frames(2)
 	var run := screen.find_child("RunBenchmarkButton", true, false) as Button
 	assert_not_null(run)
 	if run == null:
 		return
+	var requested: Array = []
+	screen.tour_requested.connect(func(suite_id: String) -> void: requested.append(suite_id))
 	run.pressed.emit()
-	assert_eq(run.text, "Running...", "the action says what it is doing")
-	assert_true(run.disabled, "and cannot be pressed twice")
-	assert_true(screen._running)
-	var done := await process_frames_until(func(): return not screen._running, 400)
-	assert_true(done, "the run finishes")
 	await process_frames(2)
-	var chart := screen.find_child("FrameChart", true, false) as BenchmarkVisuals.FrameChart
-	assert_not_null(chart, "the chart is rebuilt from the new run")
-	if chart:
-		assert_gt(chart.values.size(), 0, "and draws the frames it measured")
-	assert_false(BenchmarkHistory.load_runs().is_empty(), "the run lands on the shelf")
-	assert_string_contains(_labels_text(screen.find_child("StatusLine", true, false)), "Copy the report")
+	assert_eq(requested, [CourseBenchmarkScenarios.SUITE_FULL],
+		"the screen runs nothing itself - Main owns the tour")
+	assert_string_contains(_labels_text(screen.find_child("StatusLine", true, false)),
+		"Starting the course tour", "and the status line says where the run went")
 
 func test_the_report_goes_to_the_clipboard_and_nowhere_else() -> void:
 	var screen: BenchmarkResultsScreen = await _screen(Vector2i(1600, 1000))

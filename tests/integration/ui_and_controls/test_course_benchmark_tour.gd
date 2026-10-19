@@ -119,7 +119,7 @@ func test_the_tour_builds_seeded_courses_on_screen_and_restores_the_players() ->
 		return
 	var result: Dictionary = completed[0]
 	assert_false(progress.is_empty(), "progress was published while it ran")
-	assert_eq(str(result.get("benchmark_version", "")), "GTB-4",
+	assert_eq(str(result.get("benchmark_version", "")), "GTB-5",
 		"the result carries the tour benchmark version")
 
 	var tour_data: Dictionary = result.get("tour", {})
@@ -206,15 +206,15 @@ func test_main_only_starts_the_tour_from_main_menu_settings() -> void:
 	# while one is underway.
 	var tour := _tour()
 	assert_false(tour.is_running(), "no tour is running between tests")
-	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"with no Main Menu Settings behind it, Main refuses the tour")
 	assert_false(tour.is_running(), "and nothing started")
 	main._on_main_menu_settings()
 	await process_frames(2)
-	assert_true(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_true(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"Main Menu Settings unlock the tour")
 	assert_true(main._benchmark_tour_active, "Main marks the tour as owning the view")
-	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_QUICK),
+	assert_false(main.start_course_benchmark(CourseBenchmarkScenarios.SUITE_FULL),
 		"a second tour cannot start over the first")
 	main.course_benchmark_tour.cancel()
 	var stopped := await process_frames_until(
