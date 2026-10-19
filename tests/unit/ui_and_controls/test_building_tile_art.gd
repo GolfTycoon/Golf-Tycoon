@@ -2,14 +2,14 @@ extends GameTest
 ## BuildingTileArt: the building example on a Buildings tab tile stands on the
 ## tile's own diamond.
 ##
-## The catalogue reuses the course's architecture drawings, so a preview lines
-## up with its tile button the way a placed building lines up with its course
-## cells: the footprint diamond fills the middle of the tile diamond and the
-## building rises over its own square. These tests hold the preview transform
-## to that — every footprint lands concentric with the tile, the whole drawing
-## stays as wide as its button, and the roof climbs no further than the notch
-## gap the honeycomb leaves above the tile (see TileHoneycomb and the
-## TerrainToolbar separations).
+## The catalogue shows the facility's pixel-art sprite — the same image the
+## course draws — so a preview lines up with its tile button the way a placed
+## building lines up with its course cells: the footprint diamond fills the
+## middle of the tile diamond and the building rises over its own square. These
+## tests hold the preview transform to that — every footprint lands concentric
+## with the tile, the whole drawing stays as wide as its button, and the roof
+## climbs no further than the notch gap the honeycomb leaves above the tile (see
+## TileHoneycomb and the TerrainToolbar separations).
 
 const TILE := TerrainTileButton.TILE_SIZE
 ## Nothing but a contact shadow may hang below the tile's bottom vertex; the
@@ -18,71 +18,37 @@ const BELOW_TILE_ALLOWANCE := 8.0
 
 var registry: Dictionary = {}
 
-
 func before_all() -> void:
 	registry = JSON.parse_string(
 		FileAccess.get_file_as_string("res://data/buildings.json"))["buildings"]
 
-
-## Draws facilities the way the catalogue does — from inside a real `_draw()`,
-## under the preview transform — and reports the grid-space box each one
-## covered (see test_isometric_architecture.gd for the same pattern on the
-## course).
-class Painter extends Node2D:
-	var kind := ""
-	var footprint := Vector2.ZERO
-	var extent := AABB()
-
-	func _draw() -> void:
-		var placement := BuildingTileArt.preview_transform(footprint)
-		draw_set_transform(placement.origin, 0.0, placement.get_scale())
-		extent = CourseArchitecture.draw_building(self, kind, footprint)
-		draw_set_transform(Vector2.ZERO)
-
-
-## The footprint of one catalogue entry, in the pixels draw_building is given.
+## The footprint of one catalogue entry, in the pixels the sprites are
+## authored in.
 func _footprint_of(building_type: String) -> Vector2:
 	var dimensions: Array = registry[building_type].get("size", [1, 1])
 	return Vector2(
 		maxf(1.0, float(dimensions[0])) * BuildingTileArt.TILE_PIXEL_SIZE.x,
 		maxf(1.0, float(dimensions[1])) * BuildingTileArt.TILE_PIXEL_SIZE.y)
 
-
-func _draw_extent(building_type: String) -> AABB:
-	var painter := Painter.new()
-	painter.kind = building_type
-	painter.footprint = _footprint_of(building_type)
-	add_child_autofree(painter)
-	await process_frames(2)
-	return painter.extent
-
-
-## The four sides of a grid-space box, projected into tile space the way
-## CourseArchitecture draws it — through the grid's draw-space origin and the
-## preview transform — giving the screen-space bounds of a preview drawing.
-func _projected_bounds(extent: AABB, footprint: Vector2, placement: Transform2D) -> Rect2:
-	var draw_origin := CourseArchitecture.grid_origin_offset(footprint, 0)
-	var bounds := Rect2()
-	var first := true
-	for u in [extent.position.x, extent.end.x]:
-		for v in [extent.position.y, extent.end.y]:
-			for z in [extent.position.z, extent.end.z]:
-				var corner: Vector2 = placement * (draw_origin \
-					+ Vector2((u - v) * 32.0, (u + v) * 16.0 - z))
-				if first:
-					bounds = Rect2(corner, Vector2.ZERO)
-					first = false
-				else:
-					bounds = bounds.expand(corner)
-	return bounds
-
+## Where the sprite's painted pixels land on the tile, in button space.
+func _preview_bounds(building_type: String) -> Rect2:
+	var placement := BuildingTileArt.preview_transform(_footprint_of(building_type))
+	var tex := BuildingSprites.texture(building_type, 1, 0)
+	if tex == null:
+		return Rect2()
+	var used := tex.get_image().get_used_rect()
+	var scale := float(BuildingSprites.manifest().get("pixel_scale", 2.0))
+	var art := BuildingSprites.rect(building_type, 1, 0)
+	var painted := Rect2(art.position + Vector2(used.position) * scale,
+			Vector2(used.size) * scale)
+	return Rect2(placement * painted.position, placement.get_scale() * painted.size)
 
 func test_every_footprint_lands_on_the_tile_diamond() -> void:
 	assert_gte(registry.size(), 16, "The catalogue has its buildings")
 	for building_type in registry:
 		var footprint := _footprint_of(building_type)
 		var placement := BuildingTileArt.preview_transform(footprint)
-		# CourseArchitecture projects a footprint's centre to
+		# The sprite's footprint centre projects to
 		# (footprint.x * 0.5, footprint.y) in its own draw space. That point
 		# belongs on the tile diamond's centre, so the example stands on its
 		# button instead of hanging off its bottom vertex.
@@ -100,12 +66,12 @@ func test_every_footprint_lands_on_the_tile_diamond() -> void:
 		assert_almost_eq(left_corner.x, TILE.x * 0.5 - footprint.x * 0.5 * placement.get_scale().x,
 			0.01, "%s: the footprint's left corner keeps the diamond's shape" % building_type)
 
-
 func test_every_preview_stays_on_its_button() -> void:
 	for building_type in registry:
-		var footprint := _footprint_of(building_type)
-		var placement := BuildingTileArt.preview_transform(footprint)
-		var bounds := _projected_bounds(await _draw_extent(building_type), footprint, placement)
+		var bounds := _preview_bounds(building_type)
+		assert_gt(bounds.size.x, 0.0, "%s draws its pixel art" % building_type)
+		if bounds.size.x <= 0.0:
+			continue
 		assert_true(bounds.position.x >= -0.5 and bounds.end.x <= TILE.x + 0.5,
 			"%s: the drawing is no wider than its tile (%s..%s of %s)" % [
 				building_type, bounds.position.x, bounds.end.x, TILE.x])
@@ -119,6 +85,19 @@ func test_every_preview_stays_on_its_button() -> void:
 			"%s: nothing but a shadow reaches below the tile (bottom %s)" % [
 				building_type, bounds.end.y])
 
+func test_the_preview_shows_the_courses_own_sprite() -> void:
+	# The button is not a redrawing: it is the same image, scaled down.
+	for building_type in registry:
+		var tex := BuildingSprites.texture(building_type, 1, 0)
+		assert_not_null(tex, "%s has a sprite to show" % building_type)
+		var art := BuildingSprites.rect(building_type, 1, 0)
+		var footprint := _footprint_of(building_type)
+		# The sprite covers its footprint plus a little padding for eaves and
+		# shadows; it is never a different building's size.
+		assert_between(art.size.x, footprint.x * 0.5, footprint.x + 72.0,
+			"%s: the sprite is as wide as its footprint" % building_type)
+		assert_between(art.size.y, footprint.y * 0.5, footprint.y + 260.0,
+			"%s: the sprite is as deep as its footprint" % building_type)
 
 func test_the_button_draws_its_preview_over_the_button_space() -> void:
 	var button := BuildingTileButton.new()
@@ -134,3 +113,7 @@ func test_the_button_draws_its_preview_over_the_button_space() -> void:
 			"The preview's draw space starts at the button's corner")
 		assert_eq(BuildingTileArt.PREVIEW_SIZE, button.button_size(),
 			"The preview spans the whole diamond the button is")
+		assert_eq(preview.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST,
+			"The preview keeps the pixel grid crisp")
+		assert_eq(preview.building_footprint(), _footprint_of("snack_bar"),
+			"The preview knows the footprint it stands on")

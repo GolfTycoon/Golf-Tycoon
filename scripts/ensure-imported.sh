@@ -13,6 +13,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GODOT_BIN="${1:?usage: ensure-imported.sh <path-to-godot>}"
 CACHE="$ROOT/.godot/global_script_class_cache.cfg"
+STAMP="$ROOT/.godot/assets-import.stamp"
+FIND="$(command -v find)"
 export LC_ALL=C
 
 # "ClassName res://path/to/script.gd" for every class_name in the project.
@@ -28,9 +30,26 @@ cached_classes() {
     awk -F'"' '/"class": &"/ { name = $4 } /"path": "/ { print name " " $4 }' "$CACHE" | sort
 }
 
-if [ -f "$CACHE" ] && [ -z "$(comm -23 <(declared_classes) <(cached_classes))" ]; then
+# The newest asset modification time, and the value it had at the last import.
+newest_asset() {
+    "$FIND" "$ROOT/assets" -type f \( -name '*.png' -o -name '*.svg' \) \
+        -printf '%T@\n' 2>/dev/null | cut -d. -f1 | sort -rn | head -1
+}
+
+# True when an importable asset is newer than the last import.
+stale_texture() {
+    local newest
+    newest="$(newest_asset)"
+    [ -z "$newest" ] && return 1
+    [ ! -f "$STAMP" ] && return 0
+    [ "$newest" -gt "$(cat "$STAMP" 2>/dev/null || echo 0)" ]
+}
+
+if [ -f "$CACHE" ] && [ -z "$(comm -23 <(declared_classes) <(cached_classes))" ] \
+    && ! stale_texture; then
     exit 0
 fi
 
-echo "Importing project (script classes changed since the last import)..." >&2
+echo "Importing project (scripts or textures changed since the last import)..." >&2
 "$GODOT_BIN" --headless --path "$ROOT" --import --quit >/dev/null 2>&1 || true
+newest_asset > "$STAMP"

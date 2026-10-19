@@ -1,0 +1,827 @@
+{
+	"buildings": {
+		"airstrip": {
+			"sprite_height": 27.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "airstrip_1_e.png",
+							"rect": [
+								36.0,
+								5.0,
+								248.0,
+								153.0
+							]
+						},
+						{
+							"file": "airstrip_1_s.png",
+							"rect": [
+								36.0,
+								34.0,
+								248.0,
+								124.0
+							]
+						},
+						{
+							"file": "airstrip_1_w.png",
+							"rect": [
+								36.0,
+								29.0,
+								248.0,
+								129.0
+							]
+						},
+						{
+							"file": "airstrip_1_n.png",
+							"rect": [
+								36.0,
+								15.0,
+								248.0,
+								143.0
+							]
+						}
+					],
+					"height": 27.0
+				}
+			}
+		},
+		"cart_garage": {
+			"sprite_height": 32.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "cart_garage_1_e.png",
+							"rect": [
+								21.0,
+								-8.0,
+								150.0,
+								109.0
+							]
+						},
+						{
+							"file": "cart_garage_1_s.png",
+							"rect": [
+								21.0,
+								-1.0,
+								150.0,
+								102.0
+							]
+						},
+						{
+							"file": "cart_garage_1_w.png",
+							"rect": [
+								21.0,
+								-1.0,
+								150.0,
+								102.0
+							]
+						},
+						{
+							"file": "cart_garage_1_n.png",
+							"rect": [
+								21.0,
+								-8.0,
+								150.0,
+								109.0
+							]
+						}
+					],
+					"height": 32.0
+				}
+			}
+		},
+		"casino": {
+			"sprite_height": 48.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "casino_1_e.png",
+							"rect": [
+								19.0,
+								-8.0,
+								215.0,
+								157.0
+							]
+						},
+						{
+							"file": "casino_1_s.png",
+							"rect": [
+								13.0,
+								-2.0,
+								221.0,
+								151.0
+							]
+						},
+						{
+							"file": "casino_1_w.png",
+							"rect": [
+								22.0,
+								-4.0,
+								215.0,
+								153.0
+							]
+						},
+						{
+							"file": "casino_1_n.png",
+							"rect": [
+								22.0,
+								-8.0,
+								221.0,
+								157.0
+							]
+						}
+					],
+					"height": 48.0
+				}
+			}
+		},
+		"castle": {
+			"sprite_height": 95.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "castle_1_e.png",
+							"rect": [
+								23.0,
+								-39.0,
+								274.0,
+								235.0
+							]
+						},
+						{
+							"file": "castle_1_s.png",
+							"rect": [
+								23.0,
+								-10.0,
+								274.0,
+								206.0
+							]
+						},
+						{
+							"file": "castle_1_w.png",
+							"rect": [
+								23.0,
+								-10.0,
+								274.0,
+								206.0
+							]
+						},
+						{
+							"file": "castle_1_n.png",
+							"rect": [
+								23.0,
+								-13.0,
+								274.0,
+								209.0
+							]
+						}
+					],
+					"height": 95.0
+				}
+			}
+		},
+		"clubhouse": {
+			"sprite_height": 115.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "clubhouse_1_e.png",
+							"rect": [
+								7.0,
+								24.0,
+								242.0,
+								164.0
+							]
+						},
+						{
+							"file": "clubhouse_1_s.png",
+							"rect": [
+								7.0,
+								39.0,
+								242.0,
+								149.0
+							]
+						},
+						{
+							"file": "clubhouse_1_w.png",
+							"rect": [
+								7.0,
+								27.0,
+								242.0,
+								161.0
+							]
+						},
+						{
+							"file": "clubhouse_1_n.png",
+							"rect": [
+								7.0,
+								1.0,
+								242.0,
+								187.0
+							]
+						}
+					],
+					"height": 63.0
+				},
+				"2": {
+					"facings": [
+						{
+							"file": "clubhouse_2_e.png",
+							"rect": [
+								7.0,
+								11.0,
+								242.0,
+								177.0
+							]
+						},
+						{
+							"file": "clubhouse_2_s.png",
+							"rect": [
+								7.0,
+								31.0,
+								242.0,
+								157.0
+							]
+						},
+						{
+							"file": "clubhouse_2_w.png",
+							"rect": [
+								7.0,
+								18.0,
+								242.0,
+								170.0
+							]
+						},
+						{
+							"file": "clubhouse_2_n.png",
+							"rect": [
+								7.0,
+								-13.0,
+								242.0,
+								201.0
+							]
+						}
+					],
+					"height": 77.0
+				},
+				"3": {
+					"facings": [
+						{
+							"file": "clubhouse_3_e.png",
+							"rect": [
+								7.0,
+								-51.0,
+								242.0,
+								239.0
+							]
+						},
+						{
+							"file": "clubhouse_3_s.png",
+							"rect": [
+								7.0,
+								-16.0,
+								242.0,
+								204.0
+							]
+						},
+						{
+							"file": "clubhouse_3_w.png",
+							"rect": [
+								7.0,
+								-18.0,
+								242.0,
+								206.0
+							]
+						},
+						{
+							"file": "clubhouse_3_n.png",
+							"rect": [
+								7.0,
+								-50.0,
+								242.0,
+								238.0
+							]
+						}
+					],
+					"height": 115.0
+				}
+			}
+		},
+		"driving_range": {
+			"sprite_height": 32.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "driving_range_1_e.png",
+							"rect": [
+								52.0,
+								-8.0,
+								280.0,
+								174.0
+							]
+						},
+						{
+							"file": "driving_range_1_s.png",
+							"rect": [
+								52.0,
+								6.0,
+								280.0,
+								160.0
+							]
+						},
+						{
+							"file": "driving_range_1_w.png",
+							"rect": [
+								52.0,
+								11.0,
+								280.0,
+								155.0
+							]
+						},
+						{
+							"file": "driving_range_1_n.png",
+							"rect": [
+								52.0,
+								-8.0,
+								280.0,
+								174.0
+							]
+						}
+					],
+					"height": 32.0
+				}
+			}
+		},
+		"pro_shop": {
+			"sprite_height": 53.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "pro_shop_1_e.png",
+							"rect": [
+								5.0,
+								-21.0,
+								118.0,
+								114.0
+							]
+						},
+						{
+							"file": "pro_shop_1_s.png",
+							"rect": [
+								5.0,
+								-17.0,
+								118.0,
+								110.0
+							]
+						},
+						{
+							"file": "pro_shop_1_w.png",
+							"rect": [
+								5.0,
+								-17.0,
+								118.0,
+								110.0
+							]
+						},
+						{
+							"file": "pro_shop_1_n.png",
+							"rect": [
+								5.0,
+								-21.0,
+								118.0,
+								114.0
+							]
+						}
+					],
+					"height": 53.0
+				}
+			}
+		},
+		"pub": {
+			"sprite_height": 59.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "pub_1_e.png",
+							"rect": [
+								17.0,
+								-35.0,
+								153.0,
+								136.0
+							]
+						},
+						{
+							"file": "pub_1_s.png",
+							"rect": [
+								22.0,
+								-29.0,
+								148.0,
+								130.0
+							]
+						},
+						{
+							"file": "pub_1_w.png",
+							"rect": [
+								22.0,
+								-29.0,
+								153.0,
+								130.0
+							]
+						},
+						{
+							"file": "pub_1_n.png",
+							"rect": [
+								22.0,
+								-35.0,
+								148.0,
+								138.0
+							]
+						}
+					],
+					"height": 59.0
+				}
+			}
+		},
+		"putting_green": {
+			"sprite_height": 3.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "putting_green_1_e.png",
+							"rect": [
+								4.0,
+								50.0,
+								184.0,
+								92.0
+							]
+						},
+						{
+							"file": "putting_green_1_s.png",
+							"rect": [
+								4.0,
+								50.0,
+								184.0,
+								92.0
+							]
+						},
+						{
+							"file": "putting_green_1_w.png",
+							"rect": [
+								4.0,
+								50.0,
+								184.0,
+								92.0
+							]
+						},
+						{
+							"file": "putting_green_1_n.png",
+							"rect": [
+								4.0,
+								45.0,
+								184.0,
+								97.0
+							]
+						}
+					],
+					"height": 3.0
+				}
+			}
+		},
+		"resort_hotel": {
+			"sprite_height": 83.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "resort_hotel_1_e.png",
+							"rect": [
+								7.0,
+								-19.0,
+								242.0,
+								207.0
+							]
+						},
+						{
+							"file": "resort_hotel_1_s.png",
+							"rect": [
+								7.0,
+								2.0,
+								242.0,
+								186.0
+							]
+						},
+						{
+							"file": "resort_hotel_1_w.png",
+							"rect": [
+								7.0,
+								2.0,
+								242.0,
+								186.0
+							]
+						},
+						{
+							"file": "resort_hotel_1_n.png",
+							"rect": [
+								7.0,
+								-19.0,
+								242.0,
+								207.0
+							]
+						}
+					],
+					"height": 83.0
+				}
+			}
+		},
+		"snack_bar": {
+			"sprite_height": 38.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "snack_bar_1_e.png",
+							"rect": [
+								0.0,
+								-6.0,
+								123.0,
+								99.0
+							]
+						},
+						{
+							"file": "snack_bar_1_s.png",
+							"rect": [
+								5.0,
+								0.0,
+								118.0,
+								93.0
+							]
+						},
+						{
+							"file": "snack_bar_1_w.png",
+							"rect": [
+								5.0,
+								0.0,
+								123.0,
+								93.0
+							]
+						},
+						{
+							"file": "snack_bar_1_n.png",
+							"rect": [
+								5.0,
+								-6.0,
+								118.0,
+								102.0
+							]
+						}
+					],
+					"height": 38.0
+				}
+			}
+		},
+		"spa": {
+			"sprite_height": 35.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "spa_1_e.png",
+							"rect": [
+								4.0,
+								17.0,
+								184.0,
+								125.0
+							]
+						},
+						{
+							"file": "spa_1_s.png",
+							"rect": [
+								4.0,
+								37.0,
+								184.0,
+								105.0
+							]
+						},
+						{
+							"file": "spa_1_w.png",
+							"rect": [
+								4.0,
+								33.0,
+								184.0,
+								109.0
+							]
+						},
+						{
+							"file": "spa_1_n.png",
+							"rect": [
+								4.0,
+								13.0,
+								184.0,
+								129.0
+							]
+						}
+					],
+					"height": 35.0
+				}
+			}
+		},
+		"stable": {
+			"sprite_height": 55.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "stable_1_e.png",
+							"rect": [
+								4.0,
+								-7.0,
+								184.0,
+								149.0
+							]
+						},
+						{
+							"file": "stable_1_s.png",
+							"rect": [
+								4.0,
+								7.0,
+								184.0,
+								135.0
+							]
+						},
+						{
+							"file": "stable_1_w.png",
+							"rect": [
+								4.0,
+								11.0,
+								184.0,
+								131.0
+							]
+						},
+						{
+							"file": "stable_1_n.png",
+							"rect": [
+								4.0,
+								-3.0,
+								184.0,
+								145.0
+							]
+						}
+					],
+					"height": 55.0
+				}
+			}
+		},
+		"swim_club": {
+			"sprite_height": 42.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "swim_club_1_e.png",
+							"rect": [
+								20.0,
+								-2.0,
+								216.0,
+								152.0
+							]
+						},
+						{
+							"file": "swim_club_1_s.png",
+							"rect": [
+								20.0,
+								28.0,
+								216.0,
+								122.0
+							]
+						},
+						{
+							"file": "swim_club_1_w.png",
+							"rect": [
+								20.0,
+								31.0,
+								216.0,
+								119.0
+							]
+						},
+						{
+							"file": "swim_club_1_n.png",
+							"rect": [
+								20.0,
+								35.0,
+								216.0,
+								115.0
+							]
+						}
+					],
+					"height": 42.0
+				}
+			}
+		},
+		"tennis_court": {
+			"sprite_height": 8.0,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "tennis_court_1_e.png",
+							"rect": [
+								36.0,
+								8.0,
+								184.0,
+								102.0
+							]
+						},
+						{
+							"file": "tennis_court_1_s.png",
+							"rect": [
+								36.0,
+								8.0,
+								184.0,
+								102.0
+							]
+						},
+						{
+							"file": "tennis_court_1_w.png",
+							"rect": [
+								36.0,
+								8.0,
+								184.0,
+								102.0
+							]
+						},
+						{
+							"file": "tennis_court_1_n.png",
+							"rect": [
+								36.0,
+								8.0,
+								184.0,
+								102.0
+							]
+						}
+					],
+					"height": 8.0
+				}
+			}
+		},
+		"theme_park": {
+			"sprite_height": 66.22,
+			"tiers": {
+				"1": {
+					"facings": [
+						{
+							"file": "theme_park_1_e.png",
+							"rect": [
+								21.0,
+								7.38,
+								278.0,
+								190.0
+							]
+						},
+						{
+							"file": "theme_park_1_s.png",
+							"rect": [
+								22.0,
+								-10.22,
+								276.0,
+								207.0
+							]
+						},
+						{
+							"file": "theme_park_1_w.png",
+							"rect": [
+								22.0,
+								13.78,
+								276.0,
+								183.0
+							]
+						},
+						{
+							"file": "theme_park_1_n.png",
+							"rect": [
+								21.0,
+								31.38,
+								278.0,
+								166.0
+							]
+						}
+					],
+					"height": 66.22
+				}
+			}
+		}
+	},
+	"pixel_scale": 1.0,
+	"tile": [
+		64,
+		32
+	]
+}

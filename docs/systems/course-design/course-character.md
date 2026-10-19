@@ -11,7 +11,7 @@
 
 **Landforms.** Elevation is edited with three selector tools on the Elevation tab: **Vertex**, **Flat Square** and **Gradual Square**. Right-click raises the selected terrain, and left-click lowers it. The soft hill-and-hollow falloff survives as `SculptedTerrain`, which course generation uses. Quick Start's holes 2, 5 and 8 get raised tees, crowned greens and a shallow valley between them. Other courses are not reshaped when they load. These elevation changes are real and the simulation uses them.
 
-**Architecture.** Facilities share cream siding, green shutters and tiled gable roofs, with fixed window and door proportions. Clubhouses grow by adding facade bays at each upgrade. Each facility has its own details: a clock dormer, striped shop awnings, cart bays, chimney smoke, pro-shop merchandise, snack-hut menus, range-pavilion ball baskets, a pub sign and barrel, a tennis-court net, a paddock fence, a swimming pool, hotel windows, a runway windsock, castle battlements, casino marquee lights and a turning ferris wheel. Windows glow warm at dusk. Upgraded clubhouses fly a small animated pennant. All of these details are cosmetic, and buildings and ghosts share the same geometry.
+**Architecture.** Facilities are pixel-art sprites sharing cream siding, green or red roofs and fixed window and door proportions. Clubhouses grow by adding a wing, a storey and a clock tower at each upgrade. Each facility has its own details: striped shop awnings, cart bays, pro-shop merchandise, a snack-hut menu board, range batting bays, a pub sign and barrel, a tennis-court net, a paddock fence, a swimming pool, hotel windows, a runway windsock, castle battlements, casino marquee lights and a ferris wheel. All of these details are cosmetic, and buildings and ghosts share the same images. Windows are painted lit on the casino and hotel; the art is static, so nothing animates.
 
 **Golfer expressions.** Golfers have a small address waggle while preparing a shot. After a hole, they react to their score: a happy hop with glints under par, a slump over par, and a small nod at par. The reaction is a short cosmetic animation that never changes the shot timing.
 
@@ -47,7 +47,7 @@ The surface texture's blue channel stores elevation as `(elevation − MIN) / (M
 
 ### 3. Architecture drawing
 
-`CourseArchitecture` builds buildings and placement ghosts from the same geometry. Footprints in the world never change. Facades are horizontal, and depth recedes by `(−0.55 × depth, −0.5 × depth)`. Roof planes share one ridge, and the foundation, porch posts, stairs and apron all use the same base coordinate. Chimney smoke and window light come from the actual architecture, not from offsets tied to sprite size.
+`CourseArchitecture` draws buildings and placement ghosts from the same pixel-art sprites. Footprints in the world never change. The art is authored in grid space and projected through the terrain's 2:1 axes, so walls, roofs and doorways follow the tiles the building stands on at every view rotation. Each facility has one image per upgrade tier and per rotation, and the placed building, the ghost and the catalogue tile all draw it. See [Isometric Buildings](isometric-buildings.md).
 
 The cosmetic clock redraws at **10 Hz** (`redraw_elapsed >= 0.1`) and respects pause. Rebuilding removes the old visual and its click area before adding the replacements.
 
