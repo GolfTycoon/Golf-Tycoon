@@ -2,6 +2,14 @@ extends CenteredPanel
 class_name HotkeyPanel
 ## HotkeyPanel - Shows all keyboard shortcuts grouped by category
 
+## Escape, controller B or a right-click closes the help sheet. It is opened by
+## F1 from any screen, so it has no owner to hand a close_requested to.
+func _unhandled_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("cancel"):
+		get_viewport().set_input_as_handled()
+		hide()
+
+
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(480, 520)
 
@@ -18,13 +26,13 @@ func _build_ui() -> void:
 
 	# Title
 	var title = Label.new()
-	title.text = "Keyboard Shortcuts"
+	title.text = "Controls & Shortcuts"
 	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_vbox.add_child(title)
 
 	var subtitle = Label.new()
-	subtitle.text = "Press F1 to toggle this panel"
+	subtitle.text = "Every screen works with a mouse, keyboard, controller or touch. F1 toggles this panel."
 	subtitle.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	subtitle.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -110,6 +118,7 @@ func _build_ui() -> void:
 		["Q", "Rotate course counter-clockwise"],
 		["Shift+Q", "Rotate course clockwise"],
 		["Tab", "Toggle minimap"],
+		["Shift+Tab", "Focus the bottom-left controls"],
 		["V", "Shot heatmap"],
 		["Shift+V", "Cycle heatmap mode"],
 		["J", "Fairway width + carry overlay"],
@@ -122,9 +131,38 @@ func _build_ui() -> void:
 		["Ctrl+Z", "Undo"],
 		["Ctrl+Shift+Z", "Redo"],
 		["Esc", "Cancel / Deselect tool"],
+		["Enter", "Click at the keyboard pointer"],
+		["Arrows", "Move the keyboard pointer"],
 		["F1", "This help panel"],
 		["F2", "Weather debug"],
 		["F4", "Season debug"],
+	])
+
+	_add_section(vbox, "Menus & Screens", [
+		["Arrows / D-pad", "Move focus"],
+		["Enter / A", "Select the focused control"],
+		["Esc / B", "Back, cancel or close"],
+		["Tab / LB, RB", "Next or previous control"],
+		["Start", "Pause menu on the course"],
+		["View / Back, LB / RB", "Focus the bottom-left controls"],
+	])
+
+	_add_section(vbox, "Gamepad (on the course)", [
+		["Left Stick", "Pan the camera"],
+		["Right Stick", "Move the pointer (also on screens)"],
+		["A", "Click at the pointer"],
+		["B", "Cancel / deselect"],
+		["X / Y", "Rotate course counter-clockwise / clockwise"],
+		["LT / RT", "Zoom out / in"],
+		["Start", "Pause / resume"],
+	])
+
+	_add_section(vbox, "Touch", [
+		["Tap", "Select or place"],
+		["One-finger drag", "Pan, paint or scroll a list"],
+		["Two-finger drag", "Pan and pinch to zoom"],
+		["Two-finger tap", "Cancel or close"],
+		["Drag a slider", "Set its value"],
 	])
 
 	# Close button

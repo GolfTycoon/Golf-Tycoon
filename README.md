@@ -78,18 +78,23 @@ To start a game, choose **Quick Start** on the main menu, or **Start New Game** 
 
 ## Controls
 
-| Action | Keys and mouse |
+Every screen works with a mouse, a keyboard, both together, a gamepad or a touchscreen. Menus and panels use focus: arrows or the D-pad move, `Enter`/`A` selects, `Esc`/`B` goes back, and `Tab`/`LB`/`RB` steps through controls. On the course a keyboard or controller moves an on-screen pointer, so painting, placing and aiming need no mouse.
+
+| Action | Keys, mouse and gamepad |
 | --- | --- |
-| Pan the camera | `W` `A` `S` `D`, or middle-mouse drag |
-| Zoom | Mouse wheel, `[` and `]` |
-| Rotate the view | `Q` and `Shift+Q` |
-| Pause or resume | `Space` |
+| Pan the camera | `W` `A` `S` `D`, middle-mouse drag, or the left stick |
+| Move the pointer | Arrow keys, or the right stick |
+| Click at the pointer | `Enter`, or `A` |
+| Zoom | Mouse wheel, `[` and `]`, or `LT`/`RT` |
+| Rotate the view | `Q` and `Shift+Q`, or `X`/`Y` |
+| Pause or resume | `Space`, or `Start` |
 | Save | `Ctrl+S` |
 | Undo and redo | `Ctrl+Z` and `Ctrl+Shift+Z` |
-| Cancel | `Esc` or right-click |
+| Cancel | `Esc`, right-click, or `B` |
+| Focus the HUD | `Tab`, or the controller's View/Back button |
 | Hotkey help | `F1` |
 
-The full list, including tools, panels and touch controls, is in [UI & Controls](docs/ui-and-controls.md).
+Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch to zoom) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).
 
 ## Project Structure
 

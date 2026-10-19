@@ -18,6 +18,10 @@ func _ready() -> void:
 	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_build_ui()
 	hide()
+	# Every popup panel is a focus scope: keyboard and controller players get
+	# focus in it the moment it opens (see InputManager).
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
 	# Re-center while open when the window is resized or rotated.
 	if has_node("/root/Screen"):
 		Screen.changed.connect(_on_screen_changed)

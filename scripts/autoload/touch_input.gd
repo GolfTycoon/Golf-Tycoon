@@ -23,7 +23,7 @@ var paint_mode_provider: Callable = func() -> bool: return false
 const TAP_DISTANCE := 12.0
 const TAP_DURATION_MS := 400
 
-enum Gesture { NONE, TAP_PENDING, PANNING, PAINTING, SCROLLING, UI_DRAG }
+enum Gesture { NONE, TAP_PENDING, PANNING, PAINTING, SCROLLING, UI_DRAG, SLIDING }
 
 var _touches: Dictionary = {}  # index -> {pos, start, start_ms, over_ui, scroll}
 var _gesture: int = Gesture.NONE
@@ -78,6 +78,7 @@ func _touch_pressed(index: int, pos: Vector2) -> void:
 		"start_ms": Time.get_ticks_msec(),
 		"over_ui": bool(target.get("over_ui", false)),
 		"scroll": target.get("scroll", null),
+		"slider": target.get("slider", null),
 	}
 	_suppressed_single = false
 
@@ -89,7 +90,14 @@ func _touch_pressed(index: int, pos: Vector2) -> void:
 		_two_finger = _begin_two_finger_state()
 		_gesture = Gesture.NONE
 	elif _touches.size() == 1:
-		_gesture = Gesture.TAP_PENDING
+		var slider := _touches[index].get("slider") as Slider
+		if is_instance_valid(slider) and slider.is_visible_in_tree():
+			# A touch on a slider is a slide, not a tap: the finger owns the
+			# value from the moment it lands (no mouse emulation involved).
+			_gesture = Gesture.SLIDING
+			_set_slider_from_touch(slider, pos)
+		else:
+			_gesture = Gesture.TAP_PENDING
 		_last_drag_pos = pos
 	else:
 		# A third finger makes this a deliberate multi-touch gesture, not a tap.
@@ -175,7 +183,7 @@ func _finish_single_touch(info: Dictionary, pos: Vector2) -> void:
 		return
 	if gesture == Gesture.SCROLLING or gesture == Gesture.UI_DRAG:
 		return
-	if gesture == Gesture.PANNING:
+	if gesture == Gesture.PANNING or gesture == Gesture.SLIDING:
 		return
 	if _suppressed_single:
 		_suppressed_single = false
@@ -248,6 +256,10 @@ func _process_single_touch_drag(info: Dictionary, pos: Vector2) -> void:
 			var scroll := info.get("scroll") as ScrollContainer
 			if is_instance_valid(scroll):
 				_scroll_by_drag(scroll, int(info.get("scroll_axis", 0)), pos - _last_drag_pos)
+		Gesture.SLIDING:
+			var slider := info.get("slider") as Slider
+			if is_instance_valid(slider):
+				_set_slider_from_touch(slider, pos)
 	_last_drag_pos = pos
 
 func _begin_two_finger_state() -> Dictionary:
@@ -380,6 +392,25 @@ func _scroll_by_drag(scroll: ScrollContainer, axis: int, delta: Vector2) -> void
 		var max_scroll := maxi(0, roundi(bar.max_value - bar.page)) if bar else 0
 		scroll.scroll_vertical = clampi(scroll.scroll_vertical - roundi(delta.y), 0, max_scroll)
 
+## Move a slider to the value under a finger. Works for horizontal and
+## vertical sliders alike (Godot's slider orientation is `vertical` on Slider).
+func _set_slider_from_touch(slider: Slider, pos: Vector2) -> void:
+	if not is_instance_valid(slider):
+		return
+	var rect := slider.get_global_rect()
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var fraction: float
+	if slider is VSlider:
+		fraction = 1.0 - clampf((pos.y - rect.position.y) / rect.size.y, 0.0, 1.0)
+	else:
+		fraction = clampf((pos.x - rect.position.x) / rect.size.x, 0.0, 1.0)
+	var value := slider.min_value + fraction * (slider.max_value - slider.min_value)
+	if slider.step > 0.0:
+		value = slider.min_value + roundf((value - slider.min_value) / slider.step) * slider.step
+	slider.set_value_no_signal(clampf(value, slider.min_value, slider.max_value))
+	slider.value_changed.emit(slider.value)
+
 func _is_paint_mode() -> bool:
 	if paint_mode_provider.is_valid():
 		return bool(paint_mode_provider.call())
@@ -411,7 +442,7 @@ func _has_native_touch_target(screen_pos: Vector2) -> bool:
 	return false
 
 func _touch_target_at(screen_pos: Vector2) -> Dictionary:
-	var result := {"over_ui": false, "scroll": null}
+	var result := {"over_ui": false, "scroll": null, "slider": null}
 	if get_tree() != null and get_tree().root != null:
 		_collect_touch_targets(get_tree().root, screen_pos, result)
 	# The pause menu explicitly permits camera gestures on its dimmed backdrop;
@@ -441,6 +472,8 @@ func _collect_touch_targets(node: Node, screen_pos: Vector2, result: Dictionary)
 		result["over_ui"] = true
 		if result["scroll"] == null and control is ScrollContainer:
 			result["scroll"] = control
+		if control is Slider and (control as Slider).editable:
+			result["slider"] = control
 
 func _allows_pause_backdrop_gesture(screen_pos: Vector2) -> bool:
 	if get_tree() == null:
@@ -470,14 +503,29 @@ func _synthesize_mouse_button(button: MouseButton, pressed: bool, pos: Vector2) 
 	ev.pressed = pressed
 	ev.position = pos
 	ev.global_position = pos
+	_begin_synthetic_mouse()
 	vp.push_input(ev, true)
+	_end_synthetic_mouse()
 
 func _synthesize_mouse_motion(pos: Vector2) -> void:
 	var vp: Viewport = get_viewport()
 	var ev := InputEventMouseMotion.new()
 	ev.position = pos
 	ev.global_position = pos
+	_begin_synthetic_mouse()
 	vp.push_input(ev, true)
+	_end_synthetic_mouse()
+
+## Tell InputManager these mouse events came from a finger, not a mouse.
+func _begin_synthetic_mouse() -> void:
+	var manager := get_node_or_null("/root/InputManager")
+	if manager != null:
+		manager.begin_synthetic_mouse()
+
+func _end_synthetic_mouse() -> void:
+	var manager := get_node_or_null("/root/InputManager")
+	if manager != null:
+		manager.end_synthetic_mouse()
 
 ## End an in-progress paint stroke (release the synthetic mouse button).
 func _cancel_paint_stroke() -> void:

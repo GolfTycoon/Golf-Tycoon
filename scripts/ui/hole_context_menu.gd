@@ -25,6 +25,11 @@ func _ready() -> void:
 	# the await below would leak if the menu were freed before it resumes.
 	add_theme_stylebox_override("panel", _panel_style())
 
+	# Keyboard and controller players get focus in the menu without having to
+	# move a pointer onto it first.
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 	# Clear the just_opened flag after one frame so clicks can close the menu
 	await get_tree().process_frame
 	_just_opened = false
@@ -43,8 +48,8 @@ func _input(event: InputEvent) -> void:
 	if _just_opened:
 		return
 
-	# Close on Escape
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+	# Close on Escape / controller B (the cancel action).
+	if event.is_action_pressed("cancel"):
 		_close()
 		get_viewport().set_input_as_handled()
 		return

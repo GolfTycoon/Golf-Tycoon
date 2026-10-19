@@ -71,7 +71,7 @@ func _make_step(caption: String, node_name: String) -> Button:
 	var btn := Button.new()
 	btn.name = node_name
 	btn.text = caption
-	btn.focus_mode = Control.FOCUS_NONE
+	btn.focus_mode = Control.FOCUS_ALL
 	btn.add_theme_font_size_override("font_size", STEP_FONT_SIZE)
 	_style_cell(btn, STEP_CELL)
 	return btn

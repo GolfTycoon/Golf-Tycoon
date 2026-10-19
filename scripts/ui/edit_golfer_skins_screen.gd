@@ -145,6 +145,9 @@ func _ready() -> void:
 	_select_skin(GolferSkins.player_skin())
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 
 func _on_screen_changed(window_size: Vector2, _world_scale: float) -> void:
 	if _current_layout() != _layout_mode:
@@ -1700,7 +1703,8 @@ func _confirm(message: String, confirm_text: String, action: Callable) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo \
-			and (event as InputEventKey).keycode == KEY_ESCAPE:
+	if (event is InputEventKey and event.pressed and not event.echo \
+			and (event as InputEventKey).keycode == KEY_ESCAPE) \
+			or (event is InputEventJoypadButton and event.is_action_pressed("cancel")):
 		back_requested.emit()
 		get_viewport().set_input_as_handled()

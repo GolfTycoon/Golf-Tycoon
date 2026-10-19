@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/main_menu.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/harness/save_settings_layout_harness.tscn`
+**Source:** `scripts/autoload/input_manager.gd` (device tracking, focus scopes and navigation), `scripts/ui/components/gamepad_cursor.gd` (keyboard/controller pointer), `scripts/ui/components/input_hint_bar.gd` (device prompts), `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key and controller handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/main_menu.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/ui_and_controls/test_input_manager.gd`, `tests/integration/ui_and_controls/test_gamepad_and_keyboard_screens.gd`, `tests/integration/ui_and_controls/test_gamepad_gameplay.gd`, `tests/integration/ui_and_controls/test_gamepad_every_screen.gd`, `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -21,6 +21,38 @@
 - **Benchmark Results.** A fullscreen device dashboard over the same `MenuBackdrop` as the World Map, opened from the Display card's **Past Results**. Desktop spreads the report across three columns - the rating and the device dossier on the left, a frame-time oscilloscope with the GPU load ladder and the engine and memory read-out in the middle, the metric meters, the golf-style performance scorecard and the shelf of past runs on the right - and a full-height window shows all of it without scrolling. Tablets pair the rating with the meters above the charts; phones fold everything into one scroll, or into two columns when the phone is turned sideways. The charts are drawn in whole pixels (`BenchmarkVisuals`): one chunky column per sampled frame in mint, gold and muted red against the 60 FPS budget and the 33 ms stutter line, the GPU ladder and the run history as bars, and a segmented meter per metric. Reached from Main Menu Settings its **Run Benchmark** starts the tour again (from anywhere else it is read-only: Run stands down, and the report, the shelf and **Copy report** still work), it keeps the last twelve runs on a local shelf to compare against, and **Esc** closes it. Each run on that shelf is a button: press one and the whole screen becomes that run - its report, its oscilloscope, its scorecard, its tour table and its device dossier - with the picked row lit and a **PAST RUN** chip on the rating while an older run is on screen, and **Copy report** copies the run being read. A run recorded before reports were kept keeps its numbers and its bar on the chart but cannot be opened, and says so. See [Device Benchmark](development/benchmark.md).
 - **Save and Load.** One archive with a Save or Load mode. Save names a checkpoint and asks before replacing one. Load shows the selected course's day, balance, holes and last-played time, and asks before replacing the live course. Saving is offered only from the pause menu. The title screen and game-over panel can only load.
 - **Golfer Skins studio.** Paint the golfers' clothing. See [Golfer Skins](golfer-skins.md).
+
+## Input methods
+
+Every screen and panel is built from Godot `Control`s, so all five input methods drive the same controls. `InputManager` (autoload) tracks the method in use, gives a keyboard or controller a starting focus whenever a screen opens, builds a geometric focus graph for the D-pad and arrow keys, and keeps the focused control scrolled into view. The compact prompt bar above the bottom dock follows the active method; it is hidden for a mouse.
+
+| Task | Mouse | Keyboard | Gamepad | Touch |
+| --- | --- | --- | --- | --- |
+| Select a control | Click | `Enter` on the focused control, or `Tab`/arrows to focus | `A` on the focused control, D-pad/left stick to focus | Tap |
+| Back / cancel | Right-click | `Esc` | `B` | Two-finger tap, or the screen's Back button |
+| Scroll a list | Wheel over the list | Focus moves with the arrows and `Tab`; the list follows | D-pad / left stick, or `LB`/`RB` for the next control | One-finger drag |
+| Change a slider | Drag | Focus it and use the arrows | Focus it and use the D-pad | Drag the slider |
+| Pause on the course | `Esc`, or the Menu button | `Space` or `Esc` | `Start` | The dock's Menu button |
+| Operate the course | Click, drag | Arrow keys move the pointer, `Enter` clicks, `WASD` pans | Right stick points, `A` clicks, left stick pans | Tap, one-finger drag, pinch |
+
+On a screen, moving the right stick brings the pointer up and temporarily stands focus navigation down, so freeform surfaces (the world globe, the Course Map, the golfer-skin canvas) can be used with a controller. A D-pad nudge, a left-stick nudge or `B` returns to focus navigation and keeps the screen open. The same pointer draws its own reticle and clicks the control under it with `A`.
+
+The pointer is the one shared implementation: `GamepadCursor` moves the real mouse pointer (right stick or arrow keys) and clicks it (`A` or `Enter`), so painting, placing, aiming, hole selection and every other mouse feature work unchanged. On the course `B` cancels; `View`/`Back` puts focus on the bottom-left dock so the HUD is reachable without a mouse, and `B` returns focus to the course. Opening any screen automatically hands focus to it and hides the pointer; closing it gives the course back.
+
+### Controller map
+
+| Input | Action |
+| --- | --- |
+| D-pad / left stick | Move focus in a screen; pan the camera on the course |
+| `A` | Select the focused control, or click at the pointer on the course |
+| `B` | Back / cancel / close, or return from the dock to the course |
+| `X` / `Y` | Rotate the course counter-clockwise / clockwise |
+| `LB` / `RB` | Previous / next control (tabs and long panel forms) |
+| `LT` / `RT` | Zoom out / in |
+| `Start` | Pause / resume on the course |
+| `View` / `Back` button, or `LB` / `RB` | Focus the bottom-left dock |
+
+`A` and `B` are bound to Godot's `ui_accept`/`ui_cancel` and to the game's `cancel` action in `project.godot`; the D-pad and left stick use Godot's built-in `ui_*` actions. A controller can therefore open the title screen, start a game, build a course and play a round without a mouse.
 
 ## In-Game Panels
 
@@ -113,6 +145,18 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 
 ## Keyboard
 
+### Screens and panels
+
+| Key | Action |
+| --- | --- |
+| `Tab` / `Shift+Tab` | Next / previous control |
+| Arrow keys | Move focus in the direction pressed |
+| `Enter` | Activate the focused control |
+| `Esc` | Back, cancel or close the screen |
+| `Space` | Activate the focused control (and pause/resume when the course has focus) |
+
+Focus starts on the screen's first action when the screen opens; `Esc` closes it. While a screen is open, `Tab` moves focus instead of toggling the minimap. Long screens scroll to keep the focused control visible, so the whole of Settings, Start New Game, the World Map and the benchmark report is reachable from the keyboard.
+
 ### Camera
 
 | Key | Action |
@@ -122,6 +166,7 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 | Mouse wheel, `[` and `]` | Zoom |
 | `Q` and `Shift+Q` | Rotate the view |
 | `Tab` | Toggle the minimap |
+| `Shift+Tab` | Focus the bottom-left dock (then arrows/Enter drive it; `Esc` returns) |
 | `V` | Toggle the heatmap. `Shift+V` changes the heatmap mode |
 
 ### Game
@@ -156,8 +201,8 @@ Tool shortcuts are also shown on each tool's tooltip. The hotkey panel (`F1`) is
 
 ## Mouse and Touch
 
-- **Mouse.** Left click places or selects. Right click cancels or opens a context menu. The wheel zooms.
-- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get 44px utility controls, larger toolbar tabs, and a taller dock so the controls are easier to reach.
+- **Mouse.** Left click places or selects. Right click cancels or opens a context menu. The wheel zooms. Every button, card, tile and slider is a normal control, so the pointer hovers, presses and drags exactly as it does on the desktop.
+- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. Dragging a slider sets its value directly, without needing mouse emulation. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get 44px utility controls, larger toolbar tabs, and a taller dock so the controls are easier to reach. Every fullscreen screen keeps its content in a scroll region on phone-sized windows, so no action is out of reach.
 
 ## Layout
 

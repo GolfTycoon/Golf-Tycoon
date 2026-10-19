@@ -14,6 +14,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_ui()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _build_ui() -> void:
 	# Dark overlay
 	var bg = ColorRect.new()

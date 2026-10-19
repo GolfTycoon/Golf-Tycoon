@@ -154,10 +154,35 @@ func _handle_keyboard_input(delta: float) -> void:
 	if Input.is_action_pressed("camera_pan_left"): direction.x -= 1
 	if Input.is_action_pressed("camera_pan_right"): direction.x += 1
 
+	# Gamepad: the left stick pans and the triggers zoom, but only while no
+	# screen or focused control owns the D-pad/stick (InputManager).
+	if _gamepad_camera_enabled():
+		var stick := Vector2(
+			Input.get_joy_axis(0, JOY_AXIS_LEFT_X),
+			Input.get_joy_axis(0, JOY_AXIS_LEFT_Y))
+		if stick.length() > 0.2:
+			direction += stick.limit_length(1.0)
+		if Input.is_action_pressed("gamepad_zoom_in"):
+			_zoom_camera_smooth(zoom_speed * delta * 10.0)
+		if Input.is_action_pressed("gamepad_zoom_out"):
+			_zoom_camera_smooth(-zoom_speed * delta * 10.0)
+
 	if direction != Vector2.ZERO:
 		direction = direction.normalized()
 		# Move camera in screen space (visual direction) instead of isometric coordinates
 		_target_position += direction * pan_speed * delta / zoom.x
+
+
+## True when a controller's sticks/triggers should drive the camera: on the
+## course, with no UI screen or focused HUD control taking the stick first.
+func _gamepad_camera_enabled() -> bool:
+	if not has_node("/root/InputManager"):
+		return false
+	if not InputManager.is_gamepad():
+		return false
+	if InputManager.has_visible_scope():
+		return false
+	return get_viewport().gui_get_focus_owner() == null
 
 func _handle_subtle_follow(delta: float) -> void:
 	if benchmark_controlled or not subtle_follow_enabled or _is_dragging:
@@ -225,6 +250,10 @@ func focus_on_smooth(world_position: Vector2, duration: float = 0.5) -> void:
 	tween.tween_property(self, "_target_position", world_position, duration)
 
 func get_mouse_world_position() -> Vector2:
+	# A keyboard or controller pointer (InputManager.virtual_pointer) wins over
+	# the OS cursor so aiming and painting follow the reticle on every platform.
+	if has_node("/root/InputManager") and InputManager.virtual_pointer.is_finite():
+		return get_canvas_transform().affine_inverse() * InputManager.virtual_pointer
 	if _has_pointer:
 		return get_canvas_transform().affine_inverse() * _pointer_position
 	return get_global_mouse_position()

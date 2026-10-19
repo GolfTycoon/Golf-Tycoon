@@ -126,6 +126,9 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _on_screen_changed(window_size: Vector2, _world_scale: float) -> void:
 	if _current_layout() != _layout_mode:
 		_build()
@@ -520,6 +523,8 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 		"Customise your game settings, then buy the location for your first course and start playing",
 		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.FLAG)
 	button.name = "StartNewGameButton"
+	# The primary action is where a keyboard/controller player starts.
+	button.set_meta(InputManager.DEFAULT_FOCUS_META, true)
 	button.pressed.connect(func(): start_new_game_requested.emit())
 	return button
 

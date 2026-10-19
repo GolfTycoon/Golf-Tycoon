@@ -51,6 +51,9 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	refresh()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _window_size() -> Vector2:
 	return Kit.window_size_of(self)
 

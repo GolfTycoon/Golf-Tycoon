@@ -39,7 +39,7 @@ var _icon: Control = null
 
 func _init() -> void:
 	custom_minimum_size = Vector2(BUTTON_DIAMETER, BUTTON_DIAMETER)
-	focus_mode = Control.FOCUS_NONE
+	focus_mode = Control.FOCUS_ALL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 func _ready() -> void:
