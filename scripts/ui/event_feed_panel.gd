@@ -27,6 +27,9 @@ func _ready() -> void:
 	_build_ui()
 	hide()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _build_ui() -> void:
 	# Panel style
 	var style = StyleBoxFlat.new()
@@ -103,6 +106,17 @@ func _position_panel() -> void:
 	var panel_height = maxf(120.0, vp_size.y - top_margin - bottom_margin)
 	size = Vector2(PANEL_WIDTH, panel_height)
 	position = Vector2(vp_size.x - PANEL_WIDTH - RIGHT_MARGIN, top_margin)
+
+## Controller B or Escape leaves the feed. Escape is normally claimed by Main
+## first (it closes the feed there); this catches the controller's cancel.
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible or not event.is_action_pressed("cancel"):
+		return
+	if event is InputEventMouseButton:
+		return
+	toggle()
+	get_viewport().set_input_as_handled()
+
 
 func toggle() -> void:
 	if visible:

@@ -136,6 +136,10 @@ var _moving_building: Building = null
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var world_map_screen: WorldMapScreen = null
+## Controller/keyboard pointer and the on-screen prompt strip (see
+## _setup_input_layer). Both live in the HUD and never take pointer input.
+var gamepad_cursor: GamepadCursor = null
+var input_hint_bar: InputHintBar = null
 ## The Course Map: the isometric overview of the course and its four modes
 ## (Land, Routing Holes, Course Aura, Staff Management).
 var course_map_screen: CourseMapScreen = null
@@ -376,8 +380,46 @@ func _ready() -> void:
 	_setup_shot_heatmap()
 	_setup_course_aura()
 	_setup_responsive_ui()
+	_setup_input_layer()
 	_initialize_game()
 	print("Main scene ready")
+
+## Add the two input aids shared by every screen: the pointer that lets a
+## keyboard or controller operate the course like a mouse, and the strip of
+## prompts for the input method in use. Both are children of the HUD so they
+## sit above the course and below the screens opened from it.
+func _setup_input_layer() -> void:
+	gamepad_cursor = GamepadCursor.new()
+	gamepad_cursor.camera = camera
+	$UI/HUD.add_child(gamepad_cursor)
+
+	input_hint_bar = InputHintBar.new()
+	$UI/HUD.add_child(input_hint_bar)
+
+## True on the course with no screen/panel (or benchmark) owning input.
+func _gameplay_input_active() -> bool:
+	if _benchmark_tour_active:
+		return false
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return false
+	if has_node("/root/InputManager") and InputManager.has_visible_scope():
+		return false
+	return true
+
+## View/Back on a controller (or the dock's own Tab cycle) can put focus on
+## the bottom-left controls; this gives the player a deliberate way in.
+func _focus_gameplay_hud() -> void:
+	if left_controls == null:
+		return
+	var target := left_controls.get_node_or_null("MenuBtn") as Control
+	if target == null or not target.is_visible_in_tree():
+		for child in left_controls.get_children():
+			if child is Control and (child as Control).focus_mode != Control.FOCUS_NONE \
+					and (child as Control).is_visible_in_tree():
+				target = child as Control
+				break
+	if target != null:
+		InputManager.focus_control(target)
 
 func _load_buildings_data() -> void:
 	"""Load buildings from buildings.json"""
@@ -427,6 +469,39 @@ func _input(event: InputEvent) -> void:
 			course_benchmark_tour.cancel()
 		get_viewport().set_input_as_handled()
 		return
+	# Controller Start (or P) is the pause shortcut on the course. While the
+	# pause menu is up it resumes, matching Escape; other screens keep their
+	# own back handling and ignore it.
+	if event.is_action_pressed("pause_menu") and not event.is_echo():
+		# P is also a pause key, so a focused text field keeps its letter.
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
+		if not _benchmark_tour_active and GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+			if pause_menu:
+				_close_pause_menu()
+			elif not InputManager.has_visible_scope():
+				_show_pause_menu()
+			get_viewport().set_input_as_handled()
+		return
+	# Shift+Tab (or LB) focuses the bottom-left dock when the course has no
+	# focused control. Handled in _input because the GUI consumes the
+	# ui_focus_prev action even when there is nothing focused to move from.
+	if (event.is_action_pressed("ui_focus_prev") or event.is_action_pressed("ui_focus_next")) \
+			and _gameplay_input_active() and get_viewport().gui_get_focus_owner() == null:
+		_focus_gameplay_hud()
+		get_viewport().set_input_as_handled()
+		return
+	# Controller X/Y rotate the course view whenever the course owns input.
+	if _gameplay_input_active():
+		if event.is_action_pressed("gamepad_rotate_ccw"):
+			_on_view_rotate_ccw()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("gamepad_rotate_cw"):
+			_on_view_rotate_cw()
+			get_viewport().set_input_as_handled()
+			return
 	# Finish strokes even when the mouse is released over a panel.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed and is_painting:
 		_stop_painting()
@@ -444,6 +519,12 @@ func _input(event: InputEvent) -> void:
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
 			if GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+				# The event feed is a side panel, not a CenteredPanel: close it
+				# before Escape reaches the pause menu.
+				if event_feed_panel and event_feed_panel.visible:
+					_toggle_event_feed()
+					get_viewport().set_input_as_handled()
+					return
 				# Close open panel first
 				if _active_panel and _active_panel.visible:
 					_active_panel.hide()
@@ -493,6 +574,11 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_F4:
 			_toggle_season_debug_panel()
 			get_viewport().set_input_as_handled()
+			return
+
+		# A screen or panel owns the keyboard while it is open: its own handler
+		# reads Enter/Escape/arrows and the gameplay hotkeys stand down.
+		if has_node("/root/InputManager") and InputManager.has_visible_scope():
 			return
 
 		if event.is_command_or_control_pressed():
@@ -571,6 +657,10 @@ func _input(event: InputEvent) -> void:
 					_on_view_rotate_ccw()
 				get_viewport().set_input_as_handled()
 			elif event.keycode == KEY_SPACE:
+				# With a HUD control focused, Space activates it (ui_accept)
+				# instead of pausing.
+				if get_viewport().gui_get_focus_owner() != null:
+					return
 				# Space = pause/play toggle
 				if GameManager.current_mode == GameManager.GameMode.SIMULATING:
 					if GameManager.current_speed == GameManager.GameSpeed.PAUSED:
@@ -586,6 +676,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _benchmark_tour_active:
 		get_viewport().set_input_as_handled()
 		return
+	# View/Back on a controller puts focus on the bottom-left dock, so the
+	# whole HUD is reachable without a mouse. Shift+Tab does the same for a
+	# keyboard player (Tab itself keeps toggling the minimap).
+	if (event.is_action_pressed("gamepad_focus_hud") \
+			or event.is_action_pressed("ui_focus_prev")) \
+			and _gameplay_input_active() and get_viewport().gui_get_focus_owner() == null:
+		_focus_gameplay_hud()
+		get_viewport().set_input_as_handled()
+		return
+	# B (or right-click) while a HUD control has focus leaves the HUD and hands
+	# the pointer back to the course before it cancels any tool.
+	if event.is_action_pressed("cancel") and _gameplay_input_active() \
+			and get_viewport().gui_get_focus_owner() != null:
+		InputManager.clear_focus()
+		get_viewport().set_input_as_handled()
+		return
 	# While an elevation selector is active, right click raises terrain
 	# instead of cancelling the tool (ESC still cancels).
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT \
@@ -599,8 +705,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	# Cancel action (ESC/right-click) should always work to deselect tools
+	# Cancel action (ESC/right-click/B) closes the open popup panel first, then
+	# deselects tools. B can therefore back out of any panel without a mouse.
 	if event.is_action_pressed("cancel"):
+		if _active_panel != null and _active_panel.visible:
+			_active_panel.hide()
+			_active_panel = null
+			get_viewport().set_input_as_handled()
+			return
 		_cancel_action()
 		return
 
@@ -3748,7 +3860,7 @@ func _create_map_button(hud: Control) -> void:
 	map_btn.tooltip_text = "Show / hide the minimap (Tab)"
 	map_btn.toggle_mode = true
 	map_btn.set_pressed_no_signal(true)  # Minimap starts visible
-	map_btn.focus_mode = Control.FOCUS_NONE  # Keep Space/Enter for gameplay hotkeys
+	map_btn.focus_mode = Control.FOCUS_ALL  # Reachable by keyboard and gamepad
 	map_btn.toggled.connect(_on_map_toggled)
 
 	# Anchor to the same bottom-left corner as the minimap (just above the bottom bar).

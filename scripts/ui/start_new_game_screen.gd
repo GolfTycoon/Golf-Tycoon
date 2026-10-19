@@ -227,6 +227,9 @@ func _ready() -> void:
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _on_screen_changed(new_size: Vector2, _world_scale: float) -> void:
 	if _current_layout() != _layout_mode:
 		_build()
@@ -1247,6 +1250,8 @@ func _make_cta(m: Metrics) -> MarginContainer:
 	_next_button.tooltip_text = NEXT_TOOLTIP
 	_next_button.accessibility_name = CTA_TEXT
 	_next_button.focus_mode = Control.FOCUS_ALL
+	# Choosing the location is the action a keyboard/controller player needs.
+	_next_button.set_meta(InputManager.DEFAULT_FOCUS_META, true)
 	_next_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	PixelButtonStyle.paint_primary(_next_button, MenuStyle.ACCENT_PRIMARY)
 	_next_button.pressed.connect(_on_next_pressed)

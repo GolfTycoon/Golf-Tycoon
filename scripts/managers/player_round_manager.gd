@@ -1133,6 +1133,15 @@ func _format_diff(diff: int) -> String:
 ## Refresh the guide for the mouse position, snapping the intended resting point
 ## to the nearest tile centre or vertex. Explicit tile-centre overrides are used
 ## by tests. The guide clears when the owner is not lining up a shot.
+## The world point under the player's pointer. `camera` is authoritative so a
+## keyboard/controller pointer aims exactly where its reticle is (see
+## InputManager.virtual_pointer); the Node2D helper is the fallback.
+func _pointer_world_position() -> Vector2:
+	if is_instance_valid(camera):
+		return camera.get_mouse_world_position()
+	return get_global_mouse_position()
+
+
 func update_aim_guide(target_override: Vector2i = Vector2i(-1, -1)) -> void:
 	if not is_instance_valid(aim_guide):
 		return
@@ -1146,7 +1155,7 @@ func update_aim_guide(target_override: Vector2i = Vector2i(-1, -1)) -> void:
 	var target: Vector2
 	var anchor_type := ""
 	if target_override == Vector2i(-1, -1):
-		var anchor := grid.snap_world_to_tile_anchor(get_global_mouse_position())
+		var anchor := grid.snap_world_to_tile_anchor(_pointer_world_position())
 		if anchor.is_empty():
 			aim_guide.clear()
 			return
@@ -1166,7 +1175,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if is_instance_valid(player) and player.awaits_player_shot() and GameManager.terrain_grid:
 			var grid: TerrainGrid = GameManager.terrain_grid
-			var anchor := grid.snap_world_to_tile_anchor(get_global_mouse_position())
+			var anchor := grid.snap_world_to_tile_anchor(_pointer_world_position())
 			if not anchor.is_empty() and player.play_shot_to_rest(anchor.point):
 				get_viewport().set_input_as_handled()
 

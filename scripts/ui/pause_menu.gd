@@ -33,6 +33,9 @@ func _ready() -> void:
 	add_to_group("touch_camera_backdrop")
 	_build_ui()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _build_ui() -> void:
 	# Semi-transparent dark overlay
 	var bg = ColorRect.new()
@@ -94,8 +97,9 @@ func _build_ui() -> void:
 	spacer.custom_minimum_size = Vector2(0, 8)
 	vbox.add_child(spacer)
 
-	# Menu buttons
-	_add_menu_button(vbox, "Resume", _on_resume_pressed)
+	# Menu buttons. Resume is the default focus, so A/Enter continues the game.
+	var resume := _add_menu_button(vbox, "Resume", _on_resume_pressed)
+	resume.set_meta(InputManager.DEFAULT_FOCUS_META, true)
 	_add_menu_button(vbox, "Save Game", _on_save_pressed)
 	_add_menu_button(vbox, "Load Game", _on_load_pressed)
 	_add_menu_button(vbox, "Settings", _on_settings_pressed)
@@ -117,7 +121,7 @@ func _build_ui() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(hint)
 
-func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, text_color: Color = Color.WHITE) -> void:
+func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, text_color: Color = Color.WHITE) -> Button:
 	var btn = Button.new()
 	btn.text = text
 	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
@@ -132,12 +136,18 @@ func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, t
 		btn.add_theme_color_override("font_color", text_color)
 	btn.pressed.connect(callback)
 	parent.add_child(btn)
+	return btn
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			_on_resume_pressed()
 			get_viewport().set_input_as_handled()
+		return
+	# Controller B (the cancel action) resumes, like Escape.
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		_on_resume_pressed()
+		get_viewport().set_input_as_handled()
 		return
 
 	# The game is paused behind this menu, but the player should still be

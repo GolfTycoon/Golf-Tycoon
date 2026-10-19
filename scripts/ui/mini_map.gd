@@ -398,13 +398,17 @@ func _input(event: InputEvent) -> void:
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 
-	# Toggle visibility with Tab key
+	# Toggle visibility with Tab key - except while a screen or panel is open,
+	# where Tab moves focus between its controls instead.
 	if event is InputEventKey and event.pressed and not event.echo:
+		if has_node("/root/InputManager") and InputManager.has_visible_scope():
+			return
 		# Don't process hotkeys if a text input has focus
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
-		if event.keycode == KEY_TAB and not event.is_command_or_control_pressed():
+		if event.keycode == KEY_TAB and not event.is_command_or_control_pressed() \
+				and not event.shift_pressed:
 			visible = not visible
 			get_viewport().set_input_as_handled()
 

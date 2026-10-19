@@ -981,7 +981,7 @@ func _make_elevation_brush_size_notch() -> ElevationBrushSizeNotch:
 func _make_elevation_brush_shape_notch() -> ElevationBrushNotchButton:
 	var notch := ElevationBrushNotchButton.new()
 	notch.name = "ElevationBrushShapeNotch"
-	notch.focus_mode = Control.FOCUS_NONE
+	notch.focus_mode = Control.FOCUS_ALL
 	notch.toggle_mode = true
 	notch.pressed.connect(_on_elevation_brush_shape_toggled)
 	_elevation_brush_shape_buttons.append(notch)
@@ -1326,7 +1326,7 @@ func _create_brush_row() -> HBoxContainer:
 ## room for. A toggle button that swaps between Square and Circle icons.
 func _create_brush_shape(cell_size: Vector2 = Vector2(32, 26)) -> Button:
 	var shape := Button.new()
-	shape.focus_mode = Control.FOCUS_NONE
+	shape.focus_mode = Control.FOCUS_ALL
 	shape.custom_minimum_size = cell_size
 	shape.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	shape.toggle_mode = true
@@ -1365,7 +1365,7 @@ func _create_brush_step_button(caption: String, tip: String, action: Callable) -
 	btn.tooltip_text = tip
 	btn.accessibility_name = tip
 	btn.accessibility_description = tip
-	btn.focus_mode = Control.FOCUS_NONE
+	btn.focus_mode = Control.FOCUS_ALL
 	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	btn.pressed.connect(action)
 	_style_dock_cell(btn)

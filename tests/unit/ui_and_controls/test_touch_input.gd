@@ -328,3 +328,50 @@ func test_tap_on_main_menu_does_not_pan_the_camera() -> void:
 	await _settle()
 	assert_eq(camera._target_position, Vector2(100, 100))
 	assert_eq(sink.mouse_events.size(), 0)
+
+
+# ---------------------------------------------------------------------------
+# Sliders
+# ---------------------------------------------------------------------------
+
+func test_touch_sets_and_drags_a_horizontal_slider() -> void:
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 100.0
+	slider.step = 0.0
+	slider.position = Vector2(100, 100)
+	slider.size = Vector2(200, 20)
+	add_child_autofree(slider)
+	await process_frames(2)
+
+	_push_touch(true, 0, Vector2(150, 110))  # a quarter along
+	assert_almost_eq(slider.value, 25.0, 1.0, "a touch lands on the value under the finger")
+	_push_touch(false, 0, Vector2(150, 110))
+	await _settle()
+	assert_eq(sink.mouse_events.size(), 0, "a slider touch is a slide, not a synthetic click")
+
+	_push_touch(true, 0, Vector2(120, 110))
+	_push_touch(false, 0, Vector2(120, 110))
+	await _settle()
+	_push_touch(true, 0, Vector2(120, 110))
+	_push_drag(0, Vector2(260, 110))
+	assert_almost_eq(slider.value, 80.0, 1.0, "dragging moves the value with the finger")
+	_push_touch(false, 0, Vector2(260, 110))
+	await _settle()
+	assert_eq(sink.mouse_events.size(), 0)
+
+
+func test_touch_sets_a_vertical_slider_bottom_up() -> void:
+	var slider := VSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 100.0
+	slider.step = 0.0
+	slider.position = Vector2(300, 100)
+	slider.size = Vector2(24, 200)
+	add_child_autofree(slider)
+	await process_frames(2)
+
+	_push_touch(true, 0, Vector2(310, 150))  # a quarter down from the top = 75%
+	assert_almost_eq(slider.value, 75.0, 1.0)
+	_push_touch(false, 0, Vector2(310, 150))
+	await _settle()

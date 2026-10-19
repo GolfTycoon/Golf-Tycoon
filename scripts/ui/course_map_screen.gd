@@ -154,6 +154,9 @@ func _ready() -> void:
 	_build_structure()
 	refresh()
 
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(self)
+
 func _exit_tree() -> void:
 	# Every panel is inside this screen's own subtree - parked on it, or in the
 	# panel frame - so whoever frees the screen frees them with it.
@@ -1338,7 +1341,20 @@ func _on_hole_changed(_hole_number: int) -> void:
 ## the map is up (see main.gd), so 1-4 pick a mode, F frames the course and
 ## Escape backs out one step at a time.
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not (event is InputEventKey) or not event.pressed or event.echo:
+	if not visible:
+		return
+	# Controller B steps back exactly like Escape: armed action, then pick,
+	# then the screen itself.
+	if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+		if not pending.is_empty():
+			_cancel_pending(false)
+		elif not selection.is_empty():
+			_clear_selection()
+		else:
+			back_requested.emit()
+		get_viewport().set_input_as_handled()
+		return
+	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
 	match (event as InputEventKey).keycode:
 		KEY_ESCAPE:
