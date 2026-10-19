@@ -32,6 +32,7 @@ The [Systems Index](systems/README.md) lists every game system, in these areas:
 | --- | --- |
 | [Building & Running](development/building.md) | Requirements, Make targets, and exporting |
 | [Testing](development/testing.md) | The unit, integration and harness suites |
+| [Device Benchmark](development/benchmark.md) | How the machine is measured, scored and drawn |
 | [Contributing](development/contributing.md) | The workflow, code conventions and the documentation template |
 
 ## Back to the Project

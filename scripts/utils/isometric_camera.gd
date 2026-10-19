@@ -23,6 +23,12 @@ class_name IsometricCamera
 @export var subtle_follow_strength: float = 0.02
 @export var subtle_follow_deadzone: float = 100.0
 
+## True while something else is driving the camera (the course benchmark
+## tour's camera moves): the player's keyboard pan and subtle follow stand
+## down so the driven move is the move that is measured. The smoothing in
+## _apply_movement still runs, which is part of what is being measured.
+var benchmark_controlled: bool = false
+
 var _target_position: Vector2
 var _smoothed_position: Vector2
 var _target_zoom: float
@@ -91,6 +97,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## after verifying the pointer is over their non-interactive backdrop, in
 ## which case they must pass `bypass_ui_hover_check = true`.
 func handle_input_event(event: InputEvent, bypass_ui_hover_check: bool = false) -> void:
+	if benchmark_controlled:
+		return
 	if event is InputEventMouseButton:
 		# Skip camera input when mouse is over a UI control.
 		# On web exports, wheel events may not be consumed by the GUI system
@@ -133,6 +141,8 @@ func handle_input_event(event: InputEvent, bypass_ui_hover_check: bool = false) 
 			_zoom_camera_smooth(-zoom_speed * 2)
 
 func _handle_keyboard_input(delta: float) -> void:
+	if benchmark_controlled:
+		return
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
 		return
 	var focus := get_viewport().gui_get_focus_owner()
@@ -150,7 +160,7 @@ func _handle_keyboard_input(delta: float) -> void:
 		_target_position += direction * pan_speed * delta / zoom.x
 
 func _handle_subtle_follow(delta: float) -> void:
-	if not subtle_follow_enabled or _is_dragging:
+	if benchmark_controlled or not subtle_follow_enabled or _is_dragging:
 		return
 
 	var viewport_size = get_viewport_rect().size

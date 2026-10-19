@@ -2,13 +2,30 @@ extends Control
 class_name SettingsMenu
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
-## Preferences are grouped into Audio, Display, Gameplay and Controls. Wide
+## Preferences are grouped into Audio, Display and Controls. Wide
 ## desktop windows use a navigation rail beside the control cards and a small
 ## course context panel; tablets keep the cards roomy, while phones use a
 ## swipeable category strip and one scrollable settings column. Every control
 ## keeps its original live behavior and saves changes to user://settings.cfg.
 
 signal close_requested
+## The Display category's benchmark card asks Main to open the fullscreen
+## Benchmark Results screen over the settings menu: the last run's report
+## and the shelf of past runs behind it.
+signal results_requested
+## ...or to close the menus and run the course benchmark tour - the game's
+## only benchmark - which prepares its own throwaway course (Main owns the
+## tour runner). Only emitted when this menu was opened from the Main Menu -
+## benchmarks run from the title screen only, never over a game in
+## progress.
+signal tour_requested(suite_id: String)
+
+## Where this menu was opened from. Main sets it before adding the menu:
+## MAIN_MENU from the title screen, PAUSE_MENU from an in-game pause
+## session. It decides whether the benchmarks may run (see
+## benchmarks_allowed): measuring is a title-screen job, so a paused game
+## is never borrowed, paused mid-frame, as the test scene.
+enum Origin { MAIN_MENU, PAUSE_MENU }
 
 enum Category { AUDIO, DISPLAY, CONTROLS }
 enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
@@ -33,6 +50,27 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 var camera: IsometricCamera = null
 var close_label: String = "Done"
 
+## Set by Main before the menu is added (see Origin). The default treats a
+## host that does not say - a test harness adding the menu directly - as
+## the title screen; Main always sets it in the game.
+var origin: int = Origin.MAIN_MENU
+
+## Why the run button stands down away from the Main Menu, worded once for
+## the card, the tooltip and the refused-run message.
+const BENCHMARK_GATE_TEXT := "Benchmarks run from the Main Menu - open Settings there to measure this device. Nothing here touches the game in progress."
+
+## What the one benchmark does, for the card that offers it.
+const BENCHMARK_TOUR_TEXT := "Prepare a throwaway course, then build and play every fixed test course on it - preparing each one, course types, hole counts, terrain, buildings, golfers, camera moves, editing and game speeds - and measure each part. About 95 seconds; Esc cancels it."
+## What the card says once a run has landed on the shelf.
+const BENCHMARK_DONE_TEXT := "Complete. Open Past Results for the full report and the runs behind it; reports stay on this machine."
+
+## The course tour - the game's only benchmark - runs only when this menu
+## was accessed from the Main Menu screen. Reading the last run and the
+## past results is not running one, and stays available wherever Settings
+## was opened from.
+func benchmarks_allowed() -> bool:
+	return origin == Origin.MAIN_MENU
+
 var _category: int = Category.AUDIO
 var _layout_mode: int = LayoutMode.PHONE
 var _built_size := Vector2.ZERO
@@ -40,11 +78,26 @@ var _bg: ColorRect
 var _panel: Control
 var _reference_course_label: Label
 var _reference_day_label: Label
+var _benchmark_run_button: Button
+var _benchmark_status_label: Label
+var _benchmark_summary_label: Label
+var _benchmark_details_label: Label
+var _benchmark_results_button: Button
+var _benchmark_stars_row: BenchmarkVisuals.StarRow
+var _benchmark_score_meter: BenchmarkVisuals.SegmentMeter
+var _benchmark_stars: int = 0
+var _benchmark_score: float = 0.0
+var _benchmark_status_text: String = "Ready. The tour prepares its own course and builds every test course on screen - about 95 seconds. Esc cancels it."
+var _benchmark_summary_text: String = "No results yet. Every run builds the same fixed test courses - every course type, hole count and game speed - so runs compare on any device."
+var _benchmark_details_text: String = "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay on this machine."
 
 func _ready() -> void:
 	name = "SettingsMenu"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_adopt_last_benchmark()
+	if not benchmarks_allowed():
+		_benchmark_status_text = BENCHMARK_GATE_TEXT
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
@@ -83,6 +136,13 @@ func _build() -> void:
 	_panel = null
 	_reference_course_label = null
 	_reference_day_label = null
+	_benchmark_run_button = null
+	_benchmark_status_label = null
+	_benchmark_summary_label = null
+	_benchmark_details_label = null
+	_benchmark_results_button = null
+	_benchmark_stars_row = null
+	_benchmark_score_meter = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -403,6 +463,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	_add_ui_scale_control(performance_body, mode)
 	cards.append(performance["panel"])
 
+	var benchmark := _build_benchmark_card(mode)
+	cards.append(benchmark)
+
 	var accessibility := _make_group("ACCESSIBILITY", "Alternative course colours for colour-vision needs.", mode)
 	var accessibility_body: VBoxContainer = accessibility["body"]
 	accessibility_body.add_child(_label("Course colour palette", 12, COLOR_TEXT))
@@ -420,6 +483,95 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	accessibility_body.add_child(color_options)
 	cards.append(accessibility["panel"])
 	return cards
+
+## The one card the game's only benchmark gets: what the tour does, the
+## rating the last run earned, and two buttons - Run Benchmark, which hands
+## the screen to the tour, and Past Results, which opens the full report and
+## the shelf of runs behind it.
+func _build_benchmark_card(mode: int) -> PanelContainer:
+	var card_text := BENCHMARK_TOUR_TEXT \
+		if benchmarks_allowed() else BENCHMARK_GATE_TEXT + " The last run and the past results still show here."
+	var benchmark := _make_group("BENCHMARK", card_text, mode)
+	var body: VBoxContainer = benchmark["body"]
+	body.add_child(_make_separator())
+
+	var summary := _label(_benchmark_summary_text, 11, COLOR_TEXT)
+	summary.name = "BenchmarkSummary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_summary_label = summary
+	body.add_child(summary)
+
+	# The last run's rating in miniature: the five stars it earned and a
+	# segmented meter for the score behind them.
+	var rating := HBoxContainer.new()
+	rating.name = "BenchmarkRating"
+	rating.add_theme_constant_override("separation", 8)
+	var stars := BenchmarkVisuals.make_star_row(_benchmark_stars, 16, "BenchmarkStars")
+	stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_benchmark_stars_row = stars
+	rating.add_child(stars)
+	var meter := BenchmarkVisuals.make_meter(_benchmark_score / 100.0,
+		BenchmarkVisuals.score_color(_benchmark_score), "BenchmarkScoreMeter", 12)
+	meter.custom_minimum_size.y = 10
+	meter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	meter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_benchmark_score_meter = meter
+	rating.add_child(meter)
+	body.add_child(rating)
+
+	var details := _label(_benchmark_details_text, 10, COLOR_MUTED)
+	details.name = "BenchmarkDetails"
+	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_details_label = details
+	body.add_child(details)
+
+	var actions := HBoxContainer.new()
+	actions.name = "BenchmarkActions"
+	actions.add_theme_constant_override("separation", 7)
+
+	var run_button := Button.new()
+	run_button.name = "RunBenchmarkButton"
+	run_button.text = "Run Benchmark"
+	run_button.tooltip_text = ("Close the menus and watch the benchmark prepare, build and play every test course (about 95 seconds). Esc cancels it and the throwaway course is taken down afterwards." \
+		if benchmarks_allowed() else BENCHMARK_GATE_TEXT)
+	run_button.custom_minimum_size = Vector2(0, 44)
+	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	run_button.size_flags_stretch_ratio = 1.4
+	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(run_button, COLOR_GOLD, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	run_button.add_theme_color_override("font_color", COLOR_TEXT)
+	run_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	run_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	run_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	run_button.pressed.connect(_request_tour)
+	_benchmark_run_button = run_button
+	actions.add_child(run_button)
+
+	var results_button := Button.new()
+	results_button.name = "PastResultsButton"
+	results_button.text = "Past Results"
+	results_button.tooltip_text = "Open the Benchmark Results screen: the last report, the scorecard and the runs kept on this machine."
+	results_button.custom_minimum_size = Vector2(0, 44)
+	results_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	results_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	MenuStyle.paint_card(results_button, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	results_button.add_theme_color_override("font_color", COLOR_TEXT)
+	results_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	results_button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	results_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	results_button.pressed.connect(func(): results_requested.emit())
+	_benchmark_results_button = results_button
+	actions.add_child(results_button)
+	body.add_child(actions)
+
+	var status := _label(_benchmark_status_text, 10, COLOR_QUIET)
+	status.name = "BenchmarkStatus"
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_benchmark_status_label = status
+	body.add_child(status)
+
+	_refresh_benchmark_controls()
+	return benchmark["panel"]
 
 func _build_controls_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
@@ -660,6 +812,87 @@ func _build_footer(mode: int) -> Control:
 	done.pressed.connect(_on_close)
 	footer.add_child(done)
 	return footer
+
+## The one run there is: Main closes this menu and the tour prepares its own
+## throwaway course to build every test course on. Only a menu accessed from
+## the Main Menu may ask - away from it the card says so instead.
+func _request_tour() -> void:
+	if not benchmarks_allowed():
+		_benchmark_status_text = BENCHMARK_GATE_TEXT
+		_refresh_benchmark_controls()
+		return
+	_benchmark_status_text = "Starting the course tour - watch it prepare, build and play every test course. Esc cancels and takes the benchmark course down."
+	_refresh_benchmark_controls()
+	tour_requested.emit(CourseBenchmarkScenarios.SUITE_FULL)
+
+## Pick up the run the tour finished, so the card opens showing the newest
+## report this machine holds - the tour publishes it as it ends.
+func _adopt_last_benchmark() -> void:
+	var result := PerformanceBenchmark.last_result
+	if result.is_empty():
+		return
+	_benchmark_summary_text = _benchmark_summary_for(result)
+	_benchmark_details_text = _benchmark_details_for(result)
+	_benchmark_status_text = BENCHMARK_DONE_TEXT
+	_apply_benchmark_score(result)
+
+func _apply_benchmark_score(result: Dictionary) -> void:
+	var score: Dictionary = result.get("score", PerformanceBenchmark.score_result(result))
+	_benchmark_stars = int(score.get("stars", 0))
+	_benchmark_score = float(score.get("overall", 0.0))
+
+## The card's headline: the tier and the score first, then the frame pacing.
+func _benchmark_summary_for(result: Dictionary) -> String:
+	var score: Dictionary = result.get("score", PerformanceBenchmark.score_result(result))
+	var frame: Dictionary = result.get("frame", {})
+	if int(frame.get("sample_count", 0)) <= 0:
+		return PerformanceBenchmark.format_summary(result)
+	return "%s · %d/100 · avg %.1f FPS · 1%% low %.1f FPS" % [
+		str(score.get("tier", "Unrated")), int(round(float(score.get("overall", 0.0)))),
+		float(frame.get("average_fps", 0.0)), float(frame.get("one_percent_low_fps", 0.0)),
+	]
+
+## The card's second line: what the run pointed at, GPU included.
+func _benchmark_details_for(result: Dictionary) -> String:
+	var frame: Dictionary = result.get("frame", {})
+	var engine: Dictionary = result.get("engine", {})
+	var gpu: Dictionary = result.get("gpu", {})
+	if int(frame.get("sample_count", 0)) <= 0:
+		return "No frame samples were captured. Run again with the settings screen visible for a full frame-pacing sample."
+	var gpu_text := "GPU %.0f MPix/s" % float(gpu.get("peak_megapixels_per_second", 0.0)) \
+		if bool(gpu.get("available", false)) else "GPU test skipped"
+	var tour: Dictionary = result.get("tour", {})
+	if not tour.is_empty():
+		var rollup: Dictionary = tour.get("rollup", {})
+		var simulation: Dictionary = rollup.get("simulation", {})
+		return "Course tour: %d courses · heaviest %s at %.1f FPS · frame p95 %.1f ms · %s. Open Past Results for every course." % [
+			int(rollup.get("scenario_count", 0)),
+			str(simulation.get("worst_scenario", "-")),
+			float(simulation.get("worst_fps", 0.0)),
+			float(frame.get("p95_frame_ms", 0.0)), gpu_text,
+		]
+	return "Frame p95 %.1f ms · game process %.1f ms/frame · %s. Open Past Results for the scorecard and the runs behind it." % [
+		float(frame.get("p95_frame_ms", 0.0)), float(engine.get("process_ms_per_frame", 0.0)),
+		gpu_text,
+	]
+
+## The card after a rebuild: Run stands down away from the Main Menu, the
+## last run's rating is drawn, and every line says what it currently is.
+## Past Results is never locked - reading a report is not running one.
+func _refresh_benchmark_controls() -> void:
+	if is_instance_valid(_benchmark_run_button):
+		_benchmark_run_button.disabled = not benchmarks_allowed()
+	if is_instance_valid(_benchmark_status_label):
+		_benchmark_status_label.text = _benchmark_status_text
+	if is_instance_valid(_benchmark_summary_label):
+		_benchmark_summary_label.text = _benchmark_summary_text
+	if is_instance_valid(_benchmark_details_label):
+		_benchmark_details_label.text = _benchmark_details_text
+	if is_instance_valid(_benchmark_stars_row):
+		_benchmark_stars_row.set_stars(_benchmark_stars)
+	if is_instance_valid(_benchmark_score_meter):
+		_benchmark_score_meter.set_fraction(_benchmark_score / 100.0,
+			BenchmarkVisuals.score_color(_benchmark_score))
 
 func _select_category(category: int) -> void:
 	if category == _category:
