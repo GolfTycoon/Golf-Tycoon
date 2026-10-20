@@ -18,7 +18,11 @@ var wind: WindSystem
 func before_each() -> void:
 	super()
 	seed(4321)
-	GameManager.wind_enabled = true
+	if has_node("/root/ModManager") and ModManager.manifests.has("wind"):
+		ModManager.set_mod_enabled("wind", true)
+		GameManager.wind_enabled = true
+	else:
+		GameManager.wind_enabled = true
 	wind = WindSystem.new()
 	add_child_autofree(wind)
 

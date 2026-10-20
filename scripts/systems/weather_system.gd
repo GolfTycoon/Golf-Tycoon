@@ -40,9 +40,9 @@ func generate_daily_weather() -> void:
 	_generate_daily_weather()
 
 func _generate_daily_weather() -> void:
-	# Weather can be turned off as a game feature: the course then stays sunny
-	# and none of the weather modifiers apply.
-	if not GameManager.weather_enabled:
+	# Weather can be turned off as a game feature (mod disabled or per-world
+	# toggle off): the course then stays sunny and none of the modifiers apply.
+	if not GameManager.is_feature_enabled("weather"):
 		force_clear_weather()
 		return
 	# Theme-aware seasonal weather (Links = windier/rainier, Desert = drier, etc.)
@@ -78,8 +78,8 @@ func _generate_daily_weather() -> void:
 ## Advance the weather by one game day. Called on the day_changed signal:
 ## weather now evolves daily since there is no intra-day clock.
 func update_weather_daily() -> void:
-	# The Weather feature is off: never leave fair weather.
-	if not GameManager.weather_enabled:
+	# The Weather feature is off (mod disabled or world toggle off): never leave fair weather.
+	if not GameManager.is_feature_enabled("weather"):
 		force_clear_weather()
 		return
 	_days_in_current_weather += 1
@@ -195,7 +195,7 @@ func force_clear_weather() -> void:
 ## Get spawn rate modifier based on weather (0.5 - 1.0)
 ## Bad weather reduces golfer spawning
 func get_spawn_rate_modifier() -> float:
-	if not GameManager.weather_enabled:
+	if not GameManager.is_feature_enabled("weather"):
 		return 1.0
 	match weather_type:
 		WeatherType.SUNNY:

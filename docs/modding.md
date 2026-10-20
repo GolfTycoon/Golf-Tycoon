@@ -153,11 +153,66 @@ to the individual PNG so unsheeted mod art still works. Mods can inject via
   shows `ModsScreen`. `HUDStatusColumn` and `StartNewGameScreen` read feature
   flags through `is_feature_enabled` so they reflect mod state.
 
+## Sharing mods: ZIP and Steam Workshop
+
+### From the Mods screen
+
+Open **Mods** from the main menu. The sharing toolbar below the enabled/available lists gives you:
+
+* **Import ZIP** — pick a `.zip` that contains a `mod.json` (at its root or one folder deep). It is unpacked to `user://mods/<id>/`, re-discovered immediately, and appears in **Available**.
+* **Export as ZIP** — with a mod selected, pack its folder to `user://mods/exports/<id>-<version>.zip`. The path is shown and copied to the clipboard for sharing on Discord, itch.io, GitHub, etc. Builtins are not exported — they ship with the game.
+* **Create New Mod** — scaffolds `user://mods/<id>/mod.json` + `mod.gd` from a template (id must be `^[a-z][a-z0-9_]*$`). Edit the files in your code editor, then enable and test in-game.
+* **Open Mods Folder** — opens the OS file browser at `user://mods/` (which resolves to `OS.get_user_data_dir() + "/mods"`). Zips dropped there are auto-extracted on next start (and also discovered via `GOLF_TYCOON_WORKSHOP_PATH`).
+* **Workshop Folder** / **Publish to Workshop** — see below.
+
+### Steam Workshop
+
+The game ships without a bundled Steamworks GDExtension so the open-source build works headless/CI. Workshop integration works in two layers:
+
+1. **Canonical artifact is a ZIP** — always created by Export. This is what you attach to a Workshop item or an itch page.
+
+2. **Local workshop staging** — `user://workshop/staging/` holds a `workshop.json` descriptor alongside the exported zip when you press **Publish to Workshop** in the Mods screen. The full flow with the Steam client is:
+   ```
+   Mods → select mod → Export as ZIP → Publish to Workshop
+   → open Workshop Folder → attach the .zip + workshop.json to a new
+     Workshop item in the Steam overlay → publish
+   ```
+   `docs/modding.md` `ModWorkshop.workshop_instructions()` prints this and the file locations.
+
+3. **Discovering Workshop subscriptions** — on startup ModLoader also scans:
+   * `user://workshop/` (and `user://workshop/staging/`),
+   * the path in env var `GOLF_TYCOON_WORKSHOP_PATH` — set it to your Steam `steamapps/workshop/content/<app_id>/` folder or any folder of zips,
+   * common Steam install roots (`~/.steam/steam/...`, `~/.local/share/Steam/...`, `Library/Application Support/Steam/...`).  
+   Zips found there are auto-extracted to `user://mods/<id>/` so subscribed items appear in-game without manual import. Set `GOLF_TYCOON_WORKSHOP_PATH` in your shell or `.bashrc` to override.
+
+4. **Native Steam build** — if a `Steam` singleton (GDSteam/Steamworks GDExtension) is present, `ModWorkshop.publish()` also calls the Workshop API path (best-effort; app_id via `ProjectSettings`/`steam/app_id`). The open-source code logs what would be submitted so a Steam-enabled fork can wire it without changing the core.
+
+### Conditional Start New Game options (Weather / Wind / Seasons)
+
+The Start New Game screen only shows the **Game features** toggles for mods that are currently enabled in `ModManager`:
+
+```gdscript
+# mods_screen.gd sets the global enabled list; start_new_game_screen.gd filters:
+if mm.has_method("is_mod_enabled") and not mm.is_mod_enabled(mid):
+    continue  # hide this toggle
+```
+
+* If Weather/Wind/Seasons are disabled in **Mods**, their rows are hidden.
+* When enabled, the per-world toggle controls `GameManager.weather_enabled` etc **without changing the global mod list** (`GameManager.set_feature_enabled(id, value, false)` / `WorldMap.apply_company_settings(false)`). The company-level choice is saved in `WorldMap.features` (and in the save file snapshot) so future companies keep their defaults.
+* At runtime `GameManager.is_feature_enabled(id)` returns `global_mod_enabled && per_world_bool`, so the actual gameplay (WeatherSystem, WindSystem, SeasonSystem) respects both the global mod and the per-company choice. The save's `mods` list (global defaults) plus `world.features` (per-company) are both serialized.
+
+### Programmatic API
+
+* `ModPackager.export_mod(id) -> user:// path`, `ModPackager.import_zip(path) -> id`, `ModPackager.create_template(id, name, author) -> id`, `ModPackager.open_mods_folder()`
+* `ModWorkshop.publish(mod_id, changelog)`, `ModWorkshop.open_workshop_folder()`, `ModWorkshop.workshop_roots() -> Array[String]`, `ModWorkshop.list_workshop_items()`
+* `ModLoader._scan_zips(root, out, is_builtin)` — zips dropped in `user://mods/` or `GOLF_TYCOON_WORKSHOP_PATH` are auto-extracted
+* `ModManager.refresh_after_user_change()` — re-discovers after import/create/delete without restart
+
 ## Writing a mod
 
-1. Create `user://mods/my_mod/mod.json` and `user://mods/my_mod/mod.gd`.
-2. Implement `_mod_on_enable`; use `api.*` to register content.
+1. In the Mods screen press **Create New Mod**, or create `user://mods/my_mod/mod.json` and `user://mods/my_mod/mod.gd` manually.
+2. Implement `_mod_on_enable`; use `api.*` to register content (see *What a mod can do*).
 3. Test with the atlas packer if adding sprites.
-4. Open Mods in the main menu to enable and order it; conflicts show up there.
+4. Open **Mods** to enable and order it; conflicts show up there. Use **Export as ZIP** to share it; recipients use **Import ZIP**. For Steam Workshop, **Publish to Workshop** and attach the zip via the Steam overlay.
 
 A minimal example is kept in `mods/example/` (not enabled by default).

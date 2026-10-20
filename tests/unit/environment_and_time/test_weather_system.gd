@@ -13,7 +13,11 @@ var weather: WeatherSystem
 func before_each() -> void:
 	super()
 	seed(1234)
-	GameManager.weather_enabled = true
+	if has_node("/root/ModManager") and ModManager.manifests.has("weather"):
+		ModManager.set_mod_enabled("weather", true)
+		GameManager.weather_enabled = true
+	else:
+		GameManager.weather_enabled = true
 	weather = WeatherSystem.new()
 	add_child_autofree(weather)
 

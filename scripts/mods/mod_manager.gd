@@ -96,6 +96,27 @@ func discover_mods() -> void:
 	mods_discovered.emit(mods.size())
 	print("ModManager: discovered %d mod(s): %s (enabled order: %s)" % [mods.size(), str(manifests.keys()), str(enabled_mods)])
 
+## Re-scan after a user import/create/delete. Keeps current enabled order,
+## validates newly discovered manifests, and emits signals so the Mods screen
+## can refresh without a restart.
+func refresh_after_user_change() -> void:
+	_discovered = false
+	var prev_enabled := enabled_mods.duplicate()
+	discover_mods()
+	# Keep previous enabled list but drop ids that vanished
+	var filtered: Array[String] = []
+	for eid in prev_enabled:
+		if manifests.has(eid):
+			filtered.append(eid)
+		else:
+			push_warning("ModManager: previously enabled mod '%s' no longer found — dropping" % eid)
+	enabled_mods = filtered
+	_resync_mod_states()
+	_persist_enabled_order()
+	mods_discovered.emit(mods.size())
+	updated_conflicts()
+	print("ModManager: refreshed after user change -> %d mods" % mods.size())
+
 func get_manifest(mod_id: String) -> ModManifest:
 	return manifests.get(mod_id, null)
 

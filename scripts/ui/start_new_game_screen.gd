@@ -132,22 +132,19 @@ const FEATURES := [
 ]
 
 func _resolve_features() -> Array:
-	# If ModManager is live, build the feature list from its manifests so
-	# adding a new builtin mod automatically adds a row here.
 	if has_node("/root/ModManager"):
 		var mm = get_node("/root/ModManager")
 		if mm and mm.has_method("get_all_manifests") and not mm.manifests.is_empty():
 			var out: Array = []
 			for item in FEATURES:
 				var mid: String = str(item[0])
+				if mm.has_method("is_mod_enabled") and not mm.is_mod_enabled(mid):
+					continue
 				var mf = mm.manifests.get(mid, null)
 				if mf != null:
-					# Use manifest name/description, but keep existing caption/glyph
 					out.append([mf.id, mf.name, str(item[2]), mf.description, item[4]])
 				else:
 					out.append(item)
-			# Also append any other non-builtin-but-feature mods (category gameplay) that declare themselves as a feature toggle
-			# (currently only builtins are shown here; other mods are managed in Mods screen)
 			return out
 	return FEATURES
 
@@ -949,15 +946,25 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 ##   stack - glyph over name over switch, for narrow phone columns
 ##   chip  - glyph and name only; the lit border and colours carry on/off
 ##           (LANDSCAPE, where the height is too short for a switch row)
-func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridContainer:
+func _make_feature_tiles(m: Metrics, variant: String, width: float) -> Control:
 	var _features_list := _resolve_features()
+	if _features_list.is_empty():
+		var note := _make_label("No gameplay mods enabled — enable them in the Mods menu to see options here.", m.caption_font, UIConstants.COLOR_TEXT_DIM)
+		note.name = "FeatureTilesEmpty"
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.add_theme_constant_override("line_spacing", 2)
+		return note
 	var grid := GridContainer.new()
 	grid.name = "FeatureTiles"
-	grid.columns = _features_list.size()
+	grid.columns = max(1, _features_list.size())
 	grid.add_theme_constant_override("h_separation", int(m.item_gap * 0.8))
 	grid.add_theme_constant_override("v_separation", int(m.item_gap * 0.8))
 	var font := get_theme_default_font()
 	var tile_width := (width - float(int(m.item_gap * 0.8)) * 2.0) / 3.0
+	if _features_list.size() == 2:
+		tile_width = (width - float(int(m.item_gap * 0.8))) / 2.0
+	elif _features_list.size() == 1:
+		tile_width = width
 	var caption_font := m.caption_font - 1
 	var captions := []
 	var widest_caption := 0.0

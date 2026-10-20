@@ -70,9 +70,17 @@ func _sync_mods_to_features() -> void:
 	if mm == null:
 		return
 	_syncing_features = true
-	weather_enabled = mm.is_feature_enabled("weather") if mm.has_method("is_feature_enabled") else weather_enabled
-	wind_enabled = mm.is_feature_enabled("wind") if mm.has_method("is_feature_enabled") else wind_enabled
-	seasons_enabled = mm.is_feature_enabled("seasons") if mm.has_method("is_feature_enabled") else seasons_enabled
+	if mm.has_method("is_mod_enabled"):
+		if mm.manifests.has("weather"):
+			weather_enabled = mm.is_mod_enabled("weather")
+		if mm.manifests.has("wind"):
+			wind_enabled = mm.is_mod_enabled("wind")
+		if mm.manifests.has("seasons"):
+			seasons_enabled = mm.is_mod_enabled("seasons")
+	else:
+		weather_enabled = mm.is_feature_enabled("weather") if mm.has_method("is_feature_enabled") else weather_enabled
+		wind_enabled = mm.is_feature_enabled("wind") if mm.has_method("is_feature_enabled") else wind_enabled
+		seasons_enabled = mm.is_feature_enabled("seasons") if mm.has_method("is_feature_enabled") else seasons_enabled
 	if not weather_enabled and weather_system and weather_system.has_method("force_clear_weather"):
 		weather_system.force_clear_weather()
 	if not wind_enabled and wind_system and wind_system.has_method("force_calm"):
@@ -433,48 +441,57 @@ func set_unlimited_money(enabled: bool) -> void:
 	# Refresh the HUD money display even though the balance did not move.
 	EventBus.money_changed.emit(money, money)
 
-func set_weather_enabled(enabled: bool) -> void:
+func set_weather_enabled(enabled: bool, sync_to_mod: bool = true) -> void:
 	if weather_enabled == enabled and not _syncing_features:
-		# Still sync to mod in case mod list diverged externally
-		_sync_feature_to_mod("weather", enabled)
+		if sync_to_mod:
+			_sync_feature_to_mod("weather", enabled)
 		return
 	weather_enabled = enabled
 	if not enabled and weather_system and weather_system.has_method("force_clear_weather"):
 		weather_system.force_clear_weather()
-	_sync_feature_to_mod("weather", enabled)
+	if sync_to_mod:
+		_sync_feature_to_mod("weather", enabled)
 
-func set_wind_enabled(enabled: bool) -> void:
+func set_wind_enabled(enabled: bool, sync_to_mod: bool = true) -> void:
 	if wind_enabled == enabled and not _syncing_features:
 		if not enabled and wind_system and wind_system.has_method("force_calm"):
 			wind_system.force_calm()
-		_sync_feature_to_mod("wind", enabled)
+		if sync_to_mod:
+			_sync_feature_to_mod("wind", enabled)
 		return
 	wind_enabled = enabled
 	if not enabled and wind_system and wind_system.has_method("force_calm"):
 		wind_system.force_calm()
-	_sync_feature_to_mod("wind", enabled)
+	if sync_to_mod:
+		_sync_feature_to_mod("wind", enabled)
 
-func set_seasons_enabled(enabled: bool) -> void:
+func set_seasons_enabled(enabled: bool, sync_to_mod: bool = true) -> void:
 	if seasons_enabled == enabled and not _syncing_features:
-		SeasonSystem.disabled = not enabled
-		_sync_feature_to_mod("seasons", enabled)
+		SeasonSystem.disabled = not is_feature_enabled("seasons") if has_node("/root/ModManager") and _mod_manager() and _mod_manager().manifests.has("seasons") else not enabled
+		if sync_to_mod:
+			_sync_feature_to_mod("seasons", enabled)
 		return
 	seasons_enabled = enabled
-	# SeasonSystem reads this static flag from its static getters.
-	SeasonSystem.disabled = not enabled
-	_sync_feature_to_mod("seasons", enabled)
+	SeasonSystem.disabled = not is_feature_enabled("seasons") if has_node("/root/ModManager") and _mod_manager() and _mod_manager().manifests.has("seasons") else not enabled
+	if sync_to_mod:
+		_sync_feature_to_mod("seasons", enabled)
 
-func set_feature_enabled(feature: String, enabled: bool) -> void:
+func set_feature_enabled(feature: String, enabled: bool, sync_to_mod: bool = true) -> void:
 	match feature:
-		"weather": set_weather_enabled(enabled)
-		"wind": set_wind_enabled(enabled)
-		"seasons": set_seasons_enabled(enabled)
+		"weather": set_weather_enabled(enabled, sync_to_mod)
+		"wind": set_wind_enabled(enabled, sync_to_mod)
+		"seasons": set_seasons_enabled(enabled, sync_to_mod)
 
 func is_feature_enabled(feature: String) -> bool:
 	var mm = _mod_manager()
-	if mm and mm.has_method("is_feature_enabled") and mm.manifests.has(feature):
+	if mm and mm.manifests.has(feature):
+		if not mm.is_mod_enabled(feature):
+			return false
+		match feature:
+			"weather": return weather_enabled
+			"wind": return wind_enabled
+			"seasons": return seasons_enabled
 		return mm.is_feature_enabled(feature)
-	# Fallback to bools (or for custom mod features, defer to ModManager)
 	if mm and mm.has_method("is_feature_enabled") and mm.features.has(feature):
 		return mm.is_feature_enabled(feature)
 	match feature:
@@ -725,9 +742,9 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	money = UNLIMITED_STARTING_BALANCE if unlimited_money else money_option
 	bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
 	var saved_features: Dictionary = options.get("features", {})
-	set_weather_enabled(bool(saved_features.get("weather", weather_enabled)))
-	set_wind_enabled(bool(saved_features.get("wind", wind_enabled)))
-	set_seasons_enabled(bool(saved_features.get("seasons", seasons_enabled)))
+	set_weather_enabled(bool(saved_features.get("weather", weather_enabled)), false)
+	set_wind_enabled(bool(saved_features.get("wind", wind_enabled)), false)
+	set_seasons_enabled(bool(saved_features.get("seasons", seasons_enabled)), false)
 
 	reputation = DEFAULT_STARTING_REPUTATION
 	# New games begin on the morning of Saturday, 1 January 2000.
