@@ -76,8 +76,7 @@ var manifest_path: String = ""
 ## Parse a dictionary (from JSON) into a manifest. Returns null on failure
 ## and fills `error` with a human-readable reason.
 static func from_dict(data: Dictionary, path: String = "") -> ModManifest:
-	var _err: String = ""
-	var m := ModManifest.new()
+		var m := ModManifest.new()
 	m.raw = data.duplicate(true)
 	m.manifest_path = path
 	# Required fields

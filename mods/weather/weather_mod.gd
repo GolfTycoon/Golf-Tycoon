@@ -11,8 +11,6 @@ extends RefCounted
 var api: ModAPI = null
 var mod_manifest: ModManifest = null
 
-var _spawn_hook: Dictionary = {}
-var _accuracy_hook: Dictionary = {}
 
 func _mod_on_load() -> bool:
 	print("[Weather Mod] Loaded v%s" % (mod_manifest.version if mod_manifest else "1.0.0"))
