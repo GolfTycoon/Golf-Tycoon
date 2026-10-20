@@ -3,43 +3,57 @@ class_name HUDStatusColumn
 ## HUDStatusColumn - Vertical status readout docked to the top-right corner.
 ##
 ## Replaces the old full-width top bar. Every stat that used to be spread
-## across the top of the screen (game mode, money, date/season, reputation,
-## course rating, weather, wind) is now stacked as a compact label/value
-## column, freeing the whole top edge of the viewport for the course view.
+## across the top of the screen (money, date/season, reputation, course
+## rating, weather, wind) is stacked as a compact column, freeing the whole
+## top edge of the viewport for the course view.
 ##
-## The column sizes itself to its content and can be collapsed to a single
-## summary row via the header button (or `set_collapsed()`).
+## Each stat is its own card: a background, a border, an icon, the stat's
+## name and its value. The cards are what separate one row from the next, so
+## no dividers are drawn. The column itself is transparent - the cards float
+## over the course, and only the cards that open a panel take the mouse.
+##
+## The game-mode row that used to head the column (`PLAYING` / `PAUSED`) is
+## gone - the bottom dock already carries the pause, play and fast-forward
+## controls - and so is the collapse handle, so the cards are always shown.
+## The column sizes itself to its content.
 
 signal money_clicked()
 signal reputation_clicked()
 signal rating_clicked()
-signal collapsed_changed(is_collapsed: bool)
+
+## Side of a row icon, in screen pixels (PixelIcon scales in whole blocks).
+const ICON_SIZE := 16
+## Height of a status card; the icon plus the card's vertical padding.
+const ROW_HEIGHT := 24
+## Corner radius shared by the cards and their hover / focus rings.
+const CARD_RADIUS := 4
 
 # UI References
-var _game_mode_icon: Label
-var _game_mode_label: Label
-var _collapse_button: Button
-var _details: VBoxContainer
-var _money_button: Button
+var _funds_row: PanelContainer
+var _money_label: Label
 var _money_trend: Label
+var _date_row: PanelContainer
 var _date_label: Label
+var _season_row: PanelContainer
+var _season_icon: TextureRect
 var _time_label: Label
-var _season_row: Control
-var _reputation_button: Button
-var _weather_icon: Label
+var _reputation_row: PanelContainer
+var _reputation_icon: TextureRect
+var _reputation_label: Label
+var _rating_row: PanelContainer
+var _rating_label: Label
+var _weather_row: PanelContainer
+var _weather_icon: TextureRect
 var _weather_label: Label
-var _weather_row: Control
-var _environment_separator: HSeparator
+var _wind_row: PanelContainer
 var _wind_label: Label
-var _wind_row: Control
-var _rating_button: Button
+## The weather and wind cards travel together: the block is hidden when both
+## features are off, so neither card nor any leftover spacing stays behind.
+var _environment_block: VBoxContainer
 
 # State
-var _last_money: int = 0
+## Change in the balance since the last money_changed signal, for the trend mark.
 var _money_trend_value: int = 0
-var _collapsed: bool = false
-
-var _last_effectively_paused: bool = false
 
 func _ready() -> void:
 	add_to_group(UIConstants.HUD_COLUMN_GROUP)
@@ -53,20 +67,6 @@ func _ready() -> void:
 	minimum_size_changed.connect(_refresh_height)
 	_refresh_height()
 
-func _process(_delta: float) -> void:
-	# The pause flag is set from several places that don't emit signals
-	# (pause menu, end-of-day summary, game over, speed controls), so poll
-	# the effective pause state and refresh the mode label when it changes.
-	if not is_inside_tree():
-		return
-	var gm = get_node_or_null("/root/GameManager")
-	if gm == null:
-		return
-	var effectively_paused = gm.get("is_paused") == true or gm.get("current_speed") == 0
-	if effectively_paused != _last_effectively_paused:
-		_last_effectively_paused = effectively_paused
-		_update_game_mode()
-
 ## Column width for the current window: narrow windows (phones, small
 ## browser windows) get a compact column so the course keeps most of the
 ## screen.
@@ -75,177 +75,200 @@ func _column_width() -> float:
 		return 150.0
 	return UIConstants.HUD_COLUMN_WIDTH
 
+func _is_compact() -> bool:
+	return _column_width() < UIConstants.HUD_COLUMN_WIDTH
+
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(_column_width(), 0)
 	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	# On compact windows the details are collapsed by default: the single
-	# summary row keeps the course view clear (users can still expand it).
-	if _column_width() < UIConstants.HUD_COLUMN_WIDTH:
-		_collapsed = true
+	# The column itself draws nothing: the cards are the only surface, so the
+	# course shows through the gaps between them and clicks there fall through
+	# to the course.
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# Column panel style — rounded card instead of an edge-to-edge bar
-	var style = StyleBoxFlat.new()
-	style.bg_color = UIConstants.COLOR_BG_PANEL
-	style.set_border_width_all(1)
-	style.border_color = UIConstants.COLOR_BORDER
-	style.set_corner_radius_all(6)
-	style.content_margin_left = UIConstants.MARGIN_MD
-	style.content_margin_top = UIConstants.MARGIN_SM
-	style.content_margin_right = UIConstants.MARGIN_MD
-	style.content_margin_bottom = UIConstants.MARGIN_SM
-	add_theme_stylebox_override("panel", style)
-
-	var column = VBoxContainer.new()
+	var column := VBoxContainer.new()
 	column.name = "Column"
 	column.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(column)
 
-	# --- Header: game mode badge + collapse toggle ---
-	var header = HBoxContainer.new()
-	header.name = "Header"
-	header.add_theme_constant_override("separation", UIConstants.SEPARATION_MD)
-	column.add_child(header)
-
-	_game_mode_icon = Label.new()
-	_game_mode_icon.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	header.add_child(_game_mode_icon)
-
-	_game_mode_label = Label.new()
-	_game_mode_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	_game_mode_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(_game_mode_label)
-
-	_collapse_button = Button.new()
-	_collapse_button.flat = true
-	_collapse_button.text = "-"
-	_collapse_button.focus_mode = Control.FOCUS_ALL
-	_collapse_button.custom_minimum_size = Vector2(20, 18)
-	_collapse_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	_collapse_button.tooltip_text = "Collapse / expand the status column"
-	_collapse_button.pressed.connect(func(): set_collapsed(not _collapsed))
-	if _collapsed:
-		_collapse_button.text = "+"
-	header.add_child(_collapse_button)
-
-	column.add_child(_create_separator())
-
-	# --- Money (always visible, even when collapsed) ---
-	var money_value = HBoxContainer.new()
-	money_value.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
-	money_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	money_value.alignment = BoxContainer.ALIGNMENT_END
-
-	_money_button = Button.new()
-	_money_button.flat = true
-	_money_button.focus_mode = Control.FOCUS_ALL
-	_money_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	_money_button.pressed.connect(_on_money_pressed)
-	_money_button.tooltip_text = "Click to view financial details"
-	money_value.add_child(_money_button)
-
+	# --- Funds ---
+	_funds_row = _create_row("FundsRow", "Funds", PixelIcon.Kind.COIN,
+		UIConstants.COLOR_GOLD, _on_money_pressed, "Click to view financial details")
+	_money_label = _funds_row.get_node("Content/Value") as Label
 	_money_trend = Label.new()
-	_money_trend.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	_money_trend.custom_minimum_size = Vector2(10, 0)
-	money_value.add_child(_money_trend)
-
-	column.add_child(_create_row("Funds", money_value))
-
-	# --- Collapsible details ---
-	_details = VBoxContainer.new()
-	_details.name = "Details"
-	_details.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
-	_details.visible = not _collapsed  # auto-collapsed on compact windows
-	column.add_child(_details)
+	_money_trend.name = "Trend"
+	_money_trend.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	_money_trend.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# An empty trend takes no room, so the value keeps the space it needs.
+	_money_trend.custom_minimum_size = Vector2(0, 0)
+	_money_trend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_funds_row.get_node("Content").add_child(_money_trend)
+	column.add_child(_funds_row)
 
 	# Date / season (no intra-day clock — the course never closes). The Season
-	# row is hidden while the Seasons feature is off.
-	_date_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_details.add_child(_create_row("Date", _date_label))
+	# card is hidden while the Seasons feature is off.
+	_date_row = _create_row("DateRow", "Date", PixelIcon.Kind.CALENDAR,
+		UIConstants.COLOR_TEXT_DIM)
+	_date_label = _date_row.get_node("Content/Value") as Label
+	column.add_child(_date_row)
 
-	_time_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_season_row = _create_row("Season", _time_label)
-	_details.add_child(_season_row)
-
-	_details.add_child(_create_separator())
+	_season_row = _create_row("SeasonRow", "Season", PixelIcon.Kind.LEAF,
+		SeasonSystem.get_season_color(SeasonSystem.get_season(1)))
+	_season_icon = _season_row.get_node("Content/Icon") as TextureRect
+	_time_label = _season_row.get_node("Content/Value") as Label
+	column.add_child(_season_row)
 
 	# Reputation
-	_reputation_button = Button.new()
-	_reputation_button.flat = true
-	_reputation_button.focus_mode = Control.FOCUS_ALL
-	_reputation_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	_reputation_button.alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_reputation_button.pressed.connect(_on_reputation_pressed)
-	_reputation_button.tooltip_text = "Course reputation (click for rating details)"
-	_details.add_child(_create_row("Reputation", _reputation_button))
+	_reputation_row = _create_row("ReputationRow", "Reputation", PixelIcon.Kind.HEART,
+		UIConstants.COLOR_DANGER_MUTED, _on_reputation_pressed,
+		"Course reputation (click for rating details)")
+	_reputation_icon = _reputation_row.get_node("Content/Icon") as TextureRect
+	_reputation_label = _reputation_row.get_node("Content/Value") as Label
+	column.add_child(_reputation_row)
 
 	# Course rating
-	_rating_button = Button.new()
-	_rating_button.flat = true
-	_rating_button.focus_mode = Control.FOCUS_ALL
-	_rating_button.text = "-- (-.--)"
-	_rating_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_BASE)
-	_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-	_rating_button.alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_rating_button.pressed.connect(_on_rating_pressed)
-	_rating_button.tooltip_text = "Course rating (click for details)"
-	_details.add_child(_create_row("Rating", _rating_button))
+	_rating_row = _create_row("RatingRow", "Rating", PixelIcon.Kind.STAR,
+		UIConstants.COLOR_GOLD, _on_rating_pressed, "Course rating (click for details)")
+	_rating_label = _rating_row.get_node("Content/Value") as Label
+	_rating_label.text = "-- (-.--)"
+	_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	column.add_child(_rating_row)
 
-	_details.add_child(_create_separator())
+	# Weather and wind: one block, so the pair leaves the column together.
+	_environment_block = VBoxContainer.new()
+	_environment_block.name = "EnvironmentRows"
+	_environment_block.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	_environment_block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_environment_block)
 
-	_environment_separator = _create_separator()
-	_details.add_child(_environment_separator)
+	_weather_row = _create_row("WeatherRow", "Weather", PixelIcon.Kind.SUN,
+		UIConstants.COLOR_GOLD)
+	_weather_icon = _weather_row.get_node("Content/Icon") as TextureRect
+	_weather_label = _weather_row.get_node("Content/Value") as Label
+	_environment_block.add_child(_weather_row)
 
-	# Weather
-	var weather_value = HBoxContainer.new()
-	weather_value.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
-	weather_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	weather_value.alignment = BoxContainer.ALIGNMENT_END
+	_wind_row = _create_row("WindRow", "Wind", PixelIcon.Kind.WIND,
+		UIConstants.COLOR_SUCCESS_MUTED)
+	_wind_label = _wind_row.get_node("Content/Value") as Label
+	_environment_block.add_child(_wind_row)
 
-	_weather_icon = Label.new()
-	_weather_icon.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	weather_value.add_child(_weather_icon)
+## Build one status card: an icon, the stat's name and its value on a
+## background with its own border. A row with `on_pressed` is clickable and
+## focusable as a whole (the button sits under the content, so the labels
+## never eat the click).
+func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: Color,
+		on_pressed: Callable = Callable(), tooltip: String = "") -> PanelContainer:
+	var card := PanelContainer.new()
+	card.name = row_name
+	card.custom_minimum_size = Vector2(0, ROW_HEIGHT)
+	card.add_theme_stylebox_override("panel", _card_style())
+	card.mouse_filter = Control.MOUSE_FILTER_STOP if on_pressed.is_valid() \
+		else Control.MOUSE_FILTER_IGNORE
 
-	_weather_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_weather_label.size_flags_horizontal = Control.SIZE_SHRINK_END
-	weather_value.add_child(_weather_label)
+	if on_pressed.is_valid():
+		var action := Button.new()
+		action.name = "Action"
+		action.text = ""
+		action.focus_mode = Control.FOCUS_ALL
+		action.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		action.tooltip_text = tooltip
+		action.accessibility_name = title
+		action.accessibility_description = tooltip
+		_paint_row_button(action, icon_accent)
+		action.pressed.connect(on_pressed)
+		# Added first: the panel fits every child to its content rect, so the
+		# button lies under the icon, name and value drawn after it.
+		card.add_child(action)
 
-	_weather_row = _create_row("Weather", weather_value)
-	_details.add_child(_weather_row)
+	var content := HBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(content)
 
-	# Wind
-	_wind_label = _create_value_label(UIConstants.FONT_SIZE_BASE)
-	_wind_row = _create_row("Wind", _wind_label)
-	_details.add_child(_wind_row)
+	var icon := TextureRect.new()
+	icon.name = "Icon"
+	icon.texture = PixelIcon.texture(icon_kind, ICON_SIZE, icon_accent)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(icon)
 
-## Build a "label ....... value" row. `value` may be any Control.
-func _create_row(title: String, value: Control) -> HBoxContainer:
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", UIConstants.SEPARATION_LG)
-
-	var title_label = Label.new()
+	var title_label := Label.new()
+	title_label.name = "Title"
 	title_label.text = title
-	title_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	title_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
 	title_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(title_label)
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(title_label)
 
-	if not (value is BoxContainer):
-		value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(value)
-	return row
+	content.add_child(_create_value_label())
+	return card
 
-func _create_value_label(font_size: int) -> Label:
-	var label = Label.new()
-	label.add_theme_font_size_override("font_size", font_size)
+## The value end of a card: right-aligned, and shrinking with an ellipsis
+## rather than widening the column on narrow windows.
+func _create_value_label() -> Label:
+	var label := Label.new()
+	label.name = "Value"
+	label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
 
-func _create_separator() -> HSeparator:
-	var sep = HSeparator.new()
-	sep.custom_minimum_size = Vector2(0, 1)
-	sep.modulate = Color(1, 1, 1, 0.25)
-	return sep
+## The card every row wears: a dark fill with a hairline sage border, so each
+## stat reads as its own tile over the course behind it.
+func _card_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(UIConstants.COLOR_BG_DARK, 0.82)
+	style.set_border_width_all(1)
+	style.border_color = Color(UIConstants.COLOR_BORDER, 0.62)
+	style.set_corner_radius_all(CARD_RADIUS)
+	style.content_margin_left = 6
+	style.content_margin_top = 4
+	style.content_margin_right = 7
+	style.content_margin_bottom = 4
+	return style
+
+## A clickable card's states: no fill at rest (the card shows through), a wash
+## of the row's accent under the pointer and while pressed, and a gold ring
+## when it holds keyboard focus.
+func _paint_row_button(button: Button, accent: Color) -> void:
+	var empty := StyleBoxEmpty.new()
+	button.add_theme_stylebox_override("normal", empty)
+	button.add_theme_stylebox_override("disabled", empty)
+
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(accent, 0.10)
+	hover.set_corner_radius_all(CARD_RADIUS)
+	button.add_theme_stylebox_override("hover", hover)
+
+	var pressed := StyleBoxFlat.new()
+	pressed.bg_color = Color(accent, 0.20)
+	pressed.set_corner_radius_all(CARD_RADIUS)
+	button.add_theme_stylebox_override("pressed", pressed)
+
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.set_border_width_all(1)
+	focus.border_color = UIConstants.COLOR_GOLD
+	focus.set_corner_radius_all(CARD_RADIUS)
+	button.add_theme_stylebox_override("focus", focus)
+
+## Swap a card's icon, keeping the 16x16 art crisp.
+func _set_row_icon(icon: TextureRect, kind: int, accent: Color) -> void:
+	if icon == null:
+		return
+	icon.texture = PixelIcon.texture(kind, ICON_SIZE, accent)
 
 # =============================================================================
 # LAYOUT
@@ -266,14 +289,14 @@ func _apply_anchors() -> void:
 	_refresh_height()
 
 ## Re-derive size-sensitive layout after a responsive window change
-## (rotation, resize across the compact threshold). Crossing into compact
-## collapses the details once (players can still expand them manually).
+## (rotation, resize across the compact threshold).
 func apply_screen() -> void:
 	if not is_inside_tree():
 		return
 	custom_minimum_size.x = _column_width()
-	if _column_width() < UIConstants.HUD_COLUMN_WIDTH:
-		set_collapsed(true)
+	# The date loses its weekday on the narrow column so the value still fits
+	# beside its icon and label.
+	_update_day_time()
 	_apply_anchors()
 
 ## Keep the panel exactly as tall as its content (anchored controls need an
@@ -286,24 +309,10 @@ func _refresh_height() -> void:
 func get_occupied_height() -> float:
 	return offset_bottom
 
-func is_collapsed() -> bool:
-	return _collapsed
-
-func set_collapsed(collapsed: bool) -> void:
-	if _collapsed == collapsed:
-		return
-	_collapsed = collapsed
-	if _details:
-		_details.visible = not collapsed
-	if _collapse_button:
-		_collapse_button.text = "+" if collapsed else "-"
-	_refresh_height()
-	collapsed_changed.emit(_collapsed)
-
 func _connect_signals() -> void:
 	# Connect to EventBus signals
 	if has_node("/root/EventBus"):
-		var eb = get_node("/root/EventBus")
+		var eb := get_node("/root/EventBus")
 		# A new game can switch Weather, Wind and Seasons on or off (Start New
 		# Game options, or the location that was just bought), so re-read the
 		# whole column: no feature signal carries that change.
@@ -313,10 +322,8 @@ func _connect_signals() -> void:
 		eb.reputation_changed.connect(_on_reputation_changed)
 		eb.weather_changed.connect(_on_weather_changed)
 		eb.wind_changed.connect(_on_wind_changed)
-		eb.game_mode_changed.connect(_on_game_mode_changed)
 
 func _update_all() -> void:
-	_update_game_mode()
 	_update_money()
 	_update_day_time()
 	_update_reputation()
@@ -324,10 +331,9 @@ func _update_all() -> void:
 	_update_wind()
 	_update_feature_rows()
 
-## Show only the rows of the features this course plays with. A feature that is
-## off has no row at all rather than one reading "Off": leaving Weather, Wind or
-## Seasons out of the column says the same thing in less space. The divider that
-## introduces the weather/wind block goes with the last of the two rows.
+## Show only the cards of the features this course plays with. A feature that
+## is off has no row at all rather than one reading "Off": leaving Weather,
+## Wind or Seasons out of the column says the same thing in less space.
 func _update_feature_rows() -> void:
 	if _season_row == null or _weather_row == null or _wind_row == null:
 		return
@@ -337,8 +343,9 @@ func _update_feature_rows() -> void:
 	_season_row.visible = seasons_on
 	_weather_row.visible = weather_on
 	_wind_row.visible = wind_on
-	if _environment_separator:
-		_environment_separator.visible = weather_on or wind_on
+	if _environment_block:
+		# The block introduces the weather/wind pair; with both off it goes too.
+		_environment_block.visible = weather_on or wind_on
 	_refresh_height()
 
 ## Whether the course plays with a feature. Without a GameManager — a column
@@ -348,37 +355,6 @@ func _is_feature_on(feature: String) -> bool:
 		return true
 	return GameManager.is_feature_enabled(feature)
 
-func _update_game_mode() -> void:
-	if not has_node("/root/GameManager"):
-		return
-	var gm = get_node("/root/GameManager")
-	var mode = gm.get("current_mode")
-	if mode == null:
-		mode = 0
-
-	# GameManager.GameMode enum: MAIN_MENU=0, BUILDING=1 (legacy), SIMULATING=2, PLAYING=3, PAUSED=4
-	# Day always runs — BUILDING is kept for save compatibility but maps to PLAYING.
-	# The game is effectively paused when the pause flag is set (pause menu,
-	# end-of-day summary, game over) or the speed control is on pause.
-	var effectively_paused = gm.get("is_paused") == true or gm.get("current_speed") == 0
-	match mode:
-		1, 2, 3, 4:  # BUILDING (legacy), SIMULATING, PLAYING, PAUSED
-			if effectively_paused:
-				_game_mode_icon.text = "||"
-				_game_mode_label.text = "PAUSED"
-				_game_mode_icon.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-				_game_mode_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-			else:
-				_game_mode_icon.text = ">"
-				_game_mode_label.text = "PLAYING"
-				_game_mode_icon.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
-				_game_mode_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
-		_:
-			_game_mode_icon.text = "?"
-			_game_mode_label.text = "MENU"
-			_game_mode_icon.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-			_game_mode_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-
 func _update_money() -> void:
 	if not has_node("/root/GameManager"):
 		return
@@ -387,15 +363,15 @@ func _update_money() -> void:
 	if money == null:
 		money = GameManager.DEFAULT_STARTING_MONEY
 
-	_money_button.text = "$ %s" % _format_number(money)
+	_money_label.text = "$ %s" % _format_number(money)
 
 	# Color based on balance
 	if money < 0:
-		_money_button.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+		_money_label.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
 	elif money < 5000:
-		_money_button.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+		_money_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	else:
-		_money_button.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+		_money_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 
 	# Trend indicator
 	if _money_trend_value > 0:
@@ -407,21 +383,27 @@ func _update_money() -> void:
 	else:
 		_money_trend.text = ""
 
-	_last_money = money
-
 func _update_day_time() -> void:
-	if not has_node("/root/GameManager"):
+	if not has_node("/root/GameManager") or _date_label == null or _time_label == null:
 		return
 	var gm = get_node("/root/GameManager")
 	var day = gm.get("current_day")
 	if day == null:
 		day = 1
 
-	_date_label.text = GameCalendar.format_date(day)
+	# Wide column: the full date with its weekday. Narrow: the weekday goes so
+	# the value still fits on one line beside the icon and its label.
+	_date_label.text = GameCalendar.format_date_short(day) if _is_compact() \
+		else GameCalendar.format_date(day)
 	# With the Seasons feature off the calendar still ticks, but the course
 	# plays as one year-round season, so _update_feature_rows hides the row.
 	var season = SeasonSystem.get_season(day)
+	var season_color := SeasonSystem.get_season_color(season)
 	_time_label.text = SeasonSystem.get_season_name(season)
+	_time_label.add_theme_color_override("font_color", season_color)
+	# The leaf wears the season too: green shoots, summer gold, fall orange,
+	# winter blue.
+	_set_row_icon(_season_icon, PixelIcon.Kind.LEAF, season_color)
 
 func _update_reputation() -> void:
 	if not has_node("/root/GameManager"):
@@ -431,20 +413,23 @@ func _update_reputation() -> void:
 	if rep == null:
 		rep = 50.0
 
-	_reputation_button.text = "%d%%" % int(rep)
+	_reputation_label.text = "%d%%" % int(rep)
 
-	# Color based on reputation
+	# Color based on reputation; the heart wears the same reading as the value.
+	var color := UIConstants.COLOR_DANGER
 	if rep >= 75:
-		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+		color = UIConstants.COLOR_SUCCESS
 	elif rep >= 40:
-		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
-	else:
-		_reputation_button.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+		color = UIConstants.COLOR_WARNING
+	_reputation_label.add_theme_color_override("font_color", color)
+	_set_row_icon(_reputation_icon, PixelIcon.Kind.HEART, color)
 
 func _update_weather() -> void:
+	if _weather_label == null:
+		return
 	if not has_node("/root/GameManager"):
-		_weather_icon.text = "* *"
 		_weather_label.text = "Sunny"
+		_set_row_icon(_weather_icon, PixelIcon.Kind.SUN, UIConstants.COLOR_GOLD)
 		return
 
 	# The Weather feature can be turned off at setup: _update_feature_rows
@@ -453,28 +438,46 @@ func _update_weather() -> void:
 		return
 	var weather_system = GameManager.get("weather_system")
 	if weather_system == null:
-		_weather_icon.text = "* *"
 		_weather_label.text = "Sunny"
+		_set_row_icon(_weather_icon, PixelIcon.Kind.SUN, UIConstants.COLOR_GOLD)
 		return
 
 	var weather_type = weather_system.get("weather_type")
 	if weather_type == null:
 		weather_type = 0
 
-	_weather_icon.text = UIConstants.get_weather_icon(weather_type)
 	_weather_label.text = UIConstants.get_weather_name(weather_type)
 
-	# Color based on weather
+	# The card's sky sprite follows the conditions, painted in the same family
+	# of colours the conditions use elsewhere in the HUD.
+	var icon_kind := PixelIcon.Kind.SUN
+	var icon_color := UIConstants.COLOR_GOLD
 	match weather_type:
 		0:  # SUNNY
-			_weather_icon.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
-		1, 2:  # PARTLY_CLOUDY, OVERCAST
-			_weather_icon.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-		_:  # RAIN
-			_weather_icon.add_theme_color_override("font_color", UIConstants.COLOR_INFO)
+			icon_kind = PixelIcon.Kind.SUN
+			icon_color = UIConstants.COLOR_GOLD
+		1:  # PARTLY_CLOUDY
+			icon_kind = PixelIcon.Kind.PARTLY_CLOUDY
+			icon_color = UIConstants.COLOR_TEXT_DIM
+		2:  # OVERCAST
+			icon_kind = PixelIcon.Kind.OVERCAST
+			icon_color = UIConstants.COLOR_TEXT_DIM
+		3:  # LIGHT_RAIN
+			icon_kind = PixelIcon.Kind.LIGHT_RAIN
+			icon_color = UIConstants.COLOR_INFO
+		4:  # RAIN
+			icon_kind = PixelIcon.Kind.RAIN
+			icon_color = UIConstants.COLOR_INFO
+		5:  # HEAVY_RAIN
+			icon_kind = PixelIcon.Kind.HEAVY_RAIN
+			icon_color = UIConstants.COLOR_INFO
+		_:
+			icon_kind = PixelIcon.Kind.OVERCAST
+			icon_color = UIConstants.COLOR_TEXT_MUTED
+	_set_row_icon(_weather_icon, icon_kind, icon_color)
 
 func _update_wind() -> void:
-	if not has_node("/root/GameManager"):
+	if not has_node("/root/GameManager") or _wind_label == null:
 		_wind_label.text = "0 mph"
 		return
 
@@ -536,16 +539,18 @@ func _on_rating_pressed() -> void:
 	rating_clicked.emit()
 
 func update_rating(stars: float) -> void:
+	if _rating_label == null:
+		return
 	var display := CourseRatingSystem.get_star_display(stars)
-	_rating_button.text = "%s (%.1f)" % [display, stars]
+	_rating_label.text = "%s (%.1f)" % [display, stars]
 	if stars >= 4.0:
-		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 	elif stars >= 3.0:
-		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
+		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 	elif stars >= 2.0:
-		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
 	else:
-		_rating_button.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
 
 func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	_money_trend_value = new_amount - old_amount
@@ -562,6 +567,3 @@ func _on_weather_changed(_weather_type: int, _intensity: float) -> void:
 
 func _on_wind_changed(_direction: float, _speed: float) -> void:
 	_update_wind()
-
-func _on_game_mode_changed(_old_mode: int, _new_mode: int) -> void:
-	_update_game_mode()

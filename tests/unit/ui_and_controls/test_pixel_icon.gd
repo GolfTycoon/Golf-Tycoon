@@ -1,6 +1,7 @@
 extends GameTest
-## PixelIcon: the title screen's action sprites are 16x16 character grids
-## painted from the card's accent, so the art itself can be checked as data -
+## PixelIcon: the title screen's action sprites (and the status column's row
+## icons) are 16x16 character grids painted from the card's accent, so the art
+## itself can be checked as data -
 ## every row the same width, only palette characters, each sprite carrying
 ## its outline and its accent - and the baked textures can be checked for the
 ## property that makes them pixel art: whole blocks of identical pixels.
@@ -11,6 +12,10 @@ const KINDS := [
 	PixelIcon.Kind.DOOR, PixelIcon.Kind.COIN, PixelIcon.Kind.PIN,
 	PixelIcon.Kind.TROPHY, PixelIcon.Kind.STAR, PixelIcon.Kind.CHIP,
 	PixelIcon.Kind.GPU, PixelIcon.Kind.PULSE, PixelIcon.Kind.MEMORY,
+	PixelIcon.Kind.CALENDAR, PixelIcon.Kind.LEAF, PixelIcon.Kind.HEART,
+	PixelIcon.Kind.WIND, PixelIcon.Kind.SUN, PixelIcon.Kind.PARTLY_CLOUDY,
+	PixelIcon.Kind.OVERCAST, PixelIcon.Kind.LIGHT_RAIN, PixelIcon.Kind.RAIN,
+	PixelIcon.Kind.HEAVY_RAIN,
 ]
 
 const PALETTE_KEYS := ".XALDCMWGg"

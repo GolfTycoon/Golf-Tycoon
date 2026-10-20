@@ -138,20 +138,21 @@ Golfer on the Course](systems/golf-play/owner-on-the-course.md).
 
 ### Status column
 
-The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Its rows, top to bottom:
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a dark background with a hairline sage border, a 16x16 pixel-art icon, the stat's name and its value — so the cards themselves separate one row from the next. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
 
-| Row | Shows |
-| --- | --- |
-| Game mode | `PLAYING` or `PAUSED`, with the collapse toggle (`-` / `+`) beside it |
-| Funds | The balance, clickable for the financial dashboard |
-| Date | The calendar date |
-| Season | The current season |
-| Reputation | Course reputation, clickable for the rating details |
-| Rating | The star rating, clickable for details |
-| Weather | The current conditions |
-| Wind | Direction and speed |
+| Row | Icon | Shows |
+| --- | --- | --- |
+| Funds | Gold coin | The balance, with a `^` / `v` trend, clickable for the financial dashboard |
+| Date | Calendar | The calendar date (the weekday is dropped on compact windows) |
+| Season | Leaf in the season's colour | The current season |
+| Reputation | Heart | Course reputation, colour-coded, clickable for the rating details |
+| Rating | Gold star | The star rating, clickable for details |
+| Weather | Sky sprite | The current conditions; the sprite and its colour follow the weather type (sun, sun behind cloud, cloud, light rain, rain, heavy rain) |
+| Wind | Wind gust | Direction and speed, colour-coded |
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the divider that introduces the weather and wind pair goes with the last of the two rows. The column collapses to its header and Funds rows on compact windows, or when the player presses the collapse toggle; the full set of rows is still there, minus the features that are off.
+There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause, play and fast-forward controls already show and set the running state. There is no collapse handle either, so every card is always shown.
+
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows and the Date value drops its weekday, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
 
 ## Keyboard
 
