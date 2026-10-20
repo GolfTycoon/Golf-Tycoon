@@ -464,10 +464,10 @@ func is_feature_enabled(feature_id: String) -> bool:
 		return true
 	# Also check registered features table
 	if features.has(feature_id):
-		var owner: String = str(features[feature_id].get("mod_id", ""))
-		return is_mod_enabled(owner)
+		var owner_id: String = str(features[feature_id].get("mod_id", ""))
+		return is_mod_enabled(owner_id)
 	# Unknown features are considered enabled for backward compat (custom mod features)
-	return false
+	return true
 
 # Backwards-compatible aliases used by older code paths:
 func is_weather_enabled() -> bool: return is_feature_enabled("weather")
@@ -509,11 +509,11 @@ func register_terrain_type(from_mod_id: String, id: String, data: Dictionary) ->
 	terrain_registry_overrides[id] = { "mod_id": from_mod_id, "data": data }
 	return true
 
-func register_trait(from_mod_id: String, id: String, data: Dictionary) -> bool:
+func register_trait(_from_mod_id: String, _id: String, _data: Dictionary) -> bool:
 	# Traits are additive — later mods just add, no conflict
 	return true
 
-func register_seasonal_event(from_mod_id: String, event_data: Dictionary) -> bool:
+func register_seasonal_event(_from_mod_id: String, _event_data: Dictionary) -> bool:
 	return true
 
 func override_building_type(from_mod_id: String, id: String, patch: Dictionary) -> bool:

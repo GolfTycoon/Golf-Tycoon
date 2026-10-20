@@ -79,6 +79,22 @@ func _sync_mods_to_features() -> void:
 		wind_system.force_calm()
 	SeasonSystem.disabled = not seasons_enabled
 	_syncing_features = false
+
+func _try_sync_mods_deferred() -> void:
+	var tries := 0
+	while tries < 30:
+		var mm = _mod_manager()
+		if mm != null and mm.has_method("is_feature_enabled") and not mm.manifests.is_empty():
+			_sync_mods_to_features()
+			if mm.has_signal("enabled_order_changed") and not mm.enabled_order_changed.is_connected(_on_mods_order_changed):
+				mm.enabled_order_changed.connect(_on_mods_order_changed)
+			break
+		await get_tree().process_frame
+		tries += 1
+
+func _on_mods_order_changed(_order: Array) -> void:
+	_sync_mods_to_features()
+
 ## True while the company plays with unlimited funds: nothing can be spent.
 var unlimited_money: bool = false
 ## Holes the player asked the world map to lay out on their first course.
@@ -260,6 +276,7 @@ const AUTOSAVE_INTERVAL_DAYS: int = 30
 
 func _ready() -> void:
 	print("GameManager initialized")
+	SeasonSystem.disabled = not seasons_enabled
 	# Defer mod sync until ModManager has discovered (ModManager loads before GameManager._ready if autoload order allows,
 	# but GameManager sorts earlier — so retry for a few frames until it exists).
 	call_deferred("_try_sync_mods_deferred")
@@ -428,6 +445,8 @@ func set_weather_enabled(enabled: bool) -> void:
 
 func set_wind_enabled(enabled: bool) -> void:
 	if wind_enabled == enabled and not _syncing_features:
+		if not enabled and wind_system and wind_system.has_method("force_calm"):
+			wind_system.force_calm()
 		_sync_feature_to_mod("wind", enabled)
 		return
 	wind_enabled = enabled
@@ -437,6 +456,7 @@ func set_wind_enabled(enabled: bool) -> void:
 
 func set_seasons_enabled(enabled: bool) -> void:
 	if seasons_enabled == enabled and not _syncing_features:
+		SeasonSystem.disabled = not enabled
 		_sync_feature_to_mod("seasons", enabled)
 		return
 	seasons_enabled = enabled

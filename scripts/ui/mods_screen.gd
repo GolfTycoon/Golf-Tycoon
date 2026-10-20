@@ -406,7 +406,7 @@ func _on_move(mod_id: String, delta: int) -> void:
 	if not has_node("/root/ModManager"):
 		return
 	var mm = get_node("/root/ModManager")
-	var idx := mm.enabled_mods.find(mod_id)
+	var idx: int = mm.enabled_mods.find(mod_id)
 	if idx < 0:
 		return
 	var new_idx := clampi(idx + delta, 0, mm.enabled_mods.size() - 1)

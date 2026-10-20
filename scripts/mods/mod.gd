@@ -43,7 +43,7 @@ func has_entry_point() -> bool:
 	return manifest != null and not manifest.entry_point.is_empty()
 
 ## Validate this mod's manifest and entry point.
-func validate(all_manifests: Dictionary) -> bool:
+func validate(_all_manifests: Dictionary) -> bool:
 	if manifest == null or not manifest.is_valid():
 		state = State.FAILED
 		error_message = "Invalid manifest"

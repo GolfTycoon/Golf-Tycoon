@@ -39,8 +39,11 @@ func log_error(message: String) -> void:
 	push_error("[Mod:%s] %s" % [mod_id, message])
 
 func notify_player(message: String, type: String = "info") -> void:
-	if has_node("/root/EventBus"):
-		get_node("/root/EventBus").notify("[%s] %s" % [mod_id, message], type)
+	var eb = Engine.get_main_loop().root.get_node_or_null("EventBus") if Engine.get_main_loop() and Engine.get_main_loop().root else null
+	if eb == null and _manager and _manager.has_method("get_node_or_null"):
+		eb = _manager.get_node_or_null("/root/EventBus")
+	if eb and eb.has_method("notify"):
+		eb.notify("[%s] %s" % [mod_id, message], type)
 
 # ---------------------------------------------------------------------------
 # Game state (read/write through validated setters)

@@ -92,7 +92,7 @@ static func get_texture(sheet_name: String, sprite_id: String) -> Texture2D:
 	if rect_data.size() < 4:
 		return null
 	var rect := Rect2(float(rect_data[0]), float(rect_data[1]), float(rect_data[2]), float(rect_data[3]))
-	var source_size_data: Array = entry.get("sourceSize", entry.get("source_size", rect_data))
+	var _source_size_data: Array = entry.get("sourceSize", entry.get("source_size", rect_data))
 	var atlas_tex := AtlasTexture.new()
 	atlas_tex.atlas = atlas["texture"]
 	atlas_tex.region = rect
