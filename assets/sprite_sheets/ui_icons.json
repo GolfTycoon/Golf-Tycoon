@@ -1,0 +1,68 @@
+{
+	"meta": {
+		"image": "res://assets/sprite_sheets/ui_icons.png",
+		"size": {
+			"w": 2048,
+			"h": 68
+		},
+		"scale": "1",
+		"app": "GolfTycoon pack_sprites.py",
+		"version": "1.0"
+	},
+	"frames": {
+		"flag": {
+			"frame": [
+				2,
+				2,
+				32,
+				64
+			],
+			"sourceSize": [
+				32,
+				64
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				32,
+				64
+			]
+		},
+		"fountain": {
+			"frame": [
+				36,
+				2,
+				64,
+				64
+			],
+			"sourceSize": [
+				64,
+				64
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				64,
+				64
+			]
+		},
+		"ball_washer": {
+			"frame": [
+				102,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		}
+	}
+}

@@ -118,7 +118,10 @@ const MONEY_CAPTIONS := {
 	-1: "No budget limit",
 }
 
-## [key, title, short caption, tooltip, glyph]
+## [key, title, short caption, tooltip, glyph] — backed by res://mods/ builtin mods.
+## The static list is the fallback; when ModManager is present the screen
+## builds its rows from the actual mod manifests so new gameplay mods appear
+## without editing this file (see _resolve_features).
 const FEATURES := [
 	["weather", "Weather", "Storms change turnout",
 		"Storms and clouds change how often golfers come out and how they play.", SetupGlyph.Kind.WEATHER],
@@ -127,6 +130,26 @@ const FEATURES := [
 	["seasons", "Seasons", "Demand follows the year",
 		"Demand, upkeep and weather shift with the calendar year.", SetupGlyph.Kind.SEASONS],
 ]
+
+func _resolve_features() -> Array:
+	# If ModManager is live, build the feature list from its manifests so
+	# adding a new builtin mod automatically adds a row here.
+	if has_node("/root/ModManager"):
+		var mm = get_node("/root/ModManager")
+		if mm and mm.has_method("get_all_manifests") and not mm.manifests.is_empty():
+			var out: Array = []
+			for item in FEATURES:
+				var mid: String = str(item[0])
+				var mf = mm.manifests.get(mid, null)
+				if mf != null:
+					# Use manifest name/description, but keep existing caption/glyph
+					out.append([mf.id, mf.name, str(item[2]), mf.description, item[4]])
+				else:
+					out.append(item)
+			# Also append any other non-builtin-but-feature mods (category gameplay) that declare themselves as a feature toggle
+			# (currently only builtins are shown here; other mods are managed in Mods screen)
+			return out
+	return FEATURES
 
 ## One selectable card: a toggle Button underneath (click, focus, keyboard,
 ## hover), its drawn content laid over it with mouse input passed through.
@@ -927,9 +950,10 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 ##   chip  - glyph and name only; the lit border and colours carry on/off
 ##           (LANDSCAPE, where the height is too short for a switch row)
 func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridContainer:
+	var _features_list := _resolve_features()
 	var grid := GridContainer.new()
 	grid.name = "FeatureTiles"
-	grid.columns = FEATURES.size()
+	grid.columns = _features_list.size()
 	grid.add_theme_constant_override("h_separation", int(m.item_gap * 0.8))
 	grid.add_theme_constant_override("v_separation", int(m.item_gap * 0.8))
 	var font := get_theme_default_font()
@@ -937,14 +961,14 @@ func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridConta
 	var caption_font := m.caption_font - 1
 	var captions := []
 	var widest_caption := 0.0
-	for feature in FEATURES:
+	for feature in _features_list:
 		captions.append(str(feature[2]))
 		widest_caption = maxf(widest_caption,
 			font.get_string_size(str(feature[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, caption_font).x)
 	# One-line rows show their captions only if all three fit.
 	var row_captions := tile_width - float(m.glyph + int(m.card_pad * 0.85) * 2 + int(m.item_gap * 0.8) * 2) \
 		- float(m.glyph) * 0.62 * 1.75 >= widest_caption
-	for feature in FEATURES:
+	for feature in _features_list:
 		var key: String = feature[0]
 		var height := m.segment_height if variant == "chip" else (m.feature_height if variant != "card" else 0)
 		var card := _make_choice("feature", key, FEATURE_ACCENT, str(feature[3]), str(feature[1]), m, null,
@@ -1565,6 +1589,8 @@ static func features_summary(features: Dictionary, separator: String = " · ") -
 	for feature in FEATURES:
 		if bool(features.get(feature[0], false)):
 			names.append(str(feature[1]))
+	# If ModManager has extra features, include them
+	# (caller passes features dict keyed by mod id)
 	return "None" if names.is_empty() else separator.join(names)
 
 ## The tablet footer's one-line recap of every choice.

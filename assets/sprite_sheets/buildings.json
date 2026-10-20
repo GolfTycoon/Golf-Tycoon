@@ -1,0 +1,1310 @@
+{
+	"meta": {
+		"image": "res://assets/sprite_sheets/buildings.png",
+		"size": {
+			"w": 2048,
+			"h": 1325
+		},
+		"scale": "1",
+		"app": "GolfTycoon pack_sprites.py",
+		"version": "1.0"
+	},
+	"frames": {
+		"clubhouse_3_e": {
+			"frame": [
+				2,
+				2,
+				242,
+				239
+			],
+			"sourceSize": [
+				242,
+				239
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				239
+			]
+		},
+		"clubhouse_3_n": {
+			"frame": [
+				246,
+				2,
+				242,
+				238
+			],
+			"sourceSize": [
+				242,
+				238
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				238
+			]
+		},
+		"castle_1_e": {
+			"frame": [
+				490,
+				2,
+				274,
+				235
+			],
+			"sourceSize": [
+				274,
+				235
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				274,
+				235
+			]
+		},
+		"castle_1_n": {
+			"frame": [
+				766,
+				2,
+				274,
+				209
+			],
+			"sourceSize": [
+				274,
+				209
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				274,
+				209
+			]
+		},
+		"resort_hotel_1_e": {
+			"frame": [
+				1042,
+				2,
+				242,
+				207
+			],
+			"sourceSize": [
+				242,
+				207
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				207
+			]
+		},
+		"resort_hotel_1_n": {
+			"frame": [
+				1286,
+				2,
+				242,
+				207
+			],
+			"sourceSize": [
+				242,
+				207
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				207
+			]
+		},
+		"theme_park_1_s": {
+			"frame": [
+				1530,
+				2,
+				276,
+				207
+			],
+			"sourceSize": [
+				276,
+				207
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				276,
+				207
+			]
+		},
+		"castle_1_s": {
+			"frame": [
+				2,
+				243,
+				274,
+				206
+			],
+			"sourceSize": [
+				274,
+				206
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				274,
+				206
+			]
+		},
+		"castle_1_w": {
+			"frame": [
+				278,
+				243,
+				274,
+				206
+			],
+			"sourceSize": [
+				274,
+				206
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				274,
+				206
+			]
+		},
+		"clubhouse_3_w": {
+			"frame": [
+				554,
+				243,
+				242,
+				206
+			],
+			"sourceSize": [
+				242,
+				206
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				206
+			]
+		},
+		"clubhouse_3_s": {
+			"frame": [
+				798,
+				243,
+				242,
+				204
+			],
+			"sourceSize": [
+				242,
+				204
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				204
+			]
+		},
+		"clubhouse_2_n": {
+			"frame": [
+				1042,
+				243,
+				242,
+				201
+			],
+			"sourceSize": [
+				242,
+				201
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				201
+			]
+		},
+		"theme_park_1_e": {
+			"frame": [
+				1286,
+				243,
+				278,
+				190
+			],
+			"sourceSize": [
+				278,
+				190
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				278,
+				190
+			]
+		},
+		"clubhouse_1_n": {
+			"frame": [
+				1566,
+				243,
+				242,
+				187
+			],
+			"sourceSize": [
+				242,
+				187
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				187
+			]
+		},
+		"resort_hotel_1_s": {
+			"frame": [
+				2,
+				451,
+				242,
+				186
+			],
+			"sourceSize": [
+				242,
+				186
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				186
+			]
+		},
+		"resort_hotel_1_w": {
+			"frame": [
+				246,
+				451,
+				242,
+				186
+			],
+			"sourceSize": [
+				242,
+				186
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				186
+			]
+		},
+		"theme_park_1_w": {
+			"frame": [
+				490,
+				451,
+				276,
+				183
+			],
+			"sourceSize": [
+				276,
+				183
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				276,
+				183
+			]
+		},
+		"clubhouse_2_e": {
+			"frame": [
+				768,
+				451,
+				242,
+				177
+			],
+			"sourceSize": [
+				242,
+				177
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				177
+			]
+		},
+		"driving_range_1_e": {
+			"frame": [
+				1012,
+				451,
+				280,
+				174
+			],
+			"sourceSize": [
+				280,
+				174
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				280,
+				174
+			]
+		},
+		"driving_range_1_n": {
+			"frame": [
+				1294,
+				451,
+				280,
+				174
+			],
+			"sourceSize": [
+				280,
+				174
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				280,
+				174
+			]
+		},
+		"clubhouse_2_w": {
+			"frame": [
+				1576,
+				451,
+				242,
+				170
+			],
+			"sourceSize": [
+				242,
+				170
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				170
+			]
+		},
+		"theme_park_1_n": {
+			"frame": [
+				2,
+				639,
+				278,
+				166
+			],
+			"sourceSize": [
+				278,
+				166
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				278,
+				166
+			]
+		},
+		"clubhouse_1_e": {
+			"frame": [
+				282,
+				639,
+				242,
+				164
+			],
+			"sourceSize": [
+				242,
+				164
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				164
+			]
+		},
+		"clubhouse_1_w": {
+			"frame": [
+				526,
+				639,
+				242,
+				161
+			],
+			"sourceSize": [
+				242,
+				161
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				161
+			]
+		},
+		"driving_range_1_s": {
+			"frame": [
+				770,
+				639,
+				280,
+				160
+			],
+			"sourceSize": [
+				280,
+				160
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				280,
+				160
+			]
+		},
+		"casino_1_e": {
+			"frame": [
+				1052,
+				639,
+				215,
+				157
+			],
+			"sourceSize": [
+				215,
+				157
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				215,
+				157
+			]
+		},
+		"casino_1_n": {
+			"frame": [
+				1269,
+				639,
+				221,
+				157
+			],
+			"sourceSize": [
+				221,
+				157
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				221,
+				157
+			]
+		},
+		"clubhouse_2_s": {
+			"frame": [
+				1492,
+				639,
+				242,
+				157
+			],
+			"sourceSize": [
+				242,
+				157
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				157
+			]
+		},
+		"driving_range_1_w": {
+			"frame": [
+				1736,
+				639,
+				280,
+				155
+			],
+			"sourceSize": [
+				280,
+				155
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				280,
+				155
+			]
+		},
+		"airstrip_1_e": {
+			"frame": [
+				2,
+				807,
+				248,
+				153
+			],
+			"sourceSize": [
+				248,
+				153
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				248,
+				153
+			]
+		},
+		"casino_1_w": {
+			"frame": [
+				252,
+				807,
+				215,
+				153
+			],
+			"sourceSize": [
+				215,
+				153
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				215,
+				153
+			]
+		},
+		"swim_club_1_e": {
+			"frame": [
+				469,
+				807,
+				216,
+				152
+			],
+			"sourceSize": [
+				216,
+				152
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				216,
+				152
+			]
+		},
+		"casino_1_s": {
+			"frame": [
+				687,
+				807,
+				221,
+				151
+			],
+			"sourceSize": [
+				221,
+				151
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				221,
+				151
+			]
+		},
+		"clubhouse_1_s": {
+			"frame": [
+				910,
+				807,
+				242,
+				149
+			],
+			"sourceSize": [
+				242,
+				149
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				242,
+				149
+			]
+		},
+		"stable_1_e": {
+			"frame": [
+				1154,
+				807,
+				184,
+				149
+			],
+			"sourceSize": [
+				184,
+				149
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				149
+			]
+		},
+		"stable_1_n": {
+			"frame": [
+				1340,
+				807,
+				184,
+				145
+			],
+			"sourceSize": [
+				184,
+				145
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				145
+			]
+		},
+		"airstrip_1_n": {
+			"frame": [
+				1526,
+				807,
+				248,
+				143
+			],
+			"sourceSize": [
+				248,
+				143
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				248,
+				143
+			]
+		},
+		"pub_1_n": {
+			"frame": [
+				1776,
+				807,
+				148,
+				138
+			],
+			"sourceSize": [
+				148,
+				138
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				148,
+				138
+			]
+		},
+		"pub_1_e": {
+			"frame": [
+				2,
+				962,
+				153,
+				136
+			],
+			"sourceSize": [
+				153,
+				136
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				153,
+				136
+			]
+		},
+		"stable_1_s": {
+			"frame": [
+				157,
+				962,
+				184,
+				135
+			],
+			"sourceSize": [
+				184,
+				135
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				135
+			]
+		},
+		"stable_1_w": {
+			"frame": [
+				343,
+				962,
+				184,
+				131
+			],
+			"sourceSize": [
+				184,
+				131
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				131
+			]
+		},
+		"pub_1_s": {
+			"frame": [
+				529,
+				962,
+				148,
+				130
+			],
+			"sourceSize": [
+				148,
+				130
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				148,
+				130
+			]
+		},
+		"pub_1_w": {
+			"frame": [
+				679,
+				962,
+				153,
+				130
+			],
+			"sourceSize": [
+				153,
+				130
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				153,
+				130
+			]
+		},
+		"airstrip_1_w": {
+			"frame": [
+				834,
+				962,
+				248,
+				129
+			],
+			"sourceSize": [
+				248,
+				129
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				248,
+				129
+			]
+		},
+		"spa_1_n": {
+			"frame": [
+				1084,
+				962,
+				184,
+				129
+			],
+			"sourceSize": [
+				184,
+				129
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				129
+			]
+		},
+		"spa_1_e": {
+			"frame": [
+				1270,
+				962,
+				184,
+				125
+			],
+			"sourceSize": [
+				184,
+				125
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				125
+			]
+		},
+		"airstrip_1_s": {
+			"frame": [
+				1456,
+				962,
+				248,
+				124
+			],
+			"sourceSize": [
+				248,
+				124
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				248,
+				124
+			]
+		},
+		"swim_club_1_s": {
+			"frame": [
+				1706,
+				962,
+				216,
+				122
+			],
+			"sourceSize": [
+				216,
+				122
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				216,
+				122
+			]
+		},
+		"swim_club_1_w": {
+			"frame": [
+				2,
+				1100,
+				216,
+				119
+			],
+			"sourceSize": [
+				216,
+				119
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				216,
+				119
+			]
+		},
+		"swim_club_1_n": {
+			"frame": [
+				220,
+				1100,
+				216,
+				115
+			],
+			"sourceSize": [
+				216,
+				115
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				216,
+				115
+			]
+		},
+		"pro_shop_1_e": {
+			"frame": [
+				438,
+				1100,
+				118,
+				114
+			],
+			"sourceSize": [
+				118,
+				114
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				114
+			]
+		},
+		"pro_shop_1_n": {
+			"frame": [
+				558,
+				1100,
+				118,
+				114
+			],
+			"sourceSize": [
+				118,
+				114
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				114
+			]
+		},
+		"pro_shop_1_s": {
+			"frame": [
+				678,
+				1100,
+				118,
+				110
+			],
+			"sourceSize": [
+				118,
+				110
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				110
+			]
+		},
+		"pro_shop_1_w": {
+			"frame": [
+				798,
+				1100,
+				118,
+				110
+			],
+			"sourceSize": [
+				118,
+				110
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				110
+			]
+		},
+		"cart_garage_1_e": {
+			"frame": [
+				918,
+				1100,
+				150,
+				109
+			],
+			"sourceSize": [
+				150,
+				109
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				150,
+				109
+			]
+		},
+		"cart_garage_1_n": {
+			"frame": [
+				1070,
+				1100,
+				150,
+				109
+			],
+			"sourceSize": [
+				150,
+				109
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				150,
+				109
+			]
+		},
+		"spa_1_w": {
+			"frame": [
+				1222,
+				1100,
+				184,
+				109
+			],
+			"sourceSize": [
+				184,
+				109
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				109
+			]
+		},
+		"spa_1_s": {
+			"frame": [
+				1408,
+				1100,
+				184,
+				105
+			],
+			"sourceSize": [
+				184,
+				105
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				105
+			]
+		},
+		"cart_garage_1_s": {
+			"frame": [
+				1594,
+				1100,
+				150,
+				102
+			],
+			"sourceSize": [
+				150,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				150,
+				102
+			]
+		},
+		"cart_garage_1_w": {
+			"frame": [
+				1746,
+				1100,
+				150,
+				102
+			],
+			"sourceSize": [
+				150,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				150,
+				102
+			]
+		},
+		"snack_bar_1_n": {
+			"frame": [
+				1898,
+				1100,
+				118,
+				102
+			],
+			"sourceSize": [
+				118,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				102
+			]
+		},
+		"tennis_court_1_e": {
+			"frame": [
+				2,
+				1221,
+				184,
+				102
+			],
+			"sourceSize": [
+				184,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				102
+			]
+		},
+		"tennis_court_1_n": {
+			"frame": [
+				188,
+				1221,
+				184,
+				102
+			],
+			"sourceSize": [
+				184,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				102
+			]
+		},
+		"tennis_court_1_s": {
+			"frame": [
+				374,
+				1221,
+				184,
+				102
+			],
+			"sourceSize": [
+				184,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				102
+			]
+		},
+		"tennis_court_1_w": {
+			"frame": [
+				560,
+				1221,
+				184,
+				102
+			],
+			"sourceSize": [
+				184,
+				102
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				102
+			]
+		},
+		"snack_bar_1_e": {
+			"frame": [
+				746,
+				1221,
+				123,
+				99
+			],
+			"sourceSize": [
+				123,
+				99
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				123,
+				99
+			]
+		},
+		"putting_green_1_n": {
+			"frame": [
+				871,
+				1221,
+				184,
+				97
+			],
+			"sourceSize": [
+				184,
+				97
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				97
+			]
+		},
+		"snack_bar_1_s": {
+			"frame": [
+				1057,
+				1221,
+				118,
+				93
+			],
+			"sourceSize": [
+				118,
+				93
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				118,
+				93
+			]
+		},
+		"snack_bar_1_w": {
+			"frame": [
+				1177,
+				1221,
+				123,
+				93
+			],
+			"sourceSize": [
+				123,
+				93
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				123,
+				93
+			]
+		},
+		"putting_green_1_e": {
+			"frame": [
+				1302,
+				1221,
+				184,
+				92
+			],
+			"sourceSize": [
+				184,
+				92
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				92
+			]
+		},
+		"putting_green_1_s": {
+			"frame": [
+				1488,
+				1221,
+				184,
+				92
+			],
+			"sourceSize": [
+				184,
+				92
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				92
+			]
+		},
+		"putting_green_1_w": {
+			"frame": [
+				1674,
+				1221,
+				184,
+				92
+			],
+			"sourceSize": [
+				184,
+				92
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				184,
+				92
+			]
+		}
+	}
+}

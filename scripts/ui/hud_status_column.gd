@@ -434,7 +434,7 @@ func _update_weather() -> void:
 
 	# The Weather feature can be turned off at setup: _update_feature_rows
 	# then hides the row, so there is nothing to show here.
-	if not GameManager.weather_enabled:
+	if not _is_feature_on("weather"):
 		return
 	var weather_system = GameManager.get("weather_system")
 	if weather_system == null:
@@ -483,7 +483,7 @@ func _update_wind() -> void:
 
 	# The Wind feature can be turned off at setup: the air is dead calm and
 	# _update_feature_rows hides the row.
-	if not GameManager.wind_enabled:
+	if not _is_feature_on("wind"):
 		return
 	var wind_system = GameManager.get("wind_system")
 	if wind_system == null:

@@ -133,12 +133,26 @@ static func sprite_path(species: String, day: int = -1, theme: int = -1) -> Stri
 	var evergreen := SPRITE_DIR + "%s.png" % species
 	return evergreen if ResourceLoader.exists(evergreen) else ""
 
-## The loaded texture for a species, cached by path. A missing file is remembered
-## as null so it is looked up once, not on every tile of every redraw.
+## The loaded texture for a species, cached by path. Prefers atlas.
 static func texture_for(species: String) -> Texture2D:
 	var path := sprite_path(species)
 	if path.is_empty():
 		return null
+	# Try atlas first: map path -> atlas id
+	# path is e.g. res://assets/sprites/trees/oak.png -> id "oak"
+	# or res://assets/sprites/trees/winter/pine.png -> id "winter_pine"
+	var filename: String = path.get_file().get_basename()  # e.g. oak, pine
+	var dir_part: String = path.get_base_dir().get_file()  # e.g. trees, winter, spring, fall
+	var atlas_id: String = filename
+	if dir_part in ["spring", "fall", "winter"]:
+		atlas_id = dir_part + "_" + filename
+	var atlas_tex := SpriteSheet.get_texture("trees", atlas_id)
+	if atlas_tex != null:
+		return atlas_tex
+	# Mod override
+	var mod_tex = SpriteAtlasRegistry.get_texture("tree", atlas_id, path)
+	if mod_tex != null and mod_tex != atlas_tex:
+		return mod_tex
 	if not _texture_cache.has(path):
 		_texture_cache[path] = load(path) as Texture2D
 	return _texture_cache[path]

@@ -61,12 +61,21 @@ static func entry(kind: String, tier: int, facing: int) -> Dictionary:
 		return {}
 	return faces[index]
 
-## The texture for one building, tier and view rotation.
+## The texture for one building, tier and view rotation. Prefers atlas.
 static func texture(kind: String, tier: int, facing: int) -> Texture2D:
 	var art := entry(kind, tier, facing)
 	if art.is_empty():
 		return null
 	var path: String = SPRITE_DIR + str(art.get("file", ""))
+	# Try atlas first: id is file stem (e.g. "clubhouse_3_e")
+	var stem: String = str(art.get("file", "")).get_file().get_basename()
+	var atlas_tex := SpriteSheet.get_texture("buildings", stem)
+	if atlas_tex != null:
+		return atlas_tex
+	# Mod override via registry (lets mods replace a building sprite without touching manifest)
+	var mod_tex = SpriteAtlasRegistry.get_texture("building", stem, path)
+	if mod_tex != null and mod_tex != atlas_tex:
+		return mod_tex
 	if _textures.has(path):
 		return _textures[path]
 	var loaded: Texture2D = load(path) if ResourceLoader.exists(path) else null

@@ -1,0 +1,19 @@
+{
+	"id": "wind",
+	"name": "Wind System",
+	"version": "1.0.0",
+	"description": "Wind has direction and speed that drift daily. Crosswinds push shots sideways; headwinds and tailwinds change carry distance.",
+	"author": "Golf Tycoon Team",
+	"api_version": "1.0",
+	"category": "gameplay",
+	"is_builtin": true,
+	"enabled_by_default": false,
+	"load_priority": 11,
+	"dependencies": [],
+	"optional_dependencies": ["weather"],
+	"conflicts": [],
+	"tags": ["environment", "physics"],
+	"entry_point": "res://mods/wind/wind_mod.gd",
+	"permissions": ["event_bus", "game_manager"],
+	"game_version": "0.4.6"
+}

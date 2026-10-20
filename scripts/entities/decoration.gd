@@ -248,18 +248,27 @@ func _update_visuals() -> void:
 
 	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
 
-	# Use sprite if available, otherwise procedural fallback
-	if decoration_type in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
-		var sprite = Sprite2D.new()
-		sprite.name = "DecorationSprite"
-		sprite.texture = load(SPRITE_PATHS[decoration_type])
-		sprite.centered = true
-		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		if _variation:
-			sprite.modulate = _variation.apply_color_shift(Color.WHITE)
-		var offset_y = SPRITE_BASE_OFFSETS.get(decoration_type, 16.0)
-		sprite.position.y = -offset_y
-		visual.add_child(sprite)
+	# Use sprite if available, otherwise procedural fallback — prefer atlas
+	if decoration_type in SPRITE_PATHS:
+		var tex: Texture2D = SpriteSheet.get_texture("decorations", decoration_type)
+		if tex == null:
+			# Check mod-registered sprite, then individual file
+			tex = SpriteAtlasRegistry.get_texture("decoration", decoration_type, SPRITE_PATHS[decoration_type])
+			if tex == null and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
+				tex = load(SPRITE_PATHS[decoration_type])
+		if tex != null:
+			var sprite = Sprite2D.new()
+			sprite.name = "DecorationSprite"
+			sprite.texture = tex
+			sprite.centered = true
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			if _variation:
+				sprite.modulate = _variation.apply_color_shift(Color.WHITE)
+			var offset_y = SPRITE_BASE_OFFSETS.get(decoration_type, 16.0)
+			sprite.position.y = -offset_y
+			visual.add_child(sprite)
+		else:
+			_draw_procedural(visual, color)
 	else:
 		_draw_procedural(visual, color)
 

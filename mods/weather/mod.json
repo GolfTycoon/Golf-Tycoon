@@ -1,0 +1,19 @@
+{
+	"id": "weather",
+	"name": "Weather System",
+	"version": "1.0.0",
+	"description": "Storms, clouds and rain change turnout, shot accuracy and sky tint. Rain keeps golfers away and makes shots harder.",
+	"author": "Golf Tycoon Team",
+	"api_version": "1.0",
+	"category": "gameplay",
+	"is_builtin": true,
+	"enabled_by_default": false,
+	"load_priority": 10,
+	"dependencies": [],
+	"optional_dependencies": [],
+	"conflicts": [],
+	"tags": ["environment", "difficulty"],
+	"entry_point": "res://mods/weather/weather_mod.gd",
+	"permissions": ["event_bus", "game_manager", "terrain"],
+	"game_version": "0.4.6"
+}
