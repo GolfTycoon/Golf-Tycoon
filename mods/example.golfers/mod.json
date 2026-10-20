@@ -1,0 +1,14 @@
+{
+	"format_version": 1,
+	"id": "example.golfers",
+	"name": "Example: New Faces",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A golfer-content mod: new names and professions in the pools random golfers are rolled from, and a new golfer skin - the High-Viz - in safety orange. Shows the two ways a mod dresses the crowd: wider name pools by JSON, and a whole skin folder in the same format the built-in skin studio edits.",
+	"types": ["data", "golfers", "cosmetic"],
+	"content": {
+		"golfer_names": "data/names.json",
+		"golfer_skins_root": "golfer_skins"
+	}
+}

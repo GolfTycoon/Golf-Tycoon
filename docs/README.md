@@ -13,6 +13,7 @@
 | [Save & Load](save-and-load.md) | Where saves go, what is stored, and what is not |
 | [Golfer Skins](golfer-skins.md) | How golfers are dressed, and how to edit a skin |
 | [Data Reference](data-reference.md) | The JSON data files and which ones are read at runtime |
+| [Modding](modding.md) | Mods for players and modders: installing, ordering, making and sharing (zip + Steam Workshop); references: [manifest & packaging](modding/manifest-and-packaging.md), [Mod API](modding/mod-api.md), [Steam Workshop](modding/steam-workshop.md) |
 
 ## Systems
 

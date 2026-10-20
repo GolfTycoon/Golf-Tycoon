@@ -1,5 +1,6 @@
 extends GameTest
-## WindSystem: the day's breeze and its gentle drift from day to day, the dead
+## The Wind mod's wind (mods/golf_tycoon.wind/wind_system.gd, behind the
+## neutral WindSystem base): the day's breeze and its gentle drift from day to day, the dead
 ## calm the Wind feature leaves when it is off, how a crosswind pushes a shot
 ## aside and a head- or tailwind changes its length — less for the lofted clubs,
 ## not at all for the putter — and how the wind reads out.
@@ -12,6 +13,10 @@ const NORTHWARD := Vector2(0, -1)
 const SOUTHWARD := Vector2(0, 1)
 const EASTWARD := Vector2(1, 0)
 
+## The shipped wind simulation lives in the Wind mod; WindSystem itself is
+## now the neutral base that runs when the mod is off.
+const WindImpl := preload("res://mods/golf_tycoon.wind/wind_system.gd")
+
 var wind: WindSystem
 
 
@@ -19,7 +24,7 @@ func before_each() -> void:
 	super()
 	seed(4321)
 	GameManager.wind_enabled = true
-	wind = WindSystem.new()
+	wind = WindImpl.new()
 	add_child_autofree(wind)
 
 

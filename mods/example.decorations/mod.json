@@ -1,0 +1,13 @@
+{
+	"format_version": 1,
+	"id": "example.decorations",
+	"name": "Example: Garden Ornaments",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A data-only mod adding three decorations (Topiary Arch, Bird Bath, Lantern Post) and making the shipped Park Bench cheaper. Decorations draw procedurally by category, so new ones appear on the course with no artwork to ship.",
+	"types": ["data", "decorations"],
+	"content": {
+		"decorations": "data/decorations.json"
+	}
+}

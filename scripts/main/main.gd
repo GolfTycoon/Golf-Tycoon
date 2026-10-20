@@ -59,8 +59,12 @@ var placement_manager: PlacementManager = PlacementManager.new()
 var undo_manager: UndoManager = UndoManager.new()
 var wind_system: WindSystem = null
 var weather_system: WeatherSystem = null
-var rain_overlay: RainOverlay = null
-var weather_tint_system: WeatherTintSystem = null
+## The rain and weather tint are the Weather mod's visuals now: it adds them
+## to this scene when EventBus.main_scene_ready fires (see
+## mods/golf_tycoon.weather/mod_main.gd). These untyped slots stay for the
+## older call sites that look the nodes up on the main scene.
+var rain_overlay: Node = null
+var weather_tint_system: Node = null
 var elevation_tool: ElevationTool = ElevationTool.new()
 var building_registry: Dictionary = {}
 var decoration_registry: Dictionary = {}
@@ -116,6 +120,8 @@ enum GoalScreenOrigin { CLUB_TAB, TITLE_SCREEN }
 var course_milestones_screen: CourseMilestonesScreen = null
 var world_milestones_screen: WorldMilestonesScreen = null
 var achievements_screen: AchievementsScreen = null
+## The Mods screen opened from the title screen's Mods tile.
+var mods_screen: ModsScreen = null
 ## The pause flag from before a goal screen opened. The screens freeze the
 ## day while they are up, so this is what the course resumes to on the way
 ## out.
@@ -227,25 +233,22 @@ func _ready() -> void:
 	add_child(undo_manager)
 	terrain_grid.tile_changed.connect(_on_terrain_tile_changed_for_undo)
 
-	# Set up wind system
-	wind_system = WindSystem.new()
+	# Set up wind and weather: whichever implementations the loaded mods
+	# provided, or the neutral bases (dead calm, permanent sun) when the
+	# Wind/Weather mods are off. The tint and rain are the Weather mod's to
+	# add - see the main_scene_ready signal at the end of _ready.
+	wind_system = ModManager.create_wind_system()
 	wind_system.name = "WindSystem"
 	add_child(wind_system)
 	GameManager.wind_system = wind_system
 
-	# Set up weather system
-	weather_system = WeatherSystem.new()
+	weather_system = ModManager.create_weather_system()
 	weather_system.name = "WeatherSystem"
 	add_child(weather_system)
 	GameManager.weather_system = weather_system
 
 	# Add elevation tool
 	add_child(elevation_tool)
-
-	# Set up day/night cycle
-	weather_tint_system = WeatherTintSystem.new()
-	weather_tint_system.name = "WeatherTintSystem"
-	add_child(weather_tint_system)
 
 	# Set up tournament manager
 	tournament_manager = TournamentManager.new()
@@ -325,7 +328,7 @@ func _ready() -> void:
 	_setup_bottom_bar()
 	_setup_hud_status_column()
 	_setup_scores_dock()
-	_setup_rain_overlay()
+	_setup_mod_hud_widgets()
 	_setup_placement_preview()
 	_create_menu_buttons()
 	_fill_left_control_stack()
@@ -383,6 +386,8 @@ func _ready() -> void:
 	_setup_input_layer()
 	_initialize_game()
 	print("Main scene ready")
+	# Mods hang their per-scene nodes (weather visuals and friends) off this.
+	EventBus.main_scene_ready.emit(self)
 
 ## Add the two input aids shared by every screen: the pointer that lets a
 ## keyboard or controller operate the course like a mouse, and the strip of
@@ -422,36 +427,15 @@ func _focus_gameplay_hud() -> void:
 		InputManager.focus_control(target)
 
 func _load_buildings_data() -> void:
-	"""Load buildings from buildings.json"""
-	var file = FileAccess.open("res://data/buildings.json", FileAccess.READ)
-	if file == null:
-		push_error("Failed to load buildings.json")
-		return
-	
-	var json_string = file.get_as_text()
-	var data = JSON.parse_string(json_string)
-	
-	if data and data.has("buildings"):
-		building_registry = data["buildings"]
-		print("Loaded %d building types" % building_registry.size())
-	else:
-		push_error("Invalid buildings.json format")
+	"""The building catalog the game plays with: data/buildings.json with every
+	enabled mod's additions and overrides merged over it in load order."""
+	building_registry = ContentRegistry.get_buildings()
+	print("Loaded %d building types" % building_registry.size())
 
 func _load_decorations_data() -> void:
-	"""Load decorations from decorations.json"""
-	var file = FileAccess.open("res://data/decorations.json", FileAccess.READ)
-	if file == null:
-		push_error("Failed to load decorations.json")
-		return
-
-	var json_string = file.get_as_text()
-	var data = JSON.parse_string(json_string)
-
-	if data and data.has("decorations"):
-		decoration_registry = data["decorations"]
-		print("Loaded %d decoration types" % decoration_registry.size())
-	else:
-		push_error("Invalid decorations.json format")
+	"""The merged decoration catalog, mods and all (see _load_buildings_data)."""
+	decoration_registry = ContentRegistry.get_decorations()
+	print("Loaded %d decoration types" % decoration_registry.size())
 
 func _process(_delta: float) -> void:
 	_update_ui()
@@ -958,6 +942,7 @@ func _show_main_menu() -> void:
 	main_menu.continue_requested.connect(_on_menu_continue)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.achievements_requested.connect(_on_menu_achievements)
+	main_menu.mods_requested.connect(_on_menu_mods)
 	main_menu.edit_golfer_skins_requested.connect(_on_menu_edit_golfer_skins)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.quit_requested.connect(_on_quit_pressed)
@@ -967,6 +952,23 @@ func _show_main_menu() -> void:
 
 ## The title screen's Achievements tile: the career trophy room opens over
 ## the menu on the shared backdrop, and its Back comes home to the menu.
+
+## The title screen's Mods tile: the mod library. Applying a new set from
+## there reloads this scene wholesale, so the screen closes back to the
+## menu whether the player applies or just browses.
+func _on_menu_mods() -> void:
+	_hide_main_menu()
+	mods_screen = ModsScreen.new()
+	mods_screen.name = "ModsScreen"
+	mods_screen.close_requested.connect(func():
+		if mods_screen:
+			mods_screen.queue_free()
+			mods_screen = null
+		_show_main_menu())
+	$UI/HUD.add_child(mods_screen)
+	mods_screen.show_centered()
+	_set_gameplay_ui_visible(false)
+
 func _on_menu_achievements() -> void:
 	_open_goal_screen(MenuScreenKit.GoalTrack.ACHIEVEMENTS, GoalScreenOrigin.TITLE_SCREEN)
 
@@ -1434,7 +1436,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child.name not in popup_panels:
@@ -1474,18 +1476,19 @@ func _setup_hud_status_column() -> void:
 	hud.add_child(hud_status_column)
 	hud.move_child(hud_status_column, 0)
 
-func _setup_rain_overlay() -> void:
-	rain_overlay = RainOverlay.new()
-	rain_overlay.name = "RainOverlay"
-	# Use a CanvasLayer so rain renders in screen space (not world space)
-	# This way rain stays visible regardless of camera position/zoom
-	var rain_canvas := CanvasLayer.new()
-	rain_canvas.name = "RainCanvas"
-	rain_canvas.layer = 0  # World is layer 0; HUD CanvasLayer is layer 1.
-	add_child(rain_canvas)
-	rain_canvas.add_child(rain_overlay)
-	if weather_system:
-		rain_overlay.setup(weather_system)
+## Hand the loaded mods their HUD space: each registered widget factory
+## returns a Control, added to the HUD in load order. The Weather mod's
+## rain and tint arrive through EventBus.main_scene_ready instead - they
+## belong to the world layers, not the HUD.
+func _setup_mod_hud_widgets() -> void:
+	for widget in ModManager.get_hud_widgets():
+		var factory: Callable = widget.get("factory", Callable())
+		if not factory.is_valid():
+			continue
+		var made: Variant = factory.call()
+		if made is Control:
+			(made as Control).name = "ModWidget_" + str(widget.get("mod_id", "mod")).replace(".", "_").replace("-", "_")
+			$UI/HUD.add_child(made)
 
 func _setup_placement_preview() -> void:
 	"""Create placement preview overlay for building and decoration placement"""

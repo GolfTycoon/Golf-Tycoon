@@ -16,7 +16,52 @@ enum Type {
 }
 
 ## Theme display information
+## ---------------------------------------------------------------------------
+## Mod overrides. A theme mod patches an existing theme by its save name
+## ("parkland"): its display name, description, gameplay modifiers and
+## terrain colours. ModContentRegistry owns the merged table while mods load
+## and pushes it here, so every reader of a theme sees the same result and
+## load order decides whose patch wins. (Minting a brand new theme id is not
+## supported: theme ids are written into saves by number, so the game
+## allocates them itself - see docs/modding.md.)
+static var _mod_overrides: Dictionary = {}
+
+static func set_mod_overrides(overrides: Dictionary) -> void:
+	_mod_overrides = overrides.duplicate(true)
+
+static func get_mod_overrides() -> Dictionary:
+	return _mod_overrides.duplicate(true)
+
+static func _theme_override(theme_type: int) -> Dictionary:
+	var found: Variant = _mod_overrides.get(to_string_name(theme_type), {})
+	return found if found is Dictionary else {}
+
 static func get_theme_name(theme_type: int) -> String:
+	var overridden := str(_theme_override(theme_type).get("name", ""))
+	return overridden if not overridden.is_empty() else _base_theme_name(theme_type)
+
+static func get_description(theme_type: int) -> String:
+	var overridden := str(_theme_override(theme_type).get("description", ""))
+	return overridden if not overridden.is_empty() else _base_description(theme_type)
+
+static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
+	var modifiers: Dictionary = _base_gameplay_modifiers(theme_type)
+	var patch: Variant = _theme_override(theme_type).get("modifiers", {})
+	if patch is Dictionary:
+		for key in patch:
+			modifiers[key] = patch[key]
+	return modifiers
+
+static func get_terrain_colors(theme_type: int) -> Dictionary:
+	var colors: Dictionary = _base_terrain_colors(theme_type)
+	var patch: Variant = _theme_override(theme_type).get("colors", {})
+	if patch is Dictionary:
+		for key in patch:
+			var value: Variant = patch[key]
+			colors[key] = Color.html(str(value)) if value is String else value
+	return colors
+
+static func _base_theme_name(theme_type: int) -> String:
 	match theme_type:
 		Type.PARKLAND: return "Parkland"
 		Type.DESERT: return "Desert"
@@ -30,7 +75,7 @@ static func get_theme_name(theme_type: int) -> String:
 		Type.MARSHLAND: return "Marshland"
 	return "Unknown"
 
-static func get_description(theme_type: int) -> String:
+static func _base_description(theme_type: int) -> String:
 	match theme_type:
 		Type.PARKLAND:
 			return "Classic parkland course with lush fairways, deciduous trees, and gentle rolling hills. A balanced, traditional golfing experience."
@@ -55,7 +100,7 @@ static func get_description(theme_type: int) -> String:
 	return ""
 
 ## Gameplay modifiers per theme
-static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
+static func _base_gameplay_modifiers(theme_type: int) -> Dictionary:
 	match theme_type:
 		Type.PARKLAND:
 			return {
@@ -152,7 +197,7 @@ static func get_gameplay_modifiers(theme_type: int) -> Dictionary:
 	return {}
 
 ## Theme color palettes used by the shader-driven course surface.
-static func get_terrain_colors(theme_type: int) -> Dictionary:
+static func _base_terrain_colors(theme_type: int) -> Dictionary:
 	match theme_type:
 		Type.PARKLAND:
 			return {

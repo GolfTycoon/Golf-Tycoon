@@ -1,0 +1,7 @@
+{
+	"tuning": {
+		"economy.maintenance_multiplier": 0.9,
+		"golfers.spawn_multiplier": 1.1,
+		"reputation.decay_multiplier": 0.8
+	}
+}

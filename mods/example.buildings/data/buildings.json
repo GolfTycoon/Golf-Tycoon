@@ -1,0 +1,42 @@
+{
+	"buildings": {
+		"viewing_tower": {
+			"name": "Viewing Tower",
+			"size": [2, 2],
+			"cost": 3500,
+			"operating_cost": 20,
+			"effect_type": "revenue",
+			"income_per_golfer": 6,
+			"effect_radius": 8,
+			"effect": {
+				"type": "skill_training",
+				"skill": "imagination",
+				"scales_with_skill": true,
+				"max_boost": 0.15
+			},
+			"placeable_on_course": true,
+			"availability": { "all": true },
+			"color": "7a5a36",
+			"description": "A timber tower over the course. Golfers climb it to read the holes ahead, which does wonders for their imagination. (Added by the Example: More Facilities mod - pure data, no code.)"
+		},
+		"festival_marquee": {
+			"name": "Festival Marquee",
+			"size": [3, 3],
+			"cost": 4500,
+			"operating_cost": 30,
+			"effect_type": "revenue",
+			"income_per_golfer": 10,
+			"effect_radius": 7,
+			"effect": {
+				"type": "food_service"
+			},
+			"placeable_on_course": true,
+			"availability": { "all": true, "excluded_themes": ["links"] },
+			"color": "b8463e",
+			"description": "A big striped tent serving food all day and sheltering a crowd at the weekend. Everywhere except Links courses, where the wind has opinions. (Added by the Example: More Facilities mod.)"
+		},
+		"snack_bar": {
+			"cost": 2200
+		}
+	}
+}

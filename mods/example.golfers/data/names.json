@@ -1,0 +1,16 @@
+{
+	"professions": [
+		"Lighthouse Keeper", "Beekeeper", "Cartographer", "Blacksmith",
+		"Opera Singer", "Meteorologist", "Toy Maker", "Archivist"
+	],
+	"female_first_names": [
+		"Matilda", "Evangeline", "Priya", "Siobhan", "Yuki", "Freya"
+	],
+	"male_first_names": [
+		"Bartholomew", "Mateo", "Hamish", "Kenji", "Lars", "Emeka"
+	],
+	"last_names": [
+		"Fairweather", "Okafor", "Lindqvist", "Marsh", "Delacroix",
+		"Tanaka", "Bunkerfield", "Abernathy"
+	]
+}

@@ -1,0 +1,8 @@
+{
+	"terrain": {
+		"fairway": { "placement_cost": 4 },
+		"green": { "maintenance_cost": 1 },
+		"bunker": { "maintenance_cost": 0 },
+		"pot_bunker": { "placement_cost": 14 }
+	}
+}

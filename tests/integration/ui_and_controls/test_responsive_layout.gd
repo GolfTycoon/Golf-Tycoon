@@ -60,9 +60,9 @@ func test_a_phone_gets_the_compact_hud_and_a_reachable_menu() -> void:
 	assert_almost_eq(main.hud_status_column.custom_minimum_size.x, 150.0, 1.0, "The status column is 150px wide")
 	assert_lte(main.bottom_bar.offset_top, -190.0, "The bottom bar keeps its full height on phones")
 	assert_almost_eq(main.hud_status_column.offset_right, -8.0, 1.0, "The status column stays in the corner")
-	# The main menu fits, scrollable, with its eight actions in reach.
+	# The main menu fits, scrollable, with its nine actions in reach.
 	var buttons := nodes_of_class(main.main_menu, "Button")
-	assert_eq(buttons.size(), 8, "The main menu shows its eight actions on phones")
+	assert_eq(buttons.size(), 9, "The main menu shows its nine actions on phones")
 	for button in buttons:
 		var rect: Rect2 = button.get_global_rect()
 		assert_true(rect.size.x <= 390.0 and rect.size.y >= 30.0, "%s fits the phone and stays tappable" % button.text)

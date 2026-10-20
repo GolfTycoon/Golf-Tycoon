@@ -805,12 +805,8 @@ func _apply_weather() -> void:
 func _load_catalogues() -> void:
 	if not _buildings_data.is_empty():
 		return
-	var buildings = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json"))
-	if buildings is Dictionary:
-		_buildings_data = buildings.get("buildings", {})
-	var decorations = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json"))
-	if decorations is Dictionary:
-		_decorations_data = decorations.get("decorations", {})
+	_buildings_data = ContentRegistry.get_buildings()
+	_decorations_data = ContentRegistry.get_decorations()
 
 ## Ground a building, patch or edit stamp may take: owned, on the grid, not
 ## the playing line, not water, and nothing built on it.

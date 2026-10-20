@@ -38,9 +38,13 @@ const UNLIMITED_MONEY: int = -1
 ## "Unlimited"; nothing is ever deducted, so the balance only ever grows).
 const UNLIMITED_STARTING_BALANCE: int = 999999999
 
-## Enabled game features, chosen on the Start New Game screen. Weather, wind
-## and seasons all keep running when disabled — they simply stop producing any
-## effect (see the feature guards in WeatherSystem, WindSystem and SeasonSystem).
+## Enabled game features, chosen on the Start New Game screen: this company's
+## choice of whether the weather, wind and season *mods* act on its courses.
+## The systems themselves are mods now (res://mods/golf_tycoon.*/, behind the
+## neutral WeatherSystem/WindSystem bases and the SeasonSystem facade), so a
+## flag here asks a question the ModManager also answers: the feature only
+## has an effect when its mod is loaded too (see feature_available). When a
+## flag is off the systems keep running but stay neutral, as they always did.
 var weather_enabled: bool = false
 var wind_enabled: bool = false
 var seasons_enabled: bool = false
@@ -399,11 +403,20 @@ func set_feature_enabled(feature: String, enabled: bool) -> void:
 		"wind": set_wind_enabled(enabled)
 		"seasons": set_seasons_enabled(enabled)
 
+## Whether the mod that provides a feature is actually loaded. Unknown
+## features have no provider to be missing.
+func feature_available(feature: String) -> bool:
+	match feature:
+		"weather": return ModManager.has_weather_provider()
+		"wind": return ModManager.has_wind_provider()
+		"seasons": return ModManager.has_season_provider()
+	return true
+
 func is_feature_enabled(feature: String) -> bool:
 	match feature:
-		"weather": return weather_enabled
-		"wind": return wind_enabled
-		"seasons": return seasons_enabled
+		"weather": return weather_enabled and feature_available(feature)
+		"wind": return wind_enabled and feature_available(feature)
+		"seasons": return seasons_enabled and feature_available(feature)
 	return true
 
 ## Company name changes are rare enough to notify the HUD directly.
@@ -553,7 +566,13 @@ func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 	facilities (Airstrip, Castle, Casino, Theme Park) the course owns."""
 	var holes = get_open_hole_count()
 	var fee_bonus := get_green_fee_bonus()
-	var per_hole := int(round(green_fee * (1.0 + fee_bonus)))
+	# A balance mod can scale every green fee, and script mods can rewrite
+	# the per-hole charge (members' day, free Tuesdays...) via the hook.
+	var tuned_per_hole: float = float(green_fee) * (1.0 + fee_bonus) \
+		* ContentRegistry.get_tuning("economy.green_fee_multiplier", 1.0)
+	tuned_per_hole = ModManager.apply_hook("green_fee_per_hole", tuned_per_hole, {
+		"day": current_day, "holes": holes, "golfer_name": golfer_name})
+	var per_hole := maxi(0, int(round(tuned_per_hole)))
 	var total = per_hole * max(holes, 1)
 
 	if current_course:
@@ -739,6 +758,7 @@ func advance_to_next_day() -> void:
 			decay = 0.1
 		var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
 		decay *= diff_mods.get("reputation_decay_multiplier", 1.0)
+		decay *= ContentRegistry.get_tuning("reputation.decay_multiplier", 1.0)
 		modify_reputation(-decay * DAILY_RATE_SCALE)
 
 	# Stagnation penalty: courses that don't expand slowly lose reputation
@@ -989,7 +1009,12 @@ class DailyStatistics:
 		# Terrain maintenance from actual tiles, scaled by theme-aware seasonal modifier
 		var season = SeasonSystem.get_season(GameManager.current_day)
 		var season_mod = SeasonSystem.get_maintenance_modifier(season, GameManager.current_theme)
-		terrain_maintenance = GameManager.apply_daily_charge("terrain", terrain_cost * season_mod)
+		# Balance mods scale upkeep (tuning), script mods can rewrite it (hook).
+		var terrain_legacy: float = float(terrain_cost) * season_mod \
+			* ContentRegistry.get_tuning("economy.maintenance_multiplier", 1.0)
+		terrain_legacy = ModManager.apply_hook("terrain_maintenance_cost", terrain_legacy, {
+			"day": GameManager.current_day, "terrain_cost": terrain_cost, "season": season})
+		terrain_maintenance = GameManager.apply_daily_charge("terrain", terrain_legacy)
 
 		# Base operating cost
 		base_operating_cost = GameManager.apply_daily_charge(

@@ -37,6 +37,7 @@ Golf Tycoon is a 2D isometric simulation written in **GDScript** for **Godot 4.6
 - **Reputation and tournaments.** Host tournaments from local to championship level. Winning raises your reputation.
 - **World map.** Buy course locations across 27 destinations, each with its own theme, land and price.
 - **Milestones and achievements.** Course Location Milestones for every site and World Milestones for the company unlock again with each save; career Achievements stay unlocked forever between saves. Each track has its own fullscreen screen on the world map's backdrop.
+- **Modding.** Install folder/ZIP mods, arrange an ordered load list, and create data, gameplay, UI and environment mods. Includes three official environment mods, nine examples and a starter template. [Modding guide](docs/modding.md). Steam Workshop integration is optional and requires a configured GodotSteam build.
 - **Living calendar.** Seasons, weather, wind and seasonal events change play throughout the year.
 - **Golfer skins.** Paint and re-colour the golfers' clothing in the built-in studio.
 - **Touch and desktop.** Responsive layout for small windows, touch screens and the web build.

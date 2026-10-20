@@ -1,0 +1,16 @@
+# Golf Tycoon golfer skin - Re-color Groups and what wears it.
+# The High-Viz: this mod's whole skin is this one file. It wears the shipped
+# Casual sprite set and only re-colours its groups, so there are no layer
+# files to ship. Painted layers (edited pixels) work exactly as they do for
+# the skins under data/golfer_skins/.
+golfer-skin 1
+id high_viz
+name High-Viz
+sprites casual
+size 48 48
+worn_by casual
+group 1 A e8641e 0.706 Shirt
+group 2 B 23283d 0.302 Pants
+group 3 C ffe066 0.933 Cap
+group 4 D 41261f 0.255 Hair
+group 5 E efb9a5 0.937 Skin

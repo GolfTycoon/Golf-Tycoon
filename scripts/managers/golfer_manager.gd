@@ -124,6 +124,12 @@ func get_spawn_rate_modifier() -> float:
 	var holes := GameManager.get_open_hole_count()
 	var fair := CourseEconomy.fair_round_price(GameManager.reputation, holes, GameManager.current_day, GameManager.current_theme)
 	base_modifier *= CourseEconomy.price_demand(GameManager.green_fee, holes, fair)
+
+	# Mods get the last word: a balance mod's flat tuning multiplier, then the
+	# script hooks in load order (see docs/modding/mod-api.md).
+	base_modifier *= ContentRegistry.get_tuning("golfers.spawn_multiplier", 1.0)
+	base_modifier = ModManager.apply_hook("golfer_spawn_rate", base_modifier, {
+		"day": GameManager.current_day, "theme": GameManager.current_theme, "holes": holes})
 	return base_modifier
 
 func get_effective_spawn_cooldown() -> float:

@@ -81,8 +81,28 @@ const PROPERTIES: Dictionary = {
 	Type.BRUSH: {"name": "Brush", "color": Color(0.33, 0.40, 0.22), "playable": true, "placement_cost": 3, "maintenance_cost": 0, "shot_difficulty": 0.75, "speed_modifier": 0.75, "beauty_bonus": 1},
 }
 
+## Per-type property overrides registered by the loaded mods (see
+## ModContentRegistry). They are merged over PROPERTIES when a type's
+## properties are read, so a balance mod can change what a bunker costs
+## without the id - the value every save stores - ever moving. Only known
+## properties for existing types can be overridden; mods cannot mint new
+## terrain ids (those are allocated by the game so old saves stay readable).
+static var _mod_overrides: Dictionary = {}
+
+static func set_mod_overrides(overrides: Dictionary) -> void:
+	_mod_overrides = overrides.duplicate(true)
+
+static func get_mod_overrides() -> Dictionary:
+	return _mod_overrides.duplicate(true)
+
 static func get_properties(type: Type) -> Dictionary:
-	return PROPERTIES.get(type, PROPERTIES[Type.EMPTY])
+	var base: Dictionary = PROPERTIES.get(type, PROPERTIES[Type.EMPTY])
+	if _mod_overrides.has(type):
+		var merged: Dictionary = base.duplicate()
+		for key in _mod_overrides[type]:
+			merged[key] = _mod_overrides[type][key]
+		return merged
+	return base
 
 static func get_type_name(type: Type) -> String:
 	return get_properties(type).get("name", "Unknown")

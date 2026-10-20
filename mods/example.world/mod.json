@@ -1,0 +1,16 @@
+{
+	"format_version": 1,
+	"id": "example.world",
+	"name": "Example: Tasmania & the Alps",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A world mod: two new course locations on the globe - a windswept Tasmanian links stocked with its own visiting golfers, and a big Alpine mountain site - buyable by any company launched while the mod is on. Shows how locations (and the golfers who visit them) are pure data: theme and size by name, a pin by latitude and longitude.",
+	"types": ["data", "world"],
+	"content": {
+		"world_locations": "data/locations.json",
+		"visiting_golfers": {
+			"tasmania": "data/visiting_golfers_tasmania.json"
+		}
+	}
+}

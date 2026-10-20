@@ -174,8 +174,8 @@ const CLUBHOUSE_TILE := Vector2i(54, 61)
 ## Compact central arrival garden, outside the nine playing corridors.
 static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> void:
 	if not entities: return
-	var buildings: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json")).buildings
-	var decor: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/decorations.json")).decorations
+	var buildings: Dictionary = ContentRegistry.get_buildings()
+	var decor: Dictionary = ContentRegistry.get_decorations()
 	for x in range(53,61):
 		for y in range(60,70):
 			var p := Vector2i(x,y)

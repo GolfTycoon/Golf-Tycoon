@@ -1,6 +1,23 @@
 extends Node
 class_name WeatherSystem
-## WeatherSystem - Manages weather conditions and their effects on gameplay
+## WeatherSystem - The game's stable weather interface, and its neutral base.
+##
+## Everything that reads the weather - golfer spawning, shot accuracy, the
+## ambience lighting, the HUD, saves - talks to this class. Whether any
+## weather actually *happens* is up to the mods that are loaded: a mod
+## registers a weather factory whose WeatherSystem subclass produces real
+## weather (the bundled Weather mod in res://mods/golf_tycoon.weather/ is
+## the shipped one, with spells, fronts and theme-aware rolls). Without
+## one, ModManager hands the game this base class, which is permanently,
+## changelessly sunny and affects nothing - the same contract the game
+## gives wind and seasons, so no caller ever has to wonder whether
+## "the weather" exists.
+##
+## A subclass overrides generate_daily_weather(), update_weather_daily(),
+## get_spawn_rate_modifier() and get_accuracy_modifier(); the shared
+## vocabulary (the WeatherType enum, the read-outs, the sky and light each
+## kind of weather brings) lives here so every implementation agrees on
+## what "Rain" means.
 
 ## Weather types
 enum WeatherType {
@@ -16,216 +33,40 @@ enum WeatherType {
 var weather_type: WeatherType = WeatherType.SUNNY
 var intensity: float = 0.0  # 0.0 = clear, 1.0 = severe
 
-## Weather transition (one game day per step — a full transition spans ~2 days)
-var _target_weather: WeatherType = WeatherType.SUNNY
-var _transition_progress: float = 1.0
-const TRANSITION_SPEED: float = 0.5  # Transition fraction completed per game day
-
-## Weather persistence: spells last several days on the fast calendar
-var _days_in_current_weather: int = 0
-var _weather_duration_days: int = 5  # Spell length before a possible change
-const MIN_WEATHER_SPELL_DAYS: int = 4
-const MAX_WEATHER_SPELL_DAYS: int = 21
-
 func _ready() -> void:
-	_generate_daily_weather()
+	generate_daily_weather()
 	EventBus.day_changed.connect(_on_day_changed)
 
 func _exit_tree() -> void:
 	if EventBus.day_changed.is_connected(_on_day_changed):
 		EventBus.day_changed.disconnect(_on_day_changed)
 
-## Generate weather for a new day
+## Generate weather for a new day. The neutral base stays clear.
 func generate_daily_weather() -> void:
-	_generate_daily_weather()
+	force_clear_weather()
 
-func _generate_daily_weather() -> void:
-	# Weather can be turned off as a game feature: the course then stays sunny
-	# and none of the weather modifiers apply.
-	if not GameManager.weather_enabled:
-		force_clear_weather()
-		return
-	# Theme-aware seasonal weather (Links = windier/rainier, Desert = drier, etc.)
-	var thresholds = SeasonSystem.get_blended_weather_weights(GameManager.current_day, GameManager.current_theme)
-	var roll = randf()
-	if roll < thresholds[0]:
-		weather_type = WeatherType.SUNNY
-		intensity = 0.0
-	elif roll < thresholds[1]:
-		weather_type = WeatherType.PARTLY_CLOUDY
-		intensity = 0.1
-	elif roll < thresholds[2]:
-		weather_type = WeatherType.CLOUDY
-		intensity = 0.25
-	elif roll < thresholds[3]:
-		weather_type = WeatherType.LIGHT_RAIN
-		intensity = 0.4
-	elif roll < thresholds[4]:
-		weather_type = WeatherType.RAIN
-		intensity = 0.6
-	else:
-		weather_type = WeatherType.HEAVY_RAIN
-		intensity = 0.85
-
-	_target_weather = weather_type
-	_transition_progress = 1.0
-	_days_in_current_weather = 0
-	_weather_duration_days = randi_range(MIN_WEATHER_SPELL_DAYS, MAX_WEATHER_SPELL_DAYS)
-
-	_emit_weather_changed()
-	print("Weather for today: %s (intensity: %.1f)" % [get_weather_text(), intensity])
-
-## Advance the weather by one game day. Called on the day_changed signal:
-## weather now evolves daily since there is no intra-day clock.
+## Advance the weather by one game day. The neutral base stays clear:
+## no weather mod, no weather.
 func update_weather_daily() -> void:
-	# The Weather feature is off: never leave fair weather.
-	if not GameManager.weather_enabled:
-		force_clear_weather()
-		return
-	_days_in_current_weather += 1
+	force_clear_weather()
 
-	# Once the current spell has run its course, weather may move on
-	if _days_in_current_weather >= _weather_duration_days:
-		_maybe_change_weather()
-
-	# Handle weather transitions
-	if _transition_progress < 1.0:
-		_transition_progress = minf(_transition_progress + TRANSITION_SPEED, 1.0)
-		_update_intensity_for_transition()
-		_emit_weather_changed()
-
-func _maybe_change_weather() -> void:
-	# Weather tends to move in patterns (sunny -> cloudy -> rain -> clearing)
-	var change_chance = 0.55  # Chance to move on once a spell ends
-	if randf() > change_chance:
-		# Extend the spell and keep current weather
-		_weather_duration_days = _days_in_current_weather + randi_range(3, 9)
-		return
-
-	# Determine new weather based on current
-	var new_weather = _get_next_weather()
-	if new_weather != weather_type:
-		_target_weather = new_weather
-		_transition_progress = 0.0
-		_days_in_current_weather = 0
-		_weather_duration_days = randi_range(MIN_WEATHER_SPELL_DAYS, MAX_WEATHER_SPELL_DAYS)
-
-func _get_next_weather() -> WeatherType:
-	# Weather tends to follow patterns
-	match weather_type:
-		WeatherType.SUNNY:
-			# Sunny can become partly cloudy
-			return WeatherType.PARTLY_CLOUDY if randf() < 0.7 else WeatherType.SUNNY
-		WeatherType.PARTLY_CLOUDY:
-			# Can go either way
-			var roll = randf()
-			if roll < 0.4:
-				return WeatherType.SUNNY
-			elif roll < 0.8:
-				return WeatherType.CLOUDY
-			else:
-				return WeatherType.PARTLY_CLOUDY
-		WeatherType.CLOUDY:
-			var roll = randf()
-			if roll < 0.3:
-				return WeatherType.PARTLY_CLOUDY
-			elif roll < 0.7:
-				return WeatherType.LIGHT_RAIN
-			else:
-				return WeatherType.CLOUDY
-		WeatherType.LIGHT_RAIN:
-			var roll = randf()
-			if roll < 0.4:
-				return WeatherType.CLOUDY
-			elif roll < 0.7:
-				return WeatherType.RAIN
-			else:
-				return WeatherType.LIGHT_RAIN
-		WeatherType.RAIN:
-			var roll = randf()
-			if roll < 0.4:
-				return WeatherType.LIGHT_RAIN
-			elif roll < 0.6:
-				return WeatherType.HEAVY_RAIN
-			else:
-				return WeatherType.RAIN
-		WeatherType.HEAVY_RAIN:
-			# Heavy rain tends to let up
-			return WeatherType.RAIN if randf() < 0.7 else WeatherType.HEAVY_RAIN
-
-	return weather_type
-
-func _update_intensity_for_transition() -> void:
-	# Lerp intensity based on transition progress
-	var target_intensity = _get_base_intensity(_target_weather)
-	var current_base = _get_base_intensity(weather_type)
-	intensity = lerpf(current_base, target_intensity, _transition_progress)
-
-	# Update weather type when transition is mostly complete
-	if _transition_progress >= 0.8:
-		weather_type = _target_weather
-
-func _get_base_intensity(wtype: WeatherType) -> float:
-	match wtype:
-		WeatherType.SUNNY:
-			return 0.0
-		WeatherType.PARTLY_CLOUDY:
-			return 0.1
-		WeatherType.CLOUDY:
-			return 0.25
-		WeatherType.LIGHT_RAIN:
-			return 0.4
-		WeatherType.RAIN:
-			return 0.6
-		WeatherType.HEAVY_RAIN:
-			return 0.85
-	return 0.0
-
-## Pin the course to clear, neutral weather (the Weather feature is off).
+## Pin the course to clear, neutral weather (feature off, or no provider).
 func force_clear_weather() -> void:
 	var changed := weather_type != WeatherType.SUNNY or intensity != 0.0
 	weather_type = WeatherType.SUNNY
-	_target_weather = WeatherType.SUNNY
 	intensity = 0.0
-	_transition_progress = 1.0
-	_days_in_current_weather = 0
 	if changed:
 		_emit_weather_changed()
 
-## Get spawn rate modifier based on weather (0.5 - 1.0)
-## Bad weather reduces golfer spawning
+## Get spawn rate modifier based on weather (bad weather reduces spawning).
 func get_spawn_rate_modifier() -> float:
-	if not GameManager.weather_enabled:
-		return 1.0
-	match weather_type:
-		WeatherType.SUNNY:
-			return 1.0
-		WeatherType.PARTLY_CLOUDY:
-			return 1.0
-		WeatherType.CLOUDY:
-			return 0.9
-		WeatherType.LIGHT_RAIN:
-			return 0.7
-		WeatherType.RAIN:
-			return 0.5
-		WeatherType.HEAVY_RAIN:
-			return 0.3
 	return 1.0
 
-## Get accuracy modifier for shots (rain makes aiming harder)
+## Get accuracy modifier for shots (rain makes aiming harder).
 func get_accuracy_modifier() -> float:
-	match weather_type:
-		WeatherType.SUNNY, WeatherType.PARTLY_CLOUDY, WeatherType.CLOUDY:
-			return 1.0
-		WeatherType.LIGHT_RAIN:
-			return 0.95
-		WeatherType.RAIN:
-			return 0.90
-		WeatherType.HEAVY_RAIN:
-			return 0.85
 	return 1.0
 
-## Get sky tint color for DayNightSystem integration
+## Get sky tint color for the weather ambience.
 func get_sky_tint() -> Color:
 	match weather_type:
 		WeatherType.SUNNY:

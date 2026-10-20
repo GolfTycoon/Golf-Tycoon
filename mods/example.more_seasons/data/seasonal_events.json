@@ -1,0 +1,59 @@
+{
+	"events": [
+		{
+			"id": "golf_tycoon.seasons:spring_open",
+			"name": "Spring Opening Week",
+			"description": "Course opens for the season! Extra golfers flock in.",
+			"season": "spring",
+			"day_in_season": 1,
+			"revenue_modifier": 1.6,
+			"spawn_modifier": 1.7,
+			"reputation_bonus": 2.0,
+			"duration_days": 7
+		},
+		{
+			"id": "spring_blossom",
+			"name": "Blossom Festival",
+			"description": "The flowering trees draw a gentle crowd who mostly come to look.",
+			"season": "spring",
+			"day_in_season": 20,
+			"revenue_modifier": 1.1,
+			"spawn_modifier": 1.25,
+			"reputation_bonus": 1.0,
+			"duration_days": 5
+		},
+		{
+			"id": "midsummer_night",
+			"name": "Midsummer Night Golf",
+			"description": "Glow balls after dark. Chaotic, unmissable, faintly uninsurable.",
+			"season": "summer",
+			"day_in_season": 21,
+			"revenue_modifier": 1.4,
+			"spawn_modifier": 1.5,
+			"reputation_bonus": 2.0,
+			"duration_days": 3
+		},
+		{
+			"id": "harvest_medal",
+			"name": "Harvest Medal",
+			"description": "The autumn medal - the club's traditional end-of-summer test.",
+			"season": "fall",
+			"day_in_season": 40,
+			"revenue_modifier": 1.25,
+			"spawn_modifier": 1.3,
+			"reputation_bonus": 4.0,
+			"duration_days": 4
+		},
+		{
+			"id": "frostbite_open",
+			"name": "Frostbite Open",
+			"description": "Four layers, two gloves, one trophy nobody sane is contesting.",
+			"season": "winter",
+			"day_in_season": 45,
+			"revenue_modifier": 1.1,
+			"spawn_modifier": 0.9,
+			"reputation_bonus": 3.0,
+			"duration_days": 3
+		}
+	]
+}

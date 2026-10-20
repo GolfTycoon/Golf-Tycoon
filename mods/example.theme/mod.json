@@ -1,0 +1,13 @@
+{
+	"format_version": 1,
+	"id": "example.theme",
+	"name": "Example: Golden Hour Parkland",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A theme mod: Parkland repainted in late-afternoon gold - warmer grass, honey-coloured fairways - with slightly premium green fees to match. Shows how a mod restyles a shipped course theme (its colours and its gameplay modifiers) without touching theme ids, so every existing Parkland save simply changes clothes.",
+	"types": ["data", "theme", "visual"],
+	"content": {
+		"themes": "data/themes.json"
+	}
+}

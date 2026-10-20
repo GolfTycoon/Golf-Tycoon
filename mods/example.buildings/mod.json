@@ -1,0 +1,13 @@
+{
+	"format_version": 1,
+	"id": "example.buildings",
+	"name": "Example: More Facilities",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A data-only mod: two new buildings (a Viewing Tower and a Festival Marquee) plus a price cut for the shipped Snack Bar. No code - everything is the buildings JSON the game itself ships.",
+	"types": ["data", "buildings"],
+	"content": {
+		"buildings": "data/buildings.json"
+	}
+}

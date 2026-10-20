@@ -84,12 +84,9 @@ static func door_position(building: Building, terrain_grid, entity_layer) -> Vec
 		return Vector2.INF
 	return terrain_grid.grid_to_screen_center(tile)
 
-## The loaded clubhouse entry from data/buildings.json (empty if unreadable).
+## The clubhouse entry from the merged building catalog (empty if unreadable).
 static func building_data() -> Dictionary:
-	if _building_data.is_empty():
-		var raw = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json"))
-		if raw is Dictionary and raw.has("buildings"):
-			_building_data = raw["buildings"].get(BUILDING_TYPE, {})
+	_building_data = ContentRegistry.get_building(BUILDING_TYPE)
 	return _building_data
 
 
@@ -110,7 +107,7 @@ static func ensure(terrain_grid, entity_layer, preferred: Vector2i = Vector2i(-1
 		return null
 	var data := building_data()
 	if data.is_empty():
-		push_warning("CourseClubhouse: data/buildings.json has no clubhouse entry")
+		push_warning("CourseClubhouse: the building catalog has no clubhouse entry")
 		return null
 	var size := _data_size(data)
 

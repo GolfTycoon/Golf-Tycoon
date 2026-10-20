@@ -99,6 +99,17 @@ signal tournament_moment(moment: Dictionary)
 signal tournament_simulation_started(tier: int, round_number: int)
 signal tournament_simulation_completed(tier: int, round_number: int)
 
+# Modding Signals
+## Fires once after the enabled mods have loaded (again after a reload from
+## the Mods screen), with the ids that loaded, in load order.
+signal mods_loaded(load_order: Array)
+signal mod_loaded(mod_id: String)
+signal mod_failed(mod_id: String, error: String)
+## The main game scene has built itself (course, HUD, systems). Mods that
+## add per-scene nodes hang them here - it fires again on a scene reload,
+## so check before adding.
+signal main_scene_ready(main_node: Node)
+
 # Save/Load Signals
 signal save_requested()
 signal save_completed(success: bool)

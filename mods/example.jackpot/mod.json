@@ -1,0 +1,34 @@
+{
+	"format_version": 1,
+	"id": "example.jackpot",
+	"name": "Example: Hole-in-One Jackpot",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A gameplay script mod. The course pays a jackpot bounty from the 'insurance fund' every time a visiting golfer aces a hole - and the story draws a crowd for the following week. Everything it uses is the public Mod API: EventBus signals, a value hook, per-mod config and its own slice of the save file. The payout and the crowd boost are configurable.",
+	"types": ["script", "gameplay"],
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"config": {
+		"payout": {
+			"type": "int",
+			"default": 500,
+			"description": "Dollars the fund adds to the course's takings per hole-in-one (sponsor money, not the golfer's)."
+		},
+		"buzz_days": {
+			"type": "int",
+			"default": 7,
+			"description": "How many days the hole-in-one story keeps drawing extra golfers."
+		},
+		"buzz_multiplier": {
+			"type": "float",
+			"default": 1.05,
+			"description": "Golfer-arrival multiplier while the story is fresh."
+		},
+		"announce": {
+			"type": "bool",
+			"default": true,
+			"description": "Toast a notification when a jackpot lands."
+		}
+	}
+}

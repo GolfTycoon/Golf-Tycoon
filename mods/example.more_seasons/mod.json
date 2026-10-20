@@ -1,0 +1,16 @@
+{
+	"format_version": 1,
+	"id": "example.more_seasons",
+	"name": "Example: Extra Seasonal Events",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "An add-on mod: four extra seasonal events for the calendar the Seasons mod provides - and a louder Spring Opening Week, by patching the Seasons mod's own event. It shows a hard dependency: enable it and the Seasons mod is pulled in and loaded first, disable Seasons and this one is reported unsatisfied rather than loading into nothing.",
+	"types": ["data", "events"],
+	"dependencies": [
+		{"id": "golf_tycoon.seasons", "min_version": "1.0.0"}
+	],
+	"content": {
+		"seasonal_events": "data/seasonal_events.json"
+	}
+}

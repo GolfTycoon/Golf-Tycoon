@@ -1,0 +1,18 @@
+{
+	"format_version": 1,
+	"id": "golf_tycoon.wind",
+	"name": "Wind (Official)",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon",
+	"description": "The shipped wind: a daily breeze that drifts a little from day to day and occasionally swings round entirely when a front passes. Crosswinds push shots downwind, headwinds hold them up and tailwinds send them on - less for lofted clubs, not at all for the putter. Disable this mod and the air is always dead calm.",
+	"types": ["feature", "gameplay"],
+	"enabled_by_default": true,
+	"load_priority": 20,
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"workshop": {
+		"published_file_id": 0,
+		"tags": ["Gameplay", "Official"]
+	}
+}

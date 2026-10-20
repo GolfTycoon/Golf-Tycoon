@@ -1,0 +1,46 @@
+{
+	"decorations": {
+		"topiary_arch": {
+			"name": "Topiary Arch",
+			"category": "sculptures",
+			"size": [1, 1],
+			"cost": 350,
+			"daily_upkeep": 4,
+			"aesthetics_value": 0.8,
+			"placeable_terrain": ["grass", "rough", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "WOODLAND", "RESORT"],
+			"color": "3f7a34",
+			"description": "A hedge clipped into an archway. Walking through it makes the next tee shot feel important."
+		},
+		"bird_bath": {
+			"name": "Bird Bath",
+			"category": "water",
+			"size": [1, 1],
+			"cost": 120,
+			"daily_upkeep": 2,
+			"aesthetics_value": 0.4,
+			"placeable_terrain": ["grass", "rough", "path"],
+			"unlock": null,
+			"theme_bonus": ["PARKLAND", "MARSHLAND"],
+			"color": "5b8fa8",
+			"description": "For the crows who keep stealing the range balls. Peace talks, of a sort."
+		},
+		"lantern_post": {
+			"name": "Lantern Post",
+			"category": "furniture",
+			"size": [1, 1],
+			"cost": 200,
+			"daily_upkeep": 1,
+			"aesthetics_value": 0.35,
+			"placeable_terrain": ["grass", "path"],
+			"unlock": null,
+			"theme_bonus": ["CITY", "RESORT", "TROPICAL"],
+			"color": "c98a2d",
+			"description": "A warm light by the path for the last groups of the day."
+		},
+		"park_bench": {
+			"cost": 60
+		}
+	}
+}

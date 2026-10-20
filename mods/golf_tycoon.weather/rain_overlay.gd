@@ -1,5 +1,5 @@
 extends Node2D
-class_name RainOverlay
+## (No class_name: mod scripts are preloaded by relative path - see GolfTycoonMod.)
 ## RainOverlay - Animated rain effect that covers the visible screen
 
 var _weather_system: WeatherSystem = null

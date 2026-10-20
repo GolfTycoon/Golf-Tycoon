@@ -225,6 +225,13 @@ func _update_visuals() -> void:
 		return
 
 	var base_color = DECORATION_COLORS.get(decoration_type, Color.WHITE)
+	# A decoration defined by data (the shape a mod ships) can name the colour
+	# its procedural drawing is painted in.
+	var data_color: Variant = decoration_data.get("color", null)
+	if data_color is String and not str(data_color).is_empty():
+		base_color = Color.html(str(data_color))
+	elif data_color is Color:
+		base_color = data_color
 	var color = base_color
 	if _variation:
 		color = _variation.apply_color_shift(base_color)

@@ -1,0 +1,5 @@
+{
+	"tiers": {
+		"local": { "prize_pool": 1500, "spectator_revenue": 1000 }
+	}
+}
