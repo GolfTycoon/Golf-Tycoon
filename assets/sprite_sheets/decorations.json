@@ -1,0 +1,104 @@
+{
+	"meta": {
+		"image": "res://assets/sprite_sheets/decorations.png",
+		"size": {
+			"w": 2048,
+			"h": 68
+		},
+		"scale": "1",
+		"app": "GolfTycoon pack_sprites.py",
+		"version": "1.0"
+	},
+	"frames": {
+		"fountain": {
+			"frame": [
+				2,
+				2,
+				64,
+				64
+			],
+			"sourceSize": [
+				64,
+				64
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				64,
+				64
+			]
+		},
+		"ball_washer": {
+			"frame": [
+				68,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"golfer_statue": {
+			"frame": [
+				118,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"park_bench": {
+			"frame": [
+				168,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"sundial": {
+			"frame": [
+				218,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		}
+	}
+}

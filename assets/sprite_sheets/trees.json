@@ -1,0 +1,392 @@
+{
+	"meta": {
+		"image": "res://assets/sprite_sheets/trees.png",
+		"size": {
+			"w": 2048,
+			"h": 88
+		},
+		"scale": "1",
+		"app": "GolfTycoon pack_sprites.py",
+		"version": "1.0"
+	},
+	"frames": {
+		"spring_birch": {
+			"frame": [
+				2,
+				2,
+				54,
+				84
+			],
+			"sourceSize": [
+				54,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				54,
+				84
+			]
+		},
+		"spring_oak": {
+			"frame": [
+				58,
+				2,
+				74,
+				84
+			],
+			"sourceSize": [
+				74,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				74,
+				84
+			]
+		},
+		"fall_birch": {
+			"frame": [
+				134,
+				2,
+				54,
+				84
+			],
+			"sourceSize": [
+				54,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				54,
+				84
+			]
+		},
+		"fall_oak": {
+			"frame": [
+				190,
+				2,
+				74,
+				84
+			],
+			"sourceSize": [
+				74,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				74,
+				84
+			]
+		},
+		"winter_birch": {
+			"frame": [
+				266,
+				2,
+				54,
+				84
+			],
+			"sourceSize": [
+				54,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				54,
+				84
+			]
+		},
+		"winter_oak": {
+			"frame": [
+				322,
+				2,
+				74,
+				84
+			],
+			"sourceSize": [
+				74,
+				84
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				74,
+				84
+			]
+		},
+		"birch": {
+			"frame": [
+				398,
+				2,
+				48,
+				80
+			],
+			"sourceSize": [
+				48,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				80
+			]
+		},
+		"dead_tree": {
+			"frame": [
+				448,
+				2,
+				56,
+				80
+			],
+			"sourceSize": [
+				56,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				56,
+				80
+			]
+		},
+		"oak": {
+			"frame": [
+				506,
+				2,
+				64,
+				80
+			],
+			"sourceSize": [
+				64,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				64,
+				80
+			]
+		},
+		"palm": {
+			"frame": [
+				572,
+				2,
+				56,
+				80
+			],
+			"sourceSize": [
+				56,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				56,
+				80
+			]
+		},
+		"pine": {
+			"frame": [
+				630,
+				2,
+				48,
+				80
+			],
+			"sourceSize": [
+				48,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				80
+			]
+		},
+		"winter_pine": {
+			"frame": [
+				680,
+				2,
+				44,
+				80
+			],
+			"sourceSize": [
+				44,
+				80
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				44,
+				80
+			]
+		},
+		"maple": {
+			"frame": [
+				726,
+				2,
+				56,
+				72
+			],
+			"sourceSize": [
+				56,
+				72
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				56,
+				72
+			]
+		},
+		"spring_maple": {
+			"frame": [
+				784,
+				2,
+				60,
+				70
+			],
+			"sourceSize": [
+				60,
+				70
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				60,
+				70
+			]
+		},
+		"fall_maple": {
+			"frame": [
+				846,
+				2,
+				60,
+				70
+			],
+			"sourceSize": [
+				60,
+				70
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				60,
+				70
+			]
+		},
+		"winter_maple": {
+			"frame": [
+				908,
+				2,
+				60,
+				70
+			],
+			"sourceSize": [
+				60,
+				70
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				60,
+				70
+			]
+		},
+		"cactus": {
+			"frame": [
+				970,
+				2,
+				40,
+				64
+			],
+			"sourceSize": [
+				40,
+				64
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				40,
+				64
+			]
+		},
+		"cattails": {
+			"frame": [
+				1012,
+				2,
+				32,
+				48
+			],
+			"sourceSize": [
+				32,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				32,
+				48
+			]
+		},
+		"bush": {
+			"frame": [
+				1046,
+				2,
+				40,
+				40
+			],
+			"sourceSize": [
+				40,
+				40
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				40,
+				40
+			]
+		},
+		"fescue": {
+			"frame": [
+				1088,
+				2,
+				32,
+				32
+			],
+			"sourceSize": [
+				32,
+				32
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				32,
+				32
+			]
+		},
+		"heather": {
+			"frame": [
+				1122,
+				2,
+				32,
+				32
+			],
+			"sourceSize": [
+				32,
+				32
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				32,
+				32
+			]
+		}
+	}
+}

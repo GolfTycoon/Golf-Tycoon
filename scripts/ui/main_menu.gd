@@ -2,10 +2,10 @@ extends Control
 class_name MainMenu
 ## MainMenu - Title screen.
 ##
-## Eight actions: Start New Game (company setup → world map), Quick Start
+## Nine actions: Start New Game (company setup → world map), Quick Start
 ## (default options → world map), Continue (newest save), Load Game,
 ## Achievements (the career trophy room), Golfer Skins (the skin studio),
-## Settings and Quit.
+## Mods (the mod browser), Settings and Quit.
 ##
 ## The old screen was one centred column of six identical buttons with a
 ## "Design. Build. Manage." tagline under the title. The tagline is gone and
@@ -54,6 +54,7 @@ signal continue_requested(save_name: String)
 signal load_game_requested()
 signal achievements_requested()
 signal edit_golfer_skins_requested()
+signal mods_requested()
 signal settings_requested()
 signal quit_requested()
 
@@ -341,6 +342,7 @@ func _build_phone() -> void:
 	column.add_child(_make_continue_card(clampf(view.y * 0.110, 78.0, 104.0), hero_font - 1, caption_font))
 	column.add_child(_make_phone_utility_row(clampf(view.y * 0.085, 54.0, 76.0), hero_font - 2))
 	column.add_child(_make_phone_extra_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
+	column.add_child(_make_phone_settings_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
 	column.add_child(_make_phone_quit_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
 	column.add_child(_make_status_line(true, caption_font))
 
@@ -563,6 +565,7 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		_make_load_tile(height, title_font, caption_font),
 		_make_achievements_tile(height, title_font, caption_font),
 		_make_golfer_skins_tile(height, title_font, caption_font),
+		_make_mods_tile(height, title_font, caption_font),
 		_make_settings_tile(height, title_font, caption_font),
 		_make_quit_tile(height, title_font, caption_font),
 	]
@@ -578,7 +581,7 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 	rows.name = "UtilityRows"
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", 10)
-	for row_tiles: Array in [tiles.slice(0, 3), tiles.slice(3, 5)]:
+	for row_tiles: Array in [tiles.slice(0, 3), tiles.slice(3, 3)]:
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_theme_constant_override("separation", 14)
@@ -607,6 +610,16 @@ func _make_phone_extra_row(height: float, title_font: int, caption_font: int) ->
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 12)
 	row.add_child(_make_golfer_skins_tile(height, title_font, caption_font))
+	row.add_child(_make_mods_tile(height, title_font, 0))
+	return row
+
+## Phone second extra row: Mods and Settings share a line.
+func _make_phone_settings_row(height: float, title_font: int, caption_font: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "UtilityRows"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 12)
+	row.add_child(_make_mods_tile(height, title_font, caption_font))
 	row.add_child(_make_settings_tile(height, title_font, 0))
 	return row
 
@@ -654,6 +667,26 @@ func _make_golfer_skins_tile(height: float, title_font: int, caption_font: int) 
 		PixelIcon.Kind.SHIRT)
 	button.name = "GolferSkinsButton"
 	button.pressed.connect(func(): edit_golfer_skins_requested.emit())
+	return button
+
+func _make_mods_tile(height: float, title_font: int, caption_font: int) -> Button:
+	var caption := ""
+	if has_node("/root/ModManager"):
+		var mm = get_node("/root/ModManager")
+		var count: int = mm.manifests.size() if mm else 0
+		var enabled: int = mm.enabled_mods.size() if mm else 0
+		caption = "%d mods · %d enabled" % [count, enabled]
+		var conflicts: bool = not mm.last_conflicts.is_empty() if mm else false
+		if conflicts:
+			caption += " · conflicts!"
+	else:
+		caption = "Manage game modifications"
+	var button := _make_tile("Mods", caption if not caption.is_empty() else "Manage game modifications",
+		"Browse, enable and reorder mods; later mods override earlier ones",
+		height, title_font, caption_font, ACCENT_UTILITY, UIConstants.COLOR_TEXT,
+		PixelIcon.Kind.GEAR)
+	button.name = "ModsButton"
+	button.pressed.connect(func(): mods_requested.emit())
 	return button
 
 func _make_settings_tile(height: float, title_font: int, caption_font: int) -> Button:

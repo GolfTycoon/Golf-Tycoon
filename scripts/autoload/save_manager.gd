@@ -114,6 +114,7 @@ const SNAPSHOT_COMPANY_KEYS: Array[String] = [
 	"world_map", "player_golfer", "milestones", "daily_history",
 	"yearly_stats", "yearly_days", "yearly_satisfaction_sum",
 	"previous_year_stats", "previous_year_satisfaction", "prior_year_stats",
+	"mods",
 ]
 
 ## The course the player is leaving, ready to be stored on the world map.
@@ -145,6 +146,8 @@ func switch_to_location(snapshot: Dictionary) -> bool:
 	data["game_state"] = state
 	data["player_golfer"] = GameManager.player_profile.serialize()
 	data["world_map"] = WorldMap.serialize()
+	if has_node("/root/ModManager") and ModManager.has_method("serialize_for_save"):
+		data["mods"] = ModManager.serialize_for_save()
 	data["milestones"] = milestone_manager.serialize() if milestone_manager else {}
 	data["daily_history"] = GameManager.daily_history
 	data["yearly_stats"] = _serialize_stats(GameManager.yearly_stats)
@@ -367,6 +370,18 @@ func _build_save_data() -> Dictionary:
 	# them, and the course snapshot of every location left behind.
 	data["world_map"] = WorldMap.serialize()
 
+	# Mods: ordered enabled list + per-mod save data
+	if has_node("/root/ModManager") and ModManager.has_method("serialize_for_save"):
+		data["mods"] = ModManager.serialize_for_save()
+	else:
+		# Fallback: legacy bools as pseudo-mod state
+		var _fallback_enabled: Array = []
+		var _fallback_versions: Dictionary = {}
+		for _fk in ["weather", "wind", "seasons"]:
+			if GameManager.has_method("is_feature_enabled") and GameManager.is_feature_enabled(_fk):
+				_fallback_enabled.append(_fk)
+				_fallback_versions[_fk] = "legacy"
+		data["mods"] = {"enabled": _fallback_enabled, "versions": _fallback_versions}
 	# Shot heatmap
 	if GameManager.shot_heatmap_tracker:
 		data["shot_heatmap"] = GameManager.shot_heatmap_tracker.serialize()
@@ -423,6 +438,17 @@ func _apply_save_data(data: Dictionary) -> void:
 
 	# Active owner rounds are transient, like visitor rounds.
 	GameManager.player_profile = PlayerGolferProfile.from_data(data.get("player_golfer", {}))
+
+	# Mods: restore enabled order + per-mod data before game_state so feature flags win
+	if data.has("mods") and has_node("/root/ModManager") and ModManager.has_method("deserialize_from_save"):
+		ModManager.deserialize_from_save(data.get("mods", {}))
+		# Keep bool vars in sync for code that still reads GameManager directly
+		if GameManager.has_method("_sync_mods_to_features"):
+			GameManager._sync_mods_to_features()
+	elif data.has("game_state"):
+		# Legacy saves carried weather/wind/seasons only as implied absence (all off) or not at all.
+		# Nothing to do — bool vars stay as initialized.
+		pass
 
 	# Company world: which locations are owned, their prices and the courses
 	# stored for them. Older saves carry no world: give the company a matching

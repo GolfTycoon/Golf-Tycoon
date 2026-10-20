@@ -25,9 +25,9 @@ func generate_daily_wind() -> void:
 
 ## Generate new wind conditions (full reshuffle, e.g. a weather front passing)
 func _generate_new_wind() -> void:
-	# Wind can be turned off as a game feature: the air is then dead calm and
+	# Wind can be turned off via mod or per-world toggle: air is then dead calm and
 	# shots fly unaffected.
-	if not GameManager.wind_enabled:
+	if not GameManager.is_feature_enabled("wind"):
 		force_calm()
 		return
 	wind_direction = randf() * TAU
@@ -37,7 +37,7 @@ func _generate_new_wind() -> void:
 ## Advance the wind by one game day: mostly a small random walk around the
 ## current direction, with a rare full reshuffle when conditions change.
 func update_wind_daily() -> void:
-	if not GameManager.wind_enabled:
+	if not GameManager.is_feature_enabled("wind"):
 		force_calm()
 		return
 	if randf() < DAILY_RESHUFFLE_CHANCE:
@@ -59,7 +59,7 @@ func force_calm() -> void:
 ## Get wind displacement for a shot (in tiles)
 ## Returns how far the ball will be pushed by wind
 func get_wind_displacement(shot_direction: Vector2, distance_tiles: float, club: int) -> Vector2:
-	if not GameManager.wind_enabled:
+	if not GameManager.is_feature_enabled("wind"):
 		return Vector2.ZERO
 	var sensitivity = GolfRules.get_club_wind_sensitivity(club)
 	if sensitivity == 0.0:
@@ -86,7 +86,7 @@ func get_wind_displacement(shot_direction: Vector2, distance_tiles: float, club:
 ## Get distance modifier from headwind/tailwind
 ## Returns multiplier: <1.0 for headwind, >1.0 for tailwind
 func get_distance_modifier(shot_direction: Vector2, club: int) -> float:
-	if not GameManager.wind_enabled:
+	if not GameManager.is_feature_enabled("wind"):
 		return 1.0
 	var sensitivity = GolfRules.get_club_wind_sensitivity(club)
 	if sensitivity == 0.0:

@@ -1,0 +1,19 @@
+{
+	"id": "seasons",
+	"name": "Seasons & Calendar",
+	"version": "1.0.0",
+	"description": "Seasons follow the calendar and theme. Demand, upkeep, green-fee tolerance, tournament prestige and weather all shift through the year, with themed seasonal events.",
+	"author": "Golf Tycoon Team",
+	"api_version": "1.0",
+	"category": "gameplay",
+	"is_builtin": true,
+	"enabled_by_default": false,
+	"load_priority": 12,
+	"dependencies": [],
+	"optional_dependencies": ["weather", "wind"],
+	"conflicts": [],
+	"tags": ["environment", "economy", "calendar"],
+	"entry_point": "res://mods/seasons/seasons_mod.gd",
+	"permissions": ["event_bus", "game_manager", "terrain"],
+	"game_version": "0.4.6"
+}

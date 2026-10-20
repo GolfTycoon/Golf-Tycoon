@@ -118,7 +118,10 @@ const MONEY_CAPTIONS := {
 	-1: "No budget limit",
 }
 
-## [key, title, short caption, tooltip, glyph]
+## [key, title, short caption, tooltip, glyph] — backed by res://mods/ builtin mods.
+## The static list is the fallback; when ModManager is present the screen
+## builds its rows from the actual mod manifests so new gameplay mods appear
+## without editing this file (see _resolve_features).
 const FEATURES := [
 	["weather", "Weather", "Storms change turnout",
 		"Storms and clouds change how often golfers come out and how they play.", SetupGlyph.Kind.WEATHER],
@@ -127,6 +130,23 @@ const FEATURES := [
 	["seasons", "Seasons", "Demand follows the year",
 		"Demand, upkeep and weather shift with the calendar year.", SetupGlyph.Kind.SEASONS],
 ]
+
+func _resolve_features() -> Array:
+	if has_node("/root/ModManager"):
+		var mm = get_node("/root/ModManager")
+		if mm and mm.has_method("get_all_manifests") and not mm.manifests.is_empty():
+			var out: Array = []
+			for item in FEATURES:
+				var mid: String = str(item[0])
+				if mm.has_method("is_mod_enabled") and not mm.is_mod_enabled(mid):
+					continue
+				var mf = mm.manifests.get(mid, null)
+				if mf != null:
+					out.append([mf.id, mf.name, str(item[2]), mf.description, item[4]])
+				else:
+					out.append(item)
+			return out
+	return FEATURES
 
 ## One selectable card: a toggle Button underneath (click, focus, keyboard,
 ## hover), its drawn content laid over it with mouse input passed through.
@@ -926,25 +946,36 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 ##   stack - glyph over name over switch, for narrow phone columns
 ##   chip  - glyph and name only; the lit border and colours carry on/off
 ##           (LANDSCAPE, where the height is too short for a switch row)
-func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridContainer:
+func _make_feature_tiles(m: Metrics, variant: String, width: float) -> Control:
+	var _features_list := _resolve_features()
+	if _features_list.is_empty():
+		var note := _make_label("No gameplay mods enabled — enable them in the Mods menu to see options here.", m.caption_font, UIConstants.COLOR_TEXT_DIM)
+		note.name = "FeatureTilesEmpty"
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.add_theme_constant_override("line_spacing", 2)
+		return note
 	var grid := GridContainer.new()
 	grid.name = "FeatureTiles"
-	grid.columns = FEATURES.size()
+	grid.columns = max(1, _features_list.size())
 	grid.add_theme_constant_override("h_separation", int(m.item_gap * 0.8))
 	grid.add_theme_constant_override("v_separation", int(m.item_gap * 0.8))
 	var font := get_theme_default_font()
 	var tile_width := (width - float(int(m.item_gap * 0.8)) * 2.0) / 3.0
+	if _features_list.size() == 2:
+		tile_width = (width - float(int(m.item_gap * 0.8))) / 2.0
+	elif _features_list.size() == 1:
+		tile_width = width
 	var caption_font := m.caption_font - 1
 	var captions := []
 	var widest_caption := 0.0
-	for feature in FEATURES:
+	for feature in _features_list:
 		captions.append(str(feature[2]))
 		widest_caption = maxf(widest_caption,
 			font.get_string_size(str(feature[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, caption_font).x)
 	# One-line rows show their captions only if all three fit.
 	var row_captions := tile_width - float(m.glyph + int(m.card_pad * 0.85) * 2 + int(m.item_gap * 0.8) * 2) \
 		- float(m.glyph) * 0.62 * 1.75 >= widest_caption
-	for feature in FEATURES:
+	for feature in _features_list:
 		var key: String = feature[0]
 		var height := m.segment_height if variant == "chip" else (m.feature_height if variant != "card" else 0)
 		var card := _make_choice("feature", key, FEATURE_ACCENT, str(feature[3]), str(feature[1]), m, null,
@@ -1565,6 +1596,8 @@ static func features_summary(features: Dictionary, separator: String = " · ") -
 	for feature in FEATURES:
 		if bool(features.get(feature[0], false)):
 			names.append(str(feature[1]))
+	# If ModManager has extra features, include them
+	# (caller passes features dict keyed by mod id)
 	return "None" if names.is_empty() else separator.join(names)
 
 ## The tablet footer's one-line recap of every choice.

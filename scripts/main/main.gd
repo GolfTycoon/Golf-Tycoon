@@ -959,6 +959,7 @@ func _show_main_menu() -> void:
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.achievements_requested.connect(_on_menu_achievements)
 	main_menu.edit_golfer_skins_requested.connect(_on_menu_edit_golfer_skins)
+	main_menu.mods_requested.connect(_on_menu_mods)
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.quit_requested.connect(_on_quit_pressed)
 	$UI/HUD.add_child(main_menu)
@@ -969,6 +970,15 @@ func _show_main_menu() -> void:
 ## the menu on the shared backdrop, and its Back comes home to the menu.
 func _on_menu_achievements() -> void:
 	_open_goal_screen(MenuScreenKit.GoalTrack.ACHIEVEMENTS, GoalScreenOrigin.TITLE_SCREEN)
+
+func _on_menu_mods() -> void:
+	_hide_main_menu()
+	var mods_screen := preload("res://scripts/ui/mods_screen.gd").new()
+	mods_screen.name = "ModsScreen"
+	mods_screen.back_requested.connect(func():
+		mods_screen.queue_free()
+		_show_main_menu())
+	$UI/HUD.add_child(mods_screen)
 
 func _hide_main_menu() -> void:
 	if main_menu:

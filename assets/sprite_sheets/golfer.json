@@ -1,0 +1,4046 @@
+{
+	"meta": {
+		"image": "res://assets/sprite_sheets/golfer.png",
+		"size": {
+			"w": 2048,
+			"h": 302
+		},
+		"scale": "1",
+		"app": "GolfTycoon pack_sprites.py",
+		"version": "1.0"
+	},
+	"frames": {
+		"beginner_idle_east_frame_000": {
+			"frame": [
+				2,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_east_frame_001": {
+			"frame": [
+				52,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_east_frame_002": {
+			"frame": [
+				102,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_east_frame_003": {
+			"frame": [
+				152,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north_frame_000": {
+			"frame": [
+				202,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north_frame_001": {
+			"frame": [
+				252,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north_frame_002": {
+			"frame": [
+				302,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north_frame_003": {
+			"frame": [
+				352,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-east_frame_000": {
+			"frame": [
+				402,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-east_frame_001": {
+			"frame": [
+				452,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-east_frame_002": {
+			"frame": [
+				502,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-east_frame_003": {
+			"frame": [
+				552,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-west_frame_000": {
+			"frame": [
+				602,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-west_frame_001": {
+			"frame": [
+				652,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-west_frame_002": {
+			"frame": [
+				702,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_north-west_frame_003": {
+			"frame": [
+				752,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south_frame_000": {
+			"frame": [
+				802,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south_frame_001": {
+			"frame": [
+				852,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south_frame_002": {
+			"frame": [
+				902,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south_frame_003": {
+			"frame": [
+				952,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-east_frame_000": {
+			"frame": [
+				1002,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-east_frame_001": {
+			"frame": [
+				1052,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-east_frame_002": {
+			"frame": [
+				1102,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-east_frame_003": {
+			"frame": [
+				1152,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-west_frame_000": {
+			"frame": [
+				1202,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-west_frame_001": {
+			"frame": [
+				1252,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-west_frame_002": {
+			"frame": [
+				1302,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_south-west_frame_003": {
+			"frame": [
+				1352,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_west_frame_000": {
+			"frame": [
+				1402,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_west_frame_001": {
+			"frame": [
+				1452,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_west_frame_002": {
+			"frame": [
+				1502,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_idle_west_frame_003": {
+			"frame": [
+				1552,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_000": {
+			"frame": [
+				1602,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_001": {
+			"frame": [
+				1652,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_002": {
+			"frame": [
+				1702,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_003": {
+			"frame": [
+				1752,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_004": {
+			"frame": [
+				1802,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_east_frame_005": {
+			"frame": [
+				1852,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_000": {
+			"frame": [
+				1902,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_001": {
+			"frame": [
+				1952,
+				2,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_002": {
+			"frame": [
+				2,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_003": {
+			"frame": [
+				52,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_004": {
+			"frame": [
+				102,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north_frame_005": {
+			"frame": [
+				152,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_000": {
+			"frame": [
+				202,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_001": {
+			"frame": [
+				252,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_002": {
+			"frame": [
+				302,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_003": {
+			"frame": [
+				352,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_004": {
+			"frame": [
+				402,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-east_frame_005": {
+			"frame": [
+				452,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_000": {
+			"frame": [
+				502,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_001": {
+			"frame": [
+				552,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_002": {
+			"frame": [
+				602,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_003": {
+			"frame": [
+				652,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_004": {
+			"frame": [
+				702,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_north-west_frame_005": {
+			"frame": [
+				752,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_000": {
+			"frame": [
+				802,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_001": {
+			"frame": [
+				852,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_002": {
+			"frame": [
+				902,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_003": {
+			"frame": [
+				952,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_004": {
+			"frame": [
+				1002,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south_frame_005": {
+			"frame": [
+				1052,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_000": {
+			"frame": [
+				1102,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_001": {
+			"frame": [
+				1152,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_002": {
+			"frame": [
+				1202,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_003": {
+			"frame": [
+				1252,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_004": {
+			"frame": [
+				1302,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-east_frame_005": {
+			"frame": [
+				1352,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_000": {
+			"frame": [
+				1402,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_001": {
+			"frame": [
+				1452,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_002": {
+			"frame": [
+				1502,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_003": {
+			"frame": [
+				1552,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_004": {
+			"frame": [
+				1602,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_south-west_frame_005": {
+			"frame": [
+				1652,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_000": {
+			"frame": [
+				1702,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_001": {
+			"frame": [
+				1752,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_002": {
+			"frame": [
+				1802,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_003": {
+			"frame": [
+				1852,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_004": {
+			"frame": [
+				1902,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_swing_west_frame_005": {
+			"frame": [
+				1952,
+				52,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_east_frame_000": {
+			"frame": [
+				2,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_east_frame_001": {
+			"frame": [
+				52,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_east_frame_002": {
+			"frame": [
+				102,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_east_frame_003": {
+			"frame": [
+				152,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north_frame_000": {
+			"frame": [
+				202,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north_frame_001": {
+			"frame": [
+				252,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north_frame_002": {
+			"frame": [
+				302,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north_frame_003": {
+			"frame": [
+				352,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-east_frame_000": {
+			"frame": [
+				402,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-east_frame_001": {
+			"frame": [
+				452,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-east_frame_002": {
+			"frame": [
+				502,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-east_frame_003": {
+			"frame": [
+				552,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-west_frame_000": {
+			"frame": [
+				602,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-west_frame_001": {
+			"frame": [
+				652,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-west_frame_002": {
+			"frame": [
+				702,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_north-west_frame_003": {
+			"frame": [
+				752,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south_frame_000": {
+			"frame": [
+				802,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south_frame_001": {
+			"frame": [
+				852,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south_frame_002": {
+			"frame": [
+				902,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south_frame_003": {
+			"frame": [
+				952,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-east_frame_000": {
+			"frame": [
+				1002,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-east_frame_001": {
+			"frame": [
+				1052,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-east_frame_002": {
+			"frame": [
+				1102,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-east_frame_003": {
+			"frame": [
+				1152,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-west_frame_000": {
+			"frame": [
+				1202,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-west_frame_001": {
+			"frame": [
+				1252,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-west_frame_002": {
+			"frame": [
+				1302,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_south-west_frame_003": {
+			"frame": [
+				1352,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_west_frame_000": {
+			"frame": [
+				1402,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_west_frame_001": {
+			"frame": [
+				1452,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_west_frame_002": {
+			"frame": [
+				1502,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"beginner_walk_west_frame_003": {
+			"frame": [
+				1552,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_east_frame_000": {
+			"frame": [
+				1602,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_east_frame_001": {
+			"frame": [
+				1652,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_east_frame_002": {
+			"frame": [
+				1702,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_east_frame_003": {
+			"frame": [
+				1752,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north_frame_000": {
+			"frame": [
+				1802,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north_frame_001": {
+			"frame": [
+				1852,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north_frame_002": {
+			"frame": [
+				1902,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north_frame_003": {
+			"frame": [
+				1952,
+				102,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-east_frame_000": {
+			"frame": [
+				2,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-east_frame_001": {
+			"frame": [
+				52,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-east_frame_002": {
+			"frame": [
+				102,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-east_frame_003": {
+			"frame": [
+				152,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-west_frame_000": {
+			"frame": [
+				202,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-west_frame_001": {
+			"frame": [
+				252,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-west_frame_002": {
+			"frame": [
+				302,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_north-west_frame_003": {
+			"frame": [
+				352,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south_frame_000": {
+			"frame": [
+				402,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south_frame_001": {
+			"frame": [
+				452,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south_frame_002": {
+			"frame": [
+				502,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south_frame_003": {
+			"frame": [
+				552,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-east_frame_000": {
+			"frame": [
+				602,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-east_frame_001": {
+			"frame": [
+				652,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-east_frame_002": {
+			"frame": [
+				702,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-east_frame_003": {
+			"frame": [
+				752,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-west_frame_000": {
+			"frame": [
+				802,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-west_frame_001": {
+			"frame": [
+				852,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-west_frame_002": {
+			"frame": [
+				902,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_south-west_frame_003": {
+			"frame": [
+				952,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_west_frame_000": {
+			"frame": [
+				1002,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_west_frame_001": {
+			"frame": [
+				1052,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_west_frame_002": {
+			"frame": [
+				1102,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_idle_west_frame_003": {
+			"frame": [
+				1152,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_000": {
+			"frame": [
+				1202,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_001": {
+			"frame": [
+				1252,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_002": {
+			"frame": [
+				1302,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_003": {
+			"frame": [
+				1352,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_004": {
+			"frame": [
+				1402,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_east_frame_005": {
+			"frame": [
+				1452,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_000": {
+			"frame": [
+				1502,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_001": {
+			"frame": [
+				1552,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_002": {
+			"frame": [
+				1602,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_003": {
+			"frame": [
+				1652,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_004": {
+			"frame": [
+				1702,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north_frame_005": {
+			"frame": [
+				1752,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_000": {
+			"frame": [
+				1802,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_001": {
+			"frame": [
+				1852,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_002": {
+			"frame": [
+				1902,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_003": {
+			"frame": [
+				1952,
+				152,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_004": {
+			"frame": [
+				2,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-east_frame_005": {
+			"frame": [
+				52,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_000": {
+			"frame": [
+				102,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_001": {
+			"frame": [
+				152,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_002": {
+			"frame": [
+				202,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_003": {
+			"frame": [
+				252,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_004": {
+			"frame": [
+				302,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_north-west_frame_005": {
+			"frame": [
+				352,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_000": {
+			"frame": [
+				402,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_001": {
+			"frame": [
+				452,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_002": {
+			"frame": [
+				502,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_003": {
+			"frame": [
+				552,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_004": {
+			"frame": [
+				602,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south_frame_005": {
+			"frame": [
+				652,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_000": {
+			"frame": [
+				702,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_001": {
+			"frame": [
+				752,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_002": {
+			"frame": [
+				802,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_003": {
+			"frame": [
+				852,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_004": {
+			"frame": [
+				902,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-east_frame_005": {
+			"frame": [
+				952,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_000": {
+			"frame": [
+				1002,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_001": {
+			"frame": [
+				1052,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_002": {
+			"frame": [
+				1102,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_003": {
+			"frame": [
+				1152,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_004": {
+			"frame": [
+				1202,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_south-west_frame_005": {
+			"frame": [
+				1252,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_000": {
+			"frame": [
+				1302,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_001": {
+			"frame": [
+				1352,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_002": {
+			"frame": [
+				1402,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_003": {
+			"frame": [
+				1452,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_004": {
+			"frame": [
+				1502,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_swing_west_frame_005": {
+			"frame": [
+				1552,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_east_frame_000": {
+			"frame": [
+				1602,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_east_frame_001": {
+			"frame": [
+				1652,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_east_frame_002": {
+			"frame": [
+				1702,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_east_frame_003": {
+			"frame": [
+				1752,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north_frame_000": {
+			"frame": [
+				1802,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north_frame_001": {
+			"frame": [
+				1852,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north_frame_002": {
+			"frame": [
+				1902,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north_frame_003": {
+			"frame": [
+				1952,
+				202,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-east_frame_000": {
+			"frame": [
+				2,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-east_frame_001": {
+			"frame": [
+				52,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-east_frame_002": {
+			"frame": [
+				102,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-east_frame_003": {
+			"frame": [
+				152,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-west_frame_000": {
+			"frame": [
+				202,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-west_frame_001": {
+			"frame": [
+				252,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-west_frame_002": {
+			"frame": [
+				302,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_north-west_frame_003": {
+			"frame": [
+				352,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south_frame_000": {
+			"frame": [
+				402,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south_frame_001": {
+			"frame": [
+				452,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south_frame_002": {
+			"frame": [
+				502,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south_frame_003": {
+			"frame": [
+				552,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-east_frame_000": {
+			"frame": [
+				602,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-east_frame_001": {
+			"frame": [
+				652,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-east_frame_002": {
+			"frame": [
+				702,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-east_frame_003": {
+			"frame": [
+				752,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-west_frame_000": {
+			"frame": [
+				802,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-west_frame_001": {
+			"frame": [
+				852,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-west_frame_002": {
+			"frame": [
+				902,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_south-west_frame_003": {
+			"frame": [
+				952,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_west_frame_000": {
+			"frame": [
+				1002,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_west_frame_001": {
+			"frame": [
+				1052,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_west_frame_002": {
+			"frame": [
+				1102,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		},
+		"casual_walk_west_frame_003": {
+			"frame": [
+				1152,
+				252,
+				48,
+				48
+			],
+			"sourceSize": [
+				48,
+				48
+			],
+			"spriteSourceSize": [
+				0,
+				0,
+				48,
+				48
+			]
+		}
+	}
+}

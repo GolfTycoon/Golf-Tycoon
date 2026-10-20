@@ -317,9 +317,9 @@ func mark_generated_holes_used() -> void:
 func apply_company_settings(with_money: bool = false) -> void:
 	GameManager.current_difficulty = difficulty
 	GameManager.company_name = company_name
-	GameManager.set_feature_enabled(FEATURE_WEATHER, features[FEATURE_WEATHER])
-	GameManager.set_feature_enabled(FEATURE_WIND, features[FEATURE_WIND])
-	GameManager.set_feature_enabled(FEATURE_SEASONS, features[FEATURE_SEASONS])
+	GameManager.set_feature_enabled(FEATURE_WEATHER, features[FEATURE_WEATHER], false)
+	GameManager.set_feature_enabled(FEATURE_WIND, features[FEATURE_WIND], false)
+	GameManager.set_feature_enabled(FEATURE_SEASONS, features[FEATURE_SEASONS], false)
 	GameManager.set_unlimited_money(starting_money_option == UNLIMITED_MONEY)
 	if with_money:
 		if starting_money_option == UNLIMITED_MONEY:
