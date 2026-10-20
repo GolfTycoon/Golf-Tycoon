@@ -157,27 +157,30 @@ to the individual PNG so unsheeted mod art still works. Mods can inject via
 
 ### From the Mods screen
 
-Open **Mods** from the main menu. The sharing toolbar below the enabled/available lists gives you:
+Open **Mods** from the main menu. The tools toolbar below the enabled/available lists gives you:
 
-* **Import ZIP** — pick a `.zip` that contains a `mod.json` (at its root or one folder deep). It is unpacked to `user://mods/<id>/`, re-discovered immediately, and appears in **Available**.
-* **Export as ZIP** — with a mod selected, pack its folder to `user://mods/exports/<id>-<version>.zip`. The path is shown and copied to the clipboard for sharing on Discord, itch.io, GitHub, etc. Builtins are not exported — they ship with the game.
 * **Create New Mod** — scaffolds `user://mods/<id>/mod.json` + `mod.gd` from a template (id must be `^[a-z][a-z0-9_]*$`). Edit the files in your code editor, then enable and test in-game.
 * **Open Mods Folder** — opens the OS file browser at `user://mods/` (which resolves to `OS.get_user_data_dir() + "/mods"`). Zips dropped there are auto-extracted on next start (and also discovered via `GOLF_TYCOON_WORKSHOP_PATH`).
-* **Workshop Folder** / **Publish to Workshop** — see below.
+* **Workshop Folder** — opens `user://workshop/staging/`.
+
+ZIP import/export and Workshop publishing are no longer surfaced as buttons in the
+Mods screen. The same operations are available programmatically (see
+*Programmatic API* below), and dropping a `.zip` containing a `mod.json` (at its
+root or one folder deep) into `user://mods/` installs it on the next start.
 
 ### Steam Workshop
 
 The game ships without a bundled Steamworks GDExtension so the open-source build works headless/CI. Workshop integration works in two layers:
 
-1. **Canonical artifact is a ZIP** — always created by Export. This is what you attach to a Workshop item or an itch page.
+1. **Canonical artifact is a ZIP** — `ModPackager.export_mod(id)` packs `user://mods/<id>/` to `user://mods/exports/<id>-<version>.zip`. This is what you attach to a Workshop item or an itch page.
 
-2. **Local workshop staging** — `user://workshop/staging/` holds a `workshop.json` descriptor alongside the exported zip when you press **Publish to Workshop** in the Mods screen. The full flow with the Steam client is:
+2. **Local workshop staging** — `user://workshop/staging/` holds a `workshop.json` descriptor alongside the exported zip when `ModWorkshop.publish(mod_id, changelog)` is called. The full flow with the Steam client is:
    ```
-   Mods → select mod → Export as ZIP → Publish to Workshop
+   export the mod → publish it to workshop staging
    → open Workshop Folder → attach the .zip + workshop.json to a new
      Workshop item in the Steam overlay → publish
    ```
-   `docs/modding.md` `ModWorkshop.workshop_instructions()` prints this and the file locations.
+   `ModWorkshop.workshop_instructions()` prints this and the file locations.
 
 3. **Discovering Workshop subscriptions** — on startup ModLoader also scans:
    * `user://workshop/` (and `user://workshop/staging/`),
@@ -213,6 +216,6 @@ if mm.has_method("is_mod_enabled") and not mm.is_mod_enabled(mid):
 1. In the Mods screen press **Create New Mod**, or create `user://mods/my_mod/mod.json` and `user://mods/my_mod/mod.gd` manually.
 2. Implement `_mod_on_enable`; use `api.*` to register content (see *What a mod can do*).
 3. Test with the atlas packer if adding sprites.
-4. Open **Mods** to enable and order it; conflicts show up there. Use **Export as ZIP** to share it; recipients use **Import ZIP**. For Steam Workshop, **Publish to Workshop** and attach the zip via the Steam overlay.
+4. Open **Mods** to enable and order it; conflicts show up there. Share it by placing the mod folder in a `.zip` (or via `ModPackager.export_mod`); recipients drop the zip into `user://mods/`. For Steam Workshop, use `ModWorkshop.publish` and attach the zip via the Steam overlay.
 
 A minimal example is kept in `mods/example/` (not enabled by default).

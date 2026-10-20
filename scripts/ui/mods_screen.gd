@@ -32,9 +32,6 @@ var _detail_desc: Label = null
 var _detail_deps: Label = null
 var _detail_conflicts: Label = null
 var _detail_perms: Label = null
-var _detail_actions: HBoxContainer = null
-var _sharing_toolbar: HBoxContainer = null
-var _file_dialog: FileDialog = null
 var _pending_create_dialog: Window = null
 
 func _ready() -> void:
@@ -118,9 +115,9 @@ func _build() -> void:
 	elif ModManager and not ModManager.manifests.is_empty():
 		_show_detail(str(ModManager.manifests.keys()[0]))
 
-	# Sharing toolbar — importing/exporting zips and workshop
-	var sharing := _make_sharing_toolbar()
-	page.add_child(sharing)
+	# Mod tools toolbar — scaffold a mod or open its folders
+	var tools := _make_mod_tools_toolbar()
+	page.add_child(tools)
 
 	# Footer actions
 	var footer := HBoxContainer.new()
@@ -213,48 +210,7 @@ func _make_detail_panel() -> Control:
 	col.add_child(_detail_conflicts)
 	_detail_perms = Kit.make_label("", 10, Kit.COLOR_TEXT_QUIET)
 	col.add_child(_detail_perms)
-	_detail_actions = HBoxContainer.new()
-	_detail_actions.name = "DetailActions"
-	_detail_actions.add_theme_constant_override("separation", 8)
-	_detail_actions.alignment = BoxContainer.ALIGNMENT_BEGIN
-	col.add_child(_detail_actions)
-	_refresh_detail_actions()
 	return panel
-
-func _refresh_detail_actions() -> void:
-	if _detail_actions == null:
-		return
-	for child in _detail_actions.get_children():
-		_detail_actions.remove_child(child)
-		child.queue_free()
-	if _selected_id.is_empty():
-		return
-	var has_mm := has_node("/root/ModManager")
-	var mani = null
-	if has_mm:
-		mani = get_node("/root/ModManager").manifests.get(_selected_id, null)
-	var is_user_mod: bool = mani != null and not mani.is_builtin
-	# Export — always available (builtin export shows info toast, user mods produce a zip)
-	var export_btn := Button.new()
-	export_btn.text = "Export as ZIP"
-	export_btn.tooltip_text = "Pack this mod into a .zip under user://mods/exports/ for sharing"
-	Kit.paint_utility_button(export_btn, false)
-	export_btn.pressed.connect(_on_export_selected)
-	_detail_actions.add_child(export_btn)
-	if is_user_mod:
-		var publish_btn := Button.new()
-		publish_btn.text = "Publish to Workshop"
-		publish_btn.tooltip_text = "Create a workshop staging entry and open the workshop folder (Steam Workshop manual step documented in modding guide)"
-		Kit.paint_utility_button(publish_btn, false)
-		publish_btn.pressed.connect(_on_publish_selected)
-		_detail_actions.add_child(publish_btn)
-		var delete_btn := Button.new()
-		delete_btn.text = "Delete"
-		delete_btn.tooltip_text = "Remove this user mod folder (cannot delete builtins)"
-		Kit.paint_utility_button(delete_btn, false)
-		delete_btn.modulate = Color(1, 0.85, 0.85)
-		delete_btn.pressed.connect(_on_delete_selected)
-		_detail_actions.add_child(delete_btn)
 
 # ---------------------------------------------------------------------------
 # List population
@@ -388,7 +344,6 @@ func _add_placeholder(section: VBoxContainer, text: String) -> void:
 
 func _show_detail(mod_id: String) -> void:
 	_selected_id = mod_id
-	_refresh_detail_actions()
 	if not has_node("/root/ModManager"):
 		return
 	var mani: ModManifest = get_node("/root/ModManager").manifests.get(mod_id, null)
@@ -496,12 +451,12 @@ func _on_conflicts(_list: Array) -> void:
 	_refresh_conflicts()
 
 # ---------------------------------------------------------------------------
-# Sharing: ZIP import/export, folder, workshop, new-mod creation
+# Mod tools: folders and new-mod creation
 # ---------------------------------------------------------------------------
 
-func _make_sharing_toolbar() -> Control:
+func _make_mod_tools_toolbar() -> Control:
 	var panel := Kit.make_panel(Kit.COLOR_SURFACE_RAISED, MenuStyle.with_alpha(Kit.COLOR_BORDER_SOFT, 0.45))
-	panel.name = "SharingToolbar"
+	panel.name = "ModToolsToolbar"
 	var margin := MarginContainer.new()
 	for s in ["left","right","top","bottom"]:
 		margin.add_theme_constant_override("margin_" + s, 8)
@@ -509,18 +464,11 @@ func _make_sharing_toolbar() -> Control:
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 6)
 	margin.add_child(outer)
-	var kicker := Kit.make_kicker("Share mods — zip or Steam Workshop", 11)
+	var kicker := Kit.make_kicker("Mod tools", 11)
 	outer.add_child(kicker)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	_sharing_toolbar = row
 	outer.add_child(row)
-	var import_btn := Button.new()
-	import_btn.text = "Import ZIP"
-	import_btn.tooltip_text = "Pick a .zip that contains a mod.json and install it to user://mods/"
-	Kit.paint_utility_button(import_btn, false)
-	import_btn.pressed.connect(_on_import_zip_pressed)
-	row.add_child(import_btn)
 	var new_btn := Button.new()
 	new_btn.text = "Create New Mod"
 	new_btn.tooltip_text = "Scaffold a new mod folder under user://mods/ with a template mod.json + mod.gd"
@@ -539,101 +487,16 @@ func _make_sharing_toolbar() -> Control:
 	Kit.paint_utility_button(workshop_btn, false)
 	workshop_btn.pressed.connect(_on_open_workshop_folder)
 	row.add_child(workshop_btn)
-	var help_btn := Button.new()
-	help_btn.text = "How to Share"
-	help_btn.tooltip_text = "Show instructions for sharing as ZIP or Steam Workshop item"
-	Kit.paint_utility_button(help_btn, false)
-	help_btn.pressed.connect(_on_workshop_help)
-	row.add_child(help_btn)
-	var hint := Kit.make_label("Drop a .zip into user://mods/ or use Import ZIP. Export creates user://mods/exports/<id>-<version>.zip for Discord/itch.io/Workshop.", 10, Kit.COLOR_TEXT_QUIET)
+	var hint := Kit.make_label("Mods live in user://mods/ — drop a .zip there and restart to install it. Use Create New Mod to scaffold one.", 10, Kit.COLOR_TEXT_QUIET)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	outer.add_child(hint)
 	return panel
-
-func _on_import_zip_pressed() -> void:
-	if DisplayServer.get_name() == "headless":
-		EventBus.notify("Import ZIP unavailable headless. Drop the .zip into %s and restart, or set GOLF_TYCOON_WORKSHOP_PATH." % ProjectSettings.globalize_path("user://mods"), "info")
-		return
-	if _file_dialog:
-		_file_dialog.queue_free()
-		_file_dialog = null
-	var dlg := FileDialog.new()
-	_file_dialog = dlg
-	dlg.name = "ImportZipDialog"
-	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	dlg.access = FileDialog.ACCESS_FILESYSTEM
-	dlg.filters = PackedStringArray(["*.zip ; ZIP archives"])
-	dlg.title = "Import Mod ZIP"
-	dlg.ok_button_text = "Import"
-	dlg.use_native_dialog = true
-	var start_dir := ProjectSettings.globalize_path("user://mods/exports")
-	if not DirAccess.dir_exists_absolute(start_dir):
-		start_dir = ProjectSettings.globalize_path("user://mods")
-	dlg.current_dir = start_dir
-	dlg.file_selected.connect(_on_zip_file_chosen)
-	add_child(dlg)
-	dlg.popup_centered_ratio(0.7)
-	dlg.visibility_changed.connect(func():
-		if not dlg.visible:
-			pass)
-
-func _on_zip_file_chosen(path: String) -> void:
-	var id := ModPackager.import_zip(path, false)
-	if id.is_empty():
-		EventBus.notify("Failed to import %s — if the mod already exists, delete it first or choose a different id." % path, "error")
-		return
-	_refresh_lists()
-	_refresh_conflicts()
-	_show_detail(id)
-	EventBus.notify("Installed '%s' — enable it in the Available list." % id, "success")
-
-func _on_export_selected() -> void:
-	if _selected_id.is_empty():
-		EventBus.notify("Select a mod first.", "warning")
-		return
-	var zip_path := ModPackager.export_mod(_selected_id)
-	if not zip_path.is_empty():
-		var abs_path := ProjectSettings.globalize_path(zip_path)
-		EventBus.notify("Exported to %s — share this zip." % zip_path, "success")
-		print("ModsScreen: exported %s -> %s" % [_selected_id, abs_path])
-		if DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
-			DisplayServer.clipboard_set(abs_path)
 
 func _on_open_mods_folder() -> void:
 	ModPackager.open_mods_folder()
 
 func _on_open_workshop_folder() -> void:
 	ModWorkshop.open_workshop_folder()
-
-func _on_publish_selected() -> void:
-	if _selected_id.is_empty():
-		return
-	var zip_path := ModWorkshop.publish(_selected_id, "")
-	if not zip_path.is_empty():
-		EventBus.notify("Published '%s' to workshop staging. Open Workshop Folder to find the zip." % _selected_id, "success")
-	_refresh_lists()
-
-func _on_workshop_help() -> void:
-	var text := ModWorkshop.workshop_instructions()
-	EventBus.notify(text, "info")
-	print(text)
-	var win := Window.new()
-	win.title = "How to Share a Mod"
-	win.size = Vector2i(560, 360)
-	win.initial_position = Window.WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS
-	var margin := MarginContainer.new()
-	for s in ["left","right","top","bottom"]:
-		margin.add_theme_constant_override("margin_" + s, 12)
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var scroll := ScrollContainer.new()
-	scroll.add_child(label)
-	margin.add_child(scroll)
-	win.add_child(margin)
-	add_child(win)
-	win.popup_centered()
-	win.close_requested.connect(func(): win.queue_free())
 
 func _on_create_new_mod_pressed() -> void:
 	if _pending_create_dialog:
@@ -708,83 +571,6 @@ func _on_create_new_mod_pressed() -> void:
 	add_child(win)
 	win.popup_centered()
 	win.close_requested.connect(func(): win.queue_free())
-
-func _on_delete_selected() -> void:
-	if _selected_id.is_empty():
-		return
-	var mani = null
-	if has_node("/root/ModManager"):
-		mani = get_node("/root/ModManager").manifests.get(_selected_id, null)
-	if mani == null or mani.is_builtin:
-		EventBus.notify("Cannot delete a builtin mod.", "error")
-		return
-	var dir := "user://mods/%s" % _selected_id
-	var abs_dir := ProjectSettings.globalize_path(dir)
-	var gpath := ProjectSettings.globalize_path(dir)
-	var win := Window.new()
-	win.title = "Delete Mod?"
-	win.size = Vector2i(400, 160)
-	win.initial_position = Window.WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS
-	var margin := MarginContainer.new()
-	for s in ["left","right","top","bottom"]:
-		margin.add_theme_constant_override("margin_" + s, 12)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
-	win.add_child(margin)
-	vbox.add_child(Kit.make_label("Delete '%s' (%s)? This removes %s." % [_selected_id, mani.name, abs_dir], 12, Kit.COLOR_TEXT_BRIGHT))
-	var btn_row := HBoxContainer.new()
-	btn_row.alignment = BoxContainer.ALIGNMENT_END
-	btn_row.add_theme_constant_override("separation", 8)
-	var cancel := Button.new()
-	cancel.text = "Cancel"
-	Kit.paint_utility_button(cancel, false)
-	cancel.pressed.connect(func(): win.queue_free())
-	btn_row.add_child(cancel)
-	var confirm := Button.new()
-	confirm.text = "Delete"
-	confirm.modulate = Color(1, 0.7, 0.7)
-	Kit.paint_utility_button(confirm, false)
-	confirm.pressed.connect(func():
-		var id := _selected_id
-		if has_node("/root/ModManager") and get_node("/root/ModManager").enabled_mods.has(id):
-			get_node("/root/ModManager").set_mod_enabled(id, false)
-		_remove_dir_recursive(gpath)
-		DirAccess.remove_absolute(gpath)
-		if has_node("/root/ModManager"):
-			get_node("/root/ModManager").refresh_after_user_change()
-		win.queue_free()
-		_selected_id = ""
-		_refresh_lists()
-		_refresh_conflicts()
-		if _detail_title:
-			_detail_title.text = "Mod deleted."
-		EventBus.notify("Deleted mod '%s'." % id, "success")
-	)
-	btn_row.add_child(confirm)
-	vbox.add_child(btn_row)
-	add_child(win)
-	win.popup_centered()
-	win.close_requested.connect(func(): win.queue_free())
-
-func _remove_dir_recursive(gpath: String) -> void:
-	var da := DirAccess.open(gpath)
-	if da == null:
-		return
-	da.list_dir_begin()
-	var entry := da.get_next()
-	while entry != "":
-		if entry == "." or entry == "..":
-			entry = da.get_next()
-			continue
-		var full := gpath.path_join(entry)
-		if DirAccess.dir_exists_absolute(full):
-			_remove_dir_recursive(full)
-			DirAccess.remove_absolute(full)
-		else:
-			DirAccess.remove_absolute(full)
-		entry = da.get_next()
-	da.list_dir_end()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

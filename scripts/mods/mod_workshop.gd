@@ -146,11 +146,11 @@ static func _publish_to_steam(mod_id: String, zip_path: String, _meta: Dictionar
 	# var app_id := ProjectSettings.get_setting("steam/app_id", 0)
 	# steam.workshop_createItem(app_id, ...)
 
-## Instructions for manual Steam Workshop upload (shown in the Mods screen).
+## Instructions for manual Steam Workshop upload.
 static func workshop_instructions() -> String:
 	return """Share as ZIP or Workshop:
-1. Export — Select a mod in Mods and press 'Export as ZIP'. A .zip appears in user://mods/exports/ (also shown as an OS folder).
-2. ZIP share — Send that .zip to friends, or upload to itch.io / Discord / GitHub. They press 'Import ZIP' in their Mods screen.
+1. Export — call ModPackager.export_mod(id) to pack a mod into user://mods/exports/<id>-<version>.zip.
+2. ZIP share — Send that .zip to friends, or upload to itch.io / Discord / GitHub. They drop it into their user://mods/ folder and restart.
 3. Steam Workshop — With the Steam client, open the game's Workshop page, use 'Create Item', attach the exported .zip and workshop.json from user://workshop/staging/. The game also discovers Workshop subscriptions automatically from STEAM_WORKSHOP_PATH or user://workshop/.
 Local workshop folder is %s (set %s to override).
 """ % [ProjectSettings.globalize_path(LOCAL_STAGING_DIR), ENV_WORKSHOP_PATH]
