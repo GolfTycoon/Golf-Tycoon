@@ -123,45 +123,18 @@ func _world_total() -> int:
 # =============================================================================
 
 func _build_header() -> Control:
-	var compact := Kit.is_phone(_layout_mode)
-	var header := HBoxContainer.new()
-	header.name = "GoalHeader"
-	header.add_theme_constant_override("separation", 10 if not compact else 7)
-	header.custom_minimum_size.y = 62.0 if Kit.is_desktop(_layout_mode) else (56.0 if not compact else 48.0)
-
-	var back := Button.new()
-	back.name = "BackButton"
-	back.text = "‹  Back" if not compact else "‹ Back"
-	back.tooltip_text = "Return to the course (Esc)"
-	back.custom_minimum_size = Vector2(94.0 if not compact else 72.0, 42.0 if compact else 46.0)
-	back.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	Kit.paint_utility_button(back, false)
-	back.pressed.connect(func(): back_requested.emit())
-	header.add_child(back)
-
-	var title_box := HBoxContainer.new()
-	title_box.name = "TitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 7 if compact else 9)
-	var mark := Kit.make_sprite(PixelIcon.Kind.PIN, 20 if compact else 28, Kit.COLOR_GOLD)
-	mark.name = "TitleMark"
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_box.add_child(mark)
-	var title := Kit.make_title_label("World Milestones", 20 if compact else 26)
-	title.name = "Title"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_box.add_child(title)
-	header.add_child(title_box)
-
-	if not compact:
-		header.add_child(_build_world_stat_chip())
+	var trailing: Control = null
+	if not Kit.is_phone(_layout_mode):
+		var group := HBoxContainer.new()
+		group.add_theme_constant_override("separation", 10)
+		group.add_child(_build_world_stat_chip())
 		var switch := Kit.make_track_switch(Kit.GoalTrack.WORLD,
 			func(track: int): track_requested.emit(track))
 		switch.size_flags_horizontal = Control.SIZE_SHRINK_END
-		header.add_child(switch)
-	return header
+		group.add_child(switch)
+		trailing = group
+	return Kit.make_screen_header(_layout_mode, "World Milestones", "Milestones",
+		"", func(): back_requested.emit(), trailing)
 
 func _build_world_stat_chip() -> PanelContainer:
 	var chip := Kit.make_panel(Kit.COLOR_SURFACE_RAISED, MenuStyle.with_alpha(Kit.COLOR_GOLD, 0.55))

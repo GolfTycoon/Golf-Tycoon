@@ -1,5 +1,6 @@
 extends Control
 class_name EditGolferSkinsScreen
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## EditGolferSkinsScreen - the Golfer Skin studio, opened from the title screen.
 ##
 ## The player picks a Golfer Skin - one that ships with the game or one of
@@ -292,62 +293,58 @@ func _frame(content: Control) -> MarginContainer:
 # HEADER
 # =============================================================================
 
-## Back, the title, what just happened and Save. On a phone the title is
-## smaller, Save says just "Save" and the status line drops to a row of its own,
-## so the four fit across a 390 pixel window.
 func _make_header() -> Control:
-	var view := _window_size()
 	var compact := _layout_mode == Layout.PHONE
-	var row := HBoxContainer.new()
-	row.name = "HeaderRow"
-	row.add_theme_constant_override("separation", 10)
-
-	var back := _make_button("Back", "Back to the main menu", UIConstants.COLOR_TEXT,
-		64.0 if compact else 96.0)
-	back.name = "BackButton"
-	back.pressed.connect(func(): back_requested.emit())
-	row.add_child(back)
-
-	var title := Label.new()
-	title.name = "Title"
-	title.text = TITLE_TEXT
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size",
-		int(clampf(view.x / (44.0 if compact else 42.0), 17.0, 30.0)))
-	title.add_theme_color_override("font_color", MenuStyle.TITLE_COLOR)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(title)
+	# The header takes its size from the shared screen header, so it matches
+	# every other screen's bar whatever the studio's own column layout is.
+	var header_mode := Kit.layout_mode_for(_window_size())
 
 	_save_button = _make_button("Save" if compact else "Save Skins",
 		"Write this skin's groups and layers to text files", UIConstants.COLOR_TEXT,
 		68.0 if compact else 124.0)
 	_save_button.name = "SaveSkinsButton"
-	MenuStyle.paint_primary(_save_button)
+	Kit.paint_action(_save_button, true)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		_save_button.add_theme_color_override(state, MenuStyle.INK)
 	_save_button.pressed.connect(_on_save_pressed)
-	row.add_child(_save_button)
 
 	_status_label = Label.new()
 	_status_label.name = "Status"
-	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	_status_label.clip_text = true
+	_status_label.custom_minimum_size.x = 0.0
+	_status_label.add_theme_font_override("font", Kit.BODY_FONT)
+	_status_label.add_theme_font_size_override("font_size", 13)
 	_status_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not compact:
-		row.add_child(_status_label)
-		return row
 
-	var column := VBoxContainer.new()
-	column.name = "Header"
-	column.add_theme_constant_override("separation", 4)
-	column.add_child(row)
-	column.add_child(_status_label)
-	return column
+	if compact:
+		# A phone has no room beside the title: the status line sits under the bar.
+		var bar := Kit.make_screen_header(header_mode, TITLE_TEXT, "Golfer studio", "",
+			func(): back_requested.emit(), null)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.add_child(_status_label)
+		row.add_child(_save_button)
+		var column := VBoxContainer.new()
+		column.name = "Header"
+		column.add_theme_constant_override("separation", 4)
+		column.add_child(bar)
+		column.add_child(row)
+		return column
+
+	var group := HBoxContainer.new()
+	group.name = "HeaderActions"
+	group.add_theme_constant_override("separation", 10)
+	group.size_flags_horizontal = Control.SIZE_SHRINK_END
+	group.add_child(_status_label)
+	group.add_child(_save_button)
+	return Kit.make_screen_header(header_mode, TITLE_TEXT, "Golfer studio", "",
+		func(): back_requested.emit(), group)
 
 
 # =============================================================================
@@ -458,8 +455,8 @@ func _make_group_editor() -> Control:
 	panel.name = "GroupsSheet"
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", MenuStyle.flat(
-		MenuStyle.with_alpha(MenuStyle.INSET_BG, 0.55), Color(0, 0, 0, 0), 0, 10, 8, 8, 8))
+	panel.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
+		MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.35), MenuStyle.with_alpha(MenuStyle.INSET_BG, 0.55), 10, 8))
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
@@ -780,12 +777,9 @@ func _make_sheet(node_name: String) -> PanelContainer:
 
 
 func _make_section_label(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	# The studio's section headings use the same gold kicker as every other screen.
+	var label := Kit.make_kicker(text, 13)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
 
 
@@ -802,10 +796,10 @@ func _make_button(text: String, tooltip: String, color: Color, min_width: float)
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = tooltip
+	button.add_theme_font_size_override("font_size", 14)
+	button.custom_minimum_size = Vector2(min_width, 36)
+	Kit.paint_utility_button(button, false)
 	button.add_theme_color_override("font_color", color)
-	button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	button.custom_minimum_size = Vector2(min_width, 32)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return button
 
 
@@ -948,14 +942,12 @@ func _refresh_groups() -> void:
 		row.custom_minimum_size = Vector2(0, GROUP_ROW_HEIGHT)
 		row.tooltip_text = "Paint with %s" % group_name
 		row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		MenuStyle.paint_choice(row, accent, 8)
-		# A choice button's "pressed" look is its selected one, and a Button is
-		# only in that state while it is held, so the selected row is painted by
-		# hand: a wash of the group's colour and a full-strength border.
+		MenuStyle.paint_choice(row, accent)
+		# A choice card's "pressed" frame is its selected look (a wash of the
+		# group's colour and a full-strength trim), and a Button is only in that
+		# state while it is held, so the selected row wears that frame at rest.
 		if group_id == _active_group:
-			row.add_theme_stylebox_override("normal", MenuStyle.flat(
-				MenuStyle.CARD_BG.lerp(Color(accent.r, accent.g, accent.b, 0.95), 0.20),
-				accent, 2, 8, 8, 4, 4))
+			row.add_theme_stylebox_override("normal", row.get_theme_stylebox("pressed"))
 		row.pressed.connect(_on_group_row_pressed.bind(group_id))
 
 		var content := HBoxContainer.new()

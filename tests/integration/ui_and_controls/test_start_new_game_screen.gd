@@ -95,7 +95,7 @@ func _assert_layout(tag: String, size: Vector2i, layout: int) -> void:
 		"%s: the tutorial switch is shown" % tag)
 	# Wide and landscape keep it in the title bar; the scrolling ones give it a section.
 	var in_title_bar := layout == StartNewGameScreen.Layout.WIDE or layout == StartNewGameScreen.Layout.LANDSCAPE
-	assert_eq(screen._tutorial_card.cell.get_parent().name, "Header" if in_title_bar else "TutorialBlock",
+	assert_eq(screen._tutorial_card.cell.get_parent().name, "ScreenHeader" if in_title_bar else "TutorialBlock",
 		"%s: the tutorial switch sits in the title bar or its own section" % tag)
 
 	# Scrolling arrangements only promise the width; the rest sit wholly inside.
@@ -161,7 +161,11 @@ func test_the_screen_opens_with_the_default_options() -> void:
 
 
 func test_every_arrangement_shows_every_option_in_reach() -> void:
-	# A generated course makes the plan worth checking at every size.
+	# A generated course makes the plan worth checking at every size. The company
+	# name is rolled at random, and a long roll can be wider than the rail, so the
+	# layout check pins a fixed name (long names are trimmed with an ellipsis).
+	_screen()._company_name = "Eagle Fairway"
+	_screen()._company_input.text = "Eagle Fairway"
 	_screen()._select_holes(9)
 	for entry in SIZES:
 		await _resize(entry[0])

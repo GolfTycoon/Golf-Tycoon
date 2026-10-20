@@ -89,17 +89,13 @@ func test_status_column_uses_compact_width_on_narrow_windows() -> void:
 	var column: HUDStatusColumn = autofree(HUDStatusColumn.new())
 	add_child(column)
 	assert_almost_eq(column.custom_minimum_size.x, float(UIConstants.HUD_COLUMN_WIDTH), 0.5)
-	assert_false(column.get("_collapsed"))
 
 	await _set_window(390, 844)
 	column.apply_screen()
 	assert_almost_eq(column.custom_minimum_size.x, 150.0, 0.5)
-	# Crossing into compact collapses the details to keep the course view clear.
-	assert_true(column.get("_collapsed"))
+	# The column has no collapse state: narrowing it never hides the cards.
+	assert_null(column.get("_collapsed"), "the column keeps no collapsed state")
 
-	# Going back to a desktop window restores the width but stays collapsed
-	# (the player chose to see the details or not).
 	await _set_window(1600, 1000)
 	column.apply_screen()
 	assert_almost_eq(column.custom_minimum_size.x, float(UIConstants.HUD_COLUMN_WIDTH), 0.5)
-	assert_true(column.get("_collapsed"))

@@ -1,5 +1,6 @@
 extends Control
 class_name SettingsMenu
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
 ## Preferences are grouped into Audio, Display and Controls. Wide
@@ -28,12 +29,11 @@ signal tour_requested(suite_id: String)
 enum Origin { MAIN_MENU, PAUSE_MENU }
 
 enum Category { AUDIO, DISPLAY, CONTROLS }
-enum LayoutMode { DESKTOP, TABLET, LANDSCAPE, PHONE }
 
-const DESKTOP_MIN_WIDTH := 1180.0
-const DESKTOP_MIN_HEIGHT := 700.0
-const TABLET_MIN_WIDTH := 680.0
-const TABLET_MIN_HEIGHT := 640.0
+const DESKTOP_MIN_WIDTH := MenuScreenKit.DESKTOP_MIN_WIDTH
+const DESKTOP_MIN_HEIGHT := MenuScreenKit.DESKTOP_MIN_HEIGHT
+const TABLET_MIN_WIDTH := MenuScreenKit.TABLET_MIN_WIDTH
+const TABLET_MIN_HEIGHT := MenuScreenKit.TABLET_MIN_HEIGHT
 
 const COLOR_SURFACE := MenuStyle.SHEET_BG
 const COLOR_RAISED := MenuStyle.RAIL_BG
@@ -72,7 +72,7 @@ func benchmarks_allowed() -> bool:
 	return origin == Origin.MAIN_MENU
 
 var _category: int = Category.AUDIO
-var _layout_mode: int = LayoutMode.PHONE
+var _layout_mode: int = Kit.LayoutMode.PHONE_PORTRAIT
 var _built_size := Vector2.ZERO
 var _bg: ColorRect
 var _panel: Control
@@ -128,13 +128,7 @@ func _exit_tree() -> void:
 
 ## Pure responsive breakpoint decision, also used by the layout tests.
 static func layout_mode_for(view: Vector2) -> int:
-	if view.x >= DESKTOP_MIN_WIDTH and view.y >= DESKTOP_MIN_HEIGHT and view.x > view.y:
-		return LayoutMode.DESKTOP
-	if view.x >= TABLET_MIN_WIDTH and view.y >= TABLET_MIN_HEIGHT:
-		return LayoutMode.TABLET
-	if view.x > view.y and view.y < TABLET_MIN_HEIGHT:
-		return LayoutMode.LANDSCAPE
-	return LayoutMode.PHONE
+	return Kit.layout_mode_for(view)
 
 func _window_size() -> Vector2:
 	if has_node("/root/Screen"):
@@ -195,72 +189,29 @@ func _build() -> void:
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return int(clampf(minf(view.x, view.y) * 0.025, 20.0, 36.0))
-		LayoutMode.TABLET:
+		Kit.LayoutMode.TABLET_LANDSCAPE:
 			return int(clampf(minf(view.x, view.y) * 0.022, 14.0, 26.0))
-		LayoutMode.LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 8
 		_:
 			return int(clampf(view.x * 0.030, 9.0, 16.0))
 
 func _page_gap(mode: int) -> int:
 	match mode:
-		LayoutMode.DESKTOP: return 13
-		LayoutMode.TABLET: return 10
-		LayoutMode.LANDSCAPE: return 7
+		Kit.LayoutMode.DESKTOP: return 13
+		Kit.LayoutMode.TABLET_LANDSCAPE: return 10
+		Kit.LayoutMode.PHONE_LANDSCAPE: return 7
 		_: return 8
 
 func _build_header(mode: int) -> Control:
-	var compact := mode == LayoutMode.PHONE or mode == LayoutMode.LANDSCAPE
-	var header := HBoxContainer.new()
-	header.name = "SettingsHeader"
-	header.custom_minimum_size.y = (44.0 if mode == LayoutMode.LANDSCAPE else 54.0) if compact else 74.0
-	header.add_theme_constant_override("separation", 9 if not compact else 6)
-
-	var back := Button.new()
-	back.name = "BackButton"
-	back.text = "‹ Back" if not compact else "‹"
-	back.tooltip_text = "Return to the previous screen"
-	back.custom_minimum_size = Vector2(82 if not compact else 46, 44)
-	back.add_theme_font_size_override("font_size", 14 if not compact else 18)
-	_paint_utility_button(back)
-	back.pressed.connect(_on_close)
-	header.add_child(back)
-
-	var mark := MenuFlagMark.new()
-	mark.name = "SettingsMark"
-	mark.mark_size = 45 if mode == LayoutMode.DESKTOP else (36 if mode == LayoutMode.TABLET else 29)
-	header.add_child(mark)
-
-	var title_box := VBoxContainer.new()
-	title_box.name = "SettingsTitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	title_box.add_theme_constant_override("separation", 0)
-	title_box.add_child(_label("THE CLUBHOUSE OFFICE", 10 if compact else 11, COLOR_GOLD))
-	var title := _label("Settings", 21 if compact else 28, COLOR_TEXT)
-	title.name = "Title"
-	title_box.add_child(title)
-	var subtitle := _label("Make the course yours. Changes take effect immediately.", 12, COLOR_MUTED)
-	subtitle.name = "Subtitle"
-	subtitle.visible = not compact
-	title_box.add_child(subtitle)
-	header.add_child(title_box)
-
-	var autosave_chip := _make_status_chip("SAVED AUTOMATICALLY", mode)
-	autosave_chip.name = "AutosaveChip"
-	autosave_chip.visible = mode == LayoutMode.DESKTOP or mode == LayoutMode.TABLET
-	header.add_child(autosave_chip)
-	var close := Button.new()
-	close.name = "CloseButton"
-	close.text = "×"
-	close.tooltip_text = "Close settings"
-	close.custom_minimum_size = Vector2(44, 44)
-	close.add_theme_font_size_override("font_size", 22)
-	_paint_utility_button(close)
-	close.pressed.connect(_on_close)
-	header.add_child(close)
+	var trailing: Control = null
+	if mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode):
+		trailing = Kit.make_chip("SAVED AUTOMATICALLY", COLOR_GOLD, COLOR_GOLD, 10)
+		trailing.custom_minimum_size = Vector2(0.0, 26.0)
+	var header := Kit.make_screen_header(mode, "Settings", "The clubhouse office",
+		"Make the course yours. Changes take effect immediately.", _on_close, trailing)
 	return header
 
 func _build_workspace(mode: int, view: Vector2) -> Control:
@@ -270,7 +221,7 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 		row.name = "SettingsWorkspace"
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation", 12 if mode == LayoutMode.DESKTOP else 8)
+		row.add_theme_constant_override("separation", 12 if mode == Kit.LayoutMode.DESKTOP else 8)
 		var nav := _build_navigation(mode, true)
 		nav.custom_minimum_size.x = _navigation_width(mode, view)
 		nav.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -295,14 +246,14 @@ func _build_workspace(mode: int, view: Vector2) -> Control:
 	return stack
 
 func _uses_side_navigation(mode: int, view: Vector2) -> bool:
-	if mode == LayoutMode.DESKTOP or mode == LayoutMode.LANDSCAPE:
+	if mode == Kit.LayoutMode.DESKTOP or mode == Kit.LayoutMode.PHONE_LANDSCAPE:
 		return true
-	return mode == LayoutMode.TABLET and view.x > view.y
+	return Kit.is_tablet(mode) and view.x > view.y
 
 func _navigation_width(mode: int, view: Vector2) -> float:
-	if mode == LayoutMode.LANDSCAPE:
+	if mode == Kit.LayoutMode.PHONE_LANDSCAPE:
 		return clampf(view.x * 0.17, 120.0, 148.0)
-	if mode == LayoutMode.TABLET:
+	if Kit.is_tablet(mode):
 		return clampf(view.x * 0.19, 166.0, 210.0)
 	return clampf(view.x * 0.15, 210.0, 252.0)
 
@@ -313,19 +264,19 @@ func _build_navigation(mode: int, vertical: bool) -> Control:
 		surface.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
 			MenuStyle.with_alpha(COLOR_BORDER, 0.40), 14, 0, 0, 1))
 		var margin := MarginContainer.new()
-		_set_margins(margin, 11 if mode == LayoutMode.DESKTOP else 7)
+		_set_margins(margin, 11 if mode == Kit.LayoutMode.DESKTOP else 7)
 		surface.add_child(margin)
 		var stack := VBoxContainer.new()
 		stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		stack.add_theme_constant_override("separation", 7 if mode != LayoutMode.LANDSCAPE else 5)
+		stack.add_theme_constant_override("separation", 7 if mode != Kit.LayoutMode.PHONE_LANDSCAPE else 5)
 		margin.add_child(stack)
-		var kicker := _label("PREFERENCES", 9, COLOR_QUIET)
+		var kicker := Kit.make_label("PREFERENCES", 9, COLOR_QUIET)
 		kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stack.add_child(kicker)
 		for category in Category.values():
 			stack.add_child(_build_category_button(category, mode, true))
-		if mode != LayoutMode.LANDSCAPE:
-			var note := _label("Changes save as you make them.", 9, COLOR_QUIET)
+		if mode != Kit.LayoutMode.PHONE_LANDSCAPE:
+			var note := Kit.make_label("Changes save as you make them.", 9, COLOR_QUIET)
 			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			note.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -336,8 +287,8 @@ func _build_navigation(mode: int, vertical: bool) -> Control:
 	# Phones and short windows: the four categories share the width as equal
 	# tiles, so none of them ever needs a sideways scroll.
 	var bar := HBoxContainer.new()
-	bar.name = "CategoryStrip" if mode == LayoutMode.PHONE else "CategoryNavigation"
-	bar.add_theme_constant_override("separation", 5 if mode == LayoutMode.PHONE else 7)
+	bar.name = "CategoryStrip" if mode == Kit.LayoutMode.PHONE_PORTRAIT else "CategoryNavigation"
+	bar.add_theme_constant_override("separation", 5 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 7)
 	for category in Category.values():
 		bar.add_child(_build_category_button(category, mode, false))
 	return bar
@@ -348,17 +299,17 @@ func _build_category_button(category: int, mode: int, vertical: bool) -> Button:
 	button.toggle_mode = true
 	button.button_pressed = category == _category
 	button.text = _category_name(category)
-	if vertical and mode != LayoutMode.LANDSCAPE:
+	if vertical and mode != Kit.LayoutMode.PHONE_LANDSCAPE:
 		button.text += "\n" + _category_short_description(category)
 	button.tooltip_text = _category_description(category)
 	if vertical:
-		button.custom_minimum_size = Vector2(0, 40 if mode == LayoutMode.LANDSCAPE else 60)
+		button.custom_minimum_size = Vector2(0, 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 60)
 	else:
 		# Horizontal tabs share the row evenly; the minimum is only a floor.
-		button.custom_minimum_size = Vector2(0, 46 if mode == LayoutMode.PHONE else 52)
+		button.custom_minimum_size = Vector2(0, 46 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 52)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var narrow_phone := mode == LayoutMode.PHONE and _window_size().x < 400.0
-	button.add_theme_font_size_override("font_size", 11 if narrow_phone else (12 if mode == LayoutMode.PHONE or mode == LayoutMode.LANDSCAPE else 13))
+	var narrow_phone := mode == Kit.LayoutMode.PHONE_PORTRAIT and _window_size().x < 400.0
+	button.add_theme_font_size_override("font_size", 11 if narrow_phone else (12 if Kit.is_phone(mode) else 13))
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	MenuStyle.paint_choice(button, COLOR_MINT, 9)
 	button.add_theme_color_override("font_color", COLOR_MUTED)
@@ -368,26 +319,26 @@ func _build_category_button(category: int, mode: int, vertical: bool) -> Button:
 	return button
 
 func _build_category_content(mode: int, view: Vector2) -> PanelContainer:
-	var panel := _make_card(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_BORDER, 0.44), MenuStyle.CARD_RADIUS + 2)
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(COLOR_BORDER, 0.44))
 	panel.name = "CategoryContent"
 	_panel = panel
 	var margin := MarginContainer.new()
-	var pad := 17 if mode == LayoutMode.DESKTOP else (13 if mode == LayoutMode.TABLET else 10)
+	var pad := 17 if mode == Kit.LayoutMode.DESKTOP else (13 if Kit.is_tablet(mode) else 10)
 	_set_margins(margin, pad)
 	panel.add_child(margin)
 	var page := VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_theme_constant_override("separation", 8 if mode == LayoutMode.LANDSCAPE else 11)
+	page.add_theme_constant_override("separation", 8 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 11)
 	margin.add_child(page)
 
 	var category_header := VBoxContainer.new()
 	category_header.add_theme_constant_override("separation", 2)
-	category_header.add_child(_label("SETTINGS  /  %s" % _category_name(_category).to_upper(), 9 if mode == LayoutMode.PHONE else 10, COLOR_GOLD))
-	var title := _label(_category_title(_category), 18 if mode == LayoutMode.PHONE else 22, COLOR_TEXT)
+	category_header.add_child(Kit.make_label("SETTINGS  /  %s" % _category_name(_category).to_upper(), 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_GOLD))
+	var title := Kit.make_label(_category_title(_category), 18 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 22, COLOR_TEXT)
 	title.name = "CategoryTitle"
 	category_header.add_child(title)
-	var description := _label(_category_description(_category), 10 if mode == LayoutMode.PHONE else 12, COLOR_MUTED)
+	var description := Kit.make_label(_category_description(_category), 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12, COLOR_MUTED)
 	description.name = "CategoryDescription"
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	category_header.add_child(description)
@@ -405,8 +356,8 @@ func _build_category_content(mode: int, view: Vector2) -> PanelContainer:
 	var grid := GridContainer.new()
 	grid.name = "SettingsCardGrid"
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 10 if mode == LayoutMode.DESKTOP else 8)
-	grid.add_theme_constant_override("v_separation", 10 if mode == LayoutMode.DESKTOP else 8)
+	grid.add_theme_constant_override("h_separation", 10 if mode == Kit.LayoutMode.DESKTOP else 8)
+	grid.add_theme_constant_override("v_separation", 10 if mode == Kit.LayoutMode.DESKTOP else 8)
 	grid.columns = 2 if _use_two_columns(mode, view) else 1
 	scroll.add_child(grid)
 	for card in _build_category_cards(mode):
@@ -415,7 +366,7 @@ func _build_category_content(mode: int, view: Vector2) -> PanelContainer:
 	return panel
 
 func _use_two_columns(mode: int, view: Vector2) -> bool:
-	return mode == LayoutMode.DESKTOP or (mode == LayoutMode.TABLET and view.x > view.y)
+	return mode == Kit.LayoutMode.DESKTOP or (Kit.is_tablet(mode) and view.x > view.y)
 
 func _build_category_cards(mode: int) -> Array[Control]:
 	match _category:
@@ -442,7 +393,7 @@ func _build_audio_cards(mode: int) -> Array[Control]:
 	var output_body: VBoxContainer = output["body"]
 	_add_toggle_row(output_body, "Mute all audio", "Silence effects and course ambience.",
 		SoundManager.is_muted, _set_muted, mode)
-	var badge := _make_status_chip("MUTED" if SoundManager.is_muted else "SOUND ON", mode)
+	var badge := Kit.make_chip("MUTED" if SoundManager.is_muted else "SOUND ON", COLOR_GOLD, COLOR_GOLD, 9)
 	badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	output_body.add_child(badge)
 	cards.append(output["panel"])
@@ -452,7 +403,7 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
 	var window := _make_group("WINDOW", "Choose how Golf Tycoon fills your screen.", mode)
 	var window_body: VBoxContainer = window["body"]
-	var mode_label := _label("Window mode", 12, COLOR_TEXT)
+	var mode_label := Kit.make_label("Window mode", 12, COLOR_TEXT)
 	window_body.add_child(mode_label)
 	var mode_options := OptionButton.new()
 	mode_options.name = "WindowMode"
@@ -486,7 +437,7 @@ func _build_display_cards(mode: int) -> Array[Control]:
 
 	var accessibility := _make_group("ACCESSIBILITY", "Alternative course colours for colour-vision needs.", mode)
 	var accessibility_body: VBoxContainer = accessibility["body"]
-	accessibility_body.add_child(_label("Course colour palette", 12, COLOR_TEXT))
+	accessibility_body.add_child(Kit.make_label("Course colour palette", 12, COLOR_TEXT))
 	var color_options := OptionButton.new()
 	color_options.name = "ColorblindMode"
 	for color_mode in ColorblindMode.get_all_modes():
@@ -513,7 +464,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	var body: VBoxContainer = benchmark["body"]
 	body.add_child(_make_separator())
 
-	var summary := _label(_benchmark_summary_text, 11, COLOR_TEXT)
+	var summary := Kit.make_label(_benchmark_summary_text, 11, COLOR_TEXT)
 	summary.name = "BenchmarkSummary"
 	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_benchmark_summary_label = summary
@@ -537,7 +488,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	rating.add_child(meter)
 	body.add_child(rating)
 
-	var details := _label(_benchmark_details_text, 10, COLOR_MUTED)
+	var details := Kit.make_label(_benchmark_details_text, 10, COLOR_MUTED)
 	details.name = "BenchmarkDetails"
 	details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_benchmark_details_label = details
@@ -555,7 +506,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	run_button.custom_minimum_size = Vector2(0, 44)
 	run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	run_button.size_flags_stretch_ratio = 1.4
-	run_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	run_button.add_theme_font_size_override("font_size", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12)
 	MenuStyle.paint_card(run_button, COLOR_GOLD, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
 	run_button.add_theme_color_override("font_color", COLOR_TEXT)
 	run_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
@@ -571,7 +522,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	results_button.tooltip_text = "Open the Benchmark Results screen: the last report, the scorecard and the runs kept on this machine."
 	results_button.custom_minimum_size = Vector2(0, 44)
 	results_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	results_button.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	results_button.add_theme_font_size_override("font_size", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12)
 	MenuStyle.paint_card(results_button, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
 	results_button.add_theme_color_override("font_color", COLOR_TEXT)
 	results_button.add_theme_color_override("font_hover_color", COLOR_TEXT)
@@ -582,7 +533,7 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	actions.add_child(results_button)
 	body.add_child(actions)
 
-	var status := _label(_benchmark_status_text, 10, COLOR_QUIET)
+	var status := Kit.make_label(_benchmark_status_text, 10, COLOR_QUIET)
 	status.name = "BenchmarkStatus"
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_benchmark_status_label = status
@@ -617,14 +568,14 @@ func _build_controls_intro_card(mode: int) -> Control:
 		"Every course action can be rebound to the key or controller button that suits you.", mode)
 	var body: VBoxContainer = intro["body"]
 
-	var status := _label(_controls_status_text, 10 if mode == LayoutMode.PHONE else 11, COLOR_MINT)
+	var status := Kit.make_label(_controls_status_text, 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_MINT)
 	status.name = "ControlsStatus"
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_controls_status_label = status
 	body.add_child(status)
 
-	var note := _label("Click a keycap to listen. Esc cancels, Backspace unbinds, and the arrow button resets one control. Mouse, touch and the menu keys (Esc, Tab, Enter and the arrows) stay fixed.",
-		9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+	var note := Kit.make_label("Click a keycap to listen. Esc cancels, Backspace unbinds, and the arrow button resets one control. Mouse, touch and the menu keys (Esc, Tab, Enter and the arrows) stay fixed.",
+		9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(note)
 	body.add_child(_make_separator())
@@ -635,7 +586,7 @@ func _build_controls_intro_card(mode: int) -> Control:
 	reset_all.tooltip_text = "Put every course control back on its default key or button. Changes save as you make them."
 	reset_all.custom_minimum_size = Vector2(0, 44)
 	reset_all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	reset_all.add_theme_font_size_override("font_size", 11 if mode == LayoutMode.PHONE else 12)
+	reset_all.add_theme_font_size_override("font_size", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12)
 	MenuStyle.paint_card(reset_all, COLOR_GOLD, 0.0, 8, COLOR_TEXT, COLOR_TEXT)
 	reset_all.add_theme_color_override("font_color", COLOR_TEXT)
 	reset_all.add_theme_color_override("font_hover_color", COLOR_TEXT)
@@ -658,12 +609,12 @@ func _build_binding_row(action: String, mode: int) -> Control:
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	copy.add_theme_constant_override("separation", 0)
-	var action_label := _label(InputBindings.action_label(action), 11 if mode == LayoutMode.PHONE else 12, COLOR_TEXT)
+	var action_label := Kit.make_label(InputBindings.action_label(action), 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12, COLOR_TEXT)
 	action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(action_label)
 	var hint := InputBindings.action_hint(action)
 	if not hint.is_empty():
-		var hint_label := _label(hint, 9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+		var hint_label := Kit.make_label(hint, 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
 		hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		copy.add_child(hint_label)
 	row.add_child(copy)
@@ -672,8 +623,8 @@ func _build_binding_row(action: String, mode: int) -> Control:
 	keycap.name = "Binding_%s" % action
 	keycap.text = InputBindings.binding_text(action)
 	_update_keycap_tooltip(action, keycap)
-	keycap.custom_minimum_size = Vector2(98 if mode == LayoutMode.PHONE else 130, 44)
-	keycap.add_theme_font_size_override("font_size", 9 if mode == LayoutMode.PHONE else 10)
+	keycap.custom_minimum_size = Vector2(98 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 130, 44)
+	keycap.add_theme_font_size_override("font_size", 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10)
 	keycap.clip_text = true
 	keycap.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	keycap.focus_mode = Control.FOCUS_ALL
@@ -691,7 +642,7 @@ func _build_binding_row(action: String, mode: int) -> Control:
 	reset.custom_minimum_size = Vector2(40, 44)
 	reset.add_theme_font_size_override("font_size", 16)
 	reset.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	_paint_utility_button(reset)
+	Kit.paint_utility_button(reset, false)
 	reset.disabled = not InputBindings.is_customized(action)
 	reset.pressed.connect(_reset_one_binding.bind(action))
 	_binding_reset_buttons[action] = reset
@@ -856,18 +807,18 @@ func _set_controls_status(text: String) -> void:
 		_controls_status_label.text = text
 
 func _make_group(title: String, description: String, mode: int) -> Dictionary:
-	var panel := _make_card(COLOR_RAISED, MenuStyle.with_alpha(COLOR_BORDER, 0.32), 12)
+	var panel := Kit.make_panel(COLOR_RAISED, MenuStyle.with_alpha(COLOR_BORDER, 0.32))
 	panel.name = "Group_%s" % title.to_lower().replace(" ", "_").replace("&", "and")
 	var margin := MarginContainer.new()
-	_set_margins(margin, 13 if mode == LayoutMode.DESKTOP else (11 if mode == LayoutMode.TABLET else 9))
+	_set_margins(margin, 13 if mode == Kit.LayoutMode.DESKTOP else (11 if Kit.is_tablet(mode) else 9))
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 8 if mode == LayoutMode.LANDSCAPE else 10)
+	stack.add_theme_constant_override("separation", 8 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 10)
 	margin.add_child(stack)
-	var kicker := _label(title, 10 if mode == LayoutMode.PHONE else 11, COLOR_GOLD)
+	var kicker := Kit.make_label(title, 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_GOLD)
 	stack.add_child(kicker)
 	if not description.is_empty():
-		var detail := _label(description, 10 if mode == LayoutMode.PHONE else 11, COLOR_MUTED)
+		var detail := Kit.make_label(description, 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_MUTED)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		stack.add_child(detail)
 	return {"panel": panel, "body": stack}
@@ -880,12 +831,12 @@ func _add_volume_control(parent: VBoxContainer, title: String, hint: String, val
 	var label_box := VBoxContainer.new()
 	label_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label_box.add_theme_constant_override("separation", 0)
-	label_box.add_child(_label(title, 12, COLOR_TEXT))
-	var hint_label := _label(hint, 9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+	label_box.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var hint_label := Kit.make_label(hint, 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label_box.add_child(hint_label)
 	heading.add_child(label_box)
-	var value_label := _label("%d%%" % int(value * 100), 11, COLOR_GOLD)
+	var value_label := Kit.make_label("%d%%" % int(value * 100), 11, COLOR_GOLD)
 	value_label.custom_minimum_size.x = 42
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -909,10 +860,10 @@ func _add_ui_scale_control(parent: VBoxContainer, mode: int) -> void:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 4)
 	var header := HBoxContainer.new()
-	var label := _label("UI Scale", 12, COLOR_TEXT)
+	var label := Kit.make_label("UI Scale", 12, COLOR_TEXT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(label)
-	var value_label := _label("", 11, COLOR_GOLD)
+	var value_label := Kit.make_label("", 11, COLOR_GOLD)
 	value_label.custom_minimum_size.x = 44
 	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	header.add_child(value_label)
@@ -931,7 +882,7 @@ func _add_ui_scale_control(parent: VBoxContainer, mode: int) -> void:
 		get_tree().root.content_scale_factor = value
 		_save_display_settings())
 	stack.add_child(scale_slider)
-	var range_label := _label("80%  ·  150%", 9 if mode == LayoutMode.PHONE else 10, COLOR_QUIET)
+	var range_label := Kit.make_label("80%  ·  150%", 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
 	range_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	stack.add_child(range_label)
 	parent.add_child(stack)
@@ -943,10 +894,10 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	var copy := VBoxContainer.new()
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	copy.add_theme_constant_override("separation", 2)
-	var label := _label(title, 12 if mode != LayoutMode.DESKTOP else 13, COLOR_TEXT)
+	var label := Kit.make_label(title, 12 if mode != Kit.LayoutMode.DESKTOP else 13, COLOR_TEXT)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(label)
-	var detail := _label(description, 10 if mode == LayoutMode.PHONE else 11, COLOR_MUTED)
+	var detail := Kit.make_label(description, 10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_MUTED)
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(detail)
 	row.add_child(copy)
@@ -959,33 +910,24 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	row.add_child(toggle)
 	parent.add_child(row)
 
-func _make_status_chip(text: String, mode: int) -> PanelContainer:
-	var chip := PanelContainer.new()
-	chip.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-		MenuStyle.with_alpha(COLOR_GOLD, 0.35), 8, 8, 5, 1))
-	var label := _label(text, 8 if mode == LayoutMode.PHONE else 9, COLOR_GOLD)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.add_child(label)
-	return chip
-
 func _build_footer(mode: int) -> Control:
 	var footer := HBoxContainer.new()
 	footer.name = "SettingsFooter"
-	footer.custom_minimum_size.y = 44 if mode == LayoutMode.LANDSCAPE else 48
+	footer.custom_minimum_size.y = 44 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 48
 	footer.add_theme_constant_override("separation", 8)
 	# The notice only earns its room when the footer has the width to spare.
-	var note := _label("CHANGES APPLY IMMEDIATELY  ·  SAVED ON THIS DEVICE", 10, COLOR_QUIET)
+	var note := Kit.make_label("CHANGES APPLY IMMEDIATELY  ·  SAVED ON THIS DEVICE", 10, COLOR_QUIET)
 	note.name = "SaveNotice"
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == LayoutMode.DESKTOP or mode == LayoutMode.TABLET
+	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
 	footer.add_child(note)
 	var done := Button.new()
 	done.name = "DoneButton"
 	done.text = close_label
-	done.custom_minimum_size = Vector2(136 if mode != LayoutMode.PHONE else 96, 44)
-	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == LayoutMode.PHONE else Control.SIZE_SHRINK_END
+	done.custom_minimum_size = Vector2(136 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 96, 44)
+	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
 	done.add_theme_font_size_override("font_size", 12)
 	MenuStyle.paint_primary(done, 9)
 	done.add_theme_color_override("font_color", MenuStyle.INK)
@@ -1164,29 +1106,9 @@ func _make_separator() -> HSeparator:
 	separator.add_theme_color_override("color", MenuStyle.with_alpha(COLOR_BORDER, 0.5))
 	return separator
 
-func _make_card(bg: Color, border: Color, radius: int) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", MenuStyle.panel(bg, border, radius, 0, 0, 1))
-	return panel
-
 func _set_margins(container: MarginContainer, margin: int) -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		container.add_theme_constant_override("margin_" + side, margin)
-
-func _label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-func _paint_utility_button(button: Button) -> void:
-	MenuStyle.paint_card(button, COLOR_MINT, 0.0, 8, COLOR_TEXT, COLOR_TEXT)
-	button.add_theme_color_override("font_color", COLOR_TEXT)
-	button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-	button.add_theme_color_override("font_pressed_color", COLOR_TEXT)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 func _on_close() -> void:
 	close_requested.emit()

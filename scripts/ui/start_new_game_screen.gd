@@ -1,5 +1,6 @@
 extends Control
 class_name StartNewGameScreen
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## StartNewGameScreen - Company setup shown after "Start New Game".
 ##
 ## Collects the company name, difficulty, starting budget, how many holes the
@@ -670,67 +671,19 @@ func _make_section(title: String, content: Control, m: Metrics) -> VBoxContainer
 	var section := VBoxContainer.new()
 	section.name = title.to_pascal_case()
 	section.add_theme_constant_override("separation", m.kicker_gap)
-	section.add_child(_make_kicker(title, m.kicker_font))
+	section.add_child(Kit.make_kicker(title, m.kicker_font))
 	section.add_child(content)
 	return section
 
-## Back button and the title lockup.
 func _make_header(m: Metrics, with_tutorial: bool = false) -> Control:
-	var row := HBoxContainer.new()
-	row.name = "Header"
-	row.add_theme_constant_override("separation", m.gap)
-	_back_button = Button.new()
-	_back_button.name = "BackButton"
-	_back_button.text = "‹  Back"
-	_back_button.tooltip_text = "Back to the title screen (Esc)"
-	_back_button.custom_minimum_size = Vector2(maxf(88.0, m.back_height * 2.1), m.back_height)
-	_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_back_button.add_theme_font_override("font", SUBTITLE_FONT)
-	_back_button.add_theme_font_size_override("font_size", m.back_font)
-	PixelButtonStyle.paint_card(_back_button, MenuStyle.ACCENT_UTILITY, 0.0, int(m.back_height * 0.28),
-		UIConstants.COLOR_TEXT, MenuStyle.TITLE_COLOR)
-	_back_button.pressed.connect(func(): back_requested.emit())
-	row.add_child(_back_button)
-
-	var title_block := HBoxContainer.new()
-	title_block.name = "TitleBlock"
-	title_block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_block.add_theme_constant_override("separation", int(float(m.title_font) * 0.3))
-	var mark := TextureRect.new()
-	mark.name = "Mark"
-	var mark_side := PixelIcon.snapped_side(int(roundf(float(m.title_font) * 1.15)))
-	mark.texture = PixelIcon.texture(PixelIcon.Kind.FLAG, mark_side, MenuStyle.ACCENT_PRIMARY)
-	mark.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	mark.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mark.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	mark.custom_minimum_size = Vector2(mark_side, mark_side)
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_block.add_child(mark)
-	var title_stack := VBoxContainer.new()
-	title_stack.name = "TitleStack"
-	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	title_stack.add_theme_constant_override("separation", maxi(0, int(m.kicker_gap * 0.25)))
-	var eyebrow := _make_kicker("Company setup", m.kicker_font)
-	eyebrow.name = "Eyebrow"
-	eyebrow.add_theme_color_override("font_color", MenuStyle.ACCENT_PRIMARY)
-	title_stack.add_child(eyebrow)
-	var title := Label.new()
-	title.name = "Title"
-	title.text = TITLE_TEXT
-	title.add_theme_font_override("font", TITLE_FONT)
-	title.add_theme_font_size_override("font_size", m.title_font)
-	title.add_theme_color_override("font_color", MenuStyle.TITLE_COLOR)
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_stack.add_child(title)
-	title_block.add_child(title_stack)
-	row.add_child(title_block)
+	# The header is the shared screen header, sized for the window's layout
+	# mode like every other screen's bar; the tutorial switch sits on its right.
+	var header := Kit.make_screen_header(Kit.layout_mode_for(_window_size()), TITLE_TEXT,
+		"Company setup", "", func(): back_requested.emit())
+	_back_button = header.get_node("BackButton") as Button
 	if with_tutorial:
-		_make_tutorial_chip(m, row)
-	return row
+		_make_tutorial_chip(m, header)
+	return header
 
 # =============================================================================
 # SECTIONS
@@ -1103,7 +1056,7 @@ func _make_rail(m: Metrics) -> PanelContainer:
 	column.name = "RailColumn"
 	column.add_theme_constant_override("separation", int(m.item_gap * 1.1))
 	rail.add_child(column)
-	column.add_child(_make_kicker("Your company", m.kicker_font))
+	column.add_child(Kit.make_kicker("Your company", m.kicker_font))
 	_summary_company = _make_option_label(_company_display_name(), m.option_font + 5, MenuStyle.TITLE_COLOR)
 	_summary_company.name = "CompanyName"
 	_summary_company.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1351,13 +1304,6 @@ func _make_rule() -> ColorRect:
 	rule.custom_minimum_size = Vector2(0, 1)
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rule
-
-func _make_kicker(text: String, font_size: int) -> Label:
-	var label := _make_label(text, maxi(font_size, 11), UIConstants.COLOR_TEXT_MUTED)
-	label.name = "Kicker"
-	label.add_theme_font_override("font", SUBTITLE_FONT)
-	label.uppercase = true
-	return label
 
 func _make_option_label(text: String, font_size: int, color: Color) -> Label:
 	var label := _make_label(text, font_size, color)

@@ -1,31 +1,19 @@
 extends GameTest
-## Buildings stand on the grid's own isometric diamonds.
+## Buildings stand on the grid's own isometric diamonds — now as pixel art.
 ##
-## Every wall, roof, window and planter is authored in grid space — tiles
-## across, tiles down, pixels up — and projected through the same 2:1 axes the
-## terrain uses. These tests hold the renderer to that promise: the artwork
-## covers exactly the tiles the building occupies at every view rotation, every
-## facility draws inside its own square, and the upgrades grow upward rather
-## than outward. See CourseArchitecture.
+## Every facility is one pre-rendered isometric sprite per upgrade tier and per
+## quarter-turn of the view, projected in grid space (tiles across, tiles down,
+## world pixels up) through the same 2:1 axes the terrain uses. These tests hold
+## the renderer to that promise: the artwork covers the tiles the building
+## occupies at every view rotation, every facility has its own image, and the
+## clubhouse's upgrades grow upward rather than outward. See CourseArchitecture
+## and BuildingSprites.
 
 const POS := Vector2i(6, 6)
-
-## Draws facilities the way the game does — from inside a real `_draw()` — and
-## reports the grid-space box each one covered.
-class Painter extends Node2D:
-	var jobs: Array = []
-	var extents: Array = []
-
-	func _draw() -> void:
-		extents.clear()
-		for job in jobs:
-			extents.append(CourseArchitecture.draw_building(self, job.kind, job.size,
-				job.tier, 0.0, false, job.facing))
 
 var grid: TerrainGrid
 var entities: EntityLayer
 var registry: Dictionary
-var painter: Painter
 
 func before_all() -> void:
 	registry = JSON.parse_string(
@@ -45,8 +33,6 @@ func before_each() -> void:
 	entities.set_terrain_grid(grid)
 	GameManager.terrain_grid = grid
 	GameManager.entity_layer = entities
-	painter = Painter.new()
-	add_child_autofree(painter)
 
 func _size_of(building_type: String) -> Vector2:
 	var dimensions: Array = registry[building_type].get("size", [1, 1])
@@ -62,19 +48,18 @@ func _corners(tiles: Vector2) -> Array:
 func _node_position(size: Vector2, tiles: Vector2) -> Vector2:
 	return grid.grid_point_to_screen(Vector2(POS) + tiles * 0.5) - Vector2(size.x * 0.5, size.y)
 
-## Draw one facility and hand back the box it covered.
-func _draw_extent(building_type: String, tier := 1, facing := 0) -> AABB:
-	var size := _size_of(building_type)
-	painter.jobs = [{"kind": building_type, "size": size, "tier": tier, "facing": facing}]
-	painter.extents = []
-	painter.queue_redraw()
-	for _attempt in range(3):
-		await process_frames(1)
-		if not painter.extents.is_empty():
-			return painter.extents[0]
-	fail_test("%s at rotation %d never drew" % [building_type, facing])
-	return AABB()
-
+## The rectangle a sprite actually paints, in the building node's local space:
+## the manifest rect trimmed to the image's opaque pixels and scaled from art
+## pixels to world pixels.
+func _painted_rect(building_type: String, tier := 1, facing := 0) -> Rect2:
+	var tex := BuildingSprites.texture(building_type, tier, facing)
+	if tex == null:
+		return Rect2()
+	var used := tex.get_image().get_used_rect()
+	var scale := float(BuildingSprites.manifest().get("pixel_scale", 2.0))
+	var art := BuildingSprites.rect(building_type, tier, facing)
+	return Rect2(art.position + Vector2(used.position) * scale,
+			Vector2(used.size) * scale)
 
 # ---------------------------------------------------------------------------
 # The footprint sits on the tiles
@@ -83,7 +68,8 @@ func _draw_extent(building_type: String, tier := 1, facing := 0) -> AABB:
 func test_the_art_covers_exactly_the_tiles_a_building_stands_on() -> void:
 	# The whole point of the renderer: a placed building's projected corners are
 	# the terrain's own tile corners, so its square is the square it was placed
-	# on — not a flat elevation laid across them.
+	# on — not a flat elevation laid across them. The sprite is authored in that
+	# same space, so the corner maths is what anchors the pixels.
 	for building_type in registry:
 		var size := _size_of(building_type)
 		var tiles := _tiles_of(size)
@@ -134,7 +120,7 @@ func test_every_placed_building_lands_on_its_tile_corners() -> void:
 
 func test_the_projection_matches_the_grids_own_away_from_the_corners() -> void:
 	# Interior tiles and lifted points — the wall tops and roof ridges the
-	# renderer builds from — project through the same transform.
+	# renderer was authored from — project through the same transform.
 	var tiles := Vector2(3, 2)
 	var size := Vector2(tiles.x * 64.0, tiles.y * 32.0)
 	for facing in range(4):
@@ -161,60 +147,115 @@ func test_rotating_the_view_turns_the_building_with_the_course() -> void:
 		assert_eq(architecture.facing, facing,
 			"the drawing follows the course round to rotation %d" % facing)
 
-
 # ---------------------------------------------------------------------------
-# Every facility draws, and stays on its square
+# Every facility is a pixel image on its own square
 # ---------------------------------------------------------------------------
 
-func test_every_facility_draws_inside_its_own_square() -> void:
+func test_every_facility_has_pixel_art_for_every_tier_and_rotation() -> void:
 	for building_type in registry:
-		var tiles := _tiles_of(_size_of(building_type))
-		for facing in range(4):
-			var box := await _draw_extent(building_type, 1, facing)
-			# A building may overhang its tiles a little — eaves, a bench on the
-			# terrace, a bay window — but it may not wander off its square.
-			assert_between(box.position.x, -0.5, 0.5,
-				"%s at rotation %d overhangs its west tiles" % [building_type, facing])
-			assert_between(box.position.y, -0.5, 0.5,
-				"%s at rotation %d overhangs its north tiles" % [building_type, facing])
-			assert_between(box.end.x, tiles.x - 0.5, tiles.x + 0.5,
-				"%s at rotation %d overhangs its east tiles" % [building_type, facing])
-			assert_between(box.end.y, tiles.y - 0.5, tiles.y + 0.5,
-				"%s at rotation %d overhangs its south tiles" % [building_type, facing])
-			assert_between(box.position.z, -4.0, 8.0,
-				"%s at rotation %d digs into the ground" % [building_type, facing])
-			assert_lt(box.end.z, 100.0,
-				"%s at rotation %d is a skyscraper" % [building_type, facing])
+		var kind := str(building_type)
+		assert_true(BuildingSprites.has_sprite(kind),
+			"%s has pixel art" % kind)
+		if not BuildingSprites.has_sprite(kind):
+			continue
+		assert_gte(BuildingSprites.tier_count(kind), 1, "%s has art tiers" % kind)
+		for tier in range(1, BuildingSprites.tier_count(kind) + 1):
+			for facing in range(4):
+				var tex := BuildingSprites.texture(kind, tier, facing)
+				assert_not_null(tex, "%s tier %d rotation %d has an image"
+					% [kind, tier, facing])
+				var art := BuildingSprites.rect(kind, tier, facing)
+				assert_gt(art.size.x, 0.0, "%s tier %d rotation %d has a rect"
+					% [kind, tier, facing])
 
-func test_the_art_leaves_room_for_the_walls_it_draws() -> void:
-	# The two sides facing the viewer carry the frontage — door, windows,
-	# awning. A roof that swallows the wall would hide all of it, so the drawn
-	# volume has to stand a storey high on every rotation.
-	var box := await _draw_extent("clubhouse", 1, 0)
-	assert_gt(box.end.z, 34.0, "the clubhouse walls stand a storey high")
+func test_every_facility_is_drawn_with_its_own_architecture() -> void:
+	# Distinct files: a kind with no design of its own would silently share
+	# another facility's picture.
+	var seen := {}
+	for building_type in registry:
+		var art := BuildingSprites.entry(building_type, 1, 0)
+		assert_false(art.is_empty(), "%s has a catalogue image" % building_type)
+		if art.is_empty():
+			continue
+		var file := str(art.get("file", ""))
+		assert_false(seen.has(file), "%s has an image of its own" % building_type)
+		seen[file] = building_type
+		for tier in range(1, BuildingSprites.tier_count(building_type) + 1):
+			for facing in range(4):
+				assert_ne(BuildingSprites.texture(building_type, tier, facing),
+					null, "%s has every rotation" % building_type)
+
+func test_the_sprite_sits_on_the_buildings_own_tiles() -> void:
+	# The pixels, not just the maths: the sprite's bottom edge lands on the
+	# footprint's front corner and its top rises above the footprint, so the
+	# picture is anchored to the tiles rather than floating over them.
+	for building_type in registry:
+		var kind := str(building_type)
+		var size := _size_of(kind)
+		for facing in range(4):
+			var painted := _painted_rect(kind, 1, facing)
+			assert_gt(painted.size.x, 0.0, "%s paints something at rotation %d"
+				% [kind, facing])
+			if painted.size.x <= 0.0:
+				continue
+			var corners := CourseArchitecture.footprint_corners(size, facing)
+			var front := -INF
+			var back := INF
+			var left := INF
+			var right := -INF
+			for corner in corners:
+				front = maxf(front, corner.y)
+				back = minf(back, corner.y)
+				left = minf(left, corner.x)
+				right = maxf(right, corner.x)
+			# A terrace sits a little inside the footprint and a roof eaves may
+			# overhang it, but the picture is still the building on its square.
+			assert_between(painted.end.y, front - 14.0, front + 2.0,
+				"%s at rotation %d touches its front tiles" % [kind, facing])
+			assert_between(painted.position.y, back - 120.0, back + 2.0,
+				"%s at rotation %d rises over its own footprint" % [kind, facing])
+			assert_between(painted.position.x, left - 10.0, left + 12.0,
+				"%s at rotation %d stays on its west tiles" % [kind, facing])
+			assert_between(painted.end.x, right - 12.0, right + 10.0,
+				"%s at rotation %d stays on its east tiles" % [kind, facing])
+			# The footprint's centre belongs to the building, not to the grass
+			# behind it.
+			var centre := CourseArchitecture.project_point(
+				CourseArchitecture.grid_origin_offset(size, facing),
+				Vector3(size.x / 128.0, size.y / 64.0, 0.0), facing)
+			assert_true(painted.has_point(centre),
+				"%s at rotation %d stands over its footprint centre" % [kind, facing])
+
+func test_the_architecture_node_draws_the_sprite_with_nearest_filtering() -> void:
+	var building := entities.place_building("pro_shop", POS, registry)
+	var architecture: CourseArchitecture = building.get_node("Visual/Architecture")
+	assert_not_null(architecture, "the building carries an Architecture node")
+	if architecture == null:
+		return
+	assert_eq(architecture.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST,
+		"the pixel art is drawn without smoothing")
+	assert_eq(architecture.kind, "pro_shop", "the node knows what it draws")
+	assert_eq(architecture.footprint, _size_of("pro_shop"), "and how big it is")
 
 func test_the_clubhouse_grows_without_leaving_its_square() -> void:
 	var tiles := _tiles_of(_size_of("clubhouse"))
 	var heights: Array = []
 	for tier in range(1, 4):
+		var art: Dictionary = BuildingSprites.manifest()["buildings"]["clubhouse"]["tiers"][str(tier)]
+		heights.append(float(art.get("height", 0.0)))
 		for facing in range(4):
-			var box := await _draw_extent("clubhouse", tier, facing)
-			assert_between(box.position.x, -0.5, 0.5, "tier %d covers its square" % tier)
-			assert_between(box.end.x, tiles.x - 0.5, tiles.x + 0.5,
-				"tier %d covers its square" % tier)
-			assert_between(box.end.y, tiles.y - 0.5, tiles.y + 0.5,
-				"tier %d covers its square" % tier)
-			heights.append(box.end.z)
+			var painted := _painted_rect("clubhouse", tier, facing)
+			var corners := CourseArchitecture.footprint_corners(_size_of("clubhouse"), facing)
+			var left := INF
+			var right := -INF
+			for corner in corners:
+				left = minf(left, corner.x)
+				right = maxf(right, corner.x)
+			assert_between(painted.position.x, left - 10.0, left + 12.0,
+				"tier %d at rotation %d covers its square" % [tier, facing])
+			assert_between(painted.end.x, right - 12.0, right + 10.0,
+				"tier %d at rotation %d covers its square" % [tier, facing])
+	assert_eq(tiles, Vector2(4, 4), "the clubhouse keeps its footprint")
 	# Each upgrade is visibly a bigger building, never a wider one.
-	assert_gt(heights[4], heights[0], "The second tier is taller than the first")
-	assert_gt(heights[8], heights[4], "The third tier is taller than the second")
-
-func test_every_building_type_has_its_own_architecture() -> void:
-	# A kind with no branch falls through to the kiosk routine, which would
-	# silently give a clubhouse the wrong building.
-	var named := ["clubhouse", "putting_green", "pro_shop", "snack_bar", "pub",
-		"driving_range", "cart_garage", "tennis_court", "stable", "spa",
-		"swim_club", "resort_hotel", "airstrip", "castle", "casino", "theme_park"]
-	for building_type in registry:
-		assert_true(building_type in named,
-			"%s has an architecture routine" % building_type)
+	assert_gt(heights[1], heights[0], "The second tier is taller than the first")
+	assert_gt(heights[2], heights[1], "The third tier is taller than the second")

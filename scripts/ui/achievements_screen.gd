@@ -129,45 +129,20 @@ func _build() -> void:
 # =============================================================================
 
 func _build_header() -> Control:
-	var compact := Kit.is_phone(_layout_mode)
-	var header := HBoxContainer.new()
-	header.name = "AchievementHeader"
-	header.add_theme_constant_override("separation", 10 if not compact else 7)
-	header.custom_minimum_size.y = 62.0 if Kit.is_desktop(_layout_mode) else (56.0 if not compact else 48.0)
-
-	back_button = Button.new()
-	back_button.name = "BackButton"
-	back_button.text = "‹  Back" if not compact else "‹ Back"
-	back_button.tooltip_text = "Return to the course (Esc)"
-	back_button.custom_minimum_size = Vector2(94.0 if not compact else 72.0, 42.0 if compact else 46.0)
-	back_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	Kit.paint_utility_button(back_button, false)
-	back_button.pressed.connect(func(): back_requested.emit())
-	header.add_child(back_button)
-
-	var title_box := HBoxContainer.new()
-	title_box.name = "TitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 7 if compact else 9)
-	var mark := Kit.make_sprite(PixelIcon.Kind.TROPHY, 20 if compact else 28, Kit.COLOR_GOLD)
-	mark.name = "TitleMark"
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_box.add_child(mark)
-	var title := Kit.make_title_label("Achievements", 20 if compact else 26)
-	title.name = "Title"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_box.add_child(title)
-	header.add_child(title_box)
-
-	if not compact:
-		header.add_child(_build_unlocked_chip())
+	var trailing: Control = null
+	if not Kit.is_phone(_layout_mode):
+		var group := HBoxContainer.new()
+		group.add_theme_constant_override("separation", 10)
+		group.add_child(_build_unlocked_chip())
 		if track_navigation_enabled:
 			var switch := Kit.make_track_switch(Kit.GoalTrack.ACHIEVEMENTS,
 				func(track: int): track_requested.emit(track))
 			switch.size_flags_horizontal = Control.SIZE_SHRINK_END
-			header.add_child(switch)
+			group.add_child(switch)
+		trailing = group
+	var header := Kit.make_screen_header(_layout_mode, "Achievements", "Milestones",
+		"", func(): back_requested.emit(), trailing)
+	back_button = header.get_node("BackButton") as Button
 	return header
 
 func _build_unlocked_chip() -> PanelContainer:

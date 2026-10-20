@@ -56,8 +56,11 @@ func test_the_captions_and_quiet_lines_are_set_in_pixelify_sans_regular() -> voi
 	var labels := _nodes_of_class(menu, "Label")
 	assert_gte(labels.size(), 3, "captions, the kicker and the version line exist")
 	for label in labels:
-		assert_eq(_drawn_font(label).resource_path, BODY_PATH,
-			"the %s line is Pixelify Sans regular" % (label as Label).name)
+		# The kicker is the shared gold section caption (uppercase, semibold);
+		# every other line is regular.
+		var expected: String = SUBTITLE_PATH if (label as Label).uppercase else BODY_PATH
+		assert_eq(_drawn_font(label).resource_path, expected,
+			"the %s line carries its Pixelify Sans weight" % (label as Label).name)
 
 
 ## Nothing on the screen keeps the engine's default face: a builder that

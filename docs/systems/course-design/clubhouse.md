@@ -16,7 +16,7 @@ The clubhouse is a required building. It is always present, it is not like other
 3. **It can be moved.** The **Move Clubhouse** button in its panel picks it up. A ghost follows the cursor, and the next click sets it down wherever the normal building rules allow. Its own footprint is ignored, so nudging it a tile or two works. Escape or right-click cancels. Moving is free, and Ctrl+Z restores the old spot.
 4. **It is where golfers come from and go back to.** Groups walk out of the clubhouse door to the first tee, and walk back to the door when they finish. The visit at the door pays the clubhouse's per-golfer income and restores needs.
 
-Its appearance is drawn by the shared building renderer. It is a four-tile isometric solid with a paved terrace, a stone plinth and a hipped roof. Each upgrade adds a storey or a wing, but never grows past the tiles it stands on. See [Isometric Buildings](isometric-buildings.md).
+Its appearance is a pixel-art sprite, one per upgrade tier and view rotation. It is a four-tile isometric building with a paved terrace, a cream hall, a hipped roof and a chimney. Each upgrade adds a wing, a storey or a tower, but never grows past the tiles it stands on. See [Isometric Buildings](isometric-buildings.md).
 
 ---
 

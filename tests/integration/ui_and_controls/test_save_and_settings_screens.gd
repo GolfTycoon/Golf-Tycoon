@@ -114,7 +114,7 @@ func _assert_archive_fits_every_window(mode: SaveLoadPanel.ScreenMode) -> void:
 		assert_eq(panel._layout_mode, layout, "%s: the arrangement for %s" % [tag, size])
 		_assert_targets(tag, panel, size)
 		_assert_fits(tag, panel.get_node_or_null("ArchiveFrame"), size,
-			layout == SaveLoadPanel.LayoutMode.DESKTOP or layout == SaveLoadPanel.LayoutMode.LANDSCAPE)
+			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
 		if saving:
 			assert_not_null(panel.get_node_or_null("ArchiveFrame/ArchivePage"), "%s: the save page is built" % tag)
 			assert_not_null(panel.find_child("SaveNameInput", true, false), "%s: with its name field" % tag)
@@ -150,7 +150,7 @@ func test_the_settings_office_fits_every_window() -> void:
 		assert_eq(categories, 3, "%s: all three categories are in reach" % tag)
 		_assert_targets(tag, menu, size)
 		_assert_fits(tag, menu.get_node_or_null("SettingsFrame"), size,
-			layout == SettingsMenu.LayoutMode.DESKTOP or layout == SettingsMenu.LayoutMode.LANDSCAPE)
+			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
 		# Every category builds, and stays on screen, at this size.
 		for category in SettingsMenu.Category.values():
 			menu._select_category(category)

@@ -32,8 +32,10 @@ func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 				or title_path.ends_with("PixelifySans-SemiBold.ttf"),
 			"%s: the %s title is set in a Pixelify Sans title weight" % [tag, (button as Button).text])
 	for label in nodes_of_class(menu, "Label"):
+		# The kicker is the shared gold section caption (uppercase, semibold).
+		var weight := "PixelifySans-SemiBold.ttf" if (label as Label).uppercase else "PixelifySans-Regular.ttf"
 		assert_true(str((label as Label).get_theme_font("font").resource_path)
-				.ends_with("PixelifySans-Regular.ttf"),
+				.ends_with(weight),
 			"%s: the %s line is set in Pixelify Sans" % [tag, (label as Label).name])
 
 	var view := Rect2(Vector2.ZERO, Vector2(size))

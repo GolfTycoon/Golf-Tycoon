@@ -2,7 +2,7 @@
 
 > The catalog of improvements (5) and buildings (16) that the player can place, what each one does, and how placement is validated.
 
-**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/terrain/walking_path_overlay.gd`
+**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/entities/building_sprites.gd`, `assets/sprites/buildings/`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/terrain/walking_path_overlay.gd`
 
 ---
 
@@ -12,6 +12,8 @@ The catalog is data-driven. Each item is a JSON entry, so adding a new item need
 
 - **Improvements** are the path-side and ornamental items on the Improvements tab: the **Path**, the **Ball Washer**, the **Park Bench**, the **Fountain**, the **Golfer Statue** and the **Sundial**. Benches and ball washers are drawn with `PathFurniture`; the fountain, statue and sundial use their pixel-art sprites, with a simple procedural drawing as a fallback.
 - **Facilities** are the buildings on the Buildings tab: the **putting green, snack bar, pub, pro shop, driving range, cart garage, tennis court, stable, spa, swim club, resort hotel, airstrip, castle, casino** and **theme park**. Each has a construction cost, a daily operating cost, and an effect. A facility that serves golfers earns revenue only when a golfer uses it during a normal interaction check. Which facilities a course is offered depends on its location theme; see [Buildings](../../data-reference.md#buildings).
+
+Facilities are pixel-art sprites: the Buildings tab tile, the placement ghost and the placed building all draw the same image. See [Isometric Buildings](isometric-buildings.md).
 
 The **Improvements** tab shows the improvements as a honeycomb of isometric tiles. Pressing a tile starts placement straight away. The hover tooltip shows the price, upkeep and unlock status. The walking path is listed on this honeycomb too, as its first tile, and is a painting tool rather than a catalogue entry. It previews as a dirt ribbon over the turf, and once its network reaches the clubhouse the whole trail is paved — see [Walking Paths](walking-paths.md).
 

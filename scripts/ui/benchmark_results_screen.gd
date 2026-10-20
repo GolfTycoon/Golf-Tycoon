@@ -237,54 +237,25 @@ func _is_compact() -> bool:
 
 func _build_header() -> Control:
 	var compact := _is_compact()
-	var header := HBoxContainer.new()
-	header.name = "BenchmarkHeader"
-	header.add_theme_constant_override("separation", 9 if not compact else 6)
-	header.custom_minimum_size.y = 62.0 if Kit.is_desktop(_layout_mode) else (54.0 if not compact else 46.0)
-
-	var back := Button.new()
-	back.name = "BackButton"
-	back.text = "‹  Back" if not compact else "‹ Back"
-	back.tooltip_text = "Return to the course (Esc)"
-	back.custom_minimum_size = Vector2(94.0 if not compact else 72.0, 42.0 if compact else 46.0)
-	Kit.paint_utility_button(back, false)
-	back.pressed.connect(func(): back_requested.emit())
-	header.add_child(back)
-
-	var title_box := HBoxContainer.new()
-	title_box.name = "TitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 8 if compact else 10)
-	var mark := Kit.make_sprite(PixelIcon.Kind.PULSE, 20 if compact else 28, Kit.COLOR_GOLD)
-	mark.name = "TitleMark"
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_box.add_child(mark)
-	var titles := VBoxContainer.new()
-	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_theme_constant_override("separation", 0)
-	var kicker := Kit.make_kicker("Device scorecard  ·  %s" % _benchmark_version(), 9)
-	kicker.name = "TitleKicker"
-	titles.add_child(kicker)
-	var title := Kit.make_title_label("Benchmark Results", 19 if compact else 26)
-	title.name = "Title"
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	titles.add_child(title)
-	title_box.add_child(titles)
-	header.add_child(title_box)
-
-	var live := Kit.make_chip("LIVE -- FPS", MenuStyle.ACCENT_UTILITY, Kit.COLOR_TEXT_QUIET, 10)
-	live.name = "LiveFpsChip"
-	live.custom_minimum_size = Vector2(96.0, 24.0)
-	live.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	live.visible = not compact
-	_live_fps_label = live
-	header.add_child(live)
-
-	var tier := _build_tier_chip()
-	tier.name = "TierChip"
-	tier.visible = not compact
-	header.add_child(tier)
+	var trailing: Control = null
+	if not compact:
+		var group := HBoxContainer.new()
+		group.add_theme_constant_override("separation", 8)
+		var live := Kit.make_chip("LIVE -- FPS", MenuStyle.ACCENT_UTILITY, Kit.COLOR_TEXT_QUIET, 10)
+		live.name = "LiveFpsChip"
+		live.custom_minimum_size = Vector2(96.0, 24.0)
+		live.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_live_fps_label = live
+		group.add_child(live)
+		var tier := _build_tier_chip()
+		tier.name = "TierChip"
+		group.add_child(tier)
+		trailing = group
+	var header := Kit.make_screen_header(_layout_mode, "Benchmark Results",
+		"Device scorecard  ·  %s" % _benchmark_version(), "",
+		func(): back_requested.emit(), trailing)
+	if compact:
+		_live_fps_label = null
 	return header
 
 ## The rating stamp in the header: the stars, the tier and the score.

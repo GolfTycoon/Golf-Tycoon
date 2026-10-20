@@ -1,5 +1,6 @@
 extends Control
 class_name WorldMapScreen
+const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## Company atlas: buy, browse and switch between the company's course sites.
 ##
 ## The map is deliberately composed for the shape of the screen instead of
@@ -29,15 +30,9 @@ class_name WorldMapScreen
 signal play_location_requested(location_id: String)
 signal back_requested()
 
-enum LayoutMode { DESKTOP, TABLET_LANDSCAPE, TABLET_PORTRAIT, PHONE_LANDSCAPE, PHONE_PORTRAIT }
 enum BrowseFilter { ALL, OWNED, AFFORDABLE }
 
 const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
-const DESKTOP_MIN_WIDTH := 1180.0
-const DESKTOP_MIN_HEIGHT := 680.0
-const TABLET_MIN_WIDTH := 680.0
-const TABLET_MIN_HEIGHT := 620.0
-
 const DESKTOP_ROW_HEIGHT := 56.0
 const PHONE_ROW_HEIGHT := 60.0
 const LANDSCAPE_ROW_HEIGHT := 46.0
@@ -51,7 +46,6 @@ const BUY_AND_PLAY_LABEL := "Buy & Play"
 const COLOR_SURFACE := MenuStyle.SHEET_BG
 const COLOR_SURFACE_RAISED := MenuStyle.RAIL_BG
 const COLOR_SURFACE_INSET := MenuStyle.INSET_BG
-const COLOR_BORDER_SOFT := UIConstants.COLOR_BORDER
 const COLOR_TEXT_BRIGHT := MenuStyle.TITLE_COLOR
 const COLOR_TEXT_SECONDARY := UIConstants.COLOR_TEXT_DIM
 const COLOR_TEXT_QUIET := UIConstants.COLOR_TEXT_MUTED
@@ -118,13 +112,7 @@ func _window_size() -> Vector2:
 ## The composition each viewport shape calls for. Kept pure so every
 ## breakpoint can be checked without creating a window.
 static func layout_mode_for(view: Vector2) -> int:
-	if view.x >= DESKTOP_MIN_WIDTH and view.y >= DESKTOP_MIN_HEIGHT and view.x > view.y:
-		return LayoutMode.DESKTOP
-	if view.x >= TABLET_MIN_WIDTH and view.y >= TABLET_MIN_HEIGHT:
-		return LayoutMode.TABLET_LANDSCAPE if view.x >= view.y else LayoutMode.TABLET_PORTRAIT
-	if view.x > view.y and view.y < TABLET_MIN_HEIGHT:
-		return LayoutMode.PHONE_LANDSCAPE
-	return LayoutMode.PHONE_PORTRAIT
+	return Kit.layout_mode_for(view)
 
 func _on_screen_changed(window_size: Vector2, _scale: float) -> void:
 	var mode := layout_mode_for(window_size)
@@ -183,9 +171,9 @@ func _build() -> void:
 
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
-	_featured_compact = _layout_mode == LayoutMode.PHONE_PORTRAIT
-	_featured_micro = _layout_mode == LayoutMode.PHONE_LANDSCAPE
-	_unbounded_phone_list = _layout_mode == LayoutMode.PHONE_PORTRAIT
+	_featured_compact = _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT
+	_featured_micro = _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE
+	_unbounded_phone_list = _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT
 
 	var backdrop := MenuBackdrop.new()
 	backdrop.name = "Backdrop"
@@ -209,33 +197,33 @@ func _build() -> void:
 	page.add_child(_build_header(_layout_mode))
 
 	match _layout_mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			page.add_child(_build_desktop_body(_built_size))
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			page.add_child(_build_tablet_body(_built_size))
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			page.add_child(_build_phone_landscape_body(_built_size))
 		_:
 			page.add_child(_build_phone_portrait_body(_built_size))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return int(clampf(minf(view.x, view.y) * 0.025, 20.0, 36.0))
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			return int(clampf(minf(view.x, view.y) * 0.022, 14.0, 26.0))
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 8
 		_:
 			return int(clampf(view.x * 0.028, 9.0, 14.0))
 
 func _page_separation(mode: int) -> int:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return 14
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			return 11
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return 7
 		_:
 			return 8
@@ -245,44 +233,10 @@ func _page_separation(mode: int) -> int:
 # =============================================================================
 
 func _build_header(mode: int) -> Control:
-	var compact := mode == LayoutMode.PHONE_LANDSCAPE or mode == LayoutMode.PHONE_PORTRAIT
-	var header := HBoxContainer.new()
-	header.name = "AtlasHeader"
-	header.add_theme_constant_override("separation", 10 if not compact else 7)
-	header.custom_minimum_size.y = 62.0 if mode == LayoutMode.DESKTOP else (56.0 if not compact else 48.0)
-
-	var back := Button.new()
-	back.name = "BackButton"
-	back.text = "‹  Back" if not compact else "‹ Back"
-	back.tooltip_text = "Return to the previous screen"
-	back.custom_minimum_size = Vector2(94.0 if not compact else 72.0, 42.0 if compact else 46.0)
-	back.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	back.add_theme_font_override("font", SUBTITLE_FONT)
-	_paint_utility_button(back, false)
-	back.pressed.connect(func(): back_requested.emit())
-	header.add_child(back)
-
-	var title_box := HBoxContainer.new()
-	title_box.name = "TitleBlock"
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.add_theme_constant_override("separation", 7 if compact else 9)
-	var mark := MenuFlagMark.new()
-	mark.name = "Mark"
-	mark.mark_size = 20.0 if compact else (29.0 if mode == LayoutMode.DESKTOP else 27.0)
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_box.add_child(mark)
-	var title := _make_title_label("World Map", 20 if compact else 26)
-	title.name = "Title"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.clip_text = true
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_box.add_child(title)
-	header.add_child(title_box)
-
+	var compact := Kit.is_phone(mode)
 	var balance := PanelContainer.new()
 	balance.name = "TreasuryCard"
 	balance.custom_minimum_size = Vector2(132.0 if compact else 168.0, 42.0 if compact else 54.0)
-	balance.size_flags_horizontal = Control.SIZE_SHRINK_END
 	balance.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
 		MenuStyle.with_alpha(COLOR_GOLD, 0.72), COLOR_SURFACE_RAISED, 6, 5))
 	var balance_margin := MarginContainer.new()
@@ -295,7 +249,7 @@ func _build_header(mode: int) -> Control:
 	balance_box.add_theme_constant_override("separation", 0)
 	balance_margin.add_child(balance_box)
 	if not compact:
-		var cash_caption := _make_kicker("Company cash", 10)
+		var cash_caption := Kit.make_kicker("Company cash", 10)
 		cash_caption.name = "CashCaption"
 		cash_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		cash_caption.add_theme_color_override("font_color", COLOR_TEXT_QUIET)
@@ -304,10 +258,10 @@ func _build_header(mode: int) -> Control:
 	money_row.name = "MoneyRow"
 	money_row.alignment = BoxContainer.ALIGNMENT_END
 	money_row.add_theme_constant_override("separation", 6)
-	var coin := _make_sprite(PixelIcon.Kind.COIN, 16, COLOR_GOLD)
+	var coin := Kit.make_sprite(PixelIcon.Kind.COIN, 16, COLOR_GOLD)
 	coin.name = "Coin"
 	money_row.add_child(coin)
-	_money_label = _make_title_label("", 16 if not compact else 13, COLOR_GOLD)
+	_money_label = Kit.make_title_label("", 16 if not compact else 13, COLOR_GOLD)
 	_money_label.name = "Money"
 	# A clipped Label reports only a one-pixel minimum width; expand it into the
 	# space beside the coin so the balance itself remains visible.
@@ -317,7 +271,8 @@ func _build_header(mode: int) -> Control:
 	money_row.add_child(_money_label)
 	balance_box.add_child(money_row)
 	balance.tooltip_text = "Available company funds"
-	header.add_child(balance)
+	var header := Kit.make_screen_header(mode, "World Map", "Pick your next course",
+		"", func(): back_requested.emit(), balance)
 	_update_header()
 	return header
 
@@ -327,7 +282,7 @@ func _build_desktop_body(view: Vector2) -> Control:
 	body.add_theme_constant_override("separation", 16)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var map_panel := _build_map_panel(LayoutMode.DESKTOP)
+	var map_panel := _build_map_panel(Kit.LayoutMode.DESKTOP)
 	map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map_panel.size_flags_stretch_ratio = 1.42
@@ -343,7 +298,7 @@ func _build_desktop_body(view: Vector2) -> Control:
 	var feature := _build_featured_panel(false, false)
 	feature.custom_minimum_size.y = 226.0 if view.y >= 760.0 else 196.0
 	rail.add_child(feature)
-	var catalog := _build_vertical_catalog(LayoutMode.DESKTOP, false)
+	var catalog := _build_vertical_catalog(Kit.LayoutMode.DESKTOP, false)
 	catalog.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rail.add_child(catalog)
 	return body
@@ -371,7 +326,7 @@ func _build_tablet_body(view: Vector2) -> Control:
 	body.add_child(stage)
 
 	var shelf := _build_horizontal_catalog()
-	shelf.custom_minimum_size.y = 204.0 if _layout_mode == LayoutMode.TABLET_PORTRAIT else 194.0
+	shelf.custom_minimum_size.y = 204.0 if _layout_mode == Kit.LayoutMode.TABLET_PORTRAIT else 194.0
 	shelf.size_flags_vertical = Control.SIZE_SHRINK_END
 	body.add_child(shelf)
 	return body
@@ -382,7 +337,7 @@ func _build_phone_landscape_body(view: Vector2) -> Control:
 	body.add_theme_constant_override("separation", 8)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var map_panel := _build_map_panel(LayoutMode.PHONE_LANDSCAPE)
+	var map_panel := _build_map_panel(Kit.LayoutMode.PHONE_LANDSCAPE)
 	map_panel.custom_minimum_size.x = clampf(view.x * 0.37, 228.0, 330.0)
 	map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(map_panel)
@@ -400,7 +355,7 @@ func _build_phone_landscape_body(view: Vector2) -> Control:
 	_featured_status.hide()
 	feature.custom_minimum_size.y = 68.0
 	rail.add_child(feature)
-	var catalog := _build_vertical_catalog(LayoutMode.PHONE_LANDSCAPE, false)
+	var catalog := _build_vertical_catalog(Kit.LayoutMode.PHONE_LANDSCAPE, false)
 	catalog.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rail.add_child(catalog)
 	body.add_child(rail)
@@ -420,7 +375,7 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 	content.add_theme_constant_override("separation", 8)
 	scroll.add_child(content)
 
-	var map_panel := _build_map_panel(LayoutMode.PHONE_PORTRAIT)
+	var map_panel := _build_map_panel(Kit.LayoutMode.PHONE_PORTRAIT)
 	map_panel.custom_minimum_size.y = clampf(view.y * 0.26, 210.0, 240.0)
 	content.add_child(map_panel)
 	var feature := _build_featured_panel(true, false)
@@ -430,7 +385,7 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 	_featured_stats.hide()
 	feature.custom_minimum_size.y = 116.0
 	content.add_child(feature)
-	var catalog := _build_vertical_catalog(LayoutMode.PHONE_PORTRAIT, true)
+	var catalog := _build_vertical_catalog(Kit.LayoutMode.PHONE_PORTRAIT, true)
 	content.add_child(catalog)
 	return scroll
 
@@ -439,13 +394,13 @@ func _build_phone_portrait_body(view: Vector2) -> Control:
 # =============================================================================
 
 func _build_map_panel(mode: int) -> PanelContainer:
-	var compact := mode == LayoutMode.PHONE_LANDSCAPE or mode == LayoutMode.PHONE_PORTRAIT
-	var panel := _make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42), MenuStyle.CARD_RADIUS)
+	var compact := mode == Kit.LayoutMode.PHONE_LANDSCAPE or mode == Kit.LayoutMode.PHONE_PORTRAIT
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42))
 	panel.name = "GlobePanel"
-	if mode == LayoutMode.PHONE_PORTRAIT:
+	if mode == Kit.LayoutMode.PHONE_PORTRAIT:
 		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var margin := MarginContainer.new()
-	var pad := 15 if mode == LayoutMode.DESKTOP else (12 if not compact else 8)
+	var pad := 15 if mode == Kit.LayoutMode.DESKTOP else (12 if not compact else 8)
 	margin.add_theme_constant_override("margin_left", pad)
 	margin.add_theme_constant_override("margin_right", pad)
 	margin.add_theme_constant_override("margin_top", pad)
@@ -460,10 +415,10 @@ func _build_map_panel(mode: int) -> PanelContainer:
 	var map_title_box := VBoxContainer.new()
 	map_title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_title_box.add_theme_constant_override("separation", 1)
-	var map_kicker := _make_kicker("The world is your fairway", 10 if compact else 11)
+	var map_kicker := Kit.make_kicker("The world is your fairway", 10 if compact else 11)
 	map_kicker.name = "MapKicker"
 	map_title_box.add_child(map_kicker)
-	_map_summary_label = _make_label("", 12 if compact else 14, COLOR_TEXT_BRIGHT)
+	_map_summary_label = Kit.make_label("", 12 if compact else 14, COLOR_TEXT_BRIGHT)
 	_map_summary_label.name = "MapSummary"
 	_map_summary_label.add_theme_font_override("font", SUBTITLE_FONT)
 	_map_summary_label.clip_text = true
@@ -478,7 +433,7 @@ func _build_map_panel(mode: int) -> PanelContainer:
 	center_button.tooltip_text = "Center the globe on the selected destination"
 	center_button.custom_minimum_size = Vector2(56 if compact else 66, 32)
 	center_button.add_theme_font_size_override("font_size", 11)
-	_paint_utility_button(center_button, false)
+	Kit.paint_utility_button(center_button, false)
 	center_button.pressed.connect(func():
 		if is_instance_valid(globe):
 			globe.look_at_location(_selected_id))
@@ -489,7 +444,7 @@ func _build_map_panel(mode: int) -> PanelContainer:
 	zoom_out.tooltip_text = "Zoom out"
 	zoom_out.custom_minimum_size = Vector2(32, 32)
 	zoom_out.add_theme_font_size_override("font_size", 17)
-	_paint_utility_button(zoom_out, false)
+	Kit.paint_utility_button(zoom_out, false)
 	zoom_out.pressed.connect(func():
 		if is_instance_valid(globe):
 			globe.zoom_out())
@@ -500,7 +455,7 @@ func _build_map_panel(mode: int) -> PanelContainer:
 	zoom_in.tooltip_text = "Zoom in"
 	zoom_in.custom_minimum_size = Vector2(32, 32)
 	zoom_in.add_theme_font_size_override("font_size", 17)
-	_paint_utility_button(zoom_in, true)
+	Kit.paint_utility_button(zoom_in, true)
 	zoom_in.pressed.connect(func():
 		if is_instance_valid(globe):
 			globe.zoom_in())
@@ -521,7 +476,7 @@ func _build_map_panel(mode: int) -> PanelContainer:
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
-	_hint_label = _make_label(_map_hint(mode), 10 if compact else 11, COLOR_TEXT_QUIET)
+	_hint_label = Kit.make_label(_map_hint(mode), 10 if compact else 11, COLOR_TEXT_QUIET)
 	_hint_label.name = "MapHint"
 	_hint_label.clip_text = true
 	_hint_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -533,17 +488,17 @@ func _build_map_panel(mode: int) -> PanelContainer:
 
 func _globe_minimum(mode: int) -> Vector2:
 	match mode:
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return Vector2(310, 260)
-		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
+		Kit.LayoutMode.TABLET_LANDSCAPE, Kit.LayoutMode.TABLET_PORTRAIT:
 			return Vector2(260, 220)
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return Vector2(210, 176)
 		_:
 			return Vector2(220, 170)
 
 func _map_hint(mode: int) -> String:
-	if mode == LayoutMode.PHONE_LANDSCAPE or mode == LayoutMode.PHONE_PORTRAIT:
+	if mode == Kit.LayoutMode.PHONE_LANDSCAPE or mode == Kit.LayoutMode.PHONE_PORTRAIT:
 		return "Drag to explore  ·  tap a pin  ·  use + / - to zoom"
 	return "Drag to rotate  ·  tap a pin or a destination card  ·  use + / - to zoom"
 
@@ -561,14 +516,14 @@ func _build_map_legend() -> Control:
 func _legend_item(color: Color, text: String) -> Control:
 	var item := HBoxContainer.new()
 	item.add_theme_constant_override("separation", 5)
-	item.add_child(_make_sprite(PixelIcon.Kind.PIN, 16, color))
-	item.add_child(_make_label(text, 10, COLOR_TEXT_SECONDARY))
+	item.add_child(Kit.make_sprite(PixelIcon.Kind.PIN, 16, color))
+	item.add_child(Kit.make_label(text, 10, COLOR_TEXT_SECONDARY))
 	return item
 
 func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	_featured_compact = compact
 	_featured_micro = micro
-	var panel := _make_panel(COLOR_SURFACE_RAISED, MenuStyle.with_alpha(MenuStyle.ACCENT_SECONDARY, 0.42), MenuStyle.CARD_RADIUS)
+	var panel := Kit.make_panel(COLOR_SURFACE_RAISED, MenuStyle.with_alpha(MenuStyle.ACCENT_SECONDARY, 0.42))
 	panel.name = "FeaturedLocation"
 	var margin := MarginContainer.new()
 	var pad := 13 if not compact else (4 if micro else 8)
@@ -582,14 +537,14 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 	margin.add_child(stack)
 
 	if micro:
-		_featured_name = _make_title_label("", 15)
+		_featured_name = Kit.make_title_label("", 15)
 		_featured_name.clip_text = true
 		stack.add_child(_featured_name)
-		_featured_meta = _make_label("", 11, COLOR_TEXT_SECONDARY)
+		_featured_meta = Kit.make_label("", 11, COLOR_TEXT_SECONDARY)
 		_featured_meta.clip_text = true
 		stack.add_child(_featured_meta)
 		stack.add_child(_build_featured_actions(true, true))
-		_featured_status = _make_label("", 10, COLOR_TEXT_QUIET)
+		_featured_status = Kit.make_label("", 10, COLOR_TEXT_QUIET)
 		_featured_status.clip_text = true
 		stack.add_child(_featured_status)
 		_featured_description = null
@@ -598,31 +553,31 @@ func _build_featured_panel(compact: bool, micro: bool) -> PanelContainer:
 
 	var cap_row := HBoxContainer.new()
 	cap_row.add_theme_constant_override("separation", 6)
-	var cap := _make_kicker("Selected destination" if compact else "Location dossier", 10)
+	var cap := Kit.make_kicker("Selected destination" if compact else "Location dossier", 10)
 	cap.name = "FeaturedKicker"
 	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cap_row.add_child(cap)
-	_featured_status = _make_label("", 10, COLOR_MINT)
+	_featured_status = Kit.make_label("", 10, COLOR_MINT)
 	_featured_status.add_theme_font_override("font", SUBTITLE_FONT)
 	_featured_status.uppercase = true
 	_featured_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	cap_row.add_child(_featured_status)
 	stack.add_child(cap_row)
 
-	_featured_name = _make_title_label("", 22 if not compact else 18)
+	_featured_name = Kit.make_title_label("", 22 if not compact else 18)
 	_featured_name.clip_text = true
 	stack.add_child(_featured_name)
-	_featured_meta = _make_label("", 12 if not compact else 11, COLOR_TEXT_SECONDARY)
+	_featured_meta = Kit.make_label("", 12 if not compact else 11, COLOR_TEXT_SECONDARY)
 	_featured_meta.clip_text = true
 	stack.add_child(_featured_meta)
 
-	_featured_description = _make_label("", 12, COLOR_TEXT_SECONDARY)
+	_featured_description = Kit.make_label("", 12, COLOR_TEXT_SECONDARY)
 	_featured_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_featured_description.max_lines_visible = 2 if not compact else 1
 	_featured_description.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	stack.add_child(_featured_description)
 
-	_featured_stats = _make_label("", 11, COLOR_MINT)
+	_featured_stats = Kit.make_label("", 11, COLOR_MINT)
 	_featured_stats.add_theme_font_override("font", SUBTITLE_FONT)
 	_featured_stats.clip_text = true
 	stack.add_child(_featured_stats)
@@ -644,7 +599,7 @@ func _build_featured_actions(compact: bool, micro: bool) -> HBoxContainer:
 	_featured_buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_featured_buy.add_theme_font_size_override("font_size", font_size)
 	_featured_buy.pressed.connect(_on_featured_buy_pressed)
-	_paint_action_button(_featured_buy, false)
+	Kit.paint_action(_featured_buy, false)
 	row.add_child(_featured_buy)
 
 	_featured_action = _make_action_shell(true)
@@ -662,9 +617,9 @@ func _build_featured_actions(compact: bool, micro: bool) -> HBoxContainer:
 ## phones the same panel is placed inside the page scroller, and its inner list
 ## grows naturally so the page—not a nested scroll view—owns the swipe.
 func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
-	var phone_landscape := mode == LayoutMode.PHONE_LANDSCAPE
-	var compact := phone_landscape or mode == LayoutMode.PHONE_PORTRAIT
-	var panel := _make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42), MenuStyle.CARD_RADIUS)
+	var phone_landscape := mode == Kit.LayoutMode.PHONE_LANDSCAPE
+	var compact := phone_landscape or mode == Kit.LayoutMode.PHONE_PORTRAIT
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42))
 	panel.name = "LocationDirectory"
 	var margin := MarginContainer.new()
 	var pad := 12 if not compact else (5 if phone_landscape else 10)
@@ -693,12 +648,12 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 		var title_box := VBoxContainer.new()
 		title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		title_box.add_theme_constant_override("separation", 0)
-		var heading := _make_label("Course locations" if not compact else "Explore destinations",
+		var heading := Kit.make_label("Course locations" if not compact else "Explore destinations",
 			15 if not compact else 14, COLOR_TEXT_BRIGHT)
 		heading.name = "CatalogHeading"
 		heading.add_theme_font_override("font", SUBTITLE_FONT)
 		title_box.add_child(heading)
-		var caption := _make_label("Choose a site to buy & play, or switch courses" if not compact else "27 places to build your next course",
+		var caption := Kit.make_label("Choose a site to buy & play, or switch courses" if not compact else "27 places to build your next course",
 			10, COLOR_TEXT_QUIET)
 		title_box.add_child(caption)
 		title_row.add_child(title_box)
@@ -738,7 +693,7 @@ func _build_vertical_catalog(mode: int, page_scrolled: bool) -> PanelContainer:
 	return panel
 
 func _build_horizontal_catalog() -> PanelContainer:
-	var panel := _make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42), MenuStyle.CARD_RADIUS)
+	var panel := Kit.make_panel(COLOR_SURFACE, MenuStyle.with_alpha(UIConstants.COLOR_BORDER, 0.42))
 	panel.name = "DestinationShelf"
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -755,11 +710,11 @@ func _build_horizontal_catalog() -> PanelContainer:
 	var heading_box := VBoxContainer.new()
 	heading_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_box.add_theme_constant_override("separation", 0)
-	var heading := _make_label("Destination shelf", 15, COLOR_TEXT_BRIGHT)
+	var heading := Kit.make_label("Destination shelf", 15, COLOR_TEXT_BRIGHT)
 	heading.name = "ShelfHeading"
 	heading.add_theme_font_override("font", SUBTITLE_FONT)
 	heading_box.add_child(heading)
-	heading_box.add_child(_make_label("Swipe through your company's worldwide portfolio", 10, COLOR_TEXT_QUIET))
+	heading_box.add_child(Kit.make_label("Swipe through your company's worldwide portfolio", 10, COLOR_TEXT_QUIET))
 	heading_row.add_child(heading_box)
 	heading_row.add_child(_make_reset_button(true))
 	stack.add_child(heading_row)
@@ -822,7 +777,7 @@ func _build_filter_bar(compact: bool) -> HBoxContainer:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 10 if compact else 11)
 		button.tooltip_text = _filter_description(int(filter))
-		_paint_filter_button(button)
+		Kit.paint_toggle(button)
 		button.pressed.connect(_on_filter_pressed.bind(int(filter)))
 		_filter_buttons[int(filter)] = button
 		bar.add_child(button)
@@ -836,7 +791,7 @@ func _make_reset_button(compact: bool) -> Button:
 	reset.tooltip_text = "Re-roll the ready land and asking price for every unowned location. Your owned sites are untouched."
 	reset.custom_minimum_size = Vector2(67 if compact else 103, 32 if compact else 34)
 	reset.add_theme_font_size_override("font_size", 10 if compact else 11)
-	_paint_utility_button(reset, false)
+	Kit.paint_utility_button(reset, false)
 	reset.pressed.connect(_on_reset_world_pressed)
 	return reset
 
@@ -871,7 +826,7 @@ func refresh() -> void:
 func _update_header() -> void:
 	if is_instance_valid(_money_label):
 		var cash := "Unlimited" if GameManager.unlimited_money else _format_money(GameManager.money)
-		if _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT:
+		if _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE or _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT:
 			cash = "Unlimited" if GameManager.unlimited_money else _format_money_compact(GameManager.money)
 		_money_label.text = cash
 		_money_label.tooltip_text = "Company balance: %s" % (
@@ -930,14 +885,14 @@ func _rebuild_catalog() -> void:
 		if not _matches_browse(state):
 			continue
 		matches += 1
-		var row := _build_location_card(state, _layout_mode == LayoutMode.TABLET_LANDSCAPE \
-			or _layout_mode == LayoutMode.TABLET_PORTRAIT)
+		var row := _build_location_card(state, _layout_mode == Kit.LayoutMode.TABLET_LANDSCAPE \
+			or _layout_mode == Kit.LayoutMode.TABLET_PORTRAIT)
 		_list_box.add_child(row)
 		_rows[str(state["id"])] = row
 		row.gui_input.connect(_on_row_input.bind(str(state["id"])))
 
 	if matches == 0:
-		var empty := _make_label("No locations match. Try a different search or filter.", 12, COLOR_TEXT_QUIET)
+		var empty := Kit.make_label("No locations match. Try a different search or filter.", 12, COLOR_TEXT_QUIET)
 		empty.custom_minimum_size = Vector2(0, 48)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -978,7 +933,7 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	row.set_meta("location_id", state["id"])
 	row.tooltip_text = _location_tooltip(state)
 	var margin := MarginContainer.new()
-	var compact := _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT
+	var compact := _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE or _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT
 	margin.add_theme_constant_override("margin_left", 8 if compact else 10)
 	margin.add_theme_constant_override("margin_right", 8 if compact else 10)
 	margin.add_theme_constant_override("margin_top", 5 if compact else 6)
@@ -990,7 +945,7 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	margin.add_child(contents)
 	# A little pennant marks each site, dressed in its state's colour: gold
 	# for the course being played, green for owned, quiet grey-green for sale.
-	var marker := _make_sprite(PixelIcon.Kind.FLAG, 16 if compact else 32, _state_accent(state))
+	var marker := Kit.make_sprite(PixelIcon.Kind.FLAG, 16 if compact else 32, _state_accent(state))
 	marker.name = "StateFlag"
 	contents.add_child(marker)
 
@@ -999,20 +954,20 @@ func _build_location_card(state: Dictionary, horizontal_card: bool) -> PanelCont
 	info.custom_minimum_size.x = 0
 	info.add_theme_constant_override("separation", 0)
 	contents.add_child(info)
-	var name_label := _make_label("%s  ·  %s" % [state["name"], state["region"]] if not str(state["region"]).is_empty() \
+	var name_label := Kit.make_label("%s  ·  %s" % [state["name"], state["region"]] if not str(state["region"]).is_empty() \
 		else str(state["name"]), 13 if compact else 14, COLOR_TEXT_BRIGHT)
 	name_label.name = "LocationName"
 	name_label.add_theme_font_override("font", SUBTITLE_FONT)
 	name_label.clip_text = true
 	info.add_child(name_label)
-	var detail := _make_label("%s  ·  %s  ·  %d/%d plots ready" % [
+	var detail := Kit.make_label("%s  ·  %s  ·  %d/%d plots ready" % [
 		state["theme_name"], state["size_name"], int(state["ready"]), int(state["parcels"])],
 		10, COLOR_TEXT_SECONDARY)
 	detail.name = "LocationDetails"
 	detail.clip_text = true
 	info.add_child(detail)
 
-	var price := _make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
+	var price := Kit.make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
 		12 if compact else 13, COLOR_MINT if state["owned"] else (COLOR_GOLD if state["affordable"] else UIConstants.COLOR_DANGER))
 	price.name = "LocationPrice"
 	price.add_theme_font_override("font", SUBTITLE_FONT)
@@ -1042,21 +997,21 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 2)
 	margin.add_child(stack)
-	var name_label := _make_label(str(state["name"]), 15, COLOR_TEXT_BRIGHT)
+	var name_label := Kit.make_label(str(state["name"]), 15, COLOR_TEXT_BRIGHT)
 	name_label.add_theme_font_override("font", SUBTITLE_FONT)
 	name_label.clip_text = true
 	stack.add_child(name_label)
-	var region := _make_label(str(state["region"]), 10, COLOR_TEXT_QUIET)
+	var region := Kit.make_label(str(state["region"]), 10, COLOR_TEXT_QUIET)
 	region.clip_text = true
 	stack.add_child(region)
-	var details := _make_label("%s  ·  %s" % [state["theme_name"], state["size_name"]], 10, COLOR_TEXT_SECONDARY)
+	var details := Kit.make_label("%s  ·  %s" % [state["theme_name"], state["size_name"]], 10, COLOR_TEXT_SECONDARY)
 	details.clip_text = true
 	stack.add_child(details)
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 6)
 	footer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	footer.alignment = BoxContainer.ALIGNMENT_END
-	var price := _make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
+	var price := Kit.make_label("Owned" if state["owned"] else _format_money(int(state["price"])),
 		11, COLOR_MINT if state["owned"] else (COLOR_GOLD if state["affordable"] else UIConstants.COLOR_DANGER))
 	price.add_theme_font_override("font", SUBTITLE_FONT)
 	price.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1071,7 +1026,7 @@ func _build_shelf_card(state: Dictionary) -> PanelContainer:
 func _make_row_action(state: Dictionary, compact: bool) -> Button:
 	var action := Button.new()
 	action.name = "LocationAction"
-	var landscape := _layout_mode == LayoutMode.PHONE_LANDSCAPE
+	var landscape := _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE
 	action.custom_minimum_size = Vector2(88 if landscape else (96 if compact else 108),
 		34 if landscape else (40 if compact else 38))
 	action.add_theme_font_size_override("font_size", 10 if landscape else (11 if compact else 12))
@@ -1089,7 +1044,7 @@ func _make_row_action(state: Dictionary, compact: bool) -> Button:
 		action.disabled = not bool(state["affordable"])
 		action.tooltip_text = _buy_and_play_tooltip(state)
 		action.pressed.connect(_on_buy_and_play_pressed.bind(str(state["id"])))
-	_paint_action_button(action, false)
+	Kit.paint_action(action, false)
 	return action
 
 func _buy_tooltip(state: Dictionary) -> String:
@@ -1111,11 +1066,11 @@ func _location_tooltip(state: Dictionary) -> String:
 
 func _row_height_for(mode: int) -> float:
 	match mode:
-		LayoutMode.PHONE_LANDSCAPE:
+		Kit.LayoutMode.PHONE_LANDSCAPE:
 			return LANDSCAPE_ROW_HEIGHT
-		LayoutMode.PHONE_PORTRAIT:
+		Kit.LayoutMode.PHONE_PORTRAIT:
 			return PHONE_ROW_HEIGHT
-		LayoutMode.DESKTOP:
+		Kit.LayoutMode.DESKTOP:
 			return 56.0 if _built_size.y < 760.0 else DESKTOP_ROW_HEIGHT
 		_:
 			return 58.0
@@ -1131,7 +1086,7 @@ func _apply_row_style(row: PanelContainer, state: Dictionary) -> void:
 	var bg := MenuStyle.CARD_BG_HOVER if selected else MenuStyle.CARD_BG
 	var border := MenuStyle.ACCENT_PRIMARY if selected else MenuStyle.with_alpha(
 		MenuStyle.ACCENT_SECONDARY if state["owned"] else MenuStyle.ACCENT_UTILITY, 0.58)
-	row.add_theme_stylebox_override("panel", _panel_style(bg, border, 2 if selected else 1, 9))
+	row.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(border, bg, 0, 0))
 
 func _update_row_styles() -> void:
 	for id in _rows:
@@ -1179,7 +1134,7 @@ func _update_featured() -> void:
 				else ("BUY · %s" % _format_money(int(state["price"])))
 			_featured_buy.disabled = not affordable
 			_featured_buy.tooltip_text = _buy_tooltip(state)
-			_paint_action_button(_featured_buy, false)
+			Kit.paint_action(_featured_buy, false)
 			_apply_featured_icon(_featured_buy, PixelIcon.Kind.COIN, _featured_buy.disabled)
 	if not is_instance_valid(_featured_action):
 		return
@@ -1195,7 +1150,7 @@ func _update_featured() -> void:
 		_featured_action.text = BUY_AND_PLAY_LABEL if (_featured_micro or _featured_compact) else "BUY & PLAY"
 		_featured_action.disabled = not affordable
 		_featured_action.tooltip_text = _buy_and_play_tooltip(state)
-	_paint_action_button(_featured_action, true)
+	Kit.paint_action(_featured_action, true)
 	_apply_featured_icon(_featured_action, PixelIcon.Kind.PLAY, _featured_action.disabled)
 
 func _apply_featured_icon(button: Button, kind: int, dimmed: bool) -> void:
@@ -1212,7 +1167,7 @@ func _make_action_shell(primary: bool) -> Button:
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.add_theme_font_size_override("font_size", 13)
 	button.pressed.connect(_on_featured_action_pressed)
-	_paint_action_button(button, primary)
+	Kit.paint_action(button, primary)
 	return button
 
 # =============================================================================
@@ -1315,7 +1270,7 @@ func _update_filter_buttons() -> void:
 		button.button_pressed = int(filter) == _browse_filter
 
 func _filter_label(filter: int) -> String:
-	var compact := _layout_mode == LayoutMode.PHONE_LANDSCAPE or _layout_mode == LayoutMode.PHONE_PORTRAIT
+	var compact := _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE or _layout_mode == Kit.LayoutMode.PHONE_PORTRAIT
 	if compact:
 		match filter:
 			BrowseFilter.OWNED: return "Owned"
@@ -1336,90 +1291,6 @@ func _filter_description(filter: int) -> String:
 # VISUAL HELPERS
 # =============================================================================
 
-func _make_label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_override("font", BODY_FONT)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-## The small gold caption above a section, like the setup screen's kickers.
-func _make_kicker(text: String, font_size: int) -> Label:
-	var kicker := _make_label(text, font_size, COLOR_GOLD)
-	kicker.add_theme_font_override("font", SUBTITLE_FONT)
-	kicker.uppercase = true
-	return kicker
-
-## A heading in the bold weight: the screen title, a location's name, the
-## treasury's balance.
-func _make_title_label(text: String, font_size: int, color: Color = COLOR_TEXT_BRIGHT) -> Label:
-	var title := _make_label(text, font_size, color)
-	title.add_theme_font_override("font", TITLE_FONT)
-	return title
-
-## One of the menu sprites (PixelIcon), nearest-filtered so its pixels stay
-## hard at whatever size the layout asks for.
-func _make_sprite(kind: int, side: int, accent: Color) -> TextureRect:
-	var grid_side := PixelIcon.snapped_side(side)
-	var sprite := TextureRect.new()
-	sprite.texture = PixelIcon.texture(kind, grid_side, accent)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sprite.custom_minimum_size = Vector2(grid_side, grid_side)
-	sprite.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	sprite.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return sprite
-
-func _make_panel(bg: Color, border: Color, radius: int) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _panel_style(bg, border, 1, radius))
-	return panel
-
-## The atlas's panels wear the same notched nine-patch pixel frame as the
-## title and setup screens (PixelButtonStyle): straight edges, ink outline,
-## accent trim, no rounded corners and no soft shadow. The signature keeps
-## the old call sites; the pixel recipe has one fixed border weight and no
-## corner radius, so those two arguments are only kept for readability.
-static func _panel_style(bg: Color, border: Color, _border_width: int, _radius: int) -> StyleBoxTexture:
-	return PixelButtonStyle.panel_style(border, bg, 0, 0)
-
-## Paint a small menu action (Back, Center, +, -, Reset): a pixel card with
-## the semibold type.
-func _paint_utility_button(button: Button, gold: bool) -> void:
-	var accent := MenuStyle.ACCENT_PRIMARY if gold else MenuStyle.ACCENT_UTILITY
-	PixelButtonStyle.paint_card(button, accent, 0.0, 8, UIConstants.COLOR_TEXT, MenuStyle.TITLE_COLOR)
-	button.add_theme_font_override("font", SUBTITLE_FONT)
-	button.add_theme_color_override("font_pressed_color", UIConstants.COLOR_TEXT)
-	button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
-
-## Paint one of the browse chooser's toggles: quiet until pressed, when the
-## frame sinks and lights its trim, like the setup screen's option cards.
-func _paint_filter_button(button: Button) -> void:
-	PixelButtonStyle.paint_choice(button, MenuStyle.ACCENT_SECONDARY)
-	button.add_theme_font_override("font", SUBTITLE_FONT)
-	button.add_theme_color_override("font_color", COLOR_TEXT_SECONDARY)
-	button.add_theme_color_override("font_hover_color", MenuStyle.TITLE_COLOR)
-	button.add_theme_color_override("font_pressed_color", MenuStyle.ACCENT_PRIMARY)
-	button.add_theme_color_override("font_focus_color", MenuStyle.TITLE_COLOR)
-	button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
-
-## Paint a Buy & Play / Play action: the featured destination's gold slab (bold ink
-## type on the gold fill) or a row's quiet green card.
-func _paint_action_button(button: Button, primary: bool) -> void:
-	if primary:
-		PixelButtonStyle.paint_primary(button)
-		button.add_theme_font_override("font", TITLE_FONT)
-		button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
-	else:
-		PixelButtonStyle.paint_card(button, MenuStyle.ACCENT_SECONDARY, 0.0, 7,
-			COLOR_TEXT_BRIGHT, MenuStyle.TITLE_COLOR)
-		button.add_theme_font_override("font", SUBTITLE_FONT)
-		button.add_theme_color_override("font_disabled_color", COLOR_TEXT_QUIET)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 func _format_money_compact(amount: int) -> String:
 	if amount >= 1000000:

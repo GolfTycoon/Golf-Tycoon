@@ -9,26 +9,26 @@ extends GameTest
 # ---------------------------------------------------------------------------
 
 func test_save_load_phone_sizes_use_the_stacked_archive() -> void:
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(390, 844)), SaveLoadPanel.LayoutMode.PHONE, "phone portrait")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(320, 568)), SaveLoadPanel.LayoutMode.PHONE, "smallest phone")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(599, 800)), SaveLoadPanel.LayoutMode.PHONE, "narrow tall window")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(390, 844)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT, "phone portrait")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(320, 568)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT, "smallest phone")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(599, 800)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT, "narrow tall window")
 
 func test_save_load_rotated_phone_keeps_two_panes() -> void:
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(844, 390)), SaveLoadPanel.LayoutMode.LANDSCAPE, "rotated phone")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(640, 360)), SaveLoadPanel.LayoutMode.LANDSCAPE, "small rotated phone")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(844, 390)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE, "rotated phone")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(640, 360)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE, "small rotated phone")
 
 func test_save_load_tablet_and_desktop_breakpoints() -> void:
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(768, 1024)), SaveLoadPanel.LayoutMode.TABLET, "tablet portrait")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(1024, 768)), SaveLoadPanel.LayoutMode.TABLET, "tablet landscape")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(1600, 1000)), SaveLoadPanel.LayoutMode.DESKTOP, "reference desktop")
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(2560, 1440)), SaveLoadPanel.LayoutMode.DESKTOP, "large desktop")
+	assert_true(MenuScreenKit.is_tablet(SaveLoadPanel.layout_mode_for(Vector2(768, 1024))), "tablet portrait")
+	assert_true(MenuScreenKit.is_tablet(SaveLoadPanel.layout_mode_for(Vector2(1024, 768))), "tablet landscape")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(1600, 1000)), MenuScreenKit.LayoutMode.DESKTOP, "reference desktop")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(2560, 1440)), MenuScreenKit.LayoutMode.DESKTOP, "large desktop")
 
 func test_save_load_desktop_needs_its_minimum_size() -> void:
 	var w := SaveLoadPanel.DESKTOP_MIN_WIDTH
 	var h := SaveLoadPanel.DESKTOP_MIN_HEIGHT
-	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(w, h)), SaveLoadPanel.LayoutMode.DESKTOP)
-	assert_ne(SaveLoadPanel.layout_mode_for(Vector2(w, h - 1.0)), SaveLoadPanel.LayoutMode.DESKTOP, "one pixel short")
-	assert_ne(SaveLoadPanel.layout_mode_for(Vector2(w - 1.0, h)), SaveLoadPanel.LayoutMode.DESKTOP, "one pixel narrow")
+	assert_eq(SaveLoadPanel.layout_mode_for(Vector2(w, h)), MenuScreenKit.LayoutMode.DESKTOP)
+	assert_ne(SaveLoadPanel.layout_mode_for(Vector2(w, h - 1.0)), MenuScreenKit.LayoutMode.DESKTOP, "one pixel short")
+	assert_ne(SaveLoadPanel.layout_mode_for(Vector2(w - 1.0, h)), MenuScreenKit.LayoutMode.DESKTOP, "one pixel narrow")
 
 
 # ---------------------------------------------------------------------------
@@ -36,11 +36,11 @@ func test_save_load_desktop_needs_its_minimum_size() -> void:
 # ---------------------------------------------------------------------------
 
 func test_settings_breakpoints_cover_every_device() -> void:
-	assert_eq(SettingsMenu.layout_mode_for(Vector2(390, 844)), SettingsMenu.LayoutMode.PHONE, "phone portrait")
-	assert_eq(SettingsMenu.layout_mode_for(Vector2(844, 390)), SettingsMenu.LayoutMode.LANDSCAPE, "rotated phone")
-	assert_eq(SettingsMenu.layout_mode_for(Vector2(768, 1024)), SettingsMenu.LayoutMode.TABLET, "tablet portrait")
-	assert_eq(SettingsMenu.layout_mode_for(Vector2(1024, 768)), SettingsMenu.LayoutMode.TABLET, "tablet landscape")
-	assert_eq(SettingsMenu.layout_mode_for(Vector2(1600, 1000)), SettingsMenu.LayoutMode.DESKTOP, "reference desktop")
+	assert_eq(SettingsMenu.layout_mode_for(Vector2(390, 844)), MenuScreenKit.LayoutMode.PHONE_PORTRAIT, "phone portrait")
+	assert_eq(SettingsMenu.layout_mode_for(Vector2(844, 390)), MenuScreenKit.LayoutMode.PHONE_LANDSCAPE, "rotated phone")
+	assert_true(MenuScreenKit.is_tablet(SettingsMenu.layout_mode_for(Vector2(768, 1024))), "tablet portrait")
+	assert_true(MenuScreenKit.is_tablet(SettingsMenu.layout_mode_for(Vector2(1024, 768))), "tablet landscape")
+	assert_eq(SettingsMenu.layout_mode_for(Vector2(1600, 1000)), MenuScreenKit.LayoutMode.DESKTOP, "reference desktop")
 
 ## Every size gets exactly one arrangement, and the wide ones only start at
 ## their documented minimums.
@@ -49,13 +49,13 @@ func test_settings_breakpoints_respect_their_minimums() -> void:
 		for y in range(300, 1600, 89):
 			var size := Vector2(x, y)
 			match SettingsMenu.layout_mode_for(size):
-				SettingsMenu.LayoutMode.DESKTOP:
+				MenuScreenKit.LayoutMode.DESKTOP:
 					assert_true(size.x >= SettingsMenu.DESKTOP_MIN_WIDTH and size.y >= SettingsMenu.DESKTOP_MIN_HEIGHT,
 						"%s qualifies for DESKTOP" % size)
-				SettingsMenu.LayoutMode.TABLET:
+				MenuScreenKit.LayoutMode.TABLET_LANDSCAPE, MenuScreenKit.LayoutMode.TABLET_PORTRAIT:
 					assert_true(size.x >= SettingsMenu.TABLET_MIN_WIDTH and size.y >= SettingsMenu.TABLET_MIN_HEIGHT,
 						"%s qualifies for TABLET" % size)
-				SettingsMenu.LayoutMode.LANDSCAPE:
+				MenuScreenKit.LayoutMode.PHONE_LANDSCAPE:
 					assert_true(size.x > size.y, "%s is wider than tall for LANDSCAPE" % size)
 
 

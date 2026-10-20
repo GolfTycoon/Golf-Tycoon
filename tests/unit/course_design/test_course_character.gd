@@ -78,17 +78,20 @@ func test_sculpting_respects_buildings_and_height_limits() -> void:
 func test_clubhouse_upgrades_grow_without_changing_footprint_or_duplicate_clicks() -> void:
 	var building := Building.new()
 	add_child_autofree(building)
-	var previous_width := 0.0
+	var previous_height := 0.0
 	for level in range(1, 4):
 		building.upgrade_level = level
 		building._update_visuals()
 		assert_eq(building.get_node("Visual/Architecture").level, level)
 		var architecture = building.get_node("Visual/Architecture")
-		var body_width := CourseArchitecture.body_width("clubhouse", architecture.footprint, level)
-		assert_gt(body_width, previous_width)
-		assert_lt(body_width, architecture.footprint.x)
+		# Each upgrade swaps in the next tier's pixel art: taller, same square.
+		var texture := BuildingSprites.texture("clubhouse", level, architecture.facing)
+		assert_not_null(texture, "tier %d has its own pixel art" % level)
+		var tier_height := float(BuildingSprites.manifest()["buildings"]["clubhouse"]
+			["tiers"][str(level)].get("height", 0.0))
+		assert_gt(tier_height, previous_height)
+		previous_height = tier_height
 		assert_eq(architecture.footprint, Vector2(256, 128))
-		previous_width = body_width
 		var clicks := 0
 		var visuals := 0
 		for child in building.get_children():

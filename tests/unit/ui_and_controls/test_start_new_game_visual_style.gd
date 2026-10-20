@@ -83,11 +83,8 @@ func test_setup_buttons_and_panels_use_shared_pixel_frames() -> void:
 
 func test_screen_ornaments_are_pixel_sprites_not_smooth_vector_marks() -> void:
 	var screen := _screen()
-	var mark := screen.find_child("Mark", true, false) as TextureRect
-	assert_not_null(mark, "the title lockup has its golf pennant")
-	if mark:
-		assert_eq(mark.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST, "the pennant stays pixel sharp")
-		assert_eq(mark.texture.get_width() % PixelIcon.GRID, 0, "the icon stays on the sprite grid")
+	var mark := screen.find_child("FlagMark", true, false)
+	assert_true(mark is MenuFlagMark, "the title lockup has its pixel-grid golf flag")
 	var glyphs := _setup_glyphs(screen)
 	assert_gt(glyphs.size(), 0, "choice cards carry their own icons")
 	for glyph in glyphs:
