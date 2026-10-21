@@ -206,15 +206,11 @@ pointing/emulate_mouse_from_touch=false
 2d_physics/layer_4="golf_balls"
 2d_physics/layer_5="ui_interaction"
 
+[modding]
+
+steam_app_id=0
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
 textures/vram_compression/import_etc2_astc=true
-
-[modding]
-
-; The Steam App ID of a Steam build (0 = not a Steam build: the Workshop
-; buttons then explain themselves and everything else works unchanged).
-; Steam builds also need the GodotSteam addon installed - see
-; docs/modding/steam-workshop.md.
-steam_app_id=0
