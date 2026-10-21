@@ -960,13 +960,14 @@ func _on_menu_mods() -> void:
 	_hide_main_menu()
 	mods_screen = ModsScreen.new()
 	mods_screen.name = "ModsScreen"
-	mods_screen.close_requested.connect(func():
+	mods_screen.back_requested.connect(func():
 		if mods_screen:
 			mods_screen.queue_free()
 			mods_screen = null
-		_show_main_menu())
+			_show_main_menu())
 	$UI/HUD.add_child(mods_screen)
-	mods_screen.show_centered()
+	mods_screen.show()
+	mods_screen.refresh()
 	_set_gameplay_ui_visible(false)
 
 func _on_menu_achievements() -> void:
