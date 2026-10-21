@@ -15,7 +15,10 @@ class_name ModsScreen
 ## (user://mods/load_order.json) straight away but changes nothing live:
 ## **Apply & Reload** re-runs the loader and reloads the scene, so a course
 ## in play is never half re-modded. Installing a zip copies it into the
-## library still disabled - installing is never enabling.
+## library still disabled - installing is never enabling. **Create New
+## Mod** scaffolds a fresh folder in the same library (mod.json, an
+## optional starter script and a README) and likewise leaves it off until
+## the player ticks it.
 ##
 ## The screen sits on the same MenuBackdrop as the World Map and the other
 ## fullscreen menus, and composes for the window's shape the way they do:
@@ -62,6 +65,7 @@ var _status: Label = null
 var _apply_button: Button = null
 var _uninstall_button: Button = null
 var _file_dialog: FileDialog = null
+var _create_dialog: CreateModDialog = null
 var _selected_id: String = ""
 var _infos: Array = []
 var _search_query: String = ""
@@ -138,6 +142,8 @@ func _build() -> void:
 	_status = null
 	_apply_button = null
 	_uninstall_button = null
+	# Rebuilding the tree closes any open form; it was a child like the rest.
+	_create_dialog = null
 	_tabs = null
 	_library = null
 	_inspector = null
@@ -389,17 +395,34 @@ func _build_inspector_panel(page_scrolled: bool) -> PanelContainer:
 	return panel
 
 func _build_tools_strip() -> Control:
+	# The tool row scrolls sideways when the window is narrower than the
+	# buttons together (phones): every action stays reachable, nothing is
+	# clipped off the edge.
+	var strip_scroll := ScrollContainer.new()
+	strip_scroll.name = "ToolsScroll"
+	strip_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	strip_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	strip_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Room for the 44px cards and the horizontal scrollbar under them.
+	strip_scroll.custom_minimum_size.y = 56.0
+
 	var strip := HBoxContainer.new()
 	strip.name = "Tools"
 	strip.add_theme_constant_override("separation", 10)
 	strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strip_scroll.add_child(strip)
 
 	_apply_button = _button("Apply & Reload", _on_apply_pressed, true)
 	_apply_button.name = "ApplyButton"
 
+	var create_button := _button("Create New Mod", _on_create_mod_pressed)
+	create_button.name = "CreateModButton"
+	create_button.tooltip_text = "Scaffold a new mod folder in your library"
+
 	# Spread the bottom row across the full width instead of bunching the
 	# secondary tools into the bottom-left corner on large screens.
 	var buttons := Array([
+		create_button,
 		_button("+ Install ZIP", func() -> void:
 			_file_dialog.popup_centered(get_viewport().get_visible_rect().size.min(Vector2(720, 480)) * 0.9), true),
 		_button("Rescan", func() -> void:
@@ -426,7 +449,7 @@ func _build_tools_strip() -> Control:
 	add_child(file_dialog)
 	_file_dialog = file_dialog
 
-	return strip
+	return strip_scroll
 
 func _update_panes() -> void:
 	if _tabs == null:
@@ -559,6 +582,29 @@ func _show_details() -> void:
 	_details.text = details_text(info, ModManager.provider_owners(),
 		ContentRegistry.get_conflicts(), ContentRegistry.get_warnings())
 	_uninstall_button.disabled = info.is_empty() or not bool(info.get("can_uninstall", false))
+	_refresh_row_highlights()
+
+func _on_create_mod_pressed() -> void:
+	if is_instance_valid(_create_dialog):
+		return
+	_create_dialog = CreateModDialog.new()
+	_create_dialog.created.connect(_on_mod_created)
+	_create_dialog.tree_exited.connect(func() -> void: _create_dialog = null)
+	add_child(_create_dialog)
+
+## A new mod arrived switched off, like an installed zip. Select it (clearing
+## any search that would hide its row) and say what to do next.
+func _on_mod_created(mod_id: String) -> void:
+	_inspect_mobile = true
+	_update_panes()
+	_search_query = ""
+	if is_instance_valid(_search):
+		_search.text = ""
+	refresh("Created %s in your mods folder - still off. Its README has the next steps: tick it, then Apply & Reload." % mod_id)
+	# The refresh may have fallen back to the first row while going through
+	# the manager; the new mod is in the list now, so open its field notes.
+	_selected_id = mod_id
+	_show_details()
 	_refresh_row_highlights()
 
 func _on_zip_selected(path: String) -> void:

@@ -955,6 +955,28 @@ func load_mod_texture(mod_id: String, full_path: String) -> Texture2D:
 # INSTALLING, REMOVING AND STEAM
 # =============================================================================
 
+## Every id the library currently knows about, sorted - what the Mods
+## screen's Create New Mod form checks a typed id against.
+func get_installed_mod_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for mod_id in _records:
+		ids.append(str(mod_id))
+	ids.sort()
+	return ids
+
+
+## Scaffold a new mod folder in the player's library, then rediscover so it
+## shows in the list. Creating is not enabling: like an installed zip, the
+## new mod arrives switched off and does nothing until the player ticks it
+## and applies. Result: {ok, mod_id, directory, files, errors} - see
+## ModScaffold.create().
+func create_mod(fields: Dictionary) -> Dictionary:
+	var result: Dictionary = ModScaffold.create(user_root, fields, get_installed_mod_ids())
+	if bool(result.get("ok", false)):
+		discover()
+	return result
+
+
 ## Install a mod zip the player picked, into user://mods/installed/, then
 ## rediscover so it shows in the list (still disabled: installing is not
 ## enabling).

@@ -5,7 +5,9 @@ beginning with `_` are skipped) - copy it, rename the copy, and fill it in.
 
 1. Copy `_template/` to a folder named after your mod, here or (better,
    once it works) in your `user://mods/` folder - the Mods screen's
-   "Open mods folder" button shows you where that is.
+   "Mods folder" button shows you where that is. In the game, **Create
+   New Mod** on the Mods screen does this copy for you (with a starter
+   `mod_main.gd` and a README) straight into `user://mods/`.
 2. Edit `mod.json`: pick a unique reverse-style `id`
    (`yourname.my_mod` - it namespaces everything you add and must never
    change once players have saves), a name, a version, a description.

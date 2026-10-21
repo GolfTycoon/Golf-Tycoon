@@ -222,3 +222,48 @@ func test_the_apply_button_stages_a_reload() -> void:
 	var apply := screen.find_child("ApplyButton", true, false)
 	assert_not_null(apply, "Apply & Reload is the headline action")
 	assert_eq(apply.disabled, not ModManager.needs_reload)
+
+
+func test_create_new_mod_opens_the_scaffold_form() -> void:
+	var screen := await _screen()
+	var tools := screen.find_child("ToolsScroll", true, false)
+	assert_not_null(tools, "the tool row scrolls so every action stays reachable")
+	var button := screen.find_child("CreateModButton", true, false) as Button
+	assert_not_null(button, "the library has a Create New Mod action")
+	assert_true(button.text.contains("Create New Mod"))
+	button.emit_signal("pressed")
+	await process_frames(1)
+	var dialog := screen.find_child("CreateModDialog", true, false)
+	assert_not_null(dialog, "the button opens the creation form")
+	assert_true(dialog is CreateModDialog)
+	var cancel := dialog.find_child("CancelButton", true, false) as Button
+	assert_not_null(cancel)
+	cancel.emit_signal("pressed")
+	await process_frames(2)
+	assert_null(screen.find_child("CreateModDialog", true, false),
+		"cancelling returns to the library")
+
+
+func test_a_created_mod_is_selected_and_announced_as_still_off() -> void:
+	var screen := await _screen()
+	screen._search.text = "something else"
+	screen._on_mod_created("tester.fresh")
+	assert_eq(screen._selected_id, "tester.fresh")
+	assert_true(screen._status.text.contains("Created tester.fresh"))
+	assert_true(screen._status.text.contains("still off"))
+	assert_eq(screen._search.text, "",
+		"a search from before does not hide the new row")
+
+
+func test_the_form_reports_a_created_mod_to_the_screen() -> void:
+	var screen := await _screen()
+	var button := screen.find_child("CreateModButton", true, false) as Button
+	button.emit_signal("pressed")
+	await process_frames(1)
+	var dialog := screen.find_child("CreateModDialog", true, false)
+	assert_not_null(dialog)
+	dialog.created.emit("tester.wired")
+	await process_frames(1)
+	assert_eq(screen._selected_id, "tester.wired",
+		"the screen opens the new mod's field notes")
+	assert_true(screen._status.text.contains("Created tester.wired"))

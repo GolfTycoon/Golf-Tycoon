@@ -85,10 +85,17 @@ the same way.
 
 ## Making your first mod
 
-A mod is a folder with a `mod.json` at its root. Copy `mods/_template/`
-(or unzip any example) and edit three things: the `id` (something like
-`yourname.my_mod` - it namespaces everything you add, and must never
-change once players have saves), the `name`, and the `description`.
+A mod is a folder with a `mod.json` at its root. There are two ways in:
+
+- In the game, **Mods -> Create New Mod** scaffolds a folder in your
+  library (`user://mods/<id>/`): a valid `mod.json`, a starter
+  `mod_main.gd` unless you untick the box, and a README with the next
+  steps. The new mod appears in the list switched off, like an installed
+  zip; tick it and **Apply & Reload** when you are ready.
+- From a source checkout, copy `mods/_template/` (or unzip any example)
+  and edit three things: the `id` (something like `yourname.my_mod` - it
+  namespaces everything you add, and must never change once players have
+  saves), the `name`, and the `description`.
 
 Then pick a kind - each row is a working bundled example you can open and
 copy, `mods/` directory included with the game:
@@ -142,12 +149,13 @@ references:
 | --- | --- | --- |
 | `ModManifest` | `scripts/modding/mod_manifest.gd` | Parses and validates `mod.json`; semver helpers; the Mod API version constant. |
 | `ModPackage` | `scripts/modding/mod_package.gd` | Zip reading/installing/packing (static, autoload-free so the CLI can use it). |
+| `ModScaffold` | `scripts/modding/mod_scaffold.gd` | Writes a new mod folder - `mod.json`, starter script, README - for the Mods screen's **Create New Mod** button (static, autoload-free). |
 | `ContentRegistry` | `scripts/modding/mod_content_registry.gd` (autoload) | Owns merged content: base `data/buildings.json` + `data/decorations.json`, then each mod's declared content in load order; namespacing, deep-merge/patch semantics, provenance and conflict reporting, tuning values; pushes the result into the game's static libraries (`TerrainTypes`, `CourseTheme`, `TournamentSystem`, `WorldLocations`, `GolferAttributes`, `GolferSkinLibrary`, `BuildingSprites`). |
 | `ModManager` | `scripts/modding/mod_manager.gd` (autoload) | Discovery, the player's ordered list, dependency/topological load-order resolution, safe mode, resource packs, script loading, provider registration, hooks, per-mod config and save slices. |
 | `GolfTycoonMod` / `ModAPI` | `scripts/modding/mod_base.gd`, `mod_api.gd` | What a script mod extends and the object it is handed. |
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |
 | Neutral bases + facade | `scripts/systems/weather_system.gd`, `wind_system.gd`, `season_provider.gd`, `season_system.gd` | The game's built-in "nothing happens" weather/wind/season answers; mods provide the real systems. Same classes, same calls, so callers never know. |
-| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order, details, install/uninstall/upload, Apply & Reload. |
+| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order, details, create/install/uninstall/upload, Apply & Reload. |
 | Bundled mods | `res://mods/` | Three official feature mods + nine examples + `_template`. |
 | CLI | `tools/mod_tool.gd`, `make mods` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them. |
 
@@ -167,5 +175,8 @@ The Mods screen uses a pixel-art workbench layout. Desktop and tablet widths
 show the searchable loadout and selected-mod inspector side by side; widths
 below 700 px use Library / Inspector tabs. Selecting a mod opens its inspector
 on narrow screens. Each pane scrolls independently, and short windows can scroll
-the workspace to keep installation and Apply & Reload reachable. Search only
-filters the visible cards: it never changes enabled mods or their order.
+the workspace to keep installation and Apply & Reload reachable. The tool row
+scrolls sideways when the window is narrower than its buttons, so **Create New
+Mod**, **Install ZIP**, **Rescan**, **Mods folder**, **Disable all** and
+**Apply & Reload** all stay reachable on a phone. Search only filters the
+visible cards: it never changes enabled mods or their order.
