@@ -16,10 +16,15 @@
 [node name="Main" type="Node2D" unique_id=1113796788]
 script = ExtResource("1_main")
 
+y_sort_enabled = true
+
 [node name="TerrainGrid" type="Node2D" parent="." unique_id=1340507277]
 script = ExtResource("3_terrain")
+y_sort_enabled = true
 
 [node name="Entities" type="Node2D" parent="." unique_id=1526930307]
+
+y_sort_enabled = true
 
 [node name="Golfers" type="Node2D" parent="Entities" unique_id=1588679359]
 y_sort_enabled = true

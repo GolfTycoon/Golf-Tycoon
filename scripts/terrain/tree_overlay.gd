@@ -7,8 +7,7 @@ class_name TreeOverlay
 ## own, to clear or to undo: the tile is the tree. The course surface keeps the
 ## turf a grove shares with its neighbours (see `tile_at()` in
 ## `course_surface.gdshader`) and this overlay paints the canopies over it —
-## one CanvasItem drawing one tree per tile, no node per tree, exactly as
-## FlowerOverlay paints a bed of wild flowers.
+## one independently depth-sorted CanvasItem per standing tree.
 ##
 ## A tile's species is its own terrain id's; the generic `Type.TREES` tile —
 ## the ground older saves carry, and what the generators paint when they want a
@@ -81,18 +80,16 @@ const SCALE_MIN := 0.85
 const SCALE_MAX := 1.15
 
 var terrain_grid: TerrainGrid
+var _visuals: Dictionary = {}
 var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
-	# Woodland is ground cover: it sits under the entities and their shadows, so
-	# a golfer walking past a tree is never hidden by its crown. It is the top of
-	# that ground band, painted over the walking trail and every other mark laid
-	# on the turf — a tree stands where it was planted, whatever was trodden
-	# through it (see TerrainGrid.GROUND_DETAIL_ORDER).
-	z_index = 1
+	# Trees share the entity band and the world Y-sort, not the ground band.
+	z_index = 2
+	y_sort_enabled = true
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	rescan()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
@@ -256,24 +253,24 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 	queue_redraw()
 
 func _draw() -> void:
-	if not terrain_grid or _tree_tiles.is_empty():
-		return
-	# Crowns rise well above their tile, so cull with room above each tile.
-	var margin_x := float(terrain_grid.tile_width) * 2.0
-	var margin_y := float(terrain_grid.tile_height) * 4.0
-	var view: Rect2 = terrain_grid.get_visible_world_rect() \
-			.grow_individual(margin_x, margin_y, margin_x, margin_y)
-	var grounds: Dictionary = {}
-	var ordered: Array = []
+	_sync_visuals()
+
+func _sync_visuals() -> void:
+	for pos in _visuals.keys():
+		if not _tree_tiles.has(pos):
+			var obsolete: Node2D = _visuals[pos]
+			remove_child(obsolete)
+			obsolete.queue_free()
+			_visuals.erase(pos)
 	for pos in _tree_tiles:
-		var ground: Vector2 = terrain_grid.grid_to_screen_center(pos)
-		if view.has_point(ground):
-			grounds[pos] = ground
-			ordered.append(pos)
-	# Back to front, so each tree belongs behind the wood in front of it.
-	ordered.sort_custom(func(a, b): return grounds[a].y < grounds[b].y)
-	for pos in ordered:
-		_draw_tree(pos, grounds[pos], facing_for(pos))
+		if not _visuals.has(pos):
+			var tree := Node2D.new()
+			tree.draw.connect(func(): _draw_tree(tree, pos, Vector2.ZERO, facing_for(pos)))
+			add_child(tree)
+			_visuals[pos] = tree
+		var visual: Node2D = _visuals[pos]
+		visual.position = terrain_grid.grid_to_screen_center(pos)
+		visual.queue_redraw()
 
 ## The angle this overlay paints the tree on `pos` from right now: the course's
 ## view turned by the tile's own offset, so a wood holds several angles at once
@@ -284,7 +281,7 @@ func facing_for(pos: Vector2i) -> int:
 ## One tree: the contact shadow, then the species' sprite from this tree's own
 ## angle at the current view — or its silhouette, turned the same way, when the
 ## art is missing.
-func _draw_tree(pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
+func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
 	var species: String = _tree_tiles[pos]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos)
@@ -295,18 +292,18 @@ func _draw_tree(pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) ->
 	# A squat ellipse on the ground: the same flattened-circle trick the flower
 	# bed uses for its foliage, so the tree reads as standing on the turf.
 	var spread := terrain_grid.tile_width * 0.3 * scale_v
-	draw_set_transform(ground, 0.0, Vector2(1.0, 0.5))
-	draw_circle(Vector2(terrain_grid.tile_width * 0.06, terrain_grid.tile_height * 0.06),
+	canvas.draw_set_transform(ground, 0.0, Vector2(1.0, 0.5))
+	canvas.draw_circle(Vector2(terrain_grid.tile_width * 0.06, terrain_grid.tile_height * 0.06),
 			spread, Color(0, 0, 0, 0.2))
-	draw_set_transform(Vector2.ZERO)
+	canvas.draw_set_transform(Vector2.ZERO)
 
 	var texture := texture_for(species, facing)
 	if texture != null:
 		var size := texture.get_size() * scale_v
 		var top_left := center - Vector2(size.x * 0.5, size.y * 0.5 + base_offset(species, size))
-		draw_texture_rect(texture, Rect2(top_left, size), false)
+		canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
 	else:
-		_draw_silhouette(center, species, scale_v, facing)
+		_draw_silhouette(canvas, center, species, scale_v, facing)
 
 ## Fallback art: a trunk and a crown in the species' color, sized by its shape,
 ## so an evergreen, a shrub and a clump of grass still tell each other apart.
@@ -314,7 +311,7 @@ func _draw_tree(pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) ->
 ## tools/tree_art/generate.py): the back angles mirror it, the side angles
 ## foreshorten and lean it about its ground point, and the south angle is
 ## the side away from the sun, so it sits darker.
-func _draw_silhouette(center: Vector2, species: String, scale_v: float,
+func _draw_silhouette(canvas: Node2D, center: Vector2, species: String, scale_v: float,
 		facing: int = DEFAULT_FACING) -> void:
 	var turned := wrapi(facing, 0, FACINGS.size())
 	var foliage := TerrainTypes.get_color(TerrainTypes.tree_tile_for_species(species))
@@ -329,71 +326,71 @@ func _draw_silhouette(center: Vector2, species: String, scale_v: float,
 		tilt = 0.05
 	elif turned == 3:
 		tilt = -0.05
-	draw_set_transform(center, tilt, Vector2(mirror * profile, 1.0))
+	canvas.draw_set_transform(center, tilt, Vector2(mirror * profile, 1.0))
 	center = Vector2.ZERO  # Everything below is measured from the ground point.
 	var shape := str(CANOPY_SHAPES.get(species, "broadleaf"))
 	match shape:
 		"conifer":
-			_trunk(center, 3.0 * scale_v, 12.0 * scale_v, trunk)
+			_trunk(canvas, center, 3.0 * scale_v, 12.0 * scale_v, trunk)
 			for tier in 3:
 				var width := (28.0 - tier * 7.0) * scale_v
 				var bottom := center.y - (10.0 + tier * 10.0) * scale_v
-				draw_colored_polygon(PackedVector2Array([
+				canvas.draw_colored_polygon(PackedVector2Array([
 					Vector2(center.x - width * 0.5, bottom),
 					Vector2(center.x + width * 0.5, bottom),
 					Vector2(center.x, bottom - 16.0 * scale_v),
 				]), foliage.lightened(tier * 0.05))
 		"mound":
-			_draw_foliage_blob(center + Vector2(0.0, -6.0 * scale_v), 12.0 * scale_v, foliage)
+			_draw_foliage_blob(canvas, center + Vector2(0.0, -6.0 * scale_v), 12.0 * scale_v, foliage)
 		"tuft":
 			for blade in 5:
 				var lean := (blade - 2) * 4.0 * scale_v
-				draw_line(center + Vector2(lean * 0.4, 4.0 * scale_v),
+				canvas.draw_line(center + Vector2(lean * 0.4, 4.0 * scale_v),
 						center + Vector2(lean, -16.0 * scale_v), foliage, 1.5)
 		"reed":
 			for stem in 4:
 				var x := (stem - 1.5) * 5.0 * scale_v
-				draw_line(center + Vector2(x, 4.0 * scale_v),
+				canvas.draw_line(center + Vector2(x, 4.0 * scale_v),
 						center + Vector2(x, -20.0 * scale_v), foliage, 1.5)
 				if stem % 2 == 0:
-					draw_rect(Rect2(center + Vector2(x - 1.6 * scale_v, -27.0 * scale_v),
+					canvas.draw_rect(Rect2(center + Vector2(x - 1.6 * scale_v, -27.0 * scale_v),
 							Vector2(3.2 * scale_v, 7.0 * scale_v)), Color(0.45, 0.3, 0.15))
 		"column":
-			draw_rect(Rect2(center + Vector2(-4.0 * scale_v, -34.0 * scale_v),
+			canvas.draw_rect(Rect2(center + Vector2(-4.0 * scale_v, -34.0 * scale_v),
 					Vector2(8.0 * scale_v, 38.0 * scale_v)), foliage)
-			draw_rect(Rect2(center + Vector2(-14.0 * scale_v, -26.0 * scale_v),
+			canvas.draw_rect(Rect2(center + Vector2(-14.0 * scale_v, -26.0 * scale_v),
 					Vector2(10.0 * scale_v, 4.0 * scale_v)), foliage)
-			draw_rect(Rect2(center + Vector2(4.0 * scale_v, -20.0 * scale_v),
+			canvas.draw_rect(Rect2(center + Vector2(4.0 * scale_v, -20.0 * scale_v),
 					Vector2(10.0 * scale_v, 4.0 * scale_v)), foliage)
 		"bare":
-			_trunk(center, 4.0 * scale_v, 26.0 * scale_v, trunk)
+			_trunk(canvas, center, 4.0 * scale_v, 26.0 * scale_v, trunk)
 			for side in [-1.0, 1.0]:
-				draw_line(center + Vector2(0.0, -18.0 * scale_v),
+				canvas.draw_line(center + Vector2(0.0, -18.0 * scale_v),
 						center + Vector2(side * 14.0 * scale_v, -34.0 * scale_v), trunk, 2.5)
 		"fan":
-			_trunk(center, 3.5 * scale_v, 34.0 * scale_v, trunk)
+			_trunk(canvas, center, 3.5 * scale_v, 34.0 * scale_v, trunk)
 			for frond in 6:
 				var angle := frond * TAU / 6.0
-				draw_line(center + Vector2(0.0, -34.0 * scale_v),
+				canvas.draw_line(center + Vector2(0.0, -34.0 * scale_v),
 						center + Vector2(cos(angle), sin(angle) * 0.6) * 20.0 * scale_v,
 						foliage, 3.0)
 		_:
-			_trunk(center, 4.0 * scale_v, 16.0 * scale_v, trunk)
-			_draw_foliage_blob(center + Vector2(0.0, -24.0 * scale_v), 20.0 * scale_v, foliage)
-			_draw_foliage_blob(center + Vector2(-9.0 * scale_v, -18.0 * scale_v),
+			_trunk(canvas, center, 4.0 * scale_v, 16.0 * scale_v, trunk)
+			_draw_foliage_blob(canvas, center + Vector2(0.0, -24.0 * scale_v), 20.0 * scale_v, foliage)
+			_draw_foliage_blob(canvas, center + Vector2(-9.0 * scale_v, -18.0 * scale_v),
 					13.0 * scale_v, foliage.lightened(0.06))
-			_draw_foliage_blob(center + Vector2(9.0 * scale_v, -19.0 * scale_v),
+			_draw_foliage_blob(canvas, center + Vector2(9.0 * scale_v, -19.0 * scale_v),
 					12.0 * scale_v, foliage.darkened(0.06))
-	draw_set_transform(Vector2.ZERO)
+	canvas.draw_set_transform(Vector2.ZERO)
 
-func _trunk(base: Vector2, half_width: float, height: float, color: Color) -> void:
-	draw_rect(Rect2(base + Vector2(-half_width, -height), Vector2(half_width * 2.0, height)), color)
+func _trunk(canvas: Node2D, base: Vector2, half_width: float, height: float, color: Color) -> void:
+	canvas.draw_rect(Rect2(base + Vector2(-half_width, -height), Vector2(half_width * 2.0, height)), color)
 
 ## An irregular blob, so a crown is roundish rather than a drawn circle.
-func _draw_foliage_blob(center: Vector2, radius: float, color: Color) -> void:
+func _draw_foliage_blob(canvas: Node2D, center: Vector2, radius: float, color: Color) -> void:
 	var points := PackedVector2Array()
 	for i in range(8):
 		var angle := i * TAU / 8.0
 		var r := radius * (0.85 + 0.15 * sin(angle * 3.0))
 		points.append(center + Vector2(cos(angle), sin(angle) * 0.85) * r)
-	draw_colored_polygon(points, color)
+	canvas.draw_colored_polygon(points, color)
