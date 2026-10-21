@@ -17,11 +17,19 @@ class_name TreeOverlay
 ## course loads.
 ##
 ## Every species is drawn from four angles — `<species>_n.png`, `_e`, `_s` and
-## `_w` — and the overlay paints the one the course is being viewed from, the
-## way a building swaps its sprite when the view turns (see BuildingSprites).
-## The four views are generated from the one authored (unsuffixed, north)
-## drawing by `tools/tree_art/generate.py`; a species missing a view falls
-## back to that drawing, so new art is playable before its angles exist.
+## `_w` — and the overlay paints one of them, the way a building swaps its
+## sprite when the view turns (see BuildingSprites). The four views are
+## generated from the one authored (unsuffixed, north) drawing by
+## `tools/tree_art/generate.py`; a species missing a view falls back to that
+## drawing, so new art is playable before its angles exist.
+##
+## A tree does not wear the view the course is seen from, though: each tile has
+## its own quarter-turn offset (see `facing_offset()`), fixed for the life of
+## the course, so a wood is drawn with canopies from all four sides at once
+## instead of a plantation whose every tree faces the camera. The offset is
+## added to the course's view orientation, so rotating the course still steps
+## every tree on to its next angle — one turn of the screen turns the whole
+## wood, and a tree is never seen twice from the same side in a row.
 
 ## Species art lives here: `<species>.png` plus its four `_n/_e/_s/_w` views,
 ## with `spring/`, `fall/` and `winter/` variants for the ones that change
@@ -118,8 +126,10 @@ func rescan() -> void:
 					_tree_tiles[pos] = species_at(type, pos)
 	queue_redraw()
 
-## The angle the wood is drawn from: the grid's view orientation, so rotating
-## the course turns every tree with it, exactly as it turns the buildings.
+## The angle the course is viewed from: the grid's view orientation, so
+## rotating the course turns every tree with it, exactly as it turns the
+## buildings. A tree is drawn from `facing_at()` — this angle plus the tile's
+## own offset — so trees in the same wood face different ways.
 func view_facing() -> int:
 	return terrain_grid.get_view_orientation() if terrain_grid else DEFAULT_FACING
 
@@ -145,6 +155,31 @@ static func species_at(type: int, pos: Vector2i) -> String:
 ## or "w"). Orientations outside 0..3 wrap, as the view itself does.
 static func facing_name(facing: int) -> String:
 	return FACINGS[wrapi(facing, 0, FACINGS.size())]
+
+## The angle the tree on `pos` is drawn from when the course is viewed at
+## orientation `view`: the course's own angle, stepped by the tile's offset.
+## Everything turns together, so a quarter turn of the course always takes
+## every tree on to its next view and a full turn brings the wood back exactly
+## as it was.
+static func facing_at(pos: Vector2i, view: int = DEFAULT_FACING) -> int:
+	return wrapi(view + facing_offset(pos), 0, FACINGS.size())
+
+## How many quarter turns this tile's tree stands turned from the authored
+## north drawing: 0..3, one per tile, the same on every machine and every
+## reload. It is what lets one screen hold a wood of mixed angles rather than
+## a row of trees all facing the camera: about a quarter of the trees keep the
+## authored drawing, and the rest show their east, south or west side.
+static func facing_offset(pos: Vector2i) -> int:
+	# A mixed hash rather than a cheap `x + y`: a linear seed sorts a wood into
+	# diagonal stripes of identically turned trees, which reads as a pattern
+	# instead of a plantation. (Deliberately not `variation_seed()`, so the
+	# angle a tree stands at is independent of the height and lean jitter it
+	# also draws from that seed.)
+	var hash_value := (pos.x * 0x1f1f1f1f + pos.y * 0x27d4eb2d) & 0x7FFFFFFF
+	hash_value = ((hash_value ^ (hash_value >> 15)) * 0x85ebca6b) & 0x7FFFFFFF
+	hash_value = (hash_value ^ (hash_value >> 13)) * 0xc2b2ae35
+	hash_value = (hash_value ^ (hash_value >> 16)) & 0x7FFFFFFF
+	return hash_value % FACINGS.size()
 
 ## The sprite a species wears right now, seen from view orientation `facing`,
 ## or "" when it has no art and the tile falls back to its silhouette. The
@@ -237,12 +272,17 @@ func _draw() -> void:
 			ordered.append(pos)
 	# Back to front, so each tree belongs behind the wood in front of it.
 	ordered.sort_custom(func(a, b): return grounds[a].y < grounds[b].y)
-	var facing := view_facing()
 	for pos in ordered:
-		_draw_tree(pos, grounds[pos], facing)
+		_draw_tree(pos, grounds[pos], facing_for(pos))
 
-## One tree: the contact shadow, then the species' sprite from the angle the
-## course is viewed at — or its silhouette, turned the same way, when the
+## The angle this overlay paints the tree on `pos` from right now: the course's
+## view turned by the tile's own offset, so a wood holds several angles at once
+## and a rotation steps them all on together.
+func facing_for(pos: Vector2i) -> int:
+	return facing_at(pos, view_facing())
+
+## One tree: the contact shadow, then the species' sprite from this tree's own
+## angle at the current view — or its silhouette, turned the same way, when the
 ## art is missing.
 func _draw_tree(pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
 	var species: String = _tree_tiles[pos]
@@ -270,7 +310,7 @@ func _draw_tree(pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) ->
 
 ## Fallback art: a trunk and a crown in the species' color, sized by its shape,
 ## so an evergreen, a shrub and a clump of grass still tell each other apart.
-## It turns with the view like the generated views do (see PROFILES in
+## It turns with its tree's angle like the generated views do (see PROFILES in
 ## tools/tree_art/generate.py): the back angles mirror it, the side angles
 ## foreshorten and lean it about its ground point, and the south angle is
 ## the side away from the sun, so it sits darker.
