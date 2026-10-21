@@ -7,9 +7,11 @@ Run from the repository root:
     python3 tools/tree_art/generate.py --preview  # also draw a contact sheet
     python3 tools/tree_art/generate.py --check    # fail if a view is stale
 
-Every species in `assets/sprites/trees/` (including the `spring/`, `fall/`
-and `winter/` seasonal variants) is authored once, as the unsuffixed
-`<species>.png`. That drawing is the tree seen from the north - the course's
+Every species in `assets/sprites/trees/` is authored once, as the unsuffixed
+`<species>.png`, and so is every seasonal variant a mod ships - the Seasons
+mod's `spring/`, `fall/` and `winter/` drawings live in
+`mods/golf_tycoon.seasons/tree_art/` and are derived here too (see
+`art_roots()`). That drawing is the tree seen from the north - the course's
 default view orientation - and it is the source the other three angles are
 derived from here:
 
@@ -50,7 +52,12 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SPRITE_DIR = os.path.join(ROOT, "assets", "sprites", "trees")
+MODS_DIR = os.path.join(ROOT, "mods")
 PREVIEW_DIR = os.path.join(ROOT, "tmp_preview")
+
+# The folder a mod's tree art lives in, named by its manifest's
+# `tree_art_root` content key (see docs/modding/manifest-and-packaging.md).
+MOD_ART_DIR = "tree_art"
 
 # View orientations 0..3, in the order TreeOverlay.FACINGS lists them:
 # the course compass (main.gd's VIEW_ORIENTATION_LABELS).
@@ -74,17 +81,33 @@ PROFILES = {
 }
 
 
+def art_roots() -> list[str]:
+    """The folders tree art is authored in: the game's own species, then every
+    bundled mod's `tree_art/` (the Seasons mod's seasonal drawings)."""
+    roots = [SPRITE_DIR]
+    if os.path.isdir(MODS_DIR):
+        for mod in sorted(os.listdir(MODS_DIR)):
+            if mod.startswith(("_", ".")):
+                continue  # Never discovered as a mod, so never art either.
+            candidate = os.path.join(MODS_DIR, mod, MOD_ART_DIR)
+            if os.path.isdir(candidate):
+                roots.append(candidate)
+    return [root for root in roots if os.path.isdir(root)]
+
+
 def source_sprites() -> list[str]:
-    """Every authored (unsuffixed) tree sprite, seasonal folders included."""
+    """Every authored (unsuffixed) tree sprite, in every art root, seasonal
+    folders included."""
     sources = []
-    for dirpath, _dirs, files in os.walk(SPRITE_DIR):
-        for name in sorted(files):
-            if not name.endswith(".png"):
-                continue
-            stem = name[:-len(".png")]
-            if any(stem.endswith("_" + facing) for facing in FACINGS):
-                continue  # A generated view, not a source.
-            sources.append(os.path.join(dirpath, name))
+    for root in art_roots():
+        for dirpath, _dirs, files in os.walk(root):
+            for name in sorted(files):
+                if not name.endswith(".png"):
+                    continue
+                stem = name[:-len(".png")]
+                if any(stem.endswith("_" + facing) for facing in FACINGS):
+                    continue  # A generated view, not a source.
+                sources.append(os.path.join(dirpath, name))
     return sorted(sources)
 
 
@@ -155,7 +178,7 @@ def generate(preview: bool) -> None:
             view = render_view(image, facing)
             view.save(view_path(source, facing))
             views.append(view)
-        sheet_rows.append((os.path.relpath(source, SPRITE_DIR), views))
+        sheet_rows.append((os.path.relpath(source, ROOT), views))
         print(f"{os.path.relpath(source, ROOT)} -> " +
               " ".join("_" + facing for facing in FACINGS))
     if preview:

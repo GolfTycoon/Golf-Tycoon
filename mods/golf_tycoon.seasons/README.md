@@ -2,12 +2,19 @@
 
 The game's seasons, as a mod: four theme-aware seasons over the calendar
 year - demand, upkeep, fee tolerance, tournament prestige, seasonal
-weather weights - plus eight seasonal events.
+weather weights - eight seasonal events, and the woodland's seasonal art.
 
 - `season_provider.gd` holds every table and extends the game's
   `SeasonProvider`. `mod_main.gd` registers it in one line.
 - `data/seasonal_events.json` declares the events; the loader applies it
   before the script runs (see `content` in `mod.json`).
+- `tree_art/<season>/` is the wardrobe the trees borrow: the spring, fall
+  and winter drawings of the species that turn, four angles each, declared
+  to the loader as `tree_art_root` in `mod.json`. The game's own
+  `assets/sprites/trees/` keeps only the evergreen (summer) art, so
+  switching this mod off leaves every tree wearing that.
+  `tools/tree_art/generate.py` derives the angles here exactly as it does
+  there - edit the unsuffixed drawing and re-run it.
 - The Start New Game "Seasons" toggle decides per company whether the
   seasons act on that company's courses; disabling this mod removes them
   entirely (the game then runs the neutral built-in provider).
@@ -18,4 +25,5 @@ weather weights - plus eight seasonal events.
 This is the reference for a **feature/provider mod**: copy it to make a
 southern-hemisphere calendar, a monsoon climate, a two-season year...
 Anything that speaks SeasonProvider can take the job; load order decides
-whose seasons the game plays.
+whose seasons the game plays - and whose `tree_art/` the woodland wears,
+since a later mod wins the season and species it draws again.

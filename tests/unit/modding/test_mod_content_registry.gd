@@ -22,21 +22,9 @@ func before_each() -> void:
 
 
 func after_each() -> void:
-	_restore_live_content()
+	restore_live_content()
 	_cleanup()
 	super()
-
-
-## A throwaway registry pushes statics (terrain, skins, events...), so put
-## the shipped data back for later tests: base content plus the one bundled
-## mod that ships data (the weather/wind mods are script-only). Done by hand
-## rather than through ModManager.reload_mods() so the script set and its
-## safe-mode marker are never disturbed mid-run.
-static func _restore_live_content() -> void:
-	ContentRegistry.reset_mod_content()
-	ContentRegistry.apply_mod_content("golf_tycoon.seasons",
-		"res://mods/golf_tycoon.seasons", {"seasonal_events": "data/seasonal_events.json"})
-	ContentRegistry.refresh_live_libraries()
 
 
 func _cleanup() -> void:
@@ -49,6 +37,16 @@ func _write(mod_folder: String, relative: String, json_text: String) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(json_text)
 	file.close()
+
+
+## A tiny real PNG, for the content kinds that ship art rather than JSON.
+func _write_png(mod_folder: String, relative: String) -> String:
+	var path := ROOT.path_join(mod_folder).path_join(relative)
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var image := Image.create_empty(4, 4, false, Image.FORMAT_RGBA8)
+	image.fill(Color.GREEN)
+	image.save_png(path)
+	return path
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +166,28 @@ func test_seasonal_events_register_namespaced_and_replace_by_full_id() -> void:
 	var names: Array = SeasonalEvents.get_all_events().map(func(e): return e.name)
 	assert_true("Harvest Fair Deluxe" in names, "a full-id record replaces the earlier event whole")
 	assert_false("Harvest Fair" in names)
+
+
+func test_tree_art_registers_with_the_overlay_and_a_reset_takes_it_away() -> void:
+	var east := _write_png("mod_a", "tree_art/spring/oak_e.png")
+	_write_png("mod_a", "tree_art/spring/oak.png")
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"tree_art_root": "tree_art"})
+	assert_eq(TreeOverlay.art_file("spring/oak", 1), east,
+			"a mod's folder becomes that season's art, angled view and all")
+	registry.reset_mod_content()
+	assert_eq(TreeOverlay.art_file("spring/oak", 1), "",
+			"and a reset drops it, so a switched-off mod leaves no wardrobe behind")
+
+
+func test_a_tree_art_folder_that_holds_no_art_is_reported() -> void:
+	registry.apply_mod_content("tester.b", ROOT.path_join("mod_b"), {"tree_art_root": "tree_art"})
+	assert_true(registry.get_warnings().any(func(w): return w.contains("tree_art_root")),
+			"a folder that is not there is named in the mod's warnings")
+
+	DirAccess.make_dir_recursive_absolute(ROOT.path_join("mod_b/tree_art/spring"))
+	registry.apply_mod_content("tester.c", ROOT.path_join("mod_b"), {"tree_art_root": "tree_art"})
+	assert_true(registry.get_warnings().any(func(w): return w.contains("holds no")),
+			"so is one that holds no <season>/<species>.png")
 
 
 func test_base_data_is_the_shipped_catalog() -> void:

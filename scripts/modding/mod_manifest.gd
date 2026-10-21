@@ -211,7 +211,8 @@ func _validate(data: Dictionary) -> void:
 const KNOWN_CONTENT_KEYS: Array[String] = [
 	"buildings", "decorations", "terrain_overrides", "themes",
 	"world_locations", "visiting_golfers", "golfer_names",
-	"seasonal_events", "golfer_skins_root", "tournament_tiers", "tuning",
+	"seasonal_events", "golfer_skins_root", "tree_art_root", "tournament_tiers",
+	"tuning",
 ]
 
 

@@ -11,6 +11,13 @@ extends GameTest
 ## four genuinely different images on the one canvas (so a trunk never hops
 ## across its tile when the view turns), and the per-tree angles are mixed,
 ## fixed to the tile, and rotated with the grid's view.
+##
+## A season's drawings are not the core's: they ship inside the Seasons mod
+## (`mods/golf_tycoon.seasons/tree_art/<season>/`) and reach the lookup through
+## its manifest's `tree_art_root`, so the last section here pins that door too —
+## the mod's art is worn, a later mod's replaces it, art from outside the
+## imported project is decoded from its bytes, and a game without the mod stays
+## evergreen all year.
 
 # Mid-season days of the first year (see test_season_system.gd for the edges).
 const SPRING_DAY := 100
@@ -18,10 +25,35 @@ const SUMMER_DAY := 200
 const FALL_DAY := 300
 const WINTER_DAY := 350
 
+## Where the Seasons mod keeps the wardrobe it lends the trees.
+const SEASONS_MOD_ROOT := "res://mods/golf_tycoon.seasons"
+const SEASONS_ART := SEASONS_MOD_ROOT + "/tree_art/"
+
+## Throwaway art folders, for the registration tests (cleaned up after each).
+const TEMP_ART := "user://ut_tree_art"
+
 
 func before_each() -> void:
 	super()
 	GameManager.set_seasons_enabled(true)
+
+
+func after_each() -> void:
+	# The registration tests below write into the live overlay's art registry
+	# and into user://; put the shipped set back for every test after this file.
+	ModPackage.remove_directory_recursive(TEMP_ART)
+	restore_live_content()
+	super()
+
+
+## A one-colour PNG in a temp art folder, and the path it was written to.
+func _write_art(root: String, relative: String, color: Color) -> String:
+	var path := root.path_join(relative)
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var image := Image.create_empty(8, 8, false, Image.FORMAT_RGBA8)
+	image.fill(color)
+	image.save_png(path)
+	return path
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +83,7 @@ func test_the_four_views_are_different_images_on_the_same_canvas() -> void:
 		for facing in range(TreeOverlay.FACINGS.size()):
 			var path := TreeOverlay.sprite_path(species, SUMMER_DAY,
 					CourseTheme.Type.PARKLAND, facing)
-			var texture := load(path) as Texture2D
+			var texture := TreeOverlay.texture_at(path)
 			assert_not_null(texture, "%s loads from %s" % [species, path])
 			if size == Vector2.ZERO:
 				size = texture.get_size()
@@ -72,7 +104,7 @@ func test_the_north_view_is_the_authored_drawing() -> void:
 	var authored := (load(TreeOverlay.SPRITE_DIR + "oak.png") as Texture2D).get_image().get_data()
 	var north_path := TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND,
 			TreeOverlay.DEFAULT_FACING)
-	var north := (load(north_path) as Texture2D).get_image().get_data()
+	var north := (TreeOverlay.texture_at(north_path) as Texture2D).get_image().get_data()
 	assert_eq(hash(north), hash(authored), "the north view is the authored oak, unchanged")
 	assert_same(TreeOverlay.texture_for("oak"), TreeOverlay.texture_for("oak", 0),
 			"and naming no angle (the toolbar's preview) means the north view")
@@ -82,26 +114,102 @@ func test_the_north_view_is_the_authored_drawing() -> void:
 # The seasonal wardrobe turns too
 # ---------------------------------------------------------------------------
 
-func test_deciduous_views_come_from_the_season_folder() -> void:
+func test_the_seasons_mod_ships_the_wardrobe_the_core_no_longer_does() -> void:
+	var manifest := ModManifest.from_json_text(
+			FileAccess.get_file_as_string(SEASONS_MOD_ROOT.path_join("mod.json")), SEASONS_MOD_ROOT)
+	assert_eq(str(manifest.content.get("tree_art_root", "")), "tree_art",
+			"its manifest declares the folder its tree art lives in")
+	for season in ["spring", "fall", "winter"]:
+		assert_true(DirAccess.dir_exists_absolute(SEASONS_ART + season),
+				"the %s drawings ship inside the mod" % season)
+		assert_false(DirAccess.dir_exists_absolute(TreeOverlay.SPRITE_DIR + season),
+				"and the core keeps no %s folder of its own" % season)
+
+
+func test_the_seasonal_views_come_from_the_seasons_mod() -> void:
 	var seasons := {SPRING_DAY: "spring", FALL_DAY: "fall", WINTER_DAY: "winter"}
 	for day in seasons:
 		for facing in range(TreeOverlay.FACINGS.size()):
-			var expected := "%s%s/oak_%s.png" % [TreeOverlay.SPRITE_DIR, seasons[day],
-					TreeOverlay.facing_name(facing)]
+			var angle := TreeOverlay.facing_name(facing)
+			var expected := "%s%s/oak_%s.png" % [SEASONS_ART, seasons[day], angle]
 			assert_eq(TreeOverlay.sprite_path("oak", day, CourseTheme.Type.PARKLAND, facing),
-					expected, "a %s oak viewed from %s wears its %s art"
-					% [seasons[day], TreeOverlay.facing_name(facing), seasons[day]])
+					expected, "a %s oak viewed from %s wears the mod's %s art"
+					% [seasons[day], angle, seasons[day]])
+			assert_not_null(TreeOverlay.texture_at(expected),
+					"and that file is readable from inside the mod")
 
 
 func test_a_snowy_pine_turns_with_the_view_and_a_desert_one_does_not_melt() -> void:
 	for facing in range(TreeOverlay.FACINGS.size()):
 		var angle := TreeOverlay.facing_name(facing)
 		assert_eq(TreeOverlay.sprite_path("pine", WINTER_DAY, CourseTheme.Type.PARKLAND, facing),
-				"%swinter/pine_%s.png" % [TreeOverlay.SPRITE_DIR, angle],
+				"%swinter/pine_%s.png" % [SEASONS_ART, angle],
 				"a parkland pine keeps its snow from the %s" % angle)
 		assert_eq(TreeOverlay.sprite_path("pine", WINTER_DAY, CourseTheme.Type.DESERT, facing),
 				"%spine_%s.png" % [TreeOverlay.SPRITE_DIR, angle],
 				"a desert pine never held snow, from any angle")
+
+
+# ---------------------------------------------------------------------------
+# The door the art comes through: registration, load order and raw files
+# ---------------------------------------------------------------------------
+
+func test_a_later_mod_wins_the_season_it_repeats() -> void:
+	# A palm: no shipped mod dresses one, so the two temp mods below are the
+	# only art this season and species has — and any species can be given a
+	# wardrobe, not just the ones the game's own calendar turns.
+	var early := _write_art(TEMP_ART.path_join("early"), "spring/palm.png", Color.RED)
+	var late := _write_art(TEMP_ART.path_join("late"), "spring/palm.png", Color.BLUE)
+	TreeOverlay.register_mod_art("tester.early", TEMP_ART.path_join("early"))
+	assert_eq(TreeOverlay.art_file("spring/palm", TreeOverlay.DEFAULT_FACING), early,
+			"a registered folder answers for its season and species")
+	TreeOverlay.register_mod_art("tester.late", TEMP_ART.path_join("late"))
+	assert_eq(TreeOverlay.art_file("spring/palm", TreeOverlay.DEFAULT_FACING), late,
+			"the later mod in the load order wins the drawing it repeats")
+	TreeOverlay.unregister_mod_art("tester.late")
+	assert_eq(TreeOverlay.art_file("spring/palm", TreeOverlay.DEFAULT_FACING), "",
+			"and holds the slot alone: a mod set that changes is re-applied whole, in order")
+	TreeOverlay.unregister_mod_art("tester.early")
+	assert_eq(TreeOverlay.art_file("spring/palm", TreeOverlay.DEFAULT_FACING), "",
+			"so with both gone the species has no spring art to wear")
+	assert_eq(TreeOverlay.register_mod_art("tester.early", TEMP_ART.path_join("nothing")), 0,
+			"a folder that is not there registers nothing")
+
+
+func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -> void:
+	var root := TEMP_ART.path_join("partly")
+	var authored := _write_art(root, "fall/palm.png", Color.ORANGE)
+	TreeOverlay.register_mod_art("tester.early", root)
+	for facing in range(TreeOverlay.FACINGS.size()):
+		assert_eq(TreeOverlay.art_file("fall/palm", facing), authored,
+				"every angle wears the one drawing the mod shipped")
+	TreeOverlay.unregister_mod_art("tester.early")
+
+
+func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:
+	# An installed or Workshop copy of a mod is never imported by Godot, so its
+	# art has to load from the file itself — the contract ModAPI.load_texture
+	# gives mods that read their own pictures.
+	var root := TEMP_ART.path_join("raw")
+	var path := _write_art(root, "winter/palm_e.png", Color.WHITE)
+	assert_false(ResourceLoader.exists(path), "a file in user:// has no imported resource")
+	assert_eq(TreeOverlay.register_mod_art("tester.raw", root), 1, "and it still registers")
+	var texture := TreeOverlay.texture_at(TreeOverlay.art_file("winter/palm", 1))
+	assert_not_null(texture, "so the overlay decodes its bytes")
+	assert_eq(texture.get_size(), Vector2(8, 8), "and the pixels are the file's own")
+	TreeOverlay.unregister_mod_art("tester.raw")
+	assert_null(TreeOverlay.texture_at(path), "its texture goes when the mod does")
+
+
+func test_a_game_without_the_seasons_mod_wears_evergreen_art_all_year() -> void:
+	TreeOverlay.clear_mod_art()
+	for day in [SPRING_DAY, FALL_DAY, WINTER_DAY]:
+		for facing in range(TreeOverlay.FACINGS.size()):
+			assert_eq(TreeOverlay.sprite_path("oak", day, CourseTheme.Type.PARKLAND, facing),
+					"%soak_%s.png" % [TreeOverlay.SPRITE_DIR, TreeOverlay.facing_name(facing)],
+					"with no mod art registered the oak keeps the drawing the game ships")
+	assert_eq(TreeOverlay.art_file("spring/oak", 0), "",
+			"and a season nobody registered has no art at all")
 
 
 # ---------------------------------------------------------------------------

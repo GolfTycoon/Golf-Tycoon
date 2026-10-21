@@ -26,6 +26,22 @@ func after_each() -> void:
 	GameState.restore(_saved_state)
 
 
+## Put the shipped mods' content back after a test pushed a throwaway
+## ContentRegistry over the live one (see tests/unit/modding/). The Seasons mod
+## is the only bundled mod that declares content, and this reads its manifest
+## rather than repeating the block, so a key the mod gains — its seasonal
+## events, its tree art — is restored by every test that calls this. Done by
+## hand rather than through ModManager.reload_mods() so the script set and its
+## safe-mode marker are never disturbed mid-run.
+static func restore_live_content() -> void:
+	var root := "res://mods/golf_tycoon.seasons"
+	var manifest := ModManifest.from_json_text(
+			FileAccess.get_file_as_string(root.path_join("mod.json")), root)
+	ContentRegistry.reset_mod_content()
+	ContentRegistry.apply_mod_content(manifest.id, root, manifest.content)
+	ContentRegistry.refresh_live_libraries()
+
+
 # ---------------------------------------------------------------------------
 # Time
 # ---------------------------------------------------------------------------

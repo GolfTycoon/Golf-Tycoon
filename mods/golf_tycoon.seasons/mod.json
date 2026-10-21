@@ -5,14 +5,15 @@
 	"version": "1.0.0",
 	"api_version": 1,
 	"author": "Golf Tycoon",
-	"description": "The shipped seasons: four theme-aware seasons over the calendar year. Golfer demand, upkeep, green-fee tolerance, tournament prestige and the weather all follow the season, and eight seasonal events (Spring Opening Week, the Fall Classic...) punctuate the year. Turn the feature on per company at Start New Game; disable this mod to remove seasons from the game entirely.",
+	"description": "The shipped seasons: four theme-aware seasons over the calendar year. Golfer demand, upkeep, green-fee tolerance, tournament prestige and the weather all follow the season, eight seasonal events (Spring Opening Week, the Fall Classic...) punctuate the year, and the woodland turns with them - the spring, fall and winter tree art ships in this mod's own tree_art folder. Turn the feature on per company at Start New Game; disable this mod to remove seasons from the game entirely.",
 	"types": ["feature", "gameplay", "data"],
 	"enabled_by_default": true,
 	"load_priority": 10,
 	"entry_point": "mod_main.gd",
 	"permissions": ["script"],
 	"content": {
-		"seasonal_events": "data/seasonal_events.json"
+		"seasonal_events": "data/seasonal_events.json",
+		"tree_art_root": "tree_art"
 	},
 	"workshop": {
 		"published_file_id": 0,

@@ -22,6 +22,13 @@ class_name TreeOverlay
 ## `tools/tree_art/generate.py`; a species missing a view falls back to that
 ## drawing, so new art is playable before its angles exist.
 ##
+## A season's drawings of a species are not the core's to ship: the spring,
+## fall and winter art travels inside the mod that provides the calendar —
+## `mods/golf_tycoon.seasons/tree_art/<season>/` — and reaches this lookup
+## through its manifest's `tree_art_root` (see `register_mod_art()`). With
+## that mod switched off the year never leaves summer, so the evergreen art in
+## `SPRITE_DIR` is all a tree ever wears and nothing misses the wardrobe.
+##
 ## A tree does not wear the view the course is seen from, though: each tile has
 ## its own quarter-turn offset (see `facing_offset()`), fixed for the life of
 ## the course, so a wood is drawn with canopies from all four sides at once
@@ -30,10 +37,16 @@ class_name TreeOverlay
 ## every tree on to its next angle — one turn of the screen turns the whole
 ## wood, and a tree is never seen twice from the same side in a row.
 
-## Species art lives here: `<species>.png` plus its four `_n/_e/_s/_w` views,
-## with `spring/`, `fall/` and `winter/` variants for the ones that change
-## with the calendar.
+## The evergreen art lives here: `<species>.png` plus its four `_n/_e/_s/_w`
+## views. This is the summer drawing of every species, and the only tree art
+## the game itself ships — a season's variants come from the mods (see
+## `register_mod_art()`).
 const SPRITE_DIR := "res://assets/sprites/trees/"
+
+## The image files a registered art folder is scanned for: what
+## ModManager.load_mod_texture can decode, PNG — the art pipeline's output —
+## first among them.
+const ART_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "webp", "bmp"]
 
 ## The four angles a tree is drawn from, indexed by view orientation (see
 ## TerrainGrid.get_view_orientation()): 0 is the course compass's north — the
@@ -46,11 +59,9 @@ const FACINGS: Array[String] = ["n", "e", "s", "w"]
 ## course behind it.
 const DEFAULT_FACING := 0
 
-## Species whose foliage turns with the season, so their art is looked up in a
-## season folder. Everything else is evergreen and wears one sprite all year.
-const DECIDUOUS_SPECIES: Array[String] = ["oak", "maple", "birch"]
-
-## Themes cold enough for snow to lie on a pine through winter.
+## Themes cold enough for snow to lie on a pine through winter. The rest of a
+## pine's wardrobe — which seasons it has one at all — is whatever art the
+## loaded mods registered for it.
 const SNOWY_THEMES: Array[int] = [
 	CourseTheme.Type.PARKLAND, CourseTheme.Type.MOUNTAIN, CourseTheme.Type.HEATHLAND,
 ]
@@ -84,6 +95,18 @@ var _visuals: Dictionary = {}
 var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
+
+## A season's tree art, registered by the mods that ship it: season folder name
+## ("spring") -> species -> facing suffix ("" for the authored drawing, then
+## "_n", "_e", "_s", "_w") -> the file to draw. Filled from the `tree_art_root`
+## content key by ContentRegistry, in load order, and dropped with the rest of
+## a mod's content — so a game with the Seasons mod off holds no seasonal art,
+## and never asks for any.
+static var _season_art: Dictionary = {}
+## Which mod shipped each registered file, so art from outside the imported
+## project — an installed or Workshop copy — is decoded by the loader that
+## knows how.
+static var _season_art_owners: Dictionary = {}  # file path -> mod id
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -192,31 +215,147 @@ static func sprite_path(species: String, day: int = -1, theme: int = -1,
 	# The art to look for, most seasonal first: the right season at the
 	# authored angle outranks the wrong season at the right one.
 	var stems: Array[String] = []
-	if species in DECIDUOUS_SPECIES and season_name != "summer":
+	if wears_season_art(species, season_name, which_theme):
 		stems.append("%s/%s" % [season_name, species])
-	# A pine holds snow where winters are cold enough for it to matter.
-	if species == "pine" and season_name == "winter" and which_theme in SNOWY_THEMES:
-		stems.append("winter/pine")
 	stems.append(species)
 	for stem in stems:
-		var angled := "%s%s_%s.png" % [SPRITE_DIR, stem, facing_name(facing)]
-		if ResourceLoader.exists(angled):
-			return angled
-		var authored := "%s%s.png" % [SPRITE_DIR, stem]
-		if ResourceLoader.exists(authored):
-			return authored
+		var found := art_file(stem, facing)
+		if not found.is_empty():
+			return found
 	return ""
 
-## The loaded texture for a species at one angle, cached by path. A missing
-## file is remembered as null so it is looked up once, not on every tile of
-## every redraw.
+## Whether a species asks its season for art at all. Which art a season has is
+## the season mod's declaration (`register_mod_art()`), and a species with none
+## simply keeps wearing its evergreen drawing — this is the one rule the core
+## holds on to: a pine wears snow only where the theme's winters are cold
+## enough for it to lie, and stays green in a desert however white the year.
+static func wears_season_art(species: String, season_name: String, theme: int) -> bool:
+	if species != "pine":
+		return true
+	return season_name == "winter" and theme in SNOWY_THEMES
+
+## The file one art stem is drawn from at `facing`, or "" when there is none:
+## the angled view first, then the authored (unsuffixed) drawing. A stem
+## carrying a season ("spring/oak") is looked up in the art the mods
+## registered; a bare species is the core's own evergreen art.
+static func art_file(stem: String, facing: int) -> String:
+	var angle := "_" + facing_name(facing)
+	if not stem.contains("/"):
+		for suffix in [angle, ""]:
+			var core_path: String = SPRITE_DIR + stem + suffix + ".png"
+			if ResourceLoader.exists(core_path):
+				return core_path
+		return ""
+	var per_species: Dictionary = _season_art.get(stem.get_slice("/", 0), {})
+	var faces: Dictionary = per_species.get(stem.get_slice("/", 1), {})
+	for suffix in [angle, ""]:
+		var registered: String = str(faces.get(suffix, ""))
+		if not registered.is_empty():
+			return registered
+	return ""
+
+## The loaded texture for a species at one angle, or null when it has no art
+## and the tile is drawn as a silhouette.
 static func texture_for(species: String, facing: int = DEFAULT_FACING) -> Texture2D:
-	var path := sprite_path(species, -1, -1, facing)
+	return texture_at(sprite_path(species, -1, -1, facing))
+
+## The texture at a path this lookup returned, cached by path. A missing file
+## is remembered as null so it is looked up once, not on every tile of every
+## redraw.
+static func texture_at(path: String) -> Texture2D:
 	if path.is_empty():
 		return null
 	if not _texture_cache.has(path):
-		_texture_cache[path] = load(path) as Texture2D
+		_texture_cache[path] = _load_art(path)
 	return _texture_cache[path]
+
+## One art file: the imported resource when the project has one (the bundled
+## mods, and a checkout Godot has imported), else the file's own bytes decoded
+## — a mod's art needs no import step, wherever it was installed from.
+static func _load_art(path: String) -> Texture2D:
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	var owner_mod: String = str(_season_art_owners.get(path, ""))
+	if owner_mod.is_empty() or ModManager == null:
+		return null
+	return ModManager.load_mod_texture(owner_mod, path)
+
+# =============================================================================
+# A SEASON'S ART — registered by the mods that ship it
+# =============================================================================
+
+## Add one mod's tree-art folder: `<root>/<season>/<species>[_n|_e|_s|_w].png`,
+## where `<season>` is a name SeasonSystem.get_season_name() returns, lower-cased
+## ("spring", "summer", "fall", "winter"). ContentRegistry calls this for every
+## mod whose manifest declares `tree_art_root`, in load order, so a later mod
+## overwrites the seasons and species it repeats exactly as it would a building
+## it patches — and, as with a patched building, the drawing it replaced is not
+## kept behind it: a mod set that changes is re-applied whole, in order.
+## Returns how many files registered, which is how the loader tells a mod its
+## folder held no art.
+static func register_mod_art(mod_id: String, root: String) -> int:
+	unregister_mod_art(mod_id)
+	if not DirAccess.dir_exists_absolute(root):
+		return 0
+	var registered := 0
+	for season in DirAccess.get_directories_at(root):
+		if season.begins_with("."):
+			continue
+		var season_dir := root.path_join(season)
+		var per_species: Dictionary = _season_art.get(season, {})
+		for file in DirAccess.get_files_at(season_dir):
+			if not ART_EXTENSIONS.has(file.get_extension().to_lower()):
+				continue
+			var stem := file.get_basename()
+			var species := stem
+			var suffix := ""
+			for facing in FACINGS:
+				if stem.length() > facing.length() + 1 and stem.ends_with("_" + facing):
+					species = stem.substr(0, stem.length() - facing.length() - 1)
+					suffix = "_" + facing
+					break
+			var faces: Dictionary = per_species.get(species, {})
+			var path := season_dir.path_join(file)
+			var replaced: String = str(faces.get(suffix, ""))
+			if not replaced.is_empty() and replaced != path:
+				# A later mod in the load order wins this season's drawing.
+				_season_art_owners.erase(replaced)
+				_texture_cache.erase(replaced)
+			faces[suffix] = path
+			_season_art_owners[path] = mod_id
+			per_species[species] = faces
+			registered += 1
+		if not per_species.is_empty():
+			_season_art[season] = per_species
+	return registered
+
+## Drop one mod's art, and the textures loaded from it: the loader calls it
+## before a mod set is re-applied, and `register_mod_art()` calls it so a mod
+## registering twice replaces its art rather than stacking over it.
+static func unregister_mod_art(mod_id: String) -> void:
+	for season in _season_art.keys():
+		var per_species: Dictionary = _season_art[season]
+		for species in per_species.keys():
+			var faces: Dictionary = per_species[species]
+			for suffix in faces.keys():
+				var path: String = str(faces[suffix])
+				if str(_season_art_owners.get(path, "")) != mod_id:
+					continue
+				_season_art_owners.erase(path)
+				_texture_cache.erase(path)
+				faces.erase(suffix)
+			if faces.is_empty():
+				per_species.erase(species)
+		if per_species.is_empty():
+			_season_art.erase(season)
+
+## Forget every mod's art, and the textures loaded from it — what
+## ContentRegistry.reset_mod_content() does when the mod set is re-run or the
+## last mod is switched off.
+static func clear_mod_art() -> void:
+	_season_art.clear()
+	_season_art_owners.clear()
+	_texture_cache.clear()
 
 ## How far above a sprite's centre its trunk meets the tile, scaled to `size`.
 static func base_offset(species: String, size: Vector2) -> float:
