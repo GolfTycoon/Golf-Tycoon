@@ -54,7 +54,7 @@ func test_row_badges_say_the_mod_state() -> void:
 		"zip", "otherwise the badge says where the mod came from")
 
 
-func test_details_text_covers_trust_provenance_and_providers() -> void:
+func test_details_text_covers_trust_and_provenance_without_session_section() -> void:
 	var info := {
 		"id": "tester.big", "name": "Big Mod", "version": "1.0.0", "author": "Ada",
 		"description": "Does big things.", "source_label": "your mods folder",
@@ -64,7 +64,6 @@ func test_details_text_covers_trust_provenance_and_providers() -> void:
 		"conflicts_declared": [], "workshop_id": 0, "auto_enabled": false,
 	}
 	var text := ModsScreen.details_text(info,
-		{"weather": "golf_tycoon.weather", "wind": "(built-in)", "seasons": "tester.big"},
 		["buildings 'snack_bar': written by tester.small, overwritten by tester.big (later in the load order wins)."],
 		["[tester.big] Tuning value 'x' is not a number; skipped."])
 	assert_true(text.contains("Big Mod") and text.contains("by Ada"))
@@ -72,9 +71,10 @@ func test_details_text_covers_trust_provenance_and_providers() -> void:
 	assert_true(text.contains("Needs: golf_tycoon.seasons >= 1.0.0"))
 	assert_true(text.contains("mind the gaps"), "manifest warnings surface")
 	assert_true(text.contains("tester.small"), "data conflicts name both sides")
-	assert_true(text.contains("Seasons: tester.big"), "who provides what is on the pane")
+	for removed_text in ["This session", "Weather:", "Wind:", "Seasons:"]:
+		assert_false(text.contains(removed_text), "session provider details are not shown")
 
-	assert_true(ModsScreen.details_text({}, {}, [], []).contains("No mod selected"))
+	assert_true(ModsScreen.details_text({}, [], []).contains("No mod selected"))
 
 
 # ── screen ───────────────────────────────────────────────────────────────

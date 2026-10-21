@@ -8,8 +8,7 @@ class_name ModsScreen
 ## provider take-overs and hook order), disabled mods follow
 ## alphabetically. The details pane says where each mod came from (bundled,
 ## the mods folder, a zip, the Steam Workshop), what it needs, what the
-## loader complained about, and which of the environment systems each mod
-## currently provides.
+## loader complained about.
 ##
 ## Toggling or reordering writes the player's list
 ## (user://mods/load_order.json) straight away but changes nothing live:
@@ -579,7 +578,7 @@ func _refresh_row_highlights() -> void:
 
 func _show_details() -> void:
 	var info: Dictionary = ModManager.get_mod_info(_selected_id)
-	_details.text = details_text(info, ModManager.provider_owners(),
+	_details.text = details_text(info,
 		ContentRegistry.get_conflicts(), ContentRegistry.get_warnings())
 	_uninstall_button.disabled = info.is_empty() or not bool(info.get("can_uninstall", false))
 	_refresh_row_highlights()
@@ -682,7 +681,7 @@ static func row_badge(info: Dictionary) -> String:
 		return "pending apply"
 	return str(info.get("source", ""))
 
-static func details_text(info: Dictionary, providers: Dictionary,
+static func details_text(info: Dictionary,
 		conflicts: Array, registry_warnings: Array) -> String:
 	if info.is_empty():
 		return "No mod selected.\n\nInstall one from a zip, or drop a mod folder into the mods folder and Rescan."
@@ -716,9 +715,4 @@ static func details_text(info: Dictionary, providers: Dictionary,
 	for warning in registry_warnings:
 		if str(warning).begins_with("[%s]" % mod_id):
 			lines.append("[color=#e5e57c]Data: %s[/color]" % str(warning))
-	lines.append("")
-	lines.append("[b]This session[/b]")
-	lines.append("Weather: %s" % str(providers.get("weather", "?")))
-	lines.append("Wind: %s" % str(providers.get("wind", "?")))
-	lines.append("Seasons: %s" % str(providers.get("seasons", "?")))
 	return "\n".join(lines)
