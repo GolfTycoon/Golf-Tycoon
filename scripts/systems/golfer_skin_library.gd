@@ -35,6 +35,17 @@ const DIAGONAL_FALLBACKS := {
 	"north-west": "north", "south-west": "west",
 }
 
+## Extra skin roots contributed by the loaded mods, in load order. They are
+## scanned after the player's own copies, so a mod can ship new skins (or
+## re-colour a shipped one by reusing its id) and the player's edits in
+## user:// still win over both.
+static var extra_roots: Array[String] = []
+
+static func set_extra_roots(roots: Array) -> void:
+	extra_roots.clear()
+	for root in roots:
+		extra_roots.append(str(root))
+
 var built_in_root: String = BUILT_IN_ROOT
 var user_root: String = USER_ROOT
 var sprite_root: String = SPRITE_ROOT
@@ -69,9 +80,12 @@ func reload() -> void:
 	_raw_frames.clear()
 	_recolored_frames.clear()
 	_edited_textures.clear()
-	for root in [built_in_root, user_root]:
+	var roots: Array[String] = [built_in_root]
+	roots.append_array(extra_roots)
+	roots.append(user_root)
+	for root in roots:
 		for folder in _skin_folders(root):
-			var skin := _read_skin(folder, folder.begins_with(user_root))
+			var skin := _read_skin(folder, not folder.begins_with(built_in_root))
 			_register(skin, folder)
 	_reorder()
 	_delete_unused_user_dir()

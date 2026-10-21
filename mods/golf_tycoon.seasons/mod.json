@@ -1,0 +1,21 @@
+{
+	"format_version": 1,
+	"id": "golf_tycoon.seasons",
+	"name": "Seasons (Official)",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon",
+	"description": "The shipped seasons: four theme-aware seasons over the calendar year. Golfer demand, upkeep, green-fee tolerance, tournament prestige and the weather all follow the season, and eight seasonal events (Spring Opening Week, the Fall Classic...) punctuate the year. Turn the feature on per company at Start New Game; disable this mod to remove seasons from the game entirely.",
+	"types": ["feature", "gameplay", "data"],
+	"enabled_by_default": true,
+	"load_priority": 10,
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"content": {
+		"seasonal_events": "data/seasonal_events.json"
+	},
+	"workshop": {
+		"published_file_id": 0,
+		"tags": ["Gameplay", "Official"]
+	}
+}

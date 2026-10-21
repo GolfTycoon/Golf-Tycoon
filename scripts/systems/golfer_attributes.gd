@@ -312,7 +312,8 @@ func randomize_identity(tier: int = GolferTier.Tier.CASUAL) -> void:
 	gender = Gender.MALE if randf() < 0.5 else Gender.FEMALE
 	var age_range: Array = TIER_AGE_RANGE.get(tier, [18, 80])
 	age = randi_range(age_range[0], age_range[1])
-	profession = PROFESSIONS[randi() % PROFESSIONS.size()]
+	var pool := profession_pool()
+	profession = str(pool[randi() % pool.size()])
 	marital_status = _roll_marital_status(age)
 	name = random_full_name(gender)
 
@@ -358,9 +359,37 @@ func _golf_skill_matches_enabled_golfer_skill(index: int) -> bool:
 			return false  # Luck belongs to no golfer skill
 
 ## A random full name for this gender.
+## Names and professions contributed by the loaded mods, merged into the
+## pools random golfers are rolled from. ModContentRegistry owns the merged
+## lists while mods load.
+static var _mod_name_extras: Dictionary = {}
+
+static func set_mod_name_extras(extras: Dictionary) -> void:
+	_mod_name_extras = extras.duplicate(true)
+
+static func get_mod_name_extras() -> Dictionary:
+	return _mod_name_extras.duplicate(true)
+
+static func profession_pool() -> Array:
+	var pool: Array = []
+	pool.append_array(PROFESSIONS)
+	var extra: Variant = _mod_name_extras.get("professions", [])
+	if extra is Array:
+		pool.append_array(extra)
+	return pool
+
 static func random_full_name(gender_value: int) -> String:
-	var pool := MALE_FIRST_NAMES if gender_value == Gender.MALE else FEMALE_FIRST_NAMES
-	return "%s %s" % [pool[randi() % pool.size()], LAST_NAMES[randi() % LAST_NAMES.size()]]
+	var first_pool: Array = []
+	first_pool.append_array(MALE_FIRST_NAMES if gender_value == Gender.MALE else FEMALE_FIRST_NAMES)
+	var extra_first: Variant = _mod_name_extras.get("male_first_names" if gender_value == Gender.MALE else "female_first_names", [])
+	if extra_first is Array:
+		first_pool.append_array(extra_first)
+	var last_pool: Array = []
+	last_pool.append_array(LAST_NAMES)
+	var extra_last: Variant = _mod_name_extras.get("last_names", [])
+	if extra_last is Array:
+		last_pool.append_array(extra_last)
+	return "%s %s" % [first_pool[randi() % first_pool.size()], last_pool[randi() % last_pool.size()]]
 
 ## Marital status odds shift with age.
 static func _roll_marital_status(age_value: int) -> int:

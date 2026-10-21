@@ -1,0 +1,26 @@
+{
+	"format_version": 1,
+	"id": "yourname.my_mod",
+	"name": "My Mod",
+	"version": "0.1.0",
+	"api_version": 1,
+	"author": "Your Name",
+	"description": "One or two sentences players read in the Mods screen before they trust this with their courses.",
+	"homepage": "",
+	"types": ["gameplay"],
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"dependencies": [],
+	"content": {},
+	"config": {
+		"example_setting": {
+			"type": "float",
+			"default": 1.0,
+			"description": "Delete this block, or describe your own settings like it."
+		}
+	},
+	"workshop": {
+		"published_file_id": 0,
+		"tags": []
+	}
+}

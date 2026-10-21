@@ -118,9 +118,15 @@ func new_world(options: Dictionary, rng_seed: int = -1) -> void:
 	difficulty = int(options.get("difficulty", DifficultyPresets.Preset.NORMAL))
 	starting_money_option = int(options.get("starting_money", 100000))
 	generated_holes = int(options.get("generated_holes", 0))
+	# The company's feature choices: the shipped systems plus anything a mod has
+	# put on the Start New Game screen. A mod's own key is stored here for it to
+	# read; the shipped three are what GameManager acts on.
 	var saved_features: Dictionary = options.get("features", {})
+	features.clear()
 	for key in FEATURE_KEYS:
-		features[key] = bool(saved_features.get(key, false))
+		features[key] = false
+	for key in saved_features:
+		features[str(key)] = bool(saved_features[key])
 	tutorial_enabled = bool(options.get("tutorial", default_tutorial_enabled()))
 
 	locations.clear()
@@ -317,9 +323,10 @@ func mark_generated_holes_used() -> void:
 func apply_company_settings(with_money: bool = false) -> void:
 	GameManager.current_difficulty = difficulty
 	GameManager.company_name = company_name
-	GameManager.set_feature_enabled(FEATURE_WEATHER, features[FEATURE_WEATHER])
-	GameManager.set_feature_enabled(FEATURE_WIND, features[FEATURE_WIND])
-	GameManager.set_feature_enabled(FEATURE_SEASONS, features[FEATURE_SEASONS])
+	# Every choice is offered to GameManager; it knows the shipped three and
+	# ignores the keys mods added (those mods read WorldMap.features themselves).
+	for key in features:
+		GameManager.set_feature_enabled(str(key), bool(features[key]))
 	GameManager.set_unlimited_money(starting_money_option == UNLIMITED_MONEY)
 	if with_money:
 		if starting_money_option == UNLIMITED_MONEY:
@@ -430,8 +437,11 @@ func deserialize(data: Dictionary) -> void:
 				break
 		generated_holes_consumed = any_owned or generated_holes == 0
 	var saved_features: Dictionary = data.get("features", {})
+	features.clear()
 	for key in FEATURE_KEYS:
 		features[key] = bool(saved_features.get(key, true))
+	for key in saved_features:
+		features[str(key)] = bool(saved_features[key])
 	# Saves from before the option existed keep the tutorial they always had.
 	tutorial_enabled = bool(data.get("tutorial", default_tutorial_enabled()))
 

@@ -174,10 +174,7 @@ static func _place_starter_amenity(terrain_grid: TerrainGrid, entity_layer: Enti
 	if not entity_layer:
 		return
 	CourseClubhouse.ensure(terrain_grid, entity_layer, anchor + CLUBHOUSE_OFFSET)
-	var buildings: Dictionary = {}
-	var raw = JSON.parse_string(FileAccess.get_file_as_string("res://data/buildings.json"))
-	if raw is Dictionary and raw.has("buildings"):
-		buildings = raw["buildings"]
+	var buildings: Dictionary = ContentRegistry.get_buildings()
 	var taken_spots: Dictionary = {}
 	for item in AMENITY_SPOTS:
 		var kind: String = item[0]

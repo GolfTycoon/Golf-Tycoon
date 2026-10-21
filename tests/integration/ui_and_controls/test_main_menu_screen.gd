@@ -1,41 +1,41 @@
 extends MainSceneTest
 ## The title screen at phone, rotated-phone, tablet and desktop window sizes:
-## each of its four arrangements (see MainMenu.layout_mode_for) puts all eight
+## each of its four arrangements (see MainMenu.layout_mode_for) puts all nine
 ## actions on screen, apart and big enough to tap; the game's name is the logo
 ## image rather than a typed wordmark, with no tagline under it; and a drawn
 ## backdrop covers the window behind the menu.
 
-const ACTIONS := ["Start New Game", "Quick Start", "Continue", "Load Game", "Achievements", "Golfer Skins", "Settings", "Quit"]
+const ACTIONS := ["Start New Game", "Quick Start", "Continue", "Load Game", "Achievements", "Golfer Skins", "Mods", "Settings", "Quit"]
 
 
 func _menu() -> Control:
 	return main.main_menu
 
 
-## Everything that has to hold for the eight actions at one window size.
-func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
+## Everything that has to hold for the nine actions at one window size.
+func _assert_screen(tag: String, size: Vector2i, min_hnine: float) -> void:
 	var menu := _menu()
 	var buttons := nodes_of_class(menu, "Button")
 	var labels: Array = []
 	for button in buttons:
 		labels.append(button.text)
-	assert_eq(buttons.size(), ACTIONS.size(), "%s: eight actions" % tag)
+	assert_eq(buttons.size(), ACTIONS.size(), "%s: nine actions" % tag)
 	for expected in ACTIONS:
 		assert_has(labels, expected, "%s: has a %s action" % [tag, expected])
 
 	# Every word on the screen is set in Pixelify Sans, at every window size:
-	# the action titles in the bold weight, the captions, kicker and version
+	# the action titles in the bold wnine, the captions, kicker and version
 	# line in the regular one (see test_main_menu_typography.gd).
 	for button in buttons:
 		var title_path := str((button as Button).get_theme_font("font").resource_path)
 		assert_true(title_path.ends_with("PixelifySans-Bold.ttf")
 				or title_path.ends_with("PixelifySans-SemiBold.ttf"),
-			"%s: the %s title is set in a Pixelify Sans title weight" % [tag, (button as Button).text])
+			"%s: the %s title is set in a Pixelify Sans title wnine" % [tag, (button as Button).text])
 	for label in nodes_of_class(menu, "Label"):
 		# The kicker is the shared gold section caption (uppercase, semibold).
-		var weight := "PixelifySans-SemiBold.ttf" if (label as Label).uppercase else "PixelifySans-Regular.ttf"
+		var wnine := "PixelifySans-SemiBold.ttf" if (label as Label).uppercase else "PixelifySans-Regular.ttf"
 		assert_true(str((label as Label).get_theme_font("font").resource_path)
-				.ends_with(weight),
+				.ends_with(wnine),
 			"%s: the %s line is set in Pixelify Sans" % [tag, (label as Label).name])
 
 	var view := Rect2(Vector2.ZERO, Vector2(size))
@@ -44,7 +44,7 @@ func _assert_screen(tag: String, size: Vector2i, min_height: float) -> void:
 	var overlaps: Array = []
 	for i in buttons.size():
 		var rect: Rect2 = buttons[i].get_global_rect()
-		if rect.size.y < min_height - 0.5 or rect.size.x < 60.0:
+		if rect.size.y < min_hnine - 0.5 or rect.size.x < 60.0:
 			too_small.append("%s %s" % [buttons[i].text, rect.size])
 		if not rect_within(rect, view):
 			off_screen.append("%s %s" % [buttons[i].text, rect])

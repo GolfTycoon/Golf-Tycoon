@@ -14,6 +14,7 @@ addons/godot_mcp/
 
 # Build and export
 /build/
+/dist/
 /export/
 *.exe
 *.x86_64

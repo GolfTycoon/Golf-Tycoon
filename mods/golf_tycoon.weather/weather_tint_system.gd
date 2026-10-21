@@ -1,5 +1,5 @@
 extends Node2D
-class_name WeatherTintSystem
+## (No class_name: mod scripts are preloaded by relative path - see GolfTycoonMod.)
 ## WeatherTintSystem - Weather-driven ambient tinting using CanvasModulate.
 ##
 ## Replaces the old DayNightSystem: with the day/night cycle removed, the scene

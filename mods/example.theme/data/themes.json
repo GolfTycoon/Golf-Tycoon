@@ -1,0 +1,23 @@
+{
+	"themes": {
+		"parkland": {
+			"name": "Parkland (Golden Hour)",
+			"description": "Classic parkland under a permanent late-afternoon sun: warm grass, honeyed fairways and long shadows. Members swear the light alone is worth the fees.",
+			"modifiers": {
+				"green_fee_baseline": 12,
+				"maintenance_cost_multiplier": 0.95
+			},
+			"colors": {
+				"grass": "8a9a44",
+				"fairway_light": "a8b34c",
+				"fairway_dark": "99a847",
+				"green_light": "c2d957",
+				"green_dark": "aec25b",
+				"rough": "7d8438",
+				"heavy_rough": "67702f",
+				"bunker": "f2e2ac",
+				"trees": "4a6420"
+			}
+		}
+	}
+}

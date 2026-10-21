@@ -1,0 +1,26 @@
+{
+	"locations": [
+		{
+			"id": "tasmania",
+			"name": "Tasmania",
+			"region": "Bass Strait Coast",
+			"theme": "links",
+			"size": "medium",
+			"lat": -40.9,
+			"lon": 145.0,
+			"prestige": 1.15,
+			"description": "Dunes, marram grass and the Roaring Forties straight off the strait. Barely a tree standing - the wind took them all."
+		},
+		{
+			"id": "the_alps",
+			"name": "The Alps",
+			"region": "High Alps",
+			"theme": "mountain",
+			"size": "large",
+			"lat": 46.6,
+			"lon": 8.0,
+			"prestige": 1.2,
+			"description": "A high valley between the peaks: thin air, long carries and meadows that run out in every direction but down."
+		}
+	]
+}

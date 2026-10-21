@@ -31,6 +31,8 @@ InputManager="*res://scripts/autoload/input_manager.gd"
 TouchInput="*res://scripts/autoload/touch_input.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
 EventBus="*res://scripts/autoload/event_bus.gd"
+ContentRegistry="*res://scripts/modding/mod_content_registry.gd"
+ModManager="*res://scripts/modding/mod_manager.gd"
 WorldMap="*res://scripts/autoload/world_map_state.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 InputBindings="*res://scripts/autoload/input_bindings.gd"
@@ -208,3 +210,11 @@ pointing/emulate_mouse_from_touch=false
 
 textures/canvas_textures/default_texture_filter=0
 textures/vram_compression/import_etc2_astc=true
+
+[modding]
+
+; The Steam App ID of a Steam build (0 = not a Steam build: the Workshop
+; buttons then explain themselves and everything else works unchanged).
+; Steam builds also need the GodotSteam addon installed - see
+; docs/modding/steam-workshop.md.
+steam_app_id=0

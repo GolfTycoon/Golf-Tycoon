@@ -68,3 +68,13 @@ Terrain ids are stored raw and are only ever appended, never renumbered, so a sa
 
 - [Architecture](architecture.md) covers the autoloads involved.
 - [Data Reference](data-reference.md) covers the static data that is not saved.
+
+## Mods in a save
+
+Saves also carry `mods: {api_version, load_order: [{id, version}], data}`.
+Each loaded script mod can return a JSON-shaped slice in `_mod_save` and
+restore it via `_mod_restore`. The enabled mod set is still the player's
+library preference, not automatically changed by loading a save. Missing
+mods are named in a warning; keep a backup before saving without them,
+because their content can be lost from the newly written save.
+See [Modding](modding.md) for load-order and compatibility details.

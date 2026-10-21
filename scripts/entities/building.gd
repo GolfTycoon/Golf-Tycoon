@@ -22,13 +22,10 @@ signal building_destroyed(building: Building)
 func _ready() -> void:
 	add_to_group("buildings")
 
-	# Load building data if not already set
+	# Load building data if not already set, from the merged catalog the
+	# game is playing with (base data plus loaded mods).
 	if building_data.is_empty():
-		var buildings_json = FileAccess.open("res://data/buildings.json", FileAccess.READ)
-		if buildings_json:
-			var data = JSON.parse_string(buildings_json.get_as_text())
-			if data and data.has("buildings") and data["buildings"].has(building_type):
-				building_data = data["buildings"][building_type]
+		building_data = ContentRegistry.get_building(building_type)
 
 	# Update size from building data if available
 	if building_data.has("size"):

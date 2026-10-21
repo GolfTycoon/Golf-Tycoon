@@ -1,9 +1,17 @@
 extends RefCounted
 class_name SeasonalEvents
-## SeasonalEvents - Defines special events tied to the seasonal calendar
+## SeasonalEvents - Special events tied to the seasonal calendar.
 ##
-## Each season has themed events that affect gameplay, revenue, or golfer
+## Each season has themed events that affect gameplay, revenue or golfer
 ## demand. Events trigger on specific days within each season.
+##
+## The calendar itself is a *registry*: which events exist is decided by the
+## mods that are loaded. The bundled Seasons mod (`res://mods/golf_tycoon.seasons/`)
+## registers the eight shipped events from its data file, and any other mod
+## can add its own the same way (a `seasonal_events` content declaration, or
+## SeasonalEvents.register_event() from a script mod via the Mod API). With
+## no mod supplying events, the calendar is simply empty - the query methods
+## below stay safe to call either way.
 
 class SeasonEvent:
 	var id: String
@@ -15,6 +23,9 @@ class SeasonEvent:
 	var spawn_modifier: float = 1.0
 	var reputation_bonus: float = 0.0
 	var duration_days: int = 1  # How many days the event lasts
+	## The mod that registered the event ("core" would be the game itself,
+	## which registers none). Shown in the Mods screen's conflict report.
+	var source: String = ""
 
 	func _init(p_id: String, p_name: String, p_desc: String, p_season: int,
 			p_day: int, p_revenue: float = 1.0, p_spawn: float = 1.0,
@@ -29,40 +40,65 @@ class SeasonEvent:
 		reputation_bonus = p_rep
 		duration_days = p_duration
 
+	func to_dictionary() -> Dictionary:
+		return {
+			"id": id, "name": name, "description": description, "season": season,
+			"day_in_season": day_in_season, "revenue_modifier": revenue_modifier,
+			"spawn_modifier": spawn_modifier, "reputation_bonus": reputation_bonus,
+			"duration_days": duration_days, "source": source,
+		}
+
+
+static var _registered: Array = []
+
+const SEASON_NAMES: Dictionary = {
+	"spring": 0, "summer": 1, "fall": 2, "autumn": 2, "winter": 3,
+}
+
+
+## Register one event. An event whose id is already taken replaces the old
+## one, which is how a mod later in the load order retunes an earlier mod's
+## event.
+static func register_event(event: SeasonEvent) -> void:
+	for i in range(_registered.size()):
+		if (_registered[i] as SeasonEvent).id == event.id:
+			_registered[i] = event
+			return
+	_registered.append(event)
+
+
+## Register an event described by mod data. `season` may be a name
+## ("spring") or a SeasonSystem.Season number. Returns the event, or null
+## when the data does not describe one.
+static func register_event_from_data(data: Dictionary, source: String = "") -> SeasonEvent:
+	var event_id: String = str(data.get("id", "")).strip_edges()
+	var event_name: String = str(data.get("name", "")).strip_edges()
+	if event_id.is_empty() or event_name.is_empty():
+		return null
+	var season_value: Variant = data.get("season", 1)
+	var season: int = int(SEASON_NAMES.get(season_value, 1)) if season_value is String else int(season_value)
+	var event := SeasonEvent.new(event_id, event_name, str(data.get("description", "")),
+		clampi(season, 0, 3), maxi(1, int(data.get("day_in_season", 1))),
+		float(data.get("revenue_modifier", 1.0)), float(data.get("spawn_modifier", 1.0)),
+		float(data.get("reputation_bonus", 0.0)), maxi(1, int(data.get("duration_days", 1))))
+	event.source = source
+	register_event(event)
+	return event
+
+
+## Forget every registered event. The content registry calls this before it
+## re-applies the loaded mods in load order.
+static func clear_registered_events() -> void:
+	_registered.clear()
+
+
+static func registered_count() -> int:
+	return _registered.size()
+
+
 static func get_all_events() -> Array:
-	return [
-		# Spring events (Mar-May)
-		SeasonEvent.new("spring_open", "Spring Opening Week",
-			"Course opens for the season! Extra golfers flock in.",
-			SeasonSystem.Season.SPRING, 1, 1.5, 1.5, 2.0, 7),
-		SeasonEvent.new("spring_charity", "Charity Scramble",
-			"Local charity event boosts reputation.",
-			SeasonSystem.Season.SPRING, 45, 1.2, 1.3, 3.0, 4),
+	return _registered.duplicate()
 
-		# Summer events (Jun-Aug)
-		SeasonEvent.new("summer_peak", "Peak Season",
-			"Highest demand of the year. Premium pricing accepted.",
-			SeasonSystem.Season.SUMMER, 1, 1.5, 1.0, 0.0, 10),
-		SeasonEvent.new("summer_junior", "Junior Golf Week",
-			"Young golfers visit. High volume, lower fees.",
-			SeasonSystem.Season.SUMMER, 60, 0.8, 1.8, 2.0, 7),
-
-		# Fall events (Sep-Nov)
-		SeasonEvent.new("fall_classic", "Fall Classic Invitational",
-			"Prestigious amateur event. Serious golfers attend.",
-			SeasonSystem.Season.FALL, 15, 1.3, 1.4, 5.0, 5),
-		SeasonEvent.new("fall_twilight", "Twilight Golf Special",
-			"End-of-season discounts drive high attendance.",
-			SeasonSystem.Season.FALL, 75, 0.9, 1.6, 1.0, 5),
-
-		# Winter events (Dec-Feb, spanning year start)
-		SeasonEvent.new("winter_open", "Winter Open",
-			"Hardy golfers brave the cold. Low demand but loyal visitors.",
-			SeasonSystem.Season.WINTER, 30, 1.0, 0.8, 1.0, 6),
-		SeasonEvent.new("winter_maint", "Maintenance Fortnight",
-			"Course maintenance reduces play. Great time to build.",
-			SeasonSystem.Season.WINTER, 60, 0.5, 0.3, 0.0, 8),
-	]
 
 ## Get the currently active event (if any) for the given game day
 static func get_active_event(day: int) -> SeasonEvent:

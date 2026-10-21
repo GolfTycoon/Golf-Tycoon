@@ -9,21 +9,11 @@ func _ready() -> void:
 	_load_buildings()
 
 func _load_buildings() -> void:
-	var file = FileAccess.open("res://data/buildings.json", FileAccess.READ)
-	if file == null:
+	# The merged catalog: data/buildings.json plus every enabled mod's
+	# additions and overrides, in load order (ContentRegistry).
+	var raw_buildings: Dictionary = ContentRegistry.get_buildings()
+	if raw_buildings.is_empty():
 		push_error("Failed to load buildings.json")
-		return
-
-	var json_string = file.get_as_text()
-	var data = JSON.parse_string(json_string)
-
-	if not data or not data is Dictionary or not data.has("buildings"):
-		push_error("Invalid buildings.json format — expected {\"buildings\": {...}}")
-		return
-
-	var raw_buildings = data["buildings"]
-	if not raw_buildings is Dictionary:
-		push_error("Invalid buildings.json — 'buildings' must be a Dictionary")
 		return
 
 	var valid_count := 0

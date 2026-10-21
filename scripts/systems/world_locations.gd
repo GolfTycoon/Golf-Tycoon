@@ -232,12 +232,43 @@ const LOCATIONS: Array[Dictionary] = [
 ]
 
 ## Get every location definition.
+## Locations contributed by the loaded mods, in mod load order. The content
+## registry normalises them to this catalog's shape (theme and size already
+## numbers) before they arrive, so every reader - the world roll, the globe,
+## prices - treats a mod location exactly like a shipped one. A mod location
+## whose id matches a shipped one replaces it in place (later load order
+## wins, as everywhere).
+static var _mod_locations: Array[Dictionary] = []
+
+static func set_mod_locations(locations: Array) -> void:
+	_mod_locations.clear()
+	for entry in locations:
+		if entry is Dictionary:
+			_mod_locations.append(entry.duplicate(true))
+	_visitor_cache.clear()
+
+static func get_mod_locations() -> Array[Dictionary]:
+	return _mod_locations.duplicate(true)
+
 static func get_all() -> Array[Dictionary]:
-	return LOCATIONS
+	if _mod_locations.is_empty():
+		return LOCATIONS
+	var all: Array[Dictionary] = []
+	all.append_array(LOCATIONS)
+	for extra in _mod_locations:
+		var replaced := false
+		for i in range(all.size()):
+			if str(all[i].get("id", "")) == str(extra.get("id", "")):
+				all[i] = extra
+				replaced = true
+				break
+		if not replaced:
+			all.append(extra)
+	return all
 
 ## Look up one definition by id (empty dictionary when unknown).
 static func get_definition(location_id: String) -> Dictionary:
-	for def in LOCATIONS:
+	for def in get_all():
 		if def["id"] == location_id:
 			return def
 	return {}
@@ -368,6 +399,18 @@ static func random_company_name(rng: RandomNumberGenerator = null) -> String:
 
 ## Every visiting golfer definition for a location. Reads from the per-location
 ## JSON file in `data/visiting_golfers/<id>.json` once and caches the result.
+## Visiting golfer cards contributed by mods, by location id. The shipped
+## file is read first and the mod cards are appended, so a mod can stock a
+## location of its own or widen the field at a shipped one.
+static var _mod_visitors: Dictionary = {}
+
+static func set_mod_visitors(visitors: Dictionary) -> void:
+	_mod_visitors = visitors.duplicate(true)
+	_visitor_cache.clear()
+
+static func get_mod_visitors() -> Dictionary:
+	return _mod_visitors.duplicate(true)
+
 static func get_visiting_golfers(location_id: String) -> Array:
 	if _visitor_cache.has(location_id):
 		return _visitor_cache[location_id]
@@ -378,6 +421,9 @@ static func get_visiting_golfers(location_id: String) -> Array:
 		var parsed = JSON.parse_string(text)
 		if parsed is Array:
 			result = parsed
+	var extra: Variant = _mod_visitors.get(location_id, [])
+	if extra is Array:
+		result.append_array(extra)
 	_visitor_cache[location_id] = result
 	return result
 

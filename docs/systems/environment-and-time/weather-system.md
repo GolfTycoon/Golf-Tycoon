@@ -1,5 +1,9 @@
 # Weather System
 
+> **Modding:** Weather simulation and visuals now ship in `mods/golf_tycoon.weather/`.
+The core `WeatherSystem` remains the stable, neutral base. Disable the mod
+from the main menu’s Mods screen for permanent sun. See [Modding](../../modding.md).
+
 > Weather is chosen each day from seasonal odds, then moves in multi-day spells through a set of states. Rain slows golfer arrivals and lowers shot accuracy, and each state tints the sky.
 
 **Source:** `scripts/systems/weather_system.gd` (`generate_daily_weather()`, `update_weather_daily()`, `_maybe_change_weather()`, `_get_next_weather()`, `get_spawn_rate_modifier()`, `get_accuracy_modifier()`, `get_sky_tint()`, `is_raining()`), `scripts/systems/season_system.gd` (`get_weather_weights()`, `get_blended_weather_weights()`, `THEME_WEATHER_MODIFIERS`)

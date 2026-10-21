@@ -1,5 +1,8 @@
 # Wind System
 
+> **Modding:** Wind simulation now ships in `mods/golf_tycoon.wind/wind_system.gd`.
+The core `WindSystem` is the stable, calm base used when the mod is off. See [Modding](../../modding.md).
+
 > Wind has a direction and a speed that change slowly over the days. It pushes shots sideways and changes how far they fly, with most effect on high, long shots.
 
 **Source:** `scripts/systems/wind_system.gd` (`update_wind_daily()`, `get_wind_displacement()`, `get_distance_modifier()`, `get_strength_text()`, `get_direction_text()`, `force_calm()`), `scripts/systems/golf_rules.gd` (`get_club_wind_sensitivity()`), `scripts/systems/shot_ai.gd` (wind compensation)

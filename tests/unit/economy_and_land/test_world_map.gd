@@ -227,6 +227,28 @@ func test_location_land_limits_what_can_be_bought() -> void:
 
 ## ── Features ─────────────────────────────────────────────────────────────
 
+## A mod can put its own switch on the Start New Game screen; the company's
+## choice has to survive into the world (and its save) even though GameManager
+## only acts on the shipped three.
+func test_a_mods_own_feature_choice_is_kept_with_the_world() -> void:
+	var options := WorldMapStateScript.default_options()
+	options["features"]["night_play"] = true
+	WorldMap.new_world(options, 1357)
+	assert_true(bool(WorldMap.features.get("night_play", false)),
+		"new_world keeps a feature key a mod added")
+	assert_false(GameManager.weather_enabled, "and the shipped features are unaffected")
+	var data := WorldMap.serialize()
+	assert_true(bool((data["features"] as Dictionary).get("night_play", false)),
+		"the save carries it")
+	WorldMap.features.clear()
+	WorldMap.deserialize(data)
+	assert_true(bool(WorldMap.features.get("night_play", false)),
+		"and loading the save brings it back")
+	# A company rolled without the mod's option does not inherit a stale key.
+	WorldMap.new_world(WorldMapStateScript.default_options(), 1357)
+	assert_false(WorldMap.features.has("night_play"),
+		"a world rolled with no such option has no such key")
+
 func test_disabling_weather_keeps_the_course_sunny() -> void:
 	var weather := WeatherSystem.new()
 	add_child_autofree(weather)

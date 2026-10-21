@@ -345,3 +345,32 @@ func _stop_tutorial() -> void:
 		overlay.queue_free()
 	tutorial.queue_free()
 	main.tutorial_system = null
+
+
+## The Features section exists because a mod put options there: with none (every
+## environment mod off, or none installed) it is not built at all, and the rest
+## of the form still fits the window the way it promises to.
+func test_the_features_section_disappears_when_no_mod_offers_one() -> void:
+	main._on_menu_start_new_game()
+	await process_frames(4)
+	await _resize(Vector2i(1600, 1000))
+	var saved := ModManager.get_feature_options()
+	ModManager.clear_feature_options()
+	_screen()._build()
+	await process_frames(2)
+	var screen := _screen()
+	assert_false(screen._has_features(), "no mod option means no Features section")
+	assert_null(screen.find_child("GameFeatures", true, false), "the section is not in the tree")
+	assert_eq(screen._feature_boxes.size(), 0, "and there are no feature switches")
+	var buttons := nodes_of_class(screen, "Button").filter(func(button: Button) -> bool: return button.is_visible_in_tree())
+	assert_eq(buttons.size(), BUTTON_COUNT - 3, "the three feature switches are gone, nothing else is")
+	assert_false(scrolls(screen), "the shorter form still fits the window without scrolling")
+	assert_true(screen._next_button != null and rect_within(screen._next_button.get_global_rect(),
+		Rect2(Vector2.ZERO, Vector2(1600, 1000))), "Choose Location is still on screen")
+
+	ModManager.clear_feature_options()
+	for option in saved:
+		ModManager.register_feature_option(str(option.get("mod_id", "test.mod")), option)
+	_screen()._build()
+	await process_frames(2)
+	assert_eq(_screen()._feature_boxes.size(), 3, "putting the mods back brings the section back")

@@ -1,0 +1,15 @@
+{
+	"format_version": 1,
+	"id": "example.balance",
+	"name": "Example: Groundskeeper's Balance Pass",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A balance mod - no new content, just numbers. Fairways and greens get cheaper to run, bunkers cost nothing to keep, upkeep drops 10 percent, golfers arrive 10 percent keener, reputations fade 20 percent slower, and the Local tournament pays a bigger purse. Shows the three levers a balance mod has: terrain overrides, tuning values and tournament tier patches.",
+	"types": ["data", "balance"],
+	"content": {
+		"terrain_overrides": "data/terrain.json",
+		"tuning": "data/tuning.json",
+		"tournament_tiers": "data/tournaments.json"
+	}
+}

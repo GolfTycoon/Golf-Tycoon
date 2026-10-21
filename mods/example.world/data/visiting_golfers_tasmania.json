@@ -1,0 +1,78 @@
+[
+	{
+		"name": "Meg Hartz",
+		"skin_id": "casual",
+		"tier": 2,
+		"profession": "Ferry Captain",
+		"marital_status": "Married",
+		"age": 51,
+		"gender": "Female",
+		"traits": ["outgoing", "active"],
+		"golfer_skills": ["length", "accuracy"],
+		"golf_skills": {
+			"Power Hitter": 22, "Long Driver": 20, "Accurate Driver": 14, "Accurate Irons": 15,
+			"Accurate Putter": 12, "Draw Shot (R to L)": 6, "Fade Shot (L to R)": 8, "High Backspin Shot": 9,
+			"Recovery Skills": 18, "Luck": 11
+		},
+		"group_colors": {
+			"Shirt": "28536b", "Pants": "2e2e2e", "Cap": "c1443c", "Hair": "6e4b2a", "Skin": "e8b48c"
+		}
+	},
+	{
+		"name": "Toby Bruny",
+		"skin_id": "beginner",
+		"tier": 0,
+		"profession": "Cheesemaker",
+		"marital_status": "Single",
+		"age": 29,
+		"gender": "Male",
+		"traits": ["playful", "nice"],
+		"golfer_skills": [],
+		"golf_skills": {
+			"Power Hitter": 6, "Long Driver": 5, "Accurate Driver": 3, "Accurate Irons": 4,
+			"Accurate Putter": 5, "Draw Shot (R to L)": 1, "Fade Shot (L to R)": 1, "High Backspin Shot": 2,
+			"Recovery Skills": 4, "Luck": 9
+		},
+		"group_colors": {
+			"Shirt": "7fb069", "Pants": "4a4e69", "Cap": "f2e9e4", "Hair": "2f1b0e", "Skin": "f4ada0"
+		}
+	},
+	{
+		"name": "Ada Freycinet",
+		"skin_id": "casual",
+		"tier": 1,
+		"profession": "Park Ranger",
+		"marital_status": "Married",
+		"age": 38,
+		"gender": "Female",
+		"traits": ["neat", "active", "nice"],
+		"golfer_skills": ["imagination"],
+		"golf_skills": {
+			"Power Hitter": 12, "Long Driver": 11, "Accurate Driver": 12, "Accurate Irons": 14,
+			"Accurate Putter": 13, "Draw Shot (R to L)": 10, "Fade Shot (L to R)": 9, "High Backspin Shot": 12,
+			"Recovery Skills": 13, "Luck": 7
+		},
+		"group_colors": {
+			"Shirt": "e0a458", "Pants": "3d405b", "Cap": "81b29a", "Hair": "171219", "Skin": "8a5a3b"
+		}
+	},
+	{
+		"name": "Stan Mersey",
+		"skin_id": "casual",
+		"tier": 3,
+		"profession": "Retired Teacher",
+		"marital_status": "Married",
+		"age": 67,
+		"gender": "Male",
+		"traits": ["neat", "nice"],
+		"golfer_skills": ["accuracy", "imagination"],
+		"golf_skills": {
+			"Power Hitter": 28, "Long Driver": 26, "Accurate Driver": 30, "Accurate Irons": 32,
+			"Accurate Putter": 30, "Draw Shot (R to L)": 18, "Fade Shot (L to R)": 17, "High Backspin Shot": 20,
+			"Recovery Skills": 25, "Luck": 14
+		},
+		"group_colors": {
+			"Shirt": "f4f1de", "Pants": "5f0f40", "Cap": "5f0f40", "Hair": "d9d9d9", "Skin": "e8b48c"
+		}
+	}
+]

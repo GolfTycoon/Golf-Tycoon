@@ -53,6 +53,7 @@ signal quick_start_requested()
 signal continue_requested(save_name: String)
 signal load_game_requested()
 signal achievements_requested()
+signal mods_requested()
 signal edit_golfer_skins_requested()
 signal settings_requested()
 signal quit_requested()
@@ -563,6 +564,7 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		_make_load_tile(height, title_font, caption_font),
 		_make_achievements_tile(height, title_font, caption_font),
 		_make_golfer_skins_tile(height, title_font, caption_font),
+		_make_mods_tile(height, title_font, caption_font),
 		_make_settings_tile(height, title_font, caption_font),
 		_make_quit_tile(height, title_font, caption_font),
 	]
@@ -578,7 +580,7 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 	rows.name = "UtilityRows"
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", 10)
-	for row_tiles: Array in [tiles.slice(0, 3), tiles.slice(3, 5)]:
+	for row_tiles: Array in [tiles.slice(0, 3), tiles.slice(3, 6)]:
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_theme_constant_override("separation", 14)
@@ -607,6 +609,7 @@ func _make_phone_extra_row(height: float, title_font: int, caption_font: int) ->
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 12)
 	row.add_child(_make_golfer_skins_tile(height, title_font, caption_font))
+	row.add_child(_make_mods_tile(height, title_font, 0))
 	row.add_child(_make_settings_tile(height, title_font, 0))
 	return row
 
@@ -654,6 +657,17 @@ func _make_golfer_skins_tile(height: float, title_font: int, caption_font: int) 
 		PixelIcon.Kind.SHIRT)
 	button.name = "GolferSkinsButton"
 	button.pressed.connect(func(): edit_golfer_skins_requested.emit())
+	return button
+
+## Mods: the library of community and bundled mods - what is installed,
+## what is on, and the order it loads in.
+func _make_mods_tile(height: float, title_font: int, caption_font: int) -> Button:
+	var button := _make_tile("Mods", "Community & bundled add-ons",
+		"Manage mods: enable, order, install from a zip or the Steam Workshop",
+		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
+		PixelIcon.Kind.CHIP)
+	button.name = "ModsButton"
+	button.pressed.connect(func(): mods_requested.emit())
 	return button
 
 func _make_settings_tile(height: float, title_font: int, caption_font: int) -> Button:

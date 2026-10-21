@@ -1,11 +1,16 @@
 extends GameTest
-## WeatherSystem: the day's weather and the spells it moves in — held until a
+## The Weather mod's weather (mods/golf_tycoon.weather/weather_system.gd,
+## behind the neutral WeatherSystem base): the day's weather and the spells it moves in — held until a
 ## spell runs its course, then moving to a neighbouring kind and easing in over
 ## two days — the clear skies the Weather feature leaves when it is off, and what
 ## each kind of weather does to the course: golfer numbers, shot accuracy, light,
 ## tint and the way it reads out.
 
 const KINDS := [WeatherSystem.WeatherType.SUNNY, WeatherSystem.WeatherType.PARTLY_CLOUDY, WeatherSystem.WeatherType.CLOUDY, WeatherSystem.WeatherType.LIGHT_RAIN, WeatherSystem.WeatherType.RAIN, WeatherSystem.WeatherType.HEAVY_RAIN]
+
+## The shipped weather simulation lives in the Weather mod; WeatherSystem
+## itself is now the neutral base that runs when the mod is off.
+const WeatherImpl := preload("res://mods/golf_tycoon.weather/weather_system.gd")
 
 var weather: WeatherSystem
 
@@ -14,7 +19,7 @@ func before_each() -> void:
 	super()
 	seed(1234)
 	GameManager.weather_enabled = true
-	weather = WeatherSystem.new()
+	weather = WeatherImpl.new()
 	add_child_autofree(weather)
 
 
@@ -39,8 +44,8 @@ func test_a_new_day_rolls_a_kind_of_weather_and_a_spell_for_it() -> void:
 		assert_has(KINDS, weather.weather_type, "The roll is a kind of weather")
 		assert_eq(weather.intensity, weather._get_base_intensity(weather.weather_type),
 			"at that kind's intensity")
-		assert_between(weather._weather_duration_days, WeatherSystem.MIN_WEATHER_SPELL_DAYS,
-			WeatherSystem.MAX_WEATHER_SPELL_DAYS, "The spell lasts days, not hours")
+		assert_between(weather._weather_duration_days, weather.MIN_WEATHER_SPELL_DAYS,
+			weather.MAX_WEATHER_SPELL_DAYS, "The spell lasts days, not hours")
 		assert_signal_emitted(EventBus, "weather_changed", "Everyone watching the weather hears about it")
 
 

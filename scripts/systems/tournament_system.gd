@@ -84,7 +84,7 @@ const TIER_DATA: Dictionary = {
 ## holes" requirement. That keeps the Host Tournament button reporting something
 ## the player can act on instead of a dead-end "No course data" tooltip.
 static func check_qualification(tier: TournamentTier, course_data, course_rating: Dictionary) -> Dictionary:
-	var requirements = TIER_DATA[tier]
+	var requirements = get_tier_data(tier)
 	var result = {
 		"qualified": true,
 		"missing": []
@@ -133,17 +133,48 @@ static func get_qualified_tiers(course_data, course_rating: Dictionary) -> Array
 			qualified.append(tier)
 	return qualified
 
+## Per-tier patches registered by the loaded mods (keyed by tier save name:
+## "local", "regional", "national", "championship"). A balance mod can move
+## a tier's price, purse or entry bar without forking the tournament system;
+## get_tier_data() is the one door every reader goes through, so the patch
+## is seen everywhere at once.
+static var _mod_tier_overrides: Dictionary = {}
+
+const TIER_SAVE_NAMES: Dictionary = {
+	"local": TournamentTier.LOCAL,
+	"regional": TournamentTier.REGIONAL,
+	"national": TournamentTier.NATIONAL,
+	"championship": TournamentTier.CHAMPIONSHIP,
+}
+
+static func set_mod_tier_overrides(overrides: Dictionary) -> void:
+	_mod_tier_overrides = overrides.duplicate(true)
+
+static func get_mod_tier_overrides() -> Dictionary:
+	return _mod_tier_overrides.duplicate(true)
+
+static func tier_from_save_name(tier_name: String) -> int:
+	return int(TIER_SAVE_NAMES.get(tier_name.to_lower(), -1))
+
 ## Get tier name
 static func get_tier_name(tier: TournamentTier) -> String:
-	return TIER_DATA.get(tier, {}).get("name", "Unknown")
+	return get_tier_data(tier).get("name", "Unknown")
 
 ## Get tier data
 static func get_tier_data(tier: TournamentTier) -> Dictionary:
-	return TIER_DATA.get(tier, {})
+	var data: Dictionary = TIER_DATA.get(tier, {}).duplicate()
+	for tier_name in TIER_SAVE_NAMES:
+		if int(TIER_SAVE_NAMES[tier_name]) == tier:
+			var patch: Variant = _mod_tier_overrides.get(tier_name, {})
+			if patch is Dictionary:
+				for key in patch:
+					data[key] = patch[key]
+			break
+	return data
 
 ## Calculate tournament results - returns winner info and scores
 static func generate_tournament_results(tier: TournamentTier, course_data, course_rating: Dictionary) -> Dictionary:
-	var tier_data = TIER_DATA[tier]
+	var tier_data = get_tier_data(tier)
 	var participant_count = tier_data.participant_count
 	var course_par = _get_course_par(course_data)
 	var difficulty = course_rating.get("difficulty", 5.0)
@@ -196,12 +227,12 @@ static func _get_course_par(course_data) -> int:
 
 ## Get total tournament revenue (spectators + sponsorships)
 static func get_tournament_revenue(tier: TournamentTier) -> int:
-	var data = TIER_DATA.get(tier, {})
+	var data = get_tier_data(tier)
 	return data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
 
 ## Get net tournament profit (revenue - entry_cost)
 static func get_net_profit(tier: TournamentTier) -> int:
-	var data = TIER_DATA.get(tier, {})
+	var data = get_tier_data(tier)
 	var revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
 	return revenue - data.get("entry_cost", 0)
 
@@ -234,12 +265,12 @@ static func get_live_field_size(open_holes: int) -> int:
 ## than a Local even on the same nine holes. Anyone the course cannot seat is
 ## settled headlessly against the same scorecard.
 static func get_field_size(tier: TournamentTier, open_holes: int) -> int:
-	var nominal: int = TIER_DATA.get(tier, {}).get("participant_count", get_group_size())
+	var nominal: int = get_tier_data(tier).get("participant_count", get_group_size())
 	return maxi(nominal, get_live_field_size(open_holes))
 
 ## Get description text for a tier
 static func get_tier_description(tier: TournamentTier) -> String:
-	var data = TIER_DATA[tier]
+	var data = get_tier_data(tier)
 	var total_revenue = data.get("spectator_revenue", 0) + data.get("sponsorship_revenue", 0)
 	var rounds = get_round_count(tier)
 	var round_text = "%d round" % rounds + ("s" if rounds > 1 else "")

@@ -1,0 +1,21 @@
+{
+	"format_version": 1,
+	"id": "golf_tycoon.weather",
+	"name": "Weather (Official)",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon",
+	"description": "The shipped weather: spells of sun, cloud and rain that last for days, move to a neighbouring kind and ease in over two days. Weather turns golfers away, makes aiming harder, dims the light and (when it rains) puts rain on the course. Works on its own; with the Seasons mod the rolls follow the time of year and the course theme. Disable this mod and every day is clear.",
+	"types": ["feature", "gameplay", "visual"],
+	"enabled_by_default": true,
+	"load_priority": 20,
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"dependencies": [
+		{"id": "golf_tycoon.seasons", "optional": true}
+	],
+	"workshop": {
+		"published_file_id": 0,
+		"tags": ["Gameplay", "Official"]
+	}
+}

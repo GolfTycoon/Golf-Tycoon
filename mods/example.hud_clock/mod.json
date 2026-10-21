@@ -1,0 +1,15 @@
+{
+	"format_version": 1,
+	"id": "example.hud_clock",
+	"name": "Example: Course Clock HUD",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A UI script mod: a small clock in the top-centre of the course HUD telling the date and the season at a glance. It registers one HUD widget through the Mod API and keeps it current off the day_changed and season_changed signals. Works without the Seasons mod - it just leaves the season out.",
+	"types": ["script", "ui", "cosmetic"],
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"],
+	"dependencies": [
+		{"id": "golf_tycoon.seasons", "optional": true}
+	]
+}

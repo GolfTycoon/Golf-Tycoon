@@ -1,5 +1,10 @@
 # Seasonal Calendar & Theme Modifiers
 
+> **Modding:** Seasonal modifier tables now live in
+`mods/golf_tycoon.seasons/season_provider.gd`, and the events are data in
+`mods/golf_tycoon.seasons/data/seasonal_events.json`. `SeasonSystem` is
+the stable facade; without a provider it returns neutral modifiers. See [Modding](../../modding.md).
+
 > Seasons follow the calendar: spring is March to May, summer June to August, fall September to November, and winter December to February. Each course theme has its own spawn, maintenance, weather and prestige pattern across the year.
 
 **Source:** `scripts/systems/season_system.gd` (`get_season_for_month()`, `get_season()`, `get_blended_*()`, `THEME_SPAWN_MODIFIERS`, `THEME_MAINTENANCE_MODIFIERS`, `THEME_TOURNAMENT_PRESTIGE`, `THEME_WEATHER_MODIFIERS`, `get_weather_weights()`, `get_fee_tolerance()`), `scripts/systems/seasonal_events.gd` (`get_all_events()`, `get_active_event()`, `get_upcoming_events()`)

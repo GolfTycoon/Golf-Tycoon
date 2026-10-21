@@ -375,6 +375,14 @@ func _build_save_data() -> Dictionary:
 	if GameManager.course_aura:
 		data["course_aura"] = GameManager.course_aura.serialize()
 
+	# Mods: what was loaded (id + version, for the missing-mod warning on
+	# load) and each script mod's own slice of state, keyed by its id.
+	data["mods"] = {
+		"api_version": ModManifest.CURRENT_API_VERSION,
+		"load_order": ModManager.get_loaded_mod_versions(),
+		"data": ModManager.collect_save_data(),
+	}
+
 	return data
 
 ## Serialize hole data to plain dictionaries
@@ -592,6 +600,16 @@ func _apply_save_data(data: Dictionary) -> void:
 		GameManager.weather_system.force_clear_weather()
 	if not GameManager.wind_enabled and GameManager.wind_system:
 		GameManager.wind_system.force_calm()
+
+	# Hand each loaded mod its slice of the save, and say so if the save was
+	# made with mods this session did not load - their buildings and systems
+	# are simply absent, never half-applied.
+	if data.has("mods") and data["mods"] is Dictionary:
+		var missing_mods := ModManager.apply_save_data(data["mods"])
+		if not missing_mods.is_empty():
+			var message := "This save used mods that are not loaded: %s" % ", ".join(missing_mods)
+			print("SaveManager: " + message)
+			EventBus.notify(message, "warning")
 
 	# The day is already in play. Resume simulation after the save state is restored
 	# so a loaded course does not sit frozen in a separate build mode.
