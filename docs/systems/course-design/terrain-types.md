@@ -132,6 +132,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 - Stream strokes are 4-connected (`TerrainBrush.centers_4_connected()`), so the channel never breaks at a diagonal step.
 - A species tile draws its own canopy on its own ground, wherever it is placed — and over the ground art laid beside it. `TerrainGrid.GROUND_DETAIL_ORDER` ranks the trees last in the ground band, so a canopy always stands above the walking trail trodden through the wood.
 - Each canopy is four images of the one tree, seen from the north, east, south and west (`<species>_n/_e/_s/_w.png`, seasonal variants included). `TreeOverlay` paints the angle matching the course's view orientation, as a building does, so rotating the view turns the whole wood. The four views are generated from the authored, unsuffixed north drawing by `tools/tree_art/generate.py` and share its canvas, so a trunk stays planted on the same spot at every angle; a species missing a view falls back to the authored drawing. The Course Terrain tab always previews the north view.
+- A tree does not wear the course's angle alone: each tile has its own quarter-turn offset (`TreeOverlay.facing_offset(pos)`), fixed for the life of the course, and is drawn at the view plus that offset. A wood therefore shows canopies from all four sides at once rather than every tree facing the camera. The offset is added to the view, so a quarter turn of the screen still takes every tree on to its next angle and a full turn returns the wood exactly as it was. The offset is a mixed hash of the tile, so neighbouring trees do not stripe the wood with identically turned rows.
 - Older saves that stored trees as entities are converted on load. `EntityLayer.deserialize` paints the matching species tile for each one, so a loaded course becomes ordinary painted woodland.
 
 ### 6. Rendering
@@ -155,6 +156,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 | Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | Litter, needles, sand, silt, peat, straw | What each species grows in |
 | Species per theme | `course_theme.gd` `get_tree_types()` | 4 to 6 per theme | Which tree tiles the tab shows |
 | The four tree angles | `tools/tree_art/generate.py` `PROFILES` | Side views foreshortened to 0.82× and leaned, back view shaded to 0.88× | How differently each species reads from the east, south and west; re-run the tool to regenerate the `_n/_e/_s/_w` views |
+| Each tree's own angle | `tree_overlay.gd` `facing_offset()` | One mixed-hash quarter turn per tile, added to the view | How mixed the wood reads on one screen; 0 would make every tree face the course's angle again |
 
 ---
 

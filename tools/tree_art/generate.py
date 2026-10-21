@@ -31,9 +31,11 @@ trunk stays planted on the same spot of its tile at every rotation and
 
 The `_n/_e/_s/_w` PNGs are generated art, like the building sprites: edit
 the unsuffixed source and re-run this tool rather than editing a view by
-hand. TreeOverlay picks the view matching the course's view orientation
-and falls back to the unsuffixed source if a view is ever missing, so a
-new species is playable the moment its north drawing lands.
+hand. TreeOverlay draws each tile at the course's view orientation plus
+the tile's own quarter-turn offset (`facing_offset()`), so one wood shows
+all four angles at once and a turn of the course steps every tree on to
+its next view. It falls back to the unsuffixed source if a view is ever
+missing, so a new species is playable the moment its north drawing lands.
 """
 
 from __future__ import annotations
