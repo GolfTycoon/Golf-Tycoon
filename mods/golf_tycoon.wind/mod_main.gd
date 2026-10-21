@@ -10,4 +10,7 @@ const WindImpl := preload("wind_system.gd")
 
 
 func _mod_load(mod_api: ModAPI) -> void:
+	# Wind's switch on the Start New Game screen. The Features section there
+	# is hidden until a mod (this one) adds an option.
+	mod_api.register_feature("wind")
 	mod_api.register_wind_factory(func() -> WindSystem: return WindImpl.new())

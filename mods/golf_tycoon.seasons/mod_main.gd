@@ -13,4 +13,7 @@ const Provider := preload("season_provider.gd")
 
 
 func _mod_load(mod_api: ModAPI) -> void:
+	# Its Start New Game switch: the Features section is hidden unless a mod
+	# adds an option there, and this is Seasons' contribution.
+	mod_api.register_feature("seasons")
 	mod_api.register_season_provider(Provider.new())

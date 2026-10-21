@@ -17,6 +17,9 @@ var _tint: Node = null
 
 
 func _mod_load(mod_api: ModAPI) -> void:
+	# This mod's switch under Game features on Start New Game (that section is
+	# hidden while no mod adds an option to it).
+	mod_api.register_feature("weather")
 	mod_api.register_weather_factory(func() -> WeatherSystem: return WeatherImpl.new())
 	mod_api.on_main_scene_ready(_setup_in_main_scene)
 	EventBus.main_scene_ready.connect(_setup_in_main_scene)

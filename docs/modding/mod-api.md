@@ -96,6 +96,10 @@ undoes a mod cleanly and how the Mods screen can say who provides what.
   consumed once; for every scene (re)load, connect to
   `EventBus.main_scene_ready` instead. The main node is the game's root
   scene script (`Main`) - treat its API as internal, not promised.
+- `register_feature_option(option)` / `register_feature(id)` -
+  [Start New Game features](#start-new-game-features): the toggles under
+  **Game features** on the company setup screen. The section is hidden until
+  a mod adds one.
 - `register_building_sprite(building_id, relative_png, draw_rect) -> bool`
   - real art for one of your buildings (bare or namespaced id - bare ids
   resolve exactly like content ids). The rect is in the building node's
@@ -120,6 +124,52 @@ undoes a mod cleanly and how the Mods screen can say who provides what.
   schema (`{type, default, description}` per key); values persist in
   `user://mods/config/<mod id>.json`, survive save/load, and never travel
   in save files. Per-save state belongs in `_mod_save`/`_mod_restore`.
+
+## Start New Game features
+
+The **Game features** section of the Start New Game screen (the company
+setup shown after *Start New Game*) lists the optional systems a company can
+switch on for its world. It is not part of the base game: **the section is
+hidden while no mod has added an option to it**, and the first registration
+is what makes it appear. A game running no mods (or `--no-mods`) therefore
+has no Features section at all, and the screen's other choices are unchanged.
+
+The three official environment mods add the shipped switches - that is all
+they do for the screen:
+
+```gdscript
+func _mod_load(mod_api: ModAPI) -> void:
+	mod_api.register_feature("weather")   # the game's own title, caption and icon
+```
+
+A shipped id (`"weather"`, `"wind"`, `"seasons"`) registered bare takes the
+game's wording. For your own option, give it all of its copy:
+
+```gdscript
+mod_api.register_feature_option({
+	"id": "night_play",              # required, stable: it is the save's key
+	"title": "Night play",
+	"caption": "Floodlit rounds",
+	"tooltip": "The course stays open after dark.",
+	"glyph": SetupGlyph.Kind.WEATHER,  # optional: the switch's icon
+})
+```
+
+- Options appear in the order they are registered (shipped features first),
+  and a later mod replacing an id replaces that option. Registration order is
+  load order.
+- The choice reaches your mod through the game's game-start path: the
+  company's flags land in `GameManager` (`weather_enabled` and friends for
+  the shipped ids), and the same options dictionary - `features` keyed by
+  your id, `true`/`false` - is what `WorldMap.new_world` stores for the
+  company and what a save carries. Read yours with
+  `WorldMap.features.get("night_play", false)` or keep your own flag from
+  `_mod_new_game()`.
+- A flag is only a request: nothing in the game is wired to your key until
+  your mod reads it (the shipped features pair theirs with a provider, so
+  `GameManager.is_feature_enabled` asks for the per-save flag *and* a loaded
+  provider - that is what lets a save keep working when the mod that
+  provided a feature is switched off).
 
 ## Providers: replacing weather, wind or seasons
 

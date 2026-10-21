@@ -62,6 +62,14 @@ no seasonal modifiers) and everything keeps working, including saves that
 had the features "on": a feature toggle in a save is honored only while
 some loaded mod actually provides it.
 
+Those switches are mod content too. The **Game features** section of the
+Start New Game screen is hidden unless a mod has added an option there (see
+[Start New Game features](modding/mod-api.md#start-new-game-features)): the
+Weather, Wind and Seasons mods each add theirs when they load, so a game
+with no mods - or with those three switched off - shows no Features section
+at all, just a shorter company setup. Any other mod can add its own switch
+the same way.
+
 ### Safety rails, for players
 
 - Script mods load behind a crash marker: if the game dies while loading
@@ -95,6 +103,7 @@ copy, `mods/` directory included with the game:
 | New golfer names or a skin | `content.golfer_names` / `golfer_skins_root` | yes | `example.golfers` |
 | Extra events for another mod | a `dependencies` entry + `content.seasonal_events` | yes | `example.more_seasons` |
 | New gameplay rules, reacting to game events | `entry_point` + `permissions: ["script"]` | GDScript | `example.jackpot` |
+| A switch under Game features on Start New Game | script + `register_feature_option` | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
 | A widget on the HUD | script + `register_hud_widget` | GDScript | `example.hud_clock` |
 | Replace weather / wind / seasons entirely | script + a provider registration | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
 

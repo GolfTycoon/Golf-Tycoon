@@ -13,6 +13,9 @@ that change turnout, shot accuracy, light and the on-screen rain.
 - The dependency on Seasons is *optional*: with Seasons loaded, rolls
   follow the time of year (and the course theme); without it, a flat
   year-round profile is used.
+- `mod_main.gd` also adds this mod's switch under **Game features** on the
+  Start New Game screen (`api.register_feature("weather")`); that section is
+  hidden while no mod puts an option there.
 
 Reference for a **feature/provider mod with visuals**. Fork it for
 snow, fog, heatwaves - anything that speaks WeatherSystem can take over.

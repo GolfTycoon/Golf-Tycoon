@@ -128,6 +128,93 @@ func test_difficulty_descriptions_do_not_promise_a_budget() -> void:
 		assert_false("starting money" in description, "%d: %s" % [preset, description])
 		assert_false("tight budget" in description, "%d: %s" % [preset, description])
 
+# ---------------------------------------------------------------------------
+# The Features section: only what a mod adds
+# ---------------------------------------------------------------------------
+
+## Run `action` with no mod offering a feature, then put the live mod set's
+## options back exactly as they were.
+func _without_feature_options(action: Callable) -> void:
+	var saved := ModManager.get_feature_options()
+	ModManager.clear_feature_options()
+	action.call()
+	ModManager.clear_feature_options()
+	for option in saved:
+		ModManager.register_feature_option(str(option.get("mod_id", "test.mod")), option)
+	assert_eq(ModManager.get_feature_options().size(), saved.size(), "the live mod set is put back")
+
+
+func test_the_shipped_environment_mods_offer_the_three_features() -> void:
+	# The Weather, Wind and Seasons mods each register their switch when they
+	# load, so a default install still shows the section it always had.
+	var screen: StartNewGameScreen = autofree(Screen.new())
+	add_child(screen)
+	assert_eq(screen._feature_boxes.keys(), ["weather", "wind", "seasons"],
+		"the three shipped features are offered, in their usual order")
+
+
+func test_the_features_section_is_hidden_when_no_mod_offers_one() -> void:
+	_without_feature_options(func() -> void:
+		var screen: StartNewGameScreen = autofree(Screen.new())
+		add_child(screen)
+		assert_false(screen._has_features(), "with no mod option there is no Features section")
+		assert_null(screen.find_child("GameFeatures", true, false), "not even its kicker is built")
+		assert_null(screen.find_child("FeatureTiles", true, false), "no feature tiles are built")
+		assert_eq(screen._feature_boxes.size(), 0, "and there are no feature switches to press")
+		assert_null(screen.find_child("SummaryFeatures", true, false), "the company rail leaves the row out too")
+		assert_not_null(screen.find_child("GeneratedHoles", true, false), "the other sections are untouched")
+		assert_true(screen._tutorial_card != null, "and the tutorial switch is still there"))
+
+
+func test_every_arrangement_leaves_the_section_out_when_no_mod_adds_one() -> void:
+	_without_feature_options(func() -> void:
+		var screen: StartNewGameScreen = autofree(Screen.new())
+		add_child(screen)
+		for mode in [StartNewGameScreen.Layout.WIDE, StartNewGameScreen.Layout.TABLET,
+				StartNewGameScreen.Layout.LANDSCAPE, StartNewGameScreen.Layout.PHONE]:
+			screen._layout_mode = mode
+			screen._populate(screen._measure(mode, Vector2(1600, 1000)))
+			assert_null(screen.find_child("GameFeatures", true, false),
+				"arrangement %d has no Game features section" % mode)
+			assert_eq(screen._feature_boxes.size(), 0, "arrangement %d has no feature switches" % mode)
+			assert_not_null(screen.find_child("HolesBlock", true, false),
+				"arrangement %d still offers the hole picker" % mode)
+			assert_true(screen._tutorial_card != null, "arrangement %d still offers the tutorial" % mode))
+
+
+func test_a_mods_own_option_takes_its_wording_and_appears_last() -> void:
+	var saved := ModManager.get_feature_options()
+	ModManager.register_feature_option("test.mod", {
+		"id": "night_play", "title": "Night play", "caption": "Floodlit rounds",
+		"tooltip": "The course stays open after dark.",
+	})
+	var screen: StartNewGameScreen = autofree(Screen.new())
+	add_child(screen)
+	assert_true(screen._has_features(), "one mod option is enough to show the section")
+	assert_eq(screen._feature_boxes.keys(), ["weather", "wind", "seasons", "night_play"],
+		"the shipped features come first, then the mod's own")
+	assert_true(screen.get_options()["features"].has("night_play"), "its choice is carried into the options")
+	assert_false(screen.get_options()["features"]["night_play"], "and starts off")
+	assert_eq(StartNewGameScreen.feature_title("night_play"), "Night play", "the summary uses the mod's wording")
+	assert_eq(StartNewGameScreen.features_summary({"weather": true, "night_play": true}),
+		"Weather · Night play", "and names both features")
+	ModManager.clear_feature_options()
+	for option in saved:
+		ModManager.register_feature_option(str(option.get("mod_id", "test.mod")), option)
+
+
+func test_a_bare_registration_takes_the_shipped_wording() -> void:
+	var weather := StartNewGameScreen.feature_entry({"id": "weather"})
+	assert_eq(weather[0], "weather")
+	assert_eq(weather[1], "Weather", "the shipped title fills in")
+	assert_eq(weather[2], "Storms change turnout", "and its caption")
+	assert_false(str(weather[3]).is_empty(), "and its tooltip")
+	assert_eq(int(weather[4]), SetupGlyph.Kind.WEATHER, "and its glyph")
+	assert_eq(StartNewGameScreen.feature_entry({"id": ""}), [], "an option without an id is ignored")
+	assert_eq(StartNewGameScreen.feature_entry({"id": "my_rule"})[1], "My Rule",
+		"an unknown id is at least named from its key")
+
+
 func test_feature_summaries() -> void:
 	var all_on := {"weather": true, "wind": true, "seasons": true}
 	assert_eq(StartNewGameScreen.features_summary(all_on), "Weather · Wind · Seasons")

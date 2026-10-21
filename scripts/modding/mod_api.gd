@@ -182,6 +182,36 @@ func register_building_sprite(building_id: String, relative_png: String, draw_re
 
 
 # =============================================================================
+# START NEW GAME FEATURES
+# =============================================================================
+
+## Add a toggle to the Features section of the Start New Game screen. The
+## section is hidden while no mod has added an option there - registering the
+## first one is what makes it appear. `option` is a dictionary:
+##
+##   id       (String, required) - stable key, and the key the choice is
+##                                 stored under in the save's features dict
+##   title    (String) - the switch's name, e.g. "Weather"
+##   caption  (String) - the short line under it, e.g. "Storms change turnout"
+##   tooltip  (String) - the full explanation shown on hover
+##   glyph    (int)    - a SetupGlyph.Kind for the icon; the shipped ids get
+##                       theirs automatically
+##
+## A shipped id ("weather", "wind", "seasons") can be registered bare and takes
+## the game's own wording (see register_feature). Whether the option's effect
+## is on is the company's choice; how strongly it acts is yours to implement.
+func register_feature_option(option: Dictionary) -> void:
+	if _manager != null:
+		_manager.register_feature_option(mod_id, option)
+
+
+## Register one of the shipped features by id, using the game's own title,
+## caption, tooltip and icon. That is all the official environment mods do.
+func register_feature(id: String) -> void:
+	register_feature_option({"id": id})
+
+
+# =============================================================================
 # CONTENT AND CONFIG
 # =============================================================================
 

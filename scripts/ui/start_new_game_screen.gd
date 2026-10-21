@@ -5,7 +5,9 @@ const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ##
 ## Collects the company name, difficulty, starting budget, how many holes the
 ## first course should start with, which game features are enabled and whether
-## the tutorial walks the player through an empty first course. The Choose
+## the tutorial walks the player through an empty first course. The features -
+## and the section that lists them - come from mods: with nothing registered
+## there, the section is not built at all. The Choose
 ## Location button hands those options to the World Map screen, where the
 ## player buys the location for their first course.
 ##
@@ -118,7 +120,10 @@ const MONEY_CAPTIONS := {
 	-1: "No budget limit",
 }
 
-## [key, title, short caption, tooltip, glyph]
+## The shipped feature ids and their wording: [key, title, short caption,
+## tooltip, glyph]. A mod that registers one of these ids (the Weather, Wind
+## and Seasons mods do) may supply only the id and gets this copy; an id that
+## is not here must bring its own title.
 const FEATURES := [
 	["weather", "Weather", "Storms change turnout",
 		"Storms and clouds change how often golfers come out and how they play.", SetupGlyph.Kind.WEATHER],
@@ -189,6 +194,88 @@ var _features: Dictionary = {"weather": false, "wind": false, "seasons": false}
 ## Starts as the company's choice would: on until the tutorial has been
 ## finished, as it always was.
 var _tutorial_enabled: bool = true
+
+## The Features section shows only what a mod has put there. Each shipped
+## environment mod (Weather, Wind, Seasons) registers its option when it loads
+## through ModAPI.register_feature_option, and any other mod can add its own;
+## with no mod offering one, the section is not built at all.
+func _has_features() -> bool:
+	return not _available_features().is_empty()
+
+## Every option a loaded mod has registered, in load order.
+static func _registered_feature_options() -> Array:
+	var options: Array = []
+	var loop := Engine.get_main_loop()
+	if loop is SceneTree and (loop as SceneTree).root != null:
+		var manager: Node = (loop as SceneTree).root.get_node_or_null("ModManager")
+		if manager != null and manager.has_method("get_feature_options"):
+			options.append_array(manager.get_feature_options())
+	return options
+
+## The options to build, shipped features first in their catalogue order and
+## then anything else in the order the mods registered it. Each is
+## [key, title, caption, tooltip, glyph].
+func _available_features() -> Array:
+	var by_key: Dictionary = {}
+	var order: Array = []
+	for option in _registered_feature_options():
+		var entry := feature_entry(option)
+		if entry.is_empty() or by_key.has(str(entry[0])):
+			continue
+		by_key[str(entry[0])] = entry
+		order.append(str(entry[0]))
+	var result: Array = []
+	for shipped in FEATURES:
+		var key := str(shipped[0])
+		if by_key.has(key):
+			result.append(by_key[key])
+			order.erase(key)
+	for key in order:
+		result.append(by_key[key])
+	return result
+
+## Normalise one registered option (a Dictionary or a [key, title, caption,
+## tooltip, glyph] array) into that five-entry form, starting from the shipped
+## copy for a known key and skipping anything without an id. A mod may supply
+## only the id; the title, caption, tooltip and glyph then default.
+static func feature_entry(option: Variant) -> Array:
+	var key := ""
+	if option is Dictionary:
+		key = str(option.get("id", ""))
+	elif option is Array and option.size() >= 2:
+		key = str(option[0])
+	key = key.strip_edges()
+	if key.is_empty():
+		return []
+	var entry: Array = [key, "", "", "", SetupGlyph.Kind.WEATHER]
+	for shipped in FEATURES:
+		if str(shipped[0]) == key:
+			entry = shipped.duplicate()
+			break
+	if option is Dictionary:
+		for field in [["name", 1], ["title", 1], ["caption", 2], ["description", 3],
+				["tooltip", 3], ["glyph", 4]]:
+			if option.has(field[0]) and not str(option[field[0]]).strip_edges().is_empty():
+				entry[field[1]] = option[field[0]]
+	elif option is Array:
+		for i in range(1, mini(option.size(), 5)):
+			if not str(option[i]).strip_edges().is_empty():
+				entry[i] = option[i]
+	if str(entry[1]).strip_edges().is_empty():
+		entry[1] = key.capitalize()
+	return entry
+
+## The title of one feature, as the mod that registered it spells it (or the
+## shipped copy, or the key in title case when nothing registered it).
+static func feature_title(key: String) -> String:
+	for option in _registered_feature_options():
+		var entry := feature_entry(option)
+		if not entry.is_empty() and str(entry[0]) == key:
+			return str(entry[1])
+	for shipped in FEATURES:
+		if str(shipped[0]) == key:
+			return str(shipped[1])
+	return key.capitalize()
 
 # --- current build ---------------------------------------------------------
 var _layout_mode: int = Layout.WIDE
@@ -497,29 +584,32 @@ func _build_wide(m: Metrics) -> void:
 	form.add_child(_make_section("Company name", _make_company_row(m), m))
 	form.add_child(_make_section("Difficulty", _make_difficulty_cards(m, _sheet_content_width(m)), m))
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 4, _sheet_content_width(m)), m))
-	# Holes and features share a row when the sheet is wide enough for five
-	# segments and three feature tiles side by side.
 	var width := _sheet_content_width(m)
-	var paired := width >= 900.0
-	var pair_gap := m.section_gap + m.item_gap
-	var holes_width := (width - float(pair_gap)) / 2.15 if paired else width
-	var holes := _make_section("Generated holes", _make_holes_block(m, false, holes_width), m)
-	var features := _make_section("Game features", _make_feature_tiles(m, "card" if paired else "row",
-		width - float(pair_gap) - holes_width if paired else width), m)
-	if paired:
-		var pair := HBoxContainer.new()
-		pair.name = "HolesAndFeatures"
-		pair.add_theme_constant_override("separation", pair_gap)
-		holes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		holes.size_flags_stretch_ratio = 1.0
-		features.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		features.size_flags_stretch_ratio = 1.15
-		pair.add_child(holes)
-		pair.add_child(features)
-		form.add_child(pair)
+	if not _has_features():
+		form.add_child(_make_section("Generated holes", _make_holes_block(m, false, width), m))
 	else:
-		form.add_child(holes)
-		form.add_child(features)
+		# Holes and features share a row when the sheet is wide enough for five
+		# segments and three feature tiles side by side.
+		var paired := width >= 900.0
+		var pair_gap := m.section_gap + m.item_gap
+		var holes_width := (width - float(pair_gap)) / 2.15 if paired else width
+		var holes := _make_section("Generated holes", _make_holes_block(m, false, holes_width), m)
+		var features := _make_section("Game features", _make_feature_tiles(m, "card" if paired else "row",
+			width - float(pair_gap) - holes_width if paired else width), m)
+		if paired:
+			var pair := HBoxContainer.new()
+			pair.name = "HolesAndFeatures"
+			pair.add_theme_constant_override("separation", pair_gap)
+			holes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			holes.size_flags_stretch_ratio = 1.0
+			features.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			features.size_flags_stretch_ratio = 1.15
+			pair.add_child(holes)
+			pair.add_child(features)
+			form.add_child(pair)
+		else:
+			form.add_child(holes)
+			form.add_child(features)
 
 	var rail := _make_rail(m)
 	rail.custom_minimum_size.x = m.rail_width
@@ -543,7 +633,8 @@ func _build_tablet(m: Metrics) -> void:
 	form.add_child(_make_section("Difficulty", _make_difficulty_cards(m, width), m))
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 4, width), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
-	form.add_child(_make_section("Game features", _make_feature_tiles(m, "card", width), m))
+	if _has_features():
+		form.add_child(_make_section("Game features", _make_feature_tiles(m, "card", width), m))
 	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, true)
 
@@ -582,7 +673,8 @@ func _build_landscape(m: Metrics) -> void:
 	var right := _make_sheet(body, m, "RightSheet")
 	right.get_parent().size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.add_child(_make_section("Generated holes", _make_holes_block(m, m.landscape_plan, width), m))
-	right.add_child(_make_section("Game features", _make_feature_tiles(m, "chip", width), m))
+	if _has_features():
+		right.add_child(_make_section("Game features", _make_feature_tiles(m, "chip", width), m))
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(spacer)
@@ -609,7 +701,8 @@ func _build_phone(m: Metrics) -> void:
 	form.add_child(difficulty)
 	form.add_child(_make_section("Starting money", _make_money_cards(m, 2), m))
 	form.add_child(_make_section("Generated holes", _make_holes_block(m, true, width), m))
-	form.add_child(_make_section("Game features", _make_feature_tiles(m, "stack", width), m))
+	if _has_features():
+		form.add_child(_make_section("Game features", _make_feature_tiles(m, "stack", width), m))
 	form.add_child(_make_section("Tutorial", _make_tutorial_block(m, width), m))
 	_make_footer(m, false)
 
@@ -927,24 +1020,31 @@ func _make_holes_block(m: Metrics, with_plan: bool, width: float) -> Control:
 ##   chip  - glyph and name only; the lit border and colours carry on/off
 ##           (LANDSCAPE, where the height is too short for a switch row)
 func _make_feature_tiles(m: Metrics, variant: String, width: float) -> GridContainer:
+	var features := _available_features()
 	var grid := GridContainer.new()
 	grid.name = "FeatureTiles"
-	grid.columns = FEATURES.size()
+	grid.columns = maxi(1, features.size())
 	grid.add_theme_constant_override("h_separation", int(m.item_gap * 0.8))
 	grid.add_theme_constant_override("v_separation", int(m.item_gap * 0.8))
 	var font := get_theme_default_font()
-	var tile_width := (width - float(int(m.item_gap * 0.8)) * 2.0) / 3.0
+	var tile_width := width - float(int(m.card_pad * 0.85)) * 2.0
+	if features.size() >= 3:
+		tile_width = (width - float(int(m.item_gap * 0.8)) * 2.0) / 3.0
+	elif features.size() == 2:
+		tile_width = (width - float(int(m.item_gap * 0.8))) / 2.0
+	elif features.size() == 1:
+		tile_width = width - float(int(m.card_pad * 0.85)) * 2.0
 	var caption_font := m.caption_font - 1
 	var captions := []
 	var widest_caption := 0.0
-	for feature in FEATURES:
+	for feature in features:
 		captions.append(str(feature[2]))
 		widest_caption = maxf(widest_caption,
 			font.get_string_size(str(feature[2]), HORIZONTAL_ALIGNMENT_LEFT, -1, caption_font).x)
 	# One-line rows show their captions only if all three fit.
 	var row_captions := tile_width - float(m.glyph + int(m.card_pad * 0.85) * 2 + int(m.item_gap * 0.8) * 2) \
 		- float(m.glyph) * 0.62 * 1.75 >= widest_caption
-	for feature in FEATURES:
+	for feature in features:
 		var key: String = feature[0]
 		var height := m.segment_height if variant == "chip" else (m.feature_height if variant != "card" else 0)
 		var card := _make_choice("feature", key, FEATURE_ACCENT, str(feature[3]), str(feature[1]), m, null,
@@ -1067,7 +1167,11 @@ func _make_rail(m: Metrics) -> PanelContainer:
 	_plan_caption = _make_plan_caption(m)
 	column.add_child(_plan_caption)
 	column.add_child(_make_rule())
-	for row in [["difficulty", "Difficulty"], ["money", "Budget"], ["features", "Features"], ["tutorial", "Tutorial"]]:
+	var summary_rows: Array = [["difficulty", "Difficulty"], ["money", "Budget"]]
+	if _has_features():
+		summary_rows.append(["features", "Features"])
+	summary_rows.append(["tutorial", "Tutorial"])
+	for row in summary_rows:
 		column.add_child(_make_summary_row(row[0], row[1], m))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, m.item_gap * 0.5)
@@ -1445,9 +1549,15 @@ func get_options() -> Dictionary:
 	if company.is_empty():
 		company = WorldLocations.random_company_name()
 	var features: Dictionary = {}
-	for feature in FEATURES:
+	for feature in _available_features():
 		var key: String = feature[0]
 		features[key] = bool(_features.get(key, false))
+	# Keep a choice already made for a feature that is not offered right now
+	# (its mod was switched off while this screen was open) rather than
+	# silently dropping it.
+	for key in _features:
+		if not features.has(key):
+			features[key] = bool(_features[key])
 	return {
 		"company_name": company,
 		"difficulty": _difficulty,
@@ -1559,12 +1669,13 @@ static func difficulty_tooltip(preset: int) -> String:
 	lines.append("Bankruptcy below %s$%s" % ["−" if threshold < 0 else "", _group_digits(threshold)])
 	return "\n".join(lines)
 
-## "Weather · Wind · Seasons", "Wind", or "None".
+## "Weather · Wind · Seasons", "Wind", or "None" - named the way the mod that
+## registered each feature spells it.
 static func features_summary(features: Dictionary, separator: String = " · ") -> String:
 	var names: Array[String] = []
-	for feature in FEATURES:
-		if bool(features.get(feature[0], false)):
-			names.append(str(feature[1]))
+	for key in features:
+		if bool(features[key]):
+			names.append(feature_title(str(key)))
 	return "None" if names.is_empty() else separator.join(names)
 
 ## The tablet footer's one-line recap of every choice.

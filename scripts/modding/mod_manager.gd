@@ -63,6 +63,7 @@ var _wind_factory: Callable
 var _wind_factory_owner: String = ""
 var _season_provider_owner: String = ""
 var _provider_notes: Array[String] = []
+var _start_features: Array = []  # feature option dicts registered by mods: {id, title, caption, tooltip, glyph, mod_id}
 var _texture_cache: Dictionary = {}
 var _mod_configs: Dictionary = {}  # id -> Dictionary (lazy)
 var _main_scene: Node = null
@@ -667,6 +668,7 @@ func unload_all() -> void:
 	_wind_factory_owner = ""
 	_season_provider_owner = ""
 	_provider_notes.clear()
+	clear_feature_options()
 	SeasonSystem.set_provider(null)
 	_loaded_order.clear()
 	for mod_id in _records:
@@ -726,6 +728,40 @@ func provider_owners() -> Dictionary:
 
 func get_provider_notes() -> Array[String]:
 	return _provider_notes.duplicate()
+
+
+## Feature toggles for the Start New Game screen. Mods add them through
+## ModAPI.register_feature_option; they are kept here (in load order, later
+## wins per id) so the screen can decide whether its Features section has
+## anything to show. With none registered the section is hidden entirely.
+func register_feature_option(mod_id: String, option: Dictionary) -> void:
+	var id: String = str(option.get("id", "")).strip_edges()
+	if id.is_empty():
+		push_warning("ModManager [%s]: a Start New Game feature option needs an id; skipped." % mod_id)
+		return
+	for i in range(_start_features.size()):
+		if str(_start_features[i].get("id", "")) == id:
+			_start_features.remove_at(i)
+			break
+	var entry := option.duplicate(true)
+	entry["id"] = id
+	entry["mod_id"] = mod_id
+	_start_features.append(entry)
+
+
+## Every registered feature option, in load order.
+func get_feature_options() -> Array:
+	return _start_features.duplicate(true)
+
+
+func has_feature_options() -> bool:
+	return not _start_features.is_empty()
+
+
+## Drop every registered option - the mod set is being unloaded (also how a
+## test reaches the "no mod adds anything" state).
+func clear_feature_options() -> void:
+	_start_features.clear()
 
 
 ## The weather the game should run: the registered mod's system, or the
