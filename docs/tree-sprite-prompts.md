@@ -1,7 +1,7 @@
 # Golf Tycoon — Tree Sprite Sheet Prompt Bible
 
-> **Text-to-Image Prompts for Every Tree Species**
-> *Create an amazing 4-view (N / E / S / W) pixel-art sprite sheet for each tree.*
+> **Text-to-Image Prompts for Every Tree Species — Isometric 2:1 Dimetric**
+> *Create an amazing 4-view (N / E / S / W) pixel-art sprite sheet where each tree reads as a **volumetric 3D object sitting on its terrain tile**, exactly as seen from the game's camera.*
 > Covers the 11 base species in `assets/sprites/trees/` + all seasonal variants in `mods/golf_tycoon.seasons/tree_art/` + **one mega-sheet with every species together**.
 
 ---
@@ -12,7 +12,15 @@
 - Copy the **Copy-Paste Prompt** for your generator (Stable Diffusion XL, Midjourney v6, Flux, Ideogram, DALL·E 3) — then slice the sheet into `tree_n.png`, `tree_e.png`, `tree_s.png`, `tree_w.png`.
 - Keep the **Global Style Fragment** + **Negative Prompt** in every generation. Only the per-tree description changes.
 
-**Preview of what you're building — single species (4 frames):**
+### What went wrong before — and what this fixes
+
+> **Too front-on:** A prompt like *“front view of an oak tree”* makes the AI draw a **side elevation** — eye-level, horizon at mid-trunk, canopy as a flat circle, trunk as a rectangle. In Golf Tycoon you never see trees like that.
+>
+> **Game's camera is high and oblique:** Golf Tycoon is a **2:1 isometric dimetric** world. Tiles are `64 × 32` diamonds (`TILE_W=64, TILE_H=32`), elevation lifts `10px` per level, projection is `sx = (u−v)×32, sy = (u+v)×16 − z`. The camera sits high above the course (≈ 26.6° elevation — `arctan 0.5`), looking down from the southeast. You see **the top of the canopy plus two sides**, the trunk as a short vertical cylinder standing on the diamond's centre, and the ground as a flattened ellipse (`TreeOverlay` draws it at `scale (1.0, 0.5)`).
+>
+> **Every prompt here now forces that angle:** *isometric 2:1 dimetric, high-oblique 3/4 top-down, diorama on diamond tile, volumetric 3D tree — not a flat billboard.*
+
+**Preview — single species (4 frames, shared camera elevation, rotated azimuth):**
 
 ```
 ┌──────────┬──────────┬──────────┬──────────┐
@@ -57,17 +65,41 @@
 
 ## 1. Global Art Direction — INCLUDE IN EVERY PROMPT
 
-Golf Tycoon is a **cozy, clean, 16-bit-era pixel art** tycoon — think *Stardew Valley* × *Theme Park (1994)* × *A Short Hike*, not photorealism.
+Golf Tycoon is a **cozy, clean, 16-bit-era pixel art** tycoon — think *Stardew Valley* × *Theme Park (1994)* × *A Short Hike*, but rendered through a **fixed isometric 2:1 dimetric camera** — the same projection as the buildings in `tools/building_art/render.py`.
 
 ### Positive Style Fragment (paste verbatim)
 
 ```
 pixel art game asset, 16-bit retro cozy golf tycoon style, hand-pixelled,
-crisp 1px outline, limited vibrant palette, warm soft lighting from top-right,
-centered on canvas, bottom-center trunk anchor on tiny soft elliptical ground shadow,
-dithered shading, no anti-aliasing blur, Stardew Valley meets SimGolf,
-highly detailed at small resolution, game-ready sprite, ultra-sharp pixels, nearest-neighbor
+crisp 1px outline, limited vibrant palette, warm soft lighting from top-right
+(sun over +u, 135° southeast), dithered shading, no anti-aliasing blur,
+Stardew Valley meets SimGolf, highly detailed at small resolution, game-ready sprite,
+ultra-sharp pixels, nearest-neighbor, texture_filter nearest
 ```
+
+### Camera Fragment — THIS IS THE FIX (paste verbatim — do not omit)
+
+```
+ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE VIEW, high camera 26.6 degrees above ground
+(arctan 0.5, tile 64x32 diamond), looking down from southeast at golf course terrain tile,
+diorama on diamond tile, volumetric 3D tree sitting on terrain tile — NOT a flat side elevation
+or eye-level portrait — seeing the TOP of the canopy plus two side faces, trunk is a short
+vertical cylinder standing at the centre of the isometric diamond with a small flattened
+elliptical ground shadow (50% vertical scale, 20% opacity), canopy is a volume with clear
+top texture and dithered side shading, consistent with building art projection sx=(u-v)*32
+sy=(u+v)*16 - z, one art pixel equals one world pixel, correctly sitting on the ground plane
+```
+
+**What this clause does for the AI:**
+
+| Old (front-on) result | New (isometric) result |
+|---|---|
+| Eye-level horizon, trunk tall, canopy as flat disc | Camera high, trunk short/vertical, canopy as sphere/oval with visible top |
+| No ground, tree floats | Ground diamond implied, ellipse shadow at 1.0×0.5 scale, tree anchored |
+| Sides only, no top highlight | Top highlight + two visible faces, volumetric depth, dithered falloff |
+| Looks like an icon pasted on screen | Looks like a building — sits *in* the world, occludes correctly |
+
+**Synonyms to add if your generator ignores “isometric”:** also include `3/4 top-down view, diorama, dimetric projection, tilted top view, 45-degree isometric, chibi isometric tree, voxel-style but pixel art`.
 
 ### Background Handling — PICK ONE (see §1a below)
 
@@ -81,8 +113,9 @@ isolated on transparent background, no background, alpha channel, transparent PN
 **B) Solid Chroma-Key BG (recommended for Midjourney / DALL·E / SDXL / Flux):**
 ```
 isolated on solid flat pure chroma-key green background #00FF6A, even flat color,
-no gradient, no shadow except tiny ground oval under trunk, no scenery, no sky, no grass field,
-studio sprite on solid color for easy background removal
+no gradient, no shadow except tiny flattened ground oval under trunk at 1.0x0.5 scale,
+no scenery, no sky, no grass field, no horizon line, studio sprite on solid color
+for easy background removal, ground plane is the isometric diamond tile centre only
 ```
 
 > **Why B is the default:** Midjourney, DALL·E 3, Flux, SDXL, and most Midjourney-style tools **cannot output transparency** — they always fill the background. Don't fight it: ask for a solid, removable color (see §1a) and strip it in one click afterwards. Transparent-native tools (Leonardo `Transparent PNG`, Ideogram `Canvas`, Recraft `Remove BG`) can use variant A.
@@ -90,20 +123,26 @@ studio sprite on solid color for easy background removal
 ### Technical Layout Fragment (single species, 4 frames)
 
 ```
-sprite sheet, single horizontal row of 4 identical trees, four cardinal views:
-North front view | East right-side view | South back view | West left-side view,
-same tree silhouette in every frame, perfectly aligned ground line and trunk base centered,
-equal spacing between frames, no border, no text, no watermark, no labels
+sprite sheet, single horizontal row of 4 identical trees at SAME high-oblique isometric
+elevation (26.6 degrees), only the azimuth rotates quarter-turns around vertical axis:
+North view (camera southeast, sees north+east faces) | East view (sees east+south, crown
+foreshortened 18% toward trunk, leaned 3px in screen space, lit from right) | South view
+(sees south+west, mirrored, slightly darker 0.88x sun away) | West view (sees west+north,
+mirrored foreshortened leaned 3px left lit from left) — same volumetric tree, same height,
+same top texture, same trunk base at exact bottom-center pixel, perfectly aligned ground
+ellipse in every frame, equal spacing, no border, no text, no watermark
 ```
 
 ### Technical Layout Fragment (all 11 species mega-sheet)
 
 ```
-master sprite sheet contact sheet, grid layout 11 rows × 4 columns, 44 sprites total,
-columns are N | E | S | E→W mirrored views, rows top-to-bottom are: oak, birch, pine, maple,
-palm, dead_tree, cactus, bush, cattails, fescue, heather — same species in each row with 4
-directional views, each row centered with bottom-center trunk anchor and tiny ground shadow,
-even spacing between rows and columns, no border, no text, no labels, no scenery
+master sprite sheet contact sheet, grid layout 11 rows × 4 columns, 44 isometric tree sprites
+on solid green, SAME 26.6-degree high-oblique dimetric camera for every cell, columns are
+N | E | S | W azimuth rotations (same elevation), rows top-to-bottom are: oak, birch, pine,
+maple, palm, dead_tree, cactus, bush, cattails, fescue, heather — same volumetric species
+in each row with 4 azimuth views, each cell shows TOP of canopy plus two faces, trunk vertical
+cylinder on diamond centre with flattened ellipse shadow 1.0x0.5, even spacing, no border,
+no text, no labels, no horizon, no scenery
 ```
 
 > **Tip:** If your generator merges frames, add: `four separate sprites in a row, grid layout 4x1, contact sheet, separated cells with small gap`.
@@ -112,9 +151,11 @@ even spacing between rows and columns, no border, no text, no labels, no scenery
 
 ```
 photorealistic, 3d render, CGI, blurry, anti-aliased, gradient mesh, watercolor, oil painting,
-sketch, noisy, low-res upscale, background scenery, sky, grass field, clouds, forest, landscape,
-multiple different trees blended, text, letters, numbers, watermark, frame, border, vignette,
-drop shadow beyond ground oval, asymmetric trunks between frames, different species in same row
+sketch, noisy, low-res upscale, eye-level front-on elevation, side silhouette only, flat billboard,
+horizon line, sky, clouds, forest landscape, multiple different trees blended, background scenery,
+grass field beyond tile, text, letters, numbers, watermark, frame, border, vignette, drop shadow
+beyond flattened ground oval, asymmetric trunks between frames, different species in same row,
+top-down map symbol, icon, voxel block
 ```
 
 ---
@@ -178,42 +219,44 @@ rembg i sheet_oak_chromakey.png sheet_oak_transparent.png
 
 These are the **exact canvas sizes** the engine expects. Generate at **4×** then downscale with `Nearest Neighbor` for extra crispness.
 
-| # | Species (`<name>.png`) | Canvas | Biome / Theme | Silhouette | Palette Notes |
+| # | Species (`<name>.png`) | Canvas | `SPRITE_BASE_OFFSETS` | Biome / Theme | Isometric Silhouette Hint |
 |---|---|---|---|---|---|
-| 1 | **oak** | **64×80** | Parkland, Woodland (flagship) | Huge round dense crown, thick gnarled trunk | Deep greens × 3 tones + warm bark |
-| 2 | **birch** | **48×80** | Parkland, Heathland | Tall elegant, slender white trunk, light airy canopy | White + black bark dashes, lime greens |
-| 3 | **pine** | **48×80** | Mountain, Heathland | Triangular conical fir, layered branches | Dark forest → mint highlight tiers |
-| 4 | **maple** | **56×72** | Parkland, City | Broad rounded, slightly flatter than oak | Yellow-green / warm amber canopy |
-| 5 | **palm** | **56×80** | Desert, Tropical | Curved segmented trunk, 7 long fronds | Sandy brown trunk, vivid frond greens |
-| 6 | **dead_tree** | **56×80** | Marshland, spooky | Bare gnarled branches, no leaves | Grey-brown bark, hollow, eerie |
-| 7 | **cactus** | **40×64** | Desert | Classic saguaro + 2 arms | Cactus green + darker rib shading |
-| 8 | **bush** | **40×40** | All / fairway filler | Low hemisphere shrub, dense | Two-tone tuft greens, soft top highlight |
-| 9 | **cattails** | **32×48** | Marshland, water edge | 5–6 reeds + 3 brown cattail heads | Reed green + golden brown sausage tips |
-| 10 | **fescue** | **32×32** | Links, rough | Spiky tussock grass tuft | Straw-green / beige, wispy tips |
-| 11 | **heather** | **32×32** | Heathland, moor | Low ground cover, purple bloom carpet | Green base + 12–15 purple flower dots |
+| 1 | **oak** | **64×80** | 22.0 | Parkland, Woodland (flagship) | Huge dome viewed from above — top highlight is an oval, sides fall away with dither |
+| 2 | **birch** | **48×80** | 25.0 | Parkland, Heathland | Tall slender — white vertical cylinder trunk (perspective), small crown with visible top |
+| 3 | **pine** | **48×80** | 32.0 | Mountain, Heathland | Cone of tiers — isometric sees concentric ovals shrinking upward |
+| 4 | **maple** | **56×72** | 20.0 | Parkland, City | Broad shallow dome — top-down shows radial leaf texture |
+| 5 | **palm** | **56×80** | 22.0 | Desert, Tropical | Vertical trunk, fronds radiate from top point — top view is starburst |
+| 6 | **dead_tree** | **56×80** | 28.0 | Marshland, spooky | Bare armature — branches reach in 3D, seen obliquely |
+| 7 | **cactus** | **40×64** | 24.0 | Desert | Column on diamond — 2 arms are 3D volumes, not flat cutouts |
+| 8 | **bush** | **40×40** | 12.0 | All / fairway filler | Low mound — isometric top is fullest, sides rounded |
+| 9 | **cattails** | **32×48** | 16.0 | Marshland, water edge | Reed cluster — thin verticals with 3D heads |
+| 10 | **fescue** | **32×32** | 10.0 | Links, rough | Tiny tuft — wispy blades splay in 3D, top cluster visible |
+| 11 | **heather** | **32×32** | 10.0 | Heathland, moor | Ground-hugger — top-down flower scatter on diamond |
 
-**Anatomy of a frame (for the AI):**
+**Anatomy of a frame in isometric (for the AI):**
 
-- **Trunk anchor:** bottom-center pixel(s) of canvas, same in all 4 views. `TreeOverlay` pins here.
-- **Ground shadow:** tiny soft oval (dark sage / brown, ~40% opacity, 10–18px wide) directly under trunk. Keeps it planted on the tile.
-- **East view:** crown **squashed 18% horizontally** toward trunk, **leans 3px right at crown top**, lit from **right** (gradient highlight on right edge).
-- **West view:** mirrored East, leans 3px left, lit from left.
-- **South view:** mirrored North, **slightly darker** (×0.88 brightness, lost sun), east/west limbs swapped.
-- **North view:** your authored hero — brightest, front-lit.
+- **Camera:** Fixed high-oblique `26.6°` elevation, `135°` sun (southeast). Same for N/E/S/W — only azimuth turns `90°` per step.
+- **Trunk anchor:** `bottom-center + SPRITE_BASE_OFFSETS` — trunk meets tile at diamond centre, trunk is **vertical cylinder** (not a flat rectangle), lit on sun side. Jitter `±6px X / ±3px Y` and scale `0.85–1.15×` are applied per tile in-game — generate the neutral centred version.
+- **Ground shadow:** Flattened ellipse at `scale (1.0, 0.5)` directly under trunk at `tile_width*0.06, tile_height*0.06` from centre, `spread = tile_width*0.3*scale`, `Color(0,0,0,0.2)`. That's the only ground mark — no full tile texture.
+- **Crown:** Volume, not disc. Isometric sees the **top plane** (highlighted, dithered) + **two side faces**. Crown leans with terrain elevation (`ELEVATION_STEP_Y=10px`) but base generation is flat.
+- **East view:** Crown **foreshortened 0.82× in screen-X** toward trunk (isometric + perspective), **sheared ≤3px at crown top** in screen-X toward azimuth, lit from **right** (gradient highlight on right edge). See `tools/tree_art/generate.py` `PROFILES["e"]`.
+- **West view:** Mirrored East, sheared opposite, lit from left.
+- **South view:** Mirrored North, **0.88× brightness** (sun-away), east/west limbs swapped.
+- **North view:** Hero — brightest, front-oblique with top clearly visible. This is the authored source (`<species>.png`); `generate.py` can derive E/S/W from it if you prefer.
 
 ---
 
 ## 3. Master Prompt Template
 
 ```
-[GLOBAL STYLE FRAGMENT] + [BACKGROUND VARIANT A or B] + [TREE-SPECIFIC DESCRIPTION] + [TECHNICAL LAYOUT FRAGMENT] + --ar 4:1
+[GLOBAL STYLE FRAGMENT] + [CAMERA FRAGMENT — isometric top-down oblique] + [TREE-SPECIFIC DESCRIPTION with top texture] + [BACKGROUND VARIANT A or B] + [TECHNICAL LAYOUT FRAGMENT — same elevation, azimuth rotates] + --ar 4:1
 ```
 
 For SDXL / Flux / Ideogram, keep it as one paragraph. For Midjourney, you can weight with `::`.
 
 **MJ weighting example:**
 ```
-pixel art sprite sheet::2 [tree description]::2 four views in a row::1.5 solid green background::1.5 --ar 4:1 --tile --v 6 --style raw --s 250 --no photorealistic, forest, sky
+pixel art isometric dimetric sprite sheet::2 high-oblique 26.6 degrees top-down::1.5 [tree description with top highlight]::2 four azimuth views same elevation::1.5 solid green background::1 --ar 4:1 --v 6 --style raw --s 250 --no photorealistic, eye-level, horizon, forest background
 ```
 
 **Generation Settings (recommended):**
@@ -236,16 +279,23 @@ Each block is **ready to paste**. Replace `BACKGROUND` with `BACKGROUND A` (tran
 **Vibe:** Grand, friendly, storybook parkland oak. The tree players remember.
 
 ```text
-pixel art game asset sprite sheet, majestic parkland oak tree with massive dense rounded canopy,
-three layered shades of vibrant green with soft dithered highlights on top-right, thick gnarled
-warm brown trunk with subtle vertical bark texture and two low forked branches peeking through
-leaves, tiny soft elliptical ground shadow under trunk, 16-bit retro cozy golf tycoon style,
-hand-pixelled crisp 1px outline, warm soft lighting from top-right, isolated on solid flat
-chroma-key green background #00FF6A, even flat color, centered bottom-center anchor,
-sprite sheet single horizontal row of 4 identical trees (North front view | East right-side
-squashed 18% leaned 3px right lit from right | South back mirrored darker | West left-side
-mirrored leaned left), same silhouette every frame, equal spacing, no border, Stardew Valley
-meets SimGolf, highly detailed at small resolution --ar 4:1
+pixel art game asset sprite sheet, majestic parkland oak tree massive dense rounded dome canopy,
+top-down oval highlight pale lime on canopy TOP with three dithered vibrant green side tones
+falling away under isometric light, volumetric 3D dome with clear top texture and overlapping
+leaf clusters, thick vertical cylindrical gnarled warm brown trunk with vertical bark grooves
+standing at centre of isometric diamond tile, tiny flattened elliptical ground shadow (50% vertical
+scale, 20% opacity) under trunk, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE VIEW high camera
+26.6 degrees above ground looking down from southeast at terrain tile, seeing TOP of canopy plus
+two side faces, not a flat side elevation, 16-bit retro cozy golf tycoon hand-pixelled crisp 1px
+outline, warm sun from top-right 135 degrees, dithered side shading, Stardew Valley meets SimGolf
+building art projection sx=(u-v)*32 sy=(u+v)*16 - z, ultra-sharp nearest-neighbor,
+isolated on solid flat chroma-key green background #00FF6A, even flat color,
+sprite sheet single horizontal row of 4 identical volumetric trees at SAME isometric elevation
+26.6 degrees only azimuth rotates: North (sees north+east faces) | East (sees east+south,
+crown foreshortened 18% toward trunk leaned 3px right lit from right) | South (sees south+west
+mirrored slightly darker 0.88x) | West (sees west+north mirrored foreshortened leaned left),
+same dome, same height, same top highlight, trunk base at exact bottom-center, equal spacing,
+no border, no horizon, no sky --ar 4:1
 ```
 *For transparent-capable tools, swap `isolated on solid flat chroma-key green background #00FF6A, even flat color` → `isolated on transparent background, alpha channel`.*
 
@@ -258,14 +308,17 @@ meets SimGolf, highly detailed at small resolution --ar 4:1
 **Vibe:** Tall, slender, Scandinavian elegance. The white trunk is the hero.
 
 ```text
-pixel art game asset sprite sheet, elegant birch tree, slender tall pure white trunk with
-crisp horizontal black bark dashes and subtle grey shading, light airy lime-green-yellow canopy
-with delicate layered clusters and small dark twig speckles, graceful upright silhouette,
-tiny soft ground shadow, 16-bit retro cozy golf tycoon style, hand-pixelled crisp 1px outline,
-warm soft lighting from top-right, isolated on solid flat chroma-key green background #00FF6A,
-centered bottom-center anchor, sprite sheet single horizontal row of 4 identical trees
-(North front | East squashed 18% leaned right lit right | South mirrored darker | West mirrored
-leaned left), same tree every frame --ar 4:1
+pixel art game asset sprite sheet, elegant birch tree, tall slender VERTICAL CYLINDRICAL pure
+white trunk with crisp horizontal black bark dashes and subtle grey-blue sun shading on sun-away
+side, small light airy lime-green-yellow crown with visible TOP oval texture and delicate side
+clusters plus dark twig speckles, graceful volumetric 3D crown viewed from above, tiny flattened
+elliptical ground shadow under trunk base, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE VIEW 26.6 degrees
+high camera looking down on diamond tile, seeing TOP of crown plus two faces, not flat side-on,
+16-bit retro cozy golf tycoon hand-pixelled crisp 1px outline, warm top-right sun,
+isolated on solid flat chroma-key green background #00FF6A, even flat color,
+centered bottom-center anchor, sprite sheet horizontal row of 4 identical volumetric birches at
+SAME elevation azimuth rotates N|E squashed leaned right|S darker|W squashed leaned left,
+same white cylinder every frame --ar 4:1
 ```
 
 **Key detail:** White trunk must stay bright — AI loves to muddy it brown; add to positive: `pure white trunk, black markings` and to negative: `brown trunk`.
@@ -277,14 +330,16 @@ leaned left), same tree every frame --ar 4:1
 **Vibe:** Perfect Christmas-tree cone, layered, Mountain theme icon.
 
 ```text
-pixel art game asset sprite sheet, perfect conical alpine pine / fir tree, triangular silhouette
-with 5-6 distinct layered tiers of dark forest green to mint emerald highlights on top-right edges,
-narrow straight warm brown trunk barely visible through branches, crisp snow-free evergreen,
-tiny soft ground shadow, 16-bit retro cozy golf tycoon style, hand-pixelled crisp 1px outline,
-isolated on solid flat chroma-key green background #00FF6A, even flat color, centered
-bottom-center anchor, sprite sheet single horizontal row of 4 identical trees (North front |
-East side squashed 18% leaned 3px right | South back mirrored darker | West side mirrored
-leaned left), identical height all frames --ar 4:1
+pixel art game asset sprite sheet, perfect conical alpine pine fir tree, triangular volume of
+5-6 distinct stacked tiers each as an oval viewed from above with dark forest green undersides
+and mint emerald TOP-PLANE highlights, narrow vertical cylindrical brown trunk at centre of
+isometric diamond, crisp 3D layered tiers with visible TOP texture on every level, tiny flattened
+elliptical ground shadow, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera looking
+down on terrain tile, seeing TOP of tiers plus two side faces, not flat triangle silhouette,
+16-bit retro cozy hand-pixelled crisp 1px outline, isolated on solid flat chroma-key green
+background #00FF6A, even flat color, sprite sheet horizontal row of 4 identical volumetric pines
+at SAME elevation (North | East foreshortened 18% leaned right | South mirrored darker |
+West foreshortened leaned left) --ar 4:1
 ```
 
 **Winter prompt add-on:** `snow-dusted pine, white snow caps on branch tiers, snowy ground shadow, winter`
@@ -296,13 +351,14 @@ leaned left), identical height all frames --ar 4:1
 **Vibe:** Slightly smaller than oak, warmer, friendly shade tree.
 
 ```text
-pixel art game asset sprite sheet, broad rounded maple tree, warm yellow-green amber canopy
-with soft dithered autumnal glow, slightly flatter crown than oak, medium thick brown trunk
-with subtle fork, airy leaf clusters with lighter top-right highlights, tiny soft ground shadow,
-16-bit retro cozy golf tycoon style, hand-pixelled crisp 1px outline, isolated on solid flat
-chroma-key green background #00FF6A, even flat color, centered bottom-center anchor, sprite sheet
-single horizontal row of 4 identical trees (North | East squashed leaned right | South mirrored
-darker | West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, broad rounded maple tree shallow dome canopy, isometric TOP
+texture warm yellow-green amber radial leaf pattern with soft dithered falloff down sides, lighter
+TOP highlight and side shading, medium vertical cylindrical brown trunk at diamond centre,
+tiny flattened elliptical ground shadow, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE VIEW 26.6 degrees
+high camera on diamond tile, volumetric 3D dome seeing TOP plus two sides, not flat side mound,
+16-bit retro cozy hand-pixelled crisp 1px outline, isolated on solid flat chroma-key green
+background #00FF6A, sprite sheet horizontal row 4 identical volumetric maples at SAME elevation
+N|E squashed leaned right|S darker|W squashed leaned left --ar 4:1
 ```
 
 ---
@@ -312,14 +368,15 @@ darker | West mirrored leaned left) --ar 4:1
 **Vibe:** Instant holiday. Curved, breezy, Desert/Tropical.
 
 ```text
-pixel art game asset sprite sheet, tropical palm tree, thick curved segmented sandy-brown trunk
-leaning slightly right with dark ring texture and cross-hatching, crown of 6-7 long arching
-vibrant green fronds with yellow-green highlights on top-right, two small coconuts tucked under
-fronds, tiny soft ground shadow, 16-bit retro cozy golf tycoon style, hand-pixelled crisp 1px outline,
-warm lighting, isolated on solid flat chroma-key green background #00FF6A, even flat color,
-centered bottom-center anchor, sprite sheet horizontal row of 4 identical palms (North front facing |
-East side profile squashed leaned right | South back mirrored darker | West side mirrored leaned left),
-same curved trunk every frame --ar 4:1
+pixel art game asset sprite sheet, tropical palm tree, thick vertical curved cylindrical
+segmented sandy-brown trunk with dark ring bands and perspective taper (foreshortened, not flat),
+crown of 7 long arching volumetric fronds radiating from TOP centre point — isometric sees starburst
+TOP texture with yellow-green TOP highlights and darker undersides, two small coconuts tucked under
+fronds viewed obliquely, tiny flattened elliptical ground shadow 1.0x0.5 under trunk,
+ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile, seeing TOP
+starburst plus two side frond faces, 16-bit retro cozy hand-pixelled crisp 1px outline,
+isolated on solid flat chroma-key green background #00FF6A, sprite sheet horizontal row 4 identical
+volumetric palms at SAME elevation N front-oblique|E 90° azimuth|S mirrored darker|W 270° --ar 4:1
 ```
 
 ---
@@ -329,14 +386,15 @@ same curved trunk every frame --ar 4:1
 **Vibe:** Spooky, beautiful, gothic — Halloween heathland star.
 
 ```text
-pixel art game asset sprite sheet, dead gnarled tree, completely bare leafless silhouette,
-twisted grey-brown trunk with deep bark grooves and two main forked skeletal branches
-reaching upward like claws, delicate twig fingers on every branch tip, hollow knot on trunk,
-no leaves at all, eerie heathland, tiny soft ground shadow, 16-bit retro cozy pixel art,
-hand-pixelled crisp outline, isolated on solid flat chroma-key green background #00FF6A,
-centered bottom-center anchor, sprite sheet horizontal row of 4 identical bare trees
-(North | East side squashed leaned right lit from right | South back mirrored slightly darker |
-West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, dead gnarled tree volumetric bare armature, twisted vertical
+cylindrical grey-brown trunk with deep bark grooves and two main forked skeletal branches rising
+in 3D (foreshortened with isometric perspective), delicate twig fingers reaching outward in space
+and seen obliquely from above, hollow knot on trunk side, no leaves — shows branch structure in
+3D viewed from high oblique, tiny flattened elliptical ground shadow, ISOMETRIC 2:1 DIMETRIC
+TOP-DOWN OBLIQUE 26.6 degrees high camera looking down on diamond tile, seeing branch volume
+plus trunk side faces, not flat icon, 16-bit retro cozy pixel art hand-pixelled crisp outline,
+isolated on solid flat chroma-key green background #00FF6A, sprite sheet horizontal row 4 identical
+volumetric bare trees at SAME elevation N|E foreshortened leaned right lit right|S slightly darker|W --ar 4:1
 ```
 
 ---
@@ -346,13 +404,14 @@ West mirrored leaned left) --ar 4:1
 **Vibe:** Friendly saguaro, two arms, instant Desert theme.
 
 ```text
-pixel art game asset sprite sheet, classic saguaro cactus, central column with two upward-curved
-arms at mid-height, vibrant cactus green with darker green vertical rib shading and soft
-top-right highlights, small creamy spines dots on ribs, tiny sandy ground shadow, 16-bit retro
-cozy golf tycoon style, hand-pixelled crisp 1px outline, isolated on solid flat chroma-key
-green background #00FF6A, even flat color, centered bottom-center anchor, sprite sheet
-horizontal row of 4 identical cacti (North front | East side squashed leaned right |
-South back mirrored darker | West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, classic saguaro cactus 3D column, central vertical cylindrical
+column with flat TOP dome viewed from above plus two upward-curved cylindrical arms (3D volumes,
+not flat cutouts), vibrant cactus green with darker green vertical rib side shading and TOP highlight,
+small creamy 3D dot spines on ribs, tiny flattened elliptical sandy ground shadow 1.0x0.5 at diamond
+centre, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera on terrain tile,
+seeing TOP domes plus two side faces, 16-bit retro cozy hand-pixelled crisp 1px outline,
+isolated on solid flat chroma-key green background #00FF6A, sprite sheet horizontal row 4
+identical volumetric cacti at SAME elevation N|E foreshortened leaned right|S mirrored darker|W --ar 4:1
 ```
 
 ---
@@ -362,13 +421,14 @@ South back mirrored darker | West mirrored leaned left) --ar 4:1
 **Vibe:** Cute, dense, low hemisphere — fills gaps, defines rough.
 
 ```text
-pixel art game asset sprite sheet, low dense hemispherical bush shrub, two-tone vibrant greens
-with lighter top-right tuft highlights and darker underside, compact rounded puff with
-3-4 leaf clusters and tiny red berry dots, tiny soft ground shadow, 16-bit retro cozy pixel art,
+pixel art game asset sprite sheet, low dense hemispherical bush shrub 3D mound, volumetric dome
+with visible TOP highlight two-tone vibrant greens and darker underside shading around sides,
+compact rounded puff with 3-4 overlapping leaf clusters — isometric sees TOP oval fullest plus
+side curvature, tiny flattened elliptical ground shadow under centre, ISOMETRIC 2:1 DIMETRIC
+TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile, 16-bit retro cozy pixel art
 hand-pixelled crisp 1px outline, isolated on solid flat chroma-key green background #00FF6A,
-centered bottom-center anchor, sprite sheet horizontal row of 4 identical bushes
-(North | East squashed leaned right | South mirrored darker | West mirrored leaned left),
-same puff shape every frame --ar 4:1
+sprite sheet horizontal row 4 identical volumetric bushes at SAME elevation N|E foreshortened
+leaned right|S mirrored darker|W mirrored leaned left --ar 4:1
 ```
 
 ---
@@ -378,13 +438,14 @@ same puff shape every frame --ar 4:1
 **Vibe:** Waterside detail, tall thin, whispers of wind.
 
 ```text
-pixel art game asset sprite sheet, marsh cattails reeds cluster, 5-6 thin upright reed-green stalks
-of varying height with 2-3 golden-brown sausage-shaped cattail heads on top, delicate leaf blades
-and small drooping seed fluff, waterside plant, tiny soft ground shadow, 16-bit retro cozy pixel art,
-hand-pixelled crisp outline, isolated on solid flat chroma-key green background #00FF6A,
-centered bottom-center anchor, sprite sheet horizontal row of 4 identical reed clusters
-(North front | East side squashed leaned right | South back mirrored darker |
-West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, marsh cattails reeds cluster volumetric, 5-6 thin vertical
+cylindrical reed-green stalks of varying height with 3D TOP viewed as small circles plus 2-3
+golden-brown cylindrical sausage cattail heads (volumes, not flat bars), delicate side leaf blades
+and drooping seed fluff seen obliquely from above, tiny flattened elliptical ground shadow,
+ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile,
+16-bit retro cozy pixel art hand-pixelled crisp outline, isolated on solid flat chroma-key green
+background #00FF6A, sprite sheet horizontal row 4 identical volumetric reed clusters at SAME
+elevation N|E foreshortened leaned right|S mirrored darker|W --ar 4:1
 ```
 
 ---
@@ -394,12 +455,13 @@ West mirrored leaned left) --ar 4:1
 **Vibe:** Wispy, wild, linksland rough — straw wind-blown grass.
 
 ```text
-pixel art game asset sprite sheet, fescue tussock grass tuft, spiky wild straw-green-beige clump
-with thin wispy blades splaying outward and lighter tips on top-right, dense base fading to airy tips,
-links rough plant, tiny soft ground shadow, 16-bit retro cozy pixel art, hand-pixelled crisp outline,
-isolated on solid flat chroma-key green background #00FF6A, centered bottom-center anchor,
-sprite sheet horizontal row of 4 identical tufts (North | East squashed leaned right |
-South mirrored darker | West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, fescue tussock grass tuft micro volumetric, spiky wild
+straw-green-beige clump with thin 3D blades splaying outward in all directions — isometric sees
+denser TOP cluster highlight plus side wisps, lighter tips on sun-lit TOP, tiny flattened elliptical
+ground shadow, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile
+but very low height so foreshortening subtle, 16-bit retro cozy micro sprite hand-pixelled crisp
+outline, isolated on solid flat chroma-key green background #00FF6A, sprite sheet horizontal row
+4 identical volumetric tufts at SAME elevation N|E squashed|S darker|W --ar 4:1
 ```
 
 ---
@@ -409,12 +471,13 @@ South mirrored darker | West mirrored leaned left) --ar 4:1
 **Vibe:** Tiny, precious, purple jewel — heathland ground cover.
 
 ```text
-pixel art game asset sprite sheet, low heather ground cover plant, compact mound of tiny green leaves
-with 12-15 scattered small vibrant purple-pink flower dots and lighter top highlights, moorland carpet
-plant, tiny soft ground shadow, 16-bit retro cozy pixel art, hand-pixelled crisp outline,
-isolated on solid flat chroma-key green background #00FF6A, centered bottom-center anchor,
-sprite sheet horizontal row of 4 identical heather mounds (North | East squashed leaned right |
-South mirrored darker | West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, low heather ground cover plant volumetric micro mound, compact
+mound of tiny green leaves viewed ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera
+— TOP plane scattered with 12-15 vibrant purple-pink 3D flower dots plus side shading, very low
+height flattened dome sitting flush on diamond tile with tiny flattened elliptical ground shadow,
+16-bit retro cozy hand-pixelled micro sprite crisp outline, isolated on solid flat chroma-key green
+background #00FF6A, sprite sheet horizontal row 4 identical volumetric heather mounds at SAME
+elevation N|E squashed|S darker|W --ar 4:1
 ```
 
 ---
@@ -439,33 +502,35 @@ These **replace only the canopy description** in the base prompt. Keep everythin
 **Example: Spring Oak Sprite Sheet (64×80 ×4) — solid green BG**
 
 ```text
-pixel art game asset sprite sheet, spring oak tree, fresh bright lime green young leaves
-with 8 tiny pale pink-white blossoms scattered on outer canopy, thick warm brown gnarled trunk,
-soft ground shadow, 16-bit retro cozy golf tycoon style, hand-pixelled crisp 1px outline,
-isolated on solid flat chroma-key green background #00FF6A, even flat color, centered
-bottom-center anchor, sprite sheet horizontal row of 4 identical trees (North front | East side
-squashed 18% leaned 3px right lit from right | South back mirrored darker | West side mirrored
-leaned left), same tree every frame, no border --ar 4:1
+pixel art game asset sprite sheet, spring oak tree volumetric dome, TOP fresh bright lime green
+young leaves TOP highlight with 8 tiny pale pink-white blossoms scattered on outer TOP canopy
+viewed isometrically from above plus two side faces, thick vertical cylindrical warm brown gnarled
+trunk at diamond centre, tiny flattened elliptical ground shadow 1.0x0.5, ISOMETRIC 2:1 DIMETRIC
+TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile, 16-bit retro cozy hand-pixelled crisp
+1px outline, warm sun from top-right, isolated on solid flat chroma-key green #00FF6A, sprite sheet
+horizontal row 4 identical volumetric trees at SAME elevation N|E foreshortened leaned right|
+S mirrored darker|W foreshortened leaned left --ar 4:1
 ```
 
 **Example: Fall Maple Sprite Sheet**
 
 ```text
-pixel art game asset sprite sheet, autumn maple tree, fiery orange-red-gold dense warm fall canopy
-with glowing dappled highlights, medium brown trunk, tiny ground shadow, 16-bit retro cozy golf
-tycoon style, hand-pixelled, isolated on solid flat chroma-key green background #00FF6A,
-centered, sprite sheet horizontal row of 4 identical trees (North | East squashed leaned right |
-South mirrored darker | West mirrored leaned left) --ar 4:1
+pixel art game asset sprite sheet, autumn maple TOP fiery orange-red-gold dense warm fall TOP
+volumetric dome viewed isometrically from above plus two side faces, medium vertical cylindrical
+brown trunk, tiny flattened elliptical ground shadow, ISOMETRIC 2:1 DIMETRIC 26.6 degrees high camera
+on diamond tile, 16-bit retro cozy, isolated on solid flat chroma-key green #00FF6A, sprite sheet
+horizontal row 4 identical volumetric maples at SAME elevation --ar 4:1
 ```
 
 **Example: Winter Pine Sprite Sheet**
 
 ```text
-pixel art game asset sprite sheet, winter snow-capped alpine pine fir tree, triangular tiers with thick
-white snow caps on every branch ledge, dark green peeking through snow, narrow brown trunk, tiny snowy
-ground shadow, 16-bit retro cozy golf tycoon style, hand-pixelled, isolated on solid flat chroma-key
-green background #00FF6A, centered bottom-center anchor, sprite sheet horizontal row of 4 identical
-snowy pines (North | East | South | West) --ar 4:1
+pixel art game asset sprite sheet, winter snow-capped alpine pine fir volumetric stacked tiers,
+each tier is oval TOP horizontal plane with thick white snow TOP caps viewed from above, dark green
+side walls peeking, narrow vertical cylindrical brown trunk, tiny snowy flattened elliptical ground
+shadow 1.0x0.5, ISOMETRIC 2:1 DIMETRIC TOP-DOWN OBLIQUE 26.6 degrees high camera on diamond tile,
+16-bit retro cozy, isolated on solid flat chroma-key green #00FF6A, sprite sheet horizontal row
+4 identical volumetric snowy pines at SAME elevation N|E|S|W --ar 4:1
 ```
 
 ---
@@ -554,8 +619,8 @@ CANVASES = [(64,80),(48,80),(48,80),(56,72),(56,80),(56,80),(40,64),(40,40),(32,
 <summary>Click to expand: 11-prompt cheat sheet for bulk generation</summary>
 
 ```text
-# OAK 64x80 — solid green for easy key
-pixel art game asset sprite sheet, majestic parkland oak massive dense rounded canopy three greens gnarled brown trunk, ground shadow, 16-bit retro cozy golf tycoon hand-pixelled crisp outline, isolated on solid flat chroma-key green background #00FF6A centered, sprite sheet horizontal row 4 identical trees N|E squashed leaned right|S mirrored darker|W mirrored leaned left --ar 4:1
+# OAK 64x80 — isometric diorama on diamond
+pixel art game asset, majestic oak dense rounded dome TOP oval highlight three greens volumetric, vertical cylindrical gnarled brown trunk, flattened ellipse shadow 1.0x0.5, ISOMETRIC 2:1 DIMETRIC 26.6° top-down oblique on diamond tile seeing TOP+2 sides, isolated on solid chroma-key green #00FF6A, sprite sheet row 4 same elevation N|E foreshortened leaned right lit right|S mirrored darker 0.88x|W mirrored foreshortened leaned left --ar 4:1
 
 # BIRCH 48x80
 pixel art game asset sprite sheet, elegant birch pure white trunk black horizontal dashes lime airy canopy, ground shadow, 16-bit retro cozy hand-pixelled, isolated on solid chroma-key green #00FF6A centered, sprite sheet row 4 identical N|E squashed|S mirrored darker|W --ar 4:1
