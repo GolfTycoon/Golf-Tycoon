@@ -108,8 +108,9 @@ var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
 ## Per-file layout supplied by a mod's optional `tree_art/layout.json`:
-## `{scale, ground_y}`. The scale is applied when drawing, never to the source
-## PNG, so a sprite pack remains lossless and users can retune it in place.
+## `{scale, ground_y, offset_y}`. The scale and alignment are applied when
+## drawing, never to the source PNG, so a sprite pack remains lossless and
+## users can retune it in place.
 static var _art_layouts: Dictionary = {}  # sprite path -> Dictionary
 
 ## An all-season replacement's art, registered from the files directly inside
@@ -412,8 +413,8 @@ static func _sprite_file_parts(file: String) -> Dictionary:
 	return {"species": species, "suffix": suffix}
 
 ## Read the optional layout sidecar once per art root. Its compact format is:
-## `{ "scale": 0.5, "species": {"oak": {"ground_y": 96}},
-## "sprites": {"oak_e": {"scale": 0.45}} }`. The top-level values apply to
+## `{ "scale": 0.5, "species": {"oak": {"offset_y": -8}},
+## "sprites": {"oak_e": {"ground_y": 96}} }`. The top-level values apply to
 ## every art file; a species entry overrides them; then an exact sprite/view
 ## entry wins. Invalid fields are ignored so a bad tune never hides the art.
 static func _read_art_layout(root: String) -> Dictionary:
@@ -461,6 +462,9 @@ static func _layout_values(raw: Variant) -> Dictionary:
 	var ground_y: Variant = raw.get("ground_y", null)
 	if ground_y is int or ground_y is float:
 		result["ground_y"] = float(ground_y)
+	var offset_y: Variant = raw.get("offset_y", null)
+	if offset_y is int or offset_y is float:
+		result["offset_y"] = float(offset_y)
 	return result
 
 ## The map form of `species` and `sprites`: only entries with a usable layout
@@ -480,6 +484,13 @@ static func _layout_entries(raw: Variant) -> Dictionary:
 static func art_scale(path: String) -> float:
 	var layout: Dictionary = _art_layouts.get(path, {})
 	return clampf(float(layout.get("scale", 1.0)), MIN_ART_SCALE, MAX_ART_SCALE)
+
+## A final placement nudge in rendered pixels. Negative values move a sprite
+## up the screen; positive values move it down. This deliberately happens after
+## scaling, so a mod author can compare it directly with the course tile.
+static func art_offset_y(path: String) -> float:
+	var layout: Dictionary = _art_layouts.get(path, {})
+	return float(layout.get("offset_y", 0.0))
 
 ## The offset from an image's centre to the terrain point it stands on. A
 ## layout's `ground_y` is a source-image pixel coordinate (from its top edge),
@@ -625,6 +636,7 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 		var size := texture.get_size() * scale_v * art_scale(path)
 		var top_left := center - Vector2(size.x * 0.5,
 				size.y * 0.5 + art_base_offset(species, path, texture.get_size(), scale_v))
+		top_left.y += art_offset_y(path)
 		canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
 	else:
 		_draw_silhouette(canvas, center, species, scale_v, facing)

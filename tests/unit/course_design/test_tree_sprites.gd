@@ -167,6 +167,11 @@ func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> vo
 		"dead_tree": 0.46, "fescue": 0.27, "heather": 0.26, "maple": 0.44,
 		"oak": 0.41, "palm": 0.45, "pine": 0.49,
 	}
+	var expected_offsets := {
+		"birch": -11.0, "bush": -5.0, "cactus": -13.0, "cattails": -9.0,
+		"dead_tree": -9.0, "fescue": -5.0, "heather": -3.0, "maple": -9.0,
+		"oak": -9.0, "palm": -8.0, "pine": -15.0,
+	}
 	for type in TerrainTypes.TREE_SPECIES_TILES:
 		var species := TerrainTypes.get_tree_species(type)
 		for facing in range(TreeOverlay.FACINGS.size()):
@@ -175,6 +180,8 @@ func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> vo
 			assert_true(FileAccess.file_exists(expected), "the pack ships %s" % expected)
 			assert_almost_eq(TreeOverlay.art_scale(expected), float(expected_scales[species]), 0.0001,
 					"the layout scales %s without changing its PNG" % species)
+			assert_almost_eq(TreeOverlay.art_offset_y(expected), float(expected_offsets[species]), 0.0001,
+					"the layout lifts %s onto its terrain ground line" % species)
 			for day in [SPRING_DAY, SUMMER_DAY, FALL_DAY, WINTER_DAY]:
 				assert_eq(TreeOverlay.sprite_path(species, day, CourseTheme.Type.PARKLAND, facing),
 						expected, "%s's %s view is replaced on day %d" % [species, angle, day])
@@ -228,7 +235,7 @@ func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> 
 	layout.store_string("""{
 		"scale": 0.5,
 		"species": {"oak": {"scale": 0.4}},
-		"sprites": {"oak_n": {"scale": 0.3, "ground_y": 150}}
+		"sprites": {"oak_n": {"scale": 0.3, "ground_y": 150, "offset_y": -7}}
 	}""")
 	layout.close()
 	TreeOverlay.register_mod_art("tester.layout", root)
@@ -237,12 +244,16 @@ func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> 
 			"a view-specific scale wins over species and root defaults")
 	assert_almost_eq(TreeOverlay.art_base_offset("oak", path, Vector2(100, 200)), 15.0, 0.0001,
 			"ground_y is measured in source pixels, then follows the draw scale")
+	assert_almost_eq(TreeOverlay.art_offset_y(path), -7.0, 0.0001,
+			"offset_y is a direct post-scale nudge for a low or high sprite")
 	assert_eq(TreeOverlay.art_file("winter/oak", 1), seasonal_path)
 	assert_almost_eq(TreeOverlay.art_scale(seasonal_path), 0.4, 0.0001,
 			"the species rule styles the same tree in a seasonal wardrobe too")
 	TreeOverlay.unregister_mod_art("tester.layout")
 	assert_almost_eq(TreeOverlay.art_scale(path), 1.0, 0.0001,
 			"unloading the mod forgets its layout with its art")
+	assert_almost_eq(TreeOverlay.art_offset_y(path), 0.0, 0.0001,
+			"and the alignment nudge leaves with the mod too")
 
 
 func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:

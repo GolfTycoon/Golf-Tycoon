@@ -41,27 +41,30 @@ tree_art/
 ### Tune size and footing in `layout.json`
 
 `layout.json` is optional. It changes **how** the game draws an image, not the
-image file itself. A layout can set a `scale` from `0.05` to `4.0`, and a
-`ground_y`: the source-image Y coordinate (from the top) where the tree meets
-the terrain. Use a general value, then refine a species or one facing only:
+image file itself. A layout can set a `scale` from `0.05` to `4.0`, a simple
+`offset_y` nudge in rendered pixels, and a precise `ground_y`: the source-image
+Y coordinate (from the top) where the tree meets the terrain. Use a general
+value, then refine a species or one facing only:
 
 ```json
 {
   "scale": 0.5,
   "species": {
-    "oak": {"scale": 0.42, "ground_y": 126},
-    "bush": {"scale": 0.32}
+    "oak": {"scale": 0.42, "offset_y": -8},
+    "bush": {"scale": 0.32, "ground_y": 68}
   },
   "sprites": {
-    "oak_e": {"ground_y": 124}
+    "oak_e": {"offset_y": 2}
   }
 }
 ```
 
 The rules merge in this order: root defaults, the species (`oak`), then an
-exact sprite/view (`oak_e`). Omit `ground_y` to retain Golf Tycoon's normal
+exact sprite/view (`oak_e`). `offset_y: -8` moves a sprite eight pixels **up**;
+a positive number moves it down. Omit `ground_y` to retain Golf Tycoon's normal
 anchor for that species, scaled with the image. This pack's own layout uses
-per-species scales because its supplied art has a variety of canvas sizes.
+per-species scales and upward placement nudges because its supplied art has a
+variety of canvas sizes and ground-line crops.
 
 An unsuffixed `<species>.png` is allowed when the same drawing should answer
 for every facing, but a full set of four views produces the best result. To

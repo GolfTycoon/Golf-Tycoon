@@ -121,7 +121,7 @@ to alter the **draw transform**, not the image itself:
 {
   "scale": 0.5,
   "species": {
-    "oak": {"scale": 0.42, "ground_y": 126}
+    "oak": {"scale": 0.42, "offset_y": -8}
   },
   "sprites": {
     "oak_e": {"ground_y": 124}
@@ -132,6 +132,9 @@ to alter the **draw transform**, not the image itself:
 - `scale` is a number from `0.05` to `4.0`; `1.0` is native size. Root-level
   values apply to every image in the folder, `species.<name>` overrides a
   species, and `sprites.<name>_<facing>` is the final per-view override.
+- `offset_y` is the quickest visual correction: it is a rendered-pixel nudge
+  after scaling. Negative values move the sprite up; positive values move it
+  down. It is ideal when a replacement simply sits too high or low.
 - `ground_y` is the source-image pixel coordinate, measured from its top edge,
   that should sit on the terrain. It is useful when a replacement PNG has more
   transparent padding, or a different crop, above or below the trunk. Omit it

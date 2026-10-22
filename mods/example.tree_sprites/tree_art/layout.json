@@ -1,15 +1,15 @@
 {
 	"species": {
-		"birch": {"scale": 0.45},
-		"bush": {"scale": 0.32},
-		"cactus": {"scale": 0.50},
-		"cattails": {"scale": 0.42},
-		"dead_tree": {"scale": 0.46},
-		"fescue": {"scale": 0.27},
-		"heather": {"scale": 0.26},
-		"maple": {"scale": 0.44},
-		"oak": {"scale": 0.41},
-		"palm": {"scale": 0.45},
-		"pine": {"scale": 0.49}
+		"birch": {"scale": 0.45, "offset_y": -11},
+		"bush": {"scale": 0.32, "offset_y": -5},
+		"cactus": {"scale": 0.50, "offset_y": -13},
+		"cattails": {"scale": 0.42, "offset_y": -9},
+		"dead_tree": {"scale": 0.46, "offset_y": -9},
+		"fescue": {"scale": 0.27, "offset_y": -5},
+		"heather": {"scale": 0.26, "offset_y": -3},
+		"maple": {"scale": 0.44, "offset_y": -9},
+		"oak": {"scale": 0.41, "offset_y": -9},
+		"palm": {"scale": 0.45, "offset_y": -8},
+		"pine": {"scale": 0.49, "offset_y": -15}
 	}
 }
