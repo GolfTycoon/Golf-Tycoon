@@ -17,8 +17,12 @@ four views (`_n`, `_e`, `_s`, `_w`) for every shipped tree terrain species:
 Root-level art is an **all-season replacement**. It takes priority over both
 the base game's evergreen art and the Seasons mod's spring/fall/winter
 wardrobe, so this one folder replaces every tree sprite all year — even when
-Seasons is disabled. The files are intentionally kept at their supplied sizes;
-the overlay anchors them on the species' established ground point.
+Seasons is disabled.
+
+The supplied drawings are larger than Golf Tycoon's built-in sprite canvases,
+so `tree_art/layout.json` scales them down **at draw time**. The PNGs stay
+untouched: users can tune the numbers without losing detail or maintaining a
+second resized copy of their art.
 
 ## Make it yours
 
@@ -28,10 +32,36 @@ the filename pattern:
 
 ```text
 tree_art/
+  layout.json
   oak_n.png  oak_e.png  oak_s.png  oak_w.png
   pine_n.png pine_e.png pine_s.png pine_w.png
   ...
 ```
+
+### Tune size and footing in `layout.json`
+
+`layout.json` is optional. It changes **how** the game draws an image, not the
+image file itself. A layout can set a `scale` from `0.05` to `4.0`, and a
+`ground_y`: the source-image Y coordinate (from the top) where the tree meets
+the terrain. Use a general value, then refine a species or one facing only:
+
+```json
+{
+  "scale": 0.5,
+  "species": {
+    "oak": {"scale": 0.42, "ground_y": 126},
+    "bush": {"scale": 0.32}
+  },
+  "sprites": {
+    "oak_e": {"ground_y": 124}
+  }
+}
+```
+
+The rules merge in this order: root defaults, the species (`oak`), then an
+exact sprite/view (`oak_e`). Omit `ground_y` to retain Golf Tycoon's normal
+anchor for that species, scaled with the image. This pack's own layout uses
+per-species scales because its supplied art has a variety of canvas sizes.
 
 An unsuffixed `<species>.png` is allowed when the same drawing should answer
 for every facing, but a full set of four views produces the best result. To

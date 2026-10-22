@@ -162,12 +162,19 @@ func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> vo
 	assert_eq(str(manifest.content.get("tree_art_root", "")), "tree_art")
 	ContentRegistry.apply_mod_content(manifest.id, USER_TREE_SPRITES_MOD_ROOT, manifest.content)
 
+	var expected_scales := {
+		"birch": 0.45, "bush": 0.32, "cactus": 0.50, "cattails": 0.42,
+		"dead_tree": 0.46, "fescue": 0.27, "heather": 0.26, "maple": 0.44,
+		"oak": 0.41, "palm": 0.45, "pine": 0.49,
+	}
 	for type in TerrainTypes.TREE_SPECIES_TILES:
 		var species := TerrainTypes.get_tree_species(type)
 		for facing in range(TreeOverlay.FACINGS.size()):
 			var angle := TreeOverlay.facing_name(facing)
 			var expected := "%s%s_%s.png" % [USER_TREE_SPRITES_ART, species, angle]
 			assert_true(FileAccess.file_exists(expected), "the pack ships %s" % expected)
+			assert_almost_eq(TreeOverlay.art_scale(expected), float(expected_scales[species]), 0.0001,
+					"the layout scales %s without changing its PNG" % species)
 			for day in [SPRING_DAY, SUMMER_DAY, FALL_DAY, WINTER_DAY]:
 				assert_eq(TreeOverlay.sprite_path(species, day, CourseTheme.Type.PARKLAND, facing),
 						expected, "%s's %s view is replaced on day %d" % [species, angle, day])
@@ -211,6 +218,31 @@ func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -
 		assert_eq(TreeOverlay.art_file("fall/palm", facing), authored,
 				"every angle wears the one drawing the mod shipped")
 	TreeOverlay.unregister_mod_art("tester.early")
+
+
+func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> void:
+	var root := TEMP_ART.path_join("layout")
+	var path := _write_art(root, "oak_n.png", Color.WHITE)
+	var seasonal_path := _write_art(root, "winter/oak_e.png", Color.WHITE)
+	var layout := FileAccess.open(root.path_join("layout.json"), FileAccess.WRITE)
+	layout.store_string("""{
+		"scale": 0.5,
+		"species": {"oak": {"scale": 0.4}},
+		"sprites": {"oak_n": {"scale": 0.3, "ground_y": 150}}
+	}""")
+	layout.close()
+	TreeOverlay.register_mod_art("tester.layout", root)
+	assert_eq(TreeOverlay.sprite_path("oak", SPRING_DAY, CourseTheme.Type.PARKLAND, 0), path)
+	assert_almost_eq(TreeOverlay.art_scale(path), 0.3, 0.0001,
+			"a view-specific scale wins over species and root defaults")
+	assert_almost_eq(TreeOverlay.art_base_offset("oak", path, Vector2(100, 200)), 15.0, 0.0001,
+			"ground_y is measured in source pixels, then follows the draw scale")
+	assert_eq(TreeOverlay.art_file("winter/oak", 1), seasonal_path)
+	assert_almost_eq(TreeOverlay.art_scale(seasonal_path), 0.4, 0.0001,
+			"the species rule styles the same tree in a seasonal wardrobe too")
+	TreeOverlay.unregister_mod_art("tester.layout")
+	assert_almost_eq(TreeOverlay.art_scale(path), 1.0, 0.0001,
+			"unloading the mod forgets its layout with its art")
 
 
 func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:

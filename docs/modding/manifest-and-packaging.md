@@ -107,9 +107,40 @@ screen reports every cross-mod overwrite by name.
 | `visiting_golfers` | `{location_id: path}` where each path holds a JSON **array** of golfer cards (same shape as `data/visiting_golfers/*.json`) | Cards are appended to that location's visitor pool; your own location may be named bare. |
 | `golfer_names` | `{"professions": [], "female_first_names": [], "male_first_names": [], "last_names": []}` | Strings are added to `GolferAttributes`' pools. |
 | `golfer_skins_root` | a **directory** of skin folders | Merged into `GolferSkinLibrary` - see [../golfer-skins.md](../golfer-skins.md) for the `skin.txt` format. A skin may ship no painted layers and just re-color a shipped sprite set's groups (see `example.golfers`). |
-| `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders | A root-level `<species>[_n/_e/_s/_w].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/view, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_n/_e/_s/_w].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. The unsuffixed drawing answers for any angle not generated. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
+| `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders and `layout.json` | A root-level `<species>[_n/_e/_s/_w].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/view, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_n/_e/_s/_w].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. The unsuffixed drawing answers for any angle not generated. `layout.json` can scale or re-anchor art at draw time. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
 | `seasonal_events` | `{"events": [{id, name, season, …}]}` | Registered whole into `SeasonalEvents` (full records only - no field-level merge). See namespacing below; painting-by-id is how `example.more_seasons` re-opens the Seasons mod's Spring event. |
 | `tuning` | `{"tuning": {"dotted.key": number}}` | Flat numeric levers read by the game and by mods via `get_tuning`. Non-numbers are skipped with a warning. The game's own keys are listed in [mod-api.md](mod-api.md). |
+
+### Tree sprite layout (`tree_art_root/layout.json`)
+
+PNG dimensions do not need to match Golf Tycoon's built-in art. Put an
+optional `layout.json` at the root of the folder declared as `tree_art_root`
+to alter the **draw transform**, not the image itself:
+
+```json
+{
+  "scale": 0.5,
+  "species": {
+    "oak": {"scale": 0.42, "ground_y": 126}
+  },
+  "sprites": {
+    "oak_e": {"ground_y": 124}
+  }
+}
+```
+
+- `scale` is a number from `0.05` to `4.0`; `1.0` is native size. Root-level
+  values apply to every image in the folder, `species.<name>` overrides a
+  species, and `sprites.<name>_<facing>` is the final per-view override.
+- `ground_y` is the source-image pixel coordinate, measured from its top edge,
+  that should sit on the terrain. It is useful when a replacement PNG has more
+  transparent padding, or a different crop, above or below the trunk. Omit it
+  to use the shipped species' ground point, scaled with the art.
+- Layout values apply to root-level replacements and seasonal subfolders alike.
+  Invalid or unknown entries are ignored so the artwork still loads.
+
+`mods/example.tree_sprites/tree_art/layout.json` is a complete, working
+per-species scaling example using the supplied large user sprites.
 
 ### Namespacing, patching, replacing, removing
 

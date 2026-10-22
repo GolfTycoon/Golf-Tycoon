@@ -1,0 +1,15 @@
+{
+	"species": {
+		"birch": {"scale": 0.45},
+		"bush": {"scale": 0.32},
+		"cactus": {"scale": 0.50},
+		"cattails": {"scale": 0.42},
+		"dead_tree": {"scale": 0.46},
+		"fescue": {"scale": 0.27},
+		"heather": {"scale": 0.26},
+		"maple": {"scale": 0.44},
+		"oak": {"scale": 0.41},
+		"palm": {"scale": 0.45},
+		"pine": {"scale": 0.49}
+	}
+}

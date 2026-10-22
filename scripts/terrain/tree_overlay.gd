@@ -53,6 +53,13 @@ const SPRITE_DIR := "res://assets/sprites/trees/"
 ## first among them.
 const ART_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "webp", "bmp"]
 
+## An optional JSON sidecar a mod can put inside its declared tree-art folder.
+## It lets a sprite pack adjust its draw scale and ground point without baking
+## a new canvas into every PNG; see docs/modding/manifest-and-packaging.md.
+const ART_LAYOUT_FILE := "layout.json"
+const MIN_ART_SCALE := 0.05
+const MAX_ART_SCALE := 4.0
+
 ## The four angles a tree is drawn from, indexed by view orientation (see
 ## TerrainGrid.get_view_orientation()): 0 is the course compass's north — the
 ## default view, whose art is the authored drawing — then a quarter turn
@@ -100,6 +107,10 @@ var _visuals: Dictionary = {}
 var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
+## Per-file layout supplied by a mod's optional `tree_art/layout.json`:
+## `{scale, ground_y}`. The scale is applied when drawing, never to the source
+## PNG, so a sprite pack remains lossless and users can retune it in place.
+static var _art_layouts: Dictionary = {}  # sprite path -> Dictionary
 
 ## An all-season replacement's art, registered from the files directly inside
 ## a mod's `tree_art_root`: species -> facing suffix ("" for an authored
@@ -321,16 +332,18 @@ static func _load_art(path: String) -> Texture2D:
 ## (`<root>/<species>[_n|_e|_s|_w].png`) and its season folders may hold a
 ## wardrobe (`<root>/<season>/<species>[_n|_e|_s|_w].png`). A season is the
 ## lower-cased result of SeasonSystem.get_season_name(): spring, summer, fall
-## or winter. ContentRegistry calls this for every mod whose manifest declares
-## `tree_art_root`, in load order. A later mod wins a repeated view on the same
-## shelf; root-level art always beats seasonal art during lookup, by design.
-## Returns how many image files were registered, so the loader can report an
-## empty art folder to the player.
+## or winter. An optional `<root>/layout.json` gives the images a draw scale and
+## ground point without modifying those images. ContentRegistry calls this for
+## every mod whose manifest declares `tree_art_root`, in load order. A later mod
+## wins a repeated view on the same shelf; root-level art always beats seasonal
+## art during lookup, by design. Returns how many image files were registered,
+## so the loader can report an empty art folder to the player.
 static func register_mod_art(mod_id: String, root: String) -> int:
 	unregister_mod_art(mod_id)
 	if not DirAccess.dir_exists_absolute(root):
 		return 0
-	var registered := _register_sprite_overrides(mod_id, root)
+	var layout := _read_art_layout(root)
+	var registered := _register_sprite_overrides(mod_id, root, layout)
 	for season in DirAccess.get_directories_at(root):
 		if season.begins_with("."):
 			continue
@@ -349,8 +362,10 @@ static func register_mod_art(mod_id: String, root: String) -> int:
 				# A later mod in the load order wins this season's drawing.
 				_season_art_owners.erase(replaced)
 				_texture_cache.erase(replaced)
+				_art_layouts.erase(replaced)
 			faces[suffix] = path
 			_season_art_owners[path] = mod_id
+			_art_layouts[path] = _layout_for_sprite(parts, layout)
 			per_species[species] = faces
 			registered += 1
 		if not per_species.is_empty():
@@ -360,7 +375,7 @@ static func register_mod_art(mod_id: String, root: String) -> int:
 ## Register the direct files in a tree-art root as an all-season replacement
 ## shelf. This is private to register_mod_art() so both shelf types have one
 ## lifecycle: changing a mod cannot leave obsolete sprite files behind.
-static func _register_sprite_overrides(mod_id: String, root: String) -> int:
+static func _register_sprite_overrides(mod_id: String, root: String, layout: Dictionary) -> int:
 	var registered := 0
 	for file in DirAccess.get_files_at(root):
 		if not ART_EXTENSIONS.has(file.get_extension().to_lower()):
@@ -375,8 +390,10 @@ static func _register_sprite_overrides(mod_id: String, root: String) -> int:
 			# A later mod in the load order wins this all-season view.
 			_sprite_override_owners.erase(replaced)
 			_texture_cache.erase(replaced)
+			_art_layouts.erase(replaced)
 		faces[suffix] = path
 		_sprite_override_owners[path] = mod_id
+		_art_layouts[path] = _layout_for_sprite(parts, layout)
 		_sprite_overrides[species] = faces
 		registered += 1
 	return registered
@@ -394,6 +411,90 @@ static func _sprite_file_parts(file: String) -> Dictionary:
 			break
 	return {"species": species, "suffix": suffix}
 
+## Read the optional layout sidecar once per art root. Its compact format is:
+## `{ "scale": 0.5, "species": {"oak": {"ground_y": 96}},
+## "sprites": {"oak_e": {"scale": 0.45}} }`. The top-level values apply to
+## every art file; a species entry overrides them; then an exact sprite/view
+## entry wins. Invalid fields are ignored so a bad tune never hides the art.
+static func _read_art_layout(root: String) -> Dictionary:
+	var result: Dictionary = {"default": {}, "species": {}, "sprites": {}}
+	var path := root.path_join(ART_LAYOUT_FILE)
+	if not FileAccess.file_exists(path):
+		return result
+	var json := JSON.new()
+	if json.parse(FileAccess.get_file_as_string(path)) != OK or not (json.data is Dictionary):
+		return result
+	var raw: Dictionary = json.data
+	result["default"] = _layout_values(raw)
+	result["species"] = _layout_entries(raw.get("species", {}))
+	result["sprites"] = _layout_entries(raw.get("sprites", {}))
+	return result
+
+## Pick the layout values that apply to one filename, from broadest to most
+## specific. Copies keep one file's style from being mutated by another's.
+static func _layout_for_sprite(parts: Dictionary, layout: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var default_values: Variant = layout.get("default", {})
+	if default_values is Dictionary:
+		result = default_values.duplicate()
+	var species := str(parts.get("species", ""))
+	var species_layouts: Dictionary = layout.get("species", {})
+	var species_values: Variant = species_layouts.get(species, {})
+	if species_values is Dictionary:
+		result.merge(species_values, true)
+	var sprite_name := species + str(parts.get("suffix", ""))
+	var sprite_layouts: Dictionary = layout.get("sprites", {})
+	var sprite_values: Variant = sprite_layouts.get(sprite_name, {})
+	if sprite_values is Dictionary:
+		result.merge(sprite_values, true)
+	return result
+
+## The usable numeric fields from one layout entry. Scale is clamped to avoid
+## a typo making a zero-sized sprite or swallowing the whole course.
+static func _layout_values(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if not (raw is Dictionary):
+		return result
+	var scale_value: Variant = raw.get("scale", null)
+	if scale_value is int or scale_value is float:
+		result["scale"] = clampf(float(scale_value), MIN_ART_SCALE, MAX_ART_SCALE)
+	var ground_y: Variant = raw.get("ground_y", null)
+	if ground_y is int or ground_y is float:
+		result["ground_y"] = float(ground_y)
+	return result
+
+## The map form of `species` and `sprites`: only entries with a usable layout
+## field survive, so a misspelled key harmlessly falls back to the broader rule.
+static func _layout_entries(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if not (raw is Dictionary):
+		return result
+	for key in raw:
+		var values := _layout_values(raw[key])
+		if not values.is_empty():
+			result[str(key)] = values
+	return result
+
+## The scale a loaded art file is drawn at. Core art and mods without a layout
+## retain 1.0 exactly, preserving the game's established art placement.
+static func art_scale(path: String) -> float:
+	var layout: Dictionary = _art_layouts.get(path, {})
+	return clampf(float(layout.get("scale", 1.0)), MIN_ART_SCALE, MAX_ART_SCALE)
+
+## The offset from an image's centre to the terrain point it stands on. A
+## layout's `ground_y` is a source-image pixel coordinate (from its top edge),
+## which is more natural for artists to measure than the renderer's offset.
+static func art_base_offset(species: String, path: String, source_size: Vector2,
+		variation_scale: float = 1.0) -> float:
+	var layout: Dictionary = _art_layouts.get(path, {})
+	var art_scale_value := art_scale(path)
+	if layout.has("ground_y"):
+		# Unlike the legacy species offset, an explicit artist-supplied ground
+		# point stays on its tile even while this particular tree is varied.
+		return (float(layout["ground_y"]) - source_size.y * 0.5) \
+				* art_scale_value * variation_scale
+	return base_offset(species, source_size, art_scale_value)
+
 ## Drop one mod's art, and the textures loaded from it: the loader calls it
 ## before a mod set is re-applied, and `register_mod_art()` calls it so a mod
 ## registering twice replaces its art rather than stacking over it.
@@ -406,6 +507,7 @@ static func unregister_mod_art(mod_id: String) -> void:
 				continue
 			_sprite_override_owners.erase(override_path)
 			_texture_cache.erase(override_path)
+			_art_layouts.erase(override_path)
 			override_faces.erase(override_suffix)
 		if override_faces.is_empty():
 			_sprite_overrides.erase(override_species)
@@ -419,6 +521,7 @@ static func unregister_mod_art(mod_id: String) -> void:
 					continue
 				_season_art_owners.erase(seasonal_path)
 				_texture_cache.erase(seasonal_path)
+				_art_layouts.erase(seasonal_path)
 				seasonal_faces.erase(seasonal_suffix)
 			if seasonal_faces.is_empty():
 				per_species.erase(seasonal_species)
@@ -433,11 +536,13 @@ static func clear_mod_art() -> void:
 	_sprite_override_owners.clear()
 	_season_art.clear()
 	_season_art_owners.clear()
+	_art_layouts.clear()
 	_texture_cache.clear()
 
-## How far above a sprite's centre its trunk meets the tile, scaled to `size`.
-static func base_offset(species: String, size: Vector2) -> float:
-	return float(SPRITE_BASE_OFFSETS.get(species, size.y * 0.5))
+## How far above a sprite's centre its trunk meets the tile. `scale_factor`
+## keeps a downsized or enlarged mod sprite anchored proportionally to its art.
+static func base_offset(species: String, size: Vector2, scale_factor: float = 1.0) -> float:
+	return float(SPRITE_BASE_OFFSETS.get(species, size.y * 0.5)) * scale_factor
 
 ## The one RNG seed per tile, shared by the species pick and the tree's own
 ## variation, so the course reads the same on every machine and every reload.
@@ -514,10 +619,12 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 			spread, Color(0, 0, 0, 0.2))
 	canvas.draw_set_transform(Vector2.ZERO)
 
-	var texture := texture_for(species, facing)
+	var path := sprite_path(species, -1, -1, facing)
+	var texture := texture_at(path)
 	if texture != null:
-		var size := texture.get_size() * scale_v
-		var top_left := center - Vector2(size.x * 0.5, size.y * 0.5 + base_offset(species, size))
+		var size := texture.get_size() * scale_v * art_scale(path)
+		var top_left := center - Vector2(size.x * 0.5,
+				size.y * 0.5 + art_base_offset(species, path, texture.get_size(), scale_v))
 		canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
 	else:
 		_draw_silhouette(canvas, center, species, scale_v, facing)

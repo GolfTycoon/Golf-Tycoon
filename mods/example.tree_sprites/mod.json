@@ -5,7 +5,7 @@
 	"version": "1.0.0",
 	"api_version": 1,
 	"author": "Golf Tycoon examples",
-	"description": "A data-only visual mod that replaces every shipped tree sprite with a user-created four-view set: oak, pine, maple, birch, palm, dead tree, cactus, bush, fescue, cattails and heather. The flat tree_art folder makes these replacements apply in every season, so it works whether the Seasons mod is enabled or not.",
+	"description": "A data-only visual mod that replaces every shipped tree sprite with a user-created four-view set: oak, pine, maple, birch, palm, dead tree, cactus, bush, fescue, cattails and heather. The flat tree_art folder makes these replacements apply in every season, while layout.json scales the supplied large images at draw time without altering the PNGs.",
 	"types": ["data", "visual", "tree-sprites"],
 	"content": {
 		"tree_art_root": "tree_art"
