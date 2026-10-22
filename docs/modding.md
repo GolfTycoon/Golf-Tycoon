@@ -108,7 +108,8 @@ copy, `mods/` directory included with the game:
 | Repaint a course theme | `content.themes` | yes | `example.theme` |
 | Add world-map locations & their golfers | `content.world_locations` / `visiting_golfers` | yes | `example.world` |
 | New golfer names or a skin | `content.golfer_names` / `golfer_skins_root` | yes | `example.golfers` |
-| Seasonal tree art for a woodland | `content.tree_art_root` | yes | `golf_tycoon.seasons` |
+| Replace every tree sprite, all year | `content.tree_art_root` with root-level sprites | yes | `example.tree_sprites` |
+| Seasonal tree art for a woodland | `content.tree_art_root` with `<season>/` folders | yes | `golf_tycoon.seasons` |
 | Extra events for another mod | a `dependencies` entry + `content.seasonal_events` | yes | `example.more_seasons` |
 | New gameplay rules, reacting to game events | `entry_point` + `permissions: ["script"]` | GDScript | `example.jackpot` |
 | A switch under Game features on Start New Game | script + `register_feature_option` | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |

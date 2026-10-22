@@ -28,6 +28,8 @@ const WINTER_DAY := 350
 ## Where the Seasons mod keeps the wardrobe it lends the trees.
 const SEASONS_MOD_ROOT := "res://mods/golf_tycoon.seasons"
 const SEASONS_ART := SEASONS_MOD_ROOT + "/tree_art/"
+const USER_TREE_SPRITES_MOD_ROOT := "res://mods/example.tree_sprites"
+const USER_TREE_SPRITES_ART := USER_TREE_SPRITES_MOD_ROOT + "/tree_art/"
 
 ## Throwaway art folders, for the registration tests (cleaned up after each).
 const TEMP_ART := "user://ut_tree_art"
@@ -150,6 +152,31 @@ func test_a_snowy_pine_turns_with_the_view_and_a_desert_one_does_not_melt() -> v
 				"a desert pine never held snow, from any angle")
 
 
+func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> void:
+	# The example deliberately contains only root-level art. That makes it an
+	# all-season replacement rather than a four-folder seasonal wardrobe.
+	var manifest := ModManifest.from_json_text(
+			FileAccess.get_file_as_string(USER_TREE_SPRITES_MOD_ROOT.path_join("mod.json")),
+			USER_TREE_SPRITES_MOD_ROOT)
+	assert_true(manifest.is_valid(), "the complete user-art pack is a valid mod")
+	assert_eq(str(manifest.content.get("tree_art_root", "")), "tree_art")
+	ContentRegistry.apply_mod_content(manifest.id, USER_TREE_SPRITES_MOD_ROOT, manifest.content)
+
+	for type in TerrainTypes.TREE_SPECIES_TILES:
+		var species := TerrainTypes.get_tree_species(type)
+		for facing in range(TreeOverlay.FACINGS.size()):
+			var angle := TreeOverlay.facing_name(facing)
+			var expected := "%s%s_%s.png" % [USER_TREE_SPRITES_ART, species, angle]
+			assert_true(FileAccess.file_exists(expected), "the pack ships %s" % expected)
+			for day in [SPRING_DAY, SUMMER_DAY, FALL_DAY, WINTER_DAY]:
+				assert_eq(TreeOverlay.sprite_path(species, day, CourseTheme.Type.PARKLAND, facing),
+						expected, "%s's %s view is replaced on day %d" % [species, angle, day])
+	# The pine rule normally keeps mild-weather pines on evergreen art; a full
+	# replacement is deliberately above that seasonal decision too.
+	assert_eq(TreeOverlay.sprite_path("pine", SPRING_DAY, CourseTheme.Type.DESERT, 0),
+			"%spine_n.png" % USER_TREE_SPRITES_ART)
+
+
 # ---------------------------------------------------------------------------
 # The door the art comes through: registration, load order and raw files
 # ---------------------------------------------------------------------------
@@ -189,12 +216,13 @@ func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -
 func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:
 	# An installed or Workshop copy of a mod is never imported by Godot, so its
 	# art has to load from the file itself — the contract ModAPI.load_texture
-	# gives mods that read their own pictures.
+	# gives mods that read their own pictures. Root-level art takes the same path.
 	var root := TEMP_ART.path_join("raw")
-	var path := _write_art(root, "winter/palm_e.png", Color.WHITE)
+	var path := _write_art(root, "palm_e.png", Color.WHITE)
 	assert_false(ResourceLoader.exists(path), "a file in user:// has no imported resource")
 	assert_eq(TreeOverlay.register_mod_art("tester.raw", root), 1, "and it still registers")
-	var texture := TreeOverlay.texture_at(TreeOverlay.art_file("winter/palm", 1))
+	var texture := TreeOverlay.texture_at(TreeOverlay.sprite_path("palm", SPRING_DAY,
+			CourseTheme.Type.PARKLAND, 1))
 	assert_not_null(texture, "so the overlay decodes its bytes")
 	assert_eq(texture.get_size(), Vector2(8, 8), "and the pixels are the file's own")
 	TreeOverlay.unregister_mod_art("tester.raw")
