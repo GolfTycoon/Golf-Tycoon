@@ -1,16 +1,12 @@
 extends GameTest
 ## The four angles of a tree (TreeOverlay's N / E / S / W sprites).
 ##
-## Every species ships four views — `<species>_n.png` and its `_e`, `_s`, `_w`
-## rotations, generated from the authored north drawing by
-## `tools/tree_art/generate.py` — and the overlay paints one of them on each
-## tile: the course's view orientation stepped by that tree's own quarter-turn
-## offset, so a wood holds several angles at once while a turn of the course
-## still takes every tree on to its next view. These tests pin the lookup and
-## the stepping: all four views exist for every species and season, they are
-## four genuinely different images on the one canvas (so a trunk never hops
-## across its tile when the view turns), and the per-tree angles are mixed,
-## fixed to the tile, and rotated with the grid's view.
+## Every core species ships four independently authored views —
+## `<species>_n.png` and its `_e`, `_s`, `_w` siblings — and the overlay paints
+## the matching facing on each tile. Their canvases may differ; `layout.json`
+## keeps each view scaled and anchored to its own dimensions. These tests pin
+## the lookup and stepping: every facing loads, the layout adapts to image size,
+## and per-tree angles stay mixed, fixed to the tile and rotated with the grid.
 ##
 ## A season's drawings are not the core's: they ship inside the Seasons mod
 ## (`mods/golf_tycoon.seasons/tree_art/<season>/`) and reach the lookup through
@@ -59,7 +55,7 @@ func _write_art(root: String, relative: String, color: Color) -> String:
 
 
 # ---------------------------------------------------------------------------
-# The four views exist, and are four images rather than one worn four ways
+# Every independently-sized view exists, and the layout anchors it by its own dimensions
 # ---------------------------------------------------------------------------
 
 func test_every_species_has_a_sprite_from_each_angle() -> void:
@@ -72,42 +68,34 @@ func test_every_species_has_a_sprite_from_each_angle() -> void:
 			assert_true(path.ends_with("_%s.png" % TreeOverlay.facing_name(facing)),
 					"%s has its %s view (%s)" % [species, TreeOverlay.facing_name(facing), path])
 			assert_false(seen.has(path), "and it is its own file, not a repeat of another angle")
+			assert_not_null(TreeOverlay.texture_at(path), "and the sprite loads")
 			seen[path] = true
 
 
-func test_the_four_views_are_different_images_on_the_same_canvas() -> void:
-	# An asymmetric pair: a leaning palm and a broadleaf. The canopy's
-	# highlights and limbs move between angles, but the canvas — and so the
-	# ground line TreeOverlay anchors to the tile — never does.
-	for species in ["oak", "palm"]:
-		var images: Array = []
-		var size := Vector2.ZERO
-		for facing in range(TreeOverlay.FACINGS.size()):
-			var path := TreeOverlay.sprite_path(species, SUMMER_DAY,
-					CourseTheme.Type.PARKLAND, facing)
-			var texture := TreeOverlay.texture_at(path)
-			assert_not_null(texture, "%s loads from %s" % [species, path])
-			if size == Vector2.ZERO:
-				size = texture.get_size()
-			assert_eq(texture.get_size(), size,
-					"every angle of %s keeps the authored canvas" % species)
-			images.append(hash(texture.get_image().get_data()))
-		for facing in range(1, TreeOverlay.FACINGS.size()):
-			assert_ne(images[facing], images[0],
-					"the %s view of %s is drawn differently from the north view"
-					% [TreeOverlay.facing_name(facing), species])
+func test_different_canvas_sizes_use_a_dimension_relative_ground_anchor() -> void:
+	var oak_sizes: Array[Vector2] = []
+	for facing in range(TreeOverlay.FACINGS.size()):
+		var path := TreeOverlay.sprite_path("oak", SUMMER_DAY,
+				CourseTheme.Type.PARKLAND, facing)
+		var texture := TreeOverlay.texture_at(path)
+		assert_not_null(texture, "the oak's %s view loads" % TreeOverlay.facing_name(facing))
+		var source_size := texture.get_size()
+		var scale := TreeOverlay.art_scale(path)
+		var anchor := TreeOverlay.art_anchor_offset("oak", path, source_size)
+		assert_almost_eq(anchor.x, 0.0, 0.0001, "the trunk is horizontally centred")
+		assert_almost_eq(anchor.y, source_size.y * scale * 0.5, 0.0001,
+				"the layout anchors this canvas at its own bottom edge")
+		oak_sizes.append(source_size)
+	assert_ne(oak_sizes[0], oak_sizes[1],
+			"the supplied views have different canvas dimensions")
 
 
-func test_the_north_view_is_the_authored_drawing() -> void:
-	# Orientation 0 is the course's default view: it must keep wearing the
-	# art as authored, so the unsuffixed and the _n sprite are one image.
-	# (The unsuffixed drawing is the summer art; look the north view up on a
-	# summer day so the comparison is of the same season's image.)
-	var authored := (load(TreeOverlay.SPRITE_DIR + "oak.png") as Texture2D).get_image().get_data()
+func test_the_default_view_uses_the_authored_north_file() -> void:
 	var north_path := TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND,
 			TreeOverlay.DEFAULT_FACING)
-	var north := (TreeOverlay.texture_at(north_path) as Texture2D).get_image().get_data()
-	assert_eq(hash(north), hash(authored), "the north view is the authored oak, unchanged")
+	assert_eq(north_path, TreeOverlay.SPRITE_DIR + "oak_n.png",
+			"orientation zero wears the authored north sprite")
+	assert_not_null(TreeOverlay.texture_at(north_path))
 	assert_same(TreeOverlay.texture_for("oak"), TreeOverlay.texture_for("oak", 0),
 			"and naming no angle (the toolbar's preview) means the north view")
 
@@ -227,6 +215,16 @@ func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -
 	TreeOverlay.unregister_mod_art("tester.early")
 
 
+func test_a_north_only_sprite_pack_fills_its_missing_angles() -> void:
+	var root := TEMP_ART.path_join("north_only")
+	var north := _write_art(root, "palm_n.png", Color.GREEN)
+	TreeOverlay.register_mod_art("tester.north_only", root)
+	for facing in range(TreeOverlay.FACINGS.size()):
+		assert_eq(TreeOverlay.sprite_override_file("palm", facing), north,
+				"the north-only pack covers the %s angle" % TreeOverlay.facing_name(facing))
+	TreeOverlay.unregister_mod_art("tester.north_only")
+
+
 func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> void:
 	var root := TEMP_ART.path_join("layout")
 	var path := _write_art(root, "oak_n.png", Color.WHITE)
@@ -235,7 +233,8 @@ func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> 
 	layout.store_string("""{
 		"scale": 0.5,
 		"species": {"oak": {"scale": 0.4}},
-		"sprites": {"oak_n": {"scale": 0.3, "ground_y": 150, "offset_y": -7}}
+		"sprites": {"oak_n": {"scale": 0.3, "ground_x": 70, "ground_y": 150,
+			"offset_x": 3, "offset_y": -7}}
 	}""")
 	layout.close()
 	TreeOverlay.register_mod_art("tester.layout", root)
@@ -244,6 +243,10 @@ func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> 
 			"a view-specific scale wins over species and root defaults")
 	assert_almost_eq(TreeOverlay.art_base_offset("oak", path, Vector2(100, 200)), 15.0, 0.0001,
 			"ground_y is measured in source pixels, then follows the draw scale")
+	assert_eq(TreeOverlay.art_anchor_offset("oak", path, Vector2(100.0, 200.0)), Vector2(6.0, 15.0),
+			"ground_x and ground_y position the exact source pixel on the terrain")
+	assert_almost_eq(TreeOverlay.art_offset_x(path), 3.0, 0.0001,
+			"offset_x is a direct post-scale nudge")
 	assert_almost_eq(TreeOverlay.art_offset_y(path), -7.0, 0.0001,
 			"offset_y is a direct post-scale nudge for a low or high sprite")
 	assert_eq(TreeOverlay.art_file("winter/oak", 1), seasonal_path)
@@ -252,8 +255,10 @@ func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> 
 	TreeOverlay.unregister_mod_art("tester.layout")
 	assert_almost_eq(TreeOverlay.art_scale(path), 1.0, 0.0001,
 			"unloading the mod forgets its layout with its art")
+	assert_almost_eq(TreeOverlay.art_offset_x(path), 0.0, 0.0001,
+			"and the horizontal nudge leaves with the mod too")
 	assert_almost_eq(TreeOverlay.art_offset_y(path), 0.0, 0.0001,
-			"and the alignment nudge leaves with the mod too")
+			"and the vertical nudge leaves with the mod too")
 
 
 func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:
@@ -267,7 +272,7 @@ func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> v
 	var texture := TreeOverlay.texture_at(TreeOverlay.sprite_path("palm", SPRING_DAY,
 			CourseTheme.Type.PARKLAND, 1))
 	assert_not_null(texture, "so the overlay decodes its bytes")
-	assert_eq(texture.get_size(), Vector2(8, 8), "and the pixels are the file's own")
+	assert_eq(texture.get_size(), Vector2(8.0, 8.0), "and the pixels are the file's own")
 	TreeOverlay.unregister_mod_art("tester.raw")
 	assert_null(TreeOverlay.texture_at(path), "its texture goes when the mod does")
 

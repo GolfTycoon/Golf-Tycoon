@@ -15,12 +15,12 @@ class_name TreeOverlay
 ## from the tile's coordinates so the mix is varied yet identical every time the
 ## course loads.
 ##
-## Every species is drawn from four angles — `<species>_n.png`, `_e`, `_s` and
-## `_w` — and the overlay paints one of them, the way a building swaps its
-## sprite when the view turns (see BuildingSprites). The four views are
-## generated from the one authored (unsuffixed, north) drawing by
-## `tools/tree_art/generate.py`; a species missing a view falls back to that
-## drawing, so new art is playable before its angles exist.
+## Each species can have four independently authored angles —
+## `<species>_n.png`, `_e`, `_s` and `_w` — and the overlay paints the matching
+## view as the course turns (see BuildingSprites). Views may have different
+## canvas dimensions: `layout.json` supplies their scale and normalized ground
+## anchor, while the renderer positions each texture from its own size. If a
+## view is missing, the unsuffixed drawing or north view is used as a fallback.
 ##
 ## A season's drawings of a species are not the core's to ship: the spring,
 ## fall and winter art travels inside the mod that provides the calendar —
@@ -42,9 +42,11 @@ class_name TreeOverlay
 ## every tree on to its next angle — one turn of the screen turns the whole
 ## wood, and a tree is never seen twice from the same side in a row.
 
-## The evergreen art lives here: `<species>.png` plus its four `_n/_e/_s/_w`
-## views. This is the summer drawing of every species, and the only tree art
-## the game itself ships — a season's variants come from the mods (see
+## The evergreen art lives here as `<species>_n/_e/_s/_w.png`; each facing is
+## an independent source image, so its canvas can be sized to suit that view.
+## `layout.json` next to these files controls draw scale and the ground anchor.
+## This is the summer art of every species, and the only tree art the game
+## itself ships — a season's variants come from the mods (see
 ## `register_mod_art()`).
 const SPRITE_DIR := "res://assets/sprites/trees/"
 
@@ -53,9 +55,9 @@ const SPRITE_DIR := "res://assets/sprites/trees/"
 ## first among them.
 const ART_EXTENSIONS: Array[String] = ["png", "jpg", "jpeg", "webp", "bmp"]
 
-## An optional JSON sidecar a mod can put inside its declared tree-art folder.
-## It lets a sprite pack adjust its draw scale and ground point without baking
-## a new canvas into every PNG; see docs/modding/manifest-and-packaging.md.
+## A JSON sidecar used by the bundled sprites and optional in a mod's declared
+## tree-art folder. It adjusts draw scale and ground point without baking a new
+## canvas into every PNG; see docs/modding/manifest-and-packaging.md.
 const ART_LAYOUT_FILE := "layout.json"
 const MIN_ART_SCALE := 0.05
 const MAX_ART_SCALE := 4.0
@@ -78,8 +80,9 @@ const SNOWY_THEMES: Array[int] = [
 	CourseTheme.Type.PARKLAND, CourseTheme.Type.MOUNTAIN, CourseTheme.Type.HEATHLAND,
 ]
 
-## How far above a sprite's centre its trunk meets the ground, so a tree stands
-## on its tile instead of floating half a tile above it.
+## Legacy ground offsets for art without a layout entry (including older
+## seasonal/mod sprites). New asset folders should provide `layout.json` with a
+## normalized ground anchor so changing image dimensions needs no code edit.
 const SPRITE_BASE_OFFSETS: Dictionary = {
 	"oak": 22.0, "pine": 32.0, "maple": 20.0, "birch": 25.0, "palm": 22.0,
 	"bush": 12.0, "cactus": 24.0, "fescue": 10.0, "cattails": 16.0,
@@ -107,11 +110,15 @@ var _visuals: Dictionary = {}
 var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
-## Per-file layout supplied by a mod's optional `tree_art/layout.json`:
-## `{scale, ground_y, offset_y}`. The scale and alignment are applied when
-## drawing, never to the source PNG, so a sprite pack remains lossless and
-## users can retune it in place.
-static var _art_layouts: Dictionary = {}  # sprite path -> Dictionary
+## Per-file layout supplied by a mod's optional `tree_art/layout.json`.
+## Changes are draw-time only; source images remain lossless and replaceable.
+static var _art_layouts: Dictionary = {}  # mod sprite path -> Dictionary
+## The bundled art has the same layout format in `SPRITE_DIR/layout.json`.
+## Resolve and cache each file's merged settings separately from mod layouts,
+## which can be unloaded and replaced while the game is running.
+static var _core_layout_data: Dictionary = {}
+static var _core_layout_cache: Dictionary = {}  # sprite path -> Dictionary
+static var _core_layout_loaded := false
 
 ## An all-season replacement's art, registered from the files directly inside
 ## a mod's `tree_art_root`: species -> facing suffix ("" for an authored
@@ -229,10 +236,9 @@ static func facing_offset(pos: Vector2i) -> int:
 	return hash_value % FACINGS.size()
 
 ## The sprite a species wears right now, seen from view orientation `facing`,
-## or "" when it has no art and the tile falls back to its silhouette. The
-## angled view of the season's art is preferred; the authored (unsuffixed)
-## drawing answers for a view that has not been generated, so a species with
-## only its north drawing still stands from every angle.
+## or "" when it has no art and the tile falls back to its silhouette. A
+## dedicated facing is preferred; an unsuffixed drawing, then the north view,
+## fills any angle that has not been supplied.
 static func sprite_path(species: String, day: int = -1, theme: int = -1,
 		facing: int = DEFAULT_FACING) -> String:
 	# A flat file inside a mod's tree_art_root means "replace this sprite", not
@@ -268,31 +274,32 @@ static func wears_season_art(species: String, season_name: String, theme: int) -
 	return season_name == "winter" and theme in SNOWY_THEMES
 
 ## The file an all-season sprite pack supplies for `species` at `facing`, or
-## "" when no enabled mod replaces that particular view. As with seasonal art,
-## an unsuffixed authored drawing fills any angle whose dedicated file is absent.
+## "" when no enabled mod replaces that particular view. An unsuffixed drawing
+## fills missing angles; if the pack has only a north view, that can fill them too.
 static func sprite_override_file(species: String, facing: int) -> String:
 	var faces: Dictionary = _sprite_overrides.get(species, {})
-	for suffix in ["_" + facing_name(facing), ""]:
+	for suffix in ["_" + facing_name(facing), "", "_n"]:
 		var registered: String = str(faces.get(suffix, ""))
 		if not registered.is_empty():
 			return registered
 	return ""
 
 ## The file one art stem is drawn from at `facing`, or "" when there is none:
-## the angled view first, then the authored (unsuffixed) drawing. A stem
+## the angled view first, then the unsuffixed drawing, then north. A stem
 ## carrying a season ("spring/oak") is looked up in the art the mods
 ## registered; a bare species is the core's own evergreen art.
 static func art_file(stem: String, facing: int) -> String:
 	var angle := "_" + facing_name(facing)
+	var suffixes: Array[String] = [angle, "", "_n"]
 	if not stem.contains("/"):
-		for suffix in [angle, ""]:
+		for suffix in suffixes:
 			var core_path: String = SPRITE_DIR + stem + suffix + ".png"
 			if ResourceLoader.exists(core_path):
 				return core_path
 		return ""
 	var per_species: Dictionary = _season_art.get(stem.get_slice("/", 0), {})
 	var faces: Dictionary = per_species.get(stem.get_slice("/", 1), {})
-	for suffix in [angle, ""]:
+	for suffix in suffixes:
 		var registered: String = str(faces.get(suffix, ""))
 		if not registered.is_empty():
 			return registered
@@ -412,11 +419,12 @@ static func _sprite_file_parts(file: String) -> Dictionary:
 			break
 	return {"species": species, "suffix": suffix}
 
-## Read the optional layout sidecar once per art root. Its compact format is:
-## `{ "scale": 0.5, "species": {"oak": {"offset_y": -8}},
-## "sprites": {"oak_e": {"ground_y": 96}} }`. The top-level values apply to
-## every art file; a species entry overrides them; then an exact sprite/view
-## entry wins. Invalid fields are ignored so a bad tune never hides the art.
+## Read an art-layout sidecar once per root. It can set `scale`, source-pixel
+## anchors (`ground_x`, `ground_y`), normalized anchors (`ground_x_ratio`,
+## `ground_y_ratio`) and post-scale nudges (`offset_x`, `offset_y`). Root values
+## apply to every file, species values override them, then an exact
+## `<species>_<facing>` entry wins. Invalid fields are ignored so a bad tune
+## never hides the art.
 static func _read_art_layout(root: String) -> Dictionary:
 	var result: Dictionary = {"default": {}, "species": {}, "sprites": {}}
 	var path := root.path_join(ART_LAYOUT_FILE)
@@ -459,12 +467,14 @@ static func _layout_values(raw: Variant) -> Dictionary:
 	var scale_value: Variant = raw.get("scale", null)
 	if scale_value is int or scale_value is float:
 		result["scale"] = clampf(float(scale_value), MIN_ART_SCALE, MAX_ART_SCALE)
-	var ground_y: Variant = raw.get("ground_y", null)
-	if ground_y is int or ground_y is float:
-		result["ground_y"] = float(ground_y)
-	var offset_y: Variant = raw.get("offset_y", null)
-	if offset_y is int or offset_y is float:
-		result["offset_y"] = float(offset_y)
+	for field in ["ground_x", "ground_y", "offset_x", "offset_y"]:
+		var value: Variant = raw.get(field, null)
+		if value is int or value is float:
+			result[field] = float(value)
+	for field in ["ground_x_ratio", "ground_y_ratio"]:
+		var ratio: Variant = raw.get(field, null)
+		if ratio is int or ratio is float:
+			result[field] = clampf(float(ratio), 0.0, 1.0)
 	return result
 
 ## The map form of `species` and `sprites`: only entries with a usable layout
@@ -479,32 +489,64 @@ static func _layout_entries(raw: Variant) -> Dictionary:
 			result[str(key)] = values
 	return result
 
-## The scale a loaded art file is drawn at. Core art and mods without a layout
-## retain 1.0 exactly, preserving the game's established art placement.
+## Resolve the layout for one file. Core art reads the shared layout sidecar;
+## registered mod art already has its merged layout cached per source file.
+static func _layout_for_path(path: String) -> Dictionary:
+	if _art_layouts.has(path):
+		return _art_layouts[path]
+	if not path.begins_with(SPRITE_DIR):
+		return {}
+	if _core_layout_cache.has(path):
+		return _core_layout_cache[path]
+	if not _core_layout_loaded:
+		_core_layout_data = _read_art_layout(SPRITE_DIR)
+		_core_layout_loaded = true
+	var parts := _sprite_file_parts(path.get_file())
+	var layout := _layout_for_sprite(parts, _core_layout_data)
+	_core_layout_cache[path] = layout
+	return layout
+
+## The scale a loaded art file is drawn at. Layout values can differ by root,
+## species or facing; an image without a layout remains at native size.
 static func art_scale(path: String) -> float:
-	var layout: Dictionary = _art_layouts.get(path, {})
+	var layout := _layout_for_path(path)
 	return clampf(float(layout.get("scale", 1.0)), MIN_ART_SCALE, MAX_ART_SCALE)
 
-## A final placement nudge in rendered pixels. Negative values move a sprite
-## up the screen; positive values move it down. This deliberately happens after
-## scaling, so a mod author can compare it directly with the course tile.
+## Final placement nudges in rendered pixels. These are applied after scaling,
+## so an artist can compare them directly with the course tile.
+static func art_offset_x(path: String) -> float:
+	var layout := _layout_for_path(path)
+	return float(layout.get("offset_x", 0.0))
+
 static func art_offset_y(path: String) -> float:
-	var layout: Dictionary = _art_layouts.get(path, {})
+	var layout := _layout_for_path(path)
 	return float(layout.get("offset_y", 0.0))
 
-## The offset from an image's centre to the terrain point it stands on. A
-## layout's `ground_y` is a source-image pixel coordinate (from its top edge),
-## which is more natural for artists to measure than the renderer's offset.
+## The vertical offset from an image's centre to its terrain point. Exact
+## `ground_y` uses source pixels; `ground_y_ratio` follows a canvas that changes
+## size; older layouts without either field use the legacy species offset.
 static func art_base_offset(species: String, path: String, source_size: Vector2,
 		variation_scale: float = 1.0) -> float:
-	var layout: Dictionary = _art_layouts.get(path, {})
+	var layout := _layout_for_path(path)
 	var art_scale_value := art_scale(path)
-	if layout.has("ground_y"):
-		# Unlike the legacy species offset, an explicit artist-supplied ground
-		# point stays on its tile even while this particular tree is varied.
-		return (float(layout["ground_y"]) - source_size.y * 0.5) \
-				* art_scale_value * variation_scale
-	return base_offset(species, source_size, art_scale_value)
+	if layout.has("ground_y") or layout.has("ground_y_ratio"):
+		var ground_y := float(layout.get("ground_y",
+				source_size.y * float(layout.get("ground_y_ratio", 0.5))))
+		return (ground_y - source_size.y * 0.5) * art_scale_value * variation_scale
+	return base_offset(species, source_size, art_scale_value * variation_scale)
+
+## The 2D offset from the image's centre to its terrain anchor. Ratios are
+## useful when facing sprites have different dimensions: one layout setting
+## stays correct when the PNG is replaced with another canvas size.
+static func art_anchor_offset(species: String, path: String, source_size: Vector2,
+		variation_scale: float = 1.0) -> Vector2:
+	var layout := _layout_for_path(path)
+	var anchor_x := 0.0
+	if layout.has("ground_x") or layout.has("ground_x_ratio"):
+		var ground_x := float(layout.get("ground_x",
+				source_size.x * float(layout.get("ground_x_ratio", 0.5))))
+		anchor_x = (ground_x - source_size.x * 0.5) * art_scale(path) * variation_scale
+	return Vector2(anchor_x, art_base_offset(species, path, source_size, variation_scale))
 
 ## Drop one mod's art, and the textures loaded from it: the loader calls it
 ## before a mod set is re-applied, and `register_mod_art()` calls it so a mod
@@ -633,10 +675,11 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 	var path := sprite_path(species, -1, -1, facing)
 	var texture := texture_at(path)
 	if texture != null:
-		var size := texture.get_size() * scale_v * art_scale(path)
-		var top_left := center - Vector2(size.x * 0.5,
-				size.y * 0.5 + art_base_offset(species, path, texture.get_size(), scale_v))
-		top_left.y += art_offset_y(path)
+		var source_size := texture.get_size()
+		var size := source_size * scale_v * art_scale(path)
+		var anchor := art_anchor_offset(species, path, source_size, scale_v)
+		var top_left := center - size * 0.5 - anchor
+		top_left += Vector2(art_offset_x(path), art_offset_y(path))
 		canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
 	else:
 		_draw_silhouette(canvas, center, species, scale_v, facing)

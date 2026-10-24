@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Generate the four-angle (N / E / S / W) views of Golf Tycoon's tree sprites.
+"""Generate seasonal/mod tree views from their unsuffixed source drawings.
 
 Run from the repository root:
 
-    python3 tools/tree_art/generate.py            # write every view
+    python3 tools/tree_art/generate.py            # write every generated view
     python3 tools/tree_art/generate.py --preview  # also draw a contact sheet
     python3 tools/tree_art/generate.py --check    # fail if a view is stale
 
-Every species in `assets/sprites/trees/` is authored once, as the unsuffixed
-`<species>.png`, and so is every seasonal variant a mod ships - the Seasons
-mod's `spring/`, `fall/` and `winter/` drawings live in
-`mods/golf_tycoon.seasons/tree_art/` and are derived here too (see
-`art_roots()`). That drawing is the tree seen from the north - the course's
-default view orientation - and it is the source the other three angles are
-derived from here:
+The core evergreen sprites in `assets/sprites/trees/` are independently
+provided `<species>_n/_e/_s/_w.png` images and are deliberately not processed
+here: their canvases can differ, with draw scales and normalized ground anchors
+in the neighboring `layout.json`. This tool handles unsuffixed source images
+inside bundled mods, including the Seasons mod's `spring/`, `fall/` and
+`winter/` tree-art folders (see `art_roots()`).
+
+For a source drawing, the tool derives the other angles as follows:
 
     _n  the authored drawing, copied unchanged;
     _e  the east side: the crown foreshortened (squashed toward the trunk)
@@ -24,20 +25,11 @@ derived from here:
     _w  the west side: mirrored and foreshortened like the east, leaned
         and lit the opposite way.
 
-Trees are close to radially symmetric, so four redraws would mostly repeat
-the same silhouette; what changes between angles is where the asymmetric
-limbs, highlights and lean fall, which is exactly what these derivations
-move. Every view keeps its source's canvas size and ground line, so the
-trunk stays planted on the same spot of its tile at every rotation and
-`TreeOverlay.SPRITE_BASE_OFFSETS` needs no per-facing entry.
-
-The `_n/_e/_s/_w` PNGs are generated art, like the building sprites: edit
-the unsuffixed source and re-run this tool rather than editing a view by
-hand. TreeOverlay draws each tile at the course's view orientation plus
-the tile's own quarter-turn offset (`facing_offset()`), so one wood shows
-all four angles at once and a turn of the course steps every tree on to
-its next view. It falls back to the unsuffixed source if a view is ever
-missing, so a new species is playable the moment its north drawing lands.
+Generated views keep their source's canvas size and ground line. Edit the
+unsuffixed source and re-run this tool rather than editing a generated view by
+hand. TreeOverlay draws each tile at the course's view orientation plus the
+tile's own quarter-turn offset (`facing_offset()`), so one wood shows all four
+angles at once and a turn of the course steps every tree on to its next view.
 """
 
 from __future__ import annotations
@@ -51,7 +43,6 @@ import sys
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SPRITE_DIR = os.path.join(ROOT, "assets", "sprites", "trees")
 MODS_DIR = os.path.join(ROOT, "mods")
 PREVIEW_DIR = os.path.join(ROOT, "tmp_preview")
 
@@ -82,9 +73,9 @@ PROFILES = {
 
 
 def art_roots() -> list[str]:
-    """The folders tree art is authored in: the game's own species, then every
-    bundled mod's `tree_art/` (the Seasons mod's seasonal drawings)."""
-    roots = [SPRITE_DIR]
+    """Bundled mods' tree-art folders; core evergreen views are authored
+    independently and intentionally do not pass through this generator."""
+    roots = []
     if os.path.isdir(MODS_DIR):
         for mod in sorted(os.listdir(MODS_DIR)):
             if mod.startswith(("_", ".")):
@@ -92,12 +83,12 @@ def art_roots() -> list[str]:
             candidate = os.path.join(MODS_DIR, mod, MOD_ART_DIR)
             if os.path.isdir(candidate):
                 roots.append(candidate)
-    return [root for root in roots if os.path.isdir(root)]
+    return roots
 
 
 def source_sprites() -> list[str]:
-    """Every authored (unsuffixed) tree sprite, in every art root, seasonal
-    folders included."""
+    """Every unsuffixed tree-art source in a bundled mod, seasonal folders
+    included. The core's four-facing files are not generated from one source."""
     sources = []
     for root in art_roots():
         for dirpath, _dirs, files in os.walk(root):
