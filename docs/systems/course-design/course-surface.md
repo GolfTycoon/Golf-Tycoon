@@ -58,6 +58,8 @@ Every tree is a painted tile, including the generic Trees tile and its species. 
 
 A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
+`TreeOverlay` paints only the sprite: a tree casts no contact shadow of its own. The ground its tile paints already shades it, and a flattened grey ellipse under every trunk darkened that art and read as a smudge rather than a shadow.
+
 ---
 
 ## Algorithm

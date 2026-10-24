@@ -653,9 +653,10 @@ func _sync_visuals() -> void:
 func facing_for(pos: Vector2i) -> int:
 	return facing_at(pos, view_facing())
 
-## One tree: the contact shadow, then the species' sprite from this tree's own
-## angle at the current view — or its silhouette, turned the same way, when the
-## art is missing.
+## One tree: the species' sprite from this tree's own angle at the current view
+## — or its silhouette, turned the same way, when the art is missing. The
+## sprite is drawn straight onto the turf its tile paints: a contact shadow
+## under it only muddied the ground art the tree already sits in.
 func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
 	var species: String = _tree_tiles[pos]
 	var rng := RandomNumberGenerator.new()
@@ -663,14 +664,6 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 	var center := ground + Vector2(rng.randf_range(-JITTER_X, JITTER_X),
 			rng.randf_range(-JITTER_Y, JITTER_Y))
 	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
-
-	# A squat ellipse on the ground: the same flattened-circle trick the flower
-	# bed uses for its foliage, so the tree reads as standing on the turf.
-	var spread := terrain_grid.tile_width * 0.3 * scale_v
-	canvas.draw_set_transform(ground, 0.0, Vector2(1.0, 0.5))
-	canvas.draw_circle(Vector2(terrain_grid.tile_width * 0.06, terrain_grid.tile_height * 0.06),
-			spread, Color(0, 0, 0, 0.2))
-	canvas.draw_set_transform(Vector2.ZERO)
 
 	var path := sprite_path(species, -1, -1, facing)
 	var texture := texture_at(path)
