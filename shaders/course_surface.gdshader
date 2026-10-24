@@ -319,33 +319,40 @@ vec3 tree_ground(float id, vec3 base, vec2 g, float grain, float patch) {
 	return base;
 }
 
-vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
+// The look of one material. `edge` is how much of the tile's edge treatment
+// applies here: 0 in the open middle of a tile, 1 on an edge it shares with
+// another material. Every treatment below is painted inside the tile, so the
+// band never leaks past the boundary into the neighbour.
+vec3 surface(float id, float edge, vec2 world, float grain, float patch) {
 	vec3 base = palette_color(id);
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
-	float edge = 1.0 - smoothstep(0.50, 0.68, cover);
+	// Bright trims — a green's collar, a bunker's lip, a shoreline — are the
+	// loudest thing on a tile, so they hug the boundary: squared, they thin to
+	// a rim rather than a border that eats a small tile's middle.
+	float trim = edge * edge;
 	if (id == 2.0 || id == 6.0) {
 		// Broad diagonal mower passes continue across every tile boundary.
 		float pass = sin((world.x + world.y * 1.7) * 0.078);
 		float stripe = smoothstep(-0.15, 0.15, pass);
 		base *= 0.97 + stripe * 0.035;
 		variation *= 0.55;
-		float cut_line = 1.0 - smoothstep(0.50, 0.53, cover);
+		float cut_line = smoothstep(0.82, 1.0, edge);
 		base *= 1.0 - edge * 0.14 - cut_line * 0.08;
 	} else if (id == 5.0) {
 		float stripe = smoothstep(-0.2, 0.2, sin((world.x - world.y * 1.5) * 0.10));
 		base *= 0.98 + stripe * 0.035;
-		base = mix(base, fringe_color.rgb, edge * 0.92);
+		base = mix(base, fringe_color.rgb, trim * 0.95);
 		variation *= 0.18;
 	} else if (id == 7.0) {
 		// Recessed sand with a grass lip, warm bowl, and fine rake marks.
-		base = mix(base * 1.12, vec3(0.35, 0.40, 0.24), edge * 0.78);
+		base = mix(base * 1.12, vec3(0.35, 0.40, 0.24), trim * 0.85);
 		float rake = sin(world.y * 1.15 + sin(world.x * 0.022) * 3.0);
 		variation = (grain - 0.5) * 0.06 + rake * 0.012;
 	} else if (id == 8.0) {
 		// Calm deep water, pale shallows, and sparse moving reflected light.
 		base *= 0.76 + patch * 0.10;
 		base = mix(base, vec3(0.32, 0.66, 0.63), 0.48);
-		base = mix(base, vec3(0.83, 0.81, 0.59), edge * 0.92);
+		base = mix(base, vec3(0.83, 0.81, 0.59), trim * 0.92);
 		float wave = sin(world.y * 0.16 + sin(world.x * 0.024 + TIME * 0.3) * 2.3 + TIME * 0.8);
 		float glint = smoothstep(0.95, 1.0, wave) * smoothstep(0.55, 0.78, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
 		base += vec3(0.30, 0.39, 0.33) * glint * 0.25;
@@ -365,7 +372,7 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 		float dry = smoothstep(0.52, 0.8, noise(world * 0.03 + vec2(11.0, 4.0)));
 		base = mix(base, base * vec3(1.08, 1.04, 0.86), dry * 0.5);
 		variation *= 0.55;
-		float cut_line = 1.0 - smoothstep(0.50, 0.53, cover);
+		float cut_line = smoothstep(0.82, 1.0, edge);
 		base *= 1.0 - edge * 0.12 - cut_line * 0.07;
 	} else if (id == T_POT_BUNKER) {
 		// The pot's sand floor; inset_tile() adds the wall and the lip.
@@ -461,6 +468,8 @@ float corner_filled(vec2 q, vec2 cell, float e, float s, float w, float n, float
 }
 
 // Distance from `q` to the nearest edge flagged in `open_edges` (e, s, w, n).
+// Taking the minimum keeps a patch's interior the shape of the patch: a square
+// of tiles gives a square, not a rounded blob.
 float edge_room(vec2 q, vec4 open_edges) {
 	float room = 9.0;
 	if (open_edges.x > 0.5) { room = min(room, 1.0 - q.x); }
@@ -470,12 +479,33 @@ float edge_room(vec2 q, vec4 open_edges) {
 	return room;
 }
 
+// How much of the ground around a patch `q` covers at `width` in from the edges
+// the patch is open on: 1 out at the edge, 0 once well inside. Measured with
+// edge_room() rather than a distance to a corner, so a patch keeps its corners.
+// The raggedness comes from `g` (grid coordinates), so two tiles meeting along
+// an edge feather it the same way and no tile repeats its neighbour's pattern.
+float ground_fade(vec2 q, vec2 g, vec4 open_edges, float width) {
+	return 1.0 - smoothstep(0.0, width,
+		edge_room(q, open_edges) + (noise(g * 3.1 + vec2(3.0, 11.0)) - 0.5) * 0.08);
+}
+
+// How far in from its open edges a patch's own ground gives way to the ground
+// around it. It is a feather at the edge of the patch, not a fade to the tile
+// centre: a lone tile of stones or shrubs still reads as a square of ground
+// with a soft rim, and a large patch only feathers along its outer boundary.
+float ground_width(float id) {
+	if (id == T_WASTE_BUNKER) { return 0.16; }
+	if (id == T_BRUSH || is_rocks(id)) { return 0.13; }
+	return 0.14;
+}
+
 // Features of inset terrain for the tile being drawn. `own` is the tile's
-// interior ground, `outside` the turf around it (shown near `open_edges`, the
-// edges shared with other materials, weighted by `edge_mix`); `q` is the
-// position inside the tile and e/s/w/n the neighbouring terrain ids.
-vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edges, vec2 q,
-		vec2 cell, float e, float s, float w, float n, vec2 world, float grain, float patch) {
+// interior ground, `outside` the ground around it (shown near `ground_edges`,
+// the edges where the ground changes hands, and mixed in by `edge_mix`); `q` is
+// the position inside the tile and e/s/w/n the neighbouring terrain ids.
+vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edges,
+		vec4 ground_edges, vec2 q, vec2 cell, float e, float s, float w, float n,
+		vec2 world, float grain, float patch) {
 	vec2 g = world / tile_size;
 	if (id == T_STREAM) {
 		// Running water in a channel joining every neighbouring stream or pond.
@@ -509,7 +539,9 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		water += vec3(0.14, 0.2, 0.2) * current * deep * 0.6;
 		float glint = smoothstep(0.93, 1.0, crest) * smoothstep(0.65, 0.85, noise(g * 3.0 + vec2(TIME * 0.2, 0.0)));
 		water += vec3(0.3, 0.35, 0.3) * glint * 0.35;
-		water = mix(water, surface(8.0, 1.0, world, grain, patch), pond);
+		// Open pond water: no edge treatment, so the channel widens into the
+		// pond without drawing a shoreline of its own across it.
+		water = mix(water, surface(8.0, 0.0, world, grain, patch), pond);
 
 		vec3 bank = mix(own, outside, edge_mix);
 		vec3 mud = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.6);
@@ -541,19 +573,17 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		vec3 lip = outside * (1.0 - (1.0 - smoothstep(0.41, 0.48, rim)) * 0.22);  // a shadowed rim edge
 		return mix(lip, mix(face, sand, on_floor), in_rim);
 	} else if (id == T_WASTE_BUNKER) {
-		// Sand breaking up raggedly into the surrounding turf.
-		float room = edge_room(q, open_edges) + (noise(g * 3.4) - 0.5) * 0.2 + (noise(g * 11.0) - 0.5) * 0.08;
-		float margin = 1.0 - smoothstep(0.06, 0.2, room);
-		return mix(own, outside, margin);
+		// Sand breaking up raggedly into the surrounding turf, on the same
+		// edge-aligned fade every patch uses so the sand keeps square corners.
+		return mix(own, outside,
+				ground_fade(q, g, ground_edges, ground_width(id) * (0.8 + noise(g * 3.4) * 0.4)));
 	} else if (is_tree(id)) {
 		// A wood ends where its ground does, not at a tile line: the floor
 		// thins out into the turf along every edge the stand is open on, and a
 		// lone tree is a patch around its own trunk.
 		float looseness = tree_looseness(tree_look(id));
-		float room = edge_room(q, open_edges) + (noise(g * 2.6 + vec2(id, 0.0)) - 0.5) * looseness
-				+ (noise(g * 9.0) - 0.5) * 0.08;
-		float margin = 1.0 - smoothstep(0.04, 0.3, room);
-		return mix(own, outside, margin);
+		return mix(own, outside, ground_fade(q, g, ground_edges,
+				ground_width(id) * (0.82 + noise(g * 2.6 + vec2(id, 0.0)) * looseness * 2.2)));
 	} else if (is_rocks(id) || id == T_BRUSH) {
 		// Stones or shrubs scattered on cells; each keeps clear of edges
 		// shared with other materials, so none is cut off at a tile edge.
@@ -583,7 +613,10 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float outline = rocks ? (noise(g * 13.0) - 0.5) * 0.05 : (noise(g * 21.0) - 0.5) * 0.07;
 		float body = (1.0 - smoothstep(radius - 0.012, radius + 0.012, r + outline)) * present;
 		float lit = clamp(0.5 + dot(from_center / radius, GROUND_LIGHT) * 0.55, 0.0, 1.0);
-		vec3 ground = mix(own, outside, edge_mix);
+		// The ground the stones or shrubs sit on thins out toward the edge of
+		// the patch, where the ground around it (turf, or the sand a waste
+		// bunker runs underneath) takes over.
+		vec3 ground = mix(own, outside, ground_fade(q, g, ground_edges, ground_width(id)));
 		// Contact shadow on the ground, cast away from the light; a tall stone
 		// throws it further.
 		float shade = (1.0 - smoothstep(radius * 0.9, radius * (1.6 + (tall - 1.0) * 0.9),
@@ -607,16 +640,15 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 	return own;
 }
 
-// A neighbouring tile's material inside the boundary band around tile
-// `self_id`. Inset terrain shows native grass along edges it shares with
-// anything it can't sit on (which never draw a band against it), so that is
-// what it contributes — except the sand a waste bunker runs under stones and
-// shrubs.
-vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float grain, float patch) {
+// A neighbouring tile's material at a seam. A patch of inset terrain gives way
+// to native turf along every edge it cannot sit on, so that is what it shows
+// where its tile meets another material — except the sand a waste bunker runs
+// under a stone field or a shrub.
+vec3 neighbour_surface(float tile, float self_id, vec2 world, float grain, float patch) {
 	if (is_inset(tile) && !carries(tile, self_id)) {
-		return surface(1.0, 1.0, world, grain, patch);
+		return surface(1.0, 0.0, world, grain, patch);
 	}
-	return surface(tile, cover, world, grain, patch);
+	return surface(tile, 0.0, world, grain, patch);
 }
 
 void fragment() {
@@ -632,9 +664,11 @@ void fragment() {
 		COLOR = vec4(0.0);
 	} else {
 		vec2 tile_world = p * tile_size;
-		// A restrained contour perturbation breaks stair steps without moving tile centers.
+		// A restrained contour perturbation breaks stair steps without moving
+		// tile centres. Keep it well under a pixel: it feathers a seam, it must
+		// not wobble the straight edge a tile was painted with.
 		vec2 warp = vec2(noise(p * 0.72), noise(p * 0.72 + 37.0)) - 0.5;
-		vec2 sample_pos = p + warp * 0.08;
+		vec2 sample_pos = p + warp * 0.02;
 		vec2 cell = floor(sample_pos);
 		vec2 f = fract(sample_pos);
 		float a = tile_at(cell);
@@ -643,75 +677,103 @@ void fragment() {
 		float t_w = tile_at(cell + vec2(-1.0, 0.0));
 		float t_n = tile_at(cell + vec2(0.0, -1.0));
 
-		// Material boundaries sit on the shared tile edges inside a narrow
-		// anti-aliased band. The old bilinear coverage field made the boundary
-		// of an isolated tile bulge outward into a rounded blob; edge-aligned
-		// bands keep every tile's full square footprint.
-		const float AA = 0.04;     // Half width of the anti-aliased boundary.
-		const float FRINGE = 0.30; // Half width of the edge-treatment band.
+		// Material boundaries are drawn on the shared tile edges and nowhere
+		// else, inside a narrow anti-aliased band that straddles the edge: each
+		// tile keeps its full square footprint, a straight seam is an even
+		// half-and-half mix, and an isolated tile stays a square instead of
+		// shrinking into a rounded blob.
+		const float TREAT = 0.10;  // Width of the edge-treatment band inside a tile.
+		const float GROUND = 0.35; // Width of the ground fade between two materials.
+		// Half the width of one pixel, in grid units, along each grid axis. A
+		// seam is anti-aliased across exactly a pixel at every camera zoom, so
+		// it stays clean zoomed out and crisp zoomed in. The floor keeps the
+		// partial coverage from collapsing to a hard step when zoomed right in.
+		float aa_x = max(0.5 * fwidth(f.x), 0.015);
+		float aa_y = max(0.5 * fwidth(f.y), 0.015);
 		float d_e = f.x - 1.0;
 		float d_w = -f.x;
 		float d_s = f.y - 1.0;
 		float d_n = -f.y;
+		// Edges that draw a boundary band, and edges whose ground changes hands
+		// without one (sand under a stone field, one wood's ground into another's).
 		vec4 open_edges = vec4(edge_between(a, t_e), edge_between(a, t_s),
 			edge_between(a, t_w), edge_between(a, t_n));
-		float m_e = open_edges.x * smoothstep(-AA, AA, d_e);
-		float m_w = open_edges.z * smoothstep(-AA, AA, d_w);
-		float m_s = open_edges.y * smoothstep(-AA, AA, d_s);
-		float m_n = open_edges.w * smoothstep(-AA, AA, d_n);
+		vec4 blend_edges = vec4(differs(a, t_e), differs(a, t_s),
+			differs(a, t_w), differs(a, t_n));
+		// How far the pixel has crossed each open edge: 0 inside the tile, 1
+		// outside it.
+		float k_e = open_edges.x * smoothstep(-aa_x, aa_x, d_e);
+		float k_w = open_edges.z * smoothstep(-aa_x, aa_x, d_w);
+		float k_s = open_edges.y * smoothstep(-aa_y, aa_y, d_s);
+		float k_n = open_edges.w * smoothstep(-aa_y, aa_y, d_n);
+		// Pixel share of this tile and of the neighbour beyond each open edge.
+		// The product of the per-edge shares is the area of the pixel inside
+		// each tile, so a seam between two materials is a clean, even blend that
+		// sits exactly on the line the two tiles share.
+		float w_c = (1.0 - k_e) * (1.0 - k_w) * (1.0 - k_s) * (1.0 - k_n);
+		float w_e = k_e * (1.0 - k_w) * (1.0 - k_s) * (1.0 - k_n);
+		float w_s = k_s * (1.0 - k_e) * (1.0 - k_w) * (1.0 - k_n);
+		float w_w = k_w * (1.0 - k_e) * (1.0 - k_s) * (1.0 - k_n);
+		float w_n = k_n * (1.0 - k_e) * (1.0 - k_w) * (1.0 - k_s);
+		// A pixel sitting on a convex corner straddles two edges, so part of it
+		// falls in the tile diagonally across the corner. That share is what
+		// makes the five weights above add up to one: without it a corner
+		// pixel is left without a colour and used to drop to black.
+		float w_es = k_e * k_s * (1.0 - k_w) * (1.0 - k_n);
+		float w_ws = k_w * k_s * (1.0 - k_e) * (1.0 - k_n);
+		float w_wn = k_w * k_n * (1.0 - k_e) * (1.0 - k_s);
+		float w_ne = k_e * k_n * (1.0 - k_w) * (1.0 - k_s);
 
-		float w_c = (1.0 - m_e) * (1.0 - m_w) * (1.0 - m_s) * (1.0 - m_n);
-		float w_e = m_e * (1.0 - m_w) * (1.0 - m_s) * (1.0 - m_n);
-		float w_s = m_s * (1.0 - m_w) * (1.0 - m_e) * (1.0 - m_n);
-		float w_w = m_w * (1.0 - m_e) * (1.0 - m_s) * (1.0 - m_n);
-		float w_n = m_n * (1.0 - m_w) * (1.0 - m_s) * (1.0 - m_e);
-
-		// Coverage for edge treatments (fringe, lip, shoreline): 1 well inside
-		// the tile, fading across the boundary band. Square, like the boundary.
-		float c_e = open_edges.x * smoothstep(-FRINGE, FRINGE, d_e);
-		float c_w = open_edges.z * smoothstep(-FRINGE, FRINGE, d_w);
-		float c_s = open_edges.y * smoothstep(-FRINGE, FRINGE, d_s);
-		float c_n = open_edges.w * smoothstep(-FRINGE, FRINGE, d_n);
-		float cov_c = (1.0 - c_e) * (1.0 - c_w) * (1.0 - c_s) * (1.0 - c_n);
-		// A neighbour's own edge treatment, as that tile sees this one.
-		float cov_e = 1.0 - edge_between(t_e, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_e));
-		float cov_s = 1.0 - edge_between(t_s, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_s));
-		float cov_w = 1.0 - edge_between(t_w, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_w));
-		float cov_n = 1.0 - edge_between(t_n, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_n));
+		// Edge treatments — a green's collar, a bunker's lip, a shoreline, the
+		// dark cut along a fairway's edge — are painted inside the tile: full
+		// strength on the boundary, fading inward across the band. Nothing of
+		// one tile's treatment reaches past its own edge into its neighbour, so
+		// two treatments can never pile up on the same seam.
+		float own_edge = open_edges.x * smoothstep(-TREAT, 0.0, d_e);
+		own_edge = max(own_edge, open_edges.z * smoothstep(-TREAT, 0.0, d_w));
+		own_edge = max(own_edge, open_edges.y * smoothstep(-TREAT, 0.0, d_s));
+		own_edge = max(own_edge, open_edges.w * smoothstep(-TREAT, 0.0, d_n));
 
 		float grain = hash(floor(tile_world));
 		float patch = noise(tile_world * 0.009) * 0.65 + noise(tile_world * 0.035) * 0.35;
-		float w_sum = w_c + w_e + w_s + w_w + w_n;
-		// Neighbour materials only contribute inside their boundary band, so
+		// Neighbour materials only contribute inside the narrow seam band, so
 		// skip them elsewhere: most pixels evaluate a single surface.
 		vec3 color = vec3(0.0);
 		if (w_c > 0.0) {
-			vec3 own = surface(a, cov_c, tile_world, grain, patch);
+			vec3 own = surface(a, own_edge, tile_world, grain, patch);
 			if (is_inset(a)) {
-				vec3 native = surface(1.0, 1.0, tile_world, grain, patch);
-				// The turf around the patch, blended toward each open edge.
-				float e_e = open_edges.x * smoothstep(-0.5, 0.0, d_e);
-				float e_s = open_edges.y * smoothstep(-0.5, 0.0, d_s);
-				float e_w = open_edges.z * smoothstep(-0.5, 0.0, d_w);
-				float e_n = open_edges.w * smoothstep(-0.5, 0.0, d_n);
+				vec3 native = surface(1.0, 0.0, tile_world, grain, patch);
+				// The ground the patch sits in, blended toward each edge whose
+				// neighbour changes it.
+				float e_e = blend_edges.x * smoothstep(-GROUND, 0.0, d_e);
+				float e_s = blend_edges.y * smoothstep(-GROUND, 0.0, d_s);
+				float e_w = blend_edges.z * smoothstep(-GROUND, 0.0, d_w);
+				float e_n = blend_edges.w * smoothstep(-GROUND, 0.0, d_n);
 				vec3 around = vec3(0.0);
-				if (e_e > 0.0) { around += (carries(t_e, a) ? surface(t_e, 1.0, tile_world, grain, patch) : native) * e_e; }
-				if (e_s > 0.0) { around += (carries(t_s, a) ? surface(t_s, 1.0, tile_world, grain, patch) : native) * e_s; }
-				if (e_w > 0.0) { around += (carries(t_w, a) ? surface(t_w, 1.0, tile_world, grain, patch) : native) * e_w; }
-				if (e_n > 0.0) { around += (carries(t_n, a) ? surface(t_n, 1.0, tile_world, grain, patch) : native) * e_n; }
+				if (e_e > 0.0) { around += (carries(t_e, a) ? surface(t_e, 0.0, tile_world, grain, patch) : native) * e_e; }
+				if (e_s > 0.0) { around += (carries(t_s, a) ? surface(t_s, 0.0, tile_world, grain, patch) : native) * e_s; }
+				if (e_w > 0.0) { around += (carries(t_w, a) ? surface(t_w, 0.0, tile_world, grain, patch) : native) * e_w; }
+				if (e_n > 0.0) { around += (carries(t_n, a) ? surface(t_n, 0.0, tile_world, grain, patch) : native) * e_n; }
 				float around_w = e_e + e_s + e_w + e_n;
 				vec3 outside = around_w > 0.0 ? around / around_w : native;
 				float edge_mix = clamp(max(max(e_e, e_s), max(e_w, e_n)), 0.0, 1.0);
-				own = inset_tile(a, own, outside, edge_mix, open_edges, f, cell,
-					t_e, t_s, t_w, t_n, tile_world, grain, patch);
+				own = inset_tile(a, own, outside, edge_mix, open_edges, blend_edges,
+					f, cell, t_e, t_s, t_w, t_n, tile_world, grain, patch);
 			}
 			color += own * w_c;
 		}
-		if (w_e > 0.0) { color += neighbour_surface(t_e, cov_e, a, tile_world, grain, patch) * w_e; }
-		if (w_s > 0.0) { color += neighbour_surface(t_s, cov_s, a, tile_world, grain, patch) * w_s; }
-		if (w_w > 0.0) { color += neighbour_surface(t_w, cov_w, a, tile_world, grain, patch) * w_w; }
-		if (w_n > 0.0) { color += neighbour_surface(t_n, cov_n, a, tile_world, grain, patch) * w_n; }
-		color /= max(w_sum, 0.0001);
+		if (w_e > 0.0) { color += neighbour_surface(t_e, a, tile_world, grain, patch) * w_e; }
+		if (w_s > 0.0) { color += neighbour_surface(t_s, a, tile_world, grain, patch) * w_s; }
+		if (w_w > 0.0) { color += neighbour_surface(t_w, a, tile_world, grain, patch) * w_w; }
+		if (w_n > 0.0) { color += neighbour_surface(t_n, a, tile_world, grain, patch) * w_n; }
+		// The diagonal of a corner is fetched only for the pixels that need it,
+		// which is a hairline on the corners of a patch.
+		if (w_es > 0.0) { color += neighbour_surface(tile_at(cell + vec2(1.0, 1.0)), a, tile_world, grain, patch) * w_es; }
+		if (w_ws > 0.0) { color += neighbour_surface(tile_at(cell + vec2(-1.0, 1.0)), a, tile_world, grain, patch) * w_ws; }
+		if (w_wn > 0.0) { color += neighbour_surface(tile_at(cell + vec2(-1.0, -1.0)), a, tile_world, grain, patch) * w_wn; }
+		if (w_ne > 0.0) { color += neighbour_surface(tile_at(cell + vec2(1.0, -1.0)), a, tile_world, grain, patch) * w_ne; }
+		color /= max(w_c + w_e + w_s + w_w + w_n + w_es + w_ws + w_wn + w_ne, 0.001);
+
 		// Elevation slopes & 3D relief normal
 		float left_h = elevation_at_grid(p - vec2(0.6, 0.0));
 		float right_h = elevation_at_grid(p + vec2(0.6, 0.0));

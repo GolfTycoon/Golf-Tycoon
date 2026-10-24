@@ -2,8 +2,8 @@
 
 > The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, recessed sand, moving water and painted tree grounds, instead of per-tile sprites.
 
-**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
-**Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
+**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `ground_fade()`, `inset_tile()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
+**Tests:** `tests/unit/course_design/test_course_surface.gd`, `tests/unit/course_design/test_terrain_types.gd`
 
 ---
 
@@ -68,11 +68,17 @@ A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 ### 2. Edges between materials
 
-Material boundaries sit on the shared tile edges, inside a narrow anti-aliased band (`AA` = 0.04 tiles half-width). They do not blend across the tile centre. This keeps each tile's square footprint, so an isolated tile does not bulge into a rounded blob.
+Three rules keep a boundary clean and keep every tile the size of the tile it was painted on.
 
-`edge_between(self, other)` decides whether a boundary is drawn:
+**The boundary sits on the shared edge, never across the tile.** Each pixel's share of its own tile and of the neighbour beyond an open edge is the product of its per-edge shares, so a pixel's colour is the area of it that falls in each tile. A straight seam is an even blend of the two materials; a stepped run of tiles keeps the exact outline it was painted with; and an isolated tile keeps its full square footprint — including its four corners. The seam is anti-aliased across the edge inside a narrow band that follows the pixel footprint (`fwidth`), one pixel wide at any camera zoom, so it feathers at every zoom instead of tearing or smearing.
 
-- A turf tile (grass, fairway or rough) next to an inset tile draws **no** boundary band. The inset tile shows turf near the edge instead, which fades in across an edge-treatment band (`FRINGE` = 0.30 tiles half-width).
+**Edge treatments fade inward only.** A green's collar, a bunker's lip, a shoreline and the dark cut along a fairway's edge are painted *inside* the tile that owns them: full strength on the boundary, fading inward across `TREAT` (0.10 tiles). Nothing of one tile's treatment reaches into its neighbour, so two treatments can never pile up on the same seam, which used to double them into a bright, uneven border.
+
+**Inset terrain ends at the edge of its ground, square like the tiles under it.** A patch of stones, shrubs, sand, trees, silt or a stream gives way to the surrounding turf through `ground_fade()`, which measures distance to the nearest open edge of the patch rather than a distance to a tile centre or a corner arc. A square patch of tiles therefore thins out square — its corners stay sharp — while a lone tile still reads as a full square of its own material with a soft rim, not a shrunken blob.
+
+`edge_between(self, other)` decides whether a boundary band is drawn, and `differs(self, other)` whether the ground changes hands at all (the two differ only for inset terrain the neighbour can carry — the sand under a stone field).
+
+- A turf tile (grass, fairway or rough) next to an inset tile draws **no** boundary band. The inset tile shows turf near the edge instead, feathering in across the ground fade.
 - Stones and shrubs are never cut by a tile edge. A feature is kept only if it clears every open edge by its own radius, and a standing stone that would not clear is set back and shrunk rather than dropped.
 - All three stony ids share one base ground and one boundary class, so a patch that changes stone size draws no material edge.
 - Every tree id folds onto a boundary class based on its ground, so litter next to litter draws no edge, and litter next to sand fades across one.
@@ -87,7 +93,9 @@ Pot bunkers and streams use `link_distance()`, which measures the distance to a 
 
 ### 4. Turf and water animation
 
-Noise and mower passes use world coordinates. Moving or zooming the camera therefore does not move the pattern. Water animates from GPU time and needs no per-tile script updates. Standard Bunkers always use the shallow sand treatment; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
+Noise and mower passes use world coordinates. Moving or zooming the camera therefore does not move the pattern.
+
+Water animates from GPU time and needs no per-tile script updates. Standard Bunkers always use the shallow sand treatment; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
 
 ### 5. Foliage
 
@@ -108,10 +116,12 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Setting | Location | Current value | Effect |
 | --- | --- | --- | --- |
 | Grid size | `terrain_grid.gd` `grid_width` | `128` | Size of the tile grid |
-| Boundary band | `course_surface.gdshader` `AA` | `0.04` tiles | Sharpness of material edges |
-| Edge treatment band | `course_surface.gdshader` `FRINGE` | `0.30` tiles | How far inset edges blend |
+| Boundary band | `course_surface.gdshader` `aa_x`, `aa_y` | Half a pixel, floor `0.015` tiles | Sharpness of material edges at every zoom |
+| Edge treatment band | `course_surface.gdshader` `TREAT` | `0.10` tiles | How far a collar, lip or shoreline fades inward |
+| Ground fade width | `course_surface.gdshader` `ground_width()` | `0.13`–`0.16` tiles | How far an inset patch's own ground feathers into the turf around it |
+| Ground fade band | `course_surface.gdshader` `GROUND` | `0.35` tiles | How far the ground around a patch blends toward its neighbours |
 | Stream channel width | `inset_tile()` | Half-width about `0.25` tiles | Width of streams |
-| Waste margin raggedness | `inset_tile()` | Edge noise, up to about `0.2` tiles | How ragged sand edges look |
+| Waste margin raggedness | `ground_width()`, `ground_fade()` | Width varies by up to about `40%` | How ragged sand and patch edges look |
 | Stone size and density | `rocks_radius()`, `rocks_present_threshold()` | See the table in the source | How many stones and how big |
 | Boulder height | `rocks_tallness()` | `1.7` for Large Boulders | How far boulders stand up |
 | Water animation | `course_surface.gdshader` | GPU time | Speed of water movement |
