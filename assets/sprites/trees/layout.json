@@ -1,0 +1,17 @@
+{
+  "ground_x_ratio": 0.5,
+  "ground_y_ratio": 1.0,
+  "species": {
+    "birch": {"scale": 0.62},
+    "bush": {"scale": 0.29},
+    "cactus": {"scale": 0.54},
+    "cattails": {"scale": 0.36},
+    "dead_tree": {"scale": 0.55},
+    "fescue": {"scale": 0.28},
+    "heather": {"scale": 0.18},
+    "maple": {"scale": 0.47},
+    "oak": {"scale": 0.64},
+    "palm": {"scale": 0.53},
+    "pine": {"scale": 0.58}
+  }
+}

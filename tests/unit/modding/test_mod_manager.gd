@@ -23,20 +23,13 @@ func before_each() -> void:
 
 func after_each() -> void:
 	SeasonSystem.set_provider(_saved_season_provider)
-	_restore_live_content()
+	restore_live_content()
 	_cleanup()
 	super()
 
 
 func _cleanup() -> void:
 	ModPackage.remove_directory_recursive(ROOT)
-
-
-static func _restore_live_content() -> void:
-	ContentRegistry.reset_mod_content()
-	ContentRegistry.apply_mod_content("golf_tycoon.seasons",
-		"res://mods/golf_tycoon.seasons", {"seasonal_events": "data/seasonal_events.json"})
-	ContentRegistry.refresh_live_libraries()
 
 
 func _manifest(mod_id: String, extra: Dictionary = {}) -> ModManifest:

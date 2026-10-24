@@ -95,6 +95,7 @@ func reset_mod_content() -> void:
 	_tuning_provenance.clear()
 	SeasonalEvents.clear_registered_events()
 	BuildingSprites.clear_mod_sprites()
+	TreeOverlay.clear_mod_art()
 	_push_statics()
 	content_changed.emit()
 
@@ -240,6 +241,12 @@ func apply_mod_content(mod_id: String, mod_root: String, content: Dictionary) ->
 			_skin_roots.append(skins_root)
 		else:
 			_warn(mod_id, "golfer_skins_root '%s' does not exist." % skins_root)
+	if content.has("tree_art_root"):
+		var art_root: String = mod_root.path_join(str(content["tree_art_root"]))
+		if not DirAccess.dir_exists_absolute(art_root):
+			_warn(mod_id, "tree_art_root '%s' does not exist." % art_root)
+		elif TreeOverlay.register_mod_art(mod_id, art_root) == 0:
+			_warn(mod_id, "tree_art_root '%s' holds no <species>[_n/_e/_s/_w].png or seasonal tree art." % art_root)
 	if content.has("tuning"):
 		_apply_tuning(mod_id, mod_root.path_join(str(content["tuning"])))
 	_push_statics()

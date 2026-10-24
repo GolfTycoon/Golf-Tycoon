@@ -39,7 +39,7 @@ func test_the_trees_paint_over_the_walking_trail() -> void:
 	var trail := grid.get_node_or_null("WalkingPathOverlay") as CanvasItem
 	assert_not_null(trees, "the grid paints the woodland sprites")
 	assert_not_null(trail, "the grid paints the walking trail")
-	assert_eq(_effective_z(trees), GROUND_BAND, "a tree is ground detail")
+	assert_gt(_effective_z(trees), GROUND_BAND, "standing trees draw above ground detail")
 	assert_eq(_effective_z(trail), GROUND_BAND, "so is a trail")
 	assert_gt(trees.get_index(), trail.get_index(),
 			"and the trees are drawn after it, so a ribbon never crosses a trunk")
@@ -74,16 +74,29 @@ func test_the_grid_re_ranks_the_ground_band_when_it_is_shuffled() -> void:
 # What the ranking leaves alone
 # ---------------------------------------------------------------------------
 
-## Lifting the canopy over the trail must not lift it into the entity band: a
-## golfer walking past a tree is never hidden by its crown, and a shadow still
-## lies across the wood rather than behind it.
-func test_the_trees_stay_ground_art_under_the_entities() -> void:
-	var trees := grid.get_node("TreeOverlay") as CanvasItem
+## Standing trees must compete with people and buildings in the same band.
+func test_the_trees_share_entity_depth_sorting() -> void:
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
 	var entities := make_entity_layer(grid)
-	assert_eq(trees.z_index, GROUND_BAND,
-			"the trees stay in the ground band rather than jumping over the entities")
-	assert_lt(_effective_z(trees), _effective_z(entities),
-			"so the players and buildings paint over the canopy")
+	assert_eq(_effective_z(trees), _effective_z(entities))
+	assert_true(trees.y_sort_enabled)
+	assert_true(entities.y_sort_enabled)
+
+func test_each_tree_has_its_own_ground_sort_anchor() -> void:
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	var back := Vector2i(2, 2)
+	var front := Vector2i(3, 4)
+	grid.set_tile(back, TerrainTypes.Type.PINE)
+	grid.set_tile(front, TerrainTypes.Type.OAK)
+	trees._sync_visuals()
+	assert_eq(trees._visuals.size(), 2)
+	assert_eq(trees._visuals[back].position, grid.grid_to_screen_center(back))
+	assert_eq(trees._visuals[front].position, grid.grid_to_screen_center(front))
+	assert_lt(trees._visuals[back].position.y, trees._visuals[front].position.y)
+	grid.set_tile(back, TerrainTypes.Type.ROUGH)
+	trees._sync_visuals()
+	assert_false(trees._visuals.has(back), "painting over a tree removes its sorted sprite")
+	assert_eq(trees._visuals.size(), 1)
 
 
 ## A trail across a wood keeps both halves of its art: the walk is not erased by

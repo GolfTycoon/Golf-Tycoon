@@ -2,12 +2,35 @@ extends Node2D
 class_name FlowerOverlay
 ## FlowerOverlay - Renders colorful flower patterns on flower bed tiles
 
+const FLOWER_SPRITES: Array[String] = [
+	"res://assets/sprites/flowers/wildflower_01.png",
+	"res://assets/sprites/flowers/wildflower_02.png",
+	"res://assets/sprites/flowers/wildflower_03.png",
+	"res://assets/sprites/flowers/wildflower_04.png",
+]
+const FOLIAGE_SPRITE := "res://assets/sprites/flowers/foliage.png"
+const FLOWER_SIZE := Vector2(16.0, 20.0)
+const FOLIAGE_SIZE := Vector2(16.0, 9.0)
+
 var terrain_grid: TerrainGrid
 var _flower_positions: Dictionary = {}  # pos -> flower data
+static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D
+
+static func _texture(path: String) -> Texture2D:
+	if not _texture_cache.has(path):
+		_texture_cache[path] = load(path) as Texture2D
+	return _texture_cache[path]
+
+static func flower_texture(index: int) -> Texture2D:
+	return _texture(FLOWER_SPRITES[wrapi(index, 0, FLOWER_SPRITES.size())])
+
+static func foliage_texture() -> Texture2D:
+	return _texture(FOLIAGE_SPRITE)
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 	z_index = 1  # Garden ground cover belongs beneath entities and their shadows
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_scan_flower_tiles()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -78,11 +101,10 @@ func _generate_flowers_for_tile(pos: Vector2i) -> void:
 	for i in range(flower_count):
 		var flower = {
 			"x": rng.randf_range(6, terrain_grid.tile_width - 6),
-			"y": rng.randf_range(8, terrain_grid.tile_height - 3),
-			"size": rng.randf_range(3.5, 5.5),
-			"petals": rng.randi_range(4, 6),
+			"y": rng.randf_range(14, terrain_grid.tile_height - 1),
+			"size": rng.randf_range(0.72, 1.0),
+			"sprite": rng.randi_range(0, FLOWER_SPRITES.size() - 1),
 			"color": bed_colors[rng.randi_range(0, bed_colors.size() - 1)],
-			"rotation": rng.randf_range(0, TAU)
 		}
 		flowers.append(flower)
 
@@ -131,33 +153,20 @@ func _draw() -> void:
 					Vector2(flower.x, flower.y) / tile_size), flower)
 
 func _draw_foliage(center: Vector2, leaf: Dictionary) -> void:
-	var size = leaf.size
-
+	var texture := foliage_texture()
+	if texture == null:
+		return
+	var sprite_scale := float(leaf.size) / 6.0
+	var size := FOLIAGE_SIZE * sprite_scale
+	var rect := Rect2(center - size * 0.5, size)
 	var leaf_color := TerrainPalette.get_color("rough").darkened(0.12)
-	draw_set_transform(center, 0.0, Vector2(1.0, 0.55))
-	draw_circle(Vector2.ZERO, size, leaf_color)
-	draw_circle(Vector2(-size * 0.35, -size * 0.25), size * 0.65, leaf_color.lightened(0.10))
-	draw_set_transform(Vector2.ZERO)
+	draw_texture_rect(texture, rect, false, leaf_color)
 
 func _draw_flower(center: Vector2, flower: Dictionary) -> void:
-	var size = flower.size
-	var petals = flower.petals
-	var color = flower.color
-	var rot = flower.rotation
-
-	# Small stems and shaded bases give the bed height without adding nodes.
-	draw_line(center + Vector2(0, 4), center + Vector2(0, -1), Color("476336"), 1.0)
-	center.y -= 2.0
-	draw_circle(center + Vector2(1, 1), size * 0.8, Color(0.19, 0.29, 0.13, 0.28))
-	# Draw petals
-	for i in range(petals):
-		var angle = rot + i * TAU / petals
-		var petal_center = center + Vector2(cos(angle), sin(angle)) * size * 0.5
-		var petal_size = size * 0.45
-		draw_circle(petal_center, petal_size, color)
-
-	# Draw center
-	var center_color = Color(0.95, 0.85, 0.3)  # Yellow center
-	if color.g > 0.6 and color.r > 0.8:  # If flower is yellow, use brown center
-		center_color = Color(0.5, 0.35, 0.2)
-	draw_circle(center, size * 0.35, center_color)
+	var texture := flower_texture(int(flower.sprite))
+	if texture == null:
+		return
+	var size := FLOWER_SIZE * float(flower.size)
+	var rect := Rect2(center - Vector2(size.x * 0.5, size.y * 0.78), size)
+	# A pale pixel-art sprite tinted by the bed's seasonal palette.
+	draw_texture_rect(texture, rect, false, flower.color)

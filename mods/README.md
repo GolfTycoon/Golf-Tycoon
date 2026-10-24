@@ -6,7 +6,7 @@ content beyond being enabled by default where it says so.
 
 | Folder | What it is |
 | --- | --- |
-| `golf_tycoon.seasons/` | **Seasons (official).** The four theme-aware seasons and their calendar events. On by default. |
+| `golf_tycoon.seasons/` | **Seasons (official).** The four theme-aware seasons, their calendar events and the woodland's seasonal tree art. On by default. |
 | `golf_tycoon.weather/` | **Weather (official).** Multi-day weather spells, rain and weather lighting. On by default. |
 | `golf_tycoon.wind/` | **Wind (official).** The daily breeze and what it does to a shot. On by default. |
 | `example.buildings/` | Data mod: new buildings, and patching a shipped one. |
@@ -15,6 +15,7 @@ content beyond being enabled by default where it says so.
 | `example.theme/` | Theme mod: repainting a shipped course theme. |
 | `example.world/` | World mod: new world-map locations and their visiting golfers. |
 | `example.golfers/` | Golfer content: name pools and a golfer skin. |
+| `example.tree_sprites/` | Visual mod: user-created, all-season replacements for every shipped tree sprite. |
 | `example.more_seasons/` | Add-on mod: extra events for the Seasons mod, via a hard dependency. |
 | `example.jackpot/` | Script mod: events, hooks, config and save data. |
 | `example.hud_clock/` | UI mod: a HUD widget. |

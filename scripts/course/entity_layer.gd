@@ -32,6 +32,7 @@ signal building_selected(building: Building)
 func _ready() -> void:
 	# Relative shadow layers (-2/-1) must remain above the opaque terrain.
 	z_index = 2
+	y_sort_enabled = true
 	buildings_container.name = "Buildings"
 	decorations_container.name = "Decorations"
 

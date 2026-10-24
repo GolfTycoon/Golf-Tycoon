@@ -5,13 +5,9 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_golfer"]
 radius = 8.0
 
-; A golfer is drawn in the entity band (z 2): over the course surface (z 0,
-; which paints the turf and the cart paths) and over everything the terrain
-; grid paints on that surface (z 1: the walking trail, water, trees, flowers),
-; so the ground art never hides a golfer standing on it. The relative offsets
-; below read from this band - the shadow and the active-shot highlight ring at
-; -1, the tier ring at -2, the name label at +10 - so all of a golfer's art
-; stays above the ground it stands on. See docs/architecture.md (Draw Order).
+; Standing sprites share band 2 and world Y-sorting: trees and buildings
+; occlude golfers behind them, while golfers in front occlude those sprites.
+; Ground shadows/rings remain below bodies; labels remain above them.
 [node name="Golfer" type="CharacterBody2D"]
 z_index = 2
 collision_layer = 4

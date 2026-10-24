@@ -9,15 +9,8 @@ const BUNDLED_ROOT := "res://mods"
 
 
 func after_each() -> void:
-	_restore_live_content()
+	restore_live_content()
 	super()
-
-
-static func _restore_live_content() -> void:
-	ContentRegistry.reset_mod_content()
-	ContentRegistry.apply_mod_content("golf_tycoon.seasons",
-		"res://mods/golf_tycoon.seasons", {"seasonal_events": "data/seasonal_events.json"})
-	ContentRegistry.refresh_live_libraries()
 
 
 func _bundled_folders() -> Array[String]:
@@ -42,7 +35,7 @@ func _manifest_of(folder: String) -> ModManifest:
 
 func test_every_bundled_manifest_validates_and_references_real_files() -> void:
 	var folders := _bundled_folders()
-	assert_eq(folders.size(), 12, "three official mods and nine examples ship with the game")
+	assert_eq(folders.size(), 13, "three official mods and ten examples ship with the game")
 	for folder in folders:
 		var root := BUNDLED_ROOT.path_join(folder)
 		var manifest := _manifest_of(folder)
@@ -93,6 +86,15 @@ func test_the_seasons_mod_events_are_registered_in_this_session() -> void:
 	assert_eq(SeasonalEvents.registered_count(), 8, "eight shipped events")
 	for expected in ["Spring Opening Week", "Charity Scramble", "Peak Season"]:
 		assert_true(expected in names, "%s is on the calendar" % expected)
+
+
+func test_the_seasons_mod_tree_art_is_registered_in_this_session() -> void:
+	# The seasonal drawings travel inside the mod (its `tree_art_root`), not in
+	# the game's own assets: with the mod off, a wood has no wardrobe to wear.
+	var spring_oak := TreeOverlay.art_file("spring/oak", TreeOverlay.DEFAULT_FACING)
+	assert_true(spring_oak.begins_with("res://mods/golf_tycoon.seasons/tree_art/"),
+			"a spring oak is drawn from inside the mod (%s)" % spring_oak)
+	assert_not_null(TreeOverlay.texture_at(spring_oak), "and its art loads from there")
 
 
 func test_the_example_golfer_skin_loads_through_the_library() -> void:

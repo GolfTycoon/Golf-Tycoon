@@ -108,6 +108,8 @@ copy, `mods/` directory included with the game:
 | Repaint a course theme | `content.themes` | yes | `example.theme` |
 | Add world-map locations & their golfers | `content.world_locations` / `visiting_golfers` | yes | `example.world` |
 | New golfer names or a skin | `content.golfer_names` / `golfer_skins_root` | yes | `example.golfers` |
+| Replace every tree sprite, all year | `content.tree_art_root` with root-level sprites | yes | `example.tree_sprites` |
+| Seasonal tree art for a woodland | `content.tree_art_root` with `<season>/` folders | yes | `golf_tycoon.seasons` |
 | Extra events for another mod | a `dependencies` entry + `content.seasonal_events` | yes | `example.more_seasons` |
 | New gameplay rules, reacting to game events | `entry_point` + `permissions: ["script"]` | GDScript | `example.jackpot` |
 | A switch under Game features on Start New Game | script + `register_feature_option` | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
@@ -150,7 +152,7 @@ references:
 | `ModManifest` | `scripts/modding/mod_manifest.gd` | Parses and validates `mod.json`; semver helpers; the Mod API version constant. |
 | `ModPackage` | `scripts/modding/mod_package.gd` | Zip reading/installing/packing (static, autoload-free so the CLI can use it). |
 | `ModScaffold` | `scripts/modding/mod_scaffold.gd` | Writes a new mod folder - `mod.json`, starter script, README - for the Mods screen's **Create New Mod** button (static, autoload-free). |
-| `ContentRegistry` | `scripts/modding/mod_content_registry.gd` (autoload) | Owns merged content: base `data/buildings.json` + `data/decorations.json`, then each mod's declared content in load order; namespacing, deep-merge/patch semantics, provenance and conflict reporting, tuning values; pushes the result into the game's static libraries (`TerrainTypes`, `CourseTheme`, `TournamentSystem`, `WorldLocations`, `GolferAttributes`, `GolferSkinLibrary`, `BuildingSprites`). |
+| `ContentRegistry` | `scripts/modding/mod_content_registry.gd` (autoload) | Owns merged content: base `data/buildings.json` + `data/decorations.json`, then each mod's declared content in load order; namespacing, deep-merge/patch semantics, provenance and conflict reporting, tuning values; pushes the result into the game's static libraries (`TerrainTypes`, `CourseTheme`, `TournamentSystem`, `WorldLocations`, `GolferAttributes`, `GolferSkinLibrary`, `BuildingSprites`, `TreeOverlay`). |
 | `ModManager` | `scripts/modding/mod_manager.gd` (autoload) | Discovery, the player's ordered list, dependency/topological load-order resolution, safe mode, resource packs, script loading, provider registration, hooks, per-mod config and save slices. |
 | `GolfTycoonMod` / `ModAPI` | `scripts/modding/mod_base.gd`, `mod_api.gd` | What a script mod extends and the object it is handed. |
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |

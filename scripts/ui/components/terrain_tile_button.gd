@@ -190,7 +190,8 @@ func _make_tree_art() -> Sprite2D:
 
 func _draw_tree_species(sprite: Sprite2D) -> void:
 	var species := TreeOverlay.species_at(int(tool_type), Vector2i.ZERO)
-	var texture := TreeOverlay.texture_for(species)
+	var path := TreeOverlay.sprite_path(species)
+	var texture := TreeOverlay.texture_at(path)
 	if texture == null:
 		# No art on this machine: the tile falls back to the same silhouette the
 		# overlay paints, so the button never shows a bare patch of grass.
@@ -199,11 +200,16 @@ func _draw_tree_species(sprite: Sprite2D) -> void:
 		return
 	sprite.texture = texture
 	var art_size := texture.get_size()
-	# Keep the whole tree, crown and trunk, inside the diamond's height.
-	var scale_v := minf(44.0 / art_size.y, 86.0 / art_size.x)
-	sprite.scale = Vector2(scale_v, scale_v)
-	var base := TreeOverlay.base_offset(species, art_size * scale_v)
-	sprite.position = Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52 + base)
+	var layout_scale := TreeOverlay.art_scale(path)
+	# Fit the final, layout-scaled image inside the catalogue diamond. The
+	# terrain anchor is shared with the course renderer, regardless of canvas size.
+	var fit_scale := minf(44.0 / (art_size.y * layout_scale),
+			86.0 / (art_size.x * layout_scale))
+	sprite.scale = Vector2.ONE * fit_scale * layout_scale
+	var anchor := TreeOverlay.art_anchor_offset(species, path, art_size, fit_scale)
+	var terrain_anchor := Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
+	sprite.position = terrain_anchor - anchor + Vector2(
+			TreeOverlay.art_offset_x(path), TreeOverlay.art_offset_y(path))
 
 func _on_season_changed(_old_season: int, _new_season: int) -> void:
 	if _tree_art:

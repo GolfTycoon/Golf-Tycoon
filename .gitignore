@@ -12,6 +12,11 @@ addons/godot_mcp/
 # Imported textures and samples
 .import/
 
+# Mod art ships as raw files a mod decodes itself (see ModAPI.load_texture),
+# so the import metadata Godot generates for art inside mods/ is never part of
+# a mod - and ModPackage strips it from every packed zip anyway.
+mods/**/*.import
+
 # Build and export
 /build/
 /dist/

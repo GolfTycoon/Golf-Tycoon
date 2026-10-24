@@ -2,8 +2,13 @@
 
 > **Modding:** Seasonal modifier tables now live in
 `mods/golf_tycoon.seasons/season_provider.gd`, and the events are data in
-`mods/golf_tycoon.seasons/data/seasonal_events.json`. `SeasonSystem` is
-the stable facade; without a provider it returns neutral modifiers. See [Modding](../../modding.md).
+`mods/golf_tycoon.seasons/data/seasonal_events.json`. The seasons' tree art -
+the spring, fall and winter drawings of the species that turn - travels in the
+same mod, under `tree_art/` (declared as `tree_art_root` in its `mod.json`), so
+switching the mod off leaves the woodland evergreen. A cosmetic pack can put
+sprites directly in that root to replace them in **every** season instead; see
+`example.tree_sprites`. `SeasonSystem` is the stable facade; without a provider
+it returns neutral modifiers. See [Modding](../../modding.md).
 
 > Seasons follow the calendar: spring is March to May, summer June to August, fall September to November, and winter December to February. Each course theme has its own spawn, maintenance, weather and prestige pattern across the year.
 

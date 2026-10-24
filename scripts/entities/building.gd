@@ -21,6 +21,7 @@ signal building_destroyed(building: Building)
 
 func _ready() -> void:
 	add_to_group("buildings")
+	y_sort_enabled = true
 
 	# Load building data if not already set, from the merged catalog the
 	# game is playing with (base data plus loaded mods).
@@ -210,6 +211,10 @@ func _update_visuals() -> void:
 	architecture.level = upgrade_level
 	architecture.facing = _facing
 	visual.add_child(architecture)
+	# Sort the complete building at its ground footprint centre, not the
+	# top-left corner of its art canvas. Keep the drawing in the same place.
+	visual.position = Vector2(size_x * 0.5, size_y)
+	architecture.position = -visual.position
 
 	# Add click detection area
 	var click_area = Area2D.new()

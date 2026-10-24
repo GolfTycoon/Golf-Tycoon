@@ -107,8 +107,53 @@ screen reports every cross-mod overwrite by name.
 | `visiting_golfers` | `{location_id: path}` where each path holds a JSON **array** of golfer cards (same shape as `data/visiting_golfers/*.json`) | Cards are appended to that location's visitor pool; your own location may be named bare. |
 | `golfer_names` | `{"professions": [], "female_first_names": [], "male_first_names": [], "last_names": []}` | Strings are added to `GolferAttributes`' pools. |
 | `golfer_skins_root` | a **directory** of skin folders | Merged into `GolferSkinLibrary` - see [../golfer-skins.md](../golfer-skins.md) for the `skin.txt` format. A skin may ship no painted layers and just re-color a shipped sprite set's groups (see `example.golfers`). |
+| `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders and `layout.json` | A root-level `<species>[_n/_e/_s/_w].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/view, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_n/_e/_s/_w].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. Missing angles fall back to an unsuffixed drawing, then the north view. `layout.json` can scale or re-anchor differently-sized art at draw time. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
 | `seasonal_events` | `{"events": [{id, name, season, …}]}` | Registered whole into `SeasonalEvents` (full records only - no field-level merge). See namespacing below; painting-by-id is how `example.more_seasons` re-opens the Seasons mod's Spring event. |
 | `tuning` | `{"tuning": {"dotted.key": number}}` | Flat numeric levers read by the game and by mods via `get_tuning`. Non-numbers are skipped with a warning. The game's own keys are listed in [mod-api.md](mod-api.md). |
+
+### Tree sprite layout (`tree_art_root/layout.json`)
+
+PNG dimensions do not need to match Golf Tycoon's built-in art, and the four
+facing images do not need to share a canvas. Put an optional `layout.json` at
+the root of the folder declared as `tree_art_root` to alter the **draw
+transform**, not the image itself. The game's evergreen assets use the same
+format in `assets/sprites/trees/layout.json`:
+
+```json
+{
+  "ground_x_ratio": 0.5,
+  "ground_y_ratio": 1.0,
+  "species": {
+    "oak": {"scale": 0.6},
+    "pine": {"scale": 0.55, "offset_y": -2}
+  },
+  "sprites": {
+    "oak_e": {"ground_x": 64, "ground_y": 110}
+  }
+}
+```
+
+- `scale` is a number from `0.05` to `4.0`; `1.0` is native size. Root-level
+  values apply to every image in the folder, `species.<name>` overrides a
+  species, and `sprites.<name>_<facing>` is the final per-view override.
+- `ground_x` and `ground_y` are exact source-image pixel coordinates, measured
+  from the left and top edges. That point is placed on the terrain; use it when
+  the trunk is not centered or the crop differs between views.
+- `ground_x_ratio` and `ground_y_ratio` are normalized coordinates from `0` to
+  `1` (for example, `0.5` and `1.0` anchor the bottom centre). They scale with
+  each image's actual width and height, so the same layout continues to work
+  when a replacement PNG changes dimensions. Exact `ground_x`/`ground_y`
+  override the corresponding ratio when both are set.
+- `offset_x` and `offset_y` are rendered-pixel nudges applied after scaling.
+  Negative values move the sprite left/up; positive values move it right/down.
+- Layout rules merge from root defaults, to the species, to an exact sprite.
+  They apply to root-level replacements and seasonal subfolders alike. Invalid
+  or unknown entries are ignored so the artwork still loads.
+
+`mods/example.tree_sprites/tree_art/layout.json` is a complete, working
+per-species scaling example using the supplied large user sprites. New art can
+usually be swapped into place by keeping the filenames and adjusting this
+sidecar, rather than changing renderer code or resizing the PNGs.
 
 ### Namespacing, patching, replacing, removing
 

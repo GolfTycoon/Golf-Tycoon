@@ -52,7 +52,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_rng.randomize()
-	z_index = 3
+	z_index = 2
 	queue_redraw()
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
