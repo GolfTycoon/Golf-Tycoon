@@ -35,7 +35,7 @@ func _manifest_of(folder: String) -> ModManifest:
 
 func test_every_bundled_manifest_validates_and_references_real_files() -> void:
 	var folders := _bundled_folders()
-	assert_eq(folders.size(), 12, "three official mods and nine examples ship with the game")
+	assert_eq(folders.size(), 13, "three official mods and ten examples ship with the game")
 	for folder in folders:
 		var root := BUNDLED_ROOT.path_join(folder)
 		var manifest := _manifest_of(folder)

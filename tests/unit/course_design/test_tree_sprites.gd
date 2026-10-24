@@ -28,6 +28,8 @@ const WINTER_DAY := 350
 ## Where the Seasons mod keeps the wardrobe it lends the trees.
 const SEASONS_MOD_ROOT := "res://mods/golf_tycoon.seasons"
 const SEASONS_ART := SEASONS_MOD_ROOT + "/tree_art/"
+const USER_TREE_SPRITES_MOD_ROOT := "res://mods/example.tree_sprites"
+const USER_TREE_SPRITES_ART := USER_TREE_SPRITES_MOD_ROOT + "/tree_art/"
 
 ## Throwaway art folders, for the registration tests (cleaned up after each).
 const TEMP_ART := "user://ut_tree_art"
@@ -150,6 +152,45 @@ func test_a_snowy_pine_turns_with_the_view_and_a_desert_one_does_not_melt() -> v
 				"a desert pine never held snow, from any angle")
 
 
+func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> void:
+	# The example deliberately contains only root-level art. That makes it an
+	# all-season replacement rather than a four-folder seasonal wardrobe.
+	var manifest := ModManifest.from_json_text(
+			FileAccess.get_file_as_string(USER_TREE_SPRITES_MOD_ROOT.path_join("mod.json")),
+			USER_TREE_SPRITES_MOD_ROOT)
+	assert_true(manifest.is_valid(), "the complete user-art pack is a valid mod")
+	assert_eq(str(manifest.content.get("tree_art_root", "")), "tree_art")
+	ContentRegistry.apply_mod_content(manifest.id, USER_TREE_SPRITES_MOD_ROOT, manifest.content)
+
+	var expected_scales := {
+		"birch": 0.45, "bush": 0.32, "cactus": 0.50, "cattails": 0.42,
+		"dead_tree": 0.46, "fescue": 0.27, "heather": 0.26, "maple": 0.44,
+		"oak": 0.41, "palm": 0.45, "pine": 0.49,
+	}
+	var expected_offsets := {
+		"birch": -11.0, "bush": -5.0, "cactus": -13.0, "cattails": -9.0,
+		"dead_tree": -9.0, "fescue": -5.0, "heather": -3.0, "maple": -9.0,
+		"oak": -9.0, "palm": -8.0, "pine": -15.0,
+	}
+	for type in TerrainTypes.TREE_SPECIES_TILES:
+		var species := TerrainTypes.get_tree_species(type)
+		for facing in range(TreeOverlay.FACINGS.size()):
+			var angle := TreeOverlay.facing_name(facing)
+			var expected := "%s%s_%s.png" % [USER_TREE_SPRITES_ART, species, angle]
+			assert_true(FileAccess.file_exists(expected), "the pack ships %s" % expected)
+			assert_almost_eq(TreeOverlay.art_scale(expected), float(expected_scales[species]), 0.0001,
+					"the layout scales %s without changing its PNG" % species)
+			assert_almost_eq(TreeOverlay.art_offset_y(expected), float(expected_offsets[species]), 0.0001,
+					"the layout lifts %s onto its terrain ground line" % species)
+			for day in [SPRING_DAY, SUMMER_DAY, FALL_DAY, WINTER_DAY]:
+				assert_eq(TreeOverlay.sprite_path(species, day, CourseTheme.Type.PARKLAND, facing),
+						expected, "%s's %s view is replaced on day %d" % [species, angle, day])
+	# The pine rule normally keeps mild-weather pines on evergreen art; a full
+	# replacement is deliberately above that seasonal decision too.
+	assert_eq(TreeOverlay.sprite_path("pine", SPRING_DAY, CourseTheme.Type.DESERT, 0),
+			"%spine_n.png" % USER_TREE_SPRITES_ART)
+
+
 # ---------------------------------------------------------------------------
 # The door the art comes through: registration, load order and raw files
 # ---------------------------------------------------------------------------
@@ -186,15 +227,45 @@ func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -
 	TreeOverlay.unregister_mod_art("tester.early")
 
 
+func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> void:
+	var root := TEMP_ART.path_join("layout")
+	var path := _write_art(root, "oak_n.png", Color.WHITE)
+	var seasonal_path := _write_art(root, "winter/oak_e.png", Color.WHITE)
+	var layout := FileAccess.open(root.path_join("layout.json"), FileAccess.WRITE)
+	layout.store_string("""{
+		"scale": 0.5,
+		"species": {"oak": {"scale": 0.4}},
+		"sprites": {"oak_n": {"scale": 0.3, "ground_y": 150, "offset_y": -7}}
+	}""")
+	layout.close()
+	TreeOverlay.register_mod_art("tester.layout", root)
+	assert_eq(TreeOverlay.sprite_path("oak", SPRING_DAY, CourseTheme.Type.PARKLAND, 0), path)
+	assert_almost_eq(TreeOverlay.art_scale(path), 0.3, 0.0001,
+			"a view-specific scale wins over species and root defaults")
+	assert_almost_eq(TreeOverlay.art_base_offset("oak", path, Vector2(100, 200)), 15.0, 0.0001,
+			"ground_y is measured in source pixels, then follows the draw scale")
+	assert_almost_eq(TreeOverlay.art_offset_y(path), -7.0, 0.0001,
+			"offset_y is a direct post-scale nudge for a low or high sprite")
+	assert_eq(TreeOverlay.art_file("winter/oak", 1), seasonal_path)
+	assert_almost_eq(TreeOverlay.art_scale(seasonal_path), 0.4, 0.0001,
+			"the species rule styles the same tree in a seasonal wardrobe too")
+	TreeOverlay.unregister_mod_art("tester.layout")
+	assert_almost_eq(TreeOverlay.art_scale(path), 1.0, 0.0001,
+			"unloading the mod forgets its layout with its art")
+	assert_almost_eq(TreeOverlay.art_offset_y(path), 0.0, 0.0001,
+			"and the alignment nudge leaves with the mod too")
+
+
 func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> void:
 	# An installed or Workshop copy of a mod is never imported by Godot, so its
 	# art has to load from the file itself — the contract ModAPI.load_texture
-	# gives mods that read their own pictures.
+	# gives mods that read their own pictures. Root-level art takes the same path.
 	var root := TEMP_ART.path_join("raw")
-	var path := _write_art(root, "winter/palm_e.png", Color.WHITE)
+	var path := _write_art(root, "palm_e.png", Color.WHITE)
 	assert_false(ResourceLoader.exists(path), "a file in user:// has no imported resource")
 	assert_eq(TreeOverlay.register_mod_art("tester.raw", root), 1, "and it still registers")
-	var texture := TreeOverlay.texture_at(TreeOverlay.art_file("winter/palm", 1))
+	var texture := TreeOverlay.texture_at(TreeOverlay.sprite_path("palm", SPRING_DAY,
+			CourseTheme.Type.PARKLAND, 1))
 	assert_not_null(texture, "so the overlay decodes its bytes")
 	assert_eq(texture.get_size(), Vector2(8, 8), "and the pixels are the file's own")
 	TreeOverlay.unregister_mod_art("tester.raw")

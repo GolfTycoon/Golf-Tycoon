@@ -15,6 +15,7 @@ content beyond being enabled by default where it says so.
 | `example.theme/` | Theme mod: repainting a shipped course theme. |
 | `example.world/` | World mod: new world-map locations and their visiting golfers. |
 | `example.golfers/` | Golfer content: name pools and a golfer skin. |
+| `example.tree_sprites/` | Visual mod: user-created, all-season replacements for every shipped tree sprite. |
 | `example.more_seasons/` | Add-on mod: extra events for the Seasons mod, via a hard dependency. |
 | `example.jackpot/` | Script mod: events, hooks, config and save data. |
 | `example.hud_clock/` | UI mod: a HUD widget. |
