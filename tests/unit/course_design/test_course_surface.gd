@@ -66,3 +66,38 @@ func test_quick_start_paint_hole_replaces_generated_water_with_fairway() -> void
 	for x in range(2, 5):
 		assert_eq(grid.get_tile(Vector2i(x, 4)), TerrainTypes.Type.FAIRWAY,
 			"Fairway must replace generated water at (%d, 4)" % x)
+
+func test_stream_pond_bank_leaves_the_channel_mouth_open() -> void:
+	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	var surface_start := source.find("vec3 surface(")
+	var rough_branch_start := source.find(
+		"} else if (id == 3.0 || id == 4.0 || id == 1.0 || id == T_STREAM) {", surface_start)
+	var firm_branch_start := source.find("} else if (id == T_FIRM_FAIRWAY) {", rough_branch_start)
+	assert_gt(rough_branch_start, surface_start, "Rough and stream banks share a surface branch")
+	assert_gt(firm_branch_start, rough_branch_start, "The shared turf branch is complete")
+	var rough_bank_branch := source.substr(rough_branch_start, firm_branch_start - rough_branch_start)
+	assert_true(rough_bank_branch.contains("base = palette_color(3.0);"),
+		"Stream banks use the Rough palette colour")
+	assert_true(rough_bank_branch.contains("noise(world * vec2(0.32, 0.65))"),
+		"Stream banks use the same ground variation as Rough")
+
+	var boundary_start := source.find("float boundary_class(")
+	var boundary_end := source.find("// 1 where two tiles need", boundary_start)
+	assert_gt(boundary_end, boundary_start, "The shader boundary rule is present")
+	var boundary_rule := source.substr(boundary_start, boundary_end - boundary_start)
+	assert_true(boundary_rule.contains("if (id == T_STREAM) { return T_STREAM; }"),
+		"Streams have a shoreline boundary against pond water")
+	var mouth_start := source.find("float edge_between_at(")
+	var mouth_end := source.find("vec3 palette_color(", mouth_start)
+	assert_gt(mouth_end, mouth_start, "Stream-to-pond edge treatment is present")
+	var mouth_rule := source.substr(mouth_start, mouth_end - mouth_start)
+	assert_true(mouth_rule.contains("float mouth_radius = main_width * 11.0 + 0.02;"),
+		"The unbanked opening matches the water mask, leaving muddy and rough edges banked")
+	assert_true(mouth_rule.contains("smoothstep(mouth_radius, mouth_radius + 0.06, abs(along_edge - 0.5))"),
+		"The bank fades in outside the stream mouth")
+	assert_true(source.contains("float ee = is_wet(e);"),
+		"The stream channel still links to adjacent pond water")
+	assert_true(source.contains("edge_between_at(a, t_e, f.y, stream_end_e, tile_world)"),
+		"The stream mouth opening is used on the shared edge")
+	assert_true(source.contains("edge_between_at(t_e, a, f.y, stream_end_e, tile_world)"),
+		"The pond-side shoreline has the same opening, so water remains continuous")

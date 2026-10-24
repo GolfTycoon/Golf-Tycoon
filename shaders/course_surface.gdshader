@@ -63,6 +63,13 @@ float noise(vec2 p) {
 		mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0)), u.x), u.y);
 }
 
+// Main channel half-width, shared by the Stream surface and its pond-mouth
+// shoreline so the open part of their common edge matches the actual channel.
+float stream_main_width(vec2 g, float channel_along, float channel_across) {
+	return 0.024 + (noise(g * 1.7 + vec2(7.0, 3.0)) - 0.5) * 0.01
+		+ (noise(vec2(channel_along * 6.0 + 13.0, channel_across * 3.0 + 5.0)) - 0.5) * 0.015;
+}
+
 // Terrain ids (TerrainTypes.Type) with looks of their own below.
 const float T_ROCKS = 13.0;
 const float T_FIRM_FAIRWAY = 14.0;
@@ -163,11 +170,14 @@ float tile_at(vec2 p) {
 }
 
 // Boundary class: terrain that reads as one material across tile borders. A
-// stream joins a pond, the boulder fields bleed into painted Rocks, and a wood
-// of any mix of species reads as one material per ground: litter tiles never
-// seam into each other, while litter meeting sand does.
+// stream and pond remain linked as wet terrain, but keep separate boundary
+// classes so pond water draws a bank against the stream's rough turf. The
+// stream mouth cuts an opening in that bank (edge_between_at), keeping the
+// water continuous. The boulder fields bleed into painted Rocks, and each wood
+// reads as one material per ground: litter tiles never seam into each other,
+// while litter meeting sand does.
 float boundary_class(float id) {
-	if (id == T_STREAM) { return 8.0; }
+	if (id == T_STREAM) { return T_STREAM; }
 	if (is_rocks(id)) { return T_ROCKS; }
 	if (is_tree(id)) { return 100.0 + tree_look(id); }
 	return id;
@@ -207,6 +217,22 @@ bool carries(float ground, float id) {
 float edge_between(float own, float other) {
 	if (is_tree(own) && is_tree(other)) { return differs(own, other); }
 	return (is_inset(other) && carries(own, other)) ? 0.0 : differs(own, other);
+}
+
+// Keep the bank along a Stream/Water border, but cut it back around the
+// widening channel mouth. `stream_end` is 0 or 1 at the end of the stream
+// tile touching this edge; `along_edge` runs across that edge from 0 to 1.
+float edge_between_at(float own, float other, float along_edge, float stream_end, vec2 world) {
+	float boundary = edge_between(own, other);
+	if ((own == T_STREAM && other == 8.0) || (own == 8.0 && other == T_STREAM)) {
+		float main_width = stream_main_width(world / tile_size, stream_end, along_edge);
+		// The water mask fades to zero at estuary_width + 0.02. Keep the bank
+		// open only through that active water, not across the muddy/rough banks.
+		float mouth_radius = main_width * 11.0 + 0.02;
+		float bank = smoothstep(mouth_radius, mouth_radius + 0.06, abs(along_edge - 0.5));
+		return boundary * bank;
+	}
+	return boundary;
 }
 
 vec3 palette_color(float id) {
@@ -353,8 +379,11 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	} else if (id == 9.0) {
 		variation = (grain - 0.5) * 0.045;
 		base *= 1.0 - edge * 0.13;
-	} else if (id == 3.0 || id == 4.0 || id == 1.0) {
+	} else if (id == 3.0 || id == 4.0 || id == 1.0 || id == T_STREAM) {
 		// Small irregular tufts, with larger color masses at landscape scale.
+		// A stream's banks use the same ground colour and variation as Rough;
+		// inset_tile() paints the muddy margin and channel over this turf.
+		if (id == T_STREAM) { base = palette_color(3.0); }
 		variation += (noise(world * vec2(0.32, 0.65)) - 0.5) * 0.045;
 	} else if (id == T_FIRM_FAIRWAY) {
 		// Fast links turf: the fairway's mower passes, paler, with sun-dried
@@ -370,10 +399,6 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	} else if (id == T_POT_BUNKER) {
 		// The pot's sand floor; inset_tile() adds the wall and the lip.
 		variation = (grain - 0.5) * 0.05;
-	} else if (id == T_STREAM) {
-		// Stream banks: lush native grass; inset_tile() adds the water.
-		base = palette_color(1.0) * vec3(0.94, 0.98, 0.94);
-		variation += (noise(world * vec2(0.32, 0.65)) - 0.5) * 0.05;
 	} else if (id == T_DEEP_ROUGH) {
 		// Knee-high grass: long blades standing up the screen (grid x + y),
 		// darker clumps, and pale seed heads.
@@ -503,8 +528,7 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		// because they form a square.
 		float channel_along = mix(q.x, q.y, along_y);
 		float channel_across = mix(q.y, q.x, along_y);
-		float main_width = 0.024 + (noise(g * 1.7 + vec2(7.0, 3.0)) - 0.5) * 0.01
-			+ (noise(vec2(channel_along * 6.0 + 13.0, channel_across * 3.0 + 5.0)) - 0.5) * 0.015;
+		float main_width = stream_main_width(g, channel_along, channel_across);
 
 		// Squiggle the centerline: offset across the flow by a meander
 		// that is strongest mid-run and fades toward tile center and edges
@@ -696,8 +720,18 @@ void fragment() {
 		float d_w = -f.x;
 		float d_s = f.y - 1.0;
 		float d_n = -f.y;
-		vec4 open_edges = vec4(edge_between(a, t_e), edge_between(a, t_s),
-			edge_between(a, t_w), edge_between(a, t_n));
+		// A Stream/Water edge is banked away from the stream mouth, but open
+		// through it. E/S are q=1 and W/N q=0 on the Stream tile; if the
+		// Stream is the neighbour, `stream_end_*` uses the opposite endpoint.
+		float stream_end_e = a == T_STREAM ? 1.0 : 0.0;
+		float stream_end_s = a == T_STREAM ? 1.0 : 0.0;
+		float stream_end_w = a == T_STREAM ? 0.0 : 1.0;
+		float stream_end_n = a == T_STREAM ? 0.0 : 1.0;
+		float boundary_e = edge_between_at(a, t_e, f.y, stream_end_e, tile_world);
+		float boundary_s = edge_between_at(a, t_s, f.x, stream_end_s, tile_world);
+		float boundary_w = edge_between_at(a, t_w, f.y, stream_end_w, tile_world);
+		float boundary_n = edge_between_at(a, t_n, f.x, stream_end_n, tile_world);
+		vec4 open_edges = vec4(boundary_e, boundary_s, boundary_w, boundary_n);
 		float m_e = open_edges.x * smoothstep(-AA, AA, d_e);
 		float m_w = open_edges.z * smoothstep(-AA, AA, d_w);
 		float m_s = open_edges.y * smoothstep(-AA, AA, d_s);
@@ -717,10 +751,14 @@ void fragment() {
 		float c_n = open_edges.w * smoothstep(-FRINGE, FRINGE, d_n);
 		float cov_c = (1.0 - c_e) * (1.0 - c_w) * (1.0 - c_s) * (1.0 - c_n);
 		// A neighbour's own edge treatment, as that tile sees this one.
-		float cov_e = 1.0 - edge_between(t_e, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_e));
-		float cov_s = 1.0 - edge_between(t_s, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_s));
-		float cov_w = 1.0 - edge_between(t_w, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_w));
-		float cov_n = 1.0 - edge_between(t_n, a) * (1.0 - smoothstep(-FRINGE, FRINGE, d_n));
+		float cov_e = 1.0 - edge_between_at(t_e, a, f.y, stream_end_e, tile_world)
+			* (1.0 - smoothstep(-FRINGE, FRINGE, d_e));
+		float cov_s = 1.0 - edge_between_at(t_s, a, f.x, stream_end_s, tile_world)
+			* (1.0 - smoothstep(-FRINGE, FRINGE, d_s));
+		float cov_w = 1.0 - edge_between_at(t_w, a, f.y, stream_end_w, tile_world)
+			* (1.0 - smoothstep(-FRINGE, FRINGE, d_w));
+		float cov_n = 1.0 - edge_between_at(t_n, a, f.x, stream_end_n, tile_world)
+			* (1.0 - smoothstep(-FRINGE, FRINGE, d_n));
 
 		float grain = hash(floor(tile_world));
 		float patch = noise(tile_world * 0.009) * 0.65 + noise(tile_world * 0.035) * 0.35;

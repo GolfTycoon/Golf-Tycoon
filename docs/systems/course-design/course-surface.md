@@ -39,7 +39,7 @@ repaints all three together. See [Course Map](course-map.md).
 | Brush | Sparse shrubs with occasional blossoms. |
 | Waste Bunker | Coarse sand with pebbles and wiregrass tufts. It breaks up raggedly into the surrounding turf. |
 | Pot Bunker | A turf lip, a stacked-turf wall and a sand floor. |
-| Stream | A narrow channel with a muddy, pebbled margin, and soft crests drifting downstream. |
+| Stream | A narrow channel cut through Rough-like turf, with a muddy, pebbled margin and soft crests drifting downstream. The bank opens at the channel mouth so its water joins a pond. |
 
 Rocks, boulders, brush and waste bunkers are **inset terrain**. They are drawn over whatever turf surrounds them, so a patch has a natural outline rather than a square one.
 
@@ -78,7 +78,7 @@ Material boundaries sit on the shared tile edges, inside a narrow anti-aliased b
 - Stones and shrubs are never cut by a tile edge. A feature is kept only if it clears every open edge by its own radius, and a standing stone that would not clear is set back and shrunk rather than dropped.
 - All three stony ids share one base ground and one boundary class, so a patch that changes stone size draws no material edge.
 - Every tree id folds onto a boundary class based on its ground, so litter next to litter draws no edge, and litter next to sand fades across one.
-- Water and streams share a boundary class, so there is no shoreline between a stream and a pond.
+- Streams and ponds stay linked as wet terrain but use separate boundary classes. A bank marks where pond water meets the stream's rough turf, while the widening channel mouth cuts an opening so the water connects continuously.
 
 ### 3. Pot bunkers and streams
 
