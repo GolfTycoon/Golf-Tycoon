@@ -484,32 +484,76 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float ww = is_wet(w);
 		float nn = is_wet(n);
 		float along_y;
-		float d = link_distance(q, ee, ss, ww, nn, along_y);
-		if (ee + ss + ww + nn < 0.5) { d += 0.06; }  // A lone tile is a small spring pool
-		// Where it meets a pond the channel opens out across the whole edge.
+		float d = link_distance(q, ee, ss, ww, nn, along_y);  // first pass: also yields along_y
+		// Where the stream meets a pond it opens into an estuary: the
+		// channel widens toward the wet edge and the water deepens into
+		// the still pond with a soft shoreline instead of a hard line.
+		// The channel opening is applied after the squiggle re-measure
+		// below so it survives.
 		float pond = 0.0;
-		if (e == 8.0) { d = smin(d, (1.0 - q.x) * 1.5, 0.1); pond = max(pond, smoothstep(0.72, 1.0, q.x)); }
-		if (w == 8.0) { d = smin(d, q.x * 1.5, 0.1); pond = max(pond, smoothstep(0.72, 1.0, 1.0 - q.x)); }
-		if (s == 8.0) { d = smin(d, (1.0 - q.y) * 1.5, 0.1); pond = max(pond, smoothstep(0.72, 1.0, q.y)); }
-		if (n == 8.0) { d = smin(d, q.y * 1.5, 0.1); pond = max(pond, smoothstep(0.72, 1.0, 1.0 - q.y)); }
-		if (corner_filled(q, cell, ee, ss, ww, nn, T_STREAM) > 0.5) { d = -1.0; }
-		float half_width = 0.25 + (noise(g * 1.7 + vec2(7.0, 3.0)) - 0.5) * 0.09;
-		float water_mask = 1.0 - smoothstep(half_width - 0.025, half_width + 0.025, d);
-		float mud_mask = 1.0 - smoothstep(half_width + 0.02, half_width + 0.11, d);
+		float pond_edge = 9.0;
+		if (e == 8.0) { pond_edge = min(pond_edge, 1.0 - q.x); pond = max(pond, smoothstep(0.30, 1.0, q.x)); }
+		if (w == 8.0) { pond_edge = min(pond_edge, q.x); pond = max(pond, smoothstep(0.30, 1.0, 1.0 - q.x)); }
+		if (s == 8.0) { pond_edge = min(pond_edge, 1.0 - q.y); pond = max(pond, smoothstep(0.30, 1.0, q.y)); }
+		if (n == 8.0) { pond_edge = min(pond_edge, q.y); pond = max(pond, smoothstep(0.30, 1.0, 1.0 - q.y)); }
 
+		// A thin main channel that snakes between tile edges instead of
+		// running straight. Tiles stay as narrow channels even where
+		// several stream tiles meet — they never fill into a pond just
+		// because they form a square.
+		float channel_along = mix(q.x, q.y, along_y);
+		float channel_across = mix(q.y, q.x, along_y);
+		float main_width = 0.024 + (noise(g * 1.7 + vec2(7.0, 3.0)) - 0.5) * 0.01
+			+ (noise(vec2(channel_along * 6.0 + 13.0, channel_across * 3.0 + 5.0)) - 0.5) * 0.015;
+
+		// Squiggle the centerline: offset across the flow by a meander
+		// that is strongest mid-run and fades toward tile center and edges
+		// so neighbouring channels still join at the boundaries.
+		float flow = channel_along;
+		float t = abs(flow - 0.5) * 2.0;            // 0 at tile center, 1 at the edge
+		float env = 4.0 * t * (1.0 - t);            // 0 at center & edge, peaks mid-run
+		vec2 across_dir = vec2(along_y, 1.0 - along_y);  // perpendicular to flow
+		float meander = (sin(channel_along * 14.0 + noise(g * 3.0) * 10.0)
+			+ sin(channel_along * 7.0 + noise(g * 7.0 + 50.0) * 10.0)) * 0.09 * env;
+		vec2 qm = q + across_dir * meander;
+		// Re-measure the channel on the squiggled centerline.
+		d = link_distance(qm, ee, ss, ww, nn, along_y);
+		if (ee + ss + ww + nn < 0.5) { d += 0.06; }  // A lone tile is a small spring pool
+
+		// Open the channel out to each pond edge so the stream mouth meets
+		// the pond instead of stopping short of it. Only the channel's own
+		// crossing point opens (via link_distance above) — the rest of the
+		// shared edge stays dry, so no blue side strip appears.
+		// Widen the channel toward a pond mouth (estuary): the water opens
+		// up as it reaches the pond instead of pinching to a thin ribbon
+		// at the bank.
+		float mouth = smoothstep(0.55, 0.0, pond_edge);
+		float estuary_width = main_width * (1.0 + mouth * 10.0);
+
+		// Water mask for the main channel.
+		float water_mask = 1.0 - smoothstep(estuary_width - 0.02, estuary_width + 0.02, d);
+		float mud_mask = 1.0 - smoothstep(estuary_width + 0.02, estuary_width + 0.18, d);
+
+		float half_width = estuary_width;
 		float deep = 1.0 - smoothstep(0.0, half_width, max(d, 0.0));
 		vec3 water = palette_color(T_STREAM) * (0.84 + (1.0 - deep) * 0.2 + (patch - 0.5) * 0.06);
 		water = mix(water, vec3(0.80, 0.78, 0.62), smoothstep(half_width * 0.55, half_width, d) * 0.3);
 		// Current: soft crests drifting downstream, broken up by moving noise.
+		// The current fades where the stream spreads out into the still pond.
+		float flow_speed = 1.0 - pond * 0.85;
 		float along = mix(g.x, g.y, along_y);
 		float across = mix(g.y, g.x, along_y);
 		float crest = sin(along * 6.0 - TIME * 2.0 + noise(vec2(along * 1.4, across * 3.0)) * 4.0);
 		float current = smoothstep(0.55, 1.0, crest)
 			* smoothstep(0.4, 0.75, noise(vec2(along * 1.6 - TIME * 0.45, across * 4.0)));
-		water += vec3(0.14, 0.2, 0.2) * current * deep * 0.6;
+		water += vec3(0.14, 0.2, 0.2) * current * deep * flow_speed * 0.6;
 		float glint = smoothstep(0.93, 1.0, crest) * smoothstep(0.65, 0.85, noise(g * 3.0 + vec2(TIME * 0.2, 0.0)));
-		water += vec3(0.3, 0.35, 0.3) * glint * 0.35;
-		water = mix(water, surface(8.0, 1.0, world, grain, patch), pond);
+		water += vec3(0.3, 0.35, 0.3) * glint * 0.35 * flow_speed;
+		// Confluence: where the moving stream meets the still pond, add
+		// subtle turbulence and soften into deep pond water.
+		float confluence = pond * (1.0 - deep) * 0.5;
+		water += vec3(0.12, 0.16, 0.18) * noise(g * 8.0 + vec2(TIME * 0.15, 0.0)) * confluence;
+		water = mix(water, surface(8.0, 1.0, world, grain, patch), pond * 0.95);
 
 		vec3 bank = mix(own, outside, edge_mix);
 		vec3 mud = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.6);
