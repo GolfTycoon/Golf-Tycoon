@@ -122,11 +122,11 @@ float tree_look(float id) {
 	return GROUND_LITTER;
 }
 
-// How far a stand's ground gives way to the turf around it. Bare sand and wet
-// silt spread widest; a carpet of litter or needles ends closer to the trunks.
+// Small variations in the edge of a stand. Keep these below the narrow
+// border width so even a lone tile retains its square ground footprint.
 float tree_looseness(float look) {
-	if (look == GROUND_SAND || look == GROUND_SILT) { return 0.30; }
-	return 0.16;
+	if (look == GROUND_SAND || look == GROUND_SILT) { return 0.04; }
+	return 0.025;
 }
 
 // How many stone cells a tile of stony ground is cut into, and how many of
@@ -546,13 +546,12 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float margin = 1.0 - smoothstep(0.06, 0.2, room);
 		return mix(own, outside, margin);
 	} else if (is_tree(id)) {
-		// A wood ends where its ground does, not at a tile line: the floor
-		// thins out into the turf along every edge the stand is open on, and a
-		// lone tree is a patch around its own trunk.
+		// Keep the floor square, with only a narrow, irregular turf border.
+		// Shared edges stay filled so neighbouring woods still form a stand.
 		float looseness = tree_looseness(tree_look(id));
 		float room = edge_room(q, open_edges) + (noise(g * 2.6 + vec2(id, 0.0)) - 0.5) * looseness
-				+ (noise(g * 9.0) - 0.5) * 0.08;
-		float margin = 1.0 - smoothstep(0.04, 0.3, room);
+				+ (noise(g * 9.0) - 0.5) * 0.02;
+		float margin = 1.0 - smoothstep(0.01, 0.07, room);
 		return mix(own, outside, margin);
 	} else if (is_rocks(id) || id == T_BRUSH) {
 		// Stones or shrubs scattered on cells; each keeps clear of edges
