@@ -4,8 +4,12 @@ class_name CourseSurface
 ##   R = terrain ID / 255, G = reserved (always 0),
 ##   B = (tile elevation - MIN_ELEVATION) / (MAX_ELEVATION - MIN_ELEVATION),
 ##   A = reserved (always 1).
-## The vertex_elevation image packs levels the same way, so the shader's
-## (tex - 0.5) * 10 decode turns BASE_ELEVATION (flat) back into 0.
+## The vertex_elevation image uses a symmetric byte encoding: 128 is flat and
+## 25 byte values are one elevation level. Every integer level and flat ground
+## therefore decode exactly before the GPU interpolates them (0.5 in an R8
+## texture would decode flat ground to a small but visible nonzero height).
+const ELEVATION_TEXTURE_ZERO: float = 128.0
+const ELEVATION_TEXTURE_SCALE: float = 25.0
 
 ## Palette color key for each terrain ID, indexed by TerrainTypes.Type. The
 ## shader reads the palette width, so appending a type only needs a key here —
@@ -54,6 +58,8 @@ func initialize(grid: TerrainGrid) -> void:
 	surface_material.set_shader_parameter("grid_size", Vector2(grid.grid_width, grid.grid_height))
 	surface_material.set_shader_parameter("tile_size", Vector2(grid.tile_width, grid.tile_height))
 	surface_material.set_shader_parameter("elevation_step_y", grid.ELEVATION_STEP_Y)
+	surface_material.set_shader_parameter("elevation_texture_zero", ELEVATION_TEXTURE_ZERO)
+	surface_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
 	surface_material.set_shader_parameter("is_isometric", grid.view_isometric)
 	material = surface_material
 	apply_projection(grid.projection)
@@ -85,6 +91,26 @@ func apply_projection(proj: GridProjection) -> void:
 	if _grid != null:
 		mat.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
 		mat.set_shader_parameter("is_isometric", _grid.view_isometric)
+
+## Give a standing terrain sprite the same heightfield and projection as the
+## ground. Its shader compares the front terrain surface with each sprite pixel,
+## so a nearer hill can hide the trunk without erasing a crown above the hill.
+func configure_sprite_occlusion(sprite_material: ShaderMaterial, ground_grid: Vector2,
+		ground_offset: Vector2) -> void:
+	if sprite_material == null or _grid == null:
+		return
+	sprite_material.set_shader_parameter("vertex_elevation", _elevation_texture)
+	sprite_material.set_shader_parameter("vertex_grid_size", Vector2(_grid.grid_width + 1, _grid.grid_height + 1))
+	sprite_material.set_shader_parameter("grid_size", Vector2(_grid.grid_width, _grid.grid_height))
+	sprite_material.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
+	sprite_material.set_shader_parameter("elevation_texture_zero", ELEVATION_TEXTURE_ZERO)
+	sprite_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
+	sprite_material.set_shader_parameter("is_isometric", _grid.view_isometric)
+	sprite_material.set_shader_parameter("grid_origin", _grid.projection.grid_origin())
+	sprite_material.set_shader_parameter("grid_axis_x", _grid.projection.axis_x())
+	sprite_material.set_shader_parameter("grid_axis_y", _grid.projection.axis_y())
+	sprite_material.set_shader_parameter("ground_grid", ground_grid)
+	sprite_material.set_shader_parameter("ground_offset", ground_offset)
 
 ## The theme colour key one terrain id is painted with, or "" for an id the
 ## palette has no slot for.
@@ -135,8 +161,10 @@ func update_vertex(vertex: Vector2i) -> void:
 func _write_vertex(vertex: Vector2i) -> void:
 	if _elevation_image == null or not _grid.is_valid_vertex(vertex):
 		return
-	var gray: float = clampf(float(_grid.get_vertex_elevation(vertex) - _grid.MIN_ELEVATION)
-			/ float(_grid.MAX_ELEVATION - _grid.MIN_ELEVATION), 0.0, 1.0)
+	var level: int = clampi(_grid.get_vertex_elevation(vertex),
+			_grid.MIN_ELEVATION, _grid.MAX_ELEVATION)
+	var gray: float = (ELEVATION_TEXTURE_ZERO
+			+ float(level - _grid.BASE_ELEVATION) * ELEVATION_TEXTURE_SCALE) / 255.0
 	_elevation_image.set_pixel(vertex.x, vertex.y, Color(gray, 0.0, 0.0))
 	_elevation_dirty = true
 

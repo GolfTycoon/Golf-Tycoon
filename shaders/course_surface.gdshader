@@ -12,6 +12,8 @@ uniform vec2 tile_size = vec2(64.0, 32.0);
 uniform vec4 fringe_color : source_color = vec4(0.38, 0.65, 0.28, 1.0);
 
 uniform float elevation_step_y = 10.0;
+uniform float elevation_texture_zero = 128.0;
+uniform float elevation_texture_scale = 25.0;
 uniform bool is_isometric = true;
 
 uniform vec2 grid_origin = vec2(0.0);
@@ -20,33 +22,7 @@ uniform vec2 grid_axis_y = vec2(0.0, 32.0);
 uniform vec2 surface_origin = vec2(0.0);
 uniform vec2 surface_size = vec2(8192.0, 4096.0);
 
-vec2 world_to_grid(vec2 world) {
-	vec2 d = world - grid_origin;
-	float det = grid_axis_x.x * grid_axis_y.y - grid_axis_y.x * grid_axis_x.y;
-	if (abs(det) < 0.000001) {
-		return vec2(-1.0);
-	}
-	return vec2(
-		(d.x * grid_axis_y.y - grid_axis_y.x * d.y) / det,
-		(grid_axis_x.x * d.y - grid_axis_x.y * d.x) / det);
-}
-
-float elevation_at_grid(vec2 g) {
-	vec2 uv = (g + 0.5) / vertex_grid_size;
-	if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
-		return 0.0;
-	}
-	return (texture(vertex_elevation, uv).r - 0.5) * 10.0;
-}
-
-float elevation_at(vec2 world) {
-	vec2 g = world_to_grid(world);
-	vec2 uv = (g + 0.5) / vertex_grid_size;
-	if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
-		return 0.5;
-	}
-	return texture(vertex_elevation, uv).r;
-}
+#include "res://shaders/terrain_heightfield.gdshaderinc"
 
 float hash(vec2 p) {
 	// Keep intermediates small: large sin hashes form bands on mobile/GL drivers.
@@ -875,14 +851,9 @@ vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float
 
 void fragment() {
 	vec2 world = surface_origin + UV * surface_size;
-	vec2 p = world_to_grid(world);
-	if (is_isometric && elevation_step_y > 0.0) {
-		for (int iter = 0; iter < 4; iter++) {
-			float h = elevation_at_grid(p);
-			p = world_to_grid(world + vec2(0.0, h * elevation_step_y));
-		}
-	}
-	if (p.x < 0.0 || p.y < 0.0 || p.x > grid_size.x || p.y > grid_size.y) {
+	bool surface_hit;
+	vec2 p = surface_grid_at_world(world, surface_hit);
+	if (!surface_hit || p.x < 0.0 || p.y < 0.0 || p.x > grid_size.x || p.y > grid_size.y) {
 		COLOR = vec4(0.0);
 	} else {
 		vec2 tile_world = p * tile_size;

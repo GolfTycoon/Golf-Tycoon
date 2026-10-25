@@ -101,6 +101,8 @@ Foliage uses one shared vertex shader. Each tree sways with a phase set by its w
 
 `EntityLayer` sits at Z = 2. Its shadows stay above the ground and below the sprites. Elevation lighting is separate, and contour lines appear only while the elevation tool is active. Continuous light and smooth ambient occlusion avoid rectangular bands from the low-resolution heightmap.
 
+Tree sprites use the shared heightfield intersection in `terrain_heightfield.gdshaderinc` for per-pixel terrain occlusion. A higher tile in front of a tree hides the covered trunk or canopy pixels; it does not erase the whole tree or clip a crown that remains in front of the terrain. Ordinary Y-sort still resolves trees against other standing entities.
+
 ### 7. Quick Start
 
 Quick Start paints the course it wants directly. A wood is a tile, so clearing a spot for a hole is one tile change, with no entity removal. This avoids leaving holes in fairways and greens.
