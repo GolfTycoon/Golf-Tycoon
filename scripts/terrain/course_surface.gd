@@ -59,6 +59,7 @@ func initialize(grid: TerrainGrid) -> void:
 	surface_material.set_shader_parameter("elevation_step_y", grid.ELEVATION_STEP_Y)
 	surface_material.set_shader_parameter("elevation_texture_zero", ELEVATION_TEXTURE_ZERO)
 	surface_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
+	surface_material.set_shader_parameter("elevation_levels", float(grid.MAX_ELEVATION - grid.MIN_ELEVATION))
 	surface_material.set_shader_parameter("is_isometric", grid.view_isometric)
 	material = surface_material
 	apply_projection(grid.projection)

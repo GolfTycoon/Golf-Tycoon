@@ -14,6 +14,11 @@ uniform vec4 fringe_color : source_color = vec4(0.38, 0.65, 0.28, 1.0);
 uniform float elevation_step_y = 10.0;
 uniform float elevation_texture_zero = 128.0;
 uniform float elevation_texture_scale = 25.0;
+// How many elevation levels the course can be built on (TerrainGrid's
+// MAX_ELEVATION - MIN_ELEVATION). The surface data stores a tile's level in the
+// B channel as a fraction of this range; the water reads whole levels back out
+// of it, so a pond only deepens through tiles at one level.
+uniform float elevation_levels = 10.0;
 uniform bool is_isometric = true;
 
 uniform vec2 grid_origin = vec2(0.0);
@@ -127,9 +132,22 @@ float rocks_tallness(float id) {
 	return id == T_LARGE_BOULDERS ? 1.45 : 1.0;
 }
 
+// One tile of the surface data: R is the terrain id, B the tile's elevation
+// level, normalised over the range the course can be built on (see
+// CourseSurface._write_tile()). G and A are reserved.
+vec4 tile_data_at(vec2 p) {
+	return texture(terrain_data, (clamp(p, vec2(0.0), grid_size - 1.0) + 0.5) / grid_size);
+}
+
 float tile_at(vec2 p) {
-	vec4 data = texture(terrain_data, (clamp(p, vec2(0.0), grid_size - 1.0) + 0.5) / grid_size);
-	return floor(data.r * 255.0 + 0.5);
+	return floor(tile_data_at(p).r * 255.0 + 0.5);
+}
+
+// The elevation level a tile sits at, in whole levels between TerrainGrid's
+// MIN_ELEVATION and MAX_ELEVATION, read from the same surface data the height
+// field is built from.
+float tile_level(vec4 data) {
+	return data.b * elevation_levels;
 }
 
 // Boundary class: terrain that reads as one material across tile borders. A
@@ -521,13 +539,26 @@ vec3 tile_border(float id, vec2 g, float grain) {
 // pixel is. The shallows therefore run clear over a bright, detailed bed, and
 // the middle of a pond goes dark and still, with nothing to see but the
 // surface. Depth is measured from the bank: the distance to the nearest tile
-// that is not water, in tiles, so a painted pond needs no depth data of its
-// own and a narrow arm stays shallow along its whole length.
+// that is not part of the same body, in tiles, so a painted pond needs no depth
+// data of its own and a narrow arm stays shallow along its whole length.
+//
+// A body is the run of Water tiles joined edge to edge at one elevation level,
+// so water only gets deeper where it is connected together at a single level. A
+// pond poured over a step is two bodies: the water on the far side of the step
+// is the near side's bank, and the level break runs off into shallows like any
+// shoreline instead of the depth carrying the hillside's fall across it. Tiles
+// off the course are never water either, so a pond ends at the property line
+// rather than reading as bottomless at the rim of the map.
 // ---------------------------------------------------------------------------
 
 // The deepest water worth measuring, in tiles. A pond wider than this has a
 // floor that is out of sight anyway, so the walk away from the bank stops here.
 const float WATER_MAX_DEPTH = 3.2;
+// Two water tiles share a level when their levels are less than half a level
+// apart. Levels are whole numbers (TerrainGrid.MIN_ELEVATION..MAX_ELEVATION),
+// and the surface data quantises one level to roughly 1/25 of its range, so
+// this leaves all the room the encoding's own rounding needs.
+const float WATER_LEVEL_TOLERANCE = 0.5;
 // How much of the floor's light one tile of water takes out on its way back up.
 const float WATER_ABSORB = 0.95;
 // Fine detail is lost to scattering faster than the floor's own colour is, so
@@ -536,22 +567,48 @@ const float WATER_DETAIL_ABSORB = 2.4;
 // The same absorption across a stream's channel, per tile of channel depth.
 const float RIVER_ABSORB = 70.0;
 
+// Pond water: the Water tile. A stream is the other wet terrain; it draws its
+// own channel (inset_tile()) and joins a pond at the channel mouth, but it is
+// not part of a pond's body.
+bool is_pond(vec4 data) {
+	return abs(floor(data.r * 255.0 + 0.5) - 8.0) < 0.5;
+}
+
+// Does the tile at `cell` belong to the body of water lying at elevation
+// `level`? Water at that level is what membership means: a body is the run of
+// Water tiles that touch edge to edge at one level, and every tile of it
+// answers the same level. Water poured over a step is therefore the next body
+// along, and a tile off the course is never water at all — the pond ends at the
+// property line however the texture clamps.
+bool same_water_body(vec2 cell, float level) {
+	if (cell.x < 0.0 || cell.y < 0.0 || cell.x > grid_size.x - 1.0 || cell.y > grid_size.y - 1.0) {
+		return false;
+	}
+	vec4 data = tile_data_at(cell);
+	return is_pond(data) && abs(tile_level(data) - level) < WATER_LEVEL_TOLERANCE;
+}
+
 // The depth of the water under a pixel, in tiles: its Euclidean distance to
 // the nearest bank, so the shallows follow the shoreline in smooth rings
 // instead of square steps. `g` is in grid units; each tile is the unit square
-// [n, n+1). The nearest point on a dry tile's square to `g` is the shore,
-// and the nearest of those over every dry tile within reach is the depth.
-// A pixel outside the water is the shallows, wherever the water runs on to.
+// [n, n+1). The nearest point on a tile that is not part of this pond's body to
+// `g` is the bank, and the nearest of those over every tile within reach is the
+// depth. A pixel outside the water is the shallows, wherever the water runs on to.
 float water_depth(vec2 g) {
 	vec2 cell = floor(g);
-	if (abs(tile_at(cell) - 8.0) > 0.5) {
+	vec4 own = tile_data_at(cell);
+	if (!is_pond(own)) {
 		return 0.0;
 	}
+	// The body this pixel belongs to: the water tiles joined to this one at the
+	// same elevation level. A neighbour at another level is a bank, not more
+	// pond, so the depth stops there and the step runs off into shallows.
+	float level = tile_level(own);
 	float best = WATER_MAX_DEPTH;
 	for (int oy = -3; oy <= 3; oy++) {
 		for (int ox = -3; ox <= 3; ox++) {
 			vec2 ncell = cell + vec2(float(ox), float(oy));
-			if (abs(tile_at(ncell) - 8.0) < 0.5) {
+			if (same_water_body(ncell, level)) {
 				continue;
 			}
 			vec2 closest = clamp(g, ncell, ncell + vec2(1.0));
@@ -613,7 +670,10 @@ vec2 water_ripple(vec2 g) {
 // margin where the water laps the bank. `edge` is the tile's own edge coverage,
 // so the margin follows the material boundary exactly, and `base` is the
 // theme's water colour, which keeps a tropical lagoon turquoise and a marshland
-// pond murky while both still read as water over a bed.
+// pond murky while both still read as water over a bed. The margin follows the
+// body's own edge too: where the water is cut off by the same pond at another
+// level, the depth there is already nothing, so the foot of the step wears the
+// same wet waterline as a bank.
 vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
 	vec2 g = world / tile_size;
 	float depth = water_depth(g);
@@ -636,10 +696,17 @@ vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
 		* smoothstep(0.55, 0.8, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
 	color += vec3(0.30, 0.39, 0.33) * glint * (0.16 + deep * 0.22);
 	// The waterline: the last of the floor, wet and darkened against the bank,
-	// with the light the surface throws back along it.
+	// with the light the surface throws back along it. On a pond tile it follows
+	// the body's own edge as well, so the foot of a step between two levels of
+	// the same pond wears the same wet line as a bank. A pixel painted outside a
+	// pond tile — in a bank's boundary band, or a stream mouth blended into the
+	// pond — has no body depth to read, so it keeps the material edge alone.
 	float bank = smoothstep(0.30, 1.0, edge);
+	if (is_pond(tile_data_at(floor(g)))) {
+		bank = max(bank, 1.0 - smoothstep(0.02, 0.16, depth));
+	}
 	color = mix(color, bed_lit * 0.5 + column * 0.3, bank * 0.6);
-	color += vec3(0.34, 0.4, 0.38) * smoothstep(0.80, 1.0, edge) * 0.16;
+	color += vec3(0.34, 0.4, 0.38) * smoothstep(0.80, 1.0, bank) * 0.16;
 	return clamp(color, vec3(0.0), vec3(1.0));
 }
 

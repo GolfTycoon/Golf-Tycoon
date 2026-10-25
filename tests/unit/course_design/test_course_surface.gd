@@ -366,3 +366,69 @@ func test_bunker_is_a_raked_bowl_sunk_into_its_lip() -> void:
 		"The lip is rough turf, the same grass a stream's banks keep")
 	assert_true(source.contains("const vec3 BUNKER_LIP_TURF = vec3(0.35, 0.40, 0.24);"),
 		"The lip settles toward the olive the bordered tiles draw their own borders in")
+
+func test_water_only_deepens_through_tiles_connected_at_one_level() -> void:
+	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	assert_false(source.is_empty(), "The course surface shader is readable")
+
+	# A body of water is the run of Water tiles joined at one elevation level, so
+	# the depth scan skips only the tiles that belong to it and treats everything
+	# else — water poured over a step, and the land off the course — as bank.
+	var body_start := source.find("bool same_water_body(")
+	var body_end := source.find("float water_depth(", body_start)
+	assert_gt(body_start, 0, "same_water_body() decides what one body of water is")
+	assert_gt(body_end, body_start, "same_water_body() is complete")
+	var body_fn := source.substr(body_start, body_end - body_start)
+	assert_true(body_fn.contains("is_pond(data) && abs(tile_level(data) - level) < WATER_LEVEL_TOLERANCE"),
+		"A tile joins the body only where it is Water at that body's own elevation level")
+	assert_true(body_fn.contains("cell.x > grid_size.x - 1.0"),
+		"A tile off the course is never water, so a pond ends at the property line")
+
+	var depth_start := source.find("float water_depth(")
+	var depth_end := source.find("// The floor of a water tile", depth_start)
+	assert_gt(depth_end, depth_start, "water_depth() is complete")
+	var depth_fn := source.substr(depth_start, depth_end - depth_start)
+	assert_true(depth_fn.contains("float level = tile_level(own);"),
+		"The depth is measured against the level of the tile the pixel stands in")
+	assert_true(depth_fn.contains("if (same_water_body(ncell, level)) {"),
+		"Only the tiles of this body are skipped when looking for the bank")
+	assert_false(depth_fn.contains("abs(tile_at(ncell) - 8.0) < 0.5"),
+		"Water at another level is no longer counted as more of this pond")
+
+	# The level comes from the same elevation channel the height field is built
+	# from, over the whole range the course can be built on.
+	assert_true(source.contains("uniform float elevation_levels = 10.0;"),
+		"The shader knows how many levels the course can be built on")
+	assert_true(source.contains("return data.b * elevation_levels;"),
+		"A tile reads its level back out of the surface data's elevation channel")
+	assert_eq(grid._course_surface.material.get_shader_parameter("elevation_levels"),
+		float(grid.MAX_ELEVATION - grid.MIN_ELEVATION),
+		"The course surface feeds the shader the grid's own level range")
+
+	# Where the water runs out — at a bank and at the foot of a step between two
+	# levels of the same pond — the last of the floor is wet and darkened.
+	assert_true(source.contains("if (is_pond(tile_data_at(floor(g)))) {")
+		and source.contains("bank = max(bank, 1.0 - smoothstep(0.02, 0.16, depth));"),
+		"A pond's waterline follows the body's edge as well as the material edge")
+
+func test_surface_data_carries_the_level_a_pond_is_measured_at() -> void:
+	var low := Vector2i(2, 2)
+	var high := Vector2i(4, 2)
+	grid.set_tile(low, TerrainTypes.Type.WATER)
+	grid.set_tile(high, TerrainTypes.Type.WATER)
+	grid.set_elevation(low, grid.BASE_ELEVATION)
+	grid.set_elevation(high, grid.BASE_ELEVATION + 2)
+	var level_size := 1.0 / float(grid.MAX_ELEVATION - grid.MIN_ELEVATION)
+	var low_level: float = grid._course_surface._data.get_pixel(low.x, low.y).b
+	var high_level: float = grid._course_surface._data.get_pixel(high.x, high.y).b
+	assert_almost_eq(low_level, 0.5, level_size * 0.1,
+		"Flat ground sits in the middle of the level range")
+	assert_almost_eq(high_level - low_level, level_size * 2.0, level_size * 0.1,
+		"A tile's elevation reaches the shader in whole-level steps")
+
+	# Two tiles at one level are the same pond; the same tiles two levels apart
+	# are two ponds with a bank at the step between them.
+	grid.set_elevation(high, grid.BASE_ELEVATION)
+	var same_level: float = grid._course_surface._data.get_pixel(high.x, high.y).b
+	assert_eq(same_level, low_level,
+		"Water tiles at one elevation read back the same level, so they are one body")

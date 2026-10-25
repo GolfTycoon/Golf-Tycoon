@@ -2,7 +2,7 @@
 
 > The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds, instead of per-tile sprites.
 
-**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
+**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `water_depth()`, `same_water_body()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
 
 ---
@@ -13,7 +13,7 @@ The course is no longer a grid of coloured squares. The ground is one connected 
 
 - **Turf** has diagonal mower passes. Putting greens have fine turf and a collar around them.
 - **Bunkers** are a raked sand bowl sunk into the turf: a grass lip around the pit, one side of the floor in that lip's shade and the other in sun, arcs of raking, and the sand's own grain. Pot Bunkers are a separate tile with a stacked-turf face.
-- **Water** moves gently.
+- **Water** moves gently, and deepens only where a pond's tiles run together at one elevation level: the shallows run clear over a bright bed, the middle of a pond goes dark and still, and the water above and below a step is a shallow shelf on either side of it.
 - **Trees** each have a ground painted under them, such as leaf litter, pine needles or sand.
 
 The simulation still uses the same tile grid (128 × 128 by default). This is a rendering change only. Camera controls, saved courses, hazards and shot logic all keep their existing coordinates. Soft edge blends are drawn for looks and do not change a ball's lie.
@@ -108,21 +108,36 @@ Pot bunkers and streams use `link_distance()`, which measures the distance to a 
 - A stream is a channel with a muddy margin and crests that drift downstream over time. The Stream tool paints 4-connected strokes (`TerrainBrush.centers_4_connected()`), because channels only join edge-adjacent tiles.
 - The stream's grass bank is painted under the channel and its mud, by the same `bank_turf()` a pot bunker's lip uses, so the two tiles always show the same grass. It is then edged with the border above, so a stream cutting through a fairway reads as a crisply bordered ribbon rather than a soft stain on the turf. The border lies under the mud and the water, so neither the channel nor its margin is ever crossed by it, and Water, Rough and Pot Bunker are met without one.
 
-### 5. Turf and water animation
+### 5. Water
+
+A pond is drawn as a bed under a column of water rather than a flat sheet of colour. The floor is painted first — sand, silt, gravel, ripple marks and weed — and the water above takes the light out of it in proportion to the depth, so the shallows run clear over a bright, detailed bed and the middle of a pond goes dark and still, with nothing to see but the surface. A stream's channel reuses the same bed and the same absorption (`RIVER_ABSORB`), which is why a burn reads as the same water as the pond it empties into.
+
+Depth needs no stored data. `water_depth()` takes the Euclidean distance, in tiles, from the pixel to the nearest tile that is not part of the pixel's own body of water, so the shallows follow the shoreline in smooth rings instead of square steps, a narrow arm stays shallow along its whole length, and a pond wider than `WATER_MAX_DEPTH` simply stops deepening.
+
+What counts as the same body is the whole point:
+
+- A body is the run of **Water** tiles that touch edge to edge **at one elevation level**, read from the surface data's own elevation channel (`tile_data_at()`, `tile_level()`, `WATER_LEVEL_TOLERANCE`). Water only gets deeper where it is connected together at a single level.
+- Water poured over a step is two bodies. The far side of the step is the near side's bank, so the level break runs off into shallows on both sides instead of the depth carrying the hillside's fall across it — a pond on a slope is a terrace of shallow shelves, one per level, not one sheet of deep water wrapped over the slope.
+- `Stream` is not pond water: it draws its own channel (`inset_tile()`), and the channel mouth is what joins the two.
+- Tiles off the course are never water, so a pond ends at the property line instead of reading as bottomless at the rim of the map.
+
+The waterline is measured from the same depth. On a pond tile, wherever the water runs out — against a bank, and at the foot of a step between two levels of the same pond — the last of the floor is wet and darkened, with the light the surface throws back along it (`water_surface()`). A pixel painted outside a pond tile, such as a stream mouth blending into the pond or the band a bank draws over its own edge, has no body depth to read, so it keeps the material edge alone.
+
+### 6. Turf and water animation
 
 Noise and mower passes use world coordinates, and so do a Bunker's raking and its drifts of sand: moving or zooming the camera does not move the pattern. Water animates from GPU time and needs no per-tile script updates. Standard Bunkers always use the same raked-bowl treatment, whatever the theme; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
 
-### 6. Foliage
+### 7. Foliage
 
 Foliage uses one shared vertex shader. Each tree sways with a phase set by its world position, and movement falls off toward the base of the trunk. Cacti and dead trees do not move.
 
-### 7. Layering and lighting
+### 8. Layering and lighting
 
 `EntityLayer` sits at Z = 2. Its shadows stay above the ground and below the sprites. Elevation lighting is separate, and contour lines appear only while the elevation tool is active. Continuous light and smooth ambient occlusion avoid rectangular bands from the low-resolution heightmap.
 
 Tree sprites use the shared heightfield intersection in `terrain_heightfield.gdshaderinc` for per-pixel terrain occlusion. A higher tile in front of a tree hides the covered trunk or canopy pixels; it does not erase the whole tree or clip a crown that remains in front of the terrain. Ordinary Y-sort still resolves trees against other standing entities.
 
-### 8. Quick Start
+### 9. Quick Start
 
 Quick Start paints the course it wants directly. A wood is a tile, so clearing a spot for a hole is one tile change, with no entity removal. This avoids leaving holes in fairways and greens.
 
@@ -146,6 +161,8 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Waste margin raggedness | `inset_tile()` | Edge noise, up to about `0.2` tiles | How ragged sand edges look |
 | Stone size and density | `rocks_radius()`, `rocks_present_threshold()` | See the table in the source | How many stones and how big |
 | Boulder height | `rocks_tallness()` | `1.7` for Large Boulders | How far boulders stand up |
+| Water body | `course_surface.gdshader` `same_water_body()`, `WATER_LEVEL_TOLERANCE` | Water tiles at one elevation level, joined edge to edge; `0.5` levels of tolerance | What counts as one pond. Water deepens only inside a body: tiles under half a level apart are the same water, and the next level up is a bank |
+| Water depth | `course_surface.gdshader` `WATER_MAX_DEPTH`, `WATER_ABSORB`, `WATER_DETAIL_ABSORB` | `3.2` tiles, `0.95`, `2.4` | Deepest water measured, how fast the column darkens with depth, and how fast the floor's fine detail is lost |
 | Water animation | `course_surface.gdshader` | GPU time | Speed of water movement |
 | Foliage breeze | `foliage_breeze.gdshader` | Small amplitude | Strength of canopy motion |
 | Palette | `course_surface.gd` `PALETTE_KEYS` | One key per terrain type | Colour of each terrain type |
