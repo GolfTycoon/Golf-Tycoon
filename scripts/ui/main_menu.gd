@@ -482,7 +482,7 @@ func _make_rule(width: float, thickness: float, centered: bool, color: Color = A
 
 ## Version and save count - the quiet line that closes the layout.
 func _make_status_line(centered: bool, font_size: int) -> Control:
-	var version := str(ProjectSettings.get_setting("application/config/version", "0.4.8"))
+	var version := str(ProjectSettings.get_setting("application/config/version", "0.4.9"))
 	var text := "v%s" % version
 	var label := Label.new()
 	label.name = "Status"
