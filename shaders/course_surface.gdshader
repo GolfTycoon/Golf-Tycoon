@@ -654,10 +654,129 @@ vec3 bank_turf(vec2 world, float grain, float patch) {
 	return clamp(base + vec3(variation * 0.78, variation, variation * 0.48), vec3(0.0), vec3(1.0));
 }
 
+// The dark olive a Bunker's grass lip settles to: the colour the bordered
+// tiles' borders and a stream's bank rim are built from, so every lip and rim on
+// the course reads as one family of edges.
+const vec3 BUNKER_LIP_TURF = vec3(0.35, 0.40, 0.24);
+
+// A Bunker's lip: the rough turf of bank_turf(), settled toward the dark olive
+// the bordered tiles use for their borders. The tile shows this grass in the
+// band where it meets other ground, so a Bunker keeps the same border every
+// other bordered tile draws; the bowl itself is shaded inside that band by
+// bunker_bowl().
+vec3 lip_turf(vec2 world, float grain, float patch) {
+	return mix(bank_turf(world, grain, patch), BUNKER_LIP_TURF, 0.20);
+}
+
 // Inset terrain that paints its own turf instead of melting into the ground
 // around it, and so takes no surround from the tiles beside it.
 bool keeps_own_turf(float id) {
 	return id == T_STREAM || id == T_POT_BUNKER;
+}
+
+// ---------------------------------------------------------------------------
+// Standard Bunkers: a sand bowl sunk into the turf.
+//
+// A bunker is not a pale patch lying on the grass. It is a shallow pit, and
+// what makes it read as one is light: the turf lip stands above the sand and
+// holds the sun off the side of the floor nearest it, the far wall catches the
+// sun so the sand at its foot is the brightest in the pit, the floor sags
+// between the two, and the whole floor is raked in arcs that follow the lip.
+//
+// All of it is measured from `rim`: the distance, in tiles, from the sand's
+// edge where the tile meets different ground. Two bunker tiles side by side
+// are one floor, so only edges shared with other terrain count as rim — a run
+// of bunker is one bowl with one lip around the outside of it.
+// ---------------------------------------------------------------------------
+
+// How far toward the sun the rim is re-measured: the wall that shades a pixel
+// of floor is the one a lip's height away from it, not the one it touches.
+const float BUNKER_SUN_STEP = 0.14;
+// Arcs of raking across the floor. A green-side bunker is raked radially, so
+// the arcs follow the lip at a spacing of a few pixels rather than a comb.
+const float BUNKER_RAKE_ARCS = 11.0;
+// Where the grass lip ends and the sand begins, in tiles from the tile's edge.
+const float BUNKER_LIP_FOOT = 0.12;
+
+// Distance in tiles from the sand's rim. Edges shared with other terrain are
+// rim; edges shared with another bunker are not, so the floor — and the bowl's
+// shading — run on across them. Corners are rounded with a smooth minimum, so a
+// square patch of bunker reads as one rounded pit rather than four walls
+// meeting at a point.
+float bunker_rim(vec2 q, vec4 open_edges) {
+	float rim = 9.0;
+	rim = smin(rim, mix(9.0, 1.0 - q.x, open_edges.x), 0.10);
+	rim = smin(rim, mix(9.0, 1.0 - q.y, open_edges.y), 0.10);
+	rim = smin(rim, mix(9.0, q.x, open_edges.z), 0.10);
+	rim = smin(rim, mix(9.0, q.y, open_edges.w), 0.10);
+	return rim;
+}
+
+// The grass lip, as a mask over the rim. It is built from the same FRINGE band
+// and EDGE_LIP_LO..HI coverage ramp as every other tile's border, so a Bunker's
+// lip is exactly the width the bordered tiles' borders and a stream's bank rim
+// copy.
+float bunker_lip(float rim) {
+	float cover = 1.0 - smoothstep(-FRINGE, FRINGE, -rim);
+	return 1.0 - smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover);
+}
+
+// The bowl: the raked sand under the lip, shaded by the pit it lies in. `sand`
+// is the tile's own surface colour, already warmed and drifted at the Bunker's
+// edges by surface(); `q` is the position inside the tile.
+//
+// `rim` runs from 0 at the tile's edge to the middle of the pit. The grass lip
+// covers the first tenth of it; the sand lies inside that, so the lip's foot —
+// where sand and grass meet — is at about BUNKER_LIP_FOOT.
+vec3 bunker_bowl(vec3 sand, vec2 q, vec4 open_edges, vec2 world, float grain, float patch) {
+	vec2 g = world / tile_size;
+	float rim = bunker_rim(q, open_edges);
+	float lip = bunker_lip(rim);
+	// The heart of the look: how much of the sun reaches each part of the floor.
+	// The rim a step toward the light still has to clear is the wall standing
+	// between that bit of sand and the sun, so the sand at the foot of the lip
+	// the sun comes over lies in that lip's shade, and the rest of the pit is
+	// open to the light. That asymmetry — one dark side and one lit — is what
+	// turns flat sand into a hollow with sides, and it needs no depth data: only
+	// which edges the tile shares with its own kind.
+	float sun = smoothstep(0.0, 0.30, bunker_rim(q + GROUND_LIGHT * BUNKER_SUN_STEP, open_edges));
+	// The floor sags away from the lip: the middle of the pit is its lowest
+	// ground, so the sand loses a little light in there and holds more of it up
+	// the slopes that climb to the lip.
+	float sag = smoothstep(0.34, 0.05, rim);
+	// Raking: arcs that follow the lip the way a green-side bunker is raked
+	// round, wandering as a hand does, with the teeth drawn across them. The
+	// spacing is a few pixels at the default zoom, so the floor reads as combed
+	// sand from the course view and still holds up close.
+	float rake = sin(rim * BUNKER_RAKE_ARCS + noise(g * 1.7 + vec2(3.0, 8.0)) * 5.0);
+	float teeth = noise(vec2(rim * 22.0, (q.x + q.y) * 6.0));
+	// How far in the sand sits, for tinting: the floor's own colour cools toward
+	// the walls, the way shade in a hollow does, so the bowl reads as a recess
+	// even where the sun still reaches it.
+	float depth = 1.0 - smoothstep(0.02, 0.22, rim);
+	// The lip's contact shadow: the last stretch of sand before the grass is the
+	// darkest in the pit, because the lip stands over it. It is a soft falloff
+	// rather than a line, so the pit keeps a crisp edge at any zoom without a
+	// drawn rim resting on the sand.
+	float shade = smoothstep(0.24, BUNKER_LIP_FOOT - 0.02, rim) * 0.27;
+	vec3 floor_sand = sand * (0.92 + sun * 0.26 - sag * 0.05);
+	floor_sand *= vec3(1.0 - shade, 1.0 - shade * 1.1, 1.0 - shade * 1.35);
+	floor_sand *= mix(vec3(1.0), vec3(0.94, 0.97, 1.02), depth * 0.6);
+	floor_sand *= 1.0 + rake * 0.055 * (0.5 + sun * 0.5) + (teeth - 0.5) * 0.018;
+	// Sand is not one colour: a pale skim of drier grains drifts over the floor,
+	// and a scatter of darker grit sits in it.
+	floor_sand = mix(floor_sand, floor_sand * vec3(1.09, 1.06, 0.96),
+		smoothstep(0.52, 0.84, noise(world * vec2(0.22, 0.44) + vec2(4.0, 1.0))) * 0.55);
+	floor_sand = mix(floor_sand, floor_sand * vec3(0.76, 0.73, 0.68),
+		dots(g * 12.0 + vec2(3.0, 5.0), 0.18, 0.30) * 0.22);
+	// The lip itself: rough turf, its inner face turned away from the sun and so
+	// in shade where it stands between the pit and the light, and its crest
+	// along the top of the lip catching the sun.
+	vec3 turf = lip_turf(world, grain, patch);
+	float face = smoothstep(0.01, BUNKER_LIP_FOOT, rim) * lip;
+	float crest = (1.0 - smoothstep(0.0, 0.05, rim)) * lip;
+	turf *= 1.0 - (1.0 - sun) * face * 0.26 + crest * 0.10;
+	return mix(turf, floor_sand, 1.0 - lip);
 }
 
 vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
@@ -678,10 +797,15 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 		base = mix(base, fringe_color.rgb, edge * 0.92);
 		variation *= 0.18;
 	} else if (id == 7.0) {
-		// Recessed sand with a grass lip, warm bowl, and fine rake marks.
-		base = mix(base * 1.12, vec3(0.35, 0.40, 0.24), edge * 0.78);
-		float rake = sin(world.y * 1.15 + sin(world.x * 0.022) * 3.0);
-		variation = (grain - 0.5) * 0.06 + rake * 0.012;
+		// Raked sand in a shallow bowl. The sand's warmth and drift are painted
+		// here, and the lip's grass is mixed in at the open edges so a Bunker
+		// keeps the same border as every other bordered tile; bunker_bowl() then
+		// shades the bowl — the lip's shade, the sunlit far wall and the rake
+		// arcs — from the rim only the fragment can measure.
+		float drift = sin((world.x + world.y * 0.7) * 0.052 + noise(world * 0.004) * 3.0);
+		base *= 1.0 + drift * 0.03 + (noise(world * vec2(0.55, 1.2)) - 0.5) * 0.05;
+		variation = (grain - 0.5) * 0.045;
+		base = mix(base, lip_turf(world, grain, patch), edge * 0.94);
 	} else if (id == 8.0) {
 		// Water with depth in it: the bed shows through the shallows and the
 		// pond darkens away from its bank. See water_surface().
@@ -1087,6 +1211,11 @@ void fragment() {
 				}
 				own = inset_tile(a, own, outside, edge_mix, open_edges, f, cell,
 					t_e, t_s, t_w, t_n, tile_world, grain, patch);
+			}
+			if (a == 7.0) {
+				// A standard bunker is a bowl: shade its sand by the pit the
+				// tile's rim cuts into the turf.
+				own = bunker_bowl(own, f, open_edges, tile_world, grain, patch);
 			}
 			color += own * w_c;
 		}
