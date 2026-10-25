@@ -355,6 +355,137 @@ vec3 tree_ground(float id, vec3 base, vec2 g, float grain, float patch) {
 	return base;
 }
 
+// ---------------------------------------------------------------------------
+// Water: depth, and the bed seen through it.
+//
+// A water tile is a body of water, not a flat sheet of colour. Its floor is
+// painted first — sand, silt, gravel, ripple marks and weed — and the water
+// above it takes the light out of that floor in proportion to how deep the
+// pixel is. The shallows therefore run clear over a bright, detailed bed, and
+// the middle of a pond goes dark and still, with nothing to see but the
+// surface. Depth is measured from the bank: the distance to the nearest tile
+// that is not water, in tiles, so a painted pond needs no depth data of its
+// own and a narrow arm stays shallow along its whole length.
+// ---------------------------------------------------------------------------
+
+// The deepest water worth measuring, in tiles. A pond wider than this has a
+// floor that is out of sight anyway, so the walk away from the bank stops here.
+const float WATER_MAX_DEPTH = 3.2;
+// How much of the floor's light one tile of water takes out on its way back up.
+const float WATER_ABSORB = 0.95;
+// Fine detail is lost to scattering faster than the floor's own colour is, so
+// ripple marks, gravel, weed and caustics die out well inside the deep water.
+const float WATER_DETAIL_ABSORB = 2.4;
+// The same absorption across a stream's channel, per tile of channel depth.
+const float RIVER_ABSORB = 70.0;
+
+// The depth of the water under a pixel, in tiles: its Euclidean distance to
+// the nearest bank, so the shallows follow the shoreline in smooth rings
+// instead of square steps. `g` is in grid units; each tile is the unit square
+// [n, n+1). The nearest point on a dry tile's square to `g` is the shore,
+// and the nearest of those over every dry tile within reach is the depth.
+// A pixel outside the water is the shallows, wherever the water runs on to.
+float water_depth(vec2 g) {
+	vec2 cell = floor(g);
+	if (abs(tile_at(cell) - 8.0) > 0.5) {
+		return 0.0;
+	}
+	float best = WATER_MAX_DEPTH;
+	for (int oy = -3; oy <= 3; oy++) {
+		for (int ox = -3; ox <= 3; ox++) {
+			vec2 ncell = cell + vec2(float(ox), float(oy));
+			if (abs(tile_at(ncell) - 8.0) < 0.5) {
+				continue;
+			}
+			vec2 closest = clamp(g, ncell, ncell + vec2(1.0));
+			float d = length(g - closest);
+			if (d < best) {
+				best = d;
+			}
+		}
+	}
+	return best;
+}
+
+// The floor of a water tile: sand and silt with the gravel, ripple marks and
+// weed a shallow bed carries. `g` is in grid units, so one continuous bed runs
+// under every tile of the pond instead of each tile repeating a pattern;
+// `clear` is 1 where the water is thin enough for the sun to reach the floor
+// and 0 where it is not, which is how far the fine detail is carried; `river`
+// coarsens the material, because a stream's floor is gravel swept by the
+// current rather than silt settling out of still water.
+vec3 water_bed(vec2 g, float clear, bool river) {
+	vec3 bed = mix(palette_color(T_WASTE_BUNKER), vec3(0.42, 0.36, 0.27), 0.42);
+	// Broad drifts of silt over the sand, so the floor is not one flat colour.
+	bed *= 0.86 + noise(g * 5.0) * 0.22 + (noise(g * 1.6) - 0.5) * 0.12;
+	// Ripple marks combed into the sediment along one world direction, warped
+	// by the bed's own relief so they wander instead of running in straight
+	// lines. Finer and closer together where the current cuts them.
+	vec2 comb = vec2(g.x + g.y, g.y - g.x) * 0.7;
+	bed *= 1.0 + sin(comb.x * (river ? 34.0 : 18.0) + noise(g * 2.3) * 4.0) * 0.1 * clear;
+	// Grit, then the odd cobble: coarser and denser on a river floor.
+	float grit = dots(g * (river ? 32.0 : 20.0), river ? 0.72 : 0.42, river ? 0.3 : 0.24);
+	bed = mix(bed, bed * vec3(0.64, 0.62, 0.58), grit * (0.45 + clear * 0.5));
+	float cobbles = dots(g * (river ? 11.0 : 7.0) + vec2(5.0, 2.0), river ? 0.32 : 0.15, 0.42);
+	bed = mix(bed, bed * vec3(1.2, 1.16, 1.08), cobbles * (0.4 + clear * 0.5));
+	// Weed grows only where the light reaches, so it hugs the shallows.
+	float weed = dots(g * 5.5 + vec2(3.0, 8.0), 0.34, 0.46) * clear;
+	bed = mix(bed, vec3(0.15, 0.27, 0.13), weed * 0.6);
+	return bed;
+}
+
+// The net of light the moving surface throws on the floor: two sets of ripples
+// crossing, bright where their crests meet. It reaches the bed only where the
+// water is thin, which is what ties the light to the depth.
+float water_caustics(vec2 g, float clear) {
+	vec2 p = g * 2.3 + vec2(TIME * 0.17, TIME * 0.11);
+	vec2 q = p + (noise(p * 0.8) - 0.5) * 2.4;
+	float net = (1.0 - abs(sin(q.x * 3.3 + q.y * 1.1))) * (1.0 - abs(sin(q.y * 3.7 - q.x * 1.3)));
+	return net * net * clear;
+}
+
+// The moving surface itself: a ripple field that both bends the floor seen
+// through the water and carries the light. In grid units, so the whole pond
+// ripples as one body of water instead of tile by tile.
+vec2 water_ripple(vec2 g) {
+	return vec2(noise(g * 5.0 + vec2(TIME * 0.85, TIME * 0.3)),
+			noise(g * 5.0 + vec2(TIME * 0.25, -TIME * 0.7) + 31.0)) - 0.5;
+}
+
+// Pond water: a bed under a moving column that absorbs its light, with a wet
+// margin where the water laps the bank. `edge` is the tile's own edge coverage,
+// so the margin follows the material boundary exactly, and `base` is the
+// theme's water colour, which keeps a tropical lagoon turquoise and a marshland
+// pond murky while both still read as water over a bed.
+vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
+	vec2 g = world / tile_size;
+	float depth = water_depth(g);
+	float deep = 1.0 - exp(-depth * WATER_ABSORB);    // 0 in the shallows, 1 in the deep
+	float clear = exp(-depth * WATER_DETAIL_ABSORB);  // sunlight still reaching the floor
+	// The surface bends what lies under it, and most where the floor is near.
+	vec2 bed_g = g + water_ripple(g) * 0.1 * clear;
+	vec3 bed = water_bed(bed_g, clear, false);
+	vec3 bed_lit = bed * (0.88 + noise(bed_g * 22.0) * 0.18)
+		* (1.0 + water_caustics(bed_g, clear) * 1.6);
+	// The column: pale and green over the shallows, dark blue over the deep.
+	vec3 shallows_water = mix(base, vec3(0.44, 0.74, 0.68), 0.42) * (1.04 + (patch - 0.5) * 0.1);
+	vec3 deep_water = base * vec3(0.4, 0.55, 0.72) * 0.72;
+	vec3 column = mix(shallows_water, deep_water, deep);
+	vec3 color = mix(bed_lit, column, deep);
+	// The surface's own light: glints where a ripple catches the sun, and more
+	// of them on the deep water, where there is no floor to look at instead.
+	float wave = sin(world.y * 0.16 + sin(world.x * 0.024 + TIME * 0.3) * 2.3 + TIME * 0.8);
+	float glint = smoothstep(0.93, 1.0, wave)
+		* smoothstep(0.55, 0.8, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
+	color += vec3(0.30, 0.39, 0.33) * glint * (0.16 + deep * 0.22);
+	// The waterline: the last of the floor, wet and darkened against the bank,
+	// with the light the surface throws back along it.
+	float bank = smoothstep(0.30, 1.0, edge);
+	color = mix(color, bed_lit * 0.5 + column * 0.3, bank * 0.6);
+	color += vec3(0.34, 0.4, 0.38) * smoothstep(0.80, 1.0, edge) * 0.16;
+	return clamp(color, vec3(0.0), vec3(1.0));
+}
+
 vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	vec3 base = palette_color(id);
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
@@ -378,13 +509,9 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 		float rake = sin(world.y * 1.15 + sin(world.x * 0.022) * 3.0);
 		variation = (grain - 0.5) * 0.06 + rake * 0.012;
 	} else if (id == 8.0) {
-		// Calm deep water, pale shallows, and sparse moving reflected light.
-		base *= 0.76 + patch * 0.10;
-		base = mix(base, vec3(0.32, 0.66, 0.63), 0.48);
-		base = mix(base, vec3(0.83, 0.81, 0.59), edge * 0.92);
-		float wave = sin(world.y * 0.16 + sin(world.x * 0.024 + TIME * 0.3) * 2.3 + TIME * 0.8);
-		float glint = smoothstep(0.95, 1.0, wave) * smoothstep(0.55, 0.78, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
-		base += vec3(0.30, 0.39, 0.33) * glint * 0.25;
+		// Water with depth in it: the bed shows through the shallows and the
+		// pond darkens away from its bank. See water_surface().
+		base = water_surface(base, edge, world, patch);
 		variation = 0.0;
 	} else if (id == 9.0) {
 		variation = (grain - 0.5) * 0.045;
@@ -597,9 +724,16 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float mud_mask = 1.0 - smoothstep(estuary_width + 0.02, estuary_width + 0.18, d);
 
 		float half_width = estuary_width;
-		float deep = 1.0 - smoothstep(0.0, half_width, max(d, 0.0));
-		vec3 water = palette_color(T_STREAM) * (0.84 + (1.0 - deep) * 0.2 + (patch - 0.5) * 0.06);
-		water = mix(water, vec3(0.80, 0.78, 0.62), smoothstep(half_width * 0.55, half_width, d) * 0.3);
+		// The riverbed under the channel. Across a stream the distance from the
+		// centreline is the depth, so the gravel floor shows clear through the
+		// shallow margins and is lost in the dark thread running down the
+		// middle — the same bed the pond paints, coarsened to swept gravel.
+		float clear = exp(-max(half_width - d, 0.0) * RIVER_ABSORB);
+		float deep = 1.0 - clear;
+		vec3 riverbed = water_bed(g, clear, true) * (0.85 + noise(g * 22.0) * 0.2)
+			* (1.0 + water_caustics(g, clear) * 1.3);
+		vec3 water = mix(riverbed,
+			palette_color(T_STREAM) * (0.80 + deep * 0.26 + (patch - 0.5) * 0.06), deep);
 		// Current: soft crests drifting downstream, broken up by moving noise.
 		// The current fades where the stream spreads out into the still pond.
 		float flow_speed = 1.0 - pond * 0.85;
@@ -631,6 +765,10 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		vec3 bank = mix(own, rim, border);
 		vec3 mud = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.6);
 		mud = mix(mud, vec3(0.64, 0.62, 0.57), dots(g * 21.0, 0.3, 0.3) * 0.7);
+		// Damp sediment hugging the water's edge, where the channel has cut in:
+		// the bed the stream leaves bare as it moves across its floor.
+		float damp = (1.0 - smoothstep(estuary_width + 0.02, estuary_width + 0.10, d)) * mud_mask;
+		mud = mix(mud, mud * vec3(0.60, 0.58, 0.54), damp * 0.85);
 		return mix(mix(bank, mud, mud_mask), clamp(water, vec3(0.0), vec3(1.0)), water_mask);
 	} else if (id == T_POT_BUNKER) {
 		// A small round pit: the turf lip, a stacked-turf wall whose far face
