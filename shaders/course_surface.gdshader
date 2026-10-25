@@ -47,6 +47,7 @@ float stream_main_width(vec2 g, float channel_along, float channel_across) {
 }
 
 // Terrain ids (TerrainTypes.Type) with looks of their own below.
+const float T_FLOWER_BED = 12.0;
 const float T_ROCKS = 13.0;
 const float T_FIRM_FAIRWAY = 14.0;
 const float T_POT_BUNKER = 15.0;
@@ -76,78 +77,54 @@ const vec2 GROUND_LIGHT = vec2(-0.83, -0.55);
 // Half width of the anti-aliased material boundary, and of the edge-treatment
 // band every surface's `edge` fade runs in. EDGE_LIP_LO..HI are the coverage
 // values that fade runs across: the Bunker's grass lip uses them, and the
-// border a stream's grass bank draws copies them, so the two borders are
-// exactly the same size. Declared up here because the shading language wants
-// every constant before its first use.
+// borders on stream banks, deep rough, waste bunkers, brush, stony grounds,
+// wild flowers and woodland tiles copy them, so every border is the same size.
+// Declared up here because the shading language wants every constant before
+// its first use.
 const float AA = 0.04;
 const float FRINGE = 0.30;
 const float EDGE_LIP_LO = 0.50;
 const float EDGE_LIP_HI = 0.68;
 
-// Stony ground: painted Rocks and the two boulder fields. They share their
-// ground and rules, and differ only in the stones drawn on them.
+// Stony ground: painted Rocks and the two boulder fields. Each fills the full
+// tile with its own stone texture and draws its own border against other tiles.
 bool is_rocks(float id) {
 	return id == T_ROCKS || id == T_SMALL_BOULDERS || id == T_LARGE_BOULDERS;
 }
 
-// Woodland: the Trees tile and every species tile beside it. One family on the
-// course, but each species is planted in ground of its own.
+// Woodland: the Trees tile and every species tile beside it. Each fills the
+// full tile with its own ground texture and draws its own border.
 bool is_tree(float id) {
 	return id == T_TREES || (id >= T_OAK && id <= T_HEATHER);
 }
 
-// The ground each species grows in. Species sharing a look also share a
-// boundary class, so an oak wood running into a maple wood is seamless while a
-// pine stand beside it still fades needles into leaves.
-const float GROUND_LITTER = 0.0;   // Oak, maple, birch, shrubs, the Trees tile
-const float GROUND_NEEDLES = 1.0;  // Pine
-const float GROUND_SAND = 2.0;     // Cactus, palm, dead tree
-const float GROUND_SILT = 3.0;     // Cattails
-const float GROUND_HEATH = 4.0;    // Heather
-const float GROUND_STRAW = 5.0;    // Fescue
-
-float tree_look(float id) {
-	if (id == T_PINE) { return GROUND_NEEDLES; }
-	if (id == T_CACTUS || id == T_PALM || id == T_DEAD_TREE) { return GROUND_SAND; }
-	if (id == T_CATTAILS) { return GROUND_SILT; }
-	if (id == T_HEATHER) { return GROUND_HEATH; }
-	if (id == T_FESCUE) { return GROUND_STRAW; }
-	return GROUND_LITTER;
+// Full-tile rough, scrub, sand, stone, floral and woodland terrains that frame
+// open edges with a border of the same size as the Bunker's lip instead of
+// blending into neighbouring terrain types.
+bool is_bordered_tile(float id) {
+	return id == T_DEEP_ROUGH || id == T_WASTE_BUNKER || id == T_BRUSH
+		|| is_rocks(id) || id == T_FLOWER_BED || is_tree(id);
 }
 
-// Small variations in the edge of a stand. Keep these below the narrow
-// border width so even a lone tile retains its square ground footprint.
-float tree_looseness(float look) {
-	if (look == GROUND_SAND || look == GROUND_SILT) { return 0.04; }
-	return 0.025;
-}
-
-// How many stone cells a tile of stony ground is cut into, and how many of
-// those cells actually carry a stone. Rocks is a gravelly field, Small
-// Boulders mixes pebbles with the odd larger stone, and Large Boulders is
-// crowded with big standing boulders — almost every cell has one.
+// Stone cell density, radius and standing height for the three stony grounds.
 float rocks_cell_scale(float id) {
-	return id == T_SMALL_BOULDERS ? 2.9 : (id == T_LARGE_BOULDERS ? 1.45 : 4.6);
+	return id == T_SMALL_BOULDERS ? 2.8 : (id == T_LARGE_BOULDERS ? 1.85 : 5.0);
 }
 
 float rocks_radius(float id, float roll) {
 	if (id == T_SMALL_BOULDERS) {
-		return 0.075 + roll * roll * 0.1;    // Mixed: pebbles with the odd stone
+		return 0.082 + roll * 0.075;   // Rounded cobbles and fieldstones
 	}
 	if (id == T_LARGE_BOULDERS) {
-		return 0.2 + roll * roll * 0.22;     // Big boulders, shoulder to shoulder
+		return 0.145 + roll * 0.105;   // Massive standing boulders
 	}
-	return 0.045 + roll * roll * 0.05;       // A gravelly field of little stones
-}
-
-float rocks_present_threshold(float id) {
-	return id == T_LARGE_BOULDERS ? 0.04 : 0.22;  // Large Boulders leave no bare tiles
+	return 0.048 + roll * 0.040;       // Packed angular scree and gravel
 }
 
 // How much taller a stone stands than its footprint along the ground (1 = a
-// stone lying flat on the ground, 1.7 = a boulder standing on its side).
+// stone lying flat on the ground, 1.45 = a boulder standing up).
 float rocks_tallness(float id) {
-	return id == T_LARGE_BOULDERS ? 1.7 : 1.0;
+	return id == T_LARGE_BOULDERS ? 1.45 : 1.0;
 }
 
 float tile_at(vec2 p) {
@@ -159,13 +136,10 @@ float tile_at(vec2 p) {
 // stream and pond remain linked as wet terrain, but keep separate boundary
 // classes so pond water draws a bank against the stream's rough turf. The
 // stream mouth cuts an opening in that bank (edge_between_at), keeping the
-// water continuous. The boulder fields bleed into painted Rocks, and each wood
-// reads as one material per ground: litter tiles never seam into each other,
-// while litter meeting sand does.
+// water continuous. Every terrain tile type keeps its own id so connected tiles
+// of the same type merge seamlessly while different types draw a border.
 float boundary_class(float id) {
 	if (id == T_STREAM) { return T_STREAM; }
-	if (is_rocks(id)) { return T_ROCKS; }
-	if (is_tree(id)) { return 100.0 + tree_look(id); }
 	return id;
 }
 
@@ -174,34 +148,26 @@ float differs(float a, float b) {
 	return step(0.5, abs(boundary_class(a) - boundary_class(b)));
 }
 
-// Grass surfaces that other terrain can sit on.
+// Short/unbordered grass surfaces that inset pits and channels can sit in.
 bool is_turf(float id) {
-	return id == 1.0 || id == 2.0 || id == 3.0 || id == 4.0 || id == T_FIRM_FAIRWAY || id == T_DEEP_ROUGH;
+	return id == 1.0 || id == 2.0 || id == 3.0 || id == 4.0 || id == T_FIRM_FAIRWAY;
 }
 
-// Terrain drawn as features (stones, shrubs, a pot, a channel, a sandy
-// scrape) over whatever turf surrounds it, so a patch has a natural outline
-// instead of a square one.
+// Terrain drawn as an inset feature (a pot bunker or stream channel) inside its
+// own rough turf bank.
 bool is_inset(float id) {
-	return is_rocks(id) || id == T_POT_BUNKER || id == T_STREAM || id == T_WASTE_BUNKER
-		|| id == T_BRUSH || is_tree(id);
+	return id == T_POT_BUNKER || id == T_STREAM;
 }
 
-// Whether stones or shrubs on `id` can sit directly on neighbouring `ground`:
-// any turf, the sand of a waste bunker, and the floor of a wood — where one
-// species' ground runs into another's they merge instead of showing grass.
+// Whether an inset feature on `id` sits inside neighbouring `ground`.
 bool carries(float ground, float id) {
-	return is_turf(ground) || (ground == T_WASTE_BUNKER && (is_rocks(id) || id == T_BRUSH))
-		|| (is_tree(ground) && is_tree(id));
+	return is_turf(ground) && is_inset(id);
 }
 
 // Whether a tile of type `own` draws a boundary against its neighbour `other`.
-// Turf runs straight into inset terrain, which draws its own margin over that
-// turf (and a waste bunker's sand runs under neighbouring stones and shrubs).
-// Two woods are the exception: they share a ground rather than one sitting on
-// the other, so litter meeting needles keeps its band and blends across it.
+// Unbordered turf runs straight into an inset pot or stream; bordered tiles
+// always draw their boundary against any different terrain tile type.
 float edge_between(float own, float other) {
-	if (is_tree(own) && is_tree(other)) { return differs(own, other); }
 	return (is_inset(other) && carries(own, other)) ? 0.0 : differs(own, other);
 }
 
@@ -277,58 +243,273 @@ float dots(vec2 x, float density, float radius) {
 	return (1.0 - smoothstep(radius * 0.6, radius, d)) * step(1.0 - density, hash(n + vec2(11.0, 23.0)));
 }
 
-// The ground a species is planted in, worked up from the theme's own colours so
-// a desert grove and a parkland grove are both leaf litter but not the same
-// brown. `base` is the palette colour of the tree tile, `g` grid coordinates.
+// Full-tile stony surfaces: Rocks (packed angular slate scree), Small Boulders
+// (rounded river cobbles over sandy loam), and Large Boulders (massive craggy
+// granite boulders over fissured dark bedrock).
+vec3 stony_surface(float id, vec3 base, vec2 g) {
+	float scale = rocks_cell_scale(id);
+	vec2 to_point;
+	vec4 c = cells(g * scale, to_point);
+	float tall = rocks_tallness(id);
+	float radius = rocks_radius(id, c.z);
+	float present = step(id == T_LARGE_BOULDERS ? 0.02 : 0.05, c.z);
+	vec2 from_center = -to_point / scale;
+	vec2 up = is_isometric ? vec2(-0.70710678) : vec2(0.0, -1.0);
+	float rise = dot(from_center, up);
+	vec2 lateral = from_center - up * rise;
+	float r = sqrt((rise / tall) * (rise / tall) + dot(lateral, lateral));
+	float outline_scale = id == T_SMALL_BOULDERS ? 0.22 : 0.36;
+	float outline = (noise(g * (scale * 3.4) + vec2(id * 3.0, 1.0)) - 0.5) * radius * outline_scale;
+	float body = (1.0 - smoothstep(radius - 0.010, radius + 0.010, r + outline)) * present;
+	float lit = clamp(0.5 + dot(from_center / max(radius, 0.01), GROUND_LIGHT) * 0.58, 0.0, 1.0);
+	float shade = (1.0 - smoothstep(radius * 0.88, radius * (1.55 + (tall - 1.0) * 0.85),
+			length(from_center + GROUND_LIGHT * radius * 0.42))) * present;
+
+	vec3 ground;
+	vec3 stone_tint;
+	if (id == T_ROCKS) {
+		// Cool slate-gravel scree dusted with pale quartz grit.
+		ground = mix(base * 0.60, vec3(0.35, 0.37, 0.42), 0.50) * (0.90 + noise(g * 10.5) * 0.18);
+		ground = mix(ground, vec3(0.76, 0.78, 0.80), dots(g * 23.0, 0.36, 0.25) * 0.45);
+		stone_tint = mix(base, vec3(0.56, 0.59, 0.65), 0.34) * (0.86 + c.z * 0.28);
+	} else if (id == T_SMALL_BOULDERS) {
+		// Warm sandy-loam matrix with mossy specks and rounded fieldstones.
+		ground = mix(base * 0.62, vec3(0.45, 0.37, 0.26), 0.54) * (0.88 + noise(g * 7.5) * 0.22);
+		ground = mix(ground, vec3(0.32, 0.44, 0.24), dots(g * 15.0 + vec2(4.0, 9.0), 0.26, 0.28) * 0.45);
+		vec3 warm_cobble = mix(vec3(0.68, 0.58, 0.44), vec3(0.54, 0.51, 0.47), fract(c.z * 7.3));
+		stone_tint = mix(base, warm_cobble, 0.52) * (0.90 + c.z * 0.22);
+	} else {
+		// Dark fissured granite bedrock with wedged stones beneath tall boulders.
+		ground = mix(base * 0.46, vec3(0.24, 0.23, 0.22), 0.58) * (0.86 + noise(g * 5.8) * 0.24);
+		float fissure = 1.0 - smoothstep(0.0, 0.055, abs(noise(g * 4.4 + vec2(6.0, 2.0)) - 0.5));
+		ground *= 1.0 - fissure * 0.28;
+		float wedged = dots(g * 5.2 + vec2(3.7, 8.1), 0.72, 0.36);
+		ground = mix(ground, mix(base, vec3(0.46, 0.44, 0.42), 0.45), wedged * 0.75);
+		vec3 crag_tone = mix(vec3(0.52, 0.50, 0.48), vec3(0.62, 0.56, 0.50), fract(c.z * 5.1));
+		stone_tint = mix(base, crag_tone, 0.42) * (0.88 + c.z * 0.24);
+	}
+	ground *= 1.0 - shade * (0.30 + (tall - 1.0) * 0.20);
+	vec3 feature = stone_tint * (0.62 + lit * 0.54) * (0.92 + noise(g * 32.0) * 0.14);
+	float crown = clamp(rise / max(radius * tall, 0.01), -1.0, 1.0);
+	feature *= 1.0 + (tall - 1.0) * 0.34 * crown;
+	if (id == T_LARGE_BOULDERS) {
+		// Lichen patches and crag striations on big boulders.
+		float lichen = dots(g * 9.5 + vec2(2.0, 7.0), 0.26, 0.30) * step(0.15, crown);
+		feature = mix(feature, vec3(0.58, 0.64, 0.42), lichen * 0.42);
+	}
+	return mix(ground, feature, body);
+}
+
+// Full-tile tangled scrub and gorse bushes with sunlit yellow blossoms.
+vec3 brush_surface(vec3 base, vec2 g) {
+	float scale = 3.2;
+	vec2 to_point;
+	vec4 c = cells(g * scale + vec2(3.1, 7.4), to_point);
+	float radius = 0.105 + c.z * 0.048;
+	vec2 from_center = -to_point / scale;
+	float r = length(from_center);
+	float outline = (noise(g * 22.0) - 0.5) * 0.036;
+	float body = 1.0 - smoothstep(radius - 0.014, radius + 0.014, r + outline);
+	float lit = clamp(0.5 + dot(from_center / max(radius, 0.01), GROUND_LIGHT) * 0.56, 0.0, 1.0);
+	float shade = 1.0 - smoothstep(radius * 0.85, radius * 1.55,
+			length(from_center + GROUND_LIGHT * radius * 0.40));
+
+	vec3 undergrowth = mix(base * 0.48, vec3(0.24, 0.20, 0.12), 0.45) * (0.86 + noise(g * 11.0) * 0.24);
+	float twigs = 1.0 - smoothstep(0.0, 0.06, abs(noise(vec2((g.x + g.y) * 14.0, (g.x - g.y) * 5.0)) - 0.5));
+	undergrowth = mix(undergrowth, vec3(0.38, 0.28, 0.16), twigs * 0.40);
+	undergrowth *= 1.0 - shade * 0.28;
+
+	vec3 crown = mix(base, vec3(0.28, 0.42, 0.18), 0.28) * (0.60 + lit * 0.58)
+		* (0.86 + noise(g * 26.0) * 0.26);
+	float blossom = dots(g * 14.5, 0.20, 0.30) * step(0.42, lit);
+	crown = mix(crown, vec3(0.95, 0.84, 0.28), blossom * 0.82);
+	return mix(undergrowth, crown, body);
+}
+
+// Full-tile wildflower meadow: lush clover sward carpeted with multi-colour blooms.
+vec3 flower_bed_surface(vec3 base, vec2 g) {
+	vec3 clover = mix(palette_color(3.0) * 0.80, vec3(0.18, 0.44, 0.20), 0.48);
+	clover = mix(clover, base * 0.82, 0.18);
+	clover *= 0.86 + noise(g * 8.5) * 0.24 + (noise(g * 21.0) - 0.5) * 0.12;
+	clover = mix(clover, vec3(0.93, 0.46, 0.62), dots(g * 9.5, 0.36, 0.32) * 0.82);
+	clover = mix(clover, vec3(0.97, 0.80, 0.28), dots(g * 10.5 + vec2(4.3, 7.1), 0.34, 0.30) * 0.80);
+	clover = mix(clover, vec3(0.72, 0.56, 0.92), dots(g * 8.8 + vec2(11.2, 2.7), 0.30, 0.32) * 0.78);
+	clover = mix(clover, vec3(0.96, 0.95, 0.86), dots(g * 13.0 + vec2(6.7, 13.4), 0.28, 0.25) * 0.75);
+	return clover;
+}
+
+// Each of the 12 woodland tiles paints its own full-tile ground texture beneath
+// the TreeOverlay canopies, worked up from the theme palette so biomes stay
+// cohesive while every tree tile remains distinct.
 vec3 tree_ground(float id, vec3 base, vec2 g, float grain, float patch) {
-	float look = tree_look(id);
-	if (look == GROUND_LITTER) {
-		// Shaded earth, dappled by the canopy above it, strewn with the leaves
-		// and twigs the broadleaves drop.
-		base = mix(base * 0.7, vec3(0.35, 0.26, 0.17), 0.5) * (0.88 + noise(g * 5.5) * 0.2);
-		base = mix(base, vec3(0.6, 0.45, 0.22), dots(g * 13.0, 0.4, 0.3) * 0.45);
-		base = mix(base, vec3(0.42, 0.31, 0.2), dots(g * 6.5 + vec2(5.0, 2.0), 0.25, 0.45) * 0.3);
-		return base * (1.0 + (patch - 0.5) * 0.08);
+	if (id == T_TREES) {
+		// Woodland humus: rich dark forest earth, emerald moss cushions and twigs.
+		vec3 humus = mix(base * 0.60, vec3(0.26, 0.21, 0.14), 0.58) * (0.88 + noise(g * 6.0) * 0.22);
+		float moss = smoothstep(0.50, 0.78, noise(g * 3.8 + vec2(2.0, 6.0)));
+		humus = mix(humus, mix(base, vec3(0.20, 0.44, 0.18), 0.55), moss * 0.62);
+		humus = mix(humus, vec3(0.46, 0.35, 0.22), dots(g * 11.5, 0.28, 0.28) * 0.45);
+		return humus * (0.96 + patch * 0.08);
 	}
-	if (look == GROUND_NEEDLES) {
-		// A rust-brown bed of needles, laid down in long drifts.
-		base = mix(base * 0.62, vec3(0.34, 0.23, 0.15), 0.62);
-		float drift = sin((g.x + g.y) * 6.5 + noise(g * 1.3) * 5.0);
-		base *= 0.93 + smoothstep(-0.4, 0.4, drift) * 0.1;
-		base = mix(base, vec3(0.5, 0.33, 0.17), dots(g * 20.0, 0.16, 0.26) * 0.55);  // cones
-		return base;
+	if (id == T_OAK) {
+		// Oak leaf litter: warm bronze-russet oak leaves and pale acorns.
+		vec3 litter = mix(base * 0.56, vec3(0.44, 0.30, 0.17), 0.64) * (0.88 + noise(g * 5.5) * 0.22);
+		litter = mix(litter, vec3(0.66, 0.45, 0.20), dots(g * 12.0, 0.48, 0.34) * 0.58);
+		litter = mix(litter, vec3(0.50, 0.32, 0.15), dots(g * 8.5 + vec2(3.1, 6.4), 0.36, 0.38) * 0.45);
+		litter = mix(litter, vec3(0.78, 0.66, 0.38), dots(g * 16.0 + vec2(8.0, 1.0), 0.20, 0.22) * 0.65);
+		return litter * (0.96 + patch * 0.08);
 	}
-	if (look == GROUND_SAND) {
-		// Bare sand blown smooth between the stems, gritty and pebbled, with
-		// whatever tough tuft survives the shade.
-		base = mix(palette_color(T_WASTE_BUNKER), base * 0.9, 0.12);
-		base *= 0.94 + hash(floor(g * 34.0)) * 0.11 + (noise(g * 2.4) - 0.5) * 0.06;
-		base = mix(base, base * vec3(0.66, 0.64, 0.6), dots(g * 10.0, 0.3, 0.26) * 0.7);
-		base = mix(base, palette_color(1.0) * 0.72, dots(g * 5.0 + vec2(3.0, 8.0), 0.1, 0.4) * 0.5);
-		return base;
+	if (id == T_PINE) {
+		// Pine needles: rust-sienna needle drifts combed diagonally with woody cones.
+		vec3 needles = mix(base * 0.54, vec3(0.38, 0.23, 0.14), 0.68);
+		float drift = sin((g.x + g.y) * 7.0 + noise(g * 1.5) * 4.5);
+		float fine = noise(vec2((g.x - g.y) * 26.0, (g.x + g.y) * 4.2));
+		needles *= 0.88 + smoothstep(-0.4, 0.4, drift) * 0.10 + (fine - 0.5) * 0.14;
+		needles = mix(needles, vec3(0.22, 0.13, 0.08), dots(g * 13.5, 0.26, 0.28) * 0.65);
+		needles = mix(needles, vec3(0.58, 0.37, 0.19), dots(g * 19.0 + vec2(3.0, 5.0), 0.22, 0.24) * 0.52);
+		return needles;
 	}
-	if (look == GROUND_SILT) {
-		// Waterlogged silt, the same mud a stream leaves on its banks, with a
-		// wet sheen and dead reed litter floating on it.
-		base = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.62);
-		base += vec3(0.05, 0.06, 0.05) * smoothstep(0.62, 0.9, noise(g * 4.0 + vec2(3.0, 7.0)));
-		base = mix(base, vec3(0.5, 0.47, 0.3), dots(g * 15.0, 0.22, 0.36) * 0.4);
-		return base * (0.96 + patch * 0.08);
+	if (id == T_MAPLE) {
+		// Fallen maple leaves: scarlet, burnt-orange and amber foliage carpet.
+		vec3 earth = mix(base * 0.56, vec3(0.34, 0.23, 0.16), 0.60) * (0.90 + noise(g * 6.0) * 0.18);
+		earth = mix(earth, vec3(0.78, 0.23, 0.18), dots(g * 11.5, 0.40, 0.34) * 0.72);
+		earth = mix(earth, vec3(0.86, 0.46, 0.18), dots(g * 10.0 + vec2(5.2, 3.8), 0.38, 0.33) * 0.68);
+		earth = mix(earth, vec3(0.90, 0.70, 0.24), dots(g * 13.5 + vec2(9.4, 7.1), 0.32, 0.28) * 0.62);
+		return earth;
 	}
-	if (look == GROUND_HEATH) {
-		// Acid peat over rough stone, lit purple where the heather is in bloom.
-		base = mix(base * 0.62, vec3(0.3, 0.23, 0.2), 0.55);
-		base = mix(base, vec3(0.52, 0.34, 0.56), dots(g * 16.0, 0.34, 0.3) * step(0.45, grain) * 0.6);
-		base = mix(base, vec3(0.55, 0.53, 0.5), dots(g * 12.0, 0.16, 0.2) * 0.45);
-		return base;
+	if (id == T_BIRCH) {
+		// Birch grove floor: cool green moss strewn with papery white bark strips.
+		vec3 loam = mix(base * 0.70, vec3(0.26, 0.37, 0.24), 0.54) * (0.88 + noise(g * 6.5) * 0.22);
+		float moss = smoothstep(0.48, 0.78, noise(g * 4.2 + vec2(7.0, 2.0)));
+		loam = mix(loam, vec3(0.34, 0.54, 0.26), moss * 0.52);
+		loam = mix(loam, vec3(0.88, 0.87, 0.82), dots(g * 10.5, 0.36, 0.30) * 0.78);
+		loam = mix(loam, vec3(0.80, 0.74, 0.30), dots(g * 14.5 + vec2(2.3, 8.9), 0.26, 0.25) * 0.55);
+		return loam;
 	}
-	// Fescue: a sward of its own — dry, pale links grass gone to straw.
-	base = mix(palette_color(T_FIRM_FAIRWAY), base * 0.8, 0.25);
-	vec2 u = vec2(g.x - g.y, g.x + g.y);
-	float blades = noise(vec2(u.x * 22.0, u.y * 2.6 + noise(vec2(u.x * 2.0, u.y * 1.6)) * 1.4));
-	base *= 0.88 + blades * 0.24;
-	base = mix(base, base * vec3(1.14, 1.1, 0.86), dots(u * vec2(9.0, 6.0), 0.2, 0.3) * 0.5);
-	return base;
+	if (id == T_CACTUS) {
+		// Desert caliche hardpan: sun-baked terracotta crust with red sandstone grit.
+		vec3 caliche = mix(vec3(0.74, 0.54, 0.36), palette_color(T_WASTE_BUNKER), 0.32);
+		caliche *= 0.92 + (noise(g * 4.5) - 0.5) * 0.14
+			+ sin((g.x * 1.4 - g.y) * 9.0 + noise(g * 3.0) * 4.0) * 0.035;
+		caliche = mix(caliche, vec3(0.54, 0.32, 0.20), dots(g * 11.0, 0.36, 0.28) * 0.65);
+		caliche = mix(caliche, vec3(0.90, 0.82, 0.68), dots(g * 18.5 + vec2(4.0, 6.0), 0.30, 0.22) * 0.55);
+		return caliche;
+	}
+	if (id == T_FESCUE) {
+		// Golden fescue straw: wind-combed blonde links grass and oat plumes.
+		vec3 straw = mix(vec3(0.75, 0.66, 0.38), palette_color(T_FIRM_FAIRWAY), 0.24);
+		float sway = (noise(g * 3.0 + vec2(2.0, 7.0)) - 0.5) * 0.32;
+		vec2 u = vec2(g.x - g.y + sway, g.x + g.y);
+		float blades = noise(vec2(u.x * 24.0, u.y * 2.8 + noise(vec2(u.x * 2.2, u.y * 1.8)) * 1.6));
+		straw *= 0.84 + blades * 0.30;
+		straw = mix(straw, vec3(0.92, 0.86, 0.58), dots(g * 10.5 + vec2(1.7, 5.3), 0.30, 0.28) * 0.62);
+		return straw;
+	}
+	if (id == T_CATTAILS) {
+		// Waterlogged marsh silt: dark wetland mud, shallow teal puddles and reeds.
+		vec3 silt = mix(base * 0.44, vec3(0.27, 0.24, 0.19), 0.68) * (0.90 + noise(g * 5.2) * 0.18);
+		float puddle = smoothstep(0.50, 0.72, noise(g * 3.6 + vec2(3.0, 7.0)));
+		vec3 water_tint = mix(palette_color(8.0), vec3(0.24, 0.48, 0.46), 0.52);
+		silt = mix(silt, water_tint, puddle * 0.58);
+		silt = mix(silt, vec3(0.38, 0.58, 0.24), dots(g * 15.0, 0.28, 0.26) * 0.52);
+		silt = mix(silt, vec3(0.62, 0.54, 0.34), dots(g * 10.5 + vec2(6.0, 2.0), 0.24, 0.32) * 0.48);
+		return silt * (0.96 + patch * 0.08);
+	}
+	if (id == T_SHRUB) {
+		// Shredded garden bark mulch: dark cedar chips with dropped green leaves.
+		vec3 mulch = mix(base * 0.40, vec3(0.28, 0.17, 0.11), 0.74);
+		float chips = noise(vec2((g.x + g.y) * 22.0, (g.x - g.y) * 9.0));
+		mulch *= 0.84 + chips * 0.30;
+		mulch = mix(mulch, vec3(0.50, 0.31, 0.18), dots(g * 16.0, 0.40, 0.30) * 0.55);
+		mulch = mix(mulch, mix(base, vec3(0.30, 0.54, 0.24), 0.60),
+			dots(g * 9.5 + vec2(2.0, 5.0), 0.22, 0.28) * 0.55);
+		return mulch;
+	}
+	if (id == T_PALM) {
+		// Rippled tropical coral sand: bright ivory sand, shell grit and frond wisps.
+		vec3 sand = mix(vec3(0.88, 0.82, 0.64), palette_color(7.0), 0.32);
+		sand *= 1.0 + sin((g.x + g.y * 0.6) * 16.0 + noise(g * 2.5) * 3.0) * 0.055;
+		sand = mix(sand, vec3(0.97, 0.95, 0.90), dots(g * 15.0, 0.34, 0.24) * 0.62);
+		sand = mix(sand, vec3(0.36, 0.50, 0.24), dots(g * 7.5 + vec2(5.0, 9.0), 0.18, 0.32) * 0.45);
+		return sand;
+	}
+	if (id == T_DEAD_TREE) {
+		// Cracked parched earth: ashen drought polygons and bleached wood splinters.
+		vec3 parched = mix(vec3(0.50, 0.45, 0.38), base * 0.92, 0.22) * (0.92 + noise(g * 5.0) * 0.16);
+		vec2 tp;
+		vec4 cr = cells(g * 4.2, tp);
+		float crack = 1.0 - smoothstep(0.0, 0.075, cr.y);
+		parched = mix(parched, vec3(0.19, 0.16, 0.13), crack * 0.72);
+		parched = mix(parched, vec3(0.76, 0.72, 0.64), dots(g * 11.5, 0.26, 0.26) * 0.58);
+		return parched;
+	}
+	// T_HEATHER: dark moorland peat richly carpeted with blooming purple heather.
+	vec3 peat = mix(base * 0.46, vec3(0.25, 0.17, 0.21), 0.66) * (0.88 + noise(g * 6.0) * 0.20);
+	peat = mix(peat, vec3(0.64, 0.28, 0.62), dots(g * 11.0, 0.46, 0.35) * 0.72);
+	peat = mix(peat, vec3(0.80, 0.52, 0.80), dots(g * 15.5 + vec2(4.2, 8.1), 0.34, 0.28) * 0.62);
+	peat = mix(peat, vec3(0.58, 0.56, 0.54), dots(g * 13.0 + vec2(9.0, 3.0), 0.18, 0.22) * 0.42);
+	return peat * (0.96 + grain * 0.06);
+}
+
+// Distinct Bunker-sized border colour and micro-grain for each of the 19
+// full-tile rough, scrub, sand, stone, floral and woodland terrains.
+vec3 tile_border(float id, vec2 g, float grain) {
+	float tex = (noise(g * 18.0 + vec2(id * 2.3, id * 1.7)) - 0.5) * 0.14 + (grain - 0.5) * 0.06;
+	if (id == T_DEEP_ROUGH) {
+		return vec3(0.72, 0.65, 0.34) * (1.0 + tex); // Golden straw-thatch rim
+	}
+	if (id == T_WASTE_BUNKER) {
+		return vec3(0.44, 0.28, 0.15) * (1.0 + tex); // Weathered ochre-umber crust
+	}
+	if (id == T_BRUSH) {
+		return vec3(0.58, 0.50, 0.13) * (1.0 + tex); // Thorny gorse-ochre hedge rim
+	}
+	if (id == T_ROCKS) {
+		return vec3(0.17, 0.20, 0.30) * (1.0 + tex); // Dark blue-slate stone kerb
+	}
+	if (id == T_SMALL_BOULDERS) {
+		return vec3(0.76, 0.72, 0.58) * (1.0 + tex); // Pale buff limestone rim
+	}
+	if (id == T_LARGE_BOULDERS) {
+		return vec3(0.30, 0.37, 0.48) * (1.0 + tex); // Cool steely granite rim
+	}
+	if (id == T_FLOWER_BED) {
+		return vec3(0.78, 0.36, 0.44) * (1.0 + tex); // Terracotta rose-clay garden edging
+	}
+	if (id == T_TREES) {
+		return vec3(0.09, 0.25, 0.12) * (1.0 + tex); // Deep evergreen forest rim
+	}
+	if (id == T_OAK) {
+		return vec3(0.72, 0.46, 0.18) * (1.0 + tex); // Warm honey-oak timber rim
+	}
+	if (id == T_PINE) {
+		return vec3(0.10, 0.34, 0.34) * (1.0 + tex); // Cool blue-spruce needle rim
+	}
+	if (id == T_MAPLE) {
+		return vec3(0.48, 0.11, 0.16) * (1.0 + tex); // Crimson-burgundy maple rim
+	}
+	if (id == T_BIRCH) {
+		float lenticel = step(0.78, noise(vec2(g.x * 26.0, g.y * 8.0)));
+		return mix(vec3(0.86, 0.84, 0.79) * (1.0 + tex * 0.6), vec3(0.30, 0.28, 0.26), lenticel * 0.45);
+	}
+	if (id == T_CACTUS) {
+		return vec3(0.64, 0.28, 0.15) * (1.0 + tex); // Baked canyon red-adobe rim
+	}
+	if (id == T_FESCUE) {
+		return vec3(0.28, 0.23, 0.12) * (1.0 + tex); // Dark coastal links-peat sod
+	}
+	if (id == T_CATTAILS) {
+		return vec3(0.20, 0.54, 0.52) * (1.0 + tex); // Wetland sedge turquoise-reed rim
+	}
+	if (id == T_SHRUB) {
+		return vec3(0.66, 0.52, 0.42) * (1.0 + tex); // Warm sandstone garden kerb
+	}
+	if (id == T_PALM) {
+		return vec3(0.52, 0.39, 0.26) * (1.0 + tex); // Warm coconut-husk brown rim
+	}
+	if (id == T_DEAD_TREE) {
+		return vec3(0.15, 0.14, 0.16) * (1.0 + tex); // Charred driftwood-ash rim
+	}
+	return vec3(0.60, 0.25, 0.58) * (1.0 + tex);     // Blooming orchid-plum heather rim
 }
 
 // ---------------------------------------------------------------------------
@@ -532,43 +713,50 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 		// The pot's sand floor; inset_tile() adds the wall and the lip.
 		variation = (grain - 0.5) * 0.05;
 	} else if (id == T_DEEP_ROUGH) {
-		// Knee-high grass: long blades standing up the screen (grid x + y),
-		// darker clumps, and pale seed heads.
+		// Knee-high tussock grass: windswept upright blades, dark hollows and pale seed heads.
 		vec2 g = world / tile_size;
-		float u = g.x - g.y;
+		float sway = (noise(g * 3.4 + vec2(4.0, 9.0)) - 0.5) * 0.34;
+		float u = g.x - g.y + sway;
 		float v = g.x + g.y;
 		float blades = noise(vec2(u * 26.0, v * 3.2 + noise(vec2(u * 3.0, v * 2.0)) * 1.6));
-		float clump = noise(g * 2.2 + vec2(5.0, 1.0));
-		base *= 0.80 + blades * 0.34 + (clump - 0.5) * 0.16;
-		float heads = dots(vec2(u * 12.0, v * 7.0), 0.22, 0.28);
-		base = mix(base, base * vec3(1.45, 1.38, 0.96), heads * 0.55);
-		variation *= 0.45;
+		float clump = noise(g * 3.2 + vec2(5.0, 1.0));
+		base *= 0.76 + blades * 0.38 + (clump - 0.5) * 0.20;
+		float heads = dots(g * 11.5 + vec2(3.1, 6.8), 0.28, 0.27);
+		base = mix(base, base * vec3(1.52, 1.44, 0.96), heads * 0.62);
+		variation *= 0.40;
 	} else if (id == T_WASTE_BUNKER) {
-		// Coarse unraked sand with grit, pebbles, and a few wiregrass tufts;
-		// inset_tile() breaks the edge up into the surrounding turf.
+		// Coarse unraked scrub sand across the full tile with gravel, grit and wiregrass tufts.
 		vec2 g = world / tile_size;
-		base *= 0.92 + hash(floor(g * 40.0)) * 0.1 + (noise(g * 3.0) - 0.5) * 0.08;
-		float pebbles = dots(g * 11.0, 0.4, 0.3);
-		base = mix(base, base * vec3(0.62, 0.6, 0.58), pebbles * 0.8);
-		base = mix(base, base * vec3(1.12, 1.1, 1.06), dots(g * 17.0, 0.3, 0.25) * 0.6);
-		float tuft = dots(g * 4.5 + vec2(3.0, 8.0), 0.22, 0.42 + noise(g * 9.0) * 0.12);
-		base = mix(base, palette_color(1.0) * (0.62 + noise(g * 26.0) * 0.3), tuft * 0.9);
+		float drift = sin((g.x - g.y * 0.7) * 13.0 + noise(g * 2.6) * 3.5) * 0.035;
+		base *= 0.92 + hash(floor(g * 40.0)) * 0.10 + (noise(g * 3.0) - 0.5) * 0.08 + drift;
+		float pebbles = dots(g * 11.0, 0.42, 0.30);
+		base = mix(base, base * vec3(0.58, 0.56, 0.54), pebbles * 0.80);
+		base = mix(base, base * vec3(1.14, 1.12, 1.06), dots(g * 17.0, 0.32, 0.25) * 0.62);
+		float tuft = dots(g * 4.5 + vec2(3.0, 8.0), 0.22, 0.40 + noise(g * 9.0) * 0.10);
+		base = mix(base, palette_color(1.0) * (0.62 + noise(g * 26.0) * 0.30), tuft * 0.88);
 		variation = (grain - 0.5) * 0.04;
 	} else if (is_rocks(id)) {
-		// Earth and gravel between the stones inset_tile() draws.
-		vec2 g = world / tile_size;
-		base = mix(base * 0.66, vec3(0.43, 0.37, 0.29), 0.45) * (0.9 + noise(g * 9.0) * 0.18);
-		variation = (grain - 0.5) * 0.05;
+		// Full-tile stony surfaces: angular scree, rounded cobbles or standing boulders.
+		base = stony_surface(id, base, world / tile_size);
+		variation = (grain - 0.5) * 0.035;
 	} else if (id == T_BRUSH) {
-		// Shaded leaf litter under the shrubs inset_tile() draws.
-		vec2 g = world / tile_size;
-		base *= 0.58 + noise(g * 12.0) * 0.12;
-		variation *= 0.3;
+		// Full-tile tangled scrub and gorse bushes with blossoms.
+		base = brush_surface(base, world / tile_size);
+		variation = (grain - 0.5) * 0.035;
+	} else if (id == T_FLOWER_BED) {
+		// Full-tile lush wildflower meadow beneath the seasonal FlowerOverlay blooms.
+		base = flower_bed_surface(base, world / tile_size);
+		variation = (grain - 0.5) * 0.035;
 	} else if (is_tree(id)) {
-		// The floor of a stand: litter, needles, sand, silt, peat or straw,
-		// per species. inset_tile() fades it into the surrounding turf.
+		// Each woodland tile fills the full tile with its own species ground.
 		base = tree_ground(id, base, world / tile_size, grain, patch);
-		variation = (grain - 0.5) * 0.05;
+		variation = (grain - 0.5) * 0.04;
+	}
+	if (is_bordered_tile(id)) {
+		// Frame open edges with a tile-specific border of the exact same size as
+		// the Bunker's lip instead of blending into neighbouring terrain types.
+		base = mix(base, tile_border(id, world / tile_size, grain), edge * 0.88);
+		variation = mix(variation, (grain - 0.5) * 0.035, edge);
 	}
 	return clamp(base + vec3(variation * 0.78, variation, variation * 0.48), vec3(0.0), vec3(1.0));
 }
@@ -615,16 +803,6 @@ float corner_filled(vec2 q, vec2 cell, float e, float s, float w, float n, float
 	float diagonal = tile_at(cell + quadrant * 2.0 - 1.0);
 	float linked = self_id == T_STREAM ? is_wet(diagonal) : step(abs(diagonal - self_id), 0.5);
 	return linked;
-}
-
-// Distance from `q` to the nearest edge flagged in `open_edges` (e, s, w, n).
-float edge_room(vec2 q, vec4 open_edges) {
-	float room = 9.0;
-	if (open_edges.x > 0.5) { room = min(room, 1.0 - q.x); }
-	if (open_edges.y > 0.5) { room = min(room, 1.0 - q.y); }
-	if (open_edges.z > 0.5) { room = min(room, q.x); }
-	if (open_edges.w > 0.5) { room = min(room, q.y); }
-	return room;
 }
 
 // Terrain types the stream's grass draws its border against. Pond water keeps
@@ -793,78 +971,13 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		vec3 sand = own * (0.7 + floor_light * 0.3) * (1.0 - wall_shadow * 0.18);
 		vec3 lip = bank_turf(world, grain, patch) * (1.0 - (1.0 - smoothstep(0.41, 0.48, rim)) * 0.22);  // a shadowed rim edge
 		return mix(lip, mix(face, sand, on_floor), in_rim);
-	} else if (id == T_WASTE_BUNKER) {
-		// Sand breaking up raggedly into the surrounding turf.
-		float room = edge_room(q, open_edges) + (noise(g * 3.4) - 0.5) * 0.2 + (noise(g * 11.0) - 0.5) * 0.08;
-		float margin = 1.0 - smoothstep(0.06, 0.2, room);
-		return mix(own, outside, margin);
-	} else if (is_tree(id)) {
-		// Keep the floor square, with only a narrow, irregular turf border.
-		// Shared edges stay filled so neighbouring woods still form a stand.
-		float looseness = tree_looseness(tree_look(id));
-		float room = edge_room(q, open_edges) + (noise(g * 2.6 + vec2(id, 0.0)) - 0.5) * looseness
-				+ (noise(g * 9.0) - 0.5) * 0.02;
-		float margin = 1.0 - smoothstep(0.01, 0.07, room);
-		return mix(own, outside, margin);
-	} else if (is_rocks(id) || id == T_BRUSH) {
-		// Stones or shrubs scattered on cells; each keeps clear of edges
-		// shared with other materials, so none is cut off at a tile edge.
-		bool rocks = is_rocks(id);
-		float scale = rocks ? rocks_cell_scale(id) : 3.1;
-		vec2 to_point;
-		vec4 c = cells(g * scale, to_point);
-		vec2 feature_q = g + to_point / scale - cell;
-		float room = edge_room(feature_q, open_edges);
-		float tall = rocks ? rocks_tallness(id) : 1.0;
-		float radius = rocks ? rocks_radius(id, c.z) : 0.13 + c.z * 0.04;
-		// A standing stone keeps its ground footprint; one that does not fit is
-		// set back from the edge (and shrunk) rather than dropped, so a border
-		// cell still carries a stone where a shorter one would.
-		if (tall > 1.0) {
-			radius = min(radius, max((room - 0.03) / tall, 0.02));
-		}
-		float present = step(rocks ? rocks_present_threshold(id) : 0.08, c.z) * step(radius * tall + 0.03, room);
-		vec2 from_center = -to_point / scale;  // Pixel relative to the feature, grid units
-		// Stones are round on the ground and rise along screen-up: in the
-		// isometric view that is the grid's (-1,-1) diagonal, and straight up
-		// the grid's -y when the view is flat.
-		vec2 up = is_isometric ? vec2(-0.70710678) : vec2(0.0, -1.0);
-		float rise = dot(from_center, up);
-		vec2 lateral = from_center - up * rise;
-		float r = sqrt((rise / tall) * (rise / tall) + dot(lateral, lateral));
-		float outline = rocks ? (noise(g * 13.0) - 0.5) * 0.05 : (noise(g * 21.0) - 0.5) * 0.07;
-		float body = (1.0 - smoothstep(radius - 0.012, radius + 0.012, r + outline)) * present;
-		float lit = clamp(0.5 + dot(from_center / radius, GROUND_LIGHT) * 0.55, 0.0, 1.0);
-		vec3 ground = mix(own, outside, edge_mix);
-		// Contact shadow on the ground, cast away from the light; a tall stone
-		// throws it further.
-		float shade = (1.0 - smoothstep(radius * 0.9, radius * (1.6 + (tall - 1.0) * 0.9),
-				length(from_center + GROUND_LIGHT * radius * 0.45))) * present;
-		ground *= 1.0 - shade * (0.3 + (tall - 1.0) * 0.2);
-		vec3 feature;
-		if (rocks) {
-			feature = palette_color(id) * (0.64 + lit * 0.52) * (0.88 + c.z * 0.24);
-			feature *= 0.93 + noise(g * 34.0) * 0.12;
-			// A standing stone shades top-down: a lit crown over a dark foot.
-			float crown = clamp(rise / (radius * tall), -1.0, 1.0);
-			feature *= 1.0 + (tall - 1.0) * 0.34 * crown;
-			ground = mix(ground, ground * 1.25, dots(g * 19.0, 0.25, 0.28) * 0.6);  // Grit
-		} else {
-			feature = palette_color(T_BRUSH) * (0.62 + lit * 0.56) * (0.86 + noise(g * 26.0) * 0.26);
-			float blossom = dots(g * 16.0, 0.05, 0.32) * step(0.5, lit);
-			feature = mix(feature, vec3(0.94, 0.84, 0.36), blossom * 0.8);
-		}
-		return mix(ground, feature, body);
 	}
 	return own;
 }
 
 // A neighbouring tile's material inside the boundary band around tile
-// `self_id`. Inset terrain shows native grass along edges it shares with
-// anything it can't sit on (which never draw a band against it), so that is
-// what it contributes — except the sand a waste bunker runs under stones and
-// shrubs, and the rough turf a stream's bank or a pot bunker's lip keeps, which
-// stays that tile's own grass right up to the boundary.
+// `self_id`. Inset terrain (a stream channel or pot bunker) keeps its own rough
+// turf bank right up to the boundary.
 vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float grain, float patch) {
 	if (is_inset(tile) && !carries(tile, self_id)) {
 		if (keeps_own_turf(tile)) {

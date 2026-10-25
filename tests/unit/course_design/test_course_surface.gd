@@ -143,7 +143,7 @@ func test_stream_and_pot_share_the_bank_turf() -> void:
 
 	# The pot bunker's lip is that same grass, not the turf of its surroundings.
 	var pot_start := source.find("} else if (id == T_POT_BUNKER) {", source.find("vec3 inset_tile("))
-	var pot_end := source.find("} else if (id == T_WASTE_BUNKER) {", pot_start)
+	var pot_end := source.find("\treturn own;", pot_start)
 	assert_gt(pot_start, 0, "The pot bunker branch is present")
 	assert_gt(pot_end, pot_start, "The pot bunker branch is complete")
 	var pot_branch := source.substr(pot_start, pot_end - pot_start)
@@ -186,3 +186,107 @@ func test_stream_pond_bank_leaves_the_channel_mouth_open() -> void:
 		"The stream mouth opening is used on the shared edge")
 	assert_true(source.contains("edge_between_at(t_e, a, f.y, stream_end_e, tile_world)"),
 		"The pond-side shoreline has the same opening, so water remains continuous")
+
+func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders() -> void:
+	var shader := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	assert_false(shader.is_empty(), "The course surface shader is readable")
+
+	var shader_tokens := [
+		"T_DEEP_ROUGH", "T_WASTE_BUNKER", "T_BRUSH",
+		"T_ROCKS", "T_SMALL_BOULDERS", "T_LARGE_BOULDERS",
+		"T_FLOWER_BED", "T_TREES",
+		"T_OAK", "T_PINE", "T_MAPLE", "T_BIRCH", "T_CACTUS", "T_FESCUE",
+		"T_CATTAILS", "T_SHRUB", "T_PALM", "T_DEAD_TREE", "T_HEATHER",
+	]
+	assert_eq(shader_tokens.size(), 19, "All 19 requested terrain tiles are accounted for")
+
+	# None of the 19 tiles blends across open edges into neighbours; each keeps its
+	# own boundary class id so same-type tiles connect seamlessly while any
+	# different terrain tile type draws a border.
+	var boundary_start := shader.find("float boundary_class(")
+	var boundary_end := shader.find("float differs(", boundary_start)
+	var boundary_fn := shader.substr(boundary_start, boundary_end - boundary_start)
+	assert_false(boundary_fn.contains("is_rocks("),
+		"Rocks, Small Boulders and Large Boulders do not share a boundary class")
+	assert_false(boundary_fn.contains("is_tree("),
+		"Different tree tiles do not share a boundary class")
+
+	var turf_start := shader.find("bool is_turf(")
+	var turf_end := shader.find("bool is_inset(", turf_start)
+	var turf_fn := shader.substr(turf_start, turf_end - turf_start)
+	assert_false(turf_fn.contains("T_DEEP_ROUGH"),
+		"Deep Rough borders Pot Bunker and Stream instead of running unbordered into them")
+
+	var inset_pred_start := shader.find("bool is_inset(")
+	var inset_pred_end := shader.find("bool carries(", inset_pred_start)
+	var inset_pred := shader.substr(inset_pred_start, inset_pred_end - inset_pred_start)
+	for token in ["is_rocks", "T_WASTE_BUNKER", "T_BRUSH", "is_tree", "T_FLOWER_BED", "T_DEEP_ROUGH"]:
+		assert_false(inset_pred.contains(token),
+			"%s fills the full tile rather than sitting inset over surrounding turf" % token)
+
+	var inset_fn_start := shader.find("vec3 inset_tile(")
+	var inset_fn_end := shader.find("vec3 neighbour_surface(", inset_fn_start)
+	var inset_fn := shader.substr(inset_fn_start, inset_fn_end - inset_fn_start)
+	assert_false(inset_fn.contains("mix(own, outside"),
+		"inset_tile() no longer blends bordered tiles into surrounding turf")
+
+	# Each of the 19 tiles has its own full-tile procedural texture branch.
+	var stony_start := shader.find("vec3 stony_surface(")
+	var brush_start := shader.find("vec3 brush_surface(", stony_start)
+	var flower_start := shader.find("vec3 flower_bed_surface(", brush_start)
+	var tree_start := shader.find("vec3 tree_ground(", flower_start)
+	var border_start := shader.find("vec3 tile_border(", tree_start)
+	assert_gt(stony_start, 0, "stony_surface() paints full-tile stone textures")
+	assert_gt(brush_start, stony_start, "brush_surface() paints full-tile scrub bushes")
+	assert_gt(flower_start, brush_start, "flower_bed_surface() paints full-tile wildflowers")
+	assert_gt(tree_start, flower_start, "tree_ground() paints full-tile woodland grounds")
+	assert_gt(border_start, tree_start, "tile_border() defines each tile's border")
+
+	var stony_fn := shader.substr(stony_start, brush_start - stony_start)
+	assert_true(stony_fn.contains("id == T_ROCKS") and stony_fn.contains("id == T_SMALL_BOULDERS"),
+		"All three stony tiles have distinct ground and stone treatments")
+
+	var tree_fn := shader.substr(tree_start, border_start - tree_start)
+	for tree_tok in ["T_TREES", "T_OAK", "T_PINE", "T_MAPLE", "T_BIRCH", "T_CACTUS",
+			"T_FESCUE", "T_CATTAILS", "T_SHRUB", "T_PALM", "T_DEAD_TREE"]:
+		assert_true(tree_fn.contains("id == " + tree_tok),
+			"%s has its own dedicated ground branch in tree_ground()" % tree_tok)
+
+	# Every one of the 19 tiles applies its own distinct border via the exact same
+	# `edge = 1.0 - smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover)` sizing as Bunker.
+	var surface_start := shader.find("vec3 surface(")
+	var surface_end := shader.find("float is_wet(", surface_start)
+	var surface_fn := shader.substr(surface_start, surface_end - surface_start)
+	assert_true(surface_fn.contains("float edge = 1.0 - smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover);"),
+		"surface() computes the shared Bunker lip edge curve")
+	assert_true(surface_fn.contains("if (is_bordered_tile(id)) {")
+		and surface_fn.contains("tile_border(id, world / tile_size, grain), edge"),
+		"All 19 bordered tiles apply tile_border() across the Bunker-sized `edge` band")
+	for surf_branch in ["id == T_DEEP_ROUGH", "id == T_WASTE_BUNKER", "is_rocks(id)",
+			"id == T_BRUSH", "id == T_FLOWER_BED", "is_tree(id)"]:
+		assert_true(surface_fn.contains(surf_branch),
+			"surface() paints full-tile texture for %s" % surf_branch)
+
+	var border_fn := shader.substr(border_start, shader.find("// ---", border_start) - border_start)
+	for tok in ["T_DEEP_ROUGH", "T_WASTE_BUNKER", "T_BRUSH", "T_ROCKS", "T_SMALL_BOULDERS",
+			"T_LARGE_BOULDERS", "T_FLOWER_BED", "T_TREES", "T_OAK", "T_PINE", "T_MAPLE",
+			"T_BIRCH", "T_CACTUS", "T_FESCUE", "T_CATTAILS", "T_SHRUB", "T_PALM", "T_DEAD_TREE"]:
+		assert_true(border_fn.contains("id == " + tok),
+			"tile_border() gives %s its own border branch" % tok)
+
+	var vec_re := RegEx.new()
+	vec_re.compile("vec3\\((0\\.\\d+),\\s*(0\\.\\d+),\\s*(0\\.\\d+)\\)")
+	var border_colors: Array[Vector3] = []
+	for m in vec_re.search_all(border_fn):
+		var c := Vector3(float(m.get_string(1)), float(m.get_string(2)), float(m.get_string(3)))
+		if c == Vector3(0.30, 0.28, 0.26):
+			continue  # Birch's dark lenticel fleck accent
+		border_colors.append(c)
+	assert_eq(border_colors.size(), 19, "19 primary border colors for the 19 tiles")
+	var bunker_lip := Vector3(0.35, 0.40, 0.24)
+	for i in range(border_colors.size()):
+		assert_gt(border_colors[i].distance_to(bunker_lip), 0.08,
+			"Border %d is distinct from Bunker's own lip color" % i)
+		for j in range(i + 1, border_colors.size()):
+			assert_gt(border_colors[i].distance_to(border_colors[j]), 0.08,
+				"Borders %d and %d are distinct from each other" % [i, j])

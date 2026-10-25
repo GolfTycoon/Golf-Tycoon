@@ -19,10 +19,6 @@ const NAME_FONT_SIZE := UIConstants.FONT_SIZE_MD
 const NAME_FONT_SIZE_MIN := 10  # Longest names shrink instead of spilling out.
 const GREEN_HOLE_FLAG_TEXTURE := preload("res://assets/sprites/flag/flag.png")
 static var _white_texture: ImageTexture
-## Scattered terrain previewed as part of a patch rather than a lone tile.
-const FIELD_PREVIEWS: Array[int] = [TerrainTypes.Type.ROCKS,
-	TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS,
-	TerrainTypes.Type.BRUSH]
 
 static func tile_corners(tile_size: Vector2 = TILE_SIZE) -> PackedVector2Array:
 	var center := tile_size * 0.5
@@ -332,10 +328,6 @@ func _make_surface_material() -> ShaderMaterial:
 	elif preview_terrain == TerrainTypes.Type.STREAM:
 		terrain_data.set_pixel(0, 1, Color(float(preview_terrain) / 255.0, 0, 0.5, 1))
 		terrain_data.set_pixel(2, 1, Color(float(preview_terrain) / 255.0, 0, 0.5, 1))
-	# Stones and shrubs keep clear of a lone tile's edges, so these previews
-	# show a piece of a larger patch instead.
-	elif preview_terrain in FIELD_PREVIEWS:
-		terrain_data.fill(Color(float(preview_terrain) / 255.0, 0, 0.5, 1))
 	var elevation := Image.create(4, 4, false, Image.FORMAT_R8)
 	elevation.fill(Color(0.5, 0, 0))
 

@@ -138,7 +138,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 
 ### 6. Rendering
 
-Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Pot Bunker, Stream, Waste Bunker, the stony grounds, Brush and the woodland tiles are inset terrain. They are drawn over the turf around them, so their patches have natural outlines. The Stream is the exception that keeps its own edge: its grass bank never blends into a different terrain type beside it, but is bordered by a narrow dark rim — the same width as a Bunker's grass lip — along every edge it shares with one, except Water, Rough and Pot Bunker, which meet the bank unbordered.
+Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Pot Bunker and Stream are inset terrain drawn inside their own rough turf bank (`bank_turf`), with Stream drawing a dark bank rim — the same width as a Bunker's grass lip — along edges shared with terrains other than Water, Rough and Pot Bunker. Deep Rough, Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and the eleven species) each fill the full tile with their own unique procedural texture and frame edges shared with any different terrain tile type with their own distinct Bunker-sized border instead of blending.
 
 ---
 
@@ -154,7 +154,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 | Walk speed | `terrain_types.gd` `speed_modifier` | Deep rough 0.85×, brush 0.75× | Pace through long grass and scrub |
 | Walk speed with a trail | `terrain_grid.gd` `walk_speed_modifier_at()` | The tile's own rate × 1.25 dirt or 1.5 paved | A laid trail quickens the walk over any hostable ground — see [Walking Paths](walking-paths.md) |
 | Hotkeys | `terrain_toolbar.gd` | `9`, `0`, Shift+2/5/6/7/8/9/0 | Keyboard access to the tiles (Shift+9 Small Boulders, Shift+0 Large Boulders) |
-| Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | Litter, needles, sand, silt, peat, straw | What each species grows in |
+| Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | 12 distinct per-species grounds | Unique ground description for each woodland tile |
 | Species per theme | `course_theme.gd` `get_tree_types()` | 4 to 6 per theme | Which tree tiles the tab shows |
 | Core tree sprite layout | `assets/sprites/trees/layout.json` and `tree_overlay.gd` | Per-species draw scale and normalized ground anchor | Replace independently-sized evergreen views without editing renderer code |
 | Generated seasonal/mod views | `tools/tree_art/generate.py` `PROFILES` | Side views foreshortened to 0.82× and leaned, back view shaded to 0.88× | Re-run for mod art with unsuffixed source images; core evergreen views are authored separately |

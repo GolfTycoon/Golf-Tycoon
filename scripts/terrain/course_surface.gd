@@ -15,10 +15,9 @@ const ELEVATION_TEXTURE_SCALE: float = 25.0
 ## shader reads the palette width, so appending a type only needs a key here —
 ## and a retired id keeps its slot, so the ids after it still index their own
 ## colour (id 9, the old cart path, reads as the rough it becomes on load).
-## The two boulder fields share the Rocks key: their ground is the same stony
-## surface, and only the stones drawn on it differ. Tree tiles share the
-## "trees" canopy color for their art and swatches; the surface derives each
-## species' own ground (litter, needles, sand, silt, peat or straw) from it.
+## The two boulder fields share the Rocks palette slot and tree tiles share
+## "trees" for theme/minimap base colors; course_surface.gdshader derives each
+## stony and woodland tile's own full-tile ground texture and border from its id.
 const PALETTE_KEYS: Array[String] = [
 	"empty", "grass", "fairway_light", "rough", "heavy_rough", "green_light",
 	"tee_box_light", "bunker", "water", "rough", "oob", "trees", "flower_bed", "rocks",

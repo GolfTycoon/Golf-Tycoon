@@ -157,14 +157,15 @@ static func is_rough(type: int) -> bool:
 	return type == Type.ROUGH or type == Type.HEAVY_ROUGH or type == Type.DEEP_ROUGH
 
 ## Stony ground: painted Rocks and the two boulder fields. All three play the
-## same — the worst lie on the course — and differ only in the stones the
-## course surface draws on them.
+## Stony ground: painted Rocks and the two boulder fields. They play the
+## same — the worst lie on the course — while each fills the full tile with
+## its own stone texture and border.
 static func is_rocks(type: int) -> bool:
 	return type == Type.ROCKS or type == Type.SMALL_BOULDERS or type == Type.LARGE_BOULDERS
 
 ## Woodland: the Trees tile and every species tile beside it. They play the
-## same — a ball buried in the roots, a shot that has to be punched out — and
-## differ only in the canopy painted on the tile.
+## same — a ball buried in the roots, a shot that has to be punched out — while
+## each paints its own full-tile ground texture, border and canopy.
 static func is_tree(type: int) -> bool:
 	return type == Type.TREES or type in TREE_SPECIES_TILES
 
@@ -181,17 +182,23 @@ const TREE_TERRAIN_TYPES: Array[int] = [Type.TREES,
 	Type.OAK, Type.PINE, Type.MAPLE, Type.BIRCH, Type.PALM, Type.CACTUS,
 	Type.DEAD_TREE, Type.SHRUB, Type.FESCUE, Type.CATTAILS, Type.HEATHER]
 
-## The ground each species is planted in, which the course surface paints under
-## the canopy (tree_look() in shaders/course_surface.gdshader mirrors this).
-## Species sharing a ground share its edge too, so an oak wood running into a
-## maple wood is one unbroken floor while a pine stand beside it still fades
-## needles into leaves.
+## The unique ground each woodland tile is planted in, which the course surface
+## paints across the full tile under the canopy (tree_ground() in
+## shaders/course_surface.gdshader mirrors this) with its own border against
+## different terrain tile types.
 const TREE_GROUND_LOOKS: Dictionary = {
-	Type.TREES: "leaf litter", Type.OAK: "leaf litter", Type.MAPLE: "leaf litter",
-	Type.BIRCH: "leaf litter", Type.SHRUB: "leaf litter",
-	Type.PINE: "pine needles", Type.CACTUS: "bare sand", Type.PALM: "bare sand",
-	Type.DEAD_TREE: "bare sand", Type.CATTAILS: "waterlogged silt",
-	Type.HEATHER: "acid peat", Type.FESCUE: "dry straw",
+	Type.TREES: "woodland humus",
+	Type.OAK: "oak leaf litter",
+	Type.PINE: "pine needles",
+	Type.MAPLE: "fallen maple leaves",
+	Type.BIRCH: "birch bark and moss",
+	Type.CACTUS: "desert hardpan",
+	Type.FESCUE: "golden fescue straw",
+	Type.CATTAILS: "marsh silt",
+	Type.SHRUB: "bark mulch",
+	Type.PALM: "coral sand",
+	Type.DEAD_TREE: "cracked parched earth",
+	Type.HEATHER: "moorland peat",
 }
 
 ## The ground a tree tile is painted on, or "" for any tile that is not
