@@ -462,6 +462,23 @@ vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
 	return clamp(color, vec3(0.0), vec3(1.0));
 }
 
+// The rough turf a stream's banks keep either side of the channel, and the lip
+// a pot bunker is cut into. Both tiles keep their own grass rather than melting
+// into the terrain beside them, so they share one turf — painted side by side,
+// or against the same fairway, they still show the same grass.
+vec3 bank_turf(vec2 world, float grain, float patch) {
+	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
+	variation += (noise(world * vec2(0.32, 0.65)) - 0.5) * 0.045;
+	vec3 base = palette_color(3.0);
+	return clamp(base + vec3(variation * 0.78, variation, variation * 0.48), vec3(0.0), vec3(1.0));
+}
+
+// Inset terrain that paints its own turf instead of melting into the ground
+// around it, and so takes no surround from the tiles beside it.
+bool keeps_own_turf(float id) {
+	return id == T_STREAM || id == T_POT_BUNKER;
+}
+
 vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	vec3 base = palette_color(id);
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
@@ -492,12 +509,14 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	} else if (id == 9.0) {
 		variation = (grain - 0.5) * 0.045;
 		base *= 1.0 - edge * 0.13;
-	} else if (id == 3.0 || id == 4.0 || id == 1.0 || id == T_STREAM) {
+	} else if (id == 3.0 || id == 4.0 || id == 1.0) {
 		// Small irregular tufts, with larger color masses at landscape scale.
-		// A stream's banks use the same ground colour and variation as Rough;
-		// inset_tile() paints the muddy margin and channel over this turf.
-		if (id == T_STREAM) { base = palette_color(3.0); }
 		variation += (noise(world * vec2(0.32, 0.65)) - 0.5) * 0.045;
+	} else if (id == T_STREAM) {
+		// A stream's banks keep their own rough turf; inset_tile() paints the
+		// muddy margin and channel over it, and a pot bunker's lip is the same
+		// grass.
+		return bank_turf(world, grain, patch);
 	} else if (id == T_FIRM_FAIRWAY) {
 		// Fast links turf: the fairway's mower passes, paler, with sun-dried
 		// straw patches.
@@ -748,7 +767,10 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		return mix(mix(bank, mud, mud_mask), clamp(water, vec3(0.0), vec3(1.0)), water_mask);
 	} else if (id == T_POT_BUNKER) {
 		// A small round pit: the turf lip, a stacked-turf wall whose far face
-		// shows above the floor, and a shaded sand floor.
+		// shows above the floor, and a shaded sand floor. The lip is cut into
+		// the same rough turf a stream's banks keep, so a pot bunker laid in
+		// Rough — or beside a stream — does not sit in a square of another
+		// grass.
 		float ee = step(abs(e - id), 0.5);
 		float ss = step(abs(s - id), 0.5);
 		float ww = step(abs(w - id), 0.5);
@@ -769,7 +791,7 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float floor_light = smoothstep(0.0, 0.22, 0.27 - floor_d);
 		float wall_shadow = smoothstep(0.1, 0.34, link_distance(q + GROUND_LIGHT * 0.12, ee, ss, ww, nn, along_y)) * (1.0 - fill);
 		vec3 sand = own * (0.7 + floor_light * 0.3) * (1.0 - wall_shadow * 0.18);
-		vec3 lip = outside * (1.0 - (1.0 - smoothstep(0.41, 0.48, rim)) * 0.22);  // a shadowed rim edge
+		vec3 lip = bank_turf(world, grain, patch) * (1.0 - (1.0 - smoothstep(0.41, 0.48, rim)) * 0.22);  // a shadowed rim edge
 		return mix(lip, mix(face, sand, on_floor), in_rim);
 	} else if (id == T_WASTE_BUNKER) {
 		// Sand breaking up raggedly into the surrounding turf.
@@ -841,9 +863,13 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 // `self_id`. Inset terrain shows native grass along edges it shares with
 // anything it can't sit on (which never draw a band against it), so that is
 // what it contributes — except the sand a waste bunker runs under stones and
-// shrubs.
+// shrubs, and the rough turf a stream's bank or a pot bunker's lip keeps, which
+// stays that tile's own grass right up to the boundary.
 vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float grain, float patch) {
 	if (is_inset(tile) && !carries(tile, self_id)) {
+		if (keeps_own_turf(tile)) {
+			return bank_turf(world, grain, patch);
+		}
 		return surface(1.0, 1.0, world, grain, patch);
 	}
 	return surface(tile, cover, world, grain, patch);
@@ -925,11 +951,12 @@ void fragment() {
 		if (w_c > 0.0) {
 			vec3 own = surface(a, cov_c, tile_world, grain, patch);
 			if (is_inset(a)) {
-				// A stream borders its open edges instead of blending its bank
-				// into them, so it needs none of the surrounding turf sampled.
+				// A stream's bank and a pot bunker's lip paint their own turf
+				// rather than blending into the ground around them, so neither
+				// needs the surrounding turf sampled.
 				vec3 outside = own;
 				float edge_mix = 0.0;
-				if (a != T_STREAM) {
+				if (!keeps_own_turf(a)) {
 					vec3 native = surface(1.0, 1.0, tile_world, grain, patch);
 					// The turf around the patch, blended toward each open edge.
 					float e_e = open_edges.x * smoothstep(-0.5, 0.0, d_e);

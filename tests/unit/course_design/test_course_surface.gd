@@ -104,28 +104,68 @@ func test_stream_bank_draws_a_border_instead_of_blending() -> void:
 		"return mix(mix(bank, mud, mud_mask), clamp(water, vec3(0.0), vec3(1.0)), water_mask);"),
 		"The border lies under the mud and the water, so the channel stays clean")
 
-	# The surface no longer samples a stream's surround to blend into.
+	# The surface no longer samples a stream's or a pot bunker's surround to
+	# blend into: both paint their own turf.
 	var fragment_start := source.find("void fragment()")
 	var fragment := source.substr(fragment_start)
-	assert_true(fragment.contains("if (a != T_STREAM) {"),
-		"Only non-stream inset terrain samples the turf around its patch")
+	assert_true(fragment.contains("if (!keeps_own_turf(a)) {"),
+		"Only inset terrain that sits in the turf around it samples that turf")
 	assert_true(fragment.contains("vec3 outside = own;"),
-		"A stream is handed no surround, because it borders its open edges")
+		"A stream and a pot bunker are handed no surround, because they keep their own turf")
+
+func test_stream_and_pot_share_the_bank_turf() -> void:
+	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+
+	# One helper paints the rough turf a stream's banks keep and a pot bunker's
+	# lip is cut into, so the two tiles show the same grass.
+	var helper_start := source.find("vec3 bank_turf(")
+	var helper_end := source.find("\n}\n", helper_start)
+	assert_gt(helper_start, 0, "The shared bank turf helper is present")
+	assert_gt(helper_end, helper_start, "The shared bank turf helper is complete")
+	var helper := source.substr(helper_start, helper_end - helper_start)
+	assert_true(helper.contains("palette_color(3.0)"), "The bank turf uses the Rough palette colour")
+	assert_true(helper.contains("noise(world * vec2(0.32, 0.65))"),
+		"The bank turf uses the same ground variation as Rough")
+
+	var surface_start := source.find("vec3 surface(")
+	var turf_branch_start := source.find("} else if (id == 3.0 || id == 4.0 || id == 1.0) {", surface_start)
+	var stream_branch_start := source.find("} else if (id == T_STREAM) {", turf_branch_start)
+	var firm_branch_start := source.find("} else if (id == T_FIRM_FAIRWAY) {", stream_branch_start)
+	assert_gt(turf_branch_start, surface_start, "Rough and Natural Grass share a surface branch")
+	assert_gt(stream_branch_start, turf_branch_start, "Rough's branch ends before the stream's")
+	assert_gt(firm_branch_start, stream_branch_start, "The stream branch is complete")
+	var turf_branch := source.substr(turf_branch_start, stream_branch_start - turf_branch_start)
+	assert_true(turf_branch.contains("noise(world * vec2(0.32, 0.65))"),
+		"Rough's turf carries the tuft variation")
+	var stream_branch := source.substr(stream_branch_start, firm_branch_start - stream_branch_start)
+	assert_true(stream_branch.contains("return bank_turf(world, grain, patch);"),
+		"A stream's banks are painted with the shared turf")
+
+	# The pot bunker's lip is that same grass, not the turf of its surroundings.
+	var pot_start := source.find("} else if (id == T_POT_BUNKER) {", source.find("vec3 inset_tile("))
+	var pot_end := source.find("} else if (id == T_WASTE_BUNKER) {", pot_start)
+	assert_gt(pot_start, 0, "The pot bunker branch is present")
+	assert_gt(pot_end, pot_start, "The pot bunker branch is complete")
+	var pot_branch := source.substr(pot_start, pot_end - pot_start)
+	assert_true(pot_branch.contains("vec3 lip = bank_turf(world, grain, patch)"),
+		"A pot bunker's lip uses the same rough turf as a stream's banks")
+	assert_false(pot_branch.contains("vec3 lip = outside"),
+		"The lip no longer borrows the turf of the tiles around it")
+
+	# A stream or a pot bunker is the same grass inside a neighbouring tile's
+	# boundary band, so neither shows a strip of another grass at its edge.
+	var band_start := source.find("vec3 neighbour_surface(")
+	var band_end := source.find("void fragment()", band_start)
+	assert_gt(band_start, 0, "The boundary band surface helper is present")
+	assert_gt(band_end, band_start, "The boundary band surface helper is complete")
+	var band := source.substr(band_start, band_end - band_start)
+	assert_true(band.contains("if (keeps_own_turf(tile)) {"),
+		"A stream or a pot bunker keeps its own turf in the band")
+	assert_true(band.contains("return bank_turf(world, grain, patch);"),
+		"That turf is the shared bank grass")
 
 func test_stream_pond_bank_leaves_the_channel_mouth_open() -> void:
 	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
-	var surface_start := source.find("vec3 surface(")
-	var rough_branch_start := source.find(
-		"} else if (id == 3.0 || id == 4.0 || id == 1.0 || id == T_STREAM) {", surface_start)
-	var firm_branch_start := source.find("} else if (id == T_FIRM_FAIRWAY) {", rough_branch_start)
-	assert_gt(rough_branch_start, surface_start, "Rough and stream banks share a surface branch")
-	assert_gt(firm_branch_start, rough_branch_start, "The shared turf branch is complete")
-	var rough_bank_branch := source.substr(rough_branch_start, firm_branch_start - rough_branch_start)
-	assert_true(rough_bank_branch.contains("base = palette_color(3.0);"),
-		"Stream banks use the Rough palette colour")
-	assert_true(rough_bank_branch.contains("noise(world * vec2(0.32, 0.65))"),
-		"Stream banks use the same ground variation as Rough")
-
 	var boundary_start := source.find("float boundary_class(")
 	var boundary_end := source.find("// 1 where two tiles need", boundary_start)
 	assert_gt(boundary_end, boundary_start, "The shader boundary rule is present")
