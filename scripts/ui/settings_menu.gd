@@ -88,6 +88,12 @@ var _benchmark_score: float = 0.0
 var _benchmark_status_text: String = "Ready. The tour prepares its own course and builds every test course on screen - about 95 seconds. Esc cancels it."
 var _benchmark_summary_text: String = "No results yet. Every run builds the same fixed test courses - every course type, hole count and game speed - so runs compare on any device."
 var _benchmark_details_text: String = "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay on this machine."
+## Camera zoom limit controls (Controls → Camera). Rebuilt with the page so
+## references are cleared each build.
+var _min_zoom_slider: HSlider = null
+var _max_zoom_slider: HSlider = null
+var _min_zoom_value_label: Label = null
+var _max_zoom_value_label: Label = null
 ## The Controls page's editable keycaps and their reset buttons, keyed by
 ## InputBindings action. They are rebuilt with the page; the signal handlers
 ## refresh their captions in place instead of rebuilding the page, so focus
@@ -160,6 +166,10 @@ func _build() -> void:
 	_controls_status_label = null
 	_reset_all_controls_button = null
 	_capturing_action = ""
+	_min_zoom_slider = null
+	_max_zoom_slider = null
+	_min_zoom_value_label = null
+	_max_zoom_value_label = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -543,9 +553,9 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 	return benchmark["panel"]
 
 ## The Controls page: one editable keycap per rebindable action, grouped the
-## way InputBindings groups them, plus the camera's own invert-zoom toggle.
-## Changes apply live and save at once; the intro card carries the listening
-## hint, the result message and Reset All.
+## way InputBindings groups them, plus the camera's own invert-zoom toggle
+## and the zoom-limit sliders. Changes apply live and save at once; the intro
+## card carries the listening hint, the result message and Reset All.
 func _build_controls_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
 	cards.append(_build_controls_intro_card(mode))
@@ -557,6 +567,8 @@ func _build_controls_cards(mode: int) -> Array[Control]:
 		if group_id == "camera":
 			_add_toggle_row(body, "Invert Scroll Zoom", "Reverse the scroll wheel zoom direction.",
 				GameManager.invert_zoom_scroll, _on_invert_zoom_toggled, mode)
+			body.add_child(_make_separator())
+			_add_camera_zoom_controls(body, mode)
 			body.add_child(_make_separator())
 		for action in InputBindings.actions_in_group(group_id):
 			body.add_child(_build_binding_row(action, mode))
@@ -910,6 +922,120 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	row.add_child(toggle)
 	parent.add_child(row)
 
+## Zoom limits (Settings → Controls → Camera).
+func _format_zoom_value(value: float) -> String:
+	return "%.1f×" % value
+
+func _update_zoom_labels() -> void:
+	if is_instance_valid(_min_zoom_value_label):
+		_min_zoom_value_label.text = _format_zoom_value(GameManager.camera_min_zoom)
+	if is_instance_valid(_max_zoom_value_label):
+		_max_zoom_value_label.text = _format_zoom_value(GameManager.camera_max_zoom)
+	# Keep sliders in sync if limits were clamped elsewhere.
+	if is_instance_valid(_min_zoom_slider) and not is_equal_approx(_min_zoom_slider.value, GameManager.camera_min_zoom):
+		_min_zoom_slider.value = GameManager.camera_min_zoom
+	if is_instance_valid(_max_zoom_slider) and not is_equal_approx(_max_zoom_slider.value, GameManager.camera_max_zoom):
+		_max_zoom_slider.value = GameManager.camera_max_zoom
+
+func _add_zoom_slider_row(parent: VBoxContainer, title: String, hint: String, value: float, on_change: Callable, mode: int, slider_name: String) -> Dictionary:
+	var stack := VBoxContainer.new()
+	stack.name = slider_name + "Row"
+	stack.add_theme_constant_override("separation", 1)
+	var heading := HBoxContainer.new()
+	var label_box := VBoxContainer.new()
+	label_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label_box.add_theme_constant_override("separation", 0)
+	label_box.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var hint_label := Kit.make_label(hint, 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label_box.add_child(hint_label)
+	heading.add_child(label_box)
+	var value_label := Kit.make_label(_format_zoom_value(value), 11, COLOR_GOLD)
+	value_label.custom_minimum_size.x = 42
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	heading.add_child(value_label)
+	stack.add_child(heading)
+	var slider := HSlider.new()
+	slider.name = slider_name
+	slider.min_value = GameManager.CAMERA_ZOOM_ABSOLUTE_MIN
+	slider.max_value = GameManager.CAMERA_ZOOM_ABSOLUTE_MAX
+	slider.step = 0.1
+	slider.value = value
+	slider.custom_minimum_size.y = 24
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.tooltip_text = hint
+	var captured_label := value_label
+	slider.value_changed.connect(func(new_value: float):
+		on_change.call(new_value)
+		captured_label.text = _format_zoom_value(new_value))
+	stack.add_child(slider)
+	var range_label := Kit.make_label("%.1f×  ·  %.1f×" % [GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX], 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+	range_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	stack.add_child(range_label)
+	parent.add_child(stack)
+	return {"slider": slider, "value_label": value_label, "root": stack}
+
+func _add_camera_zoom_controls(parent: VBoxContainer, mode: int) -> void:
+	var hint := Kit.make_label("Set how far the camera can zoom out and in. The view stays inside these limits whether you use the wheel, keys, pinch or the Course Map drag.", 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(hint)
+	var min_row := _add_zoom_slider_row(parent, "Minimum Zoom", "Farthest out — widest view of the course", GameManager.camera_min_zoom, _on_min_zoom_changed, mode, "MinZoom")
+	_min_zoom_slider = min_row["slider"]
+	_min_zoom_value_label = min_row["value_label"]
+	parent.add_child(_make_separator())
+	var max_row := _add_zoom_slider_row(parent, "Maximum Zoom", "Closest in — most detail on the fairway", GameManager.camera_max_zoom, _on_max_zoom_changed, mode, "MaxZoom")
+	_max_zoom_slider = max_row["slider"]
+	_max_zoom_value_label = max_row["value_label"]
+	parent.add_child(_make_separator())
+	var reset := Button.new()
+	reset.name = "ResetZoomButton"
+	reset.text = "Reset Zoom Limits"
+	reset.tooltip_text = "Put the zoom limits back on %.1f× to %.1f×." % [GameManager.CAMERA_MIN_ZOOM_DEFAULT, GameManager.CAMERA_MAX_ZOOM_DEFAULT]
+	reset.custom_minimum_size = Vector2(0, 40)
+	reset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reset.add_theme_font_size_override("font_size", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12)
+	MenuStyle.paint_card(reset, COLOR_MINT, 0.0, 7, COLOR_TEXT, COLOR_TEXT)
+	reset.add_theme_color_override("font_color", COLOR_TEXT)
+	reset.add_theme_color_override("font_hover_color", COLOR_TEXT)
+	reset.add_theme_color_override("font_pressed_color", COLOR_TEXT)
+	reset.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	reset.pressed.connect(_on_reset_zoom_limits)
+	parent.add_child(reset)
+
+func _on_min_zoom_changed(value: float) -> void:
+	var clamped := clampf(value, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
+	if clamped >= GameManager.camera_max_zoom:
+		clamped = GameManager.camera_max_zoom - 0.1
+		clamped = clampf(clamped, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX - 0.1)
+		if is_instance_valid(_min_zoom_slider) and not is_equal_approx(_min_zoom_slider.value, clamped):
+			_min_zoom_slider.value = clamped
+			return
+	GameManager.set_camera_min_zoom(clamped)
+	_update_zoom_labels()
+	_save_camera_settings()
+
+func _on_max_zoom_changed(value: float) -> void:
+	var clamped := clampf(value, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
+	if clamped <= GameManager.camera_min_zoom:
+		clamped = GameManager.camera_min_zoom + 0.1
+		clamped = clampf(clamped, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN + 0.1, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
+		if is_instance_valid(_max_zoom_slider) and not is_equal_approx(_max_zoom_slider.value, clamped):
+			_max_zoom_slider.value = clamped
+			return
+	GameManager.set_camera_max_zoom(clamped)
+	_update_zoom_labels()
+	_save_camera_settings()
+
+func _on_reset_zoom_limits() -> void:
+	GameManager.reset_camera_zoom_limits()
+	_update_zoom_labels()
+	_save_camera_settings()
+	if is_instance_valid(_min_zoom_slider):
+		_min_zoom_slider.value = GameManager.camera_min_zoom
+	if is_instance_valid(_max_zoom_slider):
+		_max_zoom_slider.value = GameManager.camera_max_zoom
+
 func _build_footer(mode: int) -> Control:
 	var footer := HBoxContainer.new()
 	footer.name = "SettingsFooter"
@@ -1070,6 +1196,13 @@ func _save_controls_settings() -> void:
 	var config := ConfigFile.new()
 	config.load(SaveManager.SETTINGS_PATH)
 	config.set_value("controls", "invert_zoom_scroll", GameManager.invert_zoom_scroll)
+	config.save(SaveManager.SETTINGS_PATH)
+
+func _save_camera_settings() -> void:
+	var config := ConfigFile.new()
+	config.load(SaveManager.SETTINGS_PATH)
+	config.set_value("camera", "min_zoom", GameManager.camera_min_zoom)
+	config.set_value("camera", "max_zoom", GameManager.camera_max_zoom)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _save_display_settings() -> void:

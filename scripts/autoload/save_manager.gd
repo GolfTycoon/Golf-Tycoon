@@ -731,6 +731,8 @@ func _load_user_settings() -> void:
 		call_deferred("_apply_display_settings", config)
 	if config.has_section("controls"):
 		_apply_controls_settings(config)
+	if config.has_section("camera"):
+		_apply_camera_settings(config)
 	if config.has_section("gameplay"):
 		# The Golfer Skin the owner's golfer wears belongs to the player, not to
 		# a save (see GolferSkins.set_player_skin).
@@ -761,6 +763,14 @@ func _apply_display_settings(config: ConfigFile) -> void:
 
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
+
+func _apply_camera_settings(config: ConfigFile) -> void:
+	var min_zoom := float(config.get_value("camera", "min_zoom", GameManager.CAMERA_MIN_ZOOM_DEFAULT))
+	var max_zoom := float(config.get_value("camera", "max_zoom", GameManager.CAMERA_MAX_ZOOM_DEFAULT))
+	# Clamp to absolute limits and enforce ordering via the GameManager API.
+	min_zoom = clampf(min_zoom, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
+	max_zoom = clampf(max_zoom, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
+	GameManager.set_camera_zoom_limits(min_zoom, max_zoom)
 
 
 ## Write one preference that belongs to the player rather than to a save -
