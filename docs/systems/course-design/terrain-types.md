@@ -25,7 +25,7 @@ The woodland tiles follow, and their number depends on the theme. **Open Hole** 
 - **Bunker.** Every standard Bunker tile is shallow. Its depth cannot be changed, and course themes do not make it deeper. For a separate, harsher tile, use Pot Bunker.
 - **Firm Fairway.** Fast, firm turf. It has a full fairway lie for full swings, a slightly tighter lie for wedges, and a ball that lands on it runs **1.6×** as far as on a fairway.
 - **Pot Bunker.** A separate small pit with a stacked-turf face. It is harsher than the standard shallow bunker. Only a wedge gets out, and the ball barely advances. Balls rolling into it stop.
-- **Stream.** Running water. It takes the same penalty and point-of-entry drop as Water, but it is narrow, and golfers can walk across it. It can cut through a hole. Paint it in lines, because the channel only joins edge-adjacent stream tiles and widens where it meets a pond.
+- **Stream.** Running water. It takes the same penalty and point-of-entry drop as Water, but it is narrow, and golfers can walk across it. It can cut through a hole. Paint it in lines, because the channel only joins edge-adjacent stream tiles and widens where it meets a pond. Its grassy banks keep their own turf, bordered by a narrow dark rim — as wide as a Bunker's grass lip — wherever the tile meets a different terrain, so a stream laid across a fairway stays crisply edged; Water, Rough and Pot Bunker beside it are met without a border.
 - **Deep Rough.** Knee-high unmown grass. It is harsher than Heavy Rough, and it stops a rolling ball dead. It costs $1 to paint and has no upkeep.
 - **Waste Bunker.** Natural sandy scrubland. It is **not** a hazard, so you can ground your club in it. It plays like sandy rough and has no upkeep.
 - **Rocks, Small Boulders and Large Boulders.** Stony ground, the worst lie on the course. Each one plays exactly like the others. They differ only in the stones drawn on them: gravel for Rocks, pebbles with the odd large stone for Small Boulders, and big standing boulders for Large Boulders.
@@ -138,7 +138,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 
 ### 6. Rendering
 
-Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Pot Bunker, Stream, Waste Bunker, the stony grounds, Brush and the woodland tiles are inset terrain. They are drawn over the turf around them, so their patches have natural outlines.
+Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Pot Bunker, Stream, Waste Bunker, the stony grounds, Brush and the woodland tiles are inset terrain. They are drawn over the turf around them, so their patches have natural outlines. The Stream is the exception that keeps its own edge: its grass bank never blends into a different terrain type beside it, but is bordered by a narrow dark rim — the same width as a Bunker's grass lip — along every edge it shares with one, except Water, Rough and Pot Bunker, which meet the bank unbordered.
 
 ---
 

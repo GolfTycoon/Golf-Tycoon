@@ -2,7 +2,7 @@
 
 > The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, recessed sand, moving water and painted tree grounds, instead of per-tile sprites.
 
-**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
+**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
 
 ---
@@ -39,7 +39,7 @@ repaints all three together. See [Course Map](course-map.md).
 | Brush | Sparse shrubs with occasional blossoms. |
 | Waste Bunker | Coarse sand with pebbles and wiregrass tufts. It breaks up raggedly into the surrounding turf. |
 | Pot Bunker | A turf lip, a stacked-turf wall and a sand floor. |
-| Stream | A narrow channel cut through Rough-like turf, with a muddy, pebbled margin and soft crests drifting downstream. The bank opens at the channel mouth so its water joins a pond. |
+| Stream | A narrow channel cut through Rough-like turf, with a muddy, pebbled margin and soft crests drifting downstream. The bank opens at the channel mouth so its water joins a pond. Its grass keeps its own turf and is edged with a narrow dark border — the same width as a Bunker's grass lip — wherever the tile meets different terrain, instead of fading into it; Water, Rough and Pot Bunker meet it with no border. |
 
 Rocks, boulders, brush and waste bunkers are **inset terrain**. They are drawn over whatever turf surrounds them, so a patch has a natural outline rather than a square one.
 
@@ -75,6 +75,7 @@ Material boundaries sit on the shared tile edges, inside a narrow anti-aliased b
 `edge_between(self, other)` decides whether a boundary is drawn:
 
 - A turf tile (grass, fairway or rough) next to an inset tile draws **no** boundary band. The inset tile shows turf near the edge instead, which fades in across an edge-treatment band (`FRINGE` = 0.30 tiles half-width).
+- A stream is the one inset tile that does not melt into its neighbour. Its grass bank keeps its own turf and draws a narrow, dark border along the edge instead of blending across it (`stream_bank_border()`). The border runs in the same edge-treatment band as the Bunker's grass lip — the shared `FRINGE` band and `EDGE_LIP_LO` / `EDGE_LIP_HI` coverage thresholds — so the two borders are exactly the same size. Water, Rough and Pot Bunker meet the bank with no border at all (`stream_borders()`); everywhere else the border follows each edge's boundary strength, so it thins out through a channel mouth and never crosses an edge shared with another stream, and it stays inside the tile so a lone stream tile keeps its square footprint.
 - Stones and shrubs are never cut by a tile edge. A feature is kept only if it clears every open edge by its own radius, and a standing stone that would not clear is set back and shrunk rather than dropped.
 - All three stony ids share one base ground and one boundary class, so a patch that changes stone size draws no material edge.
 - Every tree id folds onto a boundary class based on its ground, so litter next to litter draws no edge, and litter next to sand fades across one.
@@ -86,6 +87,7 @@ Pot bunkers and streams use `link_distance()`, which measures the distance to a 
 
 - A pot's floor is offset toward the viewer, which exposes its far wall.
 - A stream is a channel with a muddy margin and crests that drift downstream over time. The Stream tool paints 4-connected strokes (`TerrainBrush.centers_4_connected()`), because channels only join edge-adjacent tiles.
+- The stream's grass bank is painted under the channel and its mud, then edged with the border above, so a stream cutting through a fairway reads as a crisply bordered ribbon rather than a soft stain on the turf. The border lies under the mud and the water, so neither the channel nor its margin is ever crossed by it, and Water, Rough and Pot Bunker are met without one.
 
 ### 4. Turf and water animation
 
@@ -112,6 +114,8 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Grid size | `terrain_grid.gd` `grid_width` | `128` | Size of the tile grid |
 | Boundary band | `course_surface.gdshader` `AA` | `0.04` tiles | Sharpness of material edges |
 | Edge treatment band | `course_surface.gdshader` `FRINGE` | `0.30` tiles | How far inset edges blend |
+| Edge-treatment fade | `course_surface.gdshader` `EDGE_LIP_LO`, `EDGE_LIP_HI` | `0.50` and `0.68` coverage | Where the Bunker's grass lip, and the stream border that copies its size, fade in |
+| Stream bank border | `course_surface.gdshader` `stream_bank_border()`, `stream_borders()` | The Bunker lip's band; none against Water, Rough, Pot Bunker | Size of the border on a stream's grass, and which neighbours get one |
 | Stream channel width | `inset_tile()` | Half-width about `0.25` tiles | Width of streams |
 | Waste margin raggedness | `inset_tile()` | Edge noise, up to about `0.2` tiles | How ragged sand edges look |
 | Stone size and density | `rocks_radius()`, `rocks_present_threshold()` | See the table in the source | How many stones and how big |

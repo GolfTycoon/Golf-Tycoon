@@ -97,6 +97,16 @@ const float T_DEAD_TREE = 31.0;
 const float T_HEATHER = 32.0;
 // Light direction on the ground plane, in grid units (screen upper left).
 const vec2 GROUND_LIGHT = vec2(-0.83, -0.55);
+// Half width of the anti-aliased material boundary, and of the edge-treatment
+// band every surface's `edge` fade runs in. EDGE_LIP_LO..HI are the coverage
+// values that fade runs across: the Bunker's grass lip uses them, and the
+// border a stream's grass bank draws copies them, so the two borders are
+// exactly the same size. Declared up here because the shading language wants
+// every constant before its first use.
+const float AA = 0.04;
+const float FRINGE = 0.30;
+const float EDGE_LIP_LO = 0.50;
+const float EDGE_LIP_HI = 0.68;
 
 // Stony ground: painted Rocks and the two boulder fields. They share their
 // ground and rules, and differ only in the stones drawn on them.
@@ -348,7 +358,7 @@ vec3 tree_ground(float id, vec3 base, vec2 g, float grain, float patch) {
 vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 	vec3 base = palette_color(id);
 	float variation = (patch - 0.5) * 0.13 + (grain - 0.5) * 0.075;
-	float edge = 1.0 - smoothstep(0.50, 0.68, cover);
+	float edge = 1.0 - smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover);
 	if (id == 2.0 || id == 6.0) {
 		// Broad diagonal mower passes continue across every tile boundary.
 		float pass = sin((world.x + world.y * 1.7) * 0.078);
@@ -495,10 +505,38 @@ float edge_room(vec2 q, vec4 open_edges) {
 	return room;
 }
 
+// Terrain types the stream's grass draws its border against. Pond water keeps
+// the bank and channel-mouth treatment it already has, and Rough — the bank's
+// own turf colour — and Pot Bunker meet the bank with no border of any kind.
+float stream_borders(float other) {
+	return (other == 8.0 || other == 3.0 || other == T_POT_BUNKER) ? 0.0 : 1.0;
+}
+
+// The border itself, 1 on the rim and 0 on the bank's own turf. It is the same
+// edge treatment the Bunker's grass lip uses — coverage fading across FRINGE,
+// the rim showing where that coverage drops under the lip's own threshold — so
+// a stream's border is exactly as wide as a bunker's. The coverage is built
+// from each edge's boundary strength, so the rim dies away through the opening
+// a channel mouth cuts in a Stream/Water border and never crosses an edge
+// shared with another stream, and it stays inside the tile, so a lone stream
+// tile still keeps its square footprint.
+float stream_bank_border(vec2 q, vec4 open_edges, vec2 g) {
+	float c_e = open_edges.x * smoothstep(-FRINGE, FRINGE, q.x - 1.0);
+	float c_s = open_edges.y * smoothstep(-FRINGE, FRINGE, q.y - 1.0);
+	float c_w = open_edges.z * smoothstep(-FRINGE, FRINGE, -q.x);
+	float c_n = open_edges.w * smoothstep(-FRINGE, FRINGE, -q.y);
+	float cover = (1.0 - c_e) * (1.0 - c_s) * (1.0 - c_w) * (1.0 - c_n);
+	// A little irregularity along the rim, kept well below its width.
+	float wobble = (noise(g * 11.0) - 0.5) * 0.03 + (noise(g * 29.0) - 0.5) * 0.012;
+	return clamp(1.0 - smoothstep(EDGE_LIP_LO + wobble, EDGE_LIP_HI + wobble, cover), 0.0, 1.0);
+}
+
 // Features of inset terrain for the tile being drawn. `own` is the tile's
 // interior ground, `outside` the turf around it (shown near `open_edges`, the
 // edges shared with other materials, weighted by `edge_mix`); `q` is the
-// position inside the tile and e/s/w/n the neighbouring terrain ids.
+// position inside the tile and e/s/w/n the neighbouring terrain ids. A stream
+// is the exception: it borders its open edges rather than blending into them,
+// so it ignores `outside` and `edge_mix`.
 vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edges, vec2 q,
 		vec2 cell, float e, float s, float w, float n, vec2 world, float grain, float patch) {
 	vec2 g = world / tile_size;
@@ -579,7 +617,18 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		water += vec3(0.12, 0.16, 0.18) * noise(g * 8.0 + vec2(TIME * 0.15, 0.0)) * confluence;
 		water = mix(water, surface(8.0, 1.0, world, grain, patch), pond * 0.95);
 
-		vec3 bank = mix(own, outside, edge_mix);
+		// The bank keeps its own rough turf and is edged with a narrow, dark
+		// "cut bank" rim wherever the tile meets terrain it borders, instead of
+		// fading into it; Water, Rough and Pot Bunker meet it with no border.
+		// The rim is laid under the mud and the water, so the channel and its
+		// margin stay clean, and it thins out toward a pond's channel mouth,
+		// where the boundary it follows is cut open.
+		vec4 bordered = vec4(stream_borders(e), stream_borders(s),
+			stream_borders(w), stream_borders(n));
+		float border = stream_bank_border(q, open_edges * bordered, g);
+		vec3 rim = mix(own * 0.55, vec3(0.26, 0.23, 0.17), 0.4);
+		rim *= 0.9 + noise(g * 19.0) * 0.2;
+		vec3 bank = mix(own, rim, border);
 		vec3 mud = mix(palette_color(1.0) * 0.5, vec3(0.36, 0.31, 0.24), 0.6);
 		mud = mix(mud, vec3(0.64, 0.62, 0.57), dots(g * 21.0, 0.3, 0.3) * 0.7);
 		return mix(mix(bank, mud, mud_mask), clamp(water, vec3(0.0), vec3(1.0)), water_mask);
@@ -714,8 +763,6 @@ void fragment() {
 		// anti-aliased band. The old bilinear coverage field made the boundary
 		// of an isolated tile bulge outward into a rounded blob; edge-aligned
 		// bands keep every tile's full square footprint.
-		const float AA = 0.04;     // Half width of the anti-aliased boundary.
-		const float FRINGE = 0.30; // Half width of the edge-treatment band.
 		float d_e = f.x - 1.0;
 		float d_w = -f.x;
 		float d_s = f.y - 1.0;
@@ -769,20 +816,26 @@ void fragment() {
 		if (w_c > 0.0) {
 			vec3 own = surface(a, cov_c, tile_world, grain, patch);
 			if (is_inset(a)) {
-				vec3 native = surface(1.0, 1.0, tile_world, grain, patch);
-				// The turf around the patch, blended toward each open edge.
-				float e_e = open_edges.x * smoothstep(-0.5, 0.0, d_e);
-				float e_s = open_edges.y * smoothstep(-0.5, 0.0, d_s);
-				float e_w = open_edges.z * smoothstep(-0.5, 0.0, d_w);
-				float e_n = open_edges.w * smoothstep(-0.5, 0.0, d_n);
-				vec3 around = vec3(0.0);
-				if (e_e > 0.0) { around += (carries(t_e, a) ? surface(t_e, 1.0, tile_world, grain, patch) : native) * e_e; }
-				if (e_s > 0.0) { around += (carries(t_s, a) ? surface(t_s, 1.0, tile_world, grain, patch) : native) * e_s; }
-				if (e_w > 0.0) { around += (carries(t_w, a) ? surface(t_w, 1.0, tile_world, grain, patch) : native) * e_w; }
-				if (e_n > 0.0) { around += (carries(t_n, a) ? surface(t_n, 1.0, tile_world, grain, patch) : native) * e_n; }
-				float around_w = e_e + e_s + e_w + e_n;
-				vec3 outside = around_w > 0.0 ? around / around_w : native;
-				float edge_mix = clamp(max(max(e_e, e_s), max(e_w, e_n)), 0.0, 1.0);
+				// A stream borders its open edges instead of blending its bank
+				// into them, so it needs none of the surrounding turf sampled.
+				vec3 outside = own;
+				float edge_mix = 0.0;
+				if (a != T_STREAM) {
+					vec3 native = surface(1.0, 1.0, tile_world, grain, patch);
+					// The turf around the patch, blended toward each open edge.
+					float e_e = open_edges.x * smoothstep(-0.5, 0.0, d_e);
+					float e_s = open_edges.y * smoothstep(-0.5, 0.0, d_s);
+					float e_w = open_edges.z * smoothstep(-0.5, 0.0, d_w);
+					float e_n = open_edges.w * smoothstep(-0.5, 0.0, d_n);
+					vec3 around = vec3(0.0);
+					if (e_e > 0.0) { around += (carries(t_e, a) ? surface(t_e, 1.0, tile_world, grain, patch) : native) * e_e; }
+					if (e_s > 0.0) { around += (carries(t_s, a) ? surface(t_s, 1.0, tile_world, grain, patch) : native) * e_s; }
+					if (e_w > 0.0) { around += (carries(t_w, a) ? surface(t_w, 1.0, tile_world, grain, patch) : native) * e_w; }
+					if (e_n > 0.0) { around += (carries(t_n, a) ? surface(t_n, 1.0, tile_world, grain, patch) : native) * e_n; }
+					float around_w = e_e + e_s + e_w + e_n;
+					outside = around_w > 0.0 ? around / around_w : native;
+					edge_mix = clamp(max(max(e_e, e_s), max(e_w, e_n)), 0.0, 1.0);
+				}
 				own = inset_tile(a, own, outside, edge_mix, open_edges, f, cell,
 					t_e, t_s, t_w, t_n, tile_world, grain, patch);
 			}
