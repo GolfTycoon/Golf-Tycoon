@@ -290,3 +290,79 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 		for j in range(i + 1, border_colors.size()):
 			assert_gt(border_colors[i].distance_to(border_colors[j]), 0.08,
 				"Borders %d and %d are distinct from each other" % [i, j])
+
+func test_bunker_is_a_raked_bowl_sunk_into_its_lip() -> void:
+	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	assert_false(source.is_empty(), "The course surface shader is readable")
+
+	# One rim, measured from the edges the tile shares with other terrain: two
+	# bunker tiles side by side are one floor, so only different ground is rim.
+	var rim_start := source.find("float bunker_rim(")
+	var rim_end := source.find("float bunker_lip(", rim_start)
+	assert_gt(rim_start, 0, "bunker_rim() measures the pit's rim")
+	assert_gt(rim_end, rim_start, "bunker_rim() is complete")
+	var rim_fn := source.substr(rim_start, rim_end - rim_start)
+	for edge in ["1.0 - q.x", "1.0 - q.y", "q.x", "q.y"]:
+		assert_true(rim_fn.contains("mix(9.0, %s, open_edges." % edge),
+			"Each edge only counts as rim where the tile meets other ground")
+	assert_true(rim_fn.contains("smin("), "The rim's corners are rounded into a pit")
+
+	# The lip is the shared edge band, so it stays exactly as wide as every
+	# other bordered tile's border and a stream's bank rim.
+	var lip_start := source.find("float bunker_lip(")
+	var lip_end := source.find("vec3 bunker_bowl(", lip_start)
+	assert_gt(lip_end, lip_start, "bunker_lip() is complete")
+	var lip_fn := source.substr(lip_start, lip_end - lip_start)
+	assert_true(lip_fn.contains("smoothstep(-FRINGE, FRINGE, -rim)"),
+		"The lip runs in the shared FRINGE band")
+	assert_true(lip_fn.contains("smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover)"),
+		"The lip fades in across the same coverage as every other bordered tile")
+
+	# The bowl is lit as a pit: the sun's reach across it is measured by
+	# stepping the sand toward the light, so the side the lip shades is dark and
+	# the rest of the floor is lit.
+	var bowl_start := source.find("vec3 bunker_bowl(")
+	var bowl_end := source.find("vec3 surface(", bowl_start)
+	assert_gt(bowl_start, 0, "bunker_bowl() shades the bowl")
+	assert_gt(bowl_end, bowl_start, "bunker_bowl() is complete")
+	var bowl_fn := source.substr(bowl_start, bowl_end - bowl_start)
+	assert_true(bowl_fn.contains("bunker_rim(q + GROUND_LIGHT * BUNKER_SUN_STEP, open_edges)"),
+		"The lip's shade is measured by stepping the rim toward the sun")
+	assert_true(bowl_fn.contains("float sun = smoothstep(0.0, 0.30,"),
+		"The lip between the sand and the sun shades it, and the rest of the pit is lit")
+	assert_true(bowl_fn.contains("sin(rim * BUNKER_RAKE_ARCS"),
+		"The floor is raked in arcs that follow the lip")
+	assert_true(bowl_fn.contains("float shade = smoothstep(0.24, BUNKER_LIP_FOOT - 0.02, rim)"),
+		"The sand darkens into the lip's contact shadow, so the pit keeps an edge")
+	assert_true(bowl_fn.contains("return mix(turf, floor_sand, 1.0 - lip);"),
+		"The grass lip sits over the sand it stands on")
+	assert_true(bowl_fn.contains("BUNKER_SUN_STEP") or source.contains("const float BUNKER_SUN_STEP"),
+		"The sun step is a named tuning lever")
+
+	# The fragment shades a Bunker with it, and only a Bunker.
+	var fragment := source.substr(source.find("void fragment()"))
+	assert_true(fragment.contains("if (a == 7.0) {") and fragment.contains(
+		"own = bunker_bowl(own, f, open_edges, tile_world, grain, patch);"),
+		"A Bunker's own tile is shaded as a bowl")
+
+	# A Bunker still keeps the border every other bordered tile draws: its lip
+	# grass is mixed in at the open edges by surface().
+	var surface_start := source.find("vec3 surface(")
+	var bunker_branch_start := source.find("} else if (id == 7.0) {", surface_start)
+	var bunker_branch_end := source.find("} else if (id == 8.0) {", bunker_branch_start)
+	assert_gt(bunker_branch_end, bunker_branch_start, "The Bunker branch of surface() is complete")
+	var bunker_branch := source.substr(bunker_branch_start, bunker_branch_end - bunker_branch_start)
+	assert_true(bunker_branch.contains("base = mix(base, lip_turf(world, grain, patch), edge * 0.94);"),
+		"A Bunker's open edges show its lip grass, drawn on the shared edge band")
+	assert_false(bunker_branch.contains("vec3(0.35, 0.40, 0.24)"),
+		"`vec3(0.35, 0.40, 0.24)` is the shared lip turf, not a colour written twice")
+
+	# That lip grass is the turf the bordered tiles' borders are built from.
+	var lip_turf_start := source.find("vec3 lip_turf(")
+	var lip_turf_end := source.find("bool keeps_own_turf(", lip_turf_start)
+	assert_gt(lip_turf_end, lip_turf_start, "lip_turf() is complete")
+	var lip_turf_fn := source.substr(lip_turf_start, lip_turf_end - lip_turf_start)
+	assert_true(lip_turf_fn.contains("bank_turf(world, grain, patch)"),
+		"The lip is rough turf, the same grass a stream's banks keep")
+	assert_true(source.contains("const vec3 BUNKER_LIP_TURF = vec3(0.35, 0.40, 0.24);"),
+		"The lip settles toward the olive the bordered tiles draw their own borders in")
