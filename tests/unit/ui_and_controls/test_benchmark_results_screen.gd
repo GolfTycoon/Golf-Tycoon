@@ -55,7 +55,7 @@ func _report() -> Dictionary:
 		series.append(16.0 if index % 12 != 0 else 44.0)
 	return {
 		"benchmark_version": "GTB-2",
-		"game_version": "0.4.9",
+		"game_version": "0.5.0",
 		"engine_version": "4.6.stable",
 		"build_type": "Release",
 		"device_model": "Test device",
