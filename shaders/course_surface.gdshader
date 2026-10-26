@@ -559,6 +559,23 @@ const float WATER_MAX_DEPTH = 3.2;
 // and the surface data quantises one level to roughly 1/25 of its range, so
 // this leaves all the room the encoding's own rounding needs.
 const float WATER_LEVEL_TOLERANCE = 0.5;
+// How far a water tile may fall and still count as flat, in elevation levels.
+// A level is stored exactly, so two corners at one level read back identical and
+// this only has to be smaller than the level it is measuring.
+const float WATER_FLAT_EPSILON = 0.25;
+// How fast running water slides downhill, in tiles a second, before the fall and
+// the light are taken into account. Steeper water runs faster.
+const float WATER_RUN_SPEED = 0.18;
+// The extra speed one level of fall adds, per tile a second.
+const float WATER_RUN_SPEED_PER_LEVEL = 0.70;
+// How many streamers are drawn across one tile of running water, and how far
+// each is stretched down the fall. More and finer strands read as a faster,
+// busier sheet; fewer and broader ones as a slow slide.
+const float WATER_STRAND_ACROSS = 15.0;
+const float WATER_STRAND_ALONG = 2.4;
+// How far downstream (in tile-lengths of the strand field) a streamer's leading
+// edge is measured from. Larger values lengthen the lit head of every streamer.
+const float WATER_RUN_HEAD = 0.10;
 // How much of the floor's light one tile of water takes out on its way back up.
 const float WATER_ABSORB = 0.95;
 // Fine detail is lost to scattering faster than the floor's own colour is, so
@@ -621,6 +638,36 @@ float water_depth(vec2 g) {
 	return best;
 }
 
+// The fall of a water tile: how far its surface drops across it, in elevation
+// levels, and the direction — in grid units — that it drains toward. A tile's
+// four corners are read off the same height field the ground is drawn with, so
+// a pond laid on a slope knows which way it runs. Corners all at one level mean
+// still water: `fall` is then nothing and the flow means nothing either.
+//
+// The lowest corner is where the water goes, and every corner at that low level
+// pulls the flow toward itself: one low corner drains diagonally into it, and a
+// low edge drains straight across toward the middle of that edge. A saddle —
+// two opposite corners low, the other two high — pulls both ways at once, so
+// the two cancel; it takes the steepest way down instead, the patch's own
+// gradient, which still points into a low corner.
+void water_fall(vec2 cell, out vec2 flow, out float fall) {
+	float h00 = elevation_at_vertex(cell);
+	float h10 = elevation_at_vertex(cell + vec2(1.0, 0.0));
+	float h01 = elevation_at_vertex(cell + vec2(0.0, 1.0));
+	float h11 = elevation_at_vertex(cell + vec2(1.0, 1.0));
+	float low = min(min(h00, h10), min(h01, h11));
+	fall = max(max(h00, h10), max(h01, h11)) - low;
+	vec2 toward = vec2(0.0);
+	if (h00 <= low + WATER_FLAT_EPSILON) { toward += vec2(-0.5, -0.5); }
+	if (h10 <= low + WATER_FLAT_EPSILON) { toward += vec2(0.5, -0.5); }
+	if (h01 <= low + WATER_FLAT_EPSILON) { toward += vec2(-0.5, 0.5); }
+	if (h11 <= low + WATER_FLAT_EPSILON) { toward += vec2(0.5, 0.5); }
+	if (length(toward) < 0.01) {
+		toward = -vec2((h10 + h11) - (h00 + h01), (h01 + h11) - (h00 + h10));
+	}
+	flow = length(toward) > 0.0001 ? normalize(toward) : vec2(1.0, 0.0);
+}
+
 // The floor of a water tile: sand and silt with the gravel, ripple marks and
 // weed a shallow bed carries. `g` is in grid units, so one continuous bed runs
 // under every tile of the pond instead of each tile repeating a pattern;
@@ -650,9 +697,11 @@ vec3 water_bed(vec2 g, float clear, bool river) {
 
 // The net of light the moving surface throws on the floor: two sets of ripples
 // crossing, bright where their crests meet. It reaches the bed only where the
-// water is thin, which is what ties the light to the depth.
-float water_caustics(vec2 g, float clear) {
-	vec2 p = g * 2.3 + vec2(TIME * 0.17, TIME * 0.11);
+// water is thin, which is what ties the light to the depth. `drift` moves the
+// whole net over the floor, so still water's net wanders gently while running
+// water's is carried downstream with the sheet.
+float water_caustics(vec2 g, float clear, vec2 drift) {
+	vec2 p = g * 2.3 + drift;
 	vec2 q = p + (noise(p * 0.8) - 0.5) * 2.4;
 	float net = (1.0 - abs(sin(q.x * 3.3 + q.y * 1.1))) * (1.0 - abs(sin(q.y * 3.7 - q.x * 1.3)));
 	return net * net * clear;
@@ -666,6 +715,66 @@ vec2 water_ripple(vec2 g) {
 			noise(g * 5.0 + vec2(TIME * 0.25, -TIME * 0.7) + 31.0)) - 0.5;
 }
 
+// The same ripple field as running water sees it: stretched along the fall and
+// dragged downstream, so the floor under the sheet streams past instead of
+// shimmering in place. Same magnitude as water_ripple(), so the bed it bends is
+// still a shimmer and never a broken-up mess.
+vec2 water_run_ripple(vec2 g, vec2 flow, float fall) {
+	float along = dot(g, flow);
+	float across = dot(g, vec2(-flow.y, flow.x));
+	float drag = TIME * (WATER_RUN_SPEED + fall * WATER_RUN_SPEED_PER_LEVEL) * 0.8;
+	return vec2(noise(vec2(across * 6.5, (along - drag) * 1.2)),
+			noise(vec2(across * 6.5 + 19.0, (along - drag * 1.3) * 1.2) + vec2(31.0))) - 0.5;
+}
+
+// Running water: the design the still pond's wandering wave is replaced with
+// wherever the water is not flat.
+//
+// Still water is crossed by one slow wave that runs the same way everywhere,
+// which says nothing about where the water is going because nothing is going
+// anywhere. Water on a fall is a sheet sliding downhill, so it is drawn in a
+// frame that turns with the tile: `along` runs down the fall and `across` is
+// level across it. The sheet is a drift of lit streamers — thin strands
+// stretched down the fall, each brightest at its leading edge, where it runs
+// into the water ahead of it — sliding downhill at a speed the fall sets, with
+// quiet patches where the sheet is slack. Because the strands are stretched
+// along the flow and their bright end leads, the motion reads as a direction:
+// the water is visibly pouring toward the tile's lowest corner.
+//
+// Everything is anchored to grid coordinates and is smooth across tile edges, so
+// a run of running tiles carries one continuous sheet, and the pattern is
+// continuous in time, so nothing pops as the fall changes under an edit.
+// Returns light to add to the water's own colour.
+vec3 water_run_light(vec2 g, vec2 flow, float fall, float clear) {
+	float along = dot(g, flow);
+	float across = dot(g, vec2(-flow.y, flow.x));
+	// Steeper water slides faster; a sheet running thin runs faster still.
+	float speed = (WATER_RUN_SPEED + fall * WATER_RUN_SPEED_PER_LEVEL) * (0.70 + clear * 0.60);
+	float t = along - TIME * speed;
+	// Three strands of different width and length. Each is a noise ridge
+	// stretched down the fall, so it draws as a streamer rather than a blob.
+	float fine = noise(vec2(across * WATER_STRAND_ACROSS, t * WATER_STRAND_ALONG));
+	float mid = noise(vec2(across * WATER_STRAND_ACROSS * 0.60 + 41.0, t * WATER_STRAND_ALONG * 0.67));
+	float broad = noise(vec2(across * WATER_STRAND_ACROSS * 1.53 + 77.0, t * WATER_STRAND_ALONG * 1.50));
+	float strand = fine * 0.45 + mid * 0.33 + broad * 0.22;
+	float body = smoothstep(0.58, 0.90, strand);
+	// The leading edge: the same strands sampled a little further downstream, so
+	// the water each streamer is running into is what lights it up. This is the
+	// only asymmetry in the pattern, and it is what gives the water its heading.
+	float lead = noise(vec2(across * WATER_STRAND_ACROSS, (t + WATER_RUN_HEAD) * WATER_STRAND_ALONG)) * 0.45
+		+ noise(vec2(across * WATER_STRAND_ACROSS * 0.60 + 41.0,
+			(t + WATER_RUN_HEAD * 0.7) * WATER_STRAND_ALONG * 0.67)) * 0.33
+		+ noise(vec2(across * WATER_STRAND_ACROSS * 1.53 + 77.0,
+			(t + WATER_RUN_HEAD * 0.5) * WATER_STRAND_ALONG * 1.50)) * 0.22;
+	float head = clamp(smoothstep(0.56, 0.88, lead) - body * 0.55, 0.0, 1.0);
+	// Slack water: broad patches where the sheet is barely moving, so a pond is
+	// not evenly striped from bank to bank.
+	float calm = smoothstep(0.25, 0.80, noise(vec2(across * 1.6 + 7.0, t * 0.35)));
+	float density = 0.45 + 0.55 * calm;
+	return vec3(0.30, 0.44, 0.41) * (body * (0.16 + clear * 0.34)
+		+ head * (0.30 + clear * 0.45)) * density;
+}
+
 // Pond water: a bed under a moving column that absorbs its light, with a wet
 // margin where the water laps the bank. `edge` is the tile's own edge coverage,
 // so the margin follows the material boundary exactly, and `base` is the
@@ -674,16 +783,35 @@ vec2 water_ripple(vec2 g) {
 // body's own edge too: where the water is cut off by the same pond at another
 // level, the depth there is already nothing, so the foot of the step wears the
 // same wet waterline as a bank.
+//
+// Still water wears one slow wave that runs the same way everywhere; water on a
+// fall wears the running sheet instead, turned to run down that fall, so a pond
+// on a slope visibly drains toward its lowest corner (water_run_light()).
 vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
 	vec2 g = world / tile_size;
 	float depth = water_depth(g);
 	float deep = 1.0 - exp(-depth * WATER_ABSORB);    // 0 in the shallows, 1 in the deep
 	float clear = exp(-depth * WATER_DETAIL_ABSORB);  // sunlight still reaching the floor
-	// The surface bends what lies under it, and most where the floor is near.
+	// Which way this tile drains, if it drains at all. A slope eases the running
+	// sheet in over the first fraction of a level, rather than switching it on
+	// at the edge of a step.
+	vec2 flow;
+	float fall;
+	water_fall(floor(g), flow, fall);
+	float run = smoothstep(WATER_FLAT_EPSILON, WATER_FLAT_EPSILON + 0.5, fall);
+	// The surface bends what lies under it, and most where the floor is near:
+	// running water drags the bed and its light downhill, still water only
+	// shimmers. Flat water keeps exactly the cost and the look it always had.
 	vec2 bed_g = g + water_ripple(g) * 0.1 * clear;
+	vec2 caustics_drift = vec2(TIME * 0.17, TIME * 0.11);
+	if (run > 0.001) {
+		bed_g = mix(bed_g, g + water_run_ripple(g, flow, fall) * 0.1 * clear, run);
+		// The net of light is carried downstream with the sheet.
+		caustics_drift = mix(caustics_drift, -flow * TIME * (0.5 + fall * 1.6), run);
+	}
 	vec3 bed = water_bed(bed_g, clear, false);
 	vec3 bed_lit = bed * (0.88 + noise(bed_g * 22.0) * 0.18)
-		* (1.0 + water_caustics(bed_g, clear) * 1.6);
+		* (1.0 + water_caustics(bed_g, clear, caustics_drift) * 1.6);
 	// The column: pale and green over the shallows, dark blue over the deep.
 	vec3 shallows_water = mix(base, vec3(0.44, 0.74, 0.68), 0.42) * (1.04 + (patch - 0.5) * 0.1);
 	vec3 deep_water = base * vec3(0.4, 0.55, 0.72) * 0.72;
@@ -691,10 +819,20 @@ vec3 water_surface(vec3 base, float edge, vec2 world, float patch) {
 	vec3 color = mix(bed_lit, column, deep);
 	// The surface's own light: glints where a ripple catches the sun, and more
 	// of them on the deep water, where there is no floor to look at instead.
+	// Still water wears this wandering wave. Running water does not: it is drawn
+	// as the sliding sheet below, in place of the wave, so the whole surface
+	// reads as going the same way.
 	float wave = sin(world.y * 0.16 + sin(world.x * 0.024 + TIME * 0.3) * 2.3 + TIME * 0.8);
 	float glint = smoothstep(0.93, 1.0, wave)
 		* smoothstep(0.55, 0.8, noise(world * 0.04 + vec2(TIME * 0.07, 0.0)));
-	color += vec3(0.30, 0.39, 0.33) * glint * (0.16 + deep * 0.22);
+	color += vec3(0.30, 0.39, 0.33) * glint * (0.16 + deep * 0.22) * (1.0 - run);
+	// The running sheet itself: lit streamers sliding toward the tile's lowest
+	// corner, drawn over the water's colour, so water on a fall visibly drains
+	// into it. Laid out in grid coordinates, so a run of running tiles carries
+	// one continuous sheet across the edges they share.
+	if (run > 0.001) {
+		color += water_run_light(g, flow, fall, clear) * run;
+	}
 	// The waterline: the last of the floor, wet and darkened against the bank,
 	// with the light the surface throws back along it. On a pond tile it follows
 	// the body's own edge as well, so the foot of a step between two levels of
@@ -1095,7 +1233,7 @@ vec3 inset_tile(float id, vec3 own, vec3 outside, float edge_mix, vec4 open_edge
 		float clear = exp(-max(half_width - d, 0.0) * RIVER_ABSORB);
 		float deep = 1.0 - clear;
 		vec3 riverbed = water_bed(g, clear, true) * (0.85 + noise(g * 22.0) * 0.2)
-			* (1.0 + water_caustics(g, clear) * 1.3);
+			* (1.0 + water_caustics(g, clear, vec2(TIME * 0.17, TIME * 0.11)) * 1.3);
 		vec3 water = mix(riverbed,
 			palette_color(T_STREAM) * (0.80 + deep * 0.26 + (patch - 0.5) * 0.06), deep);
 		// Current: soft crests drifting downstream, broken up by moving noise.

@@ -432,3 +432,60 @@ func test_surface_data_carries_the_level_a_pond_is_measured_at() -> void:
 	var same_level: float = grid._course_surface._data.get_pixel(high.x, high.y).b
 	assert_eq(same_level, low_level,
 		"Water tiles at one elevation read back the same level, so they are one body")
+
+func test_water_on_a_fall_runs_toward_its_lowest_vertex() -> void:
+	var source := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	assert_false(source.is_empty(), "The course surface shader is readable")
+
+	# A tile's fall is read off the same height field the ground is drawn with,
+	# so a pond laid on a slope knows which way it runs.
+	var fall_start := source.find("void water_fall(")
+	var fall_end := source.find("// The floor of a water tile", fall_start)
+	assert_gt(fall_start, 0, "water_fall() measures a tile's fall")
+	assert_gt(fall_end, fall_start, "water_fall() is complete")
+	var fall_fn := source.substr(fall_start, fall_end - fall_start)
+	for corner in ["cell", "cell + vec2(1.0, 0.0)", "cell + vec2(0.0, 1.0)", "cell + vec2(1.0, 1.0)"]:
+		assert_true(fall_fn.contains("elevation_at_vertex(" + corner + ")"),
+			"All four corners of the tile are read from the height field")
+	assert_true(fall_fn.contains("if (h00 <= low + WATER_FLAT_EPSILON)"),
+		"Every corner sitting at the tile's lowest level pulls the flow toward itself")
+	assert_true(fall_fn.contains("toward = -vec2((h10 + h11) - (h00 + h01), (h01 + h11) - (h00 + h10));"),
+		"A saddle, where the low corners pull against each other, drains down the gradient")
+	assert_true(fall_fn.contains("flow = length(toward) > 0.0001 ? normalize(toward) : vec2(1.0, 0.0);"),
+		"Flat water still answers a direction, so nothing downstream divides by zero")
+
+	# Flat water keeps the wandering wave it always had; water on a fall replaces
+	# it with the running sheet, turned down the fall.
+	var surface_start := source.find("vec3 water_surface(")
+	var surface_end := source.find("// The rough turf a stream's banks keep", surface_start)
+	assert_gt(surface_end, surface_start, "water_surface() is complete")
+	var surface_fn := source.substr(surface_start, surface_end - surface_start)
+	assert_true(surface_fn.contains("water_fall(floor(g), flow, fall);"),
+		"The water asks the tile it stands on which way it drains")
+	assert_true(surface_fn.contains(
+		"float run = smoothstep(WATER_FLAT_EPSILON, WATER_FLAT_EPSILON + 0.5, fall);"),
+		"The running sheet eases in with the fall instead of switching on at a step")
+	assert_true(surface_fn.contains("(1.0 - run);"),
+		"The still pond's wandering wave is replaced where the water is not flat")
+	assert_true(surface_fn.contains("color += water_run_light(g, flow, fall, clear) * run;"),
+		"The running sheet is drawn in its place")
+	assert_true(surface_fn.contains("if (run > 0.001) {"),
+		"The streamers are only evaluated where the water is actually running")
+
+	var run_start := source.find("vec3 water_run_light(")
+	var run_end := source.find("// Pond water: a bed under a moving column", run_start)
+	assert_gt(run_start, 0, "water_run_light() paints the running sheet")
+	assert_gt(run_end, run_start, "water_run_light() is complete")
+	var run_fn := source.substr(run_start, run_end - run_start)
+	assert_true(run_fn.contains("float along = dot(g, flow);"),
+		"The sheet is laid out along the fall")
+	assert_true(run_fn.contains("float across = dot(g, vec2(-flow.y, flow.x));"),
+		"and level across it, so the pattern turns with the tile")
+	assert_true(run_fn.contains("float speed = (WATER_RUN_SPEED + fall * WATER_RUN_SPEED_PER_LEVEL)"),
+		"Steeper water runs faster")
+	assert_true(run_fn.contains("float t = along - TIME * speed;"),
+		"The streamers slide downstream in time")
+	assert_true(run_fn.contains("(t + WATER_RUN_HEAD)"),
+		"Each streamer is lit at its leading edge, which is what gives it a heading")
+	assert_false(run_fn.contains("fract(") or run_fn.contains("round("),
+		"The sheet uses no per-tile random phase, so a run of running tiles joins up")

@@ -2,7 +2,7 @@
 
 > The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds, instead of per-tile sprites.
 
-**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `water_depth()`, `same_water_body()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
+**Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `water_depth()`, `same_water_body()`, `water_fall()`, `water_run_light()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
 
 ---
@@ -13,7 +13,7 @@ The course is no longer a grid of coloured squares. The ground is one connected 
 
 - **Turf** has diagonal mower passes. Putting greens have fine turf and a collar around them.
 - **Bunkers** are a raked sand bowl sunk into the turf: a grass lip around the pit, one side of the floor in that lip's shade and the other in sun, arcs of raking, and the sand's own grain. Pot Bunkers are a separate tile with a stacked-turf face.
-- **Water** moves gently, and deepens only where a pond's tiles run together at one elevation level: the shallows run clear over a bright bed, the middle of a pond goes dark and still, and the water above and below a step is a shallow shelf on either side of it.
+- **Water** moves gently, and deepens only where a pond's tiles run together at one elevation level: the shallows run clear over a bright bed, the middle of a pond goes dark and still, and the water above and below a step is a shallow shelf on either side of it. Flat water wears one slow wandering wave; water on a slope wears lit streamers sliding downhill instead, so a pond visibly drains toward the lowest corner of the ground it lies on.
 - **Trees** each have a ground painted under them, such as leaf litter, pine needles or sand.
 
 The simulation still uses the same tile grid (128 × 128 by default). This is a rendering change only. Camera controls, saved courses, hazards and shot logic all keep their existing coordinates. Soft edge blends are drawn for looks and do not change a ball's lie.
@@ -121,11 +121,19 @@ What counts as the same body is the whole point:
 - `Stream` is not pond water: it draws its own channel (`inset_tile()`), and the channel mouth is what joins the two.
 - Tiles off the course are never water, so a pond ends at the property line instead of reading as bottomless at the rim of the map.
 
+#### Running water
+
+Water on a fall is not still water, so it is not drawn with the still pond's one wandering wave. `water_fall()` reads the tile's four corners from the same height field the ground is drawn with and answers two things: how far the tile's surface drops across it (`fall`, in elevation levels), and which way it drains (`flow`, in grid units). The lowest corner is where the water goes, and every corner at that low level pulls the flow toward itself — one low corner drains diagonally into it, a low edge drains straight across toward the middle of that edge, and a saddle, where two opposite corners are low and the other two high, takes the patch's own gradient instead. A tile with all four corners at one level is still water, and gets the wave it always had.
+
+`water_run_light()` then draws the surface in a frame that turns with the tile: `along` runs down the fall and `across` is level across it. The sheet is a drift of lit streamers, each a noise ridge stretched hard down the fall, sliding downhill at a speed the fall sets, with brighter leading edges where a streamer runs into the water ahead of it, and broad quiet patches where the sheet is slack. That asymmetry — stretched along the flow, lit at the front — is what makes the motion read as a direction. The bed under the sheet is dragged downstream with it (`water_run_ripple()`, and the caustic net's drift), and the still wave's glints fade out as the sheet fades in, so a sloped pond is one sheet going the same way rather than a wave travelling across it.
+
+The streamers are laid out in grid coordinates and every input is smooth across tile edges, so a run of running tiles carries one continuous sheet. The pattern is also continuous in time and in the fall, so nothing pops as an elevation edit changes the slope under it. Flat water never evaluates it (`if (run > 0.001)`), so a still course costs exactly what it did before.
+
 The waterline is measured from the same depth. On a pond tile, wherever the water runs out — against a bank, and at the foot of a step between two levels of the same pond — the last of the floor is wet and darkened, with the light the surface throws back along it (`water_surface()`). A pixel painted outside a pond tile, such as a stream mouth blending into the pond or the band a bank draws over its own edge, has no body depth to read, so it keeps the material edge alone.
 
 ### 6. Turf and water animation
 
-Noise and mower passes use world coordinates, and so do a Bunker's raking and its drifts of sand: moving or zooming the camera does not move the pattern. Water animates from GPU time and needs no per-tile script updates. Standard Bunkers always use the same raked-bowl treatment, whatever the theme; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
+Noise and mower passes use world coordinates, and so do a Bunker's raking and its drifts of sand: moving or zooming the camera does not move the pattern. Water animates from GPU time and needs no per-tile script updates; water on a fall turns its pattern to run down that fall, which it reads off the same elevation texture the ground is drawn with. Standard Bunkers always use the same raked-bowl treatment, whatever the theme; Pot Bunkers draw their own stacked-turf lip. Greens blend into the theme's fringe colour at their edges.
 
 ### 7. Foliage
 
@@ -163,6 +171,9 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Boulder height | `rocks_tallness()` | `1.7` for Large Boulders | How far boulders stand up |
 | Water body | `course_surface.gdshader` `same_water_body()`, `WATER_LEVEL_TOLERANCE` | Water tiles at one elevation level, joined edge to edge; `0.5` levels of tolerance | What counts as one pond. Water deepens only inside a body: tiles under half a level apart are the same water, and the next level up is a bank |
 | Water depth | `course_surface.gdshader` `WATER_MAX_DEPTH`, `WATER_ABSORB`, `WATER_DETAIL_ABSORB` | `3.2` tiles, `0.95`, `2.4` | Deepest water measured, how fast the column darkens with depth, and how fast the floor's fine detail is lost |
+| Water flatness | `course_surface.gdshader` `water_fall()`, `WATER_FLAT_EPSILON` | `0.25` levels | How far a tile may fall and still count as still water, which keeps the wandering wave |
+| Running water speed | `course_surface.gdshader` `WATER_RUN_SPEED`, `WATER_RUN_SPEED_PER_LEVEL` | `0.18` plus `0.70` per level of fall, tiles a second | How fast the streamers slide downhill |
+| Streamers | `course_surface.gdshader` `WATER_STRAND_ACROSS`, `WATER_STRAND_ALONG`, `WATER_RUN_HEAD` | `15`, `2.4`, `0.10` | How many streamers cross a tile, how far each is stretched down the fall, and how long the lit leading edge is |
 | Water animation | `course_surface.gdshader` | GPU time | Speed of water movement |
 | Foliage breeze | `foliage_breeze.gdshader` | Small amplitude | Strength of canopy motion |
 | Palette | `course_surface.gd` `PALETTE_KEYS` | One key per terrain type | Colour of each terrain type |
