@@ -429,26 +429,32 @@ func test_course_terrain_tiles_replace_each_other() -> void:
 		"A wood is painted ground, not an object footprint")
 
 func test_each_species_paints_ground_of_its_own() -> void:
-	# The species share one canopy color for their art and swatches, and the
-	# surface works each one up into the ground it suits: litter, needles, sand,
-	# silt, peat or straw. Species sharing a ground share its edge as well.
+	# The species share one canopy palette slot for theme colors, and the surface
+	# gives every one of the 12 woodland tiles its own distinct full-tile ground
+	# texture and border.
 	var by_look := {}
 	for type in TerrainTypes.TREE_TERRAIN_TYPES:
 		var ground := TerrainTypes.get_tree_ground(type)
 		assert_ne(ground, "", "%s is planted in ground of its own" % TerrainTypes.get_type_name(type))
 		assert_eq(CourseSurface.PALETTE_KEYS[type], "trees",
 			"%s wears the theme's woodland color" % TerrainTypes.get_type_name(type))
-		if not by_look.has(ground):
-			by_look[ground] = []
-		by_look[ground].append(type)
-	assert_eq(by_look.keys().size(), 6, "Litter, needles, sand, silt, peat and straw")
-	assert_true(T.PINE in by_look["pine needles"], "Pine stands on needles")
-	assert_true(T.CATTAILS in by_look["waterlogged silt"], "Cattails stand in silt")
-	assert_true(T.HEATHER in by_look["acid peat"], "Heather grows on peat")
-	assert_true(T.FESCUE in by_look["dry straw"], "Fescue goes to straw")
-	for species in [T.CACTUS, T.PALM, T.DEAD_TREE]:
-		assert_eq(TerrainTypes.get_tree_ground(species), "bare sand",
-			"%s roots in bare sand" % TerrainTypes.get_type_name(species))
+		assert_false(by_look.has(ground),
+			"%s has a unique ground description (%s)" % [TerrainTypes.get_type_name(type), ground])
+		by_look[ground] = type
+	assert_eq(by_look.keys().size(), TerrainTypes.TREE_TERRAIN_TYPES.size(),
+		"Every woodland tile has its own distinct ground")
+	assert_eq(TerrainTypes.get_tree_ground(T.TREES), "woodland humus")
+	assert_eq(TerrainTypes.get_tree_ground(T.OAK), "oak leaf litter")
+	assert_eq(TerrainTypes.get_tree_ground(T.PINE), "pine needles")
+	assert_eq(TerrainTypes.get_tree_ground(T.MAPLE), "fallen maple leaves")
+	assert_eq(TerrainTypes.get_tree_ground(T.BIRCH), "birch bark and moss")
+	assert_eq(TerrainTypes.get_tree_ground(T.CACTUS), "desert hardpan")
+	assert_eq(TerrainTypes.get_tree_ground(T.FESCUE), "golden fescue straw")
+	assert_eq(TerrainTypes.get_tree_ground(T.CATTAILS), "marsh silt")
+	assert_eq(TerrainTypes.get_tree_ground(T.SHRUB), "bark mulch")
+	assert_eq(TerrainTypes.get_tree_ground(T.PALM), "coral sand")
+	assert_eq(TerrainTypes.get_tree_ground(T.DEAD_TREE), "cracked parched earth")
+	assert_eq(TerrainTypes.get_tree_ground(T.HEATHER), "moorland peat")
 	for type in [T.ROCKS, T.BRUSH, T.FAIRWAY, T.FLOWER_BED]:
 		assert_eq(TerrainTypes.get_tree_ground(type), "",
 			"%s is not woodland" % TerrainTypes.get_type_name(type))
@@ -535,20 +541,22 @@ func test_tile_previews_show_a_flowing_stream_and_patches_of_scatter() -> void:
 	assert_eq(roundi(stream.get_pixel(0, 1).r * 255.0), T.STREAM, "The channel enters from one side")
 	assert_eq(roundi(stream.get_pixel(2, 1).r * 255.0), T.STREAM, "and leaves from the other")
 	assert_eq(roundi(stream.get_pixel(1, 0).r * 255.0), T.GRASS, "with grass banks")
-	for type in [T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.BRUSH]:
+	for type in [T.FIRM_FAIRWAY, T.POT_BUNKER, T.DEEP_ROUGH, T.WASTE_BUNKER,
+			T.BRUSH, T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.FLOWER_BED]:
 		var image: Image = toolbar._tool_buttons[type]._surface_material.get_shader_parameter("terrain_data").get_image()
-		assert_eq(roundi(image.get_pixel(0, 0).r * 255.0), type, "A patch, not a lone tile")
-		assert_eq(image.get_pixel(1, 1).a, 1.0, "Painted stone, not an object footprint")
-	for type in [T.FIRM_FAIRWAY, T.POT_BUNKER, T.DEEP_ROUGH, T.WASTE_BUNKER]:
-		var image: Image = toolbar._tool_buttons[type]._surface_material.get_shader_parameter("terrain_data").get_image()
-		assert_eq(roundi(image.get_pixel(1, 1).r * 255.0), type)
-		assert_eq(roundi(image.get_pixel(0, 1).r * 255.0), T.GRASS)
+		assert_eq(roundi(image.get_pixel(1, 1).r * 255.0), type,
+			"%s previews its full-tile texture" % TerrainTypes.get_type_name(type))
+		assert_eq(roundi(image.get_pixel(0, 1).r * 255.0), T.GRASS,
+			"%s sits against grass so its border shows on the swatch" % TerrainTypes.get_type_name(type))
+		assert_eq(image.get_pixel(1, 1).a, 1.0, "Painted ground, not an object footprint")
 
 	# The theme's woodland tiles are on the same shelf and preview the same way:
-	# their own id across the diamond, so the surface paints that species' ground
-	# rather than an object standing on somebody else's.
+	# their own id across the diamond surrounded by grass, so the surface paints
+	# that species' full-tile ground and border.
 	for type in CourseTheme.get_tree_types(GameManager.current_theme):
 		var image: Image = toolbar._tool_buttons[type]._surface_material.get_shader_parameter("terrain_data").get_image()
 		assert_eq(roundi(image.get_pixel(1, 1).r * 255.0), type,
 			"%s previews as the tile it is" % TerrainTypes.get_type_name(type))
+		assert_eq(roundi(image.get_pixel(0, 1).r * 255.0), T.GRASS,
+			"%s sits against grass so its border shows" % TerrainTypes.get_type_name(type))
 		assert_eq(image.get_pixel(1, 1).a, 1.0, "and as painted ground, not an object footprint")

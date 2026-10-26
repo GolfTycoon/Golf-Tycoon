@@ -123,8 +123,11 @@ Entities/Golfers/Staff, and EntityLayer/Buildings/Decorations. All standing bodi
 resolve to z 2, allowing Godot to interleave them across containers. Higher screen
 Y draws in front. Trees have one CanvasItem per tile, anchored at ground level;
 building visuals sort at the footprint centre while their art keeps its original
-placement. View rotation refreshes the anchors along with the sprites. Shadows,
-rings, labels, and gameplay overlays retain their separate relative bands.
+placement. View rotation refreshes the anchors along with the sprites. Tree
+materials additionally sample the same heightfield as the course surface: ground
+in front of a tree clips only the covered sprite pixels, leaving a crown that
+extends above or in front of a hill visible. Shadows, rings, labels, and gameplay
+overlays retain their separate relative bands.
 
 `tests/unit/golfers/test_golfer_draw_order.gd` protects ground visibility and
 `tests/unit/course_design/test_terrain_draw_order.gd` covers tree anchors and bands.

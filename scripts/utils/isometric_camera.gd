@@ -17,6 +17,10 @@ class_name IsometricCamera
 @export var bounds_min: Vector2 = Vector2(-2000, -2000)
 @export var bounds_max: Vector2 = Vector2(6000, 4000)
 
+## Absolute zoom limits the settings sliders allow (mirror GameManager).
+const ZOOM_ABSOLUTE_MIN: float = 0.2
+const ZOOM_ABSOLUTE_MAX: float = 4.0
+
 # Subtle follow settings (for cursor-aware movement)
 # NOTE: Disabled by default as it can cause unwanted camera drift
 @export var subtle_follow_enabled: bool = false
@@ -55,13 +59,36 @@ func _ready() -> void:
 	_smoothed_position = global_position
 	_target_zoom = zoom.x
 	_last_wall_ms = Time.get_ticks_msec()
+	# Apply the player's preferred zoom limits before the first frame.
+	if has_node("/root/GameManager"):
+		_apply_zoom_limits(GameManager.camera_min_zoom, GameManager.camera_max_zoom)
 	# Pick up the responsive world scale before the first frame renders.
 	# (Main re-applies it and tracks Screen.changed afterwards.)
 	if has_node("/root/Screen"):
 		apply_world_scale(Screen.world_scale)
+	# Keep in sync when the player changes limits in Settings.
+	if has_node("/root/EventBus") and not EventBus.camera_zoom_limits_changed.is_connected(_on_zoom_limits_changed):
+		EventBus.camera_zoom_limits_changed.connect(_on_zoom_limits_changed)
 	# Disable Godot's built-in smoothing — we handle it manually in _apply_movement
 	# to avoid the one-frame lag that causes bouncing on rapid direction changes.
 	position_smoothing_enabled = false
+
+func _exit_tree() -> void:
+	if has_node("/root/EventBus") and EventBus.camera_zoom_limits_changed.is_connected(_on_zoom_limits_changed):
+		EventBus.camera_zoom_limits_changed.disconnect(_on_zoom_limits_changed)
+
+func _on_zoom_limits_changed(min_z: float, max_z: float) -> void:
+	_apply_zoom_limits(min_z, max_z)
+
+func _apply_zoom_limits(min_z: float, max_z: float) -> void:
+	min_zoom = clampf(min_z, ZOOM_ABSOLUTE_MIN, ZOOM_ABSOLUTE_MAX)
+	max_zoom = clampf(max_z, ZOOM_ABSOLUTE_MIN, ZOOM_ABSOLUTE_MAX)
+	if min_zoom >= max_zoom:
+		if min_zoom <= ZOOM_ABSOLUTE_MIN + 0.1:
+			max_zoom = min_zoom + 0.1
+		else:
+			min_zoom = max_zoom - 0.1
+	_target_zoom = clampf(_target_zoom, min_zoom, max_zoom)
 
 func _process(_delta: float) -> void:
 	# Use wall-clock time instead of the frame delta: pausing the game drops
@@ -229,6 +256,25 @@ func _apply_movement(delta: float) -> void:
 
 	# Apply position with shake offset
 	global_position = _smoothed_position + _shake_offset
+
+# =============================================================================
+# ZOOM LIMITS (exposed for Settings and tests)
+# =============================================================================
+
+func set_min_zoom(value: float) -> void:
+	_apply_zoom_limits(value, max_zoom)
+
+func set_max_zoom(value: float) -> void:
+	_apply_zoom_limits(min_zoom, value)
+
+func set_zoom_limits(min_z: float, max_z: float) -> void:
+	_apply_zoom_limits(min_z, max_z)
+
+func get_min_zoom() -> float:
+	return min_zoom
+
+func get_max_zoom() -> float:
+	return max_zoom
 
 # =============================================================================
 # PUBLIC API

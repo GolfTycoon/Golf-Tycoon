@@ -24,6 +24,13 @@ const MAX_ELEVATION: int = 10
 const BASE_ELEVATION: int = 5
 const SLOPE_SAMPLE_STEP: float = 0.5
 const ELEVATION_STEP_Y: float = 10.0
+## Screen-space elevation is a ray/heightfield intersection, not a fixed-point
+## iteration. A vertical screen ray crosses at most eight tile boundaries over
+## the elevation range; solving each tile's bilinear patch exactly avoids both
+## coarse-sample cliff artifacts and razor-thin peaks hidden between samples.
+const ELEVATION_RAY_MAX_TILE_STEPS: int = 12
+const ELEVATION_RAY_EPSILON: float = 0.00001
+const INVALID_GRID_POINT := Vector2(-1.0, -1.0)
 ## How far (in tiles) past the map's rim a pointer still snaps to the rim's
 ## centres and vertices. A rim anchor's catchment extends half a tile outward,
 ## so without this the far-edge vertices could only be picked from their inner half.
@@ -182,6 +189,28 @@ func _redraw_all_overlays() -> void:
 		_walking_path_overlay.queue_redraw()
 	if _shot_heatmap_overlay:
 		_shot_heatmap_overlay.queue_redraw()
+	if _elevation_overlay:
+		_elevation_overlay.queue_redraw()
+	if _ob_markers_overlay:
+		_ob_markers_overlay.queue_redraw()
+	if _debug_overlay:
+		_debug_overlay.queue_redraw()
+	if _land_boundary_overlay:
+		_land_boundary_overlay.queue_redraw()
+	if _fairway_width_overlay:
+		_fairway_width_overlay.queue_redraw()
+
+## Reposition redraw-cached ground art after the heightfield moves. Texture
+## uploads are handled separately; these are the CanvasItems whose projected
+## vertices and child-node anchors would otherwise remain at the old height.
+func _refresh_elevation_visuals() -> void:
+	_redraw_all_overlays()
+	if _cup_overlay:
+		_cup_overlay.refresh_pin_positions()
+	if _wind_flag_overlay:
+		_wind_flag_overlay.refresh_flag_positions()
+	if _fairway_width_overlay:
+		_fairway_width_overlay.refresh_elevation()
 
 func _initialize_grid() -> void:
 	terrain_revision += 1
@@ -224,6 +253,10 @@ func screen_to_grid_precise(screen_pos: Vector2) -> Vector2:
 ## vertices sit exactly on that edge); further out there is nothing to aim at.
 func snap_world_to_tile_anchor(world_pos: Vector2) -> Dictionary:
 	var grid_point := screen_to_grid_point(world_pos)
+	if grid_point == INVALID_GRID_POINT:
+		# Anchor snapping deliberately accepts a pointer half a tile beyond the
+		# visible surface, so retain the flat position for that rim catchment.
+		grid_point = projection.unproject(world_pos)
 	if grid_point.x < -ANCHOR_RIM_MARGIN or grid_point.y < -ANCHOR_RIM_MARGIN \
 			or grid_point.x > float(grid_width) + ANCHOR_RIM_MARGIN \
 			or grid_point.y > float(grid_height) + ANCHOR_RIM_MARGIN:
@@ -281,31 +314,122 @@ func snap_world_to_tile_anchor(world_pos: Vector2) -> Dictionary:
 	}
 
 func screen_to_grid_point(screen_pos: Vector2) -> Vector2:
+	var flat_point := projection.unproject(screen_pos)
 	if not view_isometric or ELEVATION_STEP_Y == 0.0:
-		return projection.unproject(screen_pos)
+		return flat_point
 
-	# Raymarch vertically from highest elevation to lowest to find the front-most surface
-	var best_g := projection.unproject(screen_pos)
-	var best_diff: float = 999999.0
-	var step_size: float = ELEVATION_STEP_Y * 0.5
-	var t: float = float(MAX_ELEVATION - BASE_ELEVATION) * ELEVATION_STEP_Y
-	var min_t: float = float(MIN_ELEVATION - BASE_ELEVATION) * ELEVATION_STEP_Y
+	# A screen pixel is a vertical ray through the heightfield. Along that ray
+	# g(t) = flat_point + ray_direction * t and the visible surface satisfies
+	# t = (height(g(t)) - BASE_ELEVATION) * ELEVATION_STEP_Y. Search from the
+	# greatest possible height downwards: the first crossing is the front-most
+	# surface when steep slopes overlap each other on screen.
+	var ray_direction := projection.unproject(screen_pos + Vector2(0.0, 1.0)) - flat_point
+	var lower_t := float(MIN_ELEVATION - BASE_ELEVATION) * ELEVATION_STEP_Y
+	var upper_t := float(MAX_ELEVATION - BASE_ELEVATION) * ELEVATION_STEP_Y
 
-	while t >= min_t - 0.1:
-		var g := projection.unproject(screen_pos + Vector2(0.0, t))
-		var h_px: float = (get_elevation_at(g) - BASE_ELEVATION) * ELEVATION_STEP_Y
-		var diff: float = absf(t - h_px)
-		if diff < best_diff:
-			best_diff = diff
-			best_g = g
-		if t <= h_px:
-			# Surface crossed: refine with exact height at this point
-			var h_final: float = (get_elevation_at(g) - BASE_ELEVATION) * ELEVATION_STEP_Y
-			best_g = projection.unproject(screen_pos + Vector2(0.0, h_final))
-			return best_g
-		t -= step_size
+	# Clip the ray to the course rectangle before intersecting it. This prevents
+	# clamped edge heights from inventing ground beyond the visible map rim.
+	for axis in range(2):
+		var start: float = flat_point[axis]
+		var direction: float = ray_direction[axis]
+		var extent: float = float(grid_width if axis == 0 else grid_height)
+		if absf(direction) < 0.000001:
+			if start < 0.0 or start > extent:
+				return INVALID_GRID_POINT
+			continue
+		var edge_a: float = -start / direction
+		var edge_b: float = (extent - start) / direction
+		lower_t = maxf(lower_t, minf(edge_a, edge_b))
+		upper_t = minf(upper_t, maxf(edge_a, edge_b))
+	if lower_t > upper_t:
+		return INVALID_GRID_POINT
+	if absf(upper_t - lower_t) <= ELEVATION_RAY_EPSILON:
+		var rim_point := flat_point + ray_direction * upper_t
+		var rim_value := upper_t - (get_elevation_at(rim_point) - BASE_ELEVATION) * ELEVATION_STEP_Y
+		return rim_point if absf(rim_value) <= ELEVATION_RAY_EPSILON else INVALID_GRID_POINT
 
-	return best_g
+	# Walk only the tiles the ray actually crosses. Height is bilinear inside a
+	# tile, so F(t) is a quadratic and every crossing (including a tangent peak)
+	# can be found exactly instead of relying on a sampled sign change.
+	var current_t := upper_t
+	for _segment in range(ELEVATION_RAY_MAX_TILE_STEPS):
+		var current_point := flat_point + ray_direction * current_t
+		var next_t := lower_t
+		for axis in range(2):
+			var direction: float = ray_direction[axis]
+			if absf(direction) < 0.000001:
+				continue
+			# Select the first integer grid boundary strictly below current_t.
+			var boundary := floorf(current_point[axis] - ELEVATION_RAY_EPSILON) \
+					if direction > 0.0 else ceilf(current_point[axis] + ELEVATION_RAY_EPSILON)
+			var boundary_t: float = (boundary - flat_point[axis]) / direction
+			if boundary_t < current_t and boundary_t > next_t:
+				next_t = boundary_t
+		if next_t >= current_t - ELEVATION_RAY_EPSILON:
+			break
+
+		var middle_t := (current_t + next_t) * 0.5
+		var middle_point := flat_point + ray_direction * middle_t
+		var cell := Vector2i(floori(middle_point.x), floori(middle_point.y))
+		if is_valid_position(cell):
+			var root_t := _intersect_elevation_tile(flat_point, ray_direction, cell,
+					current_t, next_t, middle_t)
+			if root_t != INF:
+				return (flat_point + ray_direction * root_t).clamp(
+						Vector2.ZERO, Vector2(grid_width, grid_height))
+		if next_t <= lower_t + ELEVATION_RAY_EPSILON:
+			break
+		current_t = next_t
+
+	# Above the highest surface or below the lowest one: there is no terrain
+	# under this pointer, even if its flat projection happens to lie on the map.
+	return INVALID_GRID_POINT
+
+## Return the greatest root in [low_t, high_t], or INF when this tile misses.
+## The quadratic is centred on the tile interval for stable float arithmetic.
+func _intersect_elevation_tile(flat_point: Vector2, ray_direction: Vector2,
+		cell: Vector2i, high_t: float, low_t: float, middle_t: float) -> float:
+	var h00 := float(get_vertex_elevation(cell) - BASE_ELEVATION)
+	var h10 := float(get_vertex_elevation(cell + Vector2i(1, 0)) - BASE_ELEVATION)
+	var h01 := float(get_vertex_elevation(cell + Vector2i(0, 1)) - BASE_ELEVATION)
+	var h11 := float(get_vertex_elevation(cell + Vector2i(1, 1)) - BASE_ELEVATION)
+	var hx := h10 - h00
+	var hy := h01 - h00
+	var hxy := h11 - h10 - h01 + h00
+	var middle_point := flat_point + ray_direction * middle_t
+	var u := middle_point.x - float(cell.x)
+	var v := middle_point.y - float(cell.y)
+	var c0 := h00 + hx * u + hy * v + hxy * u * v
+	var c1 := hx * ray_direction.x + hy * ray_direction.y \
+			+ hxy * (u * ray_direction.y + v * ray_direction.x)
+	var c2 := hxy * ray_direction.x * ray_direction.y
+
+	# q = t - middle_t. F(q) = a*q^2 + b*q + c.
+	var a := -ELEVATION_STEP_Y * c2
+	var b := 1.0 - ELEVATION_STEP_Y * c1
+	var c := middle_t - ELEVATION_STEP_Y * c0
+	var low_q := low_t - middle_t
+	var high_q := high_t - middle_t
+	var best_q := -INF
+	if absf(a) <= ELEVATION_RAY_EPSILON:
+		if absf(b) <= ELEVATION_RAY_EPSILON:
+			# An edge-on patch can coincide with the whole ray interval. Its high
+			# endpoint is still the front-most point.
+			return high_t if absf(c) <= ELEVATION_RAY_EPSILON else INF
+		var q := -c / b
+		if q >= low_q - ELEVATION_RAY_EPSILON and q <= high_q + ELEVATION_RAY_EPSILON:
+			best_q = q
+	else:
+		var discriminant := b * b - 4.0 * a * c
+		if discriminant >= -ELEVATION_RAY_EPSILON:
+			var root := sqrt(maxf(0.0, discriminant))
+			var q := (-b + root) / (2.0 * a)
+			if q >= low_q - ELEVATION_RAY_EPSILON and q <= high_q + ELEVATION_RAY_EPSILON:
+				best_q = maxf(best_q, q)
+			q = (-b - root) / (2.0 * a)
+			if q >= low_q - ELEVATION_RAY_EPSILON and q <= high_q + ELEVATION_RAY_EPSILON:
+				best_q = maxf(best_q, q)
+	return middle_t + best_q if best_q != -INF else INF
 
 func grid_to_screen(grid_pos: Vector2i) -> Vector2:
 	return projection.cell_corner(grid_pos) + get_vertex_elevation_displacement(grid_pos)
@@ -375,14 +499,6 @@ func _sync_projection_dependents() -> void:
 	if _elevation_shader_controller:
 		_elevation_shader_controller.apply_projection(projection)
 	_redraw_all_overlays()
-	if _elevation_overlay:
-		_elevation_overlay.queue_redraw()
-	if _ob_markers_overlay:
-		_ob_markers_overlay.queue_redraw()
-	if _debug_overlay:
-		_debug_overlay.queue_redraw()
-	if _land_boundary_overlay:
-		_land_boundary_overlay.queue_redraw()
 	if _wind_flag_overlay:
 		_wind_flag_overlay.refresh_flag_positions()
 	if _cup_overlay:
@@ -960,7 +1076,7 @@ func _setup_elevation_shader() -> void:
 	_elevation_shader_controller = ElevationShaderController.new()
 	_elevation_shader_controller.name = "ElevationShaderController"
 	add_child(_elevation_shader_controller)
-	_elevation_shader_controller.setup(self, _elevation_shader_rect, material)
+	_elevation_shader_controller.setup(self, _elevation_shader_rect, shader_material)
 
 	# Connect signals for heightmap updates
 	_heightmap.initialize(self)
@@ -1233,6 +1349,7 @@ func _queue_elevation_refresh(vertex: Vector2i, tiles: Array[Vector2i]) -> void:
 		_course_surface.update_vertex(vertex)
 	if _heightmap:
 		_heightmap.refresh_tiles(tiles)
+	_refresh_elevation_visuals()
 
 ## Get the heightmap texture for external use (e.g., shader debugging)
 func get_heightmap_texture() -> ImageTexture:
@@ -1423,3 +1540,4 @@ func _after_elevation_bulk_load() -> void:
 		_elevation_overlay.queue_redraw()
 	if _heightmap:
 		_heightmap.request_rebuild(self)
+	_refresh_elevation_visuals()

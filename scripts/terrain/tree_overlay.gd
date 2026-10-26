@@ -49,6 +49,7 @@ class_name TreeOverlay
 ## itself ships — a season's variants come from the mods (see
 ## `register_mod_art()`).
 const SPRITE_DIR := "res://assets/sprites/trees/"
+const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
 
 ## The image files a registered art folder is scanned for: what
 ## ModManager.load_mod_texture can decode, PNG — the art pipeline's output —
@@ -602,6 +603,13 @@ static func base_offset(species: String, size: Vector2, scale_factor: float = 1.
 static func variation_seed(pos: Vector2i) -> int:
 	return pos.x * 31337 ^ pos.y * 65537
 
+## The small screen-space offset also supplied to the occlusion material. Keep
+## this sequence identical to the two jitter draws at the start of _draw_tree().
+static func ground_jitter(pos: Vector2i) -> Vector2:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = variation_seed(pos)
+	return Vector2(rng.randf_range(-JITTER_X, JITTER_X), rng.randf_range(-JITTER_Y, JITTER_Y))
+
 # =============================================================================
 # DRAWING
 # =============================================================================
@@ -616,6 +624,8 @@ func _on_theme_changed(_theme: int) -> void:
 	rescan()  # Only the generic Trees tiles pick their species from the theme.
 
 func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
+	for pos in _visuals:
+		_configure_occlusion(_visuals[pos], pos)
 	queue_redraw()  # The art lookup follows the view; the tiles do not move.
 
 func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
@@ -640,12 +650,22 @@ func _sync_visuals() -> void:
 	for pos in _tree_tiles:
 		if not _visuals.has(pos):
 			var tree := Node2D.new()
+			var occlusion_material := ShaderMaterial.new()
+			occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
+			tree.material = occlusion_material
 			tree.draw.connect(func(): _draw_tree(tree, pos, Vector2.ZERO, facing_for(pos)))
 			add_child(tree)
 			_visuals[pos] = tree
+			_configure_occlusion(tree, pos)
 		var visual: Node2D = _visuals[pos]
 		visual.position = terrain_grid.grid_to_screen_center(pos)
 		visual.queue_redraw()
+
+func _configure_occlusion(tree: Node2D, pos: Vector2i) -> void:
+	if terrain_grid == null or terrain_grid._course_surface == null:
+		return
+	terrain_grid._course_surface.configure_sprite_occlusion(
+			tree.material as ShaderMaterial, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
 
 ## The angle this overlay paints the tree on `pos` from right now: the course's
 ## view turned by the tile's own offset, so a wood holds several angles at once

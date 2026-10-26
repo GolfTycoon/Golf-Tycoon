@@ -72,6 +72,7 @@ func _ready() -> void:
 	add_to_group("decorations")
 	if terrain_grid:
 		terrain_grid.tile_changed.connect(_on_ground_changed)
+		terrain_grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
 		terrain_grid.surface_refreshed.connect(_queue_layout_refresh)
 
 	if not decoration_type.is_empty():
@@ -89,6 +90,8 @@ func _exit_tree() -> void:
 	if is_instance_valid(terrain_grid):
 		if terrain_grid.tile_changed.is_connected(_on_ground_changed):
 			terrain_grid.tile_changed.disconnect(_on_ground_changed)
+		if terrain_grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
+			terrain_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
 		if terrain_grid.surface_refreshed.is_connected(_queue_layout_refresh):
 			terrain_grid.surface_refreshed.disconnect(_queue_layout_refresh)
 	if has_node("/root/ShadowSystem"):
@@ -136,8 +139,15 @@ static func visual_variation(type: String, pos: Vector2i) -> PropVariation.Varia
 
 
 func _on_ground_changed(pos: Vector2i, _old: int, _new: int) -> void:
-	if absi(pos.x - grid_position.x) + absi(pos.y - grid_position.y) <= 1:
+	if Rect2i(grid_position, size).grow(1).has_point(pos):
 		_queue_layout_refresh()
+
+func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> void:
+	var footprint := Rect2i(grid_position, size)
+	for tile in terrain_grid.tiles_around_vertex(vertex):
+		if footprint.has_point(tile):
+			_queue_layout_refresh()
+			return
 
 func _queue_layout_refresh() -> void:
 	if not _layout_refresh_pending:
@@ -147,6 +157,9 @@ func _queue_layout_refresh() -> void:
 func _refresh_layout() -> void:
 	_layout_refresh_pending = false
 	if is_inside_tree():
+		# Re-anchor as well as rebuilding the artwork: a changed vertex moves the
+		# decoration's ground point even when its terrain type stayed the same.
+		set_position_in_grid(grid_position)
 		_update_visuals()
 
 

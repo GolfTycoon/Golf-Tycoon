@@ -5,6 +5,7 @@ class_name FairwayWidthOverlay
 var terrain_grid: TerrainGrid = null
 var _enabled: bool = false
 var _marker_data: Array = []  # Array of {screen_pos, width, color, label, line_start, line_end}
+var _elevation_refresh_pending: bool = false
 
 const MARKER_DISTANCES_YARDS = [150, 200, 250]
 const YARDS_PER_TILE: float = 22.0
@@ -46,6 +47,19 @@ func _on_hole_changed(_a = null, _b = null, _c = null) -> void:
 		_recalculate()
 
 func _on_load_completed(_success: bool) -> void:
+	if _enabled:
+		_recalculate()
+
+## A sculpt can touch hundreds of vertices in one stroke. Reproject these cached
+## screen-space markers once after the stroke, rather than once per vertex.
+func refresh_elevation() -> void:
+	if not _enabled or _elevation_refresh_pending:
+		return
+	_elevation_refresh_pending = true
+	call_deferred("_refresh_elevation")
+
+func _refresh_elevation() -> void:
+	_elevation_refresh_pending = false
 	if _enabled:
 		_recalculate()
 

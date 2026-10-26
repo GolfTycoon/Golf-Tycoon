@@ -29,6 +29,15 @@ var heightmap_noise_seed: int = 0
 var tee_booking_interval: int = 90
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
+## Camera zoom limits (player preference, persisted in settings.cfg).
+## The defaults match the original IsometricCamera range so older installs are
+## unchanged until the player opens Settings.
+const CAMERA_MIN_ZOOM_DEFAULT: float = 0.5
+const CAMERA_MAX_ZOOM_DEFAULT: float = 2.0
+const CAMERA_ZOOM_ABSOLUTE_MIN: float = 0.2
+const CAMERA_ZOOM_ABSOLUTE_MAX: float = 4.0
+var camera_min_zoom: float = CAMERA_MIN_ZOOM_DEFAULT
+var camera_max_zoom: float = CAMERA_MAX_ZOOM_DEFAULT
 # Default starting values (overridden by difficulty preset in new_game)
 const DEFAULT_STARTING_MONEY: int = 25000
 const DEFAULT_STARTING_REPUTATION: float = 50.0
@@ -864,6 +873,50 @@ func get_spawn_rate_multiplier() -> float:
 	"""Get the difficulty-adjusted golfer spawn rate multiplier."""
 	var diff_mods := DifficultyPresets.get_modifiers(current_difficulty)
 	return diff_mods.get("spawn_rate_multiplier", 1.0)
+
+## Camera zoom limits (player preference, persisted in settings.cfg).
+## The minimum must stay below the maximum; setters enforce ordering.
+func set_camera_min_zoom(value: float) -> void:
+	value = clampf(value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX)
+	# Keep at least 0.1 headroom below the maximum so the range is never
+	# empty (equal values would freeze zoom).
+	if value >= camera_max_zoom:
+		value = camera_max_zoom - 0.1
+		value = clampf(value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX - 0.1)
+	if is_equal_approx(camera_min_zoom, value):
+		return
+	camera_min_zoom = value
+	EventBus.camera_zoom_limits_changed.emit(camera_min_zoom, camera_max_zoom)
+
+func set_camera_max_zoom(value: float) -> void:
+	value = clampf(value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX)
+	if value <= camera_min_zoom:
+		value = camera_min_zoom + 0.1
+		value = clampf(value, CAMERA_ZOOM_ABSOLUTE_MIN + 0.1, CAMERA_ZOOM_ABSOLUTE_MAX)
+	if is_equal_approx(camera_max_zoom, value):
+		return
+	camera_max_zoom = value
+	EventBus.camera_zoom_limits_changed.emit(camera_min_zoom, camera_max_zoom)
+
+func set_camera_zoom_limits(min_zoom_value: float, max_zoom_value: float) -> void:
+	min_zoom_value = clampf(min_zoom_value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX)
+	max_zoom_value = clampf(max_zoom_value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX)
+	if min_zoom_value >= max_zoom_value:
+		# Prefer keeping the requested max when both were supplied together.
+		if min_zoom_value >= CAMERA_ZOOM_ABSOLUTE_MAX - 0.1:
+			min_zoom_value = max_zoom_value - 0.1
+		else:
+			max_zoom_value = min_zoom_value + 0.1
+		max_zoom_value = clampf(max_zoom_value, CAMERA_ZOOM_ABSOLUTE_MIN + 0.1, CAMERA_ZOOM_ABSOLUTE_MAX)
+		min_zoom_value = clampf(min_zoom_value, CAMERA_ZOOM_ABSOLUTE_MIN, CAMERA_ZOOM_ABSOLUTE_MAX - 0.1)
+	var changed := not is_equal_approx(camera_min_zoom, min_zoom_value) or not is_equal_approx(camera_max_zoom, max_zoom_value)
+	camera_min_zoom = min_zoom_value
+	camera_max_zoom = max_zoom_value
+	if changed:
+		EventBus.camera_zoom_limits_changed.emit(camera_min_zoom, camera_max_zoom)
+
+func reset_camera_zoom_limits() -> void:
+	set_camera_zoom_limits(CAMERA_MIN_ZOOM_DEFAULT, CAMERA_MAX_ZOOM_DEFAULT)
 
 func set_colorblind_mode(mode: int) -> void:
 	"""Set colorblind mode and refresh terrain visuals."""
