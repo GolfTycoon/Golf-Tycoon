@@ -10,9 +10,15 @@ class_name BuildingSprites
 ## anchors. Drawing a sprite into that rectangle therefore places the pixel art
 ## exactly on the tiles the building occupies, at every rotation.
 ##
-## One art pixel is `PIXEL_SCALE` world pixels (a tile is 64 x 32 world pixels,
-## so an art pixel is 1/32 of a tile across). Sprites are drawn with nearest
-## filtering so that pixel grid stays crisp at any camera zoom.
+## Source PNGs do not have to be authored at that rectangle's resolution: the
+## current sprites are authored at roughly 600 x 460 pixels so their roofs,
+## windows and paving keep their detail, while a tile is 64 x 32 world pixels.
+## `texture()` resamples each source once, when it is first loaded, into its
+## manifest rectangle. That keeps the drawing 1:1 — one drawn pixel is one world
+## pixel — instead of asking the GPU to minify a large texture with nearest
+## filtering (which aliases badly and makes the pixel grid flicker at zoom).
+## `painted_rect()` maps any texture's opaque pixels into that same draw space,
+## so callers never have to assume a source resolution.
 
 const MANIFEST_PATH := "res://assets/sprites/buildings/sprites.json"
 const SPRITE_DIR := "res://assets/sprites/buildings/"
@@ -26,6 +32,8 @@ static var _textures: Dictionary = {}
 
 ## The parsed manifest, loaded once. Keys: `pixel_scale`, `tile` and
 ## `buildings` -> kind -> `tiers` -> tier -> `facings` -> [{file, rect}].
+## `pixel_scale` describes the generator's 1:1 art; a hand-authored PNG may be
+## larger and is fitted to `rect` when loaded (see `texture()`).
 static func manifest() -> Dictionary:
 	if _manifest.is_empty():
 		var file := FileAccess.open(MANIFEST_PATH, FileAccess.READ)
@@ -76,19 +84,26 @@ static func entry(kind: String, tier: int, facing: int) -> Dictionary:
 		return {}
 	return faces[index]
 
-## The texture for one building, tier and view rotation.
+## The texture for one building, tier and view rotation, resampled to the
+## manifest rectangle so drawing stays 1:1. The result is cached: `_draw()` runs
+## every frame, but a source PNG is decoded and resized only once.
 static func texture(kind: String, tier: int, facing: int) -> Texture2D:
 	if _mod_sprites.has(kind):
 		return _mod_sprites[kind].get("texture", null)
 	var art := entry(kind, tier, facing)
 	if art.is_empty():
 		return null
+	var art_rect := rect(kind, tier, facing)
+	var target := Vector2i.ZERO
+	if art_rect.size.x > 0.0 and art_rect.size.y > 0.0:
+		target = _pixel_size(art_rect)
 	var path: String = SPRITE_DIR + str(art.get("file", ""))
-	if _textures.has(path):
-		return _textures[path]
+	var key := "%s@%dx%d" % [path, target.x, target.y]
+	if _textures.has(key):
+		return _textures[key]
 	var loaded: Texture2D = load(path) if ResourceLoader.exists(path) else null
-	_textures[path] = loaded
-	return loaded
+	_textures[key] = _fit_to_rect(loaded, target)
+	return _textures[key]
 
 ## The rectangle the sprite covers in the building node's local draw space
 ## (world pixels), or a zero rect when there is no art.
@@ -102,6 +117,65 @@ static func rect(kind: String, tier: int, facing: int) -> Rect2:
 	if values.size() < 4:
 		return Rect2()
 	return Rect2(values[0], values[1], values[2], values[3])
+
+## Whole texture pixels for a manifest rect, rounded from world pixels.
+static func _pixel_size(art_rect: Rect2) -> Vector2i:
+	return Vector2i(maxi(1, roundi(art_rect.size.x)), maxi(1, roundi(art_rect.size.y)))
+
+## Resample a source PNG into its manifest rect once, at load time. The art can
+## be authored at any resolution: what matters to the course is that the drawn
+## texture has one pixel per world pixel, so `draw_texture_rect()` is a 1:1 blit
+## and the nearest filter has nothing to alias. Lanczos keeps the fine detail of
+## the larger source (roof tiles, window frames, paving) when it is reduced.
+static func _fit_to_rect(source: Texture2D, target: Vector2i) -> Texture2D:
+	if source == null or target.x <= 0 or target.y <= 0:
+		return source
+	var source_size := source.get_size()
+	if Vector2i(roundi(source_size.x), roundi(source_size.y)) == target:
+		return source
+	var image: Image = source.get_image()
+	if image == null or image.is_empty():
+		return source
+	image.resize(target.x, target.y, Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(image)
+
+## The source PNG as it ships, before resampling — for tools and tests that
+## inspect the art rather than the texture the course draws.
+static func source_texture(kind: String, tier: int, facing: int) -> Texture2D:
+	var art := entry(kind, tier, facing)
+	if art.is_empty():
+		return null
+	var path: String = SPRITE_DIR + str(art.get("file", ""))
+	return load(path) if ResourceLoader.exists(path) else null
+
+## The rectangle a sprite's opaque pixels actually cover in the building node's
+## local draw space (world pixels), or a zero rect when it has no art.
+##
+## `draw_texture_rect()` stretches the whole texture, transparent margins
+## included, into the manifest rect. So the mapping from image pixels to world
+## pixels is `rect.size / texture.size`, not a fixed `pixel_scale`: it works for
+## resampled art, for a mod's arbitrary-resolution PNG, and for the 1:1 sprites
+## the generator writes. This is the sprite's real footprint on the course.
+static func painted_rect(kind: String, tier: int, facing: int) -> Rect2:
+	var art_rect := rect(kind, tier, facing)
+	if art_rect.size.x <= 0.0 or art_rect.size.y <= 0.0:
+		return Rect2()
+	var tex := texture(kind, tier, facing)
+	if tex == null:
+		return Rect2()
+	var image: Image = tex.get_image()
+	if image == null or image.is_empty():
+		return art_rect
+	var used: Rect2i = image.get_used_rect()
+	if used.size.x <= 0 or used.size.y <= 0:
+		return Rect2()
+	var source := Vector2(image.get_size())
+	if source.x <= 0.0 or source.y <= 0.0:
+		return art_rect
+	var world_per_pixel := art_rect.size / source
+	return Rect2(
+			art_rect.position + Vector2(float(used.position.x), float(used.position.y)) * world_per_pixel,
+			Vector2(float(used.size.x), float(used.size.y)) * world_per_pixel)
 
 ## How tall the facility draws above its own footprint, in world pixels. Used
 ## by tests and menu copy; the art itself needs nothing from the manifest.

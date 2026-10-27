@@ -12,6 +12,10 @@ rectangle it occupies in the local draw space of the building node (world
 pixels). BuildingSprites in the game reads that manifest and draws the texture
 1:1, so the same image is used on the course, in the placement ghost and on the
 Buildings tab.
+
+This generator writes one art pixel per world pixel. Sprites replaced with
+higher-resolution art need no manifest change: BuildingSprites.texture()
+resamples the source PNG into its manifest rect once, at load time.
 """
 
 from __future__ import annotations

@@ -30,17 +30,15 @@ func _footprint_of(building_type: String) -> Vector2:
 		maxf(1.0, float(dimensions[0])) * BuildingTileArt.TILE_PIXEL_SIZE.x,
 		maxf(1.0, float(dimensions[1])) * BuildingTileArt.TILE_PIXEL_SIZE.y)
 
-## Where the sprite's painted pixels land on the tile, in button space.
+## Where the sprite's painted pixels land on the tile, in button space. The
+## preview draws through the same transform as the course, so start from the
+## sprite's painted rect in draw space — BuildingSprites maps the source PNG's
+## pixels into it, whatever resolution that PNG was authored at.
 func _preview_bounds(building_type: String) -> Rect2:
 	var placement := BuildingTileArt.preview_transform(_footprint_of(building_type))
-	var tex := BuildingSprites.texture(building_type, 1, 0)
-	if tex == null:
+	var painted := BuildingSprites.painted_rect(building_type, 1, 0)
+	if painted.size.x <= 0.0:
 		return Rect2()
-	var used := tex.get_image().get_used_rect()
-	var scale := float(BuildingSprites.manifest().get("pixel_scale", 2.0))
-	var art := BuildingSprites.rect(building_type, 1, 0)
-	var painted := Rect2(art.position + Vector2(used.position) * scale,
-			Vector2(used.size) * scale)
 	return Rect2(placement * painted.position, placement.get_scale() * painted.size)
 
 func test_every_footprint_lands_on_the_tile_diamond() -> void:
