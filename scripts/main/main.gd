@@ -13,18 +13,19 @@ const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd"
 var terrain_toolbar: TerrainToolbar = null
 var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up in _setup_terrain_toolbar)
 @onready var left_controls: BottomControlDock = $UI/HUD/BottomBar/LeftControls
-@onready var rotate_view_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/RotateViewControls
-@onready var rotate_ccw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCCWBtn
-@onready var rotate_cw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCWBtn
-@onready var orientation_label: Label = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationLabel
-@onready var orientation_needle: CompassNeedle = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationNeedle
+## The view controls ride on the top-left location banner (see
+## _fill_view_controls): the two Rotate arrows on the right of its details
+## card, and the facing chip in the card's top-right corner.
+var rotate_view_controls: HBoxContainer = null
+var rotate_ccw_btn: Button = null
+var rotate_cw_btn: Button = null
+var orientation_toggle: OrientationToggleButton = null
 @onready var pause_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn
 @onready var play_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn
 ## One fast-forward button for both accelerated tiers: it reads ">>" at Fast
 ## and ">>>" at Ultra, and a press swaps between the two (see GameManager).
 @onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
-const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
 # New UI components
 var player_round: PlayerRoundManager
 
@@ -788,10 +789,6 @@ func _connect_ui_buttons() -> void:
 	# each press asks GameManager for the next tier instead.
 	$UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn.pressed.connect(_on_fast_forward_pressed)
 
-	# Rotate view controls (now above speed controls in BottomBar)
-	rotate_ccw_btn.pressed.connect(_on_view_rotate_ccw)
-	rotate_cw_btn.pressed.connect(_on_view_rotate_cw)
-
 func _setup_terrain_toolbar() -> void:
 	"""Dock the tabbed toolbar into the bottom bar (right section, flush after left controls)"""
 	terrain_toolbar = TerrainToolbar.new()
@@ -1494,7 +1491,24 @@ func _setup_course_location_banner() -> void:
 	course_location_banner = CourseLocationBanner.new()
 	course_location_banner.name = "CourseLocationBanner"
 	$UI/HUD.add_child(course_location_banner)
+	# Folding the view controls in or out changes the corner's height, so the
+	# score cards below it follow.
+	course_location_banner.layout_changed.connect(_dock_scores_below_banner)
+	# The postcard carries the course's view controls in the same corner.
+	_fill_view_controls()
 	_dock_scores_below_banner()
+
+## Take the banner's view controls: the two Rotate arrows on the right of its
+## details card, and the facing chip in the card's top-right corner that shows
+## the direction the course faces and folds the arrows away.
+func _fill_view_controls() -> void:
+	rotate_view_controls = course_location_banner.rotate_controls
+	rotate_ccw_btn = course_location_banner.rotate_ccw_btn
+	rotate_cw_btn = course_location_banner.rotate_cw_btn
+	orientation_toggle = course_location_banner.orientation_toggle
+	rotate_ccw_btn.pressed.connect(_on_view_rotate_ccw)
+	rotate_cw_btn.pressed.connect(_on_view_rotate_cw)
+	_sync_view_controls()
 
 ## Keep the scores dock just under the location banner, in both layouts.
 func _dock_scores_below_banner() -> void:
@@ -1546,8 +1560,6 @@ func _setup_bottom_bar() -> void:
 	hud.move_child(bg, bottom_bar.get_index())
 	bottom_bar.add_theme_constant_override("separation", 2)
 	bottom_bar.offset_top = -Screen.bottom_bar_height()
-	orientation_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-	orientation_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 
 func _toggle_panel(panel: CenteredPanel) -> void:
 	"""Toggle a panel with mutual exclusion — opening one closes the previous."""
@@ -2144,14 +2156,10 @@ func _sync_camera_bounds_to_view() -> void:
 	camera.bounds_max = bounds.end
 
 func _sync_view_controls() -> void:
-	# Rotate view controls now live above SpeedControls in BottomBar; keep toolbar stub for compat.
-	if terrain_grid and orientation_label:
-		var orientation: int = terrain_grid.get_view_orientation()
-		orientation_label.text = VIEW_ORIENTATION_LABELS[wrapi(orientation, 0, VIEW_ORIENTATION_LABELS.size())]
-		# The needle beside the letter takes the same quarter turn the course
-		# just took, so the pair reads as a compass rather than a stray initial.
-		if orientation_needle:
-			orientation_needle.orientation = orientation
+	# The facing chip in the banner's details card takes the same quarter turn
+	# the course just took, so the corner reads as a compass.
+	if terrain_grid and course_location_banner:
+		course_location_banner.set_orientation(terrain_grid.get_view_orientation())
 	# Keep toolbar in sync if it still has the deprecated method
 	if terrain_toolbar and terrain_grid and terrain_toolbar.has_method("set_view_state"):
 		terrain_toolbar.set_view_state(terrain_grid.get_view_orientation(), terrain_grid.is_view_isometric())

@@ -74,32 +74,8 @@ func apply_screen() -> void:
 			button.diameter = utility_size
 			button.queue_redraw()
 
-	var rotate := get_node_or_null("RotateViewControls") as HBoxContainer
-	if rotate:
-		rotate.position = Vector2(8.0, 142.0 if touch_layout else 122.0)
-		var rotate_size := Vector2(128.0 if touch_layout else 104.0, utility_size)
-		rotate.custom_minimum_size = rotate_size
-		rotate.size = rotate_size
-		rotate.add_theme_constant_override("separation", 2)
-		# Keep the heading readable between the arrows, without spending a whole
-		# extra button's width on the old needle.
-		var needle := rotate.get_node_or_null("OrientationNeedle")
-		if needle:
-			needle.hide()
-		var heading := rotate.get_node_or_null("OrientationLabel") as Label
-		if heading:
-			heading.custom_minimum_size = Vector2(36, 0)
-			heading.add_theme_font_override("font", PixelCircleButton.FONT)
-		for child in rotate.get_children():
-			if child is RotateViewButton:
-				child.custom_minimum_size = Vector2.ONE * utility_size
-				child.size = Vector2.ONE * utility_size
-				child.queue_redraw()
-		# Shrink only after the children have adopted the new target size; the
-		# HBoxContainer otherwise holds on to its previous touch minimum.
-		rotate.custom_minimum_size = rotate_size
-		rotate.size = rotate_size
-
+	# The Rotate arrows left this dock for the top-left location banner; the
+	# speed controls keep the row above the dock's foot.
 	var speed := get_node_or_null("SpeedControls") as HBoxContainer
 	if speed:
 		speed.position = Vector2(8.0, 188.0 if touch_layout else 156.0)

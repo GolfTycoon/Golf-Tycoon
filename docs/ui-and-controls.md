@@ -83,10 +83,11 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 
 ### Bottom dock
 
-The bottom-left corner uses small pixel-art circle buttons for **Menu**,
-both rotation directions, and **Pause / Play / Fast**. The fast button
+The bottom-left corner uses small pixel-art circle buttons for **Menu** and
+**Pause / Play / Fast**. The fast button
 cycles between 3× and 8×; a cream tick marks Ultra and a lit ring marks the active
-speed. The heading letter stays between the rotation arrows. The **Feed** lives on
+speed. The two **Rotate** arrows left this corner for the top-left [course location
+banner](#course-location-banner), beside the course they turn. The **Feed** lives on
 the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
 badge with the count in its tooltip, and the same count rides on the Club tab and
 Manage section buttons so unread events still show from anywhere. **Inspect** also
@@ -163,6 +164,8 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 ### Course location banner
 
 The top-left corner carries the course location banner (`CourseLocationBanner`), a two-column postcard for the course being played. The first column is a square 1:1 pixel-art picture of the location inside a hairline photo frame with no background of its own — the course shows right up to the frame. `CourseLocationPicture` procedurally paints a different scene for every location from its theme and a seed derived from its id, so each of the world-map sites (and any mod-added location) gets its own deterministic picture: mesas and saguaros in the desert, snowcaps and pines in the mountains, a skyline in the city, palms and volcanic islands in the tropics, fescue dunes on links courses, and so on. The second column is the only part of the banner with a background, a dark card carrying the location's name and the calendar date (with a gold calendar icon; the full weekday date on desktop, a compact stamp on narrow windows). The banner hides while no location is active, swaps its picture and name with a short fade when the player moves between owned courses, and ignores the mouse so shots pass through the corner. The round-score dock stacks directly underneath it.
+
+The two **Rotate** arrows stand in that same corner, on the right of the details card: each turns the course a quarter turn, the same as `Q` and `Shift+Q`, and they are drawn as mirrored pixel arrows rather than font glyphs. In the card's own top-right corner sits the **facing chip** (`OrientationToggleButton`) — a pixel arrow pointing the way the course faces beside its `N` / `E` / `S` / `W` letter, turned by the same quarter turn a press on either arrow gives. The chip doubles as the switch for the arrows: click it to fold them away when the corner should stay quiet, and click it again to bring them back. It stays in place either way — its arrow and rim are gold while the arrows are out and muted while they are stowed — and the banner narrows back into their room while they are hidden.
 
 ## Keyboard
 

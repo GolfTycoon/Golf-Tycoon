@@ -11,11 +11,20 @@ class_name CourseLocationBanner
 ##      This details card is the only part of the banner that paints a
 ##      background; the picture column stays transparent.
 ##
+## The view controls live in the same corner, to the right of both columns: the
+## two Rotate arrows that turn the course, and - in the details card's own
+## top-right corner - the facing chip that names the direction the course faces
+## and folds the arrows away again when the corner should stay quiet.
+##
 ## The banner follows the active WorldMap location: buying a site or swapping
 ## between owned courses swaps the picture and name, and the date ticks with
 ## EventBus.day_changed. With no active location (a fresh world on the title
 ## screen) it hides itself, and it ignores the mouse like the status column so
 ## shots and course clicks pass straight through the corner.
+
+## The corner changed the room it takes (a layout reflow, or the Rotate arrows
+## folding in or out), so anything docked beneath it moves with it.
+signal layout_changed
 
 const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
 const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
@@ -23,16 +32,29 @@ const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 ## Whole-pixel scale of the square source picture, per layout.
 const PICTURE_SCALE_DESKTOP := 2
 const PICTURE_SCALE_COMPACT := 1
-## Fixed banner widths per layout; the name ellipsises inside the detail card.
-const WIDTH_DESKTOP := 276.0
-const WIDTH_COMPACT := 208.0
+## Fixed widths of the two columns per layout; the name ellipsises inside the
+## detail card. They carry the room the facing chip takes out of the card's
+## top-right corner, so the name and date lose none of the width they had
+## before it arrived.
+const WIDTH_DESKTOP := 320.0
+const WIDTH_COMPACT := 232.0
+## The narrowest the two columns may be squeezed to on a window too small for
+## them and the Rotate arrows side by side.
+const MIN_COLUMNS_WIDTH := 150.0
 ## Corner radius shared by the details card and the picture frame.
 const CARD_RADIUS := 6
 const FRAME_RADIUS := 4
 ## Reserve for the banner before its first layout pass: the square picture plus
-## its frame (desktop 64+6, compact 32+6). The details card is never taller.
+## its frame (desktop 64+6, compact 32+6). The facing chip and the Rotate arrows
+## can ask for a little more, and banner_height() takes whichever is tallest.
 const HEIGHT_DESKTOP := 70.0
 const HEIGHT_COMPACT := 38.0
+
+## The view controls: gap between the details card and the Rotate arrows, and
+## the arrows' face size on a desktop layout (touch layouts use the standard
+## touch target instead).
+const VIEW_CONTROLS_GAP := 6.0
+const ROTATE_BUTTON_SIZE := 32.0
 
 var _picture: TextureRect
 var _picture_frame: PanelContainer
@@ -42,9 +64,22 @@ var _date_label: Label
 var _date_icon: TextureRect
 var _accent_strip: PanelContainer
 
+## The view controls, to the right of the two columns. `orientation_toggle` is
+## the facing chip inside the details card; the two arrows stand beside it.
+var rotate_controls: HBoxContainer
+var rotate_ccw_btn: RotateViewButton
+var rotate_cw_btn: RotateViewButton
+var orientation_toggle: OrientationToggleButton
+## Whether the two Rotate arrows are out beside the card (see
+## set_rotate_controls_visible).
+var _rotate_controls_shown := true
+
 ## The location currently shown, so only a real swap plays the entrance tween.
 var _current_location_id: String = ""
 var _tween: Tween = null
+## The height last reported through layout_changed, so a re-anchor that moved
+## nothing does not wake the HUD pieces below.
+var _reported_height := -1.0
 
 
 func _ready() -> void:
@@ -52,6 +87,10 @@ func _ready() -> void:
 	_build_ui()
 	_connect_signals()
 	_apply_anchors()
+	# The details card can grow past the banner's reserve when the facing chip
+	# arrives or a layout change resizes its rows; the corner takes the new
+	# height at once rather than waiting for the next window resize.
+	_details_panel.minimum_size_changed.connect(_apply_anchors)
 	refresh()
 
 
@@ -162,6 +201,38 @@ func _build_ui() -> void:
 	_date_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	date_row.add_child(_date_label)
 
+	# The facing chip rides in the card's own top-right corner: the arrow and
+	# the N / E / S / W letter, and the switch that folds the Rotate arrows
+	# away. It is the one part of the card that takes the mouse.
+	orientation_toggle = OrientationToggleButton.new()
+	orientation_toggle.name = "OrientationToggleBtn"
+	orientation_toggle.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	orientation_toggle.pressed.connect(_on_orientation_toggle_pressed)
+	details_row.add_child(orientation_toggle)
+	_sync_orientation_toggle()
+
+	# The Rotate arrows stand to the right of both columns, on the same top-left
+	# corner: the card names the course, the arrows turn it.
+	rotate_controls = HBoxContainer.new()
+	rotate_controls.name = "RotateViewControls"
+	rotate_controls.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	rotate_controls.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rotate_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	columns.add_child(rotate_controls)
+
+	rotate_ccw_btn = RotateViewButton.new()
+	rotate_ccw_btn.name = "RotateCCWBtn"
+	rotate_ccw_btn.tooltip_text = "Rotate course counter-clockwise (Q)"
+	rotate_ccw_btn.accessibility_name = "Rotate course counter-clockwise"
+	rotate_controls.add_child(rotate_ccw_btn)
+
+	rotate_cw_btn = RotateViewButton.new()
+	rotate_cw_btn.name = "RotateCWBtn"
+	rotate_cw_btn.clockwise = true
+	rotate_cw_btn.tooltip_text = "Rotate course clockwise (Shift+Q)"
+	rotate_cw_btn.accessibility_name = "Rotate course clockwise"
+	rotate_controls.add_child(rotate_cw_btn)
+
 	_apply_layout_sizes()
 
 
@@ -249,6 +320,59 @@ func _update_date() -> void:
 
 
 # =============================================================================
+# VIEW CONTROLS
+# =============================================================================
+
+## Point the facing chip's arrow and letter at the way the course faces.
+func set_orientation(view_orientation: int) -> void:
+	if orientation_toggle == null:
+		return
+	orientation_toggle.orientation = view_orientation
+	_sync_orientation_toggle()
+
+
+## Show or fold away the two Rotate arrows beside the details card. The facing
+## chip stays either way, so the corner can always get them back; the card
+## narrows back into the room they were using.
+func set_rotate_controls_visible(shown: bool) -> void:
+	if rotate_controls == null:
+		return
+	_rotate_controls_shown = shown
+	rotate_controls.visible = shown
+	_sync_orientation_toggle()
+	_apply_layout_sizes()
+	_apply_anchors()
+
+
+## Whether the two Rotate arrows are out beside the card.
+func rotate_controls_visible() -> bool:
+	return _rotate_controls_shown
+
+
+## Flip the two Rotate arrows in or out, the way a press on the facing chip does.
+func toggle_rotate_controls() -> void:
+	set_rotate_controls_visible(not _rotate_controls_shown)
+
+
+func _on_orientation_toggle_pressed() -> void:
+	toggle_rotate_controls()
+
+
+## The chip reads as a switch as well as a compass: its rim and ink follow the
+## arrows' state, and so does what it says it will do.
+func _sync_orientation_toggle() -> void:
+	if orientation_toggle == null:
+		return
+	orientation_toggle.controls_shown = _rotate_controls_shown
+	var action := "hide" if _rotate_controls_shown else "show"
+	var tip := "The course faces %s. Click to %s the rotate buttons" % [
+		orientation_toggle.letter, action]
+	orientation_toggle.tooltip_text = tip
+	orientation_toggle.accessibility_name = "View direction and rotate buttons"
+	orientation_toggle.accessibility_description = tip
+
+
+# =============================================================================
 # LAYOUT
 # =============================================================================
 
@@ -260,14 +384,44 @@ func _picture_scale() -> int:
 	return PICTURE_SCALE_COMPACT if _is_compact() else PICTURE_SCALE_DESKTOP
 
 
+## The two columns' own width, before the view controls beside them. A window
+## too narrow for both gives up the card's width first, so the corner never
+## runs off the screen with its arrows: they would be clipped and unreachable.
+func _columns_width() -> float:
+	var width := WIDTH_COMPACT if _is_compact() else WIDTH_DESKTOP
+	if is_inside_tree():
+		var usable: float = get_viewport_rect().size.x \
+			- float(UIConstants.HUD_COLUMN_MARGIN) * 2.0 - _view_controls_width()
+		width = minf(width, usable)
+	return maxf(width, MIN_COLUMNS_WIDTH)
+
+
+## Room the Rotate arrows take beside the card: nothing while they are folded
+## away, so the whole banner narrows back into the corner.
+func _view_controls_width() -> float:
+	if rotate_controls == null or not rotate_controls.visible:
+		return 0.0
+	return rotate_controls.get_combined_minimum_size().x + VIEW_CONTROLS_GAP
+
+
 func _banner_width() -> float:
-	return WIDTH_COMPACT if _is_compact() else WIDTH_DESKTOP
+	return _columns_width() + _view_controls_width()
 
 
 ## The banner's height for the current layout, used before the first layout
-## pass (e.g. when the scores dock positions itself beneath the banner).
+## pass (e.g. when the scores dock positions itself beneath the banner). The
+## Rotate arrows and the facing chip can stand taller than a compact card, and
+## when they do the banner grows with them rather than letting them hang over
+## the course.
 func banner_height() -> float:
-	return HEIGHT_COMPACT if _is_compact() else HEIGHT_DESKTOP
+	var base := HEIGHT_COMPACT if _is_compact() else HEIGHT_DESKTOP
+	var arrows := 0.0
+	if rotate_controls and rotate_controls.visible:
+		arrows = rotate_controls.get_combined_minimum_size().y
+	var card := 0.0
+	if _details_panel:
+		card = _details_panel.get_combined_minimum_size().y
+	return maxf(base, maxf(arrows, card))
 
 
 ## Re-derive every size-sensitive piece after a responsive window change.
@@ -287,7 +441,6 @@ func apply_screen() -> void:
 
 
 func _apply_layout_sizes() -> void:
-	custom_minimum_size = Vector2(_banner_width(), 0)
 	var picture_scale := _picture_scale()
 	# Square art: width and height come from the same grid side.
 	var picture_side: int = CourseLocationPicture.GRID_W * picture_scale
@@ -297,6 +450,29 @@ func _apply_layout_sizes() -> void:
 	_date_label.add_theme_font_size_override(
 		"font_size", UIConstants.FONT_SIZE_XS if _is_compact() else UIConstants.FONT_SIZE_SM)
 	_date_icon.custom_minimum_size = Vector2(12, 12) if _is_compact() else Vector2(14, 14)
+	# The arrows take their layout's target before the width is read, so the
+	# banner reserves exactly the room they need.
+	_apply_view_control_sizes()
+	custom_minimum_size = Vector2(_banner_width(), 0)
+
+
+## Size the Rotate arrows and the facing chip for the current layout. Touch
+## layouts grow the arrows to the standard touch target; desktop keeps the
+## small medallion the dock used to carry.
+func _apply_view_control_sizes() -> void:
+	var touch := has_node("/root/Screen") and Screen.uses_touch_layout()
+	var target := Vector2.ONE * (float(UIConstants.TOUCH_TARGET_SIZE) if touch \
+		else ROTATE_BUTTON_SIZE)
+	var arrows: Array[RotateViewButton] = [rotate_ccw_btn, rotate_cw_btn]
+	for button in arrows:
+		if button == null:
+			continue
+		button.diameter = target.x
+		button.custom_minimum_size = target
+		button.size = target
+		button.queue_redraw()
+	if orientation_toggle:
+		orientation_toggle.apply_screen()
 
 
 ## Pin the banner to the top-left corner, growing right and down with its content.
@@ -312,6 +488,10 @@ func _apply_anchors() -> void:
 	offset_bottom = margin + banner_height()
 	grow_horizontal = Control.GROW_DIRECTION_END
 	grow_vertical = Control.GROW_DIRECTION_END
+	var occupied := get_occupied_height()
+	if not is_equal_approx(occupied, _reported_height):
+		_reported_height = occupied
+		layout_changed.emit()
 
 
 ## Vertical space the banner occupies from the top of the screen, including

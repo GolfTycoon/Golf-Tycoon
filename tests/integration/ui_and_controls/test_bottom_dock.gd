@@ -20,6 +20,15 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			await click(main.terrain_toolbar._tab_buttons[tab])
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
+func test_the_rotate_arrows_left_the_dock_for_the_location_banner() -> void:
+	assert_null(main.left_controls.get_node_or_null("RotateViewControls"),
+		"The dock no longer carries a view row")
+	assert_eq(main.rotate_view_controls.get_parent().get_parent(), main.course_location_banner,
+		"The arrows ride on the top-left postcard instead")
+	assert_false(main.left_controls.get_global_rect().intersects(
+		main.rotate_ccw_btn.get_global_rect()),
+		"and stand clear of the bottom bar")
+
 func test_financial_overview_opens_as_a_fullscreen_dashboard() -> void:
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	await process_frames(2)
@@ -86,8 +95,8 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		await set_window(window_size)
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
 		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
+		# The Rotate arrows left the dock for the top-left location banner.
 		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
-			main.rotate_ccw_btn, main.rotate_cw_btn,
 			main.pause_btn, main.play_btn, main.fast_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
@@ -122,7 +131,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
 	buttons.append_array([main.left_controls.get_node("MenuBtn"),
-		main.rotate_ccw_btn, main.rotate_cw_btn, main.pause_btn, main.play_btn, main.fast_btn])
+		main.pause_btn, main.play_btn, main.fast_btn])
 	for i in buttons.size():
 		var first: Rect2 = buttons[i].get_global_rect()
 		assert_eq(first.size.x, first.size.y)

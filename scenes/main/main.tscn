@@ -7,8 +7,6 @@
 [ext_resource type="Script" path="res://scripts/managers/ball_manager.gd" id="6_ball_manager"]
 [ext_resource type="Script" path="res://scripts/managers/hole_manager.gd" id="7_hole_manager"]
 [ext_resource type="Theme" path="res://assets/themes/game_theme.tres" id="8_theme"]
-[ext_resource type="Script" path="res://scripts/ui/components/rotate_view_button.gd" id="9_rotate_view_button"]
-[ext_resource type="Script" path="res://scripts/ui/components/compass_needle.gd" id="10_compass_needle"]
 
 [ext_resource type="Script" path="res://scripts/ui/components/pixel_circle_button.gd" id="11_circle"]
 [ext_resource type="Script" path="res://scripts/ui/components/bottom_control_dock.gd" id="12_dock"]
@@ -85,34 +83,6 @@ grow_vertical = 0
 custom_minimum_size = Vector2(218, 190)
 layout_mode = 2
 script = ExtResource("12_dock")
-
-[node name="RotateViewControls" type="HBoxContainer" parent="UI/HUD/BottomBar/LeftControls" unique_id=452819603]
-layout_mode = 0
-alignment = 1
-
-[node name="RotateCCWBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/RotateViewControls" unique_id=778451209]
-custom_minimum_size = Vector2(28, 24)
-layout_mode = 2
-tooltip_text = "Rotate course counter-clockwise (Q)"
-script = ExtResource("9_rotate_view_button")
-
-[node name="OrientationNeedle" type="Control" parent="UI/HUD/BottomBar/LeftControls/RotateViewControls" unique_id=612554033]
-layout_mode = 2
-script = ExtResource("10_compass_needle")
-
-[node name="OrientationLabel" type="Label" parent="UI/HUD/BottomBar/LeftControls/RotateViewControls" unique_id=334192875]
-custom_minimum_size = Vector2(18, 0)
-layout_mode = 2
-tooltip_text = "Which way the course is facing"
-text = "N"
-horizontal_alignment = 1
-
-[node name="RotateCWBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/RotateViewControls" unique_id=556283914]
-custom_minimum_size = Vector2(28, 24)
-layout_mode = 2
-tooltip_text = "Rotate course clockwise (Shift+Q)"
-script = ExtResource("9_rotate_view_button")
-clockwise = true
 
 [node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar/LeftControls" unique_id=1574521636]
 layout_mode = 0
