@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Golf Tycoon"
 config/description="An open source golf course builder and management game"
-config/version="0.5.0"
+config/version="0.5.1"
 run/main_scene="res://scenes/main/main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 boot_splash/bg_color=Color(0.043, 0.098, 0.078, 1)
