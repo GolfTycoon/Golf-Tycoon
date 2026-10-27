@@ -295,26 +295,31 @@ func set_mode(new_mode: GameMode) -> void:
 	_sync_time_scale()
 	EventBus.game_mode_changed.emit(old_mode, new_mode)
 
-## The speed controls carry a single fast-forward button that owns both
-## accelerated tiers, so it steps between them instead of the player hunting
-## for a separate ULTRA button.
-static func is_fast_forward_speed(speed: int) -> bool:
-	"""True while running at one of the accelerated tiers the toggle owns."""
-	return speed == GameSpeed.FAST or speed == GameSpeed.ULTRA
+## The speed controls carry a single play/fast-forward button that owns all
+## three running speeds, so each press steps to the next tier instead of the
+## player hunting along a row of speed buttons. Pausing keeps its own button
+## (and Space), so the cycle never lands on PAUSED.
+static func is_running_speed(speed: int) -> bool:
+	"""True while running at one of the three speeds the toggle owns."""
+	return speed == GameSpeed.NORMAL or speed == GameSpeed.FAST \
+			or speed == GameSpeed.ULTRA
 
-static func next_fast_forward_speed(current: int) -> GameSpeed:
-	"""Speed the fast-forward button switches to when pressed at `current`.
+static func next_running_speed(current: int) -> GameSpeed:
+	"""Speed the combined speed button switches to when pressed at `current`.
 
-	From either tier it flips to the other one. From normal or paused it enters
-	Fast first, so one press never jumps straight to the 8x tier.
+	The running speeds cycle Normal -> Fast -> Ultra -> Normal. From paused
+	the button is the play button, so it resumes at Normal first — one press
+	never jumps a stopped game straight to the 8x tier.
 	"""
+	if current == GameSpeed.NORMAL:
+		return GameSpeed.FAST
 	if current == GameSpeed.FAST:
 		return GameSpeed.ULTRA
-	return GameSpeed.FAST
+	return GameSpeed.NORMAL
 
-func cycle_fast_forward_speed() -> GameSpeed:
-	"""Press the combined fast-forward button: swap between Fast and Ultra."""
-	set_speed(next_fast_forward_speed(current_speed))
+func cycle_running_speed() -> GameSpeed:
+	"""Press the combined speed button: step to the next running speed."""
+	set_speed(next_running_speed(current_speed))
 	return current_speed
 
 func set_speed(new_speed: GameSpeed) -> void:

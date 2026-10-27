@@ -97,20 +97,11 @@ glyph = "pause"
 tooltip_text = "Pause simulation (Space)"
 accessibility_name = "Pause"
 
-[node name="PlayBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1738357492]
+[node name="SpeedBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1738357492]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 text = ">"
 script = ExtResource("11_circle")
 glyph = "play"
-tooltip_text = "Normal speed (Space)"
-accessibility_name = "Play"
-
-[node name="FastBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=811286996]
-custom_minimum_size = Vector2(32, 32)
-layout_mode = 2
-text = ">>"
-script = ExtResource("11_circle")
-glyph = "fast"
-tooltip_text = "Fast / Ultra speed"
-accessibility_name = "Fast"
+tooltip_text = "Normal (1x) — click for Fast (3x)"
+accessibility_name = "Game speed: Normal"

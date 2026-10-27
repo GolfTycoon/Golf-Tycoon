@@ -21,10 +21,10 @@ var rotate_ccw_btn: Button = null
 var rotate_cw_btn: Button = null
 var orientation_toggle: OrientationToggleButton = null
 @onready var pause_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn
-@onready var play_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn
-## One fast-forward button for both accelerated tiers: it reads ">>" at Fast
-## and ">>>" at Ultra, and a press swaps between the two (see GameManager).
-@onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
+## One button for every running speed: it reads ">" at Normal, ">>" at Fast
+## and ">>>" at Ultra — one, two or three triangles on its face — and a press
+## cycles to the next speed (see GameManager.cycle_running_speed).
+@onready var speed_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/SpeedBtn
 @onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
 # New UI components
 var player_round: PlayerRoundManager
@@ -784,10 +784,9 @@ func _connect_ui_buttons() -> void:
 	_setup_terrain_toolbar()
 
 	$UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
-	$UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
-	# Fast and Ultra share this one button, so it cannot bind a fixed speed —
-	# each press asks GameManager for the next tier instead.
-	$UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn.pressed.connect(_on_fast_forward_pressed)
+	# Normal, Fast and Ultra share this one button, so it cannot bind a fixed
+	# speed — each press asks GameManager for the next tier instead.
+	$UI/HUD/BottomBar/LeftControls/SpeedControls/SpeedBtn.pressed.connect(_on_speed_toggle_pressed)
 
 func _setup_terrain_toolbar() -> void:
 	"""Dock the tabbed toolbar into the bottom bar (right section, flush after left controls)"""
@@ -1582,24 +1581,22 @@ func _update_button_states() -> void:
 	"""Update button appearance based on game mode and speed"""
 	# Speed controls are always visible — tycoon-style, build while playing
 	pause_btn.visible = true
-	play_btn.visible = true
-	fast_btn.visible = true
+	speed_btn.visible = true
 	pause_btn.disabled = false
-	play_btn.disabled = false
-	fast_btn.disabled = false
-	play_btn.text = ">"
+	speed_btn.disabled = false
 	pause_btn.text = "||"
-	# The fast-forward button doubles as the Fast/Ultra toggle: its face shows
-	# the tier that is running and its tooltip names the tier a press switches to.
+	# The speed button owns every running speed: its icon and face show the
+	# tier that is running, its tooltip names the tier a press cycles to, and
+	# while paused it advertises the Normal a press resumes at.
 	var speed: int = GameManager.current_speed
-	fast_btn.text = fast_forward_label(speed)
-	fast_btn.tooltip_text = fast_forward_tooltip(speed)
+	speed_btn.text = speed_toggle_label(speed)
+	speed_btn.glyph = speed_toggle_glyph(speed)
+	speed_btn.tooltip_text = speed_toggle_tooltip(speed)
+	speed_btn.accessibility_name = "Game speed: %s" % _speed_tier_name(speed)
 
 	# Gold-lit rings communicate speed without dimming the icons into the bar.
 	pause_btn.active = speed == GameManager.GameSpeed.PAUSED
-	play_btn.active = speed == GameManager.GameSpeed.NORMAL
-	fast_btn.active = GameManagerScript.is_fast_forward_speed(speed)
-	fast_btn.queue_redraw()
+	speed_btn.active = GameManagerScript.is_running_speed(speed)
 
 func _start_painting() -> void:
 	if inspect_mode:
@@ -2232,13 +2229,14 @@ func _toggle_simulation_pause() -> void:
 		GameManager.set_speed(GameManager.GameSpeed.PAUSED)
 	_update_button_states()
 
-func _on_fast_forward_pressed() -> void:
-	"""The single fast-forward button swaps between Fast (3x) and Ultra (8x)."""
-	GameManager.cycle_fast_forward_speed()
+func _on_speed_toggle_pressed() -> void:
+	"""The single speed button cycles Normal (1x), Fast (3x) and Ultra (8x)."""
+	GameManager.cycle_running_speed()
 
 ## Size `button` for the widest of `faces` and never let a face change shrink
-## it. Toggling a button whose face changes with state (like the fast-forward
-## ">>" / ">>>" pair) then cannot resize the button or nudge the row holding it.
+## it. Toggling a button whose face changes with state (like the speed
+## button's ">" / ">>" / ">>>" faces) then cannot resize the button or nudge
+## the row holding it.
 static func lock_button_width_to_faces(button: Button, faces: Array) -> void:
 	var face: String = button.text
 	var widest: float = button.custom_minimum_size.x
@@ -2248,21 +2246,37 @@ static func lock_button_width_to_faces(button: Button, faces: Array) -> void:
 	button.text = face
 	button.custom_minimum_size.x = widest
 
-## Face of the fast-forward button: ">>" at Fast (and while idle), ">>>" at Ultra.
-static func fast_forward_label(speed: int) -> String:
-	return ">>>" if speed == GameManager.GameSpeed.ULTRA else ">>"
+## Face of the speed button: one chevron per tier. While paused it shows the
+## single chevron of the Normal speed a press resumes at.
+static func speed_toggle_label(speed: int) -> String:
+	if speed == GameManager.GameSpeed.FAST:
+		return ">>"
+	if speed == GameManager.GameSpeed.ULTRA:
+		return ">>>"
+	return ">"
 
-## Tooltip that names the running tier and the tier the next press switches to.
-static func fast_forward_tooltip(speed: int) -> String:
-	if not GameManagerScript.is_fast_forward_speed(speed):
-		return "Fast-forward time — click for Fast (3x), click again for Ultra (8x)"
-	var next_speed: int = GameManagerScript.next_fast_forward_speed(speed)
+## Icon of the speed button (a PixelCircleButton glyph): one, two or three
+## triangles for Normal, Fast and Ultra; the plain play triangle while paused.
+static func speed_toggle_glyph(speed: int) -> String:
+	if speed == GameManager.GameSpeed.FAST:
+		return "fast"
+	if speed == GameManager.GameSpeed.ULTRA:
+		return "ultra"
+	return "play"
+
+## Tooltip that names the running tier and the tier the next press cycles to.
+static func speed_toggle_tooltip(speed: int) -> String:
+	if speed == GameManager.GameSpeed.PAUSED:
+		return "Paused — click for Normal (1x), click again for Fast (3x) and Ultra (8x)"
+	var next_speed: int = GameManagerScript.next_running_speed(speed)
 	return "%s (%dx) — click for %s (%dx)" % [
 		_speed_tier_name(speed), int(speed),
 		_speed_tier_name(next_speed), int(next_speed),
 	]
 
 static func _speed_tier_name(speed: int) -> String:
+	if speed == GameManager.GameSpeed.PAUSED:
+		return "Paused"
 	if speed == GameManager.GameSpeed.ULTRA:
 		return "Ultra"
 	if speed == GameManager.GameSpeed.FAST:

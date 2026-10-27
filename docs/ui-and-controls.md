@@ -83,10 +83,12 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 
 ### Bottom dock
 
-The bottom-left corner uses small pixel-art circle buttons for **Menu** and
-**Pause / Play / Fast**. The fast button
-cycles between 3× and 8×; a cream tick marks Ultra and a lit ring marks the active
-speed. The two **Rotate** arrows left this corner for the top-left [course location
+The bottom-left corner uses small pixel-art circle buttons for **Menu**,
+**Pause** and **Speed**. The speed button
+cycles through the three running speeds with each press — Normal (1×), Fast (3×),
+Ultra (8×), then back to Normal — and its icon gains a triangle per tier (`>`, `>>`,
+`>>>`). While paused it shows the single triangle of the Normal speed a press
+resumes at; a lit ring marks the active control. The two **Rotate** arrows left this corner for the top-left [course location
 banner](#course-location-banner), beside the course they turn. The **Feed** lives on
 the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
 badge with the count in its tooltip, and the same count rides on the Club tab and
@@ -157,7 +159,7 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 | Weather | Sky sprite | The current conditions; the sprite and its colour follow the weather type (sun, sun behind cloud, cloud, light rain, rain, heavy rain) |
 | Wind | Wind gust | Direction and speed, colour-coded |
 
-There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause, play and fast-forward controls already show and set the running state. There is no collapse handle either, so every card is always shown.
+There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
 The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
 

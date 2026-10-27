@@ -97,7 +97,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
 		# The Rotate arrows left the dock for the top-left location banner.
 		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
-			main.pause_btn, main.play_btn, main.fast_btn]
+			main.pause_btn, main.speed_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
@@ -131,7 +131,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
 	buttons.append_array([main.left_controls.get_node("MenuBtn"),
-		main.pause_btn, main.play_btn, main.fast_btn])
+		main.pause_btn, main.speed_btn])
 	for i in buttons.size():
 		var first: Rect2 = buttons[i].get_global_rect()
 		assert_eq(first.size.x, first.size.y)

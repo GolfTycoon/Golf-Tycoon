@@ -14,8 +14,8 @@ class_name HUDStatusColumn
 ## over the course, and only the cards that open a panel take the mouse.
 ##
 ## The game-mode row that used to head the column (`PLAYING` / `PAUSED`) is
-## gone - the bottom dock already carries the pause, play and fast-forward
-## controls - and so is the collapse handle, so the cards are always shown.
+## gone - the bottom dock already carries the pause and speed controls - and
+## so is the collapse handle, so the cards are always shown.
 ## The column sizes itself to its content.
 
 signal money_clicked()

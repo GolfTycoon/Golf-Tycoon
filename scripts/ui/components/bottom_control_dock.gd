@@ -75,11 +75,12 @@ func apply_screen() -> void:
 			button.queue_redraw()
 
 	# The Rotate arrows left this dock for the top-left location banner; the
-	# speed controls keep the row above the dock's foot.
+	# speed controls keep the row above the dock's foot. The row fits its two
+	# circles exactly: pause and the combined speed toggle, 4px apart.
 	var speed := get_node_or_null("SpeedControls") as HBoxContainer
 	if speed:
 		speed.position = Vector2(8.0, 188.0 if touch_layout else 156.0)
-		var speed_size := Vector2(140.0 if touch_layout else 104.0, utility_size)
+		var speed_size := Vector2(utility_size * 2.0 + 4.0, utility_size)
 		speed.custom_minimum_size = speed_size
 		speed.size = speed_size
 		speed.add_theme_constant_override("separation", 4)
