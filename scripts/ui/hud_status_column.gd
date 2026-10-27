@@ -3,9 +3,10 @@ class_name HUDStatusColumn
 ## HUDStatusColumn - Vertical status readout docked to the top-right corner.
 ##
 ## Replaces the old full-width top bar. Every stat that used to be spread
-## across the top of the screen (money, date/season, reputation, course
-## rating, weather, wind) is stacked as a compact column, freeing the whole
-## top edge of the viewport for the course view.
+## across the top of the screen (money, season, reputation, course rating,
+## weather, wind) is stacked as a compact column, freeing the whole top edge
+## of the viewport for the course view. The calendar date lives in the
+## top-left CourseLocationBanner, not in this column.
 ##
 ## Each stat is its own card: a background, a border, an icon, the stat's
 ## name and its value. The cards are what separate one row from the next, so
@@ -32,8 +33,6 @@ const CARD_RADIUS := 4
 var _funds_row: PanelContainer
 var _money_label: Label
 var _money_trend: Label
-var _date_row: PanelContainer
-var _date_label: Label
 var _season_row: PanelContainer
 var _season_icon: TextureRect
 var _time_label: Label
@@ -107,13 +106,8 @@ func _build_ui() -> void:
 	_funds_row.get_node("Content").add_child(_money_trend)
 	column.add_child(_funds_row)
 
-	# Date / season (no intra-day clock — the course never closes). The Season
-	# card is hidden while the Seasons feature is off.
-	_date_row = _create_row("DateRow", "Date", PixelIcon.Kind.CALENDAR,
-		UIConstants.COLOR_TEXT_DIM)
-	_date_label = _date_row.get_node("Content/Value") as Label
-	column.add_child(_date_row)
-
+	# The calendar date lives in the top-left CourseLocationBanner; this column
+	# keeps only the Season card, which is hidden while the Seasons feature is off.
 	_season_row = _create_row("SeasonRow", "Season", PixelIcon.Kind.LEAF,
 		SeasonSystem.get_season_color(SeasonSystem.get_season(1)))
 	_season_icon = _season_row.get_node("Content/Icon") as TextureRect
@@ -294,9 +288,8 @@ func apply_screen() -> void:
 	if not is_inside_tree():
 		return
 	custom_minimum_size.x = _column_width()
-	# The date loses its weekday on the narrow column so the value still fits
-	# beside its icon and label.
-	_update_day_time()
+	# The season leaf and name follow the current calendar day.
+	_update_season()
 	_apply_anchors()
 
 ## Keep the panel exactly as tall as its content (anchored controls need an
@@ -325,7 +318,7 @@ func _connect_signals() -> void:
 
 func _update_all() -> void:
 	_update_money()
-	_update_day_time()
+	_update_season()
 	_update_reputation()
 	_update_weather()
 	_update_wind()
@@ -383,20 +376,18 @@ func _update_money() -> void:
 	else:
 		_money_trend.text = ""
 
-func _update_day_time() -> void:
-	if not has_node("/root/GameManager") or _date_label == null or _time_label == null:
+## The Season card follows the calendar (the full date itself reads out in the
+## top-left CourseLocationBanner). With the Seasons feature off the calendar
+## still ticks, but the course plays as one year-round season and
+## _update_feature_rows hides the row.
+func _update_season() -> void:
+	if not has_node("/root/GameManager") or _time_label == null:
 		return
 	var gm = get_node("/root/GameManager")
 	var day = gm.get("current_day")
 	if day == null:
 		day = 1
 
-	# Wide column: the full date with its weekday. Narrow: the weekday goes so
-	# the value still fits on one line beside the icon and its label.
-	_date_label.text = GameCalendar.format_date_short(day) if _is_compact() \
-		else GameCalendar.format_date(day)
-	# With the Seasons feature off the calendar still ticks, but the course
-	# plays as one year-round season, so _update_feature_rows hides the row.
 	var season = SeasonSystem.get_season(day)
 	var season_color := SeasonSystem.get_season_color(season)
 	_time_label.text = SeasonSystem.get_season_name(season)
@@ -557,7 +548,7 @@ func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	_update_money()
 
 func _on_day_changed(_new_day: int) -> void:
-	_update_day_time()
+	_update_season()
 
 func _on_reputation_changed(_old_rep: float, _new_rep: float) -> void:
 	_update_reputation()

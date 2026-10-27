@@ -143,7 +143,6 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 | Row | Icon | Shows |
 | --- | --- | --- |
 | Funds | Gold coin | The balance, with a `^` / `v` trend, clickable for the financial dashboard |
-| Date | Calendar | The calendar date (the weekday is dropped on compact windows) |
 | Season | Leaf in the season's colour | The current season |
 | Reputation | Heart | Course reputation, colour-coded, clickable for the rating details |
 | Rating | Gold star | The star rating, clickable for details |
@@ -152,7 +151,11 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 
 There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause, play and fast-forward controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows and the Date value drops its weekday, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+
+### Course location banner
+
+The top-left corner carries the course location banner (`CourseLocationBanner`), a two-column postcard for the course being played. The first column is a square 1:1 pixel-art picture of the location inside a hairline photo frame with no background of its own — the course shows right up to the frame. `CourseLocationPicture` procedurally paints a different scene for every location from its theme and a seed derived from its id, so each of the world-map sites (and any mod-added location) gets its own deterministic picture: mesas and saguaros in the desert, snowcaps and pines in the mountains, a skyline in the city, palms and volcanic islands in the tropics, fescue dunes on links courses, and so on. The second column is the only part of the banner with a background, a dark card carrying the location's name and the calendar date (with a gold calendar icon; the full weekday date on desktop, a compact stamp on narrow windows). The banner hides while no location is active, swaps its picture and name with a short fade when the player moves between owned courses, and ignores the mouse so shots pass through the corner. The round-score dock stacks directly underneath it.
 
 ## Keyboard
 

@@ -28,7 +28,7 @@ func test_a_new_course_shows_a_row_per_feature_it_plays_with() -> void:
 	assert_false(_row_visible(column, "_weather_row"), "Weather is off: no Weather row")
 	assert_true(_row_visible(column, "_wind_row"), "Wind is on: the Wind row stays")
 	assert_false(_row_visible(column, "_season_row"), "Seasons are off: no Season row")
-	assert_true(column.get("_date_label").get_parent().visible, "The Date row never goes")
+	assert_null(column.get("_date_row"), "The calendar date lives in the location banner, not the status column")
 
 func test_a_course_with_every_feature_shows_every_row() -> void:
 	var column: HUDStatusColumn = await _start_with_features({

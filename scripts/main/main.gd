@@ -29,6 +29,7 @@ const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
 var player_round: PlayerRoundManager
 
 var hud_status_column: HUDStatusColumn = null
+var course_location_banner: CourseLocationBanner = null
 
 # Legacy references (kept for compatibility, now managed by HUDStatusColumn)
 var money_label: Label = null
@@ -327,6 +328,7 @@ func _ready() -> void:
 	_connect_ui_buttons()
 	_setup_bottom_bar()
 	_setup_hud_status_column()
+	_setup_course_location_banner()
 	_setup_scores_dock()
 	_setup_mod_hud_widgets()
 	_setup_placement_preview()
@@ -1450,6 +1452,8 @@ func _setup_scores_dock() -> void:
 	scores_dock = ScoresDock.new()
 	$UI/HUD.add_child(scores_dock)
 	scores_dock.attach_leaderboard(tournament_leaderboard)
+	# Stack the round scores under the location postcard in the top-left corner.
+	_dock_scores_below_banner()
 	tournament_leaderboard.return_to_course.connect(func():
 		terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
 		terrain_toolbar.player_tab.set_playing(false))
@@ -1476,6 +1480,21 @@ func _setup_hud_status_column() -> void:
 	# Add to HUD as first child
 	hud.add_child(hud_status_column)
 	hud.move_child(hud_status_column, 0)
+
+## The top-left postcard: a per-location pixel-art picture beside the course
+## name and the date. The scores dock stacks underneath it (see _setup_scores_dock).
+func _setup_course_location_banner() -> void:
+	course_location_banner = CourseLocationBanner.new()
+	course_location_banner.name = "CourseLocationBanner"
+	$UI/HUD.add_child(course_location_banner)
+	_dock_scores_below_banner()
+
+## Keep the scores dock just under the location banner, in both layouts.
+func _dock_scores_below_banner() -> void:
+	if scores_dock == null or course_location_banner == null:
+		return
+	scores_dock.set_top_clearance(
+		course_location_banner.get_occupied_height() + UIConstants.COURSE_BANNER_GAP)
 
 ## Hand the loaded mods their HUD space: each registered widget factory
 ## returns a Control, added to the HUD in load order. The Weather mod's
@@ -4819,6 +4838,11 @@ func _apply_responsive_layout() -> void:
 		bg.offset_top = -bar_h
 	if hud_status_column:
 		hud_status_column.apply_screen()
+	if course_location_banner:
+		course_location_banner.apply_screen()
+	# The banner changes height between desktop and compact, so re-dock the
+	# scores cards underneath it.
+	_dock_scores_below_banner()
 	if left_controls:
 		left_controls.apply_screen()
 	if terrain_toolbar:

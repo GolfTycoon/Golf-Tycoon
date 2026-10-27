@@ -106,6 +106,12 @@ const HUD_COLUMN_HEIGHT_ESTIMATE := 260
 # Group the status column joins so other HUD elements can find it.
 const HUD_COLUMN_GROUP := "hud_status_column"
 
+# Top-left location postcard (CourseLocationBanner): the picture/name/date
+# card the scores dock stacks underneath.
+const COURSE_BANNER_GROUP := "course_location_banner"
+# Separation between the location banner and the scores dock below it.
+const COURSE_BANNER_GAP := 6
+
 # Bottom bar height: view/speed controls on the left + tabbed toolbar on the right.
 # Keep in sync with main.tscn BottomBar offset_top.
 const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
