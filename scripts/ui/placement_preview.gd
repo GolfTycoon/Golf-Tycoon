@@ -96,7 +96,15 @@ func _process(_delta: float) -> void:
 	else:
 		_target_alpha = 0.0
 		current_preview_positions = []
+		current_preview_valid = false
 		_clear_potential_hole()
+		# The building ghost is a child CanvasItem, not something this node
+		# paints in _draw(). Hiding it only inside _draw() would strand the
+		# last ghost whenever no redraw follows the end of a placement — for
+		# example when a long frame drops the fade-out alpha straight to zero.
+		# Hide it here as well, as soon as nothing is being previewed.
+		if _hide_building_ghost():
+			queue_redraw()
 
 	# This overlay belongs to the course, not the cursor or selected tool.
 	waiting_hole = HoleLayout.waiting_hole(terrain_grid, GameManager.current_course)
@@ -106,10 +114,13 @@ func _process(_delta: float) -> void:
 				waiting_hole.cup, waiting_hole.par)
 		queue_redraw()
 
-	# Smooth alpha transition
+	# Smooth alpha transition. The frame on which the fade crosses zero still
+	# needs a redraw to wipe the last translucent footprint off this node's
+	# canvas; a slow frame can otherwise take alpha from 1 to 0 without one.
+	var was_fading := _current_alpha > 0.01
 	_current_alpha = lerp(_current_alpha, _target_alpha, delta * 10.0)
 
-	if _current_alpha > 0.01:
+	if _current_alpha > 0.01 or was_fading:
 		queue_redraw()
 
 ## Seconds since the previous frame, unaffected by Engine.time_scale.
@@ -123,7 +134,11 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
 
 func set_placement_manager(manager: PlacementManager) -> void:
+	if is_instance_valid(placement_manager) and placement_manager.placement_mode_changed.is_connected(_on_placement_mode_changed):
+		placement_manager.placement_mode_changed.disconnect(_on_placement_mode_changed)
 	placement_manager = manager
+	if is_instance_valid(placement_manager) and not placement_manager.placement_mode_changed.is_connected(_on_placement_mode_changed):
+		placement_manager.placement_mode_changed.connect(_on_placement_mode_changed)
 
 func set_camera(cam: IsometricCamera) -> void:
 	camera = cam
@@ -153,16 +168,49 @@ func set_bulldozer_mode(active: bool) -> void:
 	bulldozer_mode_active = active
 
 func set_hole_move_mode(mode: int) -> void:
+	var was_active := _hole_move_mode != 0
 	_hole_move_mode = mode
+	if was_active and mode == 0:
+		_clear_preview_state()
 
 ## Carry `building` with the cursor (null ends the move). The ghost shows where
 ## the footprint would land and turns red where placement is refused.
 func set_building_move_target(building: Building) -> void:
+	var was_carrying := _move_building != null
 	_move_building = building if is_instance_valid(building) else null
+	if was_carrying and _move_building == null:
+		_clear_preview_state()
+
+## A placement just ended (or changed to a different catalogue item). Forget
+## the old footprint and put the ghost away *now*, rather than waiting for the
+## next _draw(): a placed building must never have a second, translucent copy
+## of itself left hovering over its tiles. The signal covers every way a
+## placement can finish — a click, Escape, a tool change or a mod/script — even
+## when this node's process or redraws are paused.
+func _on_placement_mode_changed(_mode: int) -> void:
+	_clear_preview_state()
+
+## Clear everything the last hover drew, on the canvas and in the ghost node.
+func _clear_preview_state() -> void:
+	current_preview_positions = []
+	current_preview_valid = false
+	_clear_potential_hole()
+	_hide_building_ghost()
+	queue_redraw()
+
+## The ghost is a separate CanvasItem child; hide it explicitly instead of
+## relying on a redraw of this node to do it. Returns whether it was visible.
+func _hide_building_ghost() -> bool:
+	if is_instance_valid(_building_ghost) and _building_ghost.visible:
+		_building_ghost.visible = false
+		return true
+	return false
 
 func _exit_tree() -> void:
 	# A running route task reads a terrain copy the planner owns: let it finish.
 	_hole_path_planner.shutdown()
+	if is_instance_valid(placement_manager) and placement_manager.placement_mode_changed.is_connected(_on_placement_mode_changed):
+		placement_manager.placement_mode_changed.disconnect(_on_placement_mode_changed)
 
 func _update_preview(delta: float) -> void:
 	if not terrain_grid or not camera:
@@ -269,8 +317,7 @@ func _get_footprint_at(grid_pos: Vector2i, size: Vector2i) -> Array:
 	return result
 
 func _draw() -> void:
-	if is_instance_valid(_building_ghost):
-		_building_ghost.visible = false
+	_hide_building_ghost()
 	if not terrain_grid:
 		return
 
@@ -555,8 +602,13 @@ func _draw_building_ghost_shape(grid_pos: Vector2i, building_type: String, size:
 	var pos: Vector2
 	if terrain_grid != null:
 		if terrain_grid.is_view_isometric():
-			var center := terrain_grid.grid_point_to_screen(
-					Vector2(grid_pos) + Vector2(size.x * 0.5, size.y * 0.5))
+			var center_grid := Vector2(grid_pos) + Vector2(size.x * 0.5, size.y * 0.5)
+			var level := terrain_grid.get_elevation(grid_pos)
+			var entities: EntityLayer = GameManager.entity_layer
+			if is_instance_valid(entities) and entities.terrain_grid == terrain_grid:
+				level = entities.foundation_elevation(grid_pos, size, _move_building)
+			var center := terrain_grid.projection.project(center_grid) \
+					+ Vector2(0.0, -float(level - TerrainGrid.BASE_ELEVATION) * TerrainGrid.ELEVATION_STEP_Y)
 			pos = center - Vector2(w * 0.5, h)
 		else:
 			pos = terrain_grid.grid_to_screen(Vector2i(grid_pos))
@@ -597,8 +649,13 @@ func _draw_building_move_preview() -> void:
 ## come from CourseClubhouse, so the tiles cannot say yes where the click says
 ## no.
 func _tile_allows_move(tile: Vector2i) -> bool:
-	return CourseClubhouse.tile_error(tile, terrain_grid, GameManager.entity_layer,
-			_move_building).is_empty()
+	var entities: EntityLayer = GameManager.entity_layer
+	if is_instance_valid(_move_building) and is_instance_valid(entities):
+		var size := Vector2i(_move_building.width, _move_building.height)
+		if entities.foundation_placement_error(current_grid_pos, size, _move_building) \
+				== EntityLayer.FOUNDATION_CONFLICT_ERROR:
+			return false
+	return CourseClubhouse.tile_error(tile, terrain_grid, entities, _move_building).is_empty()
 
 func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 	"""Draw ghost preview for decoration placement using Decoration sprites/fallback"""

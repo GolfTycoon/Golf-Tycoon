@@ -2,7 +2,7 @@
 
 > The catalog of improvements (5) and buildings (16) that the player can place, what each one does, and how placement is validated.
 
-**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/entities/building_sprites.gd`, `assets/sprites/buildings/`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/terrain/walking_path_overlay.gd`
+**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/entities/building_sprites.gd`, `assets/sprites/buildings/`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/managers/placement_manager.gd`, `scripts/ui/placement_preview.gd`, `scripts/terrain/walking_path_overlay.gd`
 
 ---
 
@@ -18,6 +18,8 @@ Facilities are pixel-art sprites: the Buildings tab tile, the placement ghost an
 The **Improvements** tab shows the improvements as a honeycomb of isometric tiles. Pressing a tile starts placement straight away. The hover tooltip shows the price, upkeep and unlock status. The walking path is listed on this honeycomb too, as its first tile, and is a painting tool rather than a catalogue entry. It previews as a dirt ribbon over the turf, and once its network reaches the clubhouse the whole trail is paved — see [Walking Paths](walking-paths.md).
 
 Placement is validated the same way for the preview and the click. Every footprint tile must be owned, on compatible ground, and clear of other buildings and improvements. Woodland counts as ground rather than as an obstacle. Ghosts tint red when a placement is invalid. Failure messages say what is in the way. Buildings may sit on paths.
+
+A placed facility leaves no ghost behind. Ending a placement — the placing click, Escape, or picking another tool — clears the hover footprint and hides the ghost at once, so a slow frame cannot strand a translucent copy of the building over the real one.
 
 Placing, bulldozing, undoing, aesthetics scoring and saving all use the same entity machinery as the rest of the course. A save from before an improvement left the catalog simply drops it when it loads (see [Save & Load](../../save-and-load.md)).
 
@@ -43,7 +45,7 @@ result: valid, or the first obstruction as a message
 
 ### 3. Placement and undo
 
-A placed item is recorded through `UndoManager.record_entity_placement()`, which stores the item's type, position, subtype and cost, so undo can reverse the placement.
+A placed item is recorded through `UndoManager.record_entity_placement()`, which stores the item's type, position, subtype and cost, so undo can reverse the placement. `PlacementPreview` listens to `PlacementManager.placement_mode_changed` and clears its ghost and footprint on that signal, independently of rendering; its per-frame loop is only a fallback, and it always redraws on the frame the fade-out reaches zero.
 
 ### 4. Golfer service
 

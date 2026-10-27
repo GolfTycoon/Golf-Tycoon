@@ -44,6 +44,9 @@ func _tour() -> CourseBenchmarkTour:
 func _course_fingerprint() -> Dictionary:
 	return {
 		"terrain": main.terrain_grid.serialize().duplicate(true),
+		"elevation": main.terrain_grid.serialize_elevation(),
+		"player_placed": main.terrain_grid.serialize_player_placed(),
+		"paths": main.terrain_grid.serialize_walking_paths(),
 		"holes": GameManager.current_course.holes.size(),
 		"theme": int(GameManager.current_theme),
 		"name": GameManager.course_name,
@@ -58,6 +61,9 @@ func _course_fingerprint() -> Dictionary:
 func _assert_fingerprint(before: Dictionary, context: String) -> void:
 	var after := _course_fingerprint()
 	assert_eq(after["terrain"], before["terrain"], "%s: the ground is byte-for-byte back" % context)
+	assert_eq(after["elevation"], before["elevation"], "%s: vertex elevations are back" % context)
+	assert_eq(after["player_placed"], before["player_placed"], "%s: maintenance markers are back" % context)
+	assert_eq(after["paths"], before["paths"], "%s: walking paths are back" % context)
 	assert_eq(after["holes"], before["holes"], "%s: the holes are back" % context)
 	assert_eq(after["theme"], before["theme"], "%s: the course type is back" % context)
 	assert_eq(after["name"], before["name"], "%s: the name is back" % context)

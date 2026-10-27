@@ -204,4 +204,4 @@ static func _can_place_footprint(terrain_grid: TerrainGrid, entity_layer: Entity
 				return false
 			if entity_layer.is_tile_occupied_by_building(pos):
 				return false
-	return true
+	return entity_layer.foundation_placement_error(origin, Vector2i(int(size[0]), int(size[1]))).is_empty()

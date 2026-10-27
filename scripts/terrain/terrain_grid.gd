@@ -76,7 +76,11 @@ var terrain_revision: int = 0
 
 ## Batch mode — defers signals until end_batch() to avoid overlay redraw cascade
 var _batch_mode: bool = false
-var _batch_changes: Array = []  # Array of {pos, old_type, new_type}
+var _batch_changes: Array = []  # Array of {pos, old_type, new_type, record_undo}
+## Context of the tile_changed signal currently being emitted. Entity
+## foundations still notify renderers and the EventBus, but their terrain work
+## belongs to the building action, not to a separate terrain undo action.
+var tile_change_records_undo: bool = true
 
 var _ob_markers_overlay: OBMarkersOverlay = null
 var _cup_overlay: CupOverlay = null
@@ -522,8 +526,7 @@ func begin_batch() -> void:
 func end_batch() -> void:
 	_batch_mode = false
 	for change in _batch_changes:
-		tile_changed.emit(change.pos, change.old_type, change.new_type)
-		EventBus.terrain_tile_changed.emit(change.pos, change.old_type, change.new_type)
+		_emit_tile_change(change.pos, change.old_type, change.new_type, change.record_undo)
 	_batch_changes.clear()
 
 ## End batch mode without emitting deferred signals (for bulk generation/load).
@@ -573,7 +576,8 @@ func refresh_all_overlays() -> void:
 		_shot_heatmap_overlay.queue_redraw()
 	queue_redraw()
 
-func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> void:
+func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true,
+		record_undo: bool = true) -> void:
 	if not is_valid_position(pos):
 		return
 	var old_type = _grid.get(pos, TerrainTypes.Type.EMPTY)
@@ -597,14 +601,22 @@ func set_tile(pos: Vector2i, terrain_type: int, player_placed: bool = true) -> v
 	if player_placed:
 		_player_placed_tiles[pos] = true
 	if _batch_mode:
-		_batch_changes.append({pos = pos, old_type = old_type, new_type = terrain_type})
+		_batch_changes.append({pos = pos, old_type = old_type, new_type = terrain_type,
+				record_undo = record_undo})
 	else:
-		tile_changed.emit(pos, old_type, terrain_type)
-		EventBus.terrain_tile_changed.emit(pos, old_type, terrain_type)
+		_emit_tile_change(pos, old_type, terrain_type, record_undo)
 
-## Set tile without marking as player-placed (for auto-generation)
-func set_tile_natural(pos: Vector2i, terrain_type: int) -> void:
-	set_tile(pos, terrain_type, false)
+func _emit_tile_change(pos: Vector2i, old_type: int, new_type: int, record_undo: bool) -> void:
+	# Preserve the outer context if a listener causes another tile change.
+	var previous := tile_change_records_undo
+	tile_change_records_undo = record_undo
+	tile_changed.emit(pos, old_type, new_type)
+	EventBus.terrain_tile_changed.emit(pos, old_type, new_type)
+	tile_change_records_undo = previous
+
+## Set tile without marking as player-placed (for auto-generation).
+func set_tile_natural(pos: Vector2i, terrain_type: int, record_undo: bool = true) -> void:
+	set_tile(pos, terrain_type, false, record_undo)
 
 func paint_tiles(positions: Array, terrain_type: int) -> void:
 	for pos in positions:

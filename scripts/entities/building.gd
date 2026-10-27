@@ -178,11 +178,56 @@ func destroy(force: bool = false) -> void:
 func _update_facing() -> void:
 	if terrain_grid == null:
 		return
-	_facing = terrain_grid.get_view_orientation()
+	var new_facing := terrain_grid.get_view_orientation()
+	if new_facing == _facing and get_node_or_null("ClickArea") != null:
+		return
+	_facing = new_facing
 	var visual := get_node_or_null("Visual/Architecture") as CourseArchitecture
 	if visual and visual.facing != _facing:
 		visual.facing = _facing
 		visual.queue_redraw()
+	# Each rotation draws a different sprite, so the clickable silhouette
+	# has to turn with the picture it outlines.
+	_refresh_click_area()
+
+## The polygons a click on this building answers to, in local draw space:
+## the silhouette of the sprite as it is currently drawn (current tier and
+## view rotation). Empty before the visuals are built.
+func get_click_polygons() -> Array:
+	var polygons: Array = []
+	var click_area := get_node_or_null("ClickArea")
+	if click_area == null:
+		return polygons
+	for child in click_area.get_children():
+		if child is CollisionPolygon2D:
+			polygons.append((child as CollisionPolygon2D).polygon)
+	return polygons
+
+## Rebuild the click area so its shape is the silhouette of the sprite the
+## player sees, not the axis-aligned rectangle around the footprint tiles:
+## that rectangle stopped at the footprint's top and bottom edges while
+## the drawing rises above them and overhangs below, and it answered for
+## the empty corners beside the isometric diamond.
+func _refresh_click_area() -> void:
+	var old_area := get_node_or_null("ClickArea")
+	if old_area == null:
+		return
+	remove_child(old_area)
+	old_area.queue_free()
+	add_child(_make_click_area())
+
+func _make_click_area() -> Area2D:
+	var click_area := Area2D.new()
+	click_area.name = "ClickArea"
+	click_area.input_pickable = true
+	var footprint := Vector2(width * 64.0, height * 32.0)
+	for polygon in BuildingSprites.click_polygons(
+			building_type, upgrade_level, _facing, footprint):
+		var collision := CollisionPolygon2D.new()
+		collision.polygon = polygon
+		click_area.add_child(collision)
+	click_area.input_event.connect(_on_click_area_input_event)
+	return click_area
 
 func _update_visuals() -> void:
 	"""Create visual representation for the building with shadows"""
@@ -216,21 +261,8 @@ func _update_visuals() -> void:
 	visual.position = Vector2(size_x * 0.5, size_y)
 	architecture.position = -visual.position
 
-	# Add click detection area
-	var click_area = Area2D.new()
-	click_area.name = "ClickArea"
-	click_area.input_pickable = true
-	add_child(click_area)
-
-	var collision = CollisionShape2D.new()
-	var shape = RectangleShape2D.new()
-	shape.size = Vector2(size_x, size_y)
-	collision.shape = shape
-	collision.position = Vector2(int(size_x / 2.0), int(size_y / 2.0))
-	click_area.add_child(collision)
-
-	# Connect click detection
-	click_area.input_event.connect(_on_click_area_input_event)
+	# Add click detection area, shaped to the sprite's silhouette.
+	add_child(_make_click_area())
 
 func get_building_info() -> Dictionary:
 	return {

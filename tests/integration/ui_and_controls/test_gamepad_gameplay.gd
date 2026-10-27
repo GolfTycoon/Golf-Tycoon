@@ -98,6 +98,7 @@ func test_view_focuses_the_hud_and_b_returns_to_the_course() -> void:
 	await new_game()
 	await _use_gamepad()
 	await process_frames(2)
+	var cursor_position: Vector2 = main.gamepad_cursor.position
 	await _push_joy(JOY_BUTTON_BACK)  # View / Back
 	var focus := get_viewport().gui_get_focus_owner()
 	assert_not_null(focus, "View puts focus on the bottom-left controls")
@@ -107,6 +108,10 @@ func test_view_focuses_the_hud_and_b_returns_to_the_course() -> void:
 	assert_null(get_viewport().gui_get_focus_owner(), "B hands input back to the course")
 	await process_frames(2)
 	assert_true(main.gamepad_cursor.visible)
+	assert_eq(InputManager.virtual_pointer, cursor_position,
+		"The returning reticle immediately reclaims the camera pointer")
+	var expected: Vector2 = main.camera.get_canvas_transform().affine_inverse() * cursor_position
+	assert_eq(main.camera.get_mouse_world_position(), expected)
 
 
 func test_shift_tab_focuses_the_hud_for_a_keyboard_player() -> void:

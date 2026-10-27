@@ -33,8 +33,13 @@ func after_each() -> void:
 ## Put the simulated cursor over a tile's centre.
 func _hover(tile: Vector2i) -> void:
 	var camera = main.camera
-	camera._has_pointer = true
-	camera._pointer_position = camera.get_canvas_transform() * grid.grid_to_screen_center(tile)
+	var motion := InputEventMouseMotion.new()
+	motion.position = camera.get_canvas_transform() * grid.grid_to_screen_center(tile)
+	motion.global_position = motion.position
+	# A genuine mouse movement also takes control back from the gamepad
+	# reticle; assigning the camera's private field bypasses that input path.
+	motion.relative = Vector2(2, 0)
+	get_viewport().push_input(motion, true)
 
 
 ## Wait for the background planner to deliver the hovered route.

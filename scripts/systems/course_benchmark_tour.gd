@@ -843,7 +843,7 @@ func _footprint_free(origin: Vector2i, size: Vector2i) -> bool:
 		for dy in range(size.y):
 			if not _is_free_ground(origin + Vector2i(dx, dy)):
 				return false
-	return true
+	return _entities.foundation_placement_error(origin, size).is_empty()
 
 ## Deterministic candidate tiles for decorations and edit stamps: every
 ## second tile of a block around the course anchor, centre out.

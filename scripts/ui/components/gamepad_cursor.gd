@@ -50,13 +50,30 @@ func _ready() -> void:
 	visible = false
 
 
+func _exit_tree() -> void:
+	# The autoload outlives the course scene. Do not leave its pointer or
+	# pointer-mode flag aimed at a cursor that no longer exists.
+	if _holding:
+		_release_hold()
+	if has_node("/root/InputManager"):
+		if _active:
+			InputManager.virtual_pointer = Vector2.INF
+		if _ui_pointer_mode:
+			InputManager.pointer_mode = false
+
+
 func _process(delta: float) -> void:
 	_update_ui_pointer_mode()
 	var should_be_active := _should_be_active()
 	if should_be_active != _active:
 		_active = should_be_active
-		if _active and not _placed:
-			_place_at_center()
+		if _active:
+			if not _placed:
+				_place_at_center()
+			else:
+				# A panel or the mouse cleared the virtual pointer while this
+				# reticle was hidden. Reclaim it at the remembered position.
+				_place_pointer()
 		if not _active:
 			_release_hold()
 			queue_redraw()

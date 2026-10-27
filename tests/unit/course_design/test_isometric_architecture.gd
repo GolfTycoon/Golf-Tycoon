@@ -34,6 +34,10 @@ func before_each() -> void:
 	GameManager.terrain_grid = grid
 	GameManager.entity_layer = entities
 
+func after_each() -> void:
+	BuildingSprites.clear_mod_sprites()
+	super()
+
 func _size_of(building_type: String) -> Vector2:
 	var dimensions: Array = registry[building_type].get("size", [1, 1])
 	return Vector2(float(dimensions[0]) * 64.0, float(dimensions[1]) * 32.0)
@@ -49,17 +53,11 @@ func _node_position(size: Vector2, tiles: Vector2) -> Vector2:
 	return grid.grid_point_to_screen(Vector2(POS) + tiles * 0.5) - Vector2(size.x * 0.5, size.y)
 
 ## The rectangle a sprite actually paints, in the building node's local space:
-## the manifest rect trimmed to the image's opaque pixels and scaled from art
-## pixels to world pixels.
+## the manifest rect trimmed to the image's opaque pixels. BuildingSprites owns
+## the image-pixel -> world-pixel mapping, so this stays right whether the PNG
+## is authored 1:1 or at the higher resolution the current sprites use.
 func _painted_rect(building_type: String, tier := 1, facing := 0) -> Rect2:
-	var tex := BuildingSprites.texture(building_type, tier, facing)
-	if tex == null:
-		return Rect2()
-	var used := tex.get_image().get_used_rect()
-	var scale := float(BuildingSprites.manifest().get("pixel_scale", 2.0))
-	var art := BuildingSprites.rect(building_type, tier, facing)
-	return Rect2(art.position + Vector2(used.position) * scale,
-			Vector2(used.size) * scale)
+	return BuildingSprites.painted_rect(building_type, tier, facing)
 
 # ---------------------------------------------------------------------------
 # The footprint sits on the tiles
@@ -259,3 +257,154 @@ func test_the_clubhouse_grows_without_leaving_its_square() -> void:
 	# Each upgrade is visibly a bigger building, never a wider one.
 	assert_gt(heights[1], heights[0], "The second tier is taller than the first")
 	assert_gt(heights[2], heights[1], "The third tier is taller than the second")
+
+# ---------------------------------------------------------------------------
+# The clickable area is the sprite, not the footprint rectangle
+# ---------------------------------------------------------------------------
+
+func _polygons_bounds(polygons: Array) -> Rect2:
+	var bounds := Rect2()
+	var first := true
+	for polygon in polygons:
+		for point in polygon:
+			if first:
+				bounds = Rect2(point, Vector2.ZERO)
+				first = false
+			else:
+				bounds = bounds.expand(point)
+	return bounds
+
+func _point_is_clickable(polygons: Array, point: Vector2) -> bool:
+	for polygon in polygons:
+		if Geometry2D.is_point_in_polygon(point, polygon):
+			return true
+	return false
+
+func test_click_polygons_trace_the_painted_sprite_at_every_rotation() -> void:
+	# The old click area was the rectangle (0, 0, footprint width, footprint
+	# depth): it stopped dead at the footprint's bottom edge while every
+	# sprite paints well below it, and it answered for the empty rectangle
+	# corners beside the diamond. The traced silhouette has to cover the
+	# painted sprite instead — all of it, and at every view rotation.
+	for building_type in registry:
+		var kind := str(building_type)
+		var size := _size_of(kind)
+		for facing in range(4):
+			var polygons: Array = BuildingSprites.click_polygons(kind, 1, facing, size)
+			assert_false(polygons.is_empty(),
+				"%s has a clickable silhouette at rotation %d" % [kind, facing])
+			if polygons.is_empty():
+				continue
+			var painted := _painted_rect(kind, 1, facing)
+			var bounds := _polygons_bounds(polygons)
+			assert_almost_eq(bounds.position.x, painted.position.x, 3.0,
+				"%s at rotation %d: click area starts where the sprite does" % [kind, facing])
+			assert_almost_eq(bounds.position.y, painted.position.y, 3.0,
+				"%s at rotation %d: click area rises to the sprite's top" % [kind, facing])
+			assert_almost_eq(bounds.end.x, painted.end.x, 3.0,
+				"%s at rotation %d: click area ends where the sprite does" % [kind, facing])
+			assert_almost_eq(bounds.end.y, painted.end.y, 3.0,
+				"%s at rotation %d: click area reaches the sprite's foot" % [kind, facing])
+			# The sprite paints below the old rectangle's bottom edge (the
+			# footprint depth), and the click area now follows it there.
+			assert_gt(bounds.end.y, size.y,
+				"%s at rotation %d: the click area reaches below the old rectangle"
+					% [kind, facing])
+
+func test_a_placed_buildings_click_area_matches_and_turns_with_its_sprite() -> void:
+	var building := entities.place_building("clubhouse", POS, registry)
+	assert_not_null(building, "the clubhouse is placed")
+	if building == null:
+		return
+	var size := _size_of("clubhouse")
+	for facing in range(4):
+		grid.set_view_orientation(facing)
+		building.set_position_in_grid(POS)
+		var polygons: Array = building.get_click_polygons()
+		assert_false(polygons.is_empty(),
+			"the placed clubhouse is clickable at rotation %d" % facing)
+		var painted := _painted_rect("clubhouse", 1, facing)
+		var bounds := _polygons_bounds(polygons)
+		assert_almost_eq(bounds.position.y, painted.position.y, 3.0,
+			"rotation %d: the click area rises to the roof" % facing)
+		assert_almost_eq(bounds.end.y, painted.end.y, 3.0,
+			"rotation %d: the click area reaches the foot of the walls" % facing)
+		# The top-left corner of the old footprint rectangle is empty air
+		# beside the building at this rotation: it must not answer a click.
+		assert_false(_point_is_clickable(polygons, Vector2(2.0, 2.0)),
+			"rotation %d: empty air beside the footprint is not clickable" % facing)
+		# But the foot of the walls, below that rectangle's bottom edge, does.
+		var foot := Vector2(painted.get_center().x, painted.end.y - 4.0)
+		assert_gt(foot.y, size.y,
+			"rotation %d: the test foot is below the old click rectangle" % facing)
+		assert_true(_point_is_clickable(polygons, foot),
+			"rotation %d: the foot of the sprite is clickable" % facing)
+
+# ---------------------------------------------------------------------------
+# Art resolution is independent of the draw space
+# ---------------------------------------------------------------------------
+
+func test_source_art_of_any_resolution_draws_one_pixel_per_world_pixel() -> void:
+	# The shipped PNGs are much larger than the rectangles they are drawn in —
+	# roughly 600px-wide art for a 120-280 world-pixel building. Loading one
+	# must fit it to the manifest rect, so the nearest filter has a 1:1 blit and
+	# the footprint maths above still describes what the player sees.
+	var checked := 0
+	for building_type in registry:
+		var kind := str(building_type)
+		for tier in range(1, BuildingSprites.tier_count(kind) + 1):
+			for facing in range(4):
+				var art := BuildingSprites.rect(kind, tier, facing)
+				assert_gt(art.size.x, 0.0,
+					"%s tier %d rotation %d has a draw rect" % [kind, tier, facing])
+				if art.size.x <= 0.0:
+					continue
+				var source := BuildingSprites.source_texture(kind, tier, facing)
+				assert_not_null(source,
+					"%s tier %d rotation %d has a source PNG" % [kind, tier, facing])
+				if source == null:
+					continue
+				var drawn := BuildingSprites.texture(kind, tier, facing)
+				assert_not_null(drawn,
+					"%s tier %d rotation %d has a drawing" % [kind, tier, facing])
+				if drawn == null:
+					continue
+				assert_eq(drawn.get_size(),
+					Vector2(roundf(art.size.x), roundf(art.size.y)),
+					"%s tier %d rotation %d is fitted to its draw rect" % [kind, tier, facing])
+				assert_gte(source.get_size().x, drawn.get_size().x - 0.01,
+					"%s: source art is not upscaled across" % kind)
+				assert_gte(source.get_size().y, drawn.get_size().y - 0.01,
+					"%s: source art is not upscaled down" % kind)
+				var painted := BuildingSprites.painted_rect(kind, tier, facing)
+				assert_gt(painted.size.x, 0.0, "%s paints something" % kind)
+				assert_true(art.grow(0.01).encloses(painted),
+					"%s tier %d rotation %d paints inside its draw rect" % [kind, tier, facing])
+				checked += 1
+	assert_gte(checked, registry.size() * 4, "Every sprite, tier and rotation was checked")
+
+func test_painted_rect_maps_a_high_resolution_texture_onto_its_draw_rect() -> void:
+	# A mod's PNG can be any resolution; its opaque pixels still land on the
+	# same fraction of the rect the mod registered. No fixed pixel scale can
+	# promise that — the mapping has to come from the texture's own size.
+	var image := Image.create_empty(40, 20, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0.0, 0.0, 0.0, 0.0))
+	image.fill_rect(Rect2i(10, 5, 20, 10), Color.WHITE)
+	var tex := ImageTexture.create_from_image(image)
+	var draw_rect := Rect2(100.0, 50.0, 80.0, 60.0)
+	BuildingSprites.register_mod_sprite("test_high_res", tex, draw_rect)
+	assert_eq(BuildingSprites.texture("test_high_res", 1, 0), tex,
+		"a mod sprite keeps the texture it registered")
+	assert_eq(BuildingSprites.rect("test_high_res", 1, 0), draw_rect,
+		"and the draw rect it registered")
+	assert_eq(BuildingSprites.painted_rect("test_high_res", 1, 0),
+		Rect2(120.0, 65.0, 40.0, 30.0),
+		"the opaque quarter of the image covers the matching quarter of the rect")
+
+	# A texture already authored at the rect's resolution needs no scaling.
+	var native := Image.create_empty(80, 60, false, Image.FORMAT_RGBA8)
+	native.fill(Color.WHITE)
+	BuildingSprites.register_mod_sprite("test_native",
+		ImageTexture.create_from_image(native), draw_rect)
+	assert_eq(BuildingSprites.painted_rect("test_native", 1, 0), draw_rect,
+		"a 1:1 sprite paints its whole rect")

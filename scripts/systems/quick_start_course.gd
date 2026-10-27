@@ -214,6 +214,7 @@ static func _build_arrival_garden(grid: TerrainGrid, entities: EntityLayer) -> v
 	for x in range(53,61):
 		for y in [59,69]:
 			var p := Vector2i(x,y)
+			if entities.is_tile_occupied_by_building(p): continue
 			if grid.get_tile(p) in [TerrainTypes.Type.FAIRWAY,TerrainTypes.Type.GREEN,TerrainTypes.Type.TEE_BOX]: continue
 			grid.set_tile(p,TerrainTypes.Type.FLOWER_BED)
 	for item in [[Vector2i(50,69),"park_bench"],[Vector2i(70,58),"park_bench"],[Vector2i(65,74),"park_bench"]]:

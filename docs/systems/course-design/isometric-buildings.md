@@ -3,7 +3,7 @@
 > Every facility is a pixel image standing on the tiles it was bought for: one sprite per upgrade tier and per quarter-turn of the view. The same picture draws the placed building, its placement ghost and its tile on the Buildings tab.
 
 **Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing), `assets/sprites/buildings/` (72 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures)
-**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd`
+**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load)
 
 ---
 
@@ -44,19 +44,22 @@ The park bench is not a building at all: it is a ground fixture on the Improveme
 }
 ```
 
-`BuildingSprites.draw()` draws the texture into that rectangle 1:1. The images are not scaled at draw time: one art pixel is one world pixel, so a 4-tile-wide clubhouse is about 242 pixels across on screen. The texture keeps its own resolution, so it stays crisp.
+`BuildingSprites.draw()` draws the texture into that rectangle 1:1: one drawn pixel is one world pixel, so a 4-tile-wide clubhouse is about 242 pixels across on screen. The **source PNG does not have to be that size**. The shipped sprites are higher-resolution art (roughly 600 x 460 pixels) so their roof tiles, windows and paving keep their detail; `BuildingSprites.texture()` resamples each PNG once, when it is first loaded, into the manifest rectangle with a Lanczos filter. That keeps the draw call a 1:1 blit — the GPU never has to minify a big texture with nearest filtering, which would alias and flicker as the camera zooms — and it means replacing the art does not move a building off its tiles. Textures are cached after the first load, so `_draw()` stays cheap.
+
+`BuildingSprites.painted_rect()` maps a texture's opaque pixels into the same local draw space (`rect.size / texture.size` world pixels per image pixel). Use it anywhere the *painted* bounds matter rather than assuming the source resolution; `source_texture()` returns the untouched PNG for tools and previews. Mods keep their registered texture and draw rect unchanged, and the same mapping applies to them.
 
 ### 2. Pixel size
 
 | Thing | Size |
 | --- | --- |
 | Tile | 64 x 32 world pixels |
-| Art pixel | 1 world pixel (1/64 of a tile across) |
+| Drawn pixel | 1 world pixel (1/64 of a tile across) |
+| Source art pixel | 1/2 to 1/5 world pixel in the current sprites (resampled at load) |
 | Storey | about 46 world pixels |
 | Door | 26 world pixels tall, 14 wide |
 | Window | 13 world pixels tall, 10 wide |
 
-The textures load without mipmaps, and every node that draws them sets `texture_filter = TEXTURE_FILTER_NEAREST`, so the pixel grid never blurs when the camera zooms.
+The fitted textures load without mipmaps, and every node that draws them sets `texture_filter = TEXTURE_FILTER_NEAREST`, so the pixel grid never blurs when the camera zooms. Source PNGs can be replaced with art at any resolution without touching `sprites.json`: the manifest rectangles stay in world pixels and the loader does the fitting.
 
 ### 3. Coordinates
 
@@ -84,7 +87,30 @@ The view can be rotated a quarter turn at a time, and buildings turn with it. Ea
 
 `Building.set_position_in_grid()` places the node at the footprint centre minus `(size.x × 0.5, size.y)`. The art is projected around that same anchor, not around the footprint's centre. Getting this wrong moves every building half a tile across its own square. The mistake is hard to see on one tile and obvious on four, which is why `grid_origin_offset()` exists.
 
-### 6. Facilities
+### 6. Foundations and the ground underneath
+
+Placing a building changes its entire footprint to **Rough** and levels every
+corner vertex to the first tile's elevation. The drawing is positioned again
+after leveling so it sits on the new ground. Two touching buildings share edge
+or corner vertices, so a new foundation adopts the neighbouring building's
+level. The placement and move ghosts show that final level, including the
+ground restored by an overlapping move. If neighbours demand different
+levels, the previews explain why the footprint cannot fit without changing an
+existing building.
+
+`EntityLayer` remembers the original terrain, maintenance markers, paths, cups
+and each actual vertex height. Demolition or a move restores those values;
+shared vertices remain level until the last neighbouring building leaves.
+Overlapping moves restore the old footprint before capturing the new one.
+Foundation changes notify terrain renderers but do not create extra terrain
+undo actions or new maintenance tiles. These snapshots are saved with each
+building, so the same restoration works after a save or location switch. An
+older save without snapshots keeps the ground it contains as the starting
+point; connected legacy buildings are leveled together if necessary rather
+than losing a building. Ground already lost before that save cannot be
+reconstructed.
+
+### 7. Facilities
 
 | Building | Distinguishing features |
 | --- | --- |
@@ -122,7 +148,7 @@ python3 tools/building_art/generate.py --preview  # also write contact sheets to
 | `buildings.py` | The 16 facility designs, built from shared primitives (`box`, `gable`, `hip`, `pyramid`, `awning`, `fence`, …) and one palette. |
 | `generate.py` | Renders every tier at every rotation, writes the PNGs and the manifest, and can draw preview sheets. |
 
-The generator is not part of the game build. The PNGs and `sprites.json` are committed, so the game and the tests need nothing but Godot. Regenerate and commit when a design changes; the shapes, palette and building list all live in `buildings.py`.
+The generator is not part of the game build. The PNGs and `sprites.json` are committed, so the game and the tests need nothing but Godot. Regenerate and commit when a design changes; the shapes, palette and building list all live in `buildings.py`. Its PNGs happen to be written at one pixel per world pixel. Art replaced by hand at a higher resolution is equally valid: keep the file names and manifest rects, and `BuildingSprites.texture()` fits the new image to the rect at load time.
 
 ---
 
