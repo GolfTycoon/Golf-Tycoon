@@ -33,6 +33,17 @@ func test_quick_start_delivers_nine_holes_with_nothing_waiting() -> void:
 	_assert_holes_walked("Quick Start")
 
 
+func test_quick_start_keeps_every_building_on_a_flat_rough_foundation() -> void:
+	for building in main.entity_layer.get_all_buildings():
+		var level: int = grid.get_elevation(building.grid_position)
+		for tile in building.get_footprint():
+			assert_eq(grid.get_tile(tile), TerrainTypes.Type.ROUGH,
+				"The garden never plants over %s's foundation at %s" % [building.building_type, tile])
+			for vertex in grid.vertices_of_tile(tile):
+				assert_eq(grid.get_vertex_elevation(vertex), level,
+					"Every corner under %s is level" % building.building_type)
+
+
 func test_every_tee_aims_at_its_cup_inside_its_own_tile() -> void:
 	var overlay: TeeAimOverlay = grid.get_node_or_null("TeeAimOverlay")
 	assert_not_null(overlay, "TerrainGrid builds a TeeAimOverlay")

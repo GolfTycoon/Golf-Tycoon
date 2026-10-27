@@ -3505,7 +3505,7 @@ var _is_undoing: bool = false  # Prevent re-recording changes triggered by undo/
 var _suppress_tile_undo: bool = false  # Suppress tile change recording during entity placement/removal
 
 func _on_terrain_tile_changed_for_undo(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
-	if _is_undoing or _suppress_tile_undo:
+	if _is_undoing or _suppress_tile_undo or not terrain_grid.tile_change_records_undo:
 		# Still keep tee UI in sync even while undoing or suppressing undo recording.
 		if old_type == TerrainTypes.Type.TEE_BOX or new_type == TerrainTypes.Type.TEE_BOX:
 			_refresh_hole_layout_ui()

@@ -78,6 +78,12 @@ func get_placement_error(grid_pos: Vector2i, terrain_grid: TerrainGrid) -> Strin
 				return "Move the footprint clear of the existing building."
 			if entities.is_tile_occupied_by_decoration(tile):
 				return "Remove the decoration in this footprint first."
+	if placement_mode == PlacementMode.BUILDING and GameManager.entity_layer:
+		var dimensions: Array = current_placement_data.get("size", [1, 1])
+		var size := Vector2i(int(dimensions[0]), int(dimensions[1]))
+		var foundation_error: String = GameManager.entity_layer.foundation_placement_error(grid_pos, size)
+		if not foundation_error.is_empty():
+			return foundation_error
 	if not _terrain_allows_at(grid_pos, terrain_grid):
 		if placement_mode == PlacementMode.BUILDING:
 			return "Use grass, rough, fairway or path; keep greens, tees, sand and water clear."

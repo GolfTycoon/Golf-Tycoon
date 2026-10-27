@@ -3,7 +3,7 @@
 > Every facility is a pixel image standing on the tiles it was bought for: one sprite per upgrade tier and per quarter-turn of the view. The same picture draws the placed building, its placement ghost and its tile on the Buildings tab.
 
 **Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing), `assets/sprites/buildings/` (72 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures)
-**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (all three check the sprite's painted rectangle, not the source PNG's pixel grid)
+**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load)
 
 ---
 
@@ -87,7 +87,30 @@ The view can be rotated a quarter turn at a time, and buildings turn with it. Ea
 
 `Building.set_position_in_grid()` places the node at the footprint centre minus `(size.x × 0.5, size.y)`. The art is projected around that same anchor, not around the footprint's centre. Getting this wrong moves every building half a tile across its own square. The mistake is hard to see on one tile and obvious on four, which is why `grid_origin_offset()` exists.
 
-### 6. Facilities
+### 6. Foundations and the ground underneath
+
+Placing a building changes its entire footprint to **Rough** and levels every
+corner vertex to the first tile's elevation. The drawing is positioned again
+after leveling so it sits on the new ground. Two touching buildings share edge
+or corner vertices, so a new foundation adopts the neighbouring building's
+level. The placement and move ghosts show that final level, including the
+ground restored by an overlapping move. If neighbours demand different
+levels, the previews explain why the footprint cannot fit without changing an
+existing building.
+
+`EntityLayer` remembers the original terrain, maintenance markers, paths, cups
+and each actual vertex height. Demolition or a move restores those values;
+shared vertices remain level until the last neighbouring building leaves.
+Overlapping moves restore the old footprint before capturing the new one.
+Foundation changes notify terrain renderers but do not create extra terrain
+undo actions or new maintenance tiles. These snapshots are saved with each
+building, so the same restoration works after a save or location switch. An
+older save without snapshots keeps the ground it contains as the starting
+point; connected legacy buildings are leveled together if necessary rather
+than losing a building. Ground already lost before that save cannot be
+reconstructed.
+
+### 7. Facilities
 
 | Building | Distinguishing features |
 | --- | --- |

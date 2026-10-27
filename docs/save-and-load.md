@@ -35,7 +35,7 @@
 | --- | --- |
 | Company | Money, reputation, calendar, the Course Location and World Milestones earned in this save, the unlimited-money flag, owned locations and unlocked land |
 | Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
-| Entities | Buildings, decorations, path furniture, trees placed as entities |
+| Entities | Buildings (including their original foundation terrain and vertex heights), decorations, path furniture; legacy tree entities are migrated |
 | Holes | Tee and cup positions, par, yardage, and the order they are played in (the saved list *is* the round) |
 | Course Aura | Where golfers spoke up: the newest comments kept, each with its cell, sentiment, trigger, hole and day |
 
@@ -47,6 +47,14 @@ The stroke index is not saved. It is recalculated after each load.
 | Your own golfer | The ground they work between rounds (`owner_duty`). Their name, colours and skills are saved with the company, under `player_golfer`. |
 | Tournaments | Tournament state (a live round cannot be resumed, so it is cleared on load) |
 | Golfers | **Not saved.** They respawn when the simulation resumes. |
+
+A building's foundation snapshot preserves the terrain, maintenance markers,
+paths, cups and vertex heights hidden by its footprint, so moving or demolishing
+it after loading can restore the original ground. Older saves without this data
+use the ground present when loaded. If an older layout joins buildings at
+different heights, the connected foundations are leveled together so no saved
+building is dropped. Pre-construction terrain that was not recorded by an older
+version cannot be recovered.
 
 Older saves may still contain bunker-depth metadata. It is ignored on load: every standard Bunker tile is shallow, and new saves omit that retired field.
 

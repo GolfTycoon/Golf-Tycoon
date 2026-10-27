@@ -3,7 +3,7 @@
 > How the test suites are organised, how to run them, and which harness scenes to use for manual checks. Unit tests use GUT, and a separate warnings scan keeps GDScript clean.
 
 **Source:** `test.sh`, `check-warnings.sh`, `gutconfig.json`, `tools/warning_scan.gd`, `Makefile`, `.github/workflows/test.yml`
-**Tests:** `tests/unit/` (79 files), `tests/integration/` (17 scripts), `tests/harness/` (13 scenes and 3 preview scripts)
+**Tests:** `tests/unit/`, `tests/integration/`, and the manual previews in `tests/manual/`
 
 ---
 
@@ -13,7 +13,7 @@ There are three kinds of test:
 
 - **Unit tests** check one rule or calculation at a time, such as a price, a shot distance or a rating. They live in `tests/unit/`, and each file is named `test_<topic>.gd`.
 - **Integration tests** run a whole flow through `main.gd`, such as creating a hole, hosting a tournament or saving and loading. They live in `tests/integration/`.
-- **Harnesses** are scenes you run by hand to see a feature in action or check its layout at different window sizes. They live in `tests/harness/`.
+- **Manual previews and reports** in `tests/manual/` show generated courses, rendering and simulation behaviour; they are not part of the automated suites.
 
 A separate **warnings check** makes sure no project script has a GDScript warning.
 
@@ -21,14 +21,16 @@ A separate **warnings check** makes sure no project script has a GDScript warnin
 
 ### Unit tests
 
-Unit tests use the **GUT** framework (in `addons/gut/`). `gutconfig.json` points GUT at `res://tests/unit/`, looks for files named `test_*.gd`, and includes subfolders.
+Unit and integration tests use the **GUT** framework (in `addons/gut/`).
+`gutconfig.json` looks for files named `test_*.gd` in both suites and includes
+subfolders. `test.sh` chooses the requested suite (unit by default).
 
 ```bash
 make test        # runs test.sh
 ./test.sh        # the same run, without make
 ```
 
-`test.sh` finds Godot (a bundled copy, `$GODOT`, or your `PATH`), imports the project on the first run, and runs GUT headless. Pass extra GUT options after the script name.
+`test.sh` finds Godot (a bundled copy, `$GODOT`, or your `PATH`), imports the project on the first run, and runs GUT headless. Pass extra GUT options after the suite name.
 
 ### Warnings check
 
@@ -43,49 +45,33 @@ Prefer a real fix to a suppression. Rename a shadowing variable, or use the para
 
 ### Integration tests
 
-Each script in `tests/integration/` runs through the real main scene. They are run with `-s`:
+Integration tests live under `tests/integration/` and use GUT with the real
+main scene (`MainSceneTest`). Run them alone, or run both suites together to
+catch state leaking from one suite into the other:
 
 ```bash
-godot --headless --path . -s tests/integration/world_map_flow.gd
+./test.sh integration
+./test.sh all
+./test.sh integration -gselect=building_foundations_flow
 ```
 
-| Script | Covers |
-| --- | --- |
-| `hole_creation_flow.gd` | Tee and cup painting, opening a hole, undo and save round trip |
-| `hole_path_preview.gd` | The potential hole preview and its route |
-| `hole_tab_context_menu.gd` | The Course Holes tab and its context menu |
-| `new_game_resets_course.gd` | A second new game starts from a clean grid |
-| `generated_course_hole_layout.gd` | Quick Start and the prebuilt packages deliver every hole, and arrive with their walking paths |
-| `staff_on_course.gd` | Hiring staff, moving an area, and pulling a weed |
-| `world_map_flow.gd` | Menu, setup, globe, Buy & Play, switch and quick start |
-| `clubhouse_lifecycle.gd` | The clubhouse is created and kept |
-| `tee_aim_arrows.gd` | Aiming arrows on tees |
-| `management_loop.gd`, `guest_experience_campaign.gd`, `guest_experience_followup.gd` | Longer management and visitor flows |
+CI runs the combined suite as well as the unit-only and warning checks.
 
-### Harnesses
+### Manual previews and reports
 
-Run a harness with `godot --headless --path . res://tests/harness/<name>.tscn`. The main ones are:
+The scripts and scene under `tests/manual/` are for inspection, not automated
+GUT assertions. For example:
 
-| Harness | What it shows |
-| --- | --- |
-| `walking_path_harness.tscn` | Walking paths on the course |
-| `bulldozer_harness.tscn` | The bulldozer removes improvements and buildings, but never course terrain |
-| `speed_controls_harness.tscn` | Fast (3×) and Ultra (8×) speed controls |
-| `ready_golf_harness.tscn` | Pace: one foursome over three holes, and the time spent waiting on a walking partner |
-| `responsive_layout_harness.tscn` | Phone, tablet and desktop window sizes |
-| `main_menu_layout_harness.tscn` | Title screen layout at several sizes |
-| `edit_golfer_skins_harness.tscn` | The Golfer Skins studio at several sizes |
-| `start_new_game_layout_harness.tscn` | The Start New Game screen at many sizes |
-| `save_settings_layout_harness.tscn` | The Save / Load archive and the Settings screen at phone, tablet and desktop sizes, plus save, delete and toggle behaviour |
-| `tournament_harness.tscn` | A two-round Regional event on a quick-start course |
-| `sim_harness.tscn` | Hires one of each staff type, moves areas daily, and runs a save and load across several days |
-| `elevation_tools_harness.tscn`, `inspect_harness.tscn` | Elevation tools and the inspect tool |
+```bash
+godot --headless --path . -s tests/manual/course_path_preview.gd -- quickstart
+godot --headless --path . res://tests/manual/ready_golf_report.tscn
+```
 
-Three preview scripts run with `-s` instead of as a scene:
-
-- `tests/harness/globe_preview.gd` writes the globe's land mask and a view to `tmp_preview/`.
-- `tests/harness/planet_preview.gd` writes the planet views from a CPU port of the globe shader to `tmp_preview/`, for checking the look without a GPU.
-- `tests/harness/course_path_preview.gd` prints an ASCII plan of a generated course before and after its paths are laid, plus the tiles laid, the time taken, the playing surfaces and woodland the paths took (always none), how many networks the trails fall into, how much of them the clubhouse paves, and how far each tee and green stands off the nearest trail. Pass a layout after `--`: `quickstart` (the default), `generated3`, `generated6`, `generated9`, `generated18`, `starter`, `executive`, `standard9` or `championship18`.
+`course_path_preview.gd` prints a generated course and its walking-path
+statistics; it also accepts `generated3`, `generated6`, `generated9`,
+`generated18`, `starter`, `executive`, `standard9` or `championship18`.
+`globe_preview.gd` and `planet_preview.gd` write images under `tmp_preview/`,
+and the guest-experience scripts produce longer playtest reports.
 
 ## Tuning Levers
 

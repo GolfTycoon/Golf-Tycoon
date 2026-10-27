@@ -262,3 +262,26 @@ func test_the_synthetic_pointer_only_lives_for_navigation_devices() -> void:
 	manager._input(_mouse_motion(Vector2(6, 0)))
 	assert_false(manager.virtual_pointer.is_finite(),
 		"the mouse clears the keyboard/controller pointer")
+
+
+func test_destroying_an_active_cursor_releases_its_autoload_state() -> void:
+	var cursor := GamepadCursor.new()
+	add_child(cursor)
+	cursor._active = true
+	cursor._ui_pointer_mode = true
+	manager.virtual_pointer = Vector2(120, 340)
+	manager.pointer_mode = true
+	cursor.free()
+	assert_false(manager.virtual_pointer.is_finite(), "The freed cursor cannot keep steering the camera")
+	assert_false(manager.pointer_mode, "A freed cursor cannot keep a screen in pointer mode")
+
+
+func test_game_state_restores_input_device_and_pointer() -> void:
+	var state := GameState.capture()
+	manager.device = InputManagerScript.Device.GAMEPAD
+	manager.pointer_mode = true
+	manager.virtual_pointer = Vector2(120, 340)
+	GameState.restore(state)
+	assert_eq(manager.device, state["input_device"])
+	assert_eq(manager.pointer_mode, state["input_pointer_mode"])
+	assert_eq(manager.virtual_pointer, state["input_virtual_pointer"])

@@ -555,8 +555,13 @@ func _draw_building_ghost_shape(grid_pos: Vector2i, building_type: String, size:
 	var pos: Vector2
 	if terrain_grid != null:
 		if terrain_grid.is_view_isometric():
-			var center := terrain_grid.grid_point_to_screen(
-					Vector2(grid_pos) + Vector2(size.x * 0.5, size.y * 0.5))
+			var center_grid := Vector2(grid_pos) + Vector2(size.x * 0.5, size.y * 0.5)
+			var level := terrain_grid.get_elevation(grid_pos)
+			var entities: EntityLayer = GameManager.entity_layer
+			if is_instance_valid(entities) and entities.terrain_grid == terrain_grid:
+				level = entities.foundation_elevation(grid_pos, size, _move_building)
+			var center := terrain_grid.projection.project(center_grid) \
+					+ Vector2(0.0, -float(level - TerrainGrid.BASE_ELEVATION) * TerrainGrid.ELEVATION_STEP_Y)
 			pos = center - Vector2(w * 0.5, h)
 		else:
 			pos = terrain_grid.grid_to_screen(Vector2i(grid_pos))
@@ -597,8 +602,13 @@ func _draw_building_move_preview() -> void:
 ## come from CourseClubhouse, so the tiles cannot say yes where the click says
 ## no.
 func _tile_allows_move(tile: Vector2i) -> bool:
-	return CourseClubhouse.tile_error(tile, terrain_grid, GameManager.entity_layer,
-			_move_building).is_empty()
+	var entities: EntityLayer = GameManager.entity_layer
+	if is_instance_valid(_move_building) and is_instance_valid(entities):
+		var size := Vector2i(_move_building.width, _move_building.height)
+		if entities.foundation_placement_error(current_grid_pos, size, _move_building) \
+				== EntityLayer.FOUNDATION_CONFLICT_ERROR:
+			return false
+	return CourseClubhouse.tile_error(tile, terrain_grid, entities, _move_building).is_empty()
 
 func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 	"""Draw ghost preview for decoration placement using Decoration sprites/fallback"""

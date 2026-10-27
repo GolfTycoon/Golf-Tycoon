@@ -107,7 +107,7 @@ func test_the_home_search_clears_a_wood_for_its_plot() -> void:
 	for tile in placed.get_footprint():
 		assert_false(TerrainTypes.is_tree(wild.get_tile(tile)),
 			"%s is not left standing under the building" % tile)
-		assert_eq(wild.get_tile(tile), TerrainTypes.Type.GRASS, "and is level lawn")
+		assert_eq(wild.get_tile(tile), TerrainTypes.Type.ROUGH, "and is rough under the clubhouse")
 
 func test_course_clubhouse_guarantee_leaves_greens_and_tees_alone() -> void:
 	var played := TerrainGrid.new()

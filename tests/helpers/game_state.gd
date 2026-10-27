@@ -6,8 +6,8 @@ extends RefCounted
 ## pauses, the locations its company buys — would still be there for every test
 ## that runs after it. capture() records every field of both (arrays and
 ## dictionaries are copied, so changes made to them in place are undone too),
-## the seasons switch, the engine's time scale and the player's key bindings,
-## and restore() puts them all back. An object the test freed meanwhile is put
+## the seasons switch, the engine's time scale, input device and pointer, and
+## the player's key bindings, and restore() puts them all back. An object the test freed meanwhile is put
 ## back as null.
 ##
 ## Used by GameTest around every unit test, and by MainSceneTest around each
@@ -24,6 +24,10 @@ static func capture() -> Dictionary:
 		"seasons_disabled": SeasonSystem.disabled,
 		"time_scale": Engine.time_scale,
 		"input_bindings": InputBindings.capture_state(),
+		"input_device": InputManager.device,
+		"input_pointer_mode": InputManager.pointer_mode,
+		"input_virtual_pointer": InputManager.virtual_pointer,
+		"input_synthetic_mouse_depth": InputManager._synthetic_mouse_depth,
 	}
 
 static func restore(state: Dictionary) -> void:
@@ -31,6 +35,10 @@ static func restore(state: Dictionary) -> void:
 	_put_back(GameManager, state.get("game_manager", {}))
 	SeasonSystem.disabled = state.get("seasons_disabled", false)
 	Engine.time_scale = state.get("time_scale", 1.0)
+	InputManager.device = state.get("input_device", InputManager.Device.MOUSE)
+	InputManager.pointer_mode = state.get("input_pointer_mode", false)
+	InputManager.virtual_pointer = state.get("input_virtual_pointer", Vector2.INF)
+	InputManager._synthetic_mouse_depth = state.get("input_synthetic_mouse_depth", 0)
 	var bindings: Variant = state.get("input_bindings", {})
 	if bindings is Dictionary:
 		InputBindings.restore_state(bindings)

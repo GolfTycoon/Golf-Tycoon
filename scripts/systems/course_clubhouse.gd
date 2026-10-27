@@ -141,7 +141,7 @@ static func move_error(terrain_grid, entity_layer, building: Building, target: V
 			var error := tile_error(target + Vector2i(x, y), terrain_grid, entity_layer, building)
 			if not error.is_empty():
 				return error
-	return ""
+	return entity_layer.foundation_placement_error(target, size, building)
 
 ## Why one footprint tile of a clubhouse move is refused ("" when it is fine).
 ## Shared with the move preview so its per-tile colouring cannot disagree with
@@ -290,7 +290,7 @@ static func _footprint_ok(terrain_grid, entity_layer, origin: Vector2i, size: Ve
 				return false
 			if entity_layer.is_tile_occupied_by_decoration(tile):
 				return false
-	return true
+	return entity_layer.foundation_placement_error(origin, size).is_empty()
 
 ## Clears the footprint's scenery and lays the grounds the building stands on.
 static func _prepare_ground(terrain_grid, origin: Vector2i, size: Vector2i) -> void:
