@@ -58,7 +58,9 @@ func apply_screen() -> void:
 		button.size = Vector2.ONE * SECTION_SIZES[i]
 		button.queue_redraw()
 
-	var utility_names := ["MenuBtn", "InspectBtn"]
+	# Inspect left the dock for the Build tabs' pinned corner toggles (see
+	# TerrainToolbar._pin_inspect_button); Menu is the dock's only utility circle.
+	var utility_names := ["MenuBtn"]
 	var utility_y := 96.0 if touch_layout else 88.0
 	var utility_gap := 2.0 if touch_layout else 4.0
 	for i in utility_names.size():

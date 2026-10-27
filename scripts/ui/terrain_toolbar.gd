@@ -20,6 +20,8 @@ signal elevation_tool_pressed(tool_name: String)
 signal elevation_brush_size_changed(new_size: int)
 signal elevation_brush_shape_changed(square_shape: bool)
 signal bulldozer_pressed
+## The pinned Inspect toggle on a Build tab was switched on (true) or off.
+signal inspect_toggled(enabled: bool)
 signal brush_size_changed(new_size: int)
 signal brush_shape_changed(round_shape: bool)
 signal play_course_pressed
@@ -201,6 +203,10 @@ const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unu
 ## What the Bulldozer removes — improvements and buildings only. Course
 ## Terrain tiles are ground paint: repaint them with another tile instead.
 const BULLDOZER_TOOLTIP := "Demolish decorations, walking paths and buildings. Click or drag over them. Fees: $5 per path tile, $20 per decoration or building. Course Terrain tiles are not affected — any Course Terrain tile replaces any other, including trees."
+## The Build tabs whose tiles the Inspect mode reads: every shelf in the Build
+## section pins one Inspect toggle, so it is beside terrain, improvements,
+## buildings and elevation work alike. Manage and Golfers pin none.
+const INSPECT_TABS := [Tab.TERRAIN, Tab.IMPROVEMENTS, Tab.BUILDINGS, Tab.ELEVATION]
 
 var hole_grid: GridContainer = null  # Course holes buttons, three to a column (filled by main.gd)
 var terrain_grid: TerrainGrid = null  # Course terrain grid, for checking orphaned tee/green tiles
@@ -223,6 +229,7 @@ var _tab_rail: VBoxContainer
 var _page_title: Label
 var _pages: Array[Control] = []  # One wrapper per tab; the scroll + fixed chrome
 var _bulldozer_buttons: Array[BulldozerButton] = []  # Pinned to Improvements & Buildings
+var _inspect_buttons: Array[InspectButton] = []  # Pinned to every Build tab
 var _brush_dock: PanelContainer = null  # Pinned to the Course Terrain corner
 var _brush_size: int = 1
 var _round_brush := true
@@ -478,14 +485,18 @@ func _build_page(tab_index: int) -> Control:
 		Tab.TERRAIN:
 			_build_terrain_tab(hbox)
 			_pin_brush_dock(page)
+			_pin_inspect_button(page)
 		Tab.IMPROVEMENTS:
 			_build_improvements_tab(hbox)
 			_pin_bulldozer_button(page)
+			_pin_inspect_button(page)
 		Tab.BUILDINGS:
 			_build_buildings_tab(hbox)
 			_pin_bulldozer_button(page)
+			_pin_inspect_button(page)
 		Tab.ELEVATION:
 			_build_elevation_tab(hbox)
+			_pin_inspect_button(page)
 		Tab.HOLES:
 			_build_holes_tab(hbox)
 		Tab.GOLFERS:
@@ -514,6 +525,52 @@ func _pin_bulldozer_button(page: Control) -> void:
 	btn.offset_right = BulldozerButton.CORNER_MARGIN + BulldozerButton.BUTTON_DIAMETER
 	btn.offset_bottom = -BulldozerButton.CORNER_MARGIN
 	_bulldozer_buttons.append(btn)
+
+## Pin the round Inspect toggle to a page's bottom-right corner. The bottom-left
+## corner is already taken on the Build tabs — the brush dock on Course Terrain,
+## the Bulldozer on Improvements and Buildings — so Inspect takes the opposite
+## corner, where nothing else is pinned. Anchored to the page (not the scrolling
+## shelf) so it stays put while tiles scroll by, the same contract the Bulldozer
+## keeps. Each copy reports the shared mode through `toggled`; main.gd owns the
+## mode and mirrors it back to every copy with set_inspect_active.
+func _pin_inspect_button(page: Control) -> void:
+	var btn := InspectButton.new()
+	btn.name = "InspectButton"
+	btn.toggled.connect(_on_inspect_button_toggled)
+	page.add_child(btn)
+	btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	btn.offset_left = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
+	btn.offset_top = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
+	btn.offset_right = -InspectButton.CORNER_MARGIN
+	btn.offset_bottom = -InspectButton.CORNER_MARGIN
+	_inspect_buttons.append(btn)
+
+func _on_inspect_button_toggled(enabled: bool) -> void:
+	inspect_toggled.emit(enabled)
+
+## The first pinned Inspect toggle (the Course Terrain tab's). Kept as a stable
+## reference for code that just needs one button to drive the mode; every copy
+## stays in step through set_inspect_active.
+func inspect_button() -> InspectButton:
+	return _inspect_buttons[0] if not _inspect_buttons.is_empty() else null
+
+## Press (or release) every pinned Inspect toggle without re-emitting `toggled`,
+## so the four tabs always show the same mode no matter which one changed it or
+## where the mode was cancelled (Esc, right-click, another tool).
+func set_inspect_active(active: bool) -> void:
+	for btn in _inspect_buttons:
+		if not is_instance_valid(btn):
+			continue
+		btn.set_pressed_no_signal(active)
+		btn.active = active
+		btn.queue_redraw()
+
+## True while any pinned toggle shows Inspect mode as active.
+func is_inspect_active() -> bool:
+	for btn in _inspect_buttons:
+		if is_instance_valid(btn) and btn.button_pressed:
+			return true
+	return false
 
 ## Pin the Course Terrain brush controls to the page's bottom-left corner: a
 ## compact plate of four square cells — brush shape, brush size, smaller,

@@ -77,6 +77,8 @@ var financial_panel: FinancialPanel = null
 var marketing_panel: MarketingPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
+## Alias for the pinned Inspect toggle on the toolbar's Course Terrain tab; the
+## matching toggles on the other Build tabs stay in step via the toolbar.
 var inspect_btn: PixelCircleButton = null
 var feed_btn: DockActionButton = null  # Event feed toggle: the Feed card on the toolbar's Club tab
 var tile_inspector: TileInspector = null
@@ -826,6 +828,9 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_size_changed.connect(_on_elevation_brush_size_changed)
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
+	# Inspect lives on the Build tabs' pinned corner toggles now, not the dock.
+	terrain_toolbar.inspect_toggled.connect(_on_inspect_toggled)
+	inspect_btn = terrain_toolbar.inspect_button()
 	terrain_toolbar.financial_overview_pressed.connect(_toggle_financial_overview)
 	terrain_toolbar.course_review_pressed.connect(_open_course_map_aura)
 	if terrain_toolbar.has_signal("aura_map_pressed"):
@@ -3094,15 +3099,8 @@ func _create_menu_buttons() -> void:
 
 	# The event Feed is not here any more: it is a card on the Club tab
 	# (Manage → Club → Review → Feed), wired up in _setup_terrain_toolbar.
-
-	inspect_btn = PixelCircleButton.new()
-	inspect_btn.name = "InspectBtn"
-	inspect_btn.glyph = "inspect"
-	inspect_btn.accessibility_name = "Inspect"
-	inspect_btn.tooltip_text = "Inspect terrain, improvements and buildings. Esc or right-click to exit."
-	inspect_btn.toggle_mode = true
-	inspect_btn.toggled.connect(_on_inspect_toggled)
-	left_controls.add_child(inspect_btn)
+	# The Inspect toggle left the dock too: every Build section tab pins one to
+	# its bottom-right corner, also wired up in _setup_terrain_toolbar.
 
 	tile_inspector = TileInspector.new()
 	tile_inspector.name = "TileInspector"
@@ -3148,12 +3146,13 @@ func _on_inspect_toggled(enabled: bool) -> void:
 		terrain_toolbar.clear_selection()
 	_disable_terrain_painting_preview()
 	inspect_mode = true
-	inspect_btn.set_pressed_no_signal(true)
+	if terrain_toolbar:
+		terrain_toolbar.set_inspect_active(true)
 
 func _cancel_inspect_mode() -> void:
 	inspect_mode = false
-	if inspect_btn:
-		inspect_btn.set_pressed_no_signal(false)
+	if terrain_toolbar:
+		terrain_toolbar.set_inspect_active(false)
 	if tile_inspector:
 		tile_inspector.hide()
 

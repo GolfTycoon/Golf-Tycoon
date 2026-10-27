@@ -87,11 +87,22 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
 		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
 		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
-			main.inspect_btn, main.rotate_ccw_btn, main.rotate_cw_btn,
+			main.rotate_ccw_btn, main.rotate_cw_btn,
 			main.pause_btn, main.play_btn, main.fast_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
+		# Inspect left the dock for the toolbar's pinned Build-tab toggles; those
+		# keep a fixed footprint that still clears the touch minimum.
+		assert_null(main.left_controls.get_node_or_null("InspectBtn"),
+			"Inspect no longer occupies the dock's utility row")
+		for button in main.terrain_toolbar._inspect_buttons:
+			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
+				"%s meets the minimum touch target" % button.accessibility_name)
+			if button.is_visible_in_tree():
+				assert_true(rect_within(button.get_global_rect(),
+					Rect2(Vector2.ZERO, Vector2(window_size))),
+					"The pinned Inspect toggle stays on screen")
 		for button in main.terrain_toolbar._tab_buttons.values():
 			assert_gte(button.size.x, 40.0, "Toolbar tabs also grow for touch")
 
@@ -110,7 +121,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
-	buttons.append_array([main.left_controls.get_node("MenuBtn"), main.inspect_btn,
+	buttons.append_array([main.left_controls.get_node("MenuBtn"),
 		main.rotate_ccw_btn, main.rotate_cw_btn, main.pause_btn, main.play_btn, main.fast_btn])
 	for i in buttons.size():
 		var first: Rect2 = buttons[i].get_global_rect()

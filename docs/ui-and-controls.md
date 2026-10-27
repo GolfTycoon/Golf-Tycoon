@@ -84,12 +84,17 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 ### Bottom dock
 
 The bottom-left corner uses small pixel-art circle buttons for **Menu**,
-**Inspect**, both rotation directions, and **Pause / Play / Fast**. The fast button
+both rotation directions, and **Pause / Play / Fast**. The fast button
 cycles between 3× and 8×; a cream tick marks Ultra and a lit ring marks the active
 speed. The heading letter stays between the rotation arrows. The **Feed** lives on
 the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
 badge with the count in its tooltip, and the same count rides on the Club tab and
-Manage section buttons so unread events still show from anywhere.
+Manage section buttons so unread events still show from anywhere. **Inspect** also
+left this corner: every Build section tab (Terrain, Improvements, Buildings,
+Elevations) pins an Inspect toggle to its bottom-right corner, beside the tiles it
+reads, mirroring the Bulldozer's pinned corner button. The four toggles share one
+mode — the medallion's ring stays lit while inspecting, and `Esc` or right-click
+leaves it on every tab.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf with small icon tabs down its left edge.

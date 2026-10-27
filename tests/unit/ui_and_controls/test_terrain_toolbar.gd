@@ -329,6 +329,86 @@ func test_bulldozer_buttons_trigger_and_share_the_mode_state() -> void:
 	for btn in buttons:
 		assert_false(btn.is_active(), "The pinned Bulldozer shows the mode is off")
 
+func test_inspect_pins_to_every_build_tab_bottom_right_corner() -> void:
+	assert_eq(toolbar._inspect_buttons.size(), TerrainToolbar.INSPECT_TABS.size(),
+		"One pinned Inspect toggle per Build tab")
+	for tab in TerrainToolbar.INSPECT_TABS:
+		var page: Control = toolbar._pages[tab]
+		var found := page.find_children("*", "InspectButton", false, false)
+		assert_eq(found.size(), 1, "%s page pins exactly one Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+		var btn: InspectButton = found[0]
+		# Anchored to the page's bottom-right corner, the opposite corner from
+		# the Bulldozer and brush dock pinned on the left.
+		assert_almost_eq(btn.anchor_left, 1.0, 0.001, "Anchored to the right edge")
+		assert_almost_eq(btn.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
+		assert_almost_eq(btn.anchor_right, 1.0, 0.001, "Anchored to the right edge")
+		assert_almost_eq(btn.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
+		assert_almost_eq(btn.offset_right, -InspectButton.CORNER_MARGIN, 0.01)
+		assert_almost_eq(btn.offset_bottom, -InspectButton.CORNER_MARGIN, 0.01)
+		assert_almost_eq(btn.offset_left,
+			-InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER, 0.01)
+		# A round toggle: square bounds of the fixed diameter, circular hit face.
+		assert_eq(btn.custom_minimum_size,
+			Vector2(InspectButton.BUTTON_DIAMETER, InspectButton.BUTTON_DIAMETER))
+		assert_true(btn.toggle_mode, "Inspect is a toggle")
+		assert_eq(btn.glyph, "inspect", "It wears the magnifier glyph")
+		assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
+		assert_false(btn._has_point(Vector2(1, 1)),
+			"The bounding box corners fall through to the tiles underneath")
+		assert_string_contains(btn.accessibility_description, "Esc or right-click to exit",
+			"The tooltip explains how to leave Inspect")
+	# Manage and Golfers tabs pin nothing: inspection belongs beside the Build shelves.
+	for tab in [TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.STAFF,
+			TerrainToolbar.Tab.GOLFERS, TerrainToolbar.Tab.PLAYER]:
+		assert_eq(toolbar._pages[tab].find_children(
+			"*", "InspectButton", true, false).size(), 0,
+			"%s has no Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+
+func test_inspect_buttons_toggle_and_share_the_mode_state() -> void:
+	watch_signals(toolbar)
+	var buttons: Array = toolbar._inspect_buttons
+
+	# Pressing a pinned toggle stays on its own tab and reports the switch.
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	buttons[0].button_pressed = true
+	assert_signal_emitted_with_parameters(toolbar, "inspect_toggled", [true])
+	assert_true(toolbar._pages[TerrainToolbar.Tab.TERRAIN].visible,
+		"Pressing the pinned Inspect toggle keeps its tab open")
+	buttons[0].button_pressed = false
+	assert_signal_emitted_with_parameters(toolbar, "inspect_toggled", [false])
+
+	# main.gd mirrors the mode back to every copy without re-emitting the signal:
+	# the two user toggles above stay the only emissions.
+	toolbar.set_inspect_active(true)
+	assert_signal_emit_count(toolbar, "inspect_toggled", 2,
+		"Syncing the mode on does not re-emit the toggle")
+	assert_true(toolbar.is_inspect_active(), "The toolbar reports Inspect as active")
+	for btn in buttons:
+		assert_true(btn.button_pressed and btn.active,
+			"Every pinned toggle shows the mode is on")
+	toolbar.set_inspect_active(false)
+	assert_signal_emit_count(toolbar, "inspect_toggled", 2,
+		"Syncing the mode off does not re-emit the toggle")
+	assert_false(toolbar.is_inspect_active(), "The toolbar reports Inspect as off")
+	for btn in buttons:
+		assert_false(btn.button_pressed or btn.active,
+			"Every pinned toggle shows the mode is off")
+
+func test_inspect_toggle_keeps_clear_of_the_bottom_left_corner_chrome() -> void:
+	# The two pinned controls hold opposite corners, so they can never collide
+	# regardless of how wide the page grows (geometry is checked head-on in the
+	# bottom-dock integration tests).
+	for tab in [TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
+		var page: Control = toolbar._pages[tab]
+		var inspect: InspectButton = page.find_children("*", "InspectButton", false, false)[0]
+		var dozer: BulldozerButton = page.find_children("*", "BulldozerButton", false, false)[0]
+		assert_almost_eq(inspect.anchor_left, 1.0, 0.001,
+			"Inspect is right-anchored on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_almost_eq(dozer.anchor_left, 0.0, 0.001,
+			"while the Bulldozer is left-anchored")
+		assert_almost_eq(inspect.offset_right, -InspectButton.CORNER_MARGIN, 0.01)
+		assert_almost_eq(dozer.offset_left, BulldozerButton.CORNER_MARGIN, 0.01)
+
 func test_tool_selection_and_signals() -> void:
 	watch_signals(toolbar)
 
