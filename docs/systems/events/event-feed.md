@@ -9,7 +9,7 @@
 
 ## Plain English
 
-Important things that happen in the game are logged to the **event feed**. The feed is a scrolling list you can open at any time. Unlike a toast, which disappears after a few seconds, the feed keeps every entry for the whole session, so you can catch up after fast-forwarding or after looking at another part of the course.
+Important things that happen in the game are logged to the **event feed**. The feed is a scrolling list you can open at any time, from the **Feed** card on the Club tab (Manage → Club → Review → Feed) or with `N`. Unlike a toast, which disappears after a few seconds, the feed keeps every entry for the whole session, so you can catch up after fast-forwarding or after looking at another part of the course.
 
 Entries fall into eight **categories**:
 
@@ -28,7 +28,7 @@ Entries fall into eight **categories**:
 
 - **Info:** feed only, no toast.
 - **Normal:** a toast for 3.5 seconds, plus the feed.
-- **High:** a toast for 5 seconds, plus the feed. The feed button pulses.
+- **High:** a toast for 5 seconds, plus the feed. The Club tab's Feed card (and the Club and Manage buttons behind it) shows the unread count.
 - **Critical:** a toast that stays until you click it, plus the feed.
 
 **Fast-forward.** At fast speeds, toasts are shorter (2 seconds). At ultra speed, only the first three normal entries per category per game day show toasts. The rest are stored in the feed without a toast. When you slow back down to normal or pause, the feed shows a summary of the fast-forward: the days that passed, the rounds finished, the records set and the money gained or lost.

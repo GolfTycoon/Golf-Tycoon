@@ -46,6 +46,11 @@ signal hole_detail_changed(hole_number: int)
 ## the crew: Staff.
 signal staff_map_pressed
 signal marketing_pressed
+## The Club tab's Feed card: the course event feed (also the N hotkey).
+signal event_feed_pressed
+## The Feed card's unread count changed, so the dock can light the same
+## count on its Manage section button.
+signal feed_unread_count_changed(count: int)
 signal course_milestones_pressed
 signal world_milestones_pressed
 signal achievements_pressed
@@ -126,6 +131,7 @@ const TOOL_TAB_MAP := {
 	"scorecard": Tab.HOLES,
 	"review": Tab.CLUB,
 	"finance": Tab.CLUB,
+	"feed": Tab.CLUB,
 }
 
 ## The tool hotkeys this shelf dispatches. InputBindings owns their keys and
@@ -258,6 +264,12 @@ var _path_tile: TerrainTileButton = null  # Walking path tile leading the shelf
 var _course_tiles: TileHoneycomb = null
 var _elevation_selectors: TileHoneycomb = null  # Vertex / Flat Square / Gradual Square
 var _landscape_buttons: Array[Node] = []
+## The Club tab's Feed card and how many events it is holding unread. The
+## card moved here from the bottom-left control stack; the count is kept so
+## the Club tab button (and, through feed_unread_count_changed, the Manage
+## section button) can carry the same badge while the card is off screen.
+var feed_button: DockActionButton = null
+var feed_unread_count: int = 0
 var _selected_string_tool: String = ""
 var _refresh_timer: Timer = null
 var _staff_panel: StaffPanel = null
@@ -1116,6 +1128,8 @@ func select_player_section(index: int) -> void:
 ## and Milestone tabs folded into one shelf. Each former tab keeps
 ## its own labelled column, so its actions still read as a group: the
 ## company's maps lead, then the course's review and records and its milestones.
+## The event Feed sits in Review, beside the other ways of looking back at
+## how the course is doing — it used to be a circle in the bottom-left stack.
 func _build_club_tab(hbox: HBoxContainer) -> void:
 	var groups := [
 		["Maps", [
@@ -1125,6 +1139,7 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 		["Review", [
 			["aura_map", "Review", "review", "", "Course rating, feedback and next steps — now on the Course Map\'s Aura mode"],
 			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
+			["feed", "Feed", "feed", "N", "Course event feed: records, money, weather, tournaments and everything that has happened"],
 		]],
 		["Milestones", [
 			["course_milestones", "Course Milestones", "milestone", "G", "Per-location goals for this save"],
@@ -1144,8 +1159,28 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			button.hotkey = action[3]
 			button.tool_description = action[4]
 			button.tool_pressed.connect(_on_tool_button_pressed)
+			if action[0] == "feed":
+				button.name = "FeedBtn"
+				button.tooltip_text = "Course event feed (N)"
+				feed_button = button
 			row.add_child(button)
 		hbox.add_child(_make_tab_group(group[0].to_upper(), row, true))
+	set_feed_unread_count(feed_unread_count)
+
+## Light the Feed card's unread badge — and the Club tab button's, so the
+## count still shows while another Manage tab is open. The bottom dock
+## mirrors it onto the Manage section button through
+## feed_unread_count_changed, which keeps it visible from any section.
+func set_feed_unread_count(count: int) -> void:
+	feed_unread_count = count
+	if is_instance_valid(feed_button):
+		feed_button.notification_count = count
+		feed_button.tooltip_text = "Course event feed (N)" if count <= 0 \
+			else "Course event feed (N) — %d unread" % count
+	var club_tab := _tab_buttons.get(Tab.CLUB) as PixelCircleButton
+	if club_tab:
+		club_tab.notification_count = count
+	feed_unread_count_changed.emit(count)
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
@@ -1279,7 +1314,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "feed", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -2178,6 +2213,8 @@ func _on_tool_button_pressed(tool_type) -> void:
 				aura_map_pressed.emit()
 			"finance":
 				financial_overview_pressed.emit()
+			"feed":
+				event_feed_pressed.emit()
 
 func _update_selection_highlight() -> void:
 	for tool_type in _tool_buttons.keys():

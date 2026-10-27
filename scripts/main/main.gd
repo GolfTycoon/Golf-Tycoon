@@ -78,7 +78,7 @@ var marketing_panel: MarketingPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
 var inspect_btn: PixelCircleButton = null
-var feed_btn: PixelCircleButton = null  # Event feed toggle in the left control stack, between Menu and Inspect
+var feed_btn: DockActionButton = null  # Event feed toggle: the Feed card on the toolbar's Club tab
 var tile_inspector: TileInspector = null
 var map_btn: Button = null  # Map-icon toggle in the minimap's bottom-left corner; synced with MiniMap visibility
 const MAP_BUTTON_SIZE: float = 26.0
@@ -844,6 +844,8 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.holes_map_pressed.connect(_open_course_map_routing)
 	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
+	terrain_toolbar.event_feed_pressed.connect(_toggle_event_feed)
+	feed_btn = terrain_toolbar.feed_button
 	terrain_toolbar.course_milestones_pressed.connect(_toggle_course_milestones_screen)
 	terrain_toolbar.world_milestones_pressed.connect(_toggle_world_milestones_screen)
 	terrain_toolbar.achievements_pressed.connect(_toggle_achievements_screen)
@@ -3090,13 +3092,8 @@ func _create_menu_buttons() -> void:
 	menu_btn.pressed.connect(_on_menu_pressed)
 	left_controls.add_child(menu_btn)
 
-	feed_btn = PixelCircleButton.new()
-	feed_btn.name = "FeedBtn"
-	feed_btn.glyph = "feed"
-	feed_btn.accessibility_name = "Feed"
-	feed_btn.tooltip_text = "Course event feed (N)"
-	feed_btn.pressed.connect(_toggle_event_feed)
-	left_controls.add_child(feed_btn)
+	# The event Feed is not here any more: it is a card on the Club tab
+	# (Manage → Club → Review → Feed), wired up in _setup_terrain_toolbar.
 
 	inspect_btn = PixelCircleButton.new()
 	inspect_btn.name = "InspectBtn"
@@ -4444,8 +4441,10 @@ func _setup_event_feed() -> void:
 			event_feed_panel.append_event(entry)
 	)
 
-	# Surface the unread badge on the Feed button in the left control stack
+	# Surface the unread badge on the Club tab's Feed card (and, through the
+	# toolbar, on the Club tab and Manage section buttons behind it)
 	EventFeedManager.unread_count_changed.connect(_update_feed_unread)
+	_update_feed_unread(EventFeedManager.unread_count)
 
 func _toggle_event_feed() -> void:
 	# Event feed is a side panel, not a CenteredPanel, so handle independently
@@ -4453,9 +4452,10 @@ func _toggle_event_feed() -> void:
 		event_feed_panel.toggle()
 
 func _update_feed_unread(count: int) -> void:
-	if feed_btn:
-		feed_btn.notification_count = count
-		feed_btn.tooltip_text = "Course event feed (N) — %d unread" % count
+	# The toolbar owns the Feed card; it mirrors the count onto the Club tab
+	# and Manage section badges so unread events show from anywhere.
+	if terrain_toolbar:
+		terrain_toolbar.set_feed_unread_count(count)
 
 func _navigate_to_hole(hole_number: int) -> void:
 	if not GameManager.current_course:

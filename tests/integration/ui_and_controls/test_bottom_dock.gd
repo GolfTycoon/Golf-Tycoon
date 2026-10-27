@@ -35,6 +35,21 @@ func test_financial_overview_opens_as_a_fullscreen_dashboard() -> void:
 	assert_not_null(main.financial_panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/DashboardContent"), "The full-screen dashboard content is present")
 	main._on_financial_panel_closed()
 
+func test_event_feed_opens_from_the_club_tab() -> void:
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await process_frames(2)
+	var feed: Button = null
+	for node in nodes_of_class(main.terrain_toolbar.page_content(TerrainToolbar.Tab.CLUB), "Button"):
+		if node.get("tool_type") == "feed":
+			feed = node
+			break
+	assert_not_null(feed, "The Club tab carries the Feed card")
+	assert_eq(feed, main.feed_btn, "and it is the feed button main tracked")
+	assert_null(main.left_controls.get_node_or_null("FeedBtn"), "It left the bottom-left stack")
+	await click(feed)
+	assert_true(main.event_feed_panel.visible, "The Feed card opens the event feed")
+	main._toggle_event_feed()
+
 func test_marketing_opens_inside_the_same_financial_overview() -> void:
 	main._toggle_marketing_panel()
 	await process_frames(3)
@@ -71,7 +86,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		await set_window(window_size)
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
 		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
-		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"), main.feed_btn,
+		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
 			main.inspect_btn, main.rotate_ccw_btn, main.rotate_cw_btn,
 			main.pause_btn, main.play_btn, main.fast_btn]
 		for button in utility_buttons:
@@ -95,7 +110,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
-	buttons.append_array([main.left_controls.get_node("MenuBtn"), main.feed_btn, main.inspect_btn,
+	buttons.append_array([main.left_controls.get_node("MenuBtn"), main.inspect_btn,
 		main.rotate_ccw_btn, main.rotate_cw_btn, main.pause_btn, main.play_btn, main.fast_btn])
 	for i in buttons.size():
 		var first: Rect2 = buttons[i].get_global_rect()

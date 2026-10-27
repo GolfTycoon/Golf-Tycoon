@@ -70,7 +70,7 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 | --- | --- |
 | Financial Overview (fullscreen) | Manage → Club → Review → Financial Overview, or click the money display; `M` opens its Marketing page |
 | Tournament panel | From the HUD |
-| Event feed | From the HUD |
+| Event feed | `N`, or Manage → Club → Review → Feed |
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
@@ -83,11 +83,13 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 
 ### Bottom dock
 
-The bottom-left corner uses small pixel-art circle buttons for **Menu**, **Feed**,
+The bottom-left corner uses small pixel-art circle buttons for **Menu**,
 **Inspect**, both rotation directions, and **Pause / Play / Fast**. The fast button
 cycles between 3× and 8×; a cream tick marks Ultra and a lit ring marks the active
-speed. The heading letter stays between the rotation arrows. Feed lights a gold
-unread indicator, with the count in its tooltip.
+speed. The heading letter stays between the rotation arrows. The **Feed** lives on
+the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
+badge with the count in its tooltip, and the same count rides on the Club tab and
+Manage section buttons so unread events still show from anywhere.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf with small icon tabs down its left edge.
@@ -97,7 +99,7 @@ page. Switching sections remembers the last tab used in each.
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |
-| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
+| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview, Feed; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
 The **Club** tab folds what were four separate Manage tabs — Maps, Review,

@@ -1383,18 +1383,48 @@ func test_an_empty_register_keeps_one_column() -> void:
 	assert_string_contains(message.text, "Golfers will appear",
 		"It says what the empty register is waiting for")
 
-## The Feed button moved out of the Club tab into the left control stack
-## (between Menu and Inspect, built in main.gd), so the toolbar no longer
-## builds one or tracks its unread count.
-func test_feed_button_no_longer_lives_on_the_club_tab() -> void:
-	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("feed"),
-		"The toolbar no longer maps a feed tool to a tab")
+## The Feed button moved from the bottom-left control stack onto the Club
+## tab, as a card in the Review column like its neighbours, so the toolbar
+## builds it, opens the feed through its own signal and carries its badge.
+func test_feed_button_lives_on_the_club_tab() -> void:
+	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("feed"), TerrainToolbar.Tab.CLUB,
+		"The feed tool belongs to the Club tab")
+	assert_true(toolbar._is_menu_action("feed"),
+		"The feed opens a panel, so it is never a paint tool")
+	assert_false(toolbar._tool_buttons.has("feed"),
+		"A menu action holds no terrain tool selection")
 	var tool_types: Array = []
 	for card in _club_cards():
 		tool_types.append(card.tool_type)
-	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "finance",
+	assert_eq(tool_types, ["course_map", "world_map", "aura_map", "finance", "feed",
 		"course_milestones", "world_milestones", "achievements"],
-		"The Club tab's operations no longer include feed")
+		"The Club tab's Review column ends with the Feed card")
+
+	var feed: DockActionButton = toolbar.feed_button
+	assert_not_null(feed, "The toolbar keeps the Feed card")
+	assert_eq(feed, _club_cards()[4], "and it is the Club tab's Feed card")
+	assert_eq(feed.name, "FeedBtn", "keeping the name it had in the left stack")
+	assert_string_contains(feed.text, "Feed", "The card reads Feed")
+	assert_eq(feed.glyph, "feed", "and draws the feed icon")
+	assert_eq(feed.hotkey, "N", "and says which key opens it")
+	assert_string_contains(feed.tool_description, "event feed")
+
+	watch_signals(toolbar)
+	toolbar._on_tool_button_pressed("feed")
+	assert_signal_emitted(toolbar, "event_feed_pressed")
+	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB,
+		"The Feed card keeps the Club tab open behind the feed")
+
+	toolbar.set_feed_unread_count(3)
+	assert_eq(feed.notification_count, 3, "Unread events light the Feed badge")
+	assert_string_contains(feed.tooltip_text, "3 unread")
+	assert_eq(toolbar._tab_buttons[TerrainToolbar.Tab.CLUB].notification_count, 3,
+		"and the Club tab button carries it while another tab is open")
+	assert_signal_emitted_with_parameters(toolbar, "feed_unread_count_changed", [3])
+	toolbar.set_feed_unread_count(0)
+	assert_eq(feed.notification_count, 0, "Reading the feed clears the badge")
+	assert_eq(toolbar._tab_buttons[TerrainToolbar.Tab.CLUB].notification_count, 0,
+		"and the Club tab button clears with it")
 
 ## The World Map button moved from the pause menu into the Club tab's
 ## operations, so it is the tab that opens the company's atlas. The Course Map
@@ -2283,7 +2313,7 @@ func test_golfer_tabs_share_the_persistent_player_without_nested_navigation() ->
 func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> void:
 	var expected := [
 		["MAPS", ["course_map", "world_map"]],
-		["REVIEW", ["aura_map", "finance"]],
+		["REVIEW", ["aura_map", "finance", "feed"]],
 		["MILESTONES", ["course_milestones", "world_milestones", "achievements"]],
 	]
 	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
@@ -2305,7 +2335,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 			assert_eq(toolbar.current_tab, TerrainToolbar.Tab.CLUB)
 			assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE)
 	for signal_name in ["course_map_pressed", "world_map_pressed", "aura_map_pressed",
-			"financial_overview_pressed", "course_milestones_pressed",
+			"financial_overview_pressed", "event_feed_pressed", "course_milestones_pressed",
 			"world_milestones_pressed", "achievements_pressed"]:
 		assert_signal_emitted(toolbar, signal_name)
 

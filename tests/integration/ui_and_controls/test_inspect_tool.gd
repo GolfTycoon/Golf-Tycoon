@@ -1,8 +1,8 @@
 extends MainSceneTest
 ## The bottom bar's left control stack and the Inspect tool, in the real HUD
 ## (no course is generated: the HUD is shown over the empty grid). The stack
-## holds Menu, Feed and Inspect in that order and fits the bar; the Feed button
-## opens the event feed and carries the unread count; the Map button sits in the
+## holds Menu and Inspect in that order and fits the bar; the Feed card on the
+## Club tab opens the event feed and carries the unread count; the Map button sits in the
 ## minimap's corner, off its diamond, and follows the minimap. Inspect clears and
 ## blocks the other tools, Esc and right-click leave it, and hovering a tile
 ## shows its details without painting, measuring or spending.
@@ -31,26 +31,39 @@ func _escape() -> void:
 	await process_frames(1)
 
 
-func test_the_control_stack_holds_menu_feed_and_inspect() -> void:
+func test_the_control_stack_holds_menu_and_inspect() -> void:
 	assert_false(inspector_on_title_screen, "The inspector is hidden on the title screen")
 	assert_false(main.tile_inspector.visible, "Showing the HUD does not show the inspector")
 	var menu: Control = main.left_controls.get_node("MenuBtn")
-	var feed: Control = main.left_controls.get_node("FeedBtn")
-	assert_gte(feed.position.x, menu.position.x + menu.size.x, "Feed is beside Menu")
-	assert_gte(main.inspect_btn.position.x, feed.position.x + feed.size.x, "Inspect is beside Feed")
+	assert_null(main.left_controls.get_node_or_null("FeedBtn"),
+		"The Feed button has left the bottom-left stack for the Club tab")
+	assert_gte(main.inspect_btn.position.x, menu.position.x + menu.size.x, "Inspect is beside Menu")
+	assert_lte(main.inspect_btn.position.x - (menu.position.x + menu.size.x), 8.0,
+		"and closes up into the space the Feed button left")
 	assert_lte(main.left_controls.size.y, Screen.bottom_bar_height(), "The controls fit the responsive bottom bar")
 
 
-func test_the_feed_button_opens_the_feed_and_shows_the_unread_count() -> void:
+func test_the_club_tab_feed_card_opens_the_feed_and_shows_the_unread_count() -> void:
+	assert_false(main.left_controls.is_ancestor_of(main.feed_btn),
+		"The Feed button no longer lives in the bottom-left stack")
+	assert_true(main.terrain_toolbar.page_content(TerrainToolbar.Tab.CLUB).is_ancestor_of(main.feed_btn),
+		"It lives on the Club tab")
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	main.feed_btn.pressed.emit()
-	assert_true(main.event_feed_panel.visible, "The Feed button opens the event feed")
+	assert_true(main.event_feed_panel.visible, "The Feed card opens the event feed")
 	main.feed_btn.pressed.emit()
 	assert_false(main.event_feed_panel.visible, "and closes it")
 	main._update_feed_unread(3)
 	assert_eq(main.feed_btn.notification_count, 3, "Unread events light the Feed badge")
 	assert_string_contains(main.feed_btn.tooltip_text, "3 unread")
+	assert_eq(main.terrain_toolbar._tab_buttons[TerrainToolbar.Tab.CLUB].notification_count, 3,
+		"and the Club tab button carries the count behind the other Manage tabs")
+	assert_eq(main.left_controls.section_buttons[TerrainToolbar.Section.MANAGE].notification_count, 3,
+		"and the Manage section button carries it from every other section")
 	main._update_feed_unread(0)
 	assert_eq(main.feed_btn.notification_count, 0, "and clears with it")
+	assert_eq(main.left_controls.section_buttons[TerrainToolbar.Section.MANAGE].notification_count, 0,
+		"on every badge it lit")
 
 
 func test_the_map_button_sits_in_the_minimaps_corner_and_follows_it() -> void:

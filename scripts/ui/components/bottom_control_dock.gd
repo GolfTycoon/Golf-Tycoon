@@ -33,8 +33,12 @@ func setup(toolbar: TerrainToolbar) -> void:
 		section_buttons.append(button)
 	toolbar.section_changed.connect(_sync_section)
 	toolbar.section_visibility_changed.connect(_sync_visibility)
+	# The Feed card lives on the Club tab now, so its unread badge rides on
+	# the Manage section button to stay visible from every section.
+	toolbar.feed_unread_count_changed.connect(_sync_feed_unread)
 	_sync_section(toolbar.current_section)
 	_sync_visibility(toolbar.visible)
+	_sync_feed_unread(toolbar.feed_unread_count)
 	apply_screen()
 
 ## Reflow the fixed controls for the current viewport. The terrain shelf already
@@ -54,7 +58,7 @@ func apply_screen() -> void:
 		button.size = Vector2.ONE * SECTION_SIZES[i]
 		button.queue_redraw()
 
-	var utility_names := ["MenuBtn", "FeedBtn", "InspectBtn"]
+	var utility_names := ["MenuBtn", "InspectBtn"]
 	var utility_y := 96.0 if touch_layout else 88.0
 	var utility_gap := 2.0 if touch_layout else 4.0
 	for i in utility_names.size():
@@ -116,6 +120,12 @@ func _sync_section(section: int) -> void:
 	for i in section_buttons.size():
 		section_buttons[i].active = i == section and _section_open
 		section_buttons[i].set_pressed_no_signal(i == section and _section_open)
+
+## The Club tab's Feed card is only on screen while Manage is open on Club,
+## so the Manage button carries the unread count the rest of the time.
+func _sync_feed_unread(count: int) -> void:
+	if section_buttons.size() > TerrainToolbar.Section.MANAGE:
+		section_buttons[TerrainToolbar.Section.MANAGE].notification_count = count
 
 ## A hidden section lights no button, so the dock shows nothing as open.
 func _sync_visibility(open: bool) -> void:
