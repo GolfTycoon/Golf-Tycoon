@@ -128,6 +128,44 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 					"Touch targets %s and %s do not overlap" % [all_circles[i].accessibility_name, all_circles[j].accessibility_name])
 	await set_window(DESIGN_WINDOW)
 
+func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void:
+	# Finish at desktop to catch stale sizes or positions after growing for touch.
+	for window_size in [DESIGN_WINDOW, Vector2i(390, 844), Vector2i(844, 390), DESIGN_WINDOW]:
+		await set_window(window_size)
+		var dock: BottomControlDock = main.left_controls
+		var menu: PixelCircleButton = dock.get_node("MenuBtn")
+		var diameter := BottomControlDock.TOUCH_UTILITY_SIZE if Screen.uses_touch_layout() else BottomControlDock.DESKTOP_UTILITY_SIZE
+		var utilities: Array = [menu, main.pause_btn, main.speed_btn]
+		for i in utilities.size():
+			var button: PixelCircleButton = utilities[i]
+			var expected_size := diameter - i * BottomControlDock.UTILITY_SIZE_STEP
+			assert_eq(button.size, Vector2.ONE * expected_size, "Utility circles taper along the arc")
+			assert_eq(button.diameter, expected_size, "Drawing and hit target use the same diameter")
+			assert_true(dock.get_global_rect().encloses(button.get_global_rect()),
+				"Every utility stays inside the dock")
+		var pause_rect: Rect2 = main.pause_btn.get_global_rect()
+		var play_rect: Rect2 = main.speed_btn.get_global_rect()
+		var menu_center := menu.get_global_rect().get_center()
+		var pause_center := pause_rect.get_center()
+		var play_center := play_rect.get_center()
+		assert_lt(menu_center.x, pause_center.x, "Menu starts the arc at the left")
+		assert_lt(pause_center.x, play_center.x, "Play finishes the arc at the right")
+		assert_lt(menu_center.y, pause_center.y, "The arc descends from Menu to Pause")
+		assert_lt(pause_center.y, play_center.y, "The arc descends from Pause to Play")
+		assert_gt(play_center.y - pause_center.y, pause_center.y - menu_center.y,
+			"The arc bends down more steeply toward Play, like the section buttons")
+		assert_almost_eq(play_rect.end.y, dock.get_global_rect().end.y - BottomControlDock.UTILITY_BOTTOM, 0.5,
+			"Play anchors the end of the arc to the foot of the dock")
+		var buttons: Array = dock.section_buttons.duplicate()
+		buttons.append_array(utilities)
+		for i in buttons.size():
+			var first: Rect2 = buttons[i].get_global_rect()
+			for j in range(i + 1, buttons.size()):
+				var second: Rect2 = buttons[j].get_global_rect()
+				assert_gte(first.get_center().distance_to(second.get_center()),
+					(first.size.x + second.size.x) * 0.5,
+					"The enlarged circles never overlap adjacent controls")
+
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
 	buttons.append_array([main.left_controls.get_node("MenuBtn"),

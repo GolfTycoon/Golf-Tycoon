@@ -2,15 +2,19 @@ extends Control
 class_name BottomControlDock
 ## Fixed-footprint quarter wheel. Plain Control children keep circles round;
 ## the toolbar takes the remaining width and scrolls its content, not the HUD.
-## On compact/touch layouts the small utility buttons reflow to a taller dock
-## and grow to a comfortable 44px target.
+## The utility circles fill the space below Build and beside Golfers, growing
+## with the taller dock on compact/touch layouts.
 
 const WIDTH := 218.0
 const TOUCH_WIDTH := 220.0
 const SECTION_SIZES := [84.0, 74.0, 64.0]
 const SECTION_POSITIONS := [Vector2(8, 0), Vector2(99, 18), Vector2(144, 104)]
-const DESKTOP_UTILITY_SIZE := 32.0
-const TOUCH_UTILITY_SIZE := float(UIConstants.TOUCH_TARGET_SIZE)
+const DESKTOP_UTILITY_SIZE := 52.0
+const TOUCH_UTILITY_SIZE := 64.0
+const UTILITY_SIZE_STEP := 4.0
+const DESKTOP_UTILITY_POSITIONS := [Vector2(8, 88), Vector2(70, 96), Vector2(92, 144)]
+const TOUCH_UTILITY_POSITIONS := [Vector2(8, 92), Vector2(80, 106), Vector2(104, 174)]
+const UTILITY_BOTTOM := 2.0
 var section_buttons: Array[PixelCircleButton] = []
 var _current_section: int = 0
 var _section_open: bool = true
@@ -58,41 +62,26 @@ func apply_screen() -> void:
 		button.size = Vector2.ONE * SECTION_SIZES[i]
 		button.queue_redraw()
 
-	# Inspect left the dock for the Build tabs' pinned corner toggles (see
-	# TerrainToolbar._pin_inspect_button); Menu is the dock's only utility circle.
-	var utility_names := ["MenuBtn"]
-	var utility_y := 96.0 if touch_layout else 88.0
-	var utility_gap := 2.0 if touch_layout else 4.0
-	for i in utility_names.size():
-		var button := get_node_or_null(utility_names[i]) as Control
-		if button == null:
-			continue
-		button.custom_minimum_size = Vector2.ONE * utility_size
-		button.size = Vector2.ONE * utility_size
-		button.position = Vector2(8.0 + i * (utility_size + utility_gap), utility_y)
-		if button is PixelCircleButton:
-			button.diameter = utility_size
-			button.queue_redraw()
-
-	# The Rotate arrows left this dock for the top-left location banner; the
-	# speed controls keep the row above the dock's foot. The row fits its two
-	# circles exactly: pause and the combined speed toggle, 4px apart.
-	var speed := get_node_or_null("SpeedControls") as HBoxContainer
+	# Echo the section buttons' left-to-right descending arc, including their
+	# gently decreasing diameters. A plain Control keeps Pause and Play free
+	# to follow the curve instead of forcing them onto a horizontal row.
+	var positions := TOUCH_UTILITY_POSITIONS if touch_layout else DESKTOP_UTILITY_POSITIONS
+	var utility_paths := ["MenuBtn", "SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]
+	var speed := get_node_or_null("SpeedControls") as Control
 	if speed:
-		speed.position = Vector2(8.0, 188.0 if touch_layout else 156.0)
-		var speed_size := Vector2(utility_size * 2.0 + 4.0, utility_size)
-		speed.custom_minimum_size = speed_size
-		speed.size = speed_size
-		speed.add_theme_constant_override("separation", 4)
-		for child in speed.get_children():
-			if child is PixelCircleButton:
-				child.custom_minimum_size = Vector2.ONE * utility_size
-				child.size = Vector2.ONE * utility_size
-				child.diameter = utility_size
-				child.queue_redraw()
-		# Apply again after lowering child minima so the row can contract on desktop.
-		speed.custom_minimum_size = speed_size
-		speed.size = speed_size
+		speed.position = Vector2.ZERO
+		speed.size = custom_minimum_size
+	for i in utility_paths.size():
+		var button := get_node_or_null(utility_paths[i]) as PixelCircleButton
+		if button:
+			_size_utility_button(button, utility_size - i * UTILITY_SIZE_STEP)
+			button.position = positions[i]
+
+func _size_utility_button(button: PixelCircleButton, utility_size: float) -> void:
+	button.diameter = utility_size
+	button.custom_minimum_size = Vector2.ONE * utility_size
+	button.size = Vector2.ONE * utility_size
+	button.queue_redraw()
 
 func _sync_section(section: int) -> void:
 	_current_section = section

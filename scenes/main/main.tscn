@@ -84,13 +84,13 @@ custom_minimum_size = Vector2(218, 190)
 layout_mode = 2
 script = ExtResource("12_dock")
 
-[node name="SpeedControls" type="HBoxContainer" parent="UI/HUD/BottomBar/LeftControls" unique_id=1574521636]
+[node name="SpeedControls" type="Control" parent="UI/HUD/BottomBar/LeftControls" unique_id=1574521636]
 layout_mode = 0
-alignment = 1
+mouse_filter = 2
 
 [node name="PauseBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1287478317]
 custom_minimum_size = Vector2(32, 32)
-layout_mode = 2
+layout_mode = 0
 text = "||"
 script = ExtResource("11_circle")
 glyph = "pause"
@@ -99,7 +99,7 @@ accessibility_name = "Pause"
 
 [node name="SpeedBtn" type="Button" parent="UI/HUD/BottomBar/LeftControls/SpeedControls" unique_id=1738357492]
 custom_minimum_size = Vector2(32, 32)
-layout_mode = 2
+layout_mode = 0
 text = ">"
 script = ExtResource("11_circle")
 glyph = "play"

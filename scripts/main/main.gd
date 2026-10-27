@@ -25,7 +25,7 @@ var orientation_toggle: OrientationToggleButton = null
 ## and ">>>" at Ultra — one, two or three triangles on its face — and a press
 ## cycles to the next speed (see GameManager.cycle_running_speed).
 @onready var speed_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/SpeedBtn
-@onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
+@onready var speed_controls: Control = $UI/HUD/BottomBar/LeftControls/SpeedControls
 # New UI components
 var player_round: PlayerRoundManager
 

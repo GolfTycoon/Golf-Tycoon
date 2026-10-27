@@ -29,10 +29,12 @@ func test_pause_and_one_speed_button_fill_the_stack() -> void:
 	assert_null(main.speed_controls.get_node_or_null("UltraBtn"), "No separate Ultra button")
 	var dock: BottomControlDock = main.left_controls
 	assert_almost_eq(dock.size.y, main.bottom_bar.size.y, 0.5)
-	for button in [main.pause_btn, speed]:
-		assert_eq(button.size, Vector2(32, 32), "Small circular controls stay square")
+	for i in 2:
+		var button: PixelCircleButton = [main.pause_btn, speed][i]
+		var diameter := BottomControlDock.DESKTOP_UTILITY_SIZE - (i + 1) * BottomControlDock.UTILITY_SIZE_STEP
+		assert_eq(button.size, Vector2.ONE * diameter, "Arc controls stay square")
 		assert_true(dock.get_global_rect().encloses(button.get_global_rect()))
-	assert_almost_eq(main.speed_controls.position.y + speed.size.y, dock.size.y - 2, 0.5)
+	assert_almost_eq(speed.position.y + speed.size.y, dock.size.y - 2, 0.5)
 
 
 func test_speed_button_cycles_through_all_three_speeds() -> void:
