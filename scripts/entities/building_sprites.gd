@@ -56,9 +56,15 @@ static func register_mod_sprite(kind: String, texture_value: Texture2D, draw_rec
 	if texture_value == null:
 		return
 	_mod_sprites[kind] = {"texture": texture_value, "rect": draw_rect}
+	# A mod (re)registering art for this kind must not be served the
+	# silhouette traced from the art it replaced (see `click_polygons()`).
+	for cached_key in _click_polygons.keys():
+		if str(cached_key).begins_with(kind + "|"):
+			_click_polygons.erase(cached_key)
 
 static func clear_mod_sprites() -> void:
 	_mod_sprites.clear()
+	_click_polygons.clear()
 
 static func has_sprite(kind: String) -> bool:
 	return _mod_sprites.has(kind) or manifest().get("buildings", {}).has(kind)
@@ -176,6 +182,76 @@ static func painted_rect(kind: String, tier: int, facing: int) -> Rect2:
 	return Rect2(
 			art_rect.position + Vector2(float(used.position.x), float(used.position.y)) * world_per_pixel,
 			Vector2(float(used.size.x), float(used.size.y)) * world_per_pixel)
+
+static var _click_polygons: Dictionary = {}
+
+## The clickable silhouette of a sprite, in the building node's local draw
+## space: polygons traced around the texture's opaque pixels and mapped
+## through the same image-pixel -> world-pixel mapping `painted_rect()`
+## uses. A building is drawn from its footprint diamond up to a roof that
+## overhangs the tiles above and below that diamond, so neither the
+## footprint rectangle nor the sprite's bounding box lines up with the
+## picture: the traced outline is the area the player actually sees, and
+## therefore the area a click should answer to. Results are cached — a
+## silhouette is traced once per kind, tier and facing, not per building.
+##
+## A kind with no sprite gets the silhouette of the procedural stand-in
+## `_draw_fallback()` paints: its footprint diamond extruded up by the
+## stand-in's wall height.
+static func click_polygons(kind: String, tier: int, facing: int,
+		footprint: Vector2) -> Array:
+	var key := "%s|%d|%d|%dx%d" % [kind, tier_for(kind, tier),
+			wrapi(facing, 0, FACINGS.size()), int(footprint.x), int(footprint.y)]
+	if _click_polygons.has(key):
+		return (_click_polygons[key] as Array).duplicate()
+	var polygons: Array = []
+	var art_rect := rect(kind, tier, facing)
+	var tex := texture(kind, tier, facing)
+	var image: Image = tex.get_image() if tex != null else null
+	if image != null and not image.is_empty() and art_rect.size.x > 0.0 \
+			and art_rect.size.y > 0.0:
+		var bitmap := BitMap.new()
+		bitmap.create_from_image_alpha(image, 0.1)
+		var world_per_pixel := art_rect.size / Vector2(image.get_size())
+		for traced in bitmap.opaque_to_polygons(
+				Rect2i(Vector2i.ZERO, image.get_size()), 2.0):
+			if traced.size() < 3:
+				continue
+			var polygon := PackedVector2Array()
+			polygon.resize(traced.size())
+			for i in range(traced.size()):
+				polygon[i] = art_rect.position + traced[i] * world_per_pixel
+			polygons.append(polygon)
+	if polygons.is_empty():
+		var painted := painted_rect(kind, tier, facing)
+		if painted.size.x > 0.0 and painted.size.y > 0.0:
+			# The sprite exists but traced to nothing usable (or has no
+			# opaque pixels to trace): its painted bounding box is still a
+			# far closer answer than the footprint rectangle.
+			polygons.append(PackedVector2Array([
+				painted.position, painted.position + Vector2(painted.size.x, 0.0),
+				painted.end, painted.position + Vector2(0.0, painted.size.y)]))
+		else:
+			var silhouette := _fallback_silhouette(footprint, facing)
+			if silhouette.size() >= 3:
+				polygons.append(silhouette)
+	_click_polygons[key] = polygons.duplicate()
+	return polygons
+
+## The outline of the procedural stand-in: the footprint diamond (north,
+## east, south, west corners) with its far edges lifted by the wall height
+## `_draw_fallback()` gives it, walked around the outside.
+static func _fallback_silhouette(footprint: Vector2, facing: int) -> PackedVector2Array:
+	if footprint.x <= 0.0 or footprint.y <= 0.0:
+		return PackedVector2Array()
+	var corners := CourseArchitecture.footprint_corners(footprint, facing)
+	if corners.size() < 4:
+		return PackedVector2Array()
+	var wall_height: float = clampf(minf(footprint.x, footprint.y) * 0.35, 10.0, 42.0)
+	var up := Vector2(0.0, -wall_height)
+	return PackedVector2Array([
+		corners[3], corners[2], corners[1], corners[1] + up,
+		corners[0] + up, corners[3] + up])
 
 ## How tall the facility draws above its own footprint, in world pixels. Used
 ## by tests and menu copy; the art itself needs nothing from the manifest.

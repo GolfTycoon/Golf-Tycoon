@@ -259,6 +259,88 @@ func test_the_clubhouse_grows_without_leaving_its_square() -> void:
 	assert_gt(heights[2], heights[1], "The third tier is taller than the second")
 
 # ---------------------------------------------------------------------------
+# The clickable area is the sprite, not the footprint rectangle
+# ---------------------------------------------------------------------------
+
+func _polygons_bounds(polygons: Array) -> Rect2:
+	var bounds := Rect2()
+	var first := true
+	for polygon in polygons:
+		for point in polygon:
+			if first:
+				bounds = Rect2(point, Vector2.ZERO)
+				first = false
+			else:
+				bounds = bounds.expand(point)
+	return bounds
+
+func _point_is_clickable(polygons: Array, point: Vector2) -> bool:
+	for polygon in polygons:
+		if Geometry2D.is_point_in_polygon(point, polygon):
+			return true
+	return false
+
+func test_click_polygons_trace_the_painted_sprite_at_every_rotation() -> void:
+	# The old click area was the rectangle (0, 0, footprint width, footprint
+	# depth): it stopped dead at the footprint's bottom edge while every
+	# sprite paints well below it, and it answered for the empty rectangle
+	# corners beside the diamond. The traced silhouette has to cover the
+	# painted sprite instead — all of it, and at every view rotation.
+	for building_type in registry:
+		var kind := str(building_type)
+		var size := _size_of(kind)
+		for facing in range(4):
+			var polygons: Array = BuildingSprites.click_polygons(kind, 1, facing, size)
+			assert_false(polygons.is_empty(),
+				"%s has a clickable silhouette at rotation %d" % [kind, facing])
+			if polygons.is_empty():
+				continue
+			var painted := _painted_rect(kind, 1, facing)
+			var bounds := _polygons_bounds(polygons)
+			assert_almost_eq(bounds.position.x, painted.position.x, 3.0,
+				"%s at rotation %d: click area starts where the sprite does" % [kind, facing])
+			assert_almost_eq(bounds.position.y, painted.position.y, 3.0,
+				"%s at rotation %d: click area rises to the sprite's top" % [kind, facing])
+			assert_almost_eq(bounds.end.x, painted.end.x, 3.0,
+				"%s at rotation %d: click area ends where the sprite does" % [kind, facing])
+			assert_almost_eq(bounds.end.y, painted.end.y, 3.0,
+				"%s at rotation %d: click area reaches the sprite's foot" % [kind, facing])
+			# The sprite paints below the old rectangle's bottom edge (the
+			# footprint depth), and the click area now follows it there.
+			assert_gt(bounds.end.y, size.y,
+				"%s at rotation %d: the click area reaches below the old rectangle"
+					% [kind, facing])
+
+func test_a_placed_buildings_click_area_matches_and_turns_with_its_sprite() -> void:
+	var building := entities.place_building("clubhouse", POS, registry)
+	assert_not_null(building, "the clubhouse is placed")
+	if building == null:
+		return
+	var size := _size_of("clubhouse")
+	for facing in range(4):
+		grid.set_view_orientation(facing)
+		building.set_position_in_grid(POS)
+		var polygons: Array = building.get_click_polygons()
+		assert_false(polygons.is_empty(),
+			"the placed clubhouse is clickable at rotation %d" % facing)
+		var painted := _painted_rect("clubhouse", 1, facing)
+		var bounds := _polygons_bounds(polygons)
+		assert_almost_eq(bounds.position.y, painted.position.y, 3.0,
+			"rotation %d: the click area rises to the roof" % facing)
+		assert_almost_eq(bounds.end.y, painted.end.y, 3.0,
+			"rotation %d: the click area reaches the foot of the walls" % facing)
+		# The top-left corner of the old footprint rectangle is empty air
+		# beside the building at this rotation: it must not answer a click.
+		assert_false(_point_is_clickable(polygons, Vector2(2.0, 2.0)),
+			"rotation %d: empty air beside the footprint is not clickable" % facing)
+		# But the foot of the walls, below that rectangle's bottom edge, does.
+		var foot := Vector2(painted.get_center().x, painted.end.y - 4.0)
+		assert_gt(foot.y, size.y,
+			"rotation %d: the test foot is below the old click rectangle" % facing)
+		assert_true(_point_is_clickable(polygons, foot),
+			"rotation %d: the foot of the sprite is clickable" % facing)
+
+# ---------------------------------------------------------------------------
 # Art resolution is independent of the draw space
 # ---------------------------------------------------------------------------
 
