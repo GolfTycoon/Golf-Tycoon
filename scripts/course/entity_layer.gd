@@ -13,6 +13,8 @@ var decorations: Dictionary = {}   # key: Vector2i (grid_pos), value: Decoration
 var terrain_grid: TerrainGrid
 var building_registry: Dictionary = {}  # Can accept either Node or Dictionary
 var decoration_registry: Dictionary = {}  # Loaded from data/decorations.json
+## Store original terrain for building footprints: key: Vector2i (building grid_pos), value: Dictionary of {tile_pos: {type: int, elevation: int}}
+var _building_original_terrain: Dictionary = {}
 
 ## Map seed for deterministic prop variations
 ## Set once at game start or load for consistent visual results
@@ -115,11 +117,84 @@ func place_building(building_type: String, grid_pos: Vector2i, registry) -> Buil
 	building.building_selected.connect(_on_building_selected)
 	building.building_destroyed.connect(_on_building_destroyed)
 	
+	# Change terrain tiles underneath the building to ROUGH with same elevation
+	# This ensures buildings are placed on consistent terrain
+	if terrain_grid:
+		var footprint_width = int(new_width)
+		var footprint_height = int(new_height)
+		
+		# Store original terrain for restoration when building is removed/moved
+		var original_terrain: Dictionary = {}
+		var needs_terrain_change: bool = false
+		
+		# First pass: check if terrain needs to be changed
+		# Get the elevation of the first tile in the footprint as reference
+		var target_elevation = terrain_grid.get_elevation(grid_pos)
+		
+		for x in range(footprint_width):
+			for y in range(footprint_height):
+				var tile_pos = grid_pos + Vector2i(x, y)
+				if terrain_grid.is_valid_position(tile_pos):
+					var current_type = terrain_grid.get_tile(tile_pos)
+					var current_elevation = terrain_grid.get_elevation(tile_pos)
+					
+					# Store original terrain and elevation
+					original_terrain[tile_pos] = {
+						"type": current_type,
+						"elevation": current_elevation
+					}
+					
+					# Check if this tile needs to be changed
+					if current_type != TerrainTypes.Type.ROUGH or current_elevation != target_elevation:
+						needs_terrain_change = true
+		
+		# Only modify terrain if it's not already ROUGH with the same elevation
+		if needs_terrain_change:
+			for x in range(footprint_width):
+				for y in range(footprint_height):
+					var tile_pos = grid_pos + Vector2i(x, y)
+					if terrain_grid.is_valid_position(tile_pos):
+						# Set tile type to ROUGH
+						terrain_grid.set_tile(tile_pos, TerrainTypes.Type.ROUGH)
+						# Set elevation to match the first tile
+						terrain_grid.set_elevation(tile_pos, target_elevation)
+		
+		# Store the original terrain for this building
+		_building_original_terrain[grid_pos] = original_terrain
+	
 	building_placed.emit(building, building_data.get("cost", 0))
 	return building
 
 func get_building_at(grid_pos: Vector2i) -> Building:
 	return buildings.get(grid_pos, null)
+
+func _restore_building_terrain(building_pos: Vector2i) -> void:
+	"""Restore the original terrain for a building's footprint."""
+	if not terrain_grid:
+		return
+	var original_terrain = _building_original_terrain.get(building_pos, {})
+	if original_terrain.is_empty():
+		# No stored original terrain, nothing to restore
+		return
+	
+	# Get the building to know its footprint
+	var building = buildings.get(building_pos, null)
+	if building == null:
+		# Building might already be removed, try to get its size from stored data
+		# For now, just restore all tiles we have stored
+		for tile_pos in original_terrain:
+			var data = original_terrain[tile_pos]
+			terrain_grid.set_tile(tile_pos, data.get("type", TerrainTypes.Type.GRASS))
+			terrain_grid.set_elevation(tile_pos, data.get("elevation", terrain_grid.BASE_ELEVATION))
+		return
+	
+	# Restore terrain for each tile in the building's footprint
+	var footprint = building.get_footprint()
+	for tile_pos in footprint:
+		if original_terrain.has(tile_pos):
+			var data = original_terrain[tile_pos]
+			terrain_grid.set_tile(tile_pos, data.get("type", TerrainTypes.Type.GRASS))
+			terrain_grid.set_elevation(tile_pos, data.get("elevation", terrain_grid.BASE_ELEVATION))
 
 func get_buildings_in_area(top_left: Vector2i, bottom_right: Vector2i) -> Array:
 	"""Get all buildings within the specified area"""
@@ -144,8 +219,13 @@ func remove_building(grid_pos: Vector2i, force: bool = false) -> void:
 	# the layer regardless (see clear_all).
 	if not force and building.is_required():
 		return
+	
+	# Restore original terrain for the building's footprint
+	_restore_building_terrain(grid_pos)
+	
 	building.destroy()
 	buildings.erase(grid_pos)
+	_building_original_terrain.erase(grid_pos)
 	building_removed.emit(grid_pos)
 
 ## Move a building to a new top-left tile, keeping its node — upgrade level,
@@ -158,9 +238,53 @@ func move_building(building: Building, new_pos: Vector2i) -> bool:
 	var old_pos: Vector2i = building.grid_position
 	if old_pos == new_pos:
 		return false
+	
+	# Restore original terrain at the old position
+	_restore_building_terrain(old_pos)
+	_building_original_terrain.erase(old_pos)
+	
 	buildings.erase(old_pos)
 	building.set_position_in_grid(new_pos)
 	buildings[new_pos] = building
+	
+	# Apply ROUGH terrain to the new position's footprint
+	# We need to store the original terrain for the new position
+	if terrain_grid:
+		var footprint = building.get_footprint()
+		var original_terrain: Dictionary = {}
+		var needs_terrain_change: bool = false
+		
+		# Get the elevation of the first tile in the new footprint as reference
+		var target_elevation = terrain_grid.get_elevation(new_pos)
+		
+		# First pass: check if terrain needs to be changed and store original
+		for tile_pos in footprint:
+			if terrain_grid.is_valid_position(tile_pos):
+				var current_type = terrain_grid.get_tile(tile_pos)
+				var current_elevation = terrain_grid.get_elevation(tile_pos)
+				
+				# Store original terrain and elevation
+				original_terrain[tile_pos] = {
+					"type": current_type,
+					"elevation": current_elevation
+				}
+				
+				# Check if this tile needs to be changed
+				if current_type != TerrainTypes.Type.ROUGH or current_elevation != target_elevation:
+					needs_terrain_change = true
+		
+		# Only modify terrain if it's not already ROUGH with the same elevation
+		if needs_terrain_change:
+			for tile_pos in footprint:
+				if terrain_grid.is_valid_position(tile_pos):
+					# Set tile type to ROUGH
+					terrain_grid.set_tile(tile_pos, TerrainTypes.Type.ROUGH)
+					# Set elevation to match the first tile
+					terrain_grid.set_elevation(tile_pos, target_elevation)
+		
+		# Store the original terrain for the new position
+		_building_original_terrain[new_pos] = original_terrain
+	
 	building_moved.emit(building, old_pos, new_pos)
 	return true
 
@@ -324,6 +448,7 @@ func clear_all() -> void:
 		# it. clear_all means "empty", not "demolish what the rules allow".
 		buildings[pos].destroy(true)
 	buildings.clear()
+	_building_original_terrain.clear()
 	for pos in decorations.keys():
 		decorations[pos].destroy()
 	decorations.clear()
