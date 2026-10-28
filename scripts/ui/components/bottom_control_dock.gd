@@ -93,7 +93,7 @@ func apply_screen() -> void:
 			inner_circles.append(_circle_of(button))
 
 	# Shape the backdrop's fan around the circles as they now stand: the
-	# rim sweeps across the section medallions, the utilities echo inside.
+	# rim curves around the section medallions, the utilities echo inside.
 	# Pause and Speed sit under SpeedControls, which the loop above keeps
 	# at this control's origin, so their positions are already local here.
 	if _backdrop:

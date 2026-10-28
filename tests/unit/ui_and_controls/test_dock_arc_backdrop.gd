@@ -71,34 +71,25 @@ func test_the_fan_is_painted_at_the_medallions_two_pixel_grain() -> void:
 			"and half height, drawn back up with nearest filtering")
 
 
-func test_the_rim_is_one_arc_swept_across_the_section_medallions() -> void:
-	var hub := Vector2(0.0, float(UIConstants.BOTTOM_BAR_HEIGHT))
-	var outer := _outer()
-	var anchors := DockArcBackdrop.rim_anchors(outer, hub)
-	assert_eq(anchors.size(), outer.size() + 2,
-			"one anchor per medallion, plus the synthetic anchors that run " \
-			+ "the arc off the top and right edges - never a scallop per circle")
-	for i in outer.size():
-		var circle: Vector3 = outer[i]
-		var center := Vector2(circle.x, circle.y)
-		var anchor: Vector2 = anchors[i + 1]
-		assert_almost_eq(anchor.distance_to(center),
-				circle.z * DockArcBackdrop.RIM_CROSS_FRACTION, 0.01,
-				"the rim crosses the medallion at %s part way across its face" % str(circle))
-		assert_gt(anchor.distance_to(hub), center.distance_to(hub),
-				"on the hub ray, outward from the centre")
-	var curve := DockArcBackdrop.rim_curve(outer, hub)
-	assert_gt(curve.size(), 40, "the rim is a densely sampled spline")
-	for circle: Vector3 in outer:
-		var clearance := INF
-		for point in curve:
-			clearance = minf(clearance,
-					point.distance_to(Vector2(circle.x, circle.y)) - circle.z)
-		assert_lt(clearance, -circle.z * 0.5,
-				"the rim cuts across the medallion at %s, " % str(circle) \
-				+ "so more than half its radius pokes past the border")
-		assert_gt(clearance, -circle.z * 0.75,
-				"but the arc still crosses its face well outside the centre")
+func test_the_rim_is_a_single_smooth_quarter_ellipse() -> void:
+	for height in [UIConstants.BOTTOM_BAR_HEIGHT, UIConstants.TOUCH_BOTTOM_BAR_HEIGHT]:
+		var hub := Vector2(0.0, float(height))
+		var curve := DockArcBackdrop.rim_curve(_outer(), hub)
+		assert_gt(curve.size(), 40, "the rim is densely sampled")
+		var radius_x := 0.0
+		for circle: Vector3 in _outer():
+			radius_x = maxf(radius_x, circle.x + circle.z)
+		radius_x += DockArcBackdrop.RIM_SIDE_MARGIN
+		var radius_y := hub.y + DockArcBackdrop.RIM_TOP_LIFT
+		for i in curve.size():
+			var p := curve[i] - hub
+			assert_almost_eq(pow(p.x / radius_x, 2) + pow(p.y / radius_y, 2),
+					1.0, 0.001, "every point lies on the same ellipse")
+			if i > 0:
+				assert_gte(curve[i].x, curve[i - 1].x, "the rim never doubles back")
+				assert_gte(curve[i].y, curve[i - 1].y, "the rim descends smoothly")
+				assert_lt(curve[i].distance_to(curve[i - 1]), 3.0,
+						"samples stay close even on the steep end")
 
 
 func test_turf_fills_the_corner_and_the_course_shows_above_the_rim() -> void:
@@ -109,16 +100,9 @@ func test_turf_fills_the_corner_and_the_course_shows_above_the_rim() -> void:
 		for circle: Vector3 in _outer() + _inner(touch):
 			assert_eq(_at(image, Vector2(circle.x, circle.y)).a, 1.0,
 					"the medallion at %s sits on the fan (touch=%s)" % [str(circle), touch])
-		# ...but each section medallion's outer face is open to the
-		# course: it sits astride the rim and pokes out past the border,
-		# instead of the backdrop wrapping around it.
-		var hub := Vector2(0.0, canvas.y)
-		for circle: Vector3 in _outer():
-			var center := Vector2(circle.x, circle.y)
-			var face := center + (center - hub).normalized() * (circle.z - 3.0)
-			assert_eq(_at(image, face).a, 0.0,
-					"the outer face of the medallion at %s pokes past " % str(circle) \
-					+ "the border over the course (touch=%s)" % touch)
+		# The course is visible outside the curved edge.
+		assert_eq(_at(image, Vector2(canvas.x - 8.0, 30.0)).a, 0.0,
+				"the space beyond the arc remains open (touch=%s)" % touch)
 		# The fan anchors to the screen's corner and bottom edge.
 		assert_eq(image.get_pixel(0, image.get_height() - 1).a, 1.0,
 				"the bottom-left corner is turf")
