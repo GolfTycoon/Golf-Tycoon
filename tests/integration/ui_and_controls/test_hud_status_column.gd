@@ -36,3 +36,17 @@ func test_a_course_with_every_feature_shows_every_row() -> void:
 	})
 	for field in ["_weather_row", "_wind_row", "_season_row"]:
 		assert_true(_row_visible(column, field), "%s is shown for a course playing with it" % field)
+
+func test_live_course_populates_rating_stars_and_hover_tooltip() -> void:
+	var column: HUDStatusColumn = await _start_with_features({
+		"weather": false, "wind": false, "seasons": false,
+	})
+	var rating_row: Control = column.get("_rating_row")
+	var stars := rating_row.get_node_or_null("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+	var action := rating_row.get_node_or_null("Action") as Button
+	assert_not_null(stars, "live HUD rating row carries CourseRatingStars")
+	assert_true(stars.rated, "starting a course populates the star icons")
+	assert_gte(stars.stars, 1.0, "live course rating is within the 1..5 star range")
+	assert_true(action.tooltip_text.contains("%.1f" % stars.stars),
+		"hover tooltip shows the live numeric rating (got: %s)" % action.tooltip_text)
+

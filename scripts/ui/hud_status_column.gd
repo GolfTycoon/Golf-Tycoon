@@ -44,7 +44,7 @@ var _reputation_row: PanelContainer
 var _reputation_icon: TextureRect
 var _reputation_label: Label
 var _rating_row: PanelContainer
-var _rating_label: Label
+var _rating_stars: CourseRatingStars
 var _weather_row: PanelContainer
 var _weather_icon: TextureRect
 var _weather_label: Label
@@ -57,6 +57,8 @@ var _environment_block: VBoxContainer
 # State
 ## Change in the balance since the last money_changed signal, for the trend mark.
 var _money_trend_value: int = 0
+var _has_rating: bool = false
+var _rating_value: float = 0.0
 
 func _ready() -> void:
 	add_to_group(UIConstants.HUD_COLUMN_GROUP)
@@ -126,12 +128,14 @@ func _build_ui() -> void:
 	_reputation_label = _reputation_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	column.add_child(_reputation_row)
 
-	# Course rating
+	# Course rating: five faceted star icons inside the value pill, with the
+	# numeric rating surfaced in the hover tooltip.
 	_rating_row = _create_row("RatingRow", "Rating", PixelIcon.Kind.STAR,
-		UIConstants.COLOR_GOLD, _on_rating_pressed, "Course rating (click for details)")
-	_rating_label = _rating_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
-	_set_value_text(_rating_label, "-- (-.--)")
-	_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+		UIConstants.COLOR_GOLD, _on_rating_pressed, format_rating_tooltip(0.0, false), false)
+	_rating_stars = CourseRatingStars.new(_is_compact())
+	_rating_stars.name = "Stars"
+	_rating_row.get_node("Content/ValueBackground/ValueContent").add_child(_rating_stars)
+	_refresh_rating_tooltip()
 	column.add_child(_rating_row)
 
 	# Weather and wind: one block, so the pair leaves the column together.
@@ -155,7 +159,8 @@ func _build_ui() -> void:
 ## Build one status row: a rounded value background and a raised icon circle.
 ## A row with `on_pressed` is clickable and focusable as a whole.
 func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: Color,
-		on_pressed: Callable = Callable(), tooltip: String = "") -> PanelContainer:
+		on_pressed: Callable = Callable(), tooltip: String = "",
+		with_value_label: bool = true) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = row_name
 	card.custom_minimum_size = Vector2(0, ROW_HEIGHT)
@@ -165,6 +170,7 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 		else Control.MOUSE_FILTER_IGNORE
 
 	if on_pressed.is_valid():
+		card.tooltip_text = tooltip
 		var action := Button.new()
 		action.name = "Action"
 		action.text = ""
@@ -195,7 +201,8 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 	value_content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
 	value_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	value_background.add_child(value_content)
-	value_content.add_child(_create_value_label())
+	if with_value_label:
+		value_content.add_child(_create_value_label())
 
 	var icon_background := PanelContainer.new()
 	icon_background.name = "IconBackground"
@@ -336,9 +343,10 @@ func apply_screen() -> void:
 	if not is_inside_tree():
 		return
 	custom_minimum_size.x = _column_width()
-	# Refit values to the new width, including the season leaf and name.
+	# Refit values to the new width, including the season leaf, name and stars.
 	_update_all()
-	_set_value_text(_rating_label, _rating_label.text)
+	if _rating_stars:
+		_rating_stars.set_compact(_is_compact())
 	_apply_anchors()
 
 ## Keep the panel exactly as tall as its content (anchored controls need an
@@ -364,11 +372,14 @@ func _connect_signals() -> void:
 		eb.reputation_changed.connect(_on_reputation_changed)
 		eb.weather_changed.connect(_on_weather_changed)
 		eb.wind_changed.connect(_on_wind_changed)
+		if eb.has_signal("course_rating_changed"):
+			eb.course_rating_changed.connect(_on_course_rating_changed)
 
 func _update_all() -> void:
 	_update_money()
 	_update_season()
 	_update_reputation()
+	_update_rating_from_game()
 	_update_weather()
 	_update_wind()
 	_update_feature_rows()
@@ -579,18 +590,47 @@ func _on_rating_pressed() -> void:
 	rating_clicked.emit()
 
 func update_rating(stars: float) -> void:
-	if _rating_label == null:
+	if _rating_stars == null:
 		return
-	var display := CourseRatingSystem.get_star_display(stars)
-	_set_value_text(_rating_label, "%s (%.1f)" % [display, stars])
-	if stars >= 4.0:
-		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-	elif stars >= 3.0:
-		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
-	elif stars >= 2.0:
-		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING)
+	if stars <= 0.0:
+		_has_rating = false
+		_rating_value = 0.0
+		_rating_stars.set_unrated()
 	else:
-		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_DANGER)
+		_has_rating = true
+		_rating_value = clampf(stars, 0.0, float(CourseRatingStars.STAR_COUNT))
+		_rating_stars.set_rating(_rating_value)
+	_refresh_rating_tooltip()
+
+static func format_rating_tooltip(stars: float, rated: bool = true) -> String:
+	if not rated or stars <= 0.0:
+		return "Course rating: Unrated (click for details)"
+	var clamped := clampf(stars, 0.0, float(CourseRatingStars.STAR_COUNT))
+	var tier := CourseRatingSystem.get_rating_text(clampi(roundi(clamped), 1, 5))
+	return "Course rating: %.1f / 5.0 (%s) — click for details" % [clamped, tier]
+
+func _refresh_rating_tooltip() -> void:
+	if _rating_row == null:
+		return
+	var tip := format_rating_tooltip(_rating_value, _has_rating)
+	_rating_row.tooltip_text = tip
+	var action := _rating_row.get_node_or_null("Action") as Button
+	if action:
+		action.tooltip_text = tip
+		action.accessibility_description = tip
+
+func _update_rating_from_game() -> void:
+	if not has_node("/root/GameManager"):
+		return
+	var gm := get_node("/root/GameManager")
+	if gm.get("current_course") == null:
+		return
+	var rating = gm.get("course_rating")
+	if rating is Dictionary and rating.has("overall"):
+		update_rating(float(rating["overall"]))
+
+func _on_course_rating_changed(rating: Dictionary) -> void:
+	update_rating(float(rating.get("overall", 3.0)))
 
 func _on_money_changed(old_amount: int, new_amount: int) -> void:
 	_money_trend_value = new_amount - old_amount

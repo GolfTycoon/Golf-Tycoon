@@ -124,10 +124,16 @@ func test_every_row_is_a_card_with_a_background_a_border_an_icon_and_a_value() -
 			assert_eq(icon.custom_minimum_size, Vector2(HUDStatusColumn.ICON_SIZE,
 				HUDStatusColumn.ICON_SIZE), "%s's icon uses the enlarged pixel grid" % field)
 
-		var value := card.get_node_or_null("Content/ValueBackground/ValueContent/Value") as Label
-		assert_not_null(value, "%s carries a value" % field)
-		if value:
-			assert_ne(value.text, "", "%s shows its value" % field)
+		if field == "_rating_row":
+			var stars := card.get_node_or_null("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+			assert_not_null(stars, "RatingRow carries star icons in its value background")
+			assert_null(card.get_node_or_null("Content/ValueBackground/ValueContent/Value"),
+				"RatingRow shows no text value label inside the pill")
+		else:
+			var value := card.get_node_or_null("Content/ValueBackground/ValueContent/Value") as Label
+			assert_not_null(value, "%s carries a value" % field)
+			if value:
+				assert_ne(value.text, "", "%s shows its value" % field)
 
 func test_rows_show_values_before_right_hand_icons_without_titles() -> void:
 	_set_features(true, true, true)
@@ -175,9 +181,14 @@ func test_cards_are_double_height() -> void:
 		var card := _row(column, field)
 		assert_almost_eq(card.size.y, 48.0, 0.5, "%s is 48 pixels tall" % field)
 		var icon := card.get_node("Content/IconBackground/Icon") as TextureRect
-		var value := card.get_node("Content/ValueBackground/ValueContent/Value") as Label
 		assert_eq(icon.custom_minimum_size, Vector2(32, 32), "the icon is doubled")
-		assert_eq(value.get_theme_font_size("font_size"), 24, "the value font is doubled")
+		if field == "_rating_row":
+			var stars := card.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+			assert_eq(stars.star_side(), CourseRatingStars.DESKTOP_SIDE,
+				"desktop rating row uses the desktop star grid")
+		else:
+			var value := card.get_node("Content/ValueBackground/ValueContent/Value") as Label
+			assert_eq(value.get_theme_font_size("font_size"), 24, "the value font is doubled")
 		var icon_background := card.get_node("Content/IconBackground") as Control
 		assert_almost_eq(icon.global_position.y + icon.size.y / 2.0,
 			icon_background.global_position.y + icon_background.size.y / 2.0, 1.0,
@@ -317,3 +328,81 @@ func test_a_new_game_refreshes_the_rows() -> void:
 	EventBus.new_game_started.emit()
 	for field in FEATURE_ROWS:
 		assert_true(_row_visible(column, field), "%s returns with its feature" % field)
+
+# ---------------------------------------------------------------------------
+# Course rating row: star icons in the value pill, numeric value in tooltip
+# ---------------------------------------------------------------------------
+
+func test_rating_row_shows_star_icons_without_text_and_puts_numeric_value_in_tooltip() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	var rating_row := _row(column, "_rating_row")
+	var action := rating_row.get_node("Action") as Button
+	var stars := rating_row.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+
+	assert_not_null(stars, "RatingRow renders CourseRatingStars inside ValueBackground")
+	assert_eq(_nodes_of_class(rating_row, "Label").size(), 0,
+		"RatingRow contains no visible text Label")
+
+	# Before a rating arrives, all five star sockets are unlit and the tooltip says Unrated.
+	assert_false(stars.rated, "starts unrated until a course pushes a rating")
+	for i in CourseRatingStars.STAR_COUNT:
+		assert_almost_eq(stars.star_fill(i), 0.0, 0.001, "star %d starts unlit" % i)
+	assert_true(action.tooltip_text.contains("Unrated"),
+		"unrated tooltip reports Unrated (got: %s)" % action.tooltip_text)
+
+	# Updating the rating lights the stars (including fractional fill) and writes
+	# the formatted number into the hover tooltip.
+	column.update_rating(3.5)
+	assert_true(stars.rated, "rating is now active")
+	assert_almost_eq(stars.star_fill(0), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(1), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(2), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(3), 0.5, 0.001, "fourth star is half filled at 3.5")
+	assert_almost_eq(stars.star_fill(4), 0.0, 0.001, "fifth star stays unlit at 3.5")
+	assert_true(action.tooltip_text.contains("3.5"),
+		"hover tooltip shows the numeric rating 3.5 (got: %s)" % action.tooltip_text)
+	assert_true(action.tooltip_text.contains("5.0"),
+		"hover tooltip shows the 5.0 scale (got: %s)" % action.tooltip_text)
+	assert_eq(rating_row.tooltip_text, action.tooltip_text,
+		"row tooltip stays in sync with its hover button")
+	assert_eq(action.accessibility_description, action.tooltip_text,
+		"accessibility description stays in sync with the hover tooltip")
+
+	# EventBus.course_rating_changed updates both the star strip and tooltip live.
+	EventBus.course_rating_changed.emit({"overall": 4.7})
+	assert_almost_eq(stars.stars, 4.7, 0.001)
+	assert_almost_eq(stars.star_fill(4), 0.7, 0.001)
+	assert_true(action.tooltip_text.contains("4.7"),
+		"hover tooltip updates when course_rating_changed fires (got: %s)" % action.tooltip_text)
+	assert_true(action.tooltip_text.contains("Excellent"),
+		"hover tooltip includes the tier description (got: %s)" % action.tooltip_text)
+
+func test_rating_row_stars_fit_both_desktop_and_compact_columns() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	column.update_rating(4.5)
+	await process_frames(2)
+
+	var rating_row := _row(column, "_rating_row")
+	var stars := rating_row.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+	assert_false(stars.compact, "desktop window uses desktop star strip")
+	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
+		"desktop rating row fits inside the 210px column")
+
+	get_window().size = Vector2i(390, 844)
+	await process_frames(2)
+	column.apply_screen()
+	await process_frames(2)
+
+	assert_true(stars.compact, "compact window switches to compact 15x15 stars")
+	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
+		"compact rating row fits inside the 150px phone column")
+	assert_almost_eq(stars.stars, 4.5, 0.001, "resizing preserves the active star rating")
+	assert_true((rating_row.get_node("Action") as Button).tooltip_text.contains("4.5"),
+		"resizing preserves the numeric tooltip")
+
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+	column.apply_screen()
+
