@@ -6,9 +6,9 @@ extends GameTest
 var toolbar: TerrainToolbar
 
 ## The headless test window is 64x64, which Screen reads as a compact — and so
-## touch-sized — layout: 40px tab buttons measured against the 232px touch
+## touch-sized — layout: 52px tab buttons measured against the 232px touch
 ## bottom bar. Every height budget below is the desktop one (BOTTOM_BAR_HEIGHT
-## and a 32px rail), so each test pins the reference window size and pauses the
+## and a 44px rail), so each test pins the reference window size and pauses the
 ## per-frame polling that would put the tiny test window back, then restores
 ## both. The touch layout has its own coverage in the bottom dock tests.
 var _window_size: Vector2 = Vector2(1600, 1000)
@@ -30,13 +30,13 @@ func after_each() -> void:
 	super()
 
 ## The desktop layout the whole file measures against: a toolbar that fits the
-## bottom bar with a 32px tab rail, not the compact one the test window implies.
+## bottom bar with a 44px tab rail, not the compact one the test window implies.
 func test_the_toolbar_is_measured_in_the_desktop_layout() -> void:
 	assert_false(Screen.uses_touch_layout(), "The tests run the desktop layout")
 	assert_eq(Screen.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
 		"so the bottom bar is the desktop one")
 	for button in toolbar._tab_buttons.values():
-		assert_eq((button as PixelCircleButton).diameter, 32.0,
+		assert_eq((button as PixelCircleButton).diameter, 44.0,
 			"and the tab rail wears its desktop diameter")
 
 func test_bottom_bar_fits_two_rows_of_course_tiles() -> void:
@@ -172,9 +172,11 @@ func test_two_rows_of_big_tiles_fill_the_toolbar_page_height() -> void:
 
 	# The page the tiles sit on: the bottom bar less the tab bar, the panel
 	# margins and the horizontal scrollbar shown when a page overflows.
+	# The larger 44px/52px rail adds about 10px of slack above the tile rows,
+	# so the rows fill the page with a little breathing room rather than exactly.
 	var page_height: float = toolbar._pages[TerrainToolbar.Tab.TERRAIN].size.y
 	assert_lte(two_rows + 2.0, page_height, "Two rows (plus drop shadow) fit the page")
-	assert_gte(two_rows, page_height - 8.0, "Two rows should fill the page height")
+	assert_gte(two_rows, page_height - 16.0, "Two rows should fill the page height")
 
 func test_tile_rows_keep_space_above_below_and_between_them() -> void:
 	var padding: int = TerrainToolbar.TILE_V_PADDING

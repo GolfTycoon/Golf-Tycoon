@@ -336,12 +336,13 @@ func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
 
-## Give the tab rail room for a finger on phones and compact windows. Five
-## 40px tab targets still fit the responsive 232px bottom dock.
+## Roomier medallions for a thumb-friendly rail: 44px on desktop and
+## 52px on touch/compact (up from 32px/40px) so the right-bottom shelf's
+## tabs read as real medallions, not tiny chips.
 func apply_screen() -> void:
 	if _tab_rail == null:
 		return
-	var diameter := 40.0 if Screen.uses_touch_layout() else 32.0
+	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
 			continue
@@ -411,7 +412,10 @@ func _build_ui() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# The body can shrink to a sliver on a narrow window: it scrolls rather
 	# than pushing the utility buttons or section rail off screen.
-	custom_minimum_size = Vector2(136, 0)
+	# Widened for the larger 44px/52px rail (up from 56px to 68px) so the
+	# pinned brush dock (52px) still fits inside the page when the shelf
+	# is at its minimum width.
+	custom_minimum_size = Vector2(150, 0)
 	# The fairway backdrop fills the panel's content rect (inset by its
 	# margins), so the notched frame the panel style still draws around it
 	# stays the shelf's rim. It is added first and moved to the front so
@@ -457,8 +461,9 @@ func _build_tab_rail(parent: HBoxContainer) -> void:
 	_tab_rail.add_theme_constant_override("separation", 2)
 	# Room either side of the medallions for the fairway backdrop's mowed
 	# rings and dark sockets to show through - the rail is the one place the
-	# shelf's turf is on screen around its circles.
-	_tab_rail.custom_minimum_size = Vector2(56, 0)
+	# shelf's turf is on screen around its circles. Widened for the larger
+	# 44px/52px medallions so their sockets never clip the rail edges.
+	_tab_rail.custom_minimum_size = Vector2(68, 0)
 	parent.add_child(_tab_rail)
 	for section in SECTION_TABS:
 		for tab_index in SECTION_TABS[section]:
