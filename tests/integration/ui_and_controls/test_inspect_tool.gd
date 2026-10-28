@@ -1,11 +1,12 @@
 extends MainSceneTest
-## The bottom bar's left control stack and the Inspect tool, in the real HUD
-## (no course is generated: the HUD is shown over the empty grid). The stack
-## holds Menu, Feed and Inspect in that order and fits the bar; the Feed button
-## opens the event feed and carries the unread count; the Map button sits in the
-## minimap's corner, off its diamond, and follows the minimap. Inspect clears and
-## blocks the other tools, Esc and right-click leave it, and hovering a tile
-## shows its details without painting, measuring or spending.
+## The Inspect tool and its new home: a toggle pinned to every Build tab's
+## bottom-right corner of the terrain toolbar, in the real HUD (no course is
+## generated: the HUD is shown over the empty grid). Menu stays alone in the
+## bottom-left stack; the Feed card on the Club tab opens the event feed and
+## carries the unread count; the Map button sits in the minimap's corner, off
+## its diamond, and follows the minimap. Inspect clears and blocks the other
+## tools, Esc and right-click leave it, and hovering a tile shows its details
+## without painting, measuring or spending.
 
 
 var inspector_on_title_screen: bool
@@ -22,7 +23,7 @@ func before_all() -> void:
 
 
 func after_each() -> void:
-	main.inspect_btn.button_pressed = false
+	main._cancel_inspect_mode()
 	await super()
 
 
@@ -31,26 +32,95 @@ func _escape() -> void:
 	await process_frames(1)
 
 
-func test_the_control_stack_holds_menu_feed_and_inspect() -> void:
+## The pinned toggle a player could click on the tab currently shown. When a
+## test has left the toolbar on a Manage or Golfers tab, none is visible, so
+## fall back to the stable Course Terrain alias main.gd keeps for the mode —
+## programmatic presses work whether or not the page is shown.
+func _inspect_toggle() -> InspectButton:
+	for btn in main.terrain_toolbar._inspect_buttons:
+		if btn.is_visible_in_tree():
+			return btn
+	return main.inspect_btn
+
+
+func _set_inspect(enabled: bool) -> void:
+	_inspect_toggle().button_pressed = enabled
+
+
+func test_inspect_left_the_bottom_left_stack_for_the_build_tabs() -> void:
 	assert_false(inspector_on_title_screen, "The inspector is hidden on the title screen")
 	assert_false(main.tile_inspector.visible, "Showing the HUD does not show the inspector")
+	assert_null(main.left_controls.get_node_or_null("FeedBtn"),
+		"The Feed button has left the bottom-left stack for the Club tab")
+	assert_null(main.left_controls.get_node_or_null("InspectBtn"),
+		"The Inspect button has left the bottom-left stack for the Build tabs")
+	assert_false(main.left_controls.is_ancestor_of(main.inspect_btn),
+		"The tracked Inspect toggle no longer lives in the dock")
+	var build_tabs := [TerrainToolbar.Tab.TERRAIN, TerrainToolbar.Tab.IMPROVEMENTS,
+		TerrainToolbar.Tab.BUILDINGS, TerrainToolbar.Tab.ELEVATION]
+	assert_eq(main.terrain_toolbar._inspect_buttons.size(), build_tabs.size(),
+		"One pinned Inspect toggle per Build tab")
+	for tab in build_tabs:
+		var page: Control = main.terrain_toolbar._pages[tab]
+		var found: Array = page.find_children("*", "InspectButton", false, false)
+		assert_eq(found.size(), 1,
+			"%s page pins exactly one Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+		assert_true(found[0] is InspectButton and found[0].toggle_mode)
+	for tab in [TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.STAFF,
+			TerrainToolbar.Tab.GOLFERS]:
+		var other_page: Control = main.terrain_toolbar._pages[tab]
+		assert_eq(other_page.find_children("*", "InspectButton", true, false).size(), 0,
+			"%s pins no Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+	# Menu remains the dock's only utility circle, still fitting the bar.
 	var menu: Control = main.left_controls.get_node("MenuBtn")
-	var feed: Control = main.left_controls.get_node("FeedBtn")
-	assert_gte(feed.position.x, menu.position.x + menu.size.x, "Feed is beside Menu")
-	assert_gte(main.inspect_btn.position.x, feed.position.x + feed.size.x, "Inspect is beside Feed")
-	assert_lte(main.left_controls.size.y, Screen.bottom_bar_height(), "The controls fit the responsive bottom bar")
+	assert_not_null(menu)
+	assert_lte(main.left_controls.size.y, Screen.bottom_bar_height(),
+		"The controls fit the responsive bottom bar")
 
 
-func test_the_feed_button_opens_the_feed_and_shows_the_unread_count() -> void:
+func test_pinned_inspect_toggles_stay_on_screen_and_clear_the_other_corner() -> void:
+	var screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	for tab in TerrainToolbar.INSPECT_TABS:
+		main.terrain_toolbar.select_tab(tab)
+		await process_frames(2)
+		var toggle := _inspect_toggle()
+		assert_not_null(toggle, "%s shows its pinned Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+		assert_true(rect_within(toggle.get_global_rect(), screen),
+			"The Inspect toggle stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_true(rect_within(toggle.get_global_rect(), main.bottom_bar.get_global_rect()),
+			"and inside the bottom bar on %s" % TerrainToolbar.TAB_TITLES[tab])
+		# The bottom-left corner is already pinned on every Build tab: the
+		# Bulldozer on Improvements/Buildings, the brush dock on Course Terrain.
+		var page: Control = main.terrain_toolbar._pages[tab]
+		var corner := page.find_children("*", "BulldozerButton", false, false)
+		if corner.is_empty():
+			corner = page.find_children("BrushDock", "", true, false)
+		if not corner.is_empty():
+			assert_false(toggle.get_global_rect().intersects(corner[0].get_global_rect()),
+				"Inspect clears the pinned bottom-left chrome on %s" % TerrainToolbar.TAB_TITLES[tab])
+
+
+func test_the_club_tab_feed_card_opens_the_feed_and_shows_the_unread_count() -> void:
+	assert_false(main.left_controls.is_ancestor_of(main.feed_btn),
+		"The Feed button no longer lives in the bottom-left stack")
+	assert_true(main.terrain_toolbar.page_content(TerrainToolbar.Tab.CLUB).is_ancestor_of(main.feed_btn),
+		"It lives on the Club tab")
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	main.feed_btn.pressed.emit()
-	assert_true(main.event_feed_panel.visible, "The Feed button opens the event feed")
+	assert_true(main.event_feed_panel.visible, "The Feed card opens the event feed")
 	main.feed_btn.pressed.emit()
 	assert_false(main.event_feed_panel.visible, "and closes it")
 	main._update_feed_unread(3)
 	assert_eq(main.feed_btn.notification_count, 3, "Unread events light the Feed badge")
 	assert_string_contains(main.feed_btn.tooltip_text, "3 unread")
+	assert_eq(main.terrain_toolbar._tab_buttons[TerrainToolbar.Tab.CLUB].notification_count, 3,
+		"and the Club tab button carries the count behind the other Manage tabs")
+	assert_eq(main.left_controls.section_buttons[TerrainToolbar.Section.MANAGE].notification_count, 3,
+		"and the Manage section button carries it from every other section")
 	main._update_feed_unread(0)
 	assert_eq(main.feed_btn.notification_count, 0, "and clears with it")
+	assert_eq(main.left_controls.section_buttons[TerrainToolbar.Section.MANAGE].notification_count, 0,
+		"on every badge it lit")
 
 
 func test_the_map_button_sits_in_the_minimaps_corner_and_follows_it() -> void:
@@ -85,7 +155,7 @@ func test_the_map_button_sits_in_the_minimaps_corner_and_follows_it() -> void:
 
 func test_inspect_clears_the_tools_and_esc_or_right_click_leave_it() -> void:
 	main._on_tool_selected(TerrainTypes.Type.FAIRWAY)
-	main.inspect_btn.button_pressed = true
+	_set_inspect(true)
 	assert_true(main.inspect_mode and main._has_active_tool(), "Inspect toggles on")
 	assert_eq(main.current_tool, -1, "and clears the terrain tool")
 	assert_false(main.terrain_toolbar.has_selection(), "and the toolbar's selection")
@@ -94,10 +164,11 @@ func test_inspect_clears_the_tools_and_esc_or_right_click_leave_it() -> void:
 	assert_false(main.is_painting, "Inspect cannot paint")
 
 	await _escape()
-	assert_false(main.inspect_mode or main.inspect_btn.button_pressed, "Esc deselects Inspect")
+	assert_false(main.inspect_mode or main.terrain_toolbar.is_inspect_active(),
+		"Esc deselects Inspect on every pinned toggle")
 	assert_null(main.pause_menu, "without opening the menu")
 
-	main.inspect_btn.button_pressed = true
+	_set_inspect(true)
 	var right_click := InputEventMouseButton.new()
 	right_click.button_index = MOUSE_BUTTON_RIGHT
 	right_click.pressed = true
@@ -107,7 +178,7 @@ func test_inspect_clears_the_tools_and_esc_or_right_click_leave_it() -> void:
 
 func test_another_tool_leaves_inspect_and_inspect_cancels_it() -> void:
 	for tool in ["terrain", "building", "tree", "decoration", "elevation", "bulldozer"]:
-		main.inspect_btn.button_pressed = true
+		_set_inspect(true)
 		match tool:
 			"terrain":
 				main._on_tool_selected(TerrainTypes.Type.ROUGH)
@@ -121,15 +192,16 @@ func test_another_tool_leaves_inspect_and_inspect_cancels_it() -> void:
 				main._on_elevation_tool_pressed(ElevationTool.TOOL_VERTEX)
 			"bulldozer":
 				main._on_bulldozer_pressed()
-		assert_false(main.inspect_mode or main.inspect_btn.button_pressed, "The %s tool leaves Inspect" % tool)
-		main.inspect_btn.button_pressed = true
+		assert_false(main.inspect_mode or main.terrain_toolbar.is_inspect_active(),
+			"The %s tool leaves Inspect on every pinned toggle" % tool)
+		_set_inspect(true)
 		assert_true(not main.elevation_tool.is_active() and not main.bulldozer_mode \
 			and main.placement_manager.placement_mode == PlacementManager.PlacementMode.NONE,
 			"and Inspect cancels the %s tool" % tool)
 
 
 func test_hovering_shows_tile_details_without_changing_anything() -> void:
-	main.inspect_btn.button_pressed = true
+	_set_inspect(true)
 	main.camera.focus_on(main.terrain_grid.grid_to_screen_center(Vector2i(64, 64)), true)
 	main.camera.force_update_scroll()
 	var motion := InputEventMouseMotion.new()
@@ -166,7 +238,12 @@ func test_hovering_shows_tile_details_without_changing_anything() -> void:
 	GameManager.set_speed(GameManager.GameSpeed.PAUSED)
 	main._update_tile_inspector()
 	assert_true(main.tile_inspector.visible, "Pausing the clock still allows inspection")
-	motion.position = main.inspect_btn.get_global_rect().get_center()
+	# Hover the real, on-screen pinned toggle on the Course Terrain tab.
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(1)
+	var hovered_toggle := _inspect_toggle()
+	assert_true(hovered_toggle.is_visible_in_tree(), "The pinned toggle is on screen")
+	motion.position = hovered_toggle.get_global_rect().get_center()
 	get_viewport().push_input(motion, true)
 	await process_frames(1)
 	main._update_tile_inspector()
@@ -177,5 +254,5 @@ func test_hovering_shows_tile_details_without_changing_anything() -> void:
 	main._update_tile_inspector()
 	assert_false(main.tile_inspector.visible, "The pause menu hides the details")
 	GameManager.is_paused = false
-	main.inspect_btn.button_pressed = false
+	_set_inspect(false)
 	assert_false(main.inspect_mode or main.tile_inspector.visible, "The button toggles Inspect off")

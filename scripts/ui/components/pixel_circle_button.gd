@@ -33,12 +33,22 @@ const ICONS := {
 	"pause": [".........", "..xx.xx..", "..xx.xx..", "..xx.xx..", "..xx.xx..", "..xx.xx..", "..xx.xx..", "..xx.xx..", "........."],
 	"play": [".........", "..xx.....", "..xxx....", "..xxxx...", "..xxxxx..", "..xxxx...", "..xxx....", "..xx.....", "........."],
 	"fast": [".........", "xx..xx...", "xxx.xxx..", "xxxxxxxx.", "xxxxxxxxx", "xxxxxxxx.", "xxx.xxx..", "xx..xx...", "........."],
+	"ultra": [".........", "x..x..x..", "xx.xx.xx.", "xxxxxxxx.", "xxxxxxxxx", "xxxxxxxx.", "xx.xx.xx.", "x..x..x..", "........."],
 	"rotate_ccw": ["...xxxx..", "..xx..xx.", ".xx....xx", "xxxx...xx", "xxx....xx", ".......xx", "..x...xx.", "..xxxxx..", "...xxx..."],
 	"rotate_cw": ["..xxxx...", ".xx..xx..", "xx....xx.", "xx...xxxx", "xx....xxx", "xx.......", ".xx...x..", "..xxxxx..", "...xxx..."],
 	"finance": ["....x....", "..xxxxx..", ".xx.x....", "..xxx....", "....xxx..", "....x.xx.", "..xxxxx..", "....x....", "........."],
 }
 
-@export var glyph := ""
+## The icon can change while the button is on screen (the speed toggle wears
+## one, two or three triangles as the tier changes), so a new glyph repaints.
+## The guard covers glyphs set before the button enters the tree (scene files,
+## BottomControlDock.setup) — those are drawn on entry anyway.
+@export var glyph := "":
+	set(value):
+		if glyph != value:
+			glyph = value
+			if is_inside_tree():
+				queue_redraw()
 @export var caption := ""
 @export var diameter := 32.0
 @export var accent := Color("a2ba85")
@@ -83,12 +93,8 @@ func _draw() -> void:
 	if not _faces.has(key):
 		_faces[key] = _make_face(d, selected, lit)
 	draw_texture_rect(_faces[key], Rect2(origin, Vector2.ONE * d), false)
-	var icon_name := glyph
-	if glyph == "fast" and text == ">>>":
-		# A gold tick distinguishes Ultra without changing the button footprint.
-		draw_rect(Rect2(origin + Vector2(d / 2.0 - 3, d - 7), Vector2(6, 2)), CREAM)
-	if ICONS.has(icon_name):
-		var pixels: Array = ICONS[icon_name]
+	if ICONS.has(glyph):
+		var pixels: Array = ICONS[glyph]
 		var pixel := 3 if d >= 74 else 2
 		var offset := origin + Vector2(floorf((d - 9 * pixel) * 0.5), floorf((d - 9 * pixel) * 0.5))
 		if not caption.is_empty():

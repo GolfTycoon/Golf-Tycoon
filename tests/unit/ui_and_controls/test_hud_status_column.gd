@@ -8,7 +8,7 @@ extends GameTest
 ## "Off" or "Year-round", and the column stays that much shorter.
 
 const FEATURE_ROWS: Array[String] = ["_weather_row", "_wind_row", "_season_row"]
-const ROW_FIELDS: Array[String] = ["_funds_row", "_date_row", "_season_row",
+const ROW_FIELDS: Array[String] = ["_funds_row", "_season_row",
 	"_reputation_row", "_rating_row", "_weather_row", "_wind_row"]
 
 func before_each() -> void:
@@ -75,14 +75,17 @@ func test_each_feature_row_hides_on_its_own() -> void:
 		column.queue_free()
 		await process_frames(1)
 
-func test_the_date_row_stays_whatever_the_features_do() -> void:
-	# The calendar keeps ticking with all three features off, so the Date row
-	# outlives them.
-	_set_features(false, false, false)
+func test_the_date_row_is_gone_the_calendar_lives_in_the_location_banner() -> void:
+	# The date moved to the top-left CourseLocationBanner, so the status column
+	# carries no Date card even with every feature switched on.
+	_set_features(true, true, true)
 	var column := _make_column()
-	var date_label: Label = column.get("_date_label")
-	assert_not_null(date_label)
-	assert_true(date_label.get_parent().visible, "the Date row stays visible")
+	assert_null(column.get("_date_row"), "there is no Date card in the column")
+	assert_null(column.get("_date_label"), "and no date label behind it")
+	for label in _nodes_of_class(column, "Label"):
+		var text: String = (label as Label).text
+		assert_false(GameCalendar.format_date(GameManager.current_day) == text,
+			"no row prints the calendar date (saw %s)" % text)
 
 # ---------------------------------------------------------------------------
 # Row design: no game-mode row, and every stat is its own card

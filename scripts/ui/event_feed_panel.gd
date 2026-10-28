@@ -3,7 +3,8 @@ class_name EventFeedPanel
 ## EventFeedPanel - Scrollable panel showing persistent event history
 ##
 ## Displays recent game events with category icons, timestamps, and
-## click-to-navigate support. Toggles via hotkey 'N' or HUD button.
+## click-to-navigate support. Toggles via hotkey 'N' or the Feed card on
+## the Club tab (Manage → Club → Review → Feed).
 ## Positioned on the right side of the screen.
 
 signal navigate_to_golfer(golfer_id: int)

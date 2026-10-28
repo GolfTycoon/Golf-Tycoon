@@ -14,6 +14,10 @@ const WIDTH := TournamentLeaderboard.PANEL_WIDTH
 var round_scores: RoundScoresPanel
 var leaderboard: TournamentLeaderboard = null
 
+## Top edge of the dock. Defaults to the corner margin; main.gd pushes it below
+## the CourseLocationBanner so the score cards never cover the postcard.
+var _top_clearance: float = -1.0
+
 func _init() -> void:
 	name = "ScoresDock"
 	add_theme_constant_override("separation", UIConstants.SEPARATION_MD)
@@ -21,6 +25,11 @@ func _init() -> void:
 	round_scores = RoundScoresPanel.new()
 	round_scores.name = "RoundScoresPanel"
 	add_child(round_scores)
+
+## Reserve the top-left strip down to `top_y` for the location banner.
+func set_top_clearance(top_y: float) -> void:
+	_top_clearance = top_y
+	_dock_top_left()
 
 ## Take the live tournament board: it docks under the round card and shows
 ## itself for the length of an event.
@@ -33,13 +42,14 @@ func attach_leaderboard(board: TournamentLeaderboard) -> void:
 ## with its content so an empty dock takes no room at all.
 func _dock_top_left() -> void:
 	var margin: float = UIConstants.HUD_COLUMN_MARGIN
+	var top: float = _top_clearance if _top_clearance >= 0.0 else margin
 	set_anchor(SIDE_LEFT, 0.0)
 	set_anchor(SIDE_TOP, 0.0)
 	set_anchor(SIDE_RIGHT, 0.0)
 	set_anchor(SIDE_BOTTOM, 0.0)
 	offset_left = margin
-	offset_top = margin
+	offset_top = top
 	offset_right = margin + WIDTH
-	offset_bottom = margin
+	offset_bottom = top
 	grow_horizontal = Control.GROW_DIRECTION_END
 	grow_vertical = Control.GROW_DIRECTION_END

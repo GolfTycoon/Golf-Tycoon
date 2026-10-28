@@ -70,7 +70,7 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 | --- | --- |
 | Financial Overview (fullscreen) | Manage → Club → Review → Financial Overview, or click the money display; `M` opens its Marketing page |
 | Tournament panel | From the HUD |
-| Event feed | From the HUD |
+| Event feed | `N`, or Manage → Club → Review → Feed |
 | Hotkey reference | `F1` |
 | Year in Review | Opens automatically at year end |
 | Tool palette | Tool buttons along the bottom bar |
@@ -83,21 +83,46 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 
 ### Bottom dock
 
-The bottom-left corner uses small pixel-art circle buttons for **Menu**, **Feed**,
-**Inspect**, both rotation directions, and **Pause / Play / Fast**. The fast button
-cycles between 3× and 8×; a cream tick marks Ultra and a lit ring marks the active
-speed. The heading letter stays between the rotation arrows. Feed lights a gold
-unread indicator, with the count in its tooltip.
+The bottom-left corner uses small pixel-art circle buttons for **Menu**,
+**Pause** and **Speed**. The speed button
+cycles through the three running speeds with each press — Normal (1×), Fast (3×),
+Ultra (8×), then back to Normal — and its icon gains a triangle per tier (`>`, `>>`,
+`>>>`). While paused it shows the single triangle of the Normal speed a press
+resumes at; a lit ring marks the active control. The two **Rotate** arrows left this corner for the top-left [course location
+banner](#course-location-banner), beside the course they turn. The **Feed** lives on
+the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
+badge with the count in its tooltip, and the same count rides on the Club tab and
+Manage section buttons so unread events still show from anywhere. **Inspect** also
+left this corner: every Build section tab (Terrain, Improvements, Buildings,
+Elevations) pins an Inspect toggle to its bottom-right corner, beside the tiles it
+reads, mirroring the Bulldozer's pinned corner button. The four toggles share one
+mode — the medallion's ring stays lit while inspecting, and `Esc` or right-click
+leaves it on every tab.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf with small icon tabs down its left edge.
 The selected section and tab stay lit, and the shelf heading names the current
 page. Switching sections remembers the last tab used in each.
 
+Behind the six circles the corner is a fan of mown turf cut to their arc
+(`DockArcBackdrop`), not the bar's old rectangle: concentric mowing rings and
+fainter chequer sectors spread from the corner hub, each medallion sits in a
+dark socket, dotted ball-flight arcs join the circles through the gaps, and
+a tiny flagstick stands in the pocket below **Menu**. The fan's rim is one
+smooth arc swept across **Build**, **Manage** and **Golfers** rather than an
+outline wrapped around each of them, banded ink, trim, bevel and sheen like
+the pixel frames, with the trim in the open section's own colour — sage while
+the shelf is hidden. The medallions sit astride the rim and poke out past it
+over the course, which shows through above the arc where the bar used to be
+dead space; the straight bottom bar now begins at the dock's right edge,
+backing only the shelf. The fan is regenerated from the circles' live
+geometry whenever the dock reflows, so the touch layout's taller arc gets
+the same treatment.
+
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |
-| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
+| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview, Feed; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
 The **Club** tab folds what were four separate Manage tabs — Maps, Review,
@@ -143,16 +168,21 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 | Row | Icon | Shows |
 | --- | --- | --- |
 | Funds | Gold coin | The balance, with a `^` / `v` trend, clickable for the financial dashboard |
-| Date | Calendar | The calendar date (the weekday is dropped on compact windows) |
 | Season | Leaf in the season's colour | The current season |
 | Reputation | Heart | Course reputation, colour-coded, clickable for the rating details |
 | Rating | Gold star | The star rating, clickable for details |
 | Weather | Sky sprite | The current conditions; the sprite and its colour follow the weather type (sun, sun behind cloud, cloud, light rain, rain, heavy rain) |
 | Wind | Wind gust | Direction and speed, colour-coded |
 
-There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause, play and fast-forward controls already show and set the running state. There is no collapse handle either, so every card is always shown.
+There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows and the Date value drops its weekday, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+
+### Course location banner
+
+The top-left corner carries the course location banner (`CourseLocationBanner`), a two-column postcard for the course being played. The first column is a square 1:1 pixel-art picture of the location inside a hairline photo frame with no background of its own — the course shows right up to the frame. `CourseLocationPicture` procedurally paints a different scene for every location from its theme and a seed derived from its id, so each of the world-map sites (and any mod-added location) gets its own deterministic picture: mesas and saguaros in the desert, snowcaps and pines in the mountains, a skyline in the city, palms and volcanic islands in the tropics, fescue dunes on links courses, and so on. The second column is the only part of the banner with a background, a dark card carrying the location's name and the calendar date (with a gold calendar icon; the full weekday date on desktop, a compact stamp on narrow windows). The banner hides while no location is active, swaps its picture and name with a short fade when the player moves between owned courses, and ignores the mouse so shots pass through the corner. The round-score dock stacks directly underneath it.
+
+The two **Rotate** arrows stand in that same corner, on the right of the details card: each turns the course a quarter turn, the same as `Q` and `Shift+Q`, and they are drawn as mirrored pixel arrows rather than font glyphs. In the card's own top-right corner sits the **facing chip** (`OrientationToggleButton`) — a pixel arrow pointing the way the course faces beside its `N` / `E` / `S` / `W` letter, turned by the same quarter turn a press on either arrow gives. The chip doubles as the switch for the arrows: click it to fold them away when the corner should stay quiet, and click it again to bring them back. It stays in place either way — its arrow and rim are gold while the arrows are out and muted while they are stowed — and the banner narrows back into their room while they are hidden.
 
 ## Keyboard
 

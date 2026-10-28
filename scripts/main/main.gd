@@ -13,22 +13,24 @@ const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd"
 var terrain_toolbar: TerrainToolbar = null
 var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up in _setup_terrain_toolbar)
 @onready var left_controls: BottomControlDock = $UI/HUD/BottomBar/LeftControls
-@onready var rotate_view_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/RotateViewControls
-@onready var rotate_ccw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCCWBtn
-@onready var rotate_cw_btn: Button = $UI/HUD/BottomBar/LeftControls/RotateViewControls/RotateCWBtn
-@onready var orientation_label: Label = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationLabel
-@onready var orientation_needle: CompassNeedle = $UI/HUD/BottomBar/LeftControls/RotateViewControls/OrientationNeedle
+## The view controls ride on the top-left location banner (see
+## _fill_view_controls): the two Rotate arrows on the right of its details
+## card, and the facing chip in the card's top-right corner.
+var rotate_view_controls: HBoxContainer = null
+var rotate_ccw_btn: Button = null
+var rotate_cw_btn: Button = null
+var orientation_toggle: OrientationToggleButton = null
 @onready var pause_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn
-@onready var play_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn
-## One fast-forward button for both accelerated tiers: it reads ">>" at Fast
-## and ">>>" at Ultra, and a press swaps between the two (see GameManager).
-@onready var fast_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn
-@onready var speed_controls: HBoxContainer = $UI/HUD/BottomBar/LeftControls/SpeedControls
-const VIEW_ORIENTATION_LABELS: Array[String] = ["N", "E", "S", "W"]
+## One button for every running speed: it reads ">" at Normal, ">>" at Fast
+## and ">>>" at Ultra — one, two or three triangles on its face — and a press
+## cycles to the next speed (see GameManager.cycle_running_speed).
+@onready var speed_btn: PixelCircleButton = $UI/HUD/BottomBar/LeftControls/SpeedControls/SpeedBtn
+@onready var speed_controls: Control = $UI/HUD/BottomBar/LeftControls/SpeedControls
 # New UI components
 var player_round: PlayerRoundManager
 
 var hud_status_column: HUDStatusColumn = null
+var course_location_banner: CourseLocationBanner = null
 
 # Legacy references (kept for compatibility, now managed by HUDStatusColumn)
 var money_label: Label = null
@@ -76,8 +78,10 @@ var financial_panel: FinancialPanel = null
 var marketing_panel: MarketingPanel = null
 var mini_map: MiniMap = null
 var inspect_mode: bool = false
+## Alias for the pinned Inspect toggle on the toolbar's Course Terrain tab; the
+## matching toggles on the other Build tabs stay in step via the toolbar.
 var inspect_btn: PixelCircleButton = null
-var feed_btn: PixelCircleButton = null  # Event feed toggle in the left control stack, between Menu and Inspect
+var feed_btn: DockActionButton = null  # Event feed toggle: the Feed card on the toolbar's Club tab
 var tile_inspector: TileInspector = null
 var map_btn: Button = null  # Map-icon toggle in the minimap's bottom-left corner; synced with MiniMap visibility
 const MAP_BUTTON_SIZE: float = 26.0
@@ -327,6 +331,7 @@ func _ready() -> void:
 	_connect_ui_buttons()
 	_setup_bottom_bar()
 	_setup_hud_status_column()
+	_setup_course_location_banner()
 	_setup_scores_dock()
 	_setup_mod_hud_widgets()
 	_setup_placement_preview()
@@ -779,14 +784,9 @@ func _connect_ui_buttons() -> void:
 	_setup_terrain_toolbar()
 
 	$UI/HUD/BottomBar/LeftControls/SpeedControls/PauseBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.PAUSED))
-	$UI/HUD/BottomBar/LeftControls/SpeedControls/PlayBtn.pressed.connect(_on_speed_selected.bind(GameManager.GameSpeed.NORMAL))
-	# Fast and Ultra share this one button, so it cannot bind a fixed speed —
-	# each press asks GameManager for the next tier instead.
-	$UI/HUD/BottomBar/LeftControls/SpeedControls/FastBtn.pressed.connect(_on_fast_forward_pressed)
-
-	# Rotate view controls (now above speed controls in BottomBar)
-	rotate_ccw_btn.pressed.connect(_on_view_rotate_ccw)
-	rotate_cw_btn.pressed.connect(_on_view_rotate_cw)
+	# Normal, Fast and Ultra share this one button, so it cannot bind a fixed
+	# speed — each press asks GameManager for the next tier instead.
+	$UI/HUD/BottomBar/LeftControls/SpeedControls/SpeedBtn.pressed.connect(_on_speed_toggle_pressed)
 
 func _setup_terrain_toolbar() -> void:
 	"""Dock the tabbed toolbar into the bottom bar (right section, flush after left controls)"""
@@ -824,6 +824,9 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.elevation_brush_size_changed.connect(_on_elevation_brush_size_changed)
 	terrain_toolbar.elevation_brush_shape_changed.connect(_on_elevation_brush_shape_changed)
 	terrain_toolbar.bulldozer_pressed.connect(_on_bulldozer_pressed)
+	# Inspect lives on the Build tabs' pinned corner toggles now, not the dock.
+	terrain_toolbar.inspect_toggled.connect(_on_inspect_toggled)
+	inspect_btn = terrain_toolbar.inspect_button()
 	terrain_toolbar.financial_overview_pressed.connect(_toggle_financial_overview)
 	terrain_toolbar.course_review_pressed.connect(_open_course_map_aura)
 	if terrain_toolbar.has_signal("aura_map_pressed"):
@@ -842,6 +845,8 @@ func _setup_terrain_toolbar() -> void:
 	terrain_toolbar.holes_map_pressed.connect(_open_course_map_routing)
 	terrain_toolbar.staff_map_pressed.connect(_open_course_map_staff)
 	terrain_toolbar.marketing_pressed.connect(_toggle_marketing_panel)
+	terrain_toolbar.event_feed_pressed.connect(_toggle_event_feed)
+	feed_btn = terrain_toolbar.feed_button
 	terrain_toolbar.course_milestones_pressed.connect(_toggle_course_milestones_screen)
 	terrain_toolbar.world_milestones_pressed.connect(_toggle_world_milestones_screen)
 	terrain_toolbar.achievements_pressed.connect(_toggle_achievements_screen)
@@ -1450,6 +1455,8 @@ func _setup_scores_dock() -> void:
 	scores_dock = ScoresDock.new()
 	$UI/HUD.add_child(scores_dock)
 	scores_dock.attach_leaderboard(tournament_leaderboard)
+	# Stack the round scores under the location postcard in the top-left corner.
+	_dock_scores_below_banner()
 	tournament_leaderboard.return_to_course.connect(func():
 		terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
 		terrain_toolbar.player_tab.set_playing(false))
@@ -1476,6 +1483,38 @@ func _setup_hud_status_column() -> void:
 	# Add to HUD as first child
 	hud.add_child(hud_status_column)
 	hud.move_child(hud_status_column, 0)
+
+## The top-left postcard: a per-location pixel-art picture beside the course
+## name and the date. The scores dock stacks underneath it (see _setup_scores_dock).
+func _setup_course_location_banner() -> void:
+	course_location_banner = CourseLocationBanner.new()
+	course_location_banner.name = "CourseLocationBanner"
+	$UI/HUD.add_child(course_location_banner)
+	# Folding the view controls in or out changes the corner's height, so the
+	# score cards below it follow.
+	course_location_banner.layout_changed.connect(_dock_scores_below_banner)
+	# The postcard carries the course's view controls in the same corner.
+	_fill_view_controls()
+	_dock_scores_below_banner()
+
+## Take the banner's view controls: the two Rotate arrows on the right of its
+## details card, and the facing chip in the card's top-right corner that shows
+## the direction the course faces and folds the arrows away.
+func _fill_view_controls() -> void:
+	rotate_view_controls = course_location_banner.rotate_controls
+	rotate_ccw_btn = course_location_banner.rotate_ccw_btn
+	rotate_cw_btn = course_location_banner.rotate_cw_btn
+	orientation_toggle = course_location_banner.orientation_toggle
+	rotate_ccw_btn.pressed.connect(_on_view_rotate_ccw)
+	rotate_cw_btn.pressed.connect(_on_view_rotate_cw)
+	_sync_view_controls()
+
+## Keep the scores dock just under the location banner, in both layouts.
+func _dock_scores_below_banner() -> void:
+	if scores_dock == null or course_location_banner == null:
+		return
+	scores_dock.set_top_clearance(
+		course_location_banner.get_occupied_height() + UIConstants.COURSE_BANNER_GAP)
 
 ## Hand the loaded mods their HUD space: each registered widget factory
 ## returns a Control, added to the HUD in load order. The Weather mod's
@@ -1514,14 +1553,17 @@ func _setup_bottom_bar() -> void:
 		Color("718f69"), Color("101f19")))
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bg.offset_top = -Screen.bottom_bar_height()
+	# The straight bar backs the shelf only. The bottom-left corner is the
+	# dock's own fan-shaped backdrop, cut around the medallions' arc (see
+	# DockArcBackdrop), so this panel starts where the left controls end
+	# and the course shows above the fan's rim.
+	bg.offset_left = left_controls.custom_minimum_size.x
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hud := $UI/HUD
 	hud.add_child(bg)
 	hud.move_child(bg, bottom_bar.get_index())
 	bottom_bar.add_theme_constant_override("separation", 2)
 	bottom_bar.offset_top = -Screen.bottom_bar_height()
-	orientation_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-	orientation_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 
 func _toggle_panel(panel: CenteredPanel) -> void:
 	"""Toggle a panel with mutual exclusion — opening one closes the previous."""
@@ -1544,24 +1586,22 @@ func _update_button_states() -> void:
 	"""Update button appearance based on game mode and speed"""
 	# Speed controls are always visible — tycoon-style, build while playing
 	pause_btn.visible = true
-	play_btn.visible = true
-	fast_btn.visible = true
+	speed_btn.visible = true
 	pause_btn.disabled = false
-	play_btn.disabled = false
-	fast_btn.disabled = false
-	play_btn.text = ">"
+	speed_btn.disabled = false
 	pause_btn.text = "||"
-	# The fast-forward button doubles as the Fast/Ultra toggle: its face shows
-	# the tier that is running and its tooltip names the tier a press switches to.
+	# The speed button owns every running speed: its icon and face show the
+	# tier that is running, its tooltip names the tier a press cycles to, and
+	# while paused it advertises the Normal a press resumes at.
 	var speed: int = GameManager.current_speed
-	fast_btn.text = fast_forward_label(speed)
-	fast_btn.tooltip_text = fast_forward_tooltip(speed)
+	speed_btn.text = speed_toggle_label(speed)
+	speed_btn.glyph = speed_toggle_glyph(speed)
+	speed_btn.tooltip_text = speed_toggle_tooltip(speed)
+	speed_btn.accessibility_name = "Game speed: %s" % _speed_tier_name(speed)
 
 	# Gold-lit rings communicate speed without dimming the icons into the bar.
 	pause_btn.active = speed == GameManager.GameSpeed.PAUSED
-	play_btn.active = speed == GameManager.GameSpeed.NORMAL
-	fast_btn.active = GameManagerScript.is_fast_forward_speed(speed)
-	fast_btn.queue_redraw()
+	speed_btn.active = GameManagerScript.is_running_speed(speed)
 
 func _start_painting() -> void:
 	if inspect_mode:
@@ -2118,14 +2158,10 @@ func _sync_camera_bounds_to_view() -> void:
 	camera.bounds_max = bounds.end
 
 func _sync_view_controls() -> void:
-	# Rotate view controls now live above SpeedControls in BottomBar; keep toolbar stub for compat.
-	if terrain_grid and orientation_label:
-		var orientation: int = terrain_grid.get_view_orientation()
-		orientation_label.text = VIEW_ORIENTATION_LABELS[wrapi(orientation, 0, VIEW_ORIENTATION_LABELS.size())]
-		# The needle beside the letter takes the same quarter turn the course
-		# just took, so the pair reads as a compass rather than a stray initial.
-		if orientation_needle:
-			orientation_needle.orientation = orientation
+	# The facing chip in the banner's details card takes the same quarter turn
+	# the course just took, so the corner reads as a compass.
+	if terrain_grid and course_location_banner:
+		course_location_banner.set_orientation(terrain_grid.get_view_orientation())
 	# Keep toolbar in sync if it still has the deprecated method
 	if terrain_toolbar and terrain_grid and terrain_toolbar.has_method("set_view_state"):
 		terrain_toolbar.set_view_state(terrain_grid.get_view_orientation(), terrain_grid.is_view_isometric())
@@ -2198,13 +2234,14 @@ func _toggle_simulation_pause() -> void:
 		GameManager.set_speed(GameManager.GameSpeed.PAUSED)
 	_update_button_states()
 
-func _on_fast_forward_pressed() -> void:
-	"""The single fast-forward button swaps between Fast (3x) and Ultra (8x)."""
-	GameManager.cycle_fast_forward_speed()
+func _on_speed_toggle_pressed() -> void:
+	"""The single speed button cycles Normal (1x), Fast (3x) and Ultra (8x)."""
+	GameManager.cycle_running_speed()
 
 ## Size `button` for the widest of `faces` and never let a face change shrink
-## it. Toggling a button whose face changes with state (like the fast-forward
-## ">>" / ">>>" pair) then cannot resize the button or nudge the row holding it.
+## it. Toggling a button whose face changes with state (like the speed
+## button's ">" / ">>" / ">>>" faces) then cannot resize the button or nudge
+## the row holding it.
 static func lock_button_width_to_faces(button: Button, faces: Array) -> void:
 	var face: String = button.text
 	var widest: float = button.custom_minimum_size.x
@@ -2214,21 +2251,37 @@ static func lock_button_width_to_faces(button: Button, faces: Array) -> void:
 	button.text = face
 	button.custom_minimum_size.x = widest
 
-## Face of the fast-forward button: ">>" at Fast (and while idle), ">>>" at Ultra.
-static func fast_forward_label(speed: int) -> String:
-	return ">>>" if speed == GameManager.GameSpeed.ULTRA else ">>"
+## Face of the speed button: one chevron per tier. While paused it shows the
+## single chevron of the Normal speed a press resumes at.
+static func speed_toggle_label(speed: int) -> String:
+	if speed == GameManager.GameSpeed.FAST:
+		return ">>"
+	if speed == GameManager.GameSpeed.ULTRA:
+		return ">>>"
+	return ">"
 
-## Tooltip that names the running tier and the tier the next press switches to.
-static func fast_forward_tooltip(speed: int) -> String:
-	if not GameManagerScript.is_fast_forward_speed(speed):
-		return "Fast-forward time — click for Fast (3x), click again for Ultra (8x)"
-	var next_speed: int = GameManagerScript.next_fast_forward_speed(speed)
+## Icon of the speed button (a PixelCircleButton glyph): one, two or three
+## triangles for Normal, Fast and Ultra; the plain play triangle while paused.
+static func speed_toggle_glyph(speed: int) -> String:
+	if speed == GameManager.GameSpeed.FAST:
+		return "fast"
+	if speed == GameManager.GameSpeed.ULTRA:
+		return "ultra"
+	return "play"
+
+## Tooltip that names the running tier and the tier the next press cycles to.
+static func speed_toggle_tooltip(speed: int) -> String:
+	if speed == GameManager.GameSpeed.PAUSED:
+		return "Paused — click for Normal (1x), click again for Fast (3x) and Ultra (8x)"
+	var next_speed: int = GameManagerScript.next_running_speed(speed)
 	return "%s (%dx) — click for %s (%dx)" % [
 		_speed_tier_name(speed), int(speed),
 		_speed_tier_name(next_speed), int(next_speed),
 	]
 
 static func _speed_tier_name(speed: int) -> String:
+	if speed == GameManager.GameSpeed.PAUSED:
+		return "Paused"
 	if speed == GameManager.GameSpeed.ULTRA:
 		return "Ultra"
 	if speed == GameManager.GameSpeed.FAST:
@@ -3071,22 +3124,10 @@ func _create_menu_buttons() -> void:
 	menu_btn.pressed.connect(_on_menu_pressed)
 	left_controls.add_child(menu_btn)
 
-	feed_btn = PixelCircleButton.new()
-	feed_btn.name = "FeedBtn"
-	feed_btn.glyph = "feed"
-	feed_btn.accessibility_name = "Feed"
-	feed_btn.tooltip_text = "Course event feed (N)"
-	feed_btn.pressed.connect(_toggle_event_feed)
-	left_controls.add_child(feed_btn)
-
-	inspect_btn = PixelCircleButton.new()
-	inspect_btn.name = "InspectBtn"
-	inspect_btn.glyph = "inspect"
-	inspect_btn.accessibility_name = "Inspect"
-	inspect_btn.tooltip_text = "Inspect terrain, improvements and buildings. Esc or right-click to exit."
-	inspect_btn.toggle_mode = true
-	inspect_btn.toggled.connect(_on_inspect_toggled)
-	left_controls.add_child(inspect_btn)
+	# The event Feed is not here any more: it is a card on the Club tab
+	# (Manage → Club → Review → Feed), wired up in _setup_terrain_toolbar.
+	# The Inspect toggle left the dock too: every Build section tab pins one to
+	# its bottom-right corner, also wired up in _setup_terrain_toolbar.
 
 	tile_inspector = TileInspector.new()
 	tile_inspector.name = "TileInspector"
@@ -3097,9 +3138,11 @@ func _fill_left_control_stack() -> void:
 	terrain_toolbar.section_visibility_changed.connect(_on_section_visibility_changed)
 	_sync_bottom_bar_backdrop(not terrain_toolbar.section_collapsed)
 
-## The bar's opaque backdrop covers the whole width only while a section is open.
-## Once the section is hidden it shrinks to the left controls, so the course
-## shows through where the shelf used to be.
+## The bar's opaque backdrop backs the shelf's width only while a section
+## is open: it runs from the left controls' right edge across the screen.
+## Once the section is hidden its two edges meet at that line, so the
+## course shows through where the shelf used to be. The bottom-left
+## corner itself is backed by the dock's arc-shaped backdrop either way.
 func _on_section_visibility_changed(open: bool) -> void:
 	_sync_bottom_bar_backdrop(open)
 
@@ -3107,6 +3150,7 @@ func _sync_bottom_bar_backdrop(open: bool) -> void:
 	var bg := $UI/HUD.get_node_or_null("BottomBarBG") as Control
 	if bg == null:
 		return
+	bg.offset_left = left_controls.custom_minimum_size.x
 	if open:
 		bg.anchor_right = 1.0
 		bg.offset_right = 0.0
@@ -3132,12 +3176,13 @@ func _on_inspect_toggled(enabled: bool) -> void:
 		terrain_toolbar.clear_selection()
 	_disable_terrain_painting_preview()
 	inspect_mode = true
-	inspect_btn.set_pressed_no_signal(true)
+	if terrain_toolbar:
+		terrain_toolbar.set_inspect_active(true)
 
 func _cancel_inspect_mode() -> void:
 	inspect_mode = false
-	if inspect_btn:
-		inspect_btn.set_pressed_no_signal(false)
+	if terrain_toolbar:
+		terrain_toolbar.set_inspect_active(false)
 	if tile_inspector:
 		tile_inspector.hide()
 
@@ -4425,8 +4470,10 @@ func _setup_event_feed() -> void:
 			event_feed_panel.append_event(entry)
 	)
 
-	# Surface the unread badge on the Feed button in the left control stack
+	# Surface the unread badge on the Club tab's Feed card (and, through the
+	# toolbar, on the Club tab and Manage section buttons behind it)
 	EventFeedManager.unread_count_changed.connect(_update_feed_unread)
+	_update_feed_unread(EventFeedManager.unread_count)
 
 func _toggle_event_feed() -> void:
 	# Event feed is a side panel, not a CenteredPanel, so handle independently
@@ -4434,9 +4481,10 @@ func _toggle_event_feed() -> void:
 		event_feed_panel.toggle()
 
 func _update_feed_unread(count: int) -> void:
-	if feed_btn:
-		feed_btn.notification_count = count
-		feed_btn.tooltip_text = "Course event feed (N) — %d unread" % count
+	# The toolbar owns the Feed card; it mirrors the count onto the Club tab
+	# and Manage section badges so unread events show from anywhere.
+	if terrain_toolbar:
+		terrain_toolbar.set_feed_unread_count(count)
 
 func _navigate_to_hole(hole_number: int) -> void:
 	if not GameManager.current_course:
@@ -4819,8 +4867,17 @@ func _apply_responsive_layout() -> void:
 		bg.offset_top = -bar_h
 	if hud_status_column:
 		hud_status_column.apply_screen()
+	if course_location_banner:
+		course_location_banner.apply_screen()
+	# The banner changes height between desktop and compact, so re-dock the
+	# scores cards underneath it.
+	_dock_scores_below_banner()
 	if left_controls:
 		left_controls.apply_screen()
+	# The bar backdrop starts at the dock's right edge (the dock paints its
+	# own arc backdrop), and that edge moves between desktop and touch.
+	if bg and left_controls:
+		bg.offset_left = left_controls.custom_minimum_size.x
 	if terrain_toolbar:
 		terrain_toolbar.apply_screen()
 	if mini_map:

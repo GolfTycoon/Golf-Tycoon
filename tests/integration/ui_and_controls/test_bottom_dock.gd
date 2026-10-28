@@ -20,6 +20,15 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			await click(main.terrain_toolbar._tab_buttons[tab])
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
+func test_the_rotate_arrows_left_the_dock_for_the_location_banner() -> void:
+	assert_null(main.left_controls.get_node_or_null("RotateViewControls"),
+		"The dock no longer carries a view row")
+	assert_eq(main.rotate_view_controls.get_parent().get_parent(), main.course_location_banner,
+		"The arrows ride on the top-left postcard instead")
+	assert_false(main.left_controls.get_global_rect().intersects(
+		main.rotate_ccw_btn.get_global_rect()),
+		"and stand clear of the bottom bar")
+
 func test_financial_overview_opens_as_a_fullscreen_dashboard() -> void:
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
 	await process_frames(2)
@@ -34,6 +43,21 @@ func test_financial_overview_opens_as_a_fullscreen_dashboard() -> void:
 	assert_not_null(main.financial_panel.get_node_or_null("FinancialOverviewRoot/Backdrop"), "The dashboard uses the World Map backdrop")
 	assert_not_null(main.financial_panel.get_node_or_null("FinancialOverviewRoot/Frame/Page/DashboardContent"), "The full-screen dashboard content is present")
 	main._on_financial_panel_closed()
+
+func test_event_feed_opens_from_the_club_tab() -> void:
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await process_frames(2)
+	var feed: Button = null
+	for node in nodes_of_class(main.terrain_toolbar.page_content(TerrainToolbar.Tab.CLUB), "Button"):
+		if node.get("tool_type") == "feed":
+			feed = node
+			break
+	assert_not_null(feed, "The Club tab carries the Feed card")
+	assert_eq(feed, main.feed_btn, "and it is the feed button main tracked")
+	assert_null(main.left_controls.get_node_or_null("FeedBtn"), "It left the bottom-left stack")
+	await click(feed)
+	assert_true(main.event_feed_panel.visible, "The Feed card opens the event feed")
+	main._toggle_event_feed()
 
 func test_marketing_opens_inside_the_same_financial_overview() -> void:
 	main._toggle_marketing_panel()
@@ -71,12 +95,23 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		await set_window(window_size)
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
 		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
-		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"), main.feed_btn,
-			main.inspect_btn, main.rotate_ccw_btn, main.rotate_cw_btn,
-			main.pause_btn, main.play_btn, main.fast_btn]
+		# The Rotate arrows left the dock for the top-left location banner.
+		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
+			main.pause_btn, main.speed_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
+		# Inspect left the dock for the toolbar's pinned Build-tab toggles; those
+		# keep a fixed footprint that still clears the touch minimum.
+		assert_null(main.left_controls.get_node_or_null("InspectBtn"),
+			"Inspect no longer occupies the dock's utility row")
+		for button in main.terrain_toolbar._inspect_buttons:
+			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
+				"%s meets the minimum touch target" % button.accessibility_name)
+			if button.is_visible_in_tree():
+				assert_true(rect_within(button.get_global_rect(),
+					Rect2(Vector2.ZERO, Vector2(window_size))),
+					"The pinned Inspect toggle stays on screen")
 		for button in main.terrain_toolbar._tab_buttons.values():
 			assert_gte(button.size.x, 40.0, "Toolbar tabs also grow for touch")
 
@@ -93,10 +128,78 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 					"Touch targets %s and %s do not overlap" % [all_circles[i].accessibility_name, all_circles[j].accessibility_name])
 	await set_window(DESIGN_WINDOW)
 
+func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void:
+	# Finish at desktop to catch stale sizes or positions after growing for touch.
+	for window_size in [DESIGN_WINDOW, Vector2i(390, 844), Vector2i(844, 390), DESIGN_WINDOW]:
+		await set_window(window_size)
+		var dock: BottomControlDock = main.left_controls
+		var menu: PixelCircleButton = dock.get_node("MenuBtn")
+		var diameter := BottomControlDock.TOUCH_UTILITY_SIZE if Screen.uses_touch_layout() else BottomControlDock.DESKTOP_UTILITY_SIZE
+		var utilities: Array = [menu, main.pause_btn, main.speed_btn]
+		for i in utilities.size():
+			var button: PixelCircleButton = utilities[i]
+			var expected_size := diameter - i * BottomControlDock.UTILITY_SIZE_STEP
+			assert_eq(button.size, Vector2.ONE * expected_size, "Utility circles taper along the arc")
+			assert_eq(button.diameter, expected_size, "Drawing and hit target use the same diameter")
+			assert_true(dock.get_global_rect().encloses(button.get_global_rect()),
+				"Every utility stays inside the dock")
+		var pause_rect: Rect2 = main.pause_btn.get_global_rect()
+		var play_rect: Rect2 = main.speed_btn.get_global_rect()
+		var menu_center := menu.get_global_rect().get_center()
+		var pause_center := pause_rect.get_center()
+		var play_center := play_rect.get_center()
+		assert_lt(menu_center.x, pause_center.x, "Menu starts the arc at the left")
+		assert_lt(pause_center.x, play_center.x, "Play finishes the arc at the right")
+		assert_lt(menu_center.y, pause_center.y, "The arc descends from Menu to Pause")
+		assert_lt(pause_center.y, play_center.y, "The arc descends from Pause to Play")
+		assert_gt(play_center.y - pause_center.y, pause_center.y - menu_center.y,
+			"The arc bends down more steeply toward Play, like the section buttons")
+		assert_almost_eq(play_rect.end.y, dock.get_global_rect().end.y - BottomControlDock.UTILITY_BOTTOM, 0.5,
+			"Play anchors the end of the arc to the foot of the dock")
+		var buttons: Array = dock.section_buttons.duplicate()
+		buttons.append_array(utilities)
+		for i in buttons.size():
+			var first: Rect2 = buttons[i].get_global_rect()
+			for j in range(i + 1, buttons.size()):
+				var second: Rect2 = buttons[j].get_global_rect()
+				assert_gte(first.get_center().distance_to(second.get_center()),
+					(first.size.x + second.size.x) * 0.5,
+					"The enlarged circles never overlap adjacent controls")
+
+func test_the_corner_wears_an_arc_backdrop_in_the_open_sections_colour() -> void:
+	var dock: BottomControlDock = main.left_controls
+	var backdrop := dock.get_node_or_null("ArcBackdrop") as DockArcBackdrop
+	assert_not_null(backdrop, "The corner is backed by the arc fan, not the bar's rectangle")
+	assert_eq(backdrop.get_index(), 0, "It paints behind every medallion")
+	assert_eq(backdrop.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"Clicks above the fan's rim reach the course")
+	assert_true(backdrop.get_global_rect().is_equal_approx(dock.get_global_rect()),
+		"The fan's canvas is the dock itself, so it hugs the live layout")
+
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await process_frames(2)
+	assert_eq(main.terrain_toolbar.current_section, TerrainToolbar.Section.MANAGE)
+	assert_eq(backdrop.accent, TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.MANAGE],
+		"The rim trim takes the open section's colour")
+	main.terrain_toolbar.collapse_section()
+	await process_frames(2)
+	assert_eq(backdrop.accent, DockArcBackdrop.FALLBACK_ACCENT,
+		"A hidden shelf drops the trim to the bar's sage")
+
+	# The straight bar backdrop now backs only the shelf: even with a
+	# section open it starts at the dock's right edge, leaving the corner
+	# (and the course above the fan's rim) to the backdrop.
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(2)
+	var bg: Control = main.get_node("UI/HUD/BottomBarBG")
+	assert_almost_eq(bg.get_global_rect().position.x, dock.get_global_rect().end.x, 0.5,
+		"The bar's rectangle starts where the fan-shaped corner ends")
+	assert_eq(bg.anchor_right, 1.0, "and still runs to the screen's right edge")
+
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
-	buttons.append_array([main.left_controls.get_node("MenuBtn"), main.feed_btn, main.inspect_btn,
-		main.rotate_ccw_btn, main.rotate_cw_btn, main.pause_btn, main.play_btn, main.fast_btn])
+	buttons.append_array([main.left_controls.get_node("MenuBtn"),
+		main.pause_btn, main.speed_btn])
 	for i in buttons.size():
 		var first: Rect2 = buttons[i].get_global_rect()
 		assert_eq(first.size.x, first.size.y)

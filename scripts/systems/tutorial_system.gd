@@ -50,7 +50,7 @@ const STEP_DATA = {
 	},
 	Step.START_SIMULATION: {
 		"title": "Step 4: Your Course is Open!",
-		"message": "Your course is already open — golfers are arriving automatically!\n\nUse the speed controls at the bottom (||  >  >>) to pause, play, or fast-forward time while you build — press >> again to reach Ultra (8x).",
+		"message": "Your course is already open — golfers are arriving automatically!\n\nThe || button at the bottom pauses time while you build, and the > button beside it cycles the speed: press it for Fast (>> 3x), again for Ultra (>>> 8x), and again to return to Normal (1x).",
 		"action": "Try the speed controls, then click Next",
 		"requires_action": false,
 	},

@@ -20,6 +20,8 @@ signal elevation_tool_pressed(tool_name: String)
 signal elevation_brush_size_changed(new_size: int)
 signal elevation_brush_shape_changed(square_shape: bool)
 signal bulldozer_pressed
+## The pinned Inspect toggle on a Build tab was switched on (true) or off.
+signal inspect_toggled(enabled: bool)
 signal brush_size_changed(new_size: int)
 signal brush_shape_changed(round_shape: bool)
 signal play_course_pressed
@@ -46,6 +48,11 @@ signal hole_detail_changed(hole_number: int)
 ## the crew: Staff.
 signal staff_map_pressed
 signal marketing_pressed
+## The Club tab's Feed card: the course event feed (also the N hotkey).
+signal event_feed_pressed
+## The Feed card's unread count changed, so the dock can light the same
+## count on its Manage section button.
+signal feed_unread_count_changed(count: int)
 signal course_milestones_pressed
 signal world_milestones_pressed
 signal achievements_pressed
@@ -126,6 +133,7 @@ const TOOL_TAB_MAP := {
 	"scorecard": Tab.HOLES,
 	"review": Tab.CLUB,
 	"finance": Tab.CLUB,
+	"feed": Tab.CLUB,
 }
 
 ## The tool hotkeys this shelf dispatches. InputBindings owns their keys and
@@ -195,6 +203,10 @@ const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unu
 ## What the Bulldozer removes — improvements and buildings only. Course
 ## Terrain tiles are ground paint: repaint them with another tile instead.
 const BULLDOZER_TOOLTIP := "Demolish decorations, walking paths and buildings. Click or drag over them. Fees: $5 per path tile, $20 per decoration or building. Course Terrain tiles are not affected — any Course Terrain tile replaces any other, including trees."
+## The Build tabs whose tiles the Inspect mode reads: every shelf in the Build
+## section pins one Inspect toggle, so it is beside terrain, improvements,
+## buildings and elevation work alike. Manage and Golfers pin none.
+const INSPECT_TABS := [Tab.TERRAIN, Tab.IMPROVEMENTS, Tab.BUILDINGS, Tab.ELEVATION]
 
 var hole_grid: GridContainer = null  # Course holes buttons, three to a column (filled by main.gd)
 var terrain_grid: TerrainGrid = null  # Course terrain grid, for checking orphaned tee/green tiles
@@ -217,6 +229,7 @@ var _tab_rail: VBoxContainer
 var _page_title: Label
 var _pages: Array[Control] = []  # One wrapper per tab; the scroll + fixed chrome
 var _bulldozer_buttons: Array[BulldozerButton] = []  # Pinned to Improvements & Buildings
+var _inspect_buttons: Array[InspectButton] = []  # Pinned to every Build tab
 var _brush_dock: PanelContainer = null  # Pinned to the Course Terrain corner
 var _brush_size: int = 1
 var _round_brush := true
@@ -258,6 +271,12 @@ var _path_tile: TerrainTileButton = null  # Walking path tile leading the shelf
 var _course_tiles: TileHoneycomb = null
 var _elevation_selectors: TileHoneycomb = null  # Vertex / Flat Square / Gradual Square
 var _landscape_buttons: Array[Node] = []
+## The Club tab's Feed card and how many events it is holding unread. The
+## card moved here from the bottom-left control stack; the count is kept so
+## the Club tab button (and, through feed_unread_count_changed, the Manage
+## section button) can carry the same badge while the card is off screen.
+var feed_button: DockActionButton = null
+var feed_unread_count: int = 0
 var _selected_string_tool: String = ""
 var _refresh_timer: Timer = null
 var _staff_panel: StaffPanel = null
@@ -466,14 +485,18 @@ func _build_page(tab_index: int) -> Control:
 		Tab.TERRAIN:
 			_build_terrain_tab(hbox)
 			_pin_brush_dock(page)
+			_pin_inspect_button(page)
 		Tab.IMPROVEMENTS:
 			_build_improvements_tab(hbox)
 			_pin_bulldozer_button(page)
+			_pin_inspect_button(page)
 		Tab.BUILDINGS:
 			_build_buildings_tab(hbox)
 			_pin_bulldozer_button(page)
+			_pin_inspect_button(page)
 		Tab.ELEVATION:
 			_build_elevation_tab(hbox)
+			_pin_inspect_button(page)
 		Tab.HOLES:
 			_build_holes_tab(hbox)
 		Tab.GOLFERS:
@@ -502,6 +525,52 @@ func _pin_bulldozer_button(page: Control) -> void:
 	btn.offset_right = BulldozerButton.CORNER_MARGIN + BulldozerButton.BUTTON_DIAMETER
 	btn.offset_bottom = -BulldozerButton.CORNER_MARGIN
 	_bulldozer_buttons.append(btn)
+
+## Pin the round Inspect toggle to a page's bottom-right corner. The bottom-left
+## corner is already taken on the Build tabs — the brush dock on Course Terrain,
+## the Bulldozer on Improvements and Buildings — so Inspect takes the opposite
+## corner, where nothing else is pinned. Anchored to the page (not the scrolling
+## shelf) so it stays put while tiles scroll by, the same contract the Bulldozer
+## keeps. Each copy reports the shared mode through `toggled`; main.gd owns the
+## mode and mirrors it back to every copy with set_inspect_active.
+func _pin_inspect_button(page: Control) -> void:
+	var btn := InspectButton.new()
+	btn.name = "InspectButton"
+	btn.toggled.connect(_on_inspect_button_toggled)
+	page.add_child(btn)
+	btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	btn.offset_left = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
+	btn.offset_top = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
+	btn.offset_right = -InspectButton.CORNER_MARGIN
+	btn.offset_bottom = -InspectButton.CORNER_MARGIN
+	_inspect_buttons.append(btn)
+
+func _on_inspect_button_toggled(enabled: bool) -> void:
+	inspect_toggled.emit(enabled)
+
+## The first pinned Inspect toggle (the Course Terrain tab's). Kept as a stable
+## reference for code that just needs one button to drive the mode; every copy
+## stays in step through set_inspect_active.
+func inspect_button() -> InspectButton:
+	return _inspect_buttons[0] if not _inspect_buttons.is_empty() else null
+
+## Press (or release) every pinned Inspect toggle without re-emitting `toggled`,
+## so the four tabs always show the same mode no matter which one changed it or
+## where the mode was cancelled (Esc, right-click, another tool).
+func set_inspect_active(active: bool) -> void:
+	for btn in _inspect_buttons:
+		if not is_instance_valid(btn):
+			continue
+		btn.set_pressed_no_signal(active)
+		btn.active = active
+		btn.queue_redraw()
+
+## True while any pinned toggle shows Inspect mode as active.
+func is_inspect_active() -> bool:
+	for btn in _inspect_buttons:
+		if is_instance_valid(btn) and btn.button_pressed:
+			return true
+	return false
 
 ## Pin the Course Terrain brush controls to the page's bottom-left corner: a
 ## compact plate of four square cells — brush shape, brush size, smaller,
@@ -1116,6 +1185,8 @@ func select_player_section(index: int) -> void:
 ## and Milestone tabs folded into one shelf. Each former tab keeps
 ## its own labelled column, so its actions still read as a group: the
 ## company's maps lead, then the course's review and records and its milestones.
+## The event Feed sits in Review, beside the other ways of looking back at
+## how the course is doing — it used to be a circle in the bottom-left stack.
 func _build_club_tab(hbox: HBoxContainer) -> void:
 	var groups := [
 		["Maps", [
@@ -1125,6 +1196,7 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 		["Review", [
 			["aura_map", "Review", "review", "", "Course rating, feedback and next steps — now on the Course Map\'s Aura mode"],
 			["finance", "Financial Overview", "finance", "F", "Income, expenses, loans and cash flow"],
+			["feed", "Feed", "feed", "N", "Course event feed: records, money, weather, tournaments and everything that has happened"],
 		]],
 		["Milestones", [
 			["course_milestones", "Course Milestones", "milestone", "G", "Per-location goals for this save"],
@@ -1144,8 +1216,28 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			button.hotkey = action[3]
 			button.tool_description = action[4]
 			button.tool_pressed.connect(_on_tool_button_pressed)
+			if action[0] == "feed":
+				button.name = "FeedBtn"
+				button.tooltip_text = "Course event feed (N)"
+				feed_button = button
 			row.add_child(button)
 		hbox.add_child(_make_tab_group(group[0].to_upper(), row, true))
+	set_feed_unread_count(feed_unread_count)
+
+## Light the Feed card's unread badge — and the Club tab button's, so the
+## count still shows while another Manage tab is open. The bottom dock
+## mirrors it onto the Manage section button through
+## feed_unread_count_changed, which keeps it visible from any section.
+func set_feed_unread_count(count: int) -> void:
+	feed_unread_count = count
+	if is_instance_valid(feed_button):
+		feed_button.notification_count = count
+		feed_button.tooltip_text = "Course event feed (N)" if count <= 0 \
+			else "Course event feed (N) — %d unread" % count
+	var club_tab := _tab_buttons.get(Tab.CLUB) as PixelCircleButton
+	if club_tab:
+		club_tab.notification_count = count
+	feed_unread_count_changed.emit(count)
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
@@ -1279,7 +1371,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "feed", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -2178,6 +2270,8 @@ func _on_tool_button_pressed(tool_type) -> void:
 				aura_map_pressed.emit()
 			"finance":
 				financial_overview_pressed.emit()
+			"feed":
+				event_feed_pressed.emit()
 
 func _update_selection_highlight() -> void:
 	for tool_type in _tool_buttons.keys():
