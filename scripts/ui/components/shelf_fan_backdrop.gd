@@ -114,14 +114,16 @@ func _draw() -> void:
 # ============================================================================
 
 ## The generated texture for one geometry and accent, from the cache when this
-## fairway has been painted before.
-static func texture_for(canvas_size: Vector2, hub: Vector2, circles: Array,
-		accent: Color, rule: Rect2 = Rect2()) -> ImageTexture:
-	var key := _cache_key(canvas_size, hub, circles, accent, rule)
+## fairway has been painted before. The static helpers take `medallions` and
+## `trim` rather than the instance's `circles` and `accent`, so no parameter
+## shadows the control's own state (the same split DockArcBackdrop uses).
+static func texture_for(canvas_size: Vector2, hub: Vector2, medallions: Array,
+		trim: Color, rule: Rect2 = Rect2()) -> ImageTexture:
+	var key := _cache_key(canvas_size, hub, medallions, trim, rule)
 	if _texture_cache.has(key):
 		return _texture_cache[key]
 	var texture := ImageTexture.create_from_image(
-		shelf_image(canvas_size, hub, circles, accent, rule))
+		shelf_image(canvas_size, hub, medallions, trim, rule))
 	_texture_cache[key] = texture
 	return texture
 
@@ -129,30 +131,30 @@ static func texture_for(canvas_size: Vector2, hub: Vector2, circles: Array,
 ## faint chequer sectors crossing them, a dark socket under each medallion,
 ## a dotted gold ball-flight arc through them, dew speckles, and the page
 ## title's curved gold rule. `hub` is the dock's bottom-left corner in display
-## coordinates of a canvas of `canvas_size`; `circles` are Vector3 (centre x,
+## coordinates of a canvas of `canvas_size`; `medallions` are Vector3 (centre x,
 ## centre y, radius); `rule` is the title's rect in the same coordinates. Pure
 ## Image work, so it runs headless and tests can inspect it pixel by pixel.
-static func shelf_image(canvas_size: Vector2, hub: Vector2, circles: Array,
-		accent: Color, rule: Rect2 = Rect2()) -> Image:
-	var key := _cache_key(canvas_size, hub, circles, accent, rule)
+static func shelf_image(canvas_size: Vector2, hub: Vector2, medallions: Array,
+		trim: Color, rule: Rect2 = Rect2()) -> Image:
+	var key := _cache_key(canvas_size, hub, medallions, trim, rule)
 	if _image_cache.has(key):
 		return _image_cache[key]
 	var w := maxi(1, int(ceil(canvas_size.x / float(PIXEL))))
 	var h := maxi(1, int(ceil(canvas_size.y / float(PIXEL))))
 	var image := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
-	var dots := _flight_dots(circles)
+	var dots := _flight_dots(medallions)
 	for py in h:
 		for px in w:
 			var point := Vector2(px * PIXEL + PIXEL * 0.5, py * PIXEL + PIXEL * 0.5)
 			image.set_pixel(px, py,
-				_turf_at(point, hub, circles, px, py, dots))
+				_turf_at(point, hub, medallions, px, py, dots))
 	_draw_title_rule(image, rule)
 	_image_cache[key] = image
 	return image
 
 ## The turf colour at one point of the fairway: ring, chequer sector, socket,
 ## flight dot and dew, in that order.
-static func _turf_at(point: Vector2, hub: Vector2, circles: Array,
+static func _turf_at(point: Vector2, hub: Vector2, medallions: Array,
 		px: int, py: int, dots: Array) -> Color:
 	var dist := point.distance_to(hub)
 	var hue := TURF_DARK if int(dist / RING_WIDTH) % 2 == 0 else TURF_LIGHT
@@ -160,7 +162,7 @@ static func _turf_at(point: Vector2, hub: Vector2, circles: Array,
 	if int(angle / SECTOR_DEGREES) % 2 == 1:
 		hue = _scaled(hue, SECTOR_LIFT)
 	var socket_d := INF
-	for circle: Vector3 in circles:
+	for circle: Vector3 in medallions:
 		socket_d = minf(socket_d,
 			point.distance_to(Vector2(circle.x, circle.y)) - circle.z)
 		if socket_d >= 0.0 and socket_d <= SOCKET_WIDTH:
@@ -216,7 +218,7 @@ static func _scaled(color: Color, factor: float) -> Color:
 	return Color(minf(color.r * factor, 1.0), minf(color.g * factor, 1.0),
 		minf(color.b * factor, 1.0), color.a)
 
-static func _cache_key(canvas_size: Vector2, hub: Vector2, circles: Array,
-		accent: Color, rule: Rect2 = Rect2()) -> String:
+static func _cache_key(canvas_size: Vector2, hub: Vector2, medallions: Array,
+		trim: Color, rule: Rect2 = Rect2()) -> String:
 	return "%dx%d|%s|%s|%s|%s" % [int(canvas_size.x), int(canvas_size.y),
-		hub, str(circles), accent.to_html(), str(rule)]
+		hub, str(medallions), trim.to_html(), str(rule)]

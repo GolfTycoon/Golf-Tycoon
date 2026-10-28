@@ -342,6 +342,12 @@ func _exit_tree() -> void:
 func apply_screen() -> void:
 	if _tab_rail == null:
 		return
+	# The widened 150px floor (see _build_ui) plus the bottom dock (220px on
+	# touch, 218px on desktop) and the bar's separation need about 372px.
+	# On the narrowest phones that sum is wider than the window, which would
+	# push the whole bottom bar off screen, so there the shelf keeps the old
+	# 136px floor and lets its pages scroll a little sooner instead.
+	custom_minimum_size.x = 136.0 if Screen.window_size.x < 372.0 else 150.0
 	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
@@ -414,7 +420,8 @@ func _build_ui() -> void:
 	# than pushing the utility buttons or section rail off screen.
 	# Widened for the larger 44px/52px rail (up from 56px to 68px) so the
 	# pinned brush dock (52px) still fits inside the page when the shelf
-	# is at its minimum width.
+	# is at its minimum width. apply_screen narrows this floor again on
+	# the narrowest windows, where the dock and shelf must share 360px.
 	custom_minimum_size = Vector2(150, 0)
 	# The fairway backdrop fills the panel's content rect (inset by its
 	# margins), so the notched frame the panel style still draws around it
