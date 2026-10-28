@@ -10,7 +10,7 @@ const ManagerScript := preload("res://scripts/modding/mod_manager.gd")
 const RegistryScript := preload("res://scripts/modding/mod_content_registry.gd")
 const WeatherImpl := preload("res://mods/golf_tycoon.weather/weather_system.gd")
 const ROOT := "user://ut_mod_manager"
-const GAME_VERSION := "0.5.1"
+const GAME_VERSION := "0.5.2"
 
 var _saved_season_provider: SeasonProvider = null
 
