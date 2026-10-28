@@ -421,8 +421,8 @@ func test_the_offsets_are_mixed_across_the_wood() -> void:
 					turned += 1
 	var tiles := 16 * 16
 	for facing in range(TreeOverlay.FACINGS.size()):
-		assert_gt(counts[facing], tiles / 8.0,
+		assert_gt(float(counts[facing]), tiles / 8.0,
 				"the %s angle covers a fair share of the wood"
 				% TreeOverlay.facing_name(facing))
-	assert_gt(turned, neighbours / 2.0,
+	assert_gt(float(turned), neighbours / 2.0,
 			"and neighbours face different ways rather than striping the wood")

@@ -1,7 +1,7 @@
 extends GameTest
 ## The HUD status column (pinned to the top-right corner) reads out one card
-## per stat. Every card carries its own background, border, icon, name and
-## value; there is no game-mode (PLAYING / PAUSED) row at the top any more,
+## per stat. Every card carries its own background, border, value and
+## right-hand icon; there is no game-mode (PLAYING / PAUSED) row at the top any more,
 ## the column itself has no background, and it can no longer be collapsed.
 ## Weather, Wind and Seasons are optional, so their cards are hidden while the
 ## feature is off: a course playing without them has no rows left reading
@@ -109,7 +109,7 @@ func test_every_row_is_a_card_with_a_background_a_border_an_icon_and_a_value() -
 	for field in ROW_FIELDS:
 		var card: Control = _row(column, field)
 		assert_true(card is PanelContainer, "%s is a panel card" % field)
-		var style := (card as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
+		var style := (card.get_node("Content/ValueBackground") as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
 		assert_not_null(style, "%s has its own background style" % field)
 		assert_gt(style.bg_color.a, 0.0, "%s paints a background" % field)
 		var borders := style.border_width_left + style.border_width_top \
@@ -117,17 +117,92 @@ func test_every_row_is_a_card_with_a_background_a_border_an_icon_and_a_value() -
 		assert_gt(borders, 0, "%s paints a border" % field)
 		assert_true(style.corner_radius_top_left > 0, "%s has rounded card corners" % field)
 
-		var icon := card.get_node_or_null("Content/Icon") as TextureRect
+		var icon := card.get_node_or_null("Content/IconBackground/Icon") as TextureRect
 		assert_not_null(icon, "%s carries an icon" % field)
 		if icon:
 			assert_not_null(icon.texture, "%s's icon is painted" % field)
 			assert_eq(icon.custom_minimum_size, Vector2(HUDStatusColumn.ICON_SIZE,
-				HUDStatusColumn.ICON_SIZE), "%s's icon keeps its 16px grid" % field)
+				HUDStatusColumn.ICON_SIZE), "%s's icon uses the enlarged pixel grid" % field)
 
-		var value := card.get_node_or_null("Content/Value") as Label
+		var value := card.get_node_or_null("Content/ValueBackground/ValueContent/Value") as Label
 		assert_not_null(value, "%s carries a value" % field)
 		if value:
 			assert_ne(value.text, "", "%s shows its value" % field)
+
+func test_rows_show_values_before_right_hand_icons_without_titles() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(2)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		var content := card.get_node("Content") as HBoxContainer
+		var value_background := content.get_node("ValueBackground") as PanelContainer
+		var icon_background := content.get_node("IconBackground") as PanelContainer
+		assert_null(content.get_node_or_null("Title"), "%s has no title" % field)
+		assert_lt(value_background.get_index(), icon_background.get_index(), "%s places its value before the icon" % field)
+		assert_gt(icon_background.position.x, value_background.position.x, "%s places its icon on the right" % field)
+		assert_lt(icon_background.position.y, value_background.position.y, "%s raises its icon background" % field)
+		assert_eq(icon_background.size, Vector2(40, 40), "%s has a circular icon background" % field)
+		var icon_style := icon_background.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(icon_style.corner_radius_top_left, 20, "%s has fully rounded icon corners" % field)
+		var value_style := value_background.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_gt(value_style.corner_radius_top_left, 4, "%s has more rounded value corners" % field)
+	var funds := _row(column, "_funds_row").get_node("Content/ValueBackground/ValueContent")
+	assert_gt(funds.get_node("Trend").get_index(), funds.get_node("Value").get_index(),
+		"the funds trend follows the value")
+
+func test_dynamic_icons_update_their_accented_medallion_and_value_pill() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	var card := _row(column, "_weather_row")
+	var icon := card.get_node("Content/IconBackground/Icon") as TextureRect
+	var icon_background := icon.get_parent() as PanelContainer
+	var value_background := card.get_node("Content/ValueBackground") as PanelContainer
+	var accent := Color(0.2, 0.6, 0.9)
+	column._set_row_icon(icon, PixelIcon.Kind.RAIN, accent)
+	var icon_style := icon_background.get_theme_stylebox("panel") as StyleBoxFlat
+	var value_style := value_background.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_eq(icon_style.border_color, Color(accent, 0.9), "medallion follows its icon")
+	assert_eq(value_style.border_color, Color(accent, 0.58), "value pill matches the medallion")
+	assert_gt(icon_style.bg_color.b, value_style.bg_color.b, "the medallion is more richly tinted")
+	assert_gt(value_style.shadow_size, 0, "the pill has depth over the course")
+
+func test_cards_are_double_height() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(2)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		assert_almost_eq(card.size.y, 48.0, 0.5, "%s is 48 pixels tall" % field)
+		var icon := card.get_node("Content/IconBackground/Icon") as TextureRect
+		var value := card.get_node("Content/ValueBackground/ValueContent/Value") as Label
+		assert_eq(icon.custom_minimum_size, Vector2(32, 32), "the icon is doubled")
+		assert_eq(value.get_theme_font_size("font_size"), 24, "the value font is doubled")
+		var icon_background := card.get_node("Content/IconBackground") as Control
+		assert_almost_eq(icon.global_position.y + icon.size.y / 2.0,
+			icon_background.global_position.y + icon_background.size.y / 2.0, 1.0,
+			"%s keeps its icon centered in its circle" % field)
+
+func test_card_backgrounds_fit_their_values_and_remain_right_aligned() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(3)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		var parent := card.get_parent() as Control
+		assert_lt(card.size.x, parent.size.x, "%s does not fill the column" % field)
+		assert_almost_eq(card.position.x + card.size.x, parent.size.x, 1.0,
+			"%s is aligned to the right" % field)
+	var funds := _row(column, "_funds_row")
+	column._set_value_text(column._money_label, "$ 1")
+	await process_frames(2)
+	var short_width := funds.size.x
+	column._set_value_text(column._money_label, "$ 1,234,567")
+	await process_frames(2)
+	assert_gt(funds.size.x, short_width, "the background grows with the value")
+	column._set_value_text(column._money_label, "$ 1")
+	await process_frames(2)
+	assert_almost_eq(funds.size.x, short_width, 1.0, "the background shrinks again")
 
 func test_the_rows_are_separate_cards_not_a_shared_bar() -> void:
 	_set_features(true, true, true)

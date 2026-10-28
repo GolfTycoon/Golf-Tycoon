@@ -8,8 +8,8 @@ class_name HUDStatusColumn
 ## of the viewport for the course view. The calendar date lives in the
 ## top-left CourseLocationBanner, not in this column.
 ##
-## Each stat is its own card: a background, a border, an icon, the stat's
-## name and its value. The cards are what separate one row from the next, so
+## Each stat has a rounded value background and a separate right-hand icon
+## circle. The cards are what separate one row from the next, so
 ## no dividers are drawn. The column itself is transparent - the cards float
 ## over the course, and only the cards that open a panel take the mouse.
 ##
@@ -23,11 +23,15 @@ signal reputation_clicked()
 signal rating_clicked()
 
 ## Side of a row icon, in screen pixels (PixelIcon scales in whole blocks).
-const ICON_SIZE := 16
-## Height of a status card; the icon plus the card's vertical padding.
-const ROW_HEIGHT := 24
+const ICON_SIZE := 32
+## Scale the value and trend along with the doubled row height.
+const VALUE_FONT_SIZE := UIConstants.FONT_SIZE_SM * 2
+const TREND_FONT_SIZE := UIConstants.FONT_SIZE_XS * 2
+## Height of a status card, leaving comfortable space around the icon and value.
+const ROW_HEIGHT := 48
 ## Corner radius shared by the cards and their hover / focus rings.
-const CARD_RADIUS := 4
+const CARD_RADIUS := 18
+const ICON_BACKGROUND_SIZE := 40
 
 # UI References
 var _funds_row: PanelContainer
@@ -95,38 +99,38 @@ func _build_ui() -> void:
 	# --- Funds ---
 	_funds_row = _create_row("FundsRow", "Funds", PixelIcon.Kind.COIN,
 		UIConstants.COLOR_GOLD, _on_money_pressed, "Click to view financial details")
-	_money_label = _funds_row.get_node("Content/Value") as Label
+	_money_label = _funds_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	_money_trend = Label.new()
 	_money_trend.name = "Trend"
-	_money_trend.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	_money_trend.add_theme_font_size_override("font_size", TREND_FONT_SIZE)
 	_money_trend.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	# An empty trend takes no room, so the value keeps the space it needs.
 	_money_trend.custom_minimum_size = Vector2(0, 0)
 	_money_trend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_funds_row.get_node("Content").add_child(_money_trend)
+	_funds_row.get_node("Content/ValueBackground/ValueContent").add_child(_money_trend)
 	column.add_child(_funds_row)
 
 	# The calendar date lives in the top-left CourseLocationBanner; this column
 	# keeps only the Season card, which is hidden while the Seasons feature is off.
 	_season_row = _create_row("SeasonRow", "Season", PixelIcon.Kind.LEAF,
 		SeasonSystem.get_season_color(SeasonSystem.get_season(1)))
-	_season_icon = _season_row.get_node("Content/Icon") as TextureRect
-	_time_label = _season_row.get_node("Content/Value") as Label
+	_season_icon = _season_row.get_node("Content/IconBackground/Icon") as TextureRect
+	_time_label = _season_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	column.add_child(_season_row)
 
 	# Reputation
 	_reputation_row = _create_row("ReputationRow", "Reputation", PixelIcon.Kind.HEART,
 		UIConstants.COLOR_DANGER_MUTED, _on_reputation_pressed,
 		"Course reputation (click for rating details)")
-	_reputation_icon = _reputation_row.get_node("Content/Icon") as TextureRect
-	_reputation_label = _reputation_row.get_node("Content/Value") as Label
+	_reputation_icon = _reputation_row.get_node("Content/IconBackground/Icon") as TextureRect
+	_reputation_label = _reputation_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	column.add_child(_reputation_row)
 
 	# Course rating
 	_rating_row = _create_row("RatingRow", "Rating", PixelIcon.Kind.STAR,
 		UIConstants.COLOR_GOLD, _on_rating_pressed, "Course rating (click for details)")
-	_rating_label = _rating_row.get_node("Content/Value") as Label
-	_rating_label.text = "-- (-.--)"
+	_rating_label = _rating_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
+	_set_value_text(_rating_label, "-- (-.--)")
 	_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	column.add_child(_rating_row)
 
@@ -139,25 +143,24 @@ func _build_ui() -> void:
 
 	_weather_row = _create_row("WeatherRow", "Weather", PixelIcon.Kind.SUN,
 		UIConstants.COLOR_GOLD)
-	_weather_icon = _weather_row.get_node("Content/Icon") as TextureRect
-	_weather_label = _weather_row.get_node("Content/Value") as Label
+	_weather_icon = _weather_row.get_node("Content/IconBackground/Icon") as TextureRect
+	_weather_label = _weather_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	_environment_block.add_child(_weather_row)
 
 	_wind_row = _create_row("WindRow", "Wind", PixelIcon.Kind.WIND,
 		UIConstants.COLOR_SUCCESS_MUTED)
-	_wind_label = _wind_row.get_node("Content/Value") as Label
+	_wind_label = _wind_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	_environment_block.add_child(_wind_row)
 
-## Build one status card: an icon, the stat's name and its value on a
-## background with its own border. A row with `on_pressed` is clickable and
-## focusable as a whole (the button sits under the content, so the labels
-## never eat the click).
+## Build one status row: a rounded value background and a raised icon circle.
+## A row with `on_pressed` is clickable and focusable as a whole.
 func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: Color,
 		on_pressed: Callable = Callable(), tooltip: String = "") -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = row_name
 	card.custom_minimum_size = Vector2(0, ROW_HEIGHT)
-	card.add_theme_stylebox_override("panel", _card_style())
+	card.size_flags_horizontal = Control.SIZE_SHRINK_END
+	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	card.mouse_filter = Control.MOUSE_FILTER_STOP if on_pressed.is_valid() \
 		else Control.MOUSE_FILTER_IGNORE
 
@@ -172,8 +175,7 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 		action.accessibility_description = tooltip
 		_paint_row_button(action, icon_accent)
 		action.pressed.connect(on_pressed)
-		# Added first: the panel fits every child to its content rect, so the
-		# button lies under the icon, name and value drawn after it.
+		# The panel fits the button over the whole row.
 		card.add_child(action)
 
 	var content := HBoxContainer.new()
@@ -181,6 +183,28 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 	content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(content)
+
+	var value_background := PanelContainer.new()
+	value_background.name = "ValueBackground"
+	value_background.size_flags_vertical = Control.SIZE_SHRINK_END
+	value_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	value_background.add_theme_stylebox_override("panel", _card_style(icon_accent))
+	content.add_child(value_background)
+	var value_content := HBoxContainer.new()
+	value_content.name = "ValueContent"
+	value_content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	value_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	value_background.add_child(value_content)
+	value_content.add_child(_create_value_label())
+
+	var icon_background := PanelContainer.new()
+	icon_background.name = "IconBackground"
+	icon_background.custom_minimum_size = Vector2(ICON_BACKGROUND_SIZE, ICON_BACKGROUND_SIZE)
+	icon_background.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	icon_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_style := _icon_style(icon_accent)
+	icon_background.add_theme_stylebox_override("panel", icon_style)
+	content.add_child(icon_background)
 
 	var icon := TextureRect.new()
 	icon.name = "Icon"
@@ -191,26 +215,19 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 	icon.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(icon)
+	icon_background.add_child(icon)
 
-	var title_label := Label.new()
-	title_label.name = "Title"
-	title_label.text = title
-	title_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	title_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(title_label)
-
-	content.add_child(_create_value_label())
+	# Paint interaction feedback above both backgrounds. Content ignores mouse input.
+	if on_pressed.is_valid():
+		card.move_child(card.get_node("Action"), -1)
 	return card
 
-## The value end of a card: right-aligned, and shrinking with an ellipsis
-## rather than widening the column on narrow windows.
+## The value end of a card: right-aligned, with its width fitted to its text
+## and capped so unusually long values still fit on narrow windows.
 func _create_value_label() -> Label:
 	var label := Label.new()
 	label.name = "Value"
-	label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	label.add_theme_font_size_override("font_size", VALUE_FONT_SIZE)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -219,18 +236,43 @@ func _create_value_label() -> Label:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
 
-## The card every row wears: a dark fill with a hairline sage border, so each
-## stat reads as its own tile over the course behind it.
-func _card_style() -> StyleBoxFlat:
+## Keep each card fitted to its current value, without letting exceptionally
+## long values push the column beyond its responsive width. Funds also need
+## room for the optional trend indicator.
+func _set_value_text(label: Label, text: String) -> void:
+	label.text = text
+	var font := label.get_theme_font("font")
+	var font_size := label.get_theme_font_size("font_size")
+	var available := _column_width() - ICON_BACKGROUND_SIZE - 17.0
+	if label == _money_label:
+		available -= 30.0
+	label.custom_minimum_size.x = minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
+		-1, font_size).x, available)
+
+## Shared dark fill and hairline sage border for the value and icon backgrounds.
+func _card_style(accent: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(UIConstants.COLOR_BG_DARK, 0.82)
+	style.bg_color = Color(UIConstants.COLOR_BG_DARK.lerp(accent, 0.08), 0.94)
 	style.set_border_width_all(1)
-	style.border_color = Color(UIConstants.COLOR_BORDER, 0.62)
+	style.border_color = Color(accent, 0.58)
 	style.set_corner_radius_all(CARD_RADIUS)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	style.shadow_size = 2
+	style.shadow_offset = Vector2(0, 2)
 	style.content_margin_left = 6
 	style.content_margin_top = 4
 	style.content_margin_right = 7
 	style.content_margin_bottom = 4
+	return style
+
+## The raised medallion takes a brighter accent rim and a deeper tinted fill,
+## echoing the sprite while keeping the value pill quiet and legible.
+func _icon_style(accent: Color) -> StyleBoxFlat:
+	var style := _card_style(accent)
+	style.bg_color = Color(UIConstants.COLOR_BG_DARK.lerp(accent, 0.18), 0.98)
+	style.border_color = Color(accent, 0.9)
+	style.set_corner_radius_all(int(ICON_BACKGROUND_SIZE / 2.0))
+	style.set_content_margin_all((ICON_BACKGROUND_SIZE - ICON_SIZE) / 2.0)
 	return style
 
 ## A clickable card's states: no fill at rest (the card shows through), a wash
@@ -263,6 +305,12 @@ func _set_row_icon(icon: TextureRect, kind: int, accent: Color) -> void:
 	if icon == null:
 		return
 	icon.texture = PixelIcon.texture(kind, ICON_SIZE, accent)
+	# Season, weather and reputation change their palette as the game changes.
+	var icon_background := icon.get_parent() as PanelContainer
+	var content := icon_background.get_parent()
+	var value_background := content.get_node("ValueBackground") as PanelContainer
+	icon_background.add_theme_stylebox_override("panel", _icon_style(accent))
+	value_background.add_theme_stylebox_override("panel", _card_style(accent))
 
 # =============================================================================
 # LAYOUT
@@ -288,8 +336,9 @@ func apply_screen() -> void:
 	if not is_inside_tree():
 		return
 	custom_minimum_size.x = _column_width()
-	# The season leaf and name follow the current calendar day.
-	_update_season()
+	# Refit values to the new width, including the season leaf and name.
+	_update_all()
+	_set_value_text(_rating_label, _rating_label.text)
 	_apply_anchors()
 
 ## Keep the panel exactly as tall as its content (anchored controls need an
@@ -356,7 +405,7 @@ func _update_money() -> void:
 	if money == null:
 		money = GameManager.DEFAULT_STARTING_MONEY
 
-	_money_label.text = "$ %s" % _format_number(money)
+	_set_value_text(_money_label, "$ %s" % _format_number(money))
 
 	# Color based on balance
 	if money < 0:
@@ -390,7 +439,7 @@ func _update_season() -> void:
 
 	var season = SeasonSystem.get_season(day)
 	var season_color := SeasonSystem.get_season_color(season)
-	_time_label.text = SeasonSystem.get_season_name(season)
+	_set_value_text(_time_label, SeasonSystem.get_season_name(season))
 	_time_label.add_theme_color_override("font_color", season_color)
 	# The leaf wears the season too: green shoots, summer gold, fall orange,
 	# winter blue.
@@ -404,7 +453,7 @@ func _update_reputation() -> void:
 	if rep == null:
 		rep = 50.0
 
-	_reputation_label.text = "%d%%" % int(rep)
+	_set_value_text(_reputation_label, "%d%%" % int(rep))
 
 	# Color based on reputation; the heart wears the same reading as the value.
 	var color := UIConstants.COLOR_DANGER
@@ -419,7 +468,7 @@ func _update_weather() -> void:
 	if _weather_label == null:
 		return
 	if not has_node("/root/GameManager"):
-		_weather_label.text = "Sunny"
+		_set_value_text(_weather_label, "Sunny")
 		_set_row_icon(_weather_icon, PixelIcon.Kind.SUN, UIConstants.COLOR_GOLD)
 		return
 
@@ -429,7 +478,7 @@ func _update_weather() -> void:
 		return
 	var weather_system = GameManager.get("weather_system")
 	if weather_system == null:
-		_weather_label.text = "Sunny"
+		_set_value_text(_weather_label, "Sunny")
 		_set_row_icon(_weather_icon, PixelIcon.Kind.SUN, UIConstants.COLOR_GOLD)
 		return
 
@@ -437,7 +486,7 @@ func _update_weather() -> void:
 	if weather_type == null:
 		weather_type = 0
 
-	_weather_label.text = UIConstants.get_weather_name(weather_type)
+	_set_value_text(_weather_label, UIConstants.get_weather_name(weather_type))
 
 	# The card's sky sprite follows the conditions, painted in the same family
 	# of colours the conditions use elsewhere in the HUD.
@@ -469,7 +518,7 @@ func _update_weather() -> void:
 
 func _update_wind() -> void:
 	if not has_node("/root/GameManager") or _wind_label == null:
-		_wind_label.text = "0 mph"
+		_set_value_text(_wind_label, "0 mph")
 		return
 
 	# The Wind feature can be turned off at setup: the air is dead calm and
@@ -478,7 +527,7 @@ func _update_wind() -> void:
 		return
 	var wind_system = GameManager.get("wind_system")
 	if wind_system == null:
-		_wind_label.text = "0 mph"
+		_set_value_text(_wind_label, "0 mph")
 		return
 
 	var speed = wind_system.get("wind_speed")
@@ -491,7 +540,7 @@ func _update_wind() -> void:
 	# Convert radians to degrees for direction name
 	var degrees = fmod(rad_to_deg(direction) + 360.0, 360.0)
 	var dir_name = _get_direction_name(degrees)
-	_wind_label.text = "%s %d mph" % [dir_name, int(speed)]
+	_set_value_text(_wind_label, "%s %d mph" % [dir_name, int(speed)])
 
 	# Color based on wind speed
 	if speed < 5:
@@ -533,7 +582,7 @@ func update_rating(stars: float) -> void:
 	if _rating_label == null:
 		return
 	var display := CourseRatingSystem.get_star_display(stars)
-	_rating_label.text = "%s (%.1f)" % [display, stars]
+	_set_value_text(_rating_label, "%s (%.1f)" % [display, stars])
 	if stars >= 4.0:
 		_rating_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 	elif stars >= 3.0:

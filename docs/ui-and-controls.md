@@ -163,7 +163,7 @@ Golfer on the Course](systems/golf-play/owner-on-the-course.md).
 
 ### Status column
 
-The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a dark background with a hairline sage border, a 16x16 pixel-art icon, the stat's name and its value — so the cards themselves separate one row from the next. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a rounded dark value background with a hairline sage border and a 32x32 pixel-art icon in a separate raised, accent-tinted circle on the right — so the cards themselves separate one row from the next. Each row hugs its value and icon and aligns to the right, rather than filling the column. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
 
 | Row | Icon | Shows |
 | --- | --- | --- |
