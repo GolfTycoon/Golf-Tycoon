@@ -228,6 +228,12 @@ var _tab_buttons: Dictionary = {}
 var _tab_rail: VBoxContainer
 var _page_title: Label
 var _pages: Array[Control] = []  # One wrapper per tab; the scroll + fixed chrome
+## The shelf's fairway backdrop (see ShelfFanBackdrop): painted behind the tab
+## rail and the page title so the right shelf reads as the bottom-left fan's
+## neighbour on one continuous mown fairway. It is this control's first child,
+## so every circle and tile the toolbar adds later lands on top of it.
+var _backdrop: ShelfFanBackdrop = null
+var _sync_pending := false  # True when the fairway needs re-syncing after layout
 var _bulldozer_buttons: Array[BulldozerButton] = []  # Pinned to Improvements & Buildings
 var _inspect_buttons: Array[InspectButton] = []  # Pinned to every Build tab
 var _brush_dock: PanelContainer = null  # Pinned to the Course Terrain corner
@@ -296,7 +302,13 @@ func _ready() -> void:
 	EventBus.load_completed.connect(_on_load_completed_reset_holes_tab)
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
+	# The fairway's hub and sockets follow the rail whenever the shelf is
+	# laid out or resized, not just when the screen class changes. The rail's
+	# circles only settle once the first layout has run, so the sync is
+	# deferred to the next process frame.
+	resized.connect(_on_resized)
 	apply_screen()
+	_sync_pending = true
 
 func _exit_tree() -> void:
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
@@ -337,9 +349,60 @@ func apply_screen() -> void:
 		button.custom_minimum_size = Vector2.ONE * diameter
 		button.size = Vector2.ONE * diameter
 		button.queue_redraw()
+	_sync_backdrop()
 
 func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
 	apply_screen()
+
+## Hand the fairway backdrop the shared hub and the tab rail's live medallion
+## geometry, so its sockets hug the circles and its rings sweep on from the
+## dock's fan. Called after every layout that can move the rail.
+func _sync_backdrop() -> void:
+	if _backdrop == null:
+		return
+	# The backdrop is a sibling of the layout, so it fills the panel's content
+	# rect exactly like the tabs and pages do, and its hub, sockets and title
+	# rule are all given in that same content space.
+	var style := get_theme_stylebox("panel")
+	var panel_size := Vector2(style.content_margin_left + style.content_margin_right,
+		style.content_margin_top + style.content_margin_bottom)
+	var pad := Vector2(style.content_margin_left, style.content_margin_top)
+	_backdrop.set_position(pad)
+	_backdrop.set_size(size - panel_size)
+	# The hub is the dock's bottom-left corner - the screen's bottom-left -
+	# which sits to this shelf's left. In this control's coordinates it is
+	# the viewport's bottom-left minus the shelf's own top-left corner.
+	var viewport := get_viewport()
+	var hub := Vector2(0.0, viewport.get_visible_rect().size.y) - get_global_position() - pad
+	var circles: Array = []
+	for button in _tab_buttons.values():
+		if not is_instance_valid(button) or not button.visible:
+			continue
+		var rect: Rect2 = button.get_global_rect()
+		var local: Vector2 = rect.position - get_global_position() - pad
+		circles.append(Vector3(local.x + rect.size.x * 0.5,
+			local.y + rect.size.y * 0.5,
+			minf(rect.size.x, rect.size.y) * 0.5))
+	_backdrop.set_hub(hub)
+	_backdrop.set_circles(circles)
+	# The title's curved gold rule sits on the fairway too, so the shelf's one
+	# line of type wears the same arc the dock's rim is drawn on.
+	if _page_title != null and _page_title.visible:
+		var title_global := _page_title.get_global_rect()
+		var rule_origin := title_global.position - get_global_position() - pad
+		_backdrop.set_title_rule(Rect2(rule_origin, title_global.size))
+	else:
+		_backdrop.set_title_rule(Rect2())
+
+func _on_resized() -> void:
+	# The rail's circles only settle once the layout has run, so sync on the
+	# next process frame rather than in the resized handler itself.
+	_sync_pending = true
+
+func _process(_delta: float) -> void:
+	if _sync_pending:
+		_sync_pending = false
+		_sync_backdrop()
 
 func _build_ui() -> void:
 	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
@@ -349,9 +412,17 @@ func _build_ui() -> void:
 	# The body can shrink to a sliver on a narrow window: it scrolls rather
 	# than pushing the utility buttons or section rail off screen.
 	custom_minimum_size = Vector2(136, 0)
+	# The fairway backdrop fills the panel's content rect (inset by its
+	# margins), so the notched frame the panel style still draws around it
+	# stays the shelf's rim. It is added first and moved to the front so
+	# every circle and tile lands on top of the turf.
+	_backdrop = ShelfFanBackdrop.new()
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_backdrop)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	add_child(row)
+	move_child(_backdrop, 0)
 	_build_tab_rail(row)
 	var body := VBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -384,6 +455,10 @@ func _build_tab_rail(parent: HBoxContainer) -> void:
 	_tab_rail.name = "SectionTabs"
 	_tab_rail.alignment = BoxContainer.ALIGNMENT_CENTER
 	_tab_rail.add_theme_constant_override("separation", 2)
+	# Room either side of the medallions for the fairway backdrop's mowed
+	# rings and dark sockets to show through - the rail is the one place the
+	# shelf's turf is on screen around its circles.
+	_tab_rail.custom_minimum_size = Vector2(56, 0)
 	parent.add_child(_tab_rail)
 	for section in SECTION_TABS:
 		for tab_index in SECTION_TABS[section]:
@@ -441,6 +516,12 @@ func _sync_navigation(tab_index: int) -> void:
 	_page_title.add_theme_color_override("font_color", SECTION_COLORS[current_section])
 	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
 		SECTION_COLORS[current_section], Color("14271f"), 6, 2))
+	# The shelf's fairway wears the open section's colour on its accent
+	# details, the way the dock's fan trims its rim, and re-lays its sockets
+	# for whichever medallions the section shows.
+	if _backdrop:
+		_backdrop.accent = SECTION_COLORS[current_section]
+	_sync_pending = true
 	section_changed.emit(current_section)
 
 func _on_player_section_changed(index: int) -> void:
