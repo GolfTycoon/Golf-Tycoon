@@ -83,8 +83,6 @@ var inspect_mode: bool = false
 var inspect_btn: PixelCircleButton = null
 var feed_btn: DockActionButton = null  # Event feed toggle: the Feed card on the toolbar's Club tab
 var tile_inspector: TileInspector = null
-var map_btn: Button = null  # Map-icon toggle in the minimap's bottom-left corner; synced with MiniMap visibility
-const MAP_BUTTON_SIZE: float = 26.0
 var hole_stats_panel: HoleStatsPanel = null
 var tournament_manager: TournamentManager = null
 var tournament_panel: TournamentPanel = null
@@ -1445,7 +1443,9 @@ func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
-		if child.name not in popup_panels:
+		if child == mini_map:
+			mini_map.hud_visible = visible_flag
+		elif child.name not in popup_panels:
 			child.visible = visible_flag
 
 ## Scores for the owner's rounds read out in the top-left corner of the screen,
@@ -3204,16 +3204,6 @@ func _on_menu_pressed() -> void:
 	# Open the game menu (pause menu) overlay
 	_toggle_pause_menu()
 
-func _on_map_toggled(pressed: bool) -> void:
-	"""Map button: show or hide the minimap."""
-	if mini_map:
-		mini_map.visible = pressed
-
-func _sync_map_button() -> void:
-	"""Keep the Map button's pressed state matching the minimap's visibility."""
-	if map_btn and mini_map:
-		map_btn.set_pressed_no_signal(mini_map.visible)
-
 func _show_save_load_panel(from_pause_menu: bool = false, open_mode: int = SaveLoadPanel.ScreenMode.LOAD) -> void:
 	# Toggle save/load panel
 	var hud = $UI/HUD
@@ -3888,17 +3878,11 @@ func _setup_mini_map() -> void:
 	mini_map.setup(terrain_grid, entity_layer, golfer_manager)
 	mini_map.camera_move_requested.connect(_on_mini_map_camera_move)
 
-	# Mirror visibility into the Map button, whatever changed it (button, Tab hotkey,
-	# or the HUD being hidden/shown around the main menu).
-	mini_map.visibility_changed.connect(_sync_map_button)
-
 	hud.add_child(mini_map)
 	# Pick the responsive map size now that the node is in the tree, then dock
 	# it in the corner (its size feeds the corner offsets).
 	mini_map.apply_screen()
 	_position_mini_map()
-	_create_map_button(hud)
-	_sync_map_button()
 
 ## Dock the minimap in the bottom-left corner, above the bottom bar. Re-run
 ## on responsive resizes: the map itself changes size (compact windows get
@@ -3915,70 +3899,6 @@ func _position_mini_map() -> void:
 	mini_map.offset_top = -(Screen.bottom_bar_height() + map_size.y + MiniMap.BORDER_WIDTH)
 	mini_map.offset_right = map_size.x + MiniMap.BORDER_WIDTH
 	mini_map.offset_bottom = -Screen.bottom_bar_height()
-
-func _create_map_button(hud: Control) -> void:
-	"""Map toggle: a map-icon button tucked into the minimap's bottom-left corner.
-
-	It is a HUD sibling rather than a child of the minimap so it stays on screen (and
-	clickable) while the minimap is hidden. The corner lies outside the minimap's
-	diamond, so the button never covers any of the course. It stays pressed while the
-	minimap is visible; its state is synced from the minimap (see _sync_map_button)
-	so the Tab hotkey and menu transitions keep it accurate."""
-	map_btn = Button.new()
-	map_btn.name = "MapBtn"
-	map_btn.icon = _make_map_icon()
-	map_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	map_btn.tooltip_text = "Show / hide the minimap (Tab)"
-	map_btn.toggle_mode = true
-	map_btn.set_pressed_no_signal(true)  # Minimap starts visible
-	map_btn.focus_mode = Control.FOCUS_ALL  # Reachable by keyboard and gamepad
-	map_btn.toggled.connect(_on_map_toggled)
-
-	# Anchor to the same bottom-left corner as the minimap (just above the bottom bar).
-	map_btn.anchor_left = 0
-	map_btn.anchor_top = 1
-	map_btn.anchor_right = 0
-	map_btn.anchor_bottom = 1
-	map_btn.grow_vertical = Control.GROW_DIRECTION_BEGIN  # Never spill into the bottom bar
-	_position_map_button()
-
-	hud.add_child(map_btn)  # Added after the minimap so it draws on top.
-
-	# The theme's text-button padding would make an icon-only button too big for the
-	# corner, so use tighter copies of the themed styleboxes (read once in the tree,
-	# since the theme is inherited from the HUD).
-	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-		var box := map_btn.get_theme_stylebox(state)
-		if box:
-			box = box.duplicate()
-			box.set_content_margin_all(3)
-			map_btn.add_theme_stylebox_override(state, box)
-
-## Corner offsets for the map button; re-run when the bottom bar height
-## changes on a responsive resize.
-func _position_map_button() -> void:
-	if not map_btn:
-		return
-	var inset := MiniMap.BORDER_WIDTH
-	map_btn.offset_left = inset
-	map_btn.offset_right = inset + MAP_BUTTON_SIZE
-	map_btn.offset_bottom = -(Screen.bottom_bar_height() + inset)
-	map_btn.offset_top = map_btn.offset_bottom - MAP_BUTTON_SIZE
-
-static func _make_map_icon() -> Texture2D:
-	"""A folded paper map with a location pin, rendered from inline SVG so no imported
-	asset is required."""
-	var svg := """<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18">
-<path d="M1.5 4 L6 2 L12 4 L16.5 2 L16.5 14 L12 16 L6 14 L1.5 16 Z" fill="#e8e2c8" stroke="#f4f1e4" stroke-width="1" stroke-linejoin="round"/>
-<path d="M6 2 L6 14 M12 4 L12 16" stroke="#8a8468" stroke-width="1"/>
-<path d="M1.5 4 L6 2 L6 14 L1.5 16 Z M12 4 L16.5 2 L16.5 14 L12 16 Z" fill="#6fae5a" opacity="0.85"/>
-<path d="M9 5 C7.3 5 6.4 6.3 6.9 7.9 C7.4 9.3 9 11.5 9 11.5 C9 11.5 10.6 9.3 11.1 7.9 C11.6 6.3 10.7 5 9 5 Z" fill="#d9483b"/>
-<circle cx="9" cy="7.4" r="1" fill="#f4f1e4"/>
-</svg>"""
-	var img := Image.new()
-	if img.load_svg_from_string(svg) != OK:
-		return null
-	return ImageTexture.create_from_image(img)
 
 func _on_mini_map_camera_move(world_position: Vector2) -> void:
 	"""Move camera to the position clicked on mini-map."""
@@ -4883,7 +4803,6 @@ func _apply_responsive_layout() -> void:
 	if mini_map:
 		mini_map.apply_screen()
 		_position_mini_map()
-	_position_map_button()
 
 # --- Shot Trails ---
 
