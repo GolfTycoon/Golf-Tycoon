@@ -1553,6 +1553,11 @@ func _setup_bottom_bar() -> void:
 		Color("718f69"), Color("101f19")))
 	bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bg.offset_top = -Screen.bottom_bar_height()
+	# The straight bar backs the shelf only. The bottom-left corner is the
+	# dock's own fan-shaped backdrop, cut around the medallions' arc (see
+	# DockArcBackdrop), so this panel starts where the left controls end
+	# and the course shows above the fan's rim.
+	bg.offset_left = left_controls.custom_minimum_size.x
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var hud := $UI/HUD
 	hud.add_child(bg)
@@ -3133,9 +3138,11 @@ func _fill_left_control_stack() -> void:
 	terrain_toolbar.section_visibility_changed.connect(_on_section_visibility_changed)
 	_sync_bottom_bar_backdrop(not terrain_toolbar.section_collapsed)
 
-## The bar's opaque backdrop covers the whole width only while a section is open.
-## Once the section is hidden it shrinks to the left controls, so the course
-## shows through where the shelf used to be.
+## The bar's opaque backdrop backs the shelf's width only while a section
+## is open: it runs from the left controls' right edge across the screen.
+## Once the section is hidden its two edges meet at that line, so the
+## course shows through where the shelf used to be. The bottom-left
+## corner itself is backed by the dock's arc-shaped backdrop either way.
 func _on_section_visibility_changed(open: bool) -> void:
 	_sync_bottom_bar_backdrop(open)
 
@@ -3143,6 +3150,7 @@ func _sync_bottom_bar_backdrop(open: bool) -> void:
 	var bg := $UI/HUD.get_node_or_null("BottomBarBG") as Control
 	if bg == null:
 		return
+	bg.offset_left = left_controls.custom_minimum_size.x
 	if open:
 		bg.anchor_right = 1.0
 		bg.offset_right = 0.0
@@ -4866,6 +4874,10 @@ func _apply_responsive_layout() -> void:
 	_dock_scores_below_banner()
 	if left_controls:
 		left_controls.apply_screen()
+	# The bar backdrop starts at the dock's right edge (the dock paints its
+	# own arc backdrop), and that edge moves between desktop and touch.
+	if bg and left_controls:
+		bg.offset_left = left_controls.custom_minimum_size.x
 	if terrain_toolbar:
 		terrain_toolbar.apply_screen()
 	if mini_map:

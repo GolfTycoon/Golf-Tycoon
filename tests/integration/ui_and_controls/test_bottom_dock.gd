@@ -166,6 +166,36 @@ func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void
 					(first.size.x + second.size.x) * 0.5,
 					"The enlarged circles never overlap adjacent controls")
 
+func test_the_corner_wears_an_arc_backdrop_in_the_open_sections_colour() -> void:
+	var dock: BottomControlDock = main.left_controls
+	var backdrop := dock.get_node_or_null("ArcBackdrop") as DockArcBackdrop
+	assert_not_null(backdrop, "The corner is backed by the arc fan, not the bar's rectangle")
+	assert_eq(backdrop.get_index(), 0, "It paints behind every medallion")
+	assert_eq(backdrop.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"Clicks above the fan's rim reach the course")
+	assert_true(backdrop.get_global_rect().is_equal_approx(dock.get_global_rect()),
+		"The fan's canvas is the dock itself, so it hugs the live layout")
+
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await process_frames(2)
+	assert_eq(main.terrain_toolbar.current_section, TerrainToolbar.Section.MANAGE)
+	assert_eq(backdrop.accent, TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.MANAGE],
+		"The rim trim takes the open section's colour")
+	main.terrain_toolbar.collapse_section()
+	await process_frames(2)
+	assert_eq(backdrop.accent, DockArcBackdrop.FALLBACK_ACCENT,
+		"A hidden shelf drops the trim to the bar's sage")
+
+	# The straight bar backdrop now backs only the shelf: even with a
+	# section open it starts at the dock's right edge, leaving the corner
+	# (and the course above the fan's rim) to the backdrop.
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(2)
+	var bg: Control = main.get_node("UI/HUD/BottomBarBG")
+	assert_almost_eq(bg.get_global_rect().position.x, dock.get_global_rect().end.x, 0.5,
+		"The bar's rectangle starts where the fan-shaped corner ends")
+	assert_eq(bg.anchor_right, 1.0, "and still runs to the screen's right edge")
+
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()
 	buttons.append_array([main.left_controls.get_node("MenuBtn"),

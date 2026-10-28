@@ -104,6 +104,21 @@ and **Golfers**. Each opens a bottom shelf with small icon tabs down its left ed
 The selected section and tab stay lit, and the shelf heading names the current
 page. Switching sections remembers the last tab used in each.
 
+Behind the six circles the corner is a fan of mown turf cut to their arc
+(`DockArcBackdrop`), not the bar's old rectangle: concentric mowing rings and
+fainter chequer sectors spread from the corner hub, each medallion sits in a
+dark socket, dotted ball-flight arcs join the circles through the gaps, and
+a tiny flagstick stands in the pocket below **Menu**. The fan's rim is one
+smooth arc swept across **Build**, **Manage** and **Golfers** rather than an
+outline wrapped around each of them, banded ink, trim, bevel and sheen like
+the pixel frames, with the trim in the open section's own colour — sage while
+the shelf is hidden. The medallions sit astride the rim and poke out past it
+over the course, which shows through above the arc where the bar used to be
+dead space; the straight bottom bar now begins at the dock's right edge,
+backing only the shelf. The fan is regenerated from the circles' live
+geometry whenever the dock reflows, so the touch layout's taller arc gets
+the same treatment.
+
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |

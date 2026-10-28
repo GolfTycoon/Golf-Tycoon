@@ -3,7 +3,10 @@ class_name BottomControlDock
 ## Fixed-footprint quarter wheel. Plain Control children keep circles round;
 ## the toolbar takes the remaining width and scrolls its content, not the HUD.
 ## The utility circles fill the space below Build and beside Golfers, growing
-## with the taller dock on compact/touch layouts.
+## with the taller dock on compact/touch layouts. Behind them all,
+## DockArcBackdrop paints a mown quarter-green fan cut to the arc the circles
+## describe, its rim trim in the open section's colour - the straight bottom
+## bar now only backs the shelf to this dock's right (see main.gd).
 
 const WIDTH := 218.0
 const TOUCH_WIDTH := 220.0
@@ -18,6 +21,16 @@ const UTILITY_BOTTOM := 2.0
 var section_buttons: Array[PixelCircleButton] = []
 var _current_section: int = 0
 var _section_open: bool = true
+## The fan-shaped backdrop behind the medallions, cut around their arc
+## (see DockArcBackdrop). It is this control's first child, so every
+## circle the dock adds later lands on top of it.
+var _backdrop: DockArcBackdrop = null
+
+func _ready() -> void:
+	_backdrop = DockArcBackdrop.new()
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_backdrop)
+	move_child(_backdrop, 0)
 
 func setup(toolbar: TerrainToolbar) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -71,11 +84,28 @@ func apply_screen() -> void:
 	if speed:
 		speed.position = Vector2.ZERO
 		speed.size = custom_minimum_size
+	var inner_circles: Array = []
 	for i in utility_paths.size():
 		var button := get_node_or_null(utility_paths[i]) as PixelCircleButton
 		if button:
 			_size_utility_button(button, utility_size - i * UTILITY_SIZE_STEP)
 			button.position = positions[i]
+			inner_circles.append(_circle_of(button))
+
+	# Shape the backdrop's fan around the circles as they now stand: the
+	# rim sweeps across the section medallions, the utilities echo inside.
+	# Pause and Speed sit under SpeedControls, which the loop above keeps
+	# at this control's origin, so their positions are already local here.
+	if _backdrop:
+		var outer_circles: Array = []
+		for button in section_buttons:
+			outer_circles.append(_circle_of(button))
+		_backdrop.set_circles(outer_circles, inner_circles)
+
+## A medallion as the backdrop needs it: centre and radius, packed.
+static func _circle_of(button: Control) -> Vector3:
+	return Vector3(button.position.x + button.size.x * 0.5,
+			button.position.y + button.size.y * 0.5, button.size.x * 0.5)
 
 func _size_utility_button(button: PixelCircleButton, utility_size: float) -> void:
 	button.diameter = utility_size
@@ -88,6 +118,13 @@ func _sync_section(section: int) -> void:
 	for i in section_buttons.size():
 		section_buttons[i].active = i == section and _section_open
 		section_buttons[i].set_pressed_no_signal(i == section and _section_open)
+	# The backdrop's rim wears the open section's colour; with no section
+	# open it falls back to the bar's sage, like the straight bar it replaces.
+	if _backdrop:
+		if _section_open and section >= 0 and section < TerrainToolbar.SECTION_COLORS.size():
+			_backdrop.accent = TerrainToolbar.SECTION_COLORS[section]
+		else:
+			_backdrop.accent = DockArcBackdrop.FALLBACK_ACCENT
 
 ## The Club tab's Feed card is only on screen while Manage is open on Club,
 ## so the Manage button carries the unread count the rest of the time.
