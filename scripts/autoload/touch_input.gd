@@ -468,6 +468,11 @@ func _collect_touch_targets(node: Node, screen_pos: Vector2, result: Dictionary)
 		if inside and control.has_method("has_touch_point"):
 			var local := control.get_global_transform_with_canvas().affine_inverse() * screen_pos
 			inside = bool(control.call("has_touch_point", local))
+			# A shaped surface that also clips its contents hands the same shape
+			# down to them (the shelf's pages are cut to the curved window), so a
+			# point outside its shape is outside everything it holds.
+			if not inside and control.clip_contents:
+				return
 
 	# Children are visited first so a nested ScrollContainer wins over its
 	# parent. Reverse order approximates GUI draw order for overlapping siblings.

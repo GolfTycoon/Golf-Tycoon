@@ -126,6 +126,18 @@ accepts mouse and touch input in the space outside the curve. The rail narrows
 on phones without shrinking its touch targets, and, when space is tight, Inspect
 stacks above the pinned brush or Bulldozer rather than overlapping it.
 
+Every tab scrolls in a window cut to that same curve (`ShelfPageWindow`): the
+pages start at the shelf's own left padding and their left side is curved, so
+each page reaches further left the lower it sits and slides under the curved
+tab buttons instead of stopping at a straight edge beside them. The window is a
+pixel-stepped mask a frame's width inside the rim, so the rim's ink, trim, bevel
+and sheen bands stay whole beside the content and nothing spills over the rim
+onto the course. The same shape gates input: the cut-out above the curve
+stays course for the mouse, touch and hover, while the tiles below it are the
+page. The pinned corner controls — the brush plate, the Bulldozer and Inspect —
+stay a rail's width in from the page edge, in the body's corner where no
+medallion can cover them, and the catalogue scrolls beneath them.
+
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |

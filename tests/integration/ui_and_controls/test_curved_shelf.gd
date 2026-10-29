@@ -139,3 +139,50 @@ func test_pinned_controls_stack_without_overlap_on_a_narrow_phone() -> void:
 	var desktop_inspect := toolbar._pages[TerrainToolbar.Tab.TERRAIN].get_node("InspectButton") as InspectButton
 	assert_almost_eq(desktop_inspect.offset_bottom, -InspectButton.CORNER_MARGIN, 0.1,
 			"Inspect returns to the corner on desktop")
+
+## The scrollable section of every tab reaches under the curved tab buttons,
+## with its left side cut along the rim: the course above the cut stays part of
+## the course for mouse and touch, and the tiles below it are clickable.
+func test_every_tab_scrolls_in_a_window_curved_under_the_rail() -> void:
+	for window_size in [DESIGN_WINDOW, Vector2i(1024, 768), Vector2i(390, 844)]:
+		await set_window(window_size)
+		var toolbar: TerrainToolbar = main.terrain_toolbar
+		var window: ShelfPageWindow = toolbar._page_window
+		assert_not_null(window, "the shelf cuts its pages to a curved window")
+		for tab in TerrainToolbar.TAB_TITLES:
+			toolbar.select_tab(tab)
+			await process_frames(3)
+			var scroll: ScrollContainer = toolbar.page_scroll(tab)
+			var rect := scroll.get_global_rect()
+			assert_almost_eq(rect.position.x,
+				toolbar.get_global_rect().position.x + TerrainToolbar.SHELF_PAD_X, 0.01,
+				"%s starts at the shelf's left padding at %s" % [TerrainToolbar.TAB_TITLES[tab], window_size])
+			assert_lt(rect.position.x, toolbar._tab_rail.get_global_rect().end.x,
+				"%s reaches under the curved rail at %s" % [TerrainToolbar.TAB_TITLES[tab], window_size])
+
+		# A point inside the scroll rect but above the curve belongs to the
+		# course: the window's cut-out is not UI, for touch or for the mouse.
+		var cutout := toolbar.get_global_position() + Vector2(4.0, 60.0)
+		var local := cutout - window.get_global_position()
+		assert_false(window.contains_content_point(local),
+			"the shelf's upper-left cut is still course at %s" % window_size)
+		assert_false(bool(TouchInput._touch_target_at(cutout)["over_ui"]),
+			"touches in the cut reach the course at %s" % window_size)
+		var motion := InputEventMouseMotion.new()
+		motion.position = cutout
+		motion.global_position = cutout
+		get_viewport().push_input(motion)
+		await process_frames(1)
+		assert_null(get_viewport().gui_get_hovered_control(),
+			"the cut also passes the mouse through at %s" % window_size)
+
+		# And the turf below the cut is the page: its first tile still answers.
+		toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+		await process_frames(3)
+		var fairway: Control = toolbar._tool_buttons[TerrainTypes.Type.FAIRWAY]
+		assert_true(fairway.get_global_rect().position.x < toolbar._tab_rail.get_global_rect().end.x,
+			"the first row of tiles runs under the rail at %s" % window_size)
+		var fairway_local := fairway.get_global_rect().get_center() - window.get_global_position()
+		assert_true(window.contains_content_point(fairway_local),
+			"and sits inside the curved window at %s" % window_size)
+	await set_window(DESIGN_WINDOW)
