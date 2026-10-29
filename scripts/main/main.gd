@@ -1421,6 +1421,7 @@ func _on_main_menu_settings() -> void:
 	settings.close_requested.connect(func(): pass)
 	settings.results_requested.connect(_show_benchmark_results)
 	settings.tour_requested.connect(start_course_benchmark)
+	settings.data_deleted.connect(_on_settings_data_deleted)
 	$UI/HUD.add_child(settings)
 
 func _on_main_menu_load_panel_closed() -> void:
@@ -4562,7 +4563,29 @@ func _show_settings_menu() -> void:
 	)
 	settings.results_requested.connect(_show_benchmark_results)
 	settings.tour_requested.connect(start_course_benchmark)
+	settings.data_deleted.connect(_on_settings_data_deleted)
+	# Deleting the saved courses during a pause session leaves the course with
+	# nowhere to autosave, so the settings screen asks to close it.
+	settings.quit_to_menu_requested.connect(_return_to_title_after_data_deleted)
 	$UI/HUD.add_child(settings)
+
+
+## The Settings screen's Data page changed the files this scene was built from.
+## The title screen's Continue card is the one that reads them; rebuild it in
+## place so it never offers a save that was just deleted.
+func _on_settings_data_deleted(_groups: Array[String]) -> void:
+	if is_instance_valid(main_menu):
+		main_menu.refresh()
+
+
+## The Data page deleted the saved courses during a pause session: the course
+## has nowhere left to autosave, so end the pause session and go back to the
+## title screen. The deletion itself already asked before it happened.
+func _return_to_title_after_data_deleted() -> void:
+	_pause_session_active = false
+	GameManager.is_paused = false
+	_hide_pause_menu()
+	_on_quit_to_menu()
 
 
 ## Run the course benchmark tour - the game's only benchmark - from Main

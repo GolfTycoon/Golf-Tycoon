@@ -196,6 +196,13 @@ func _build() -> void:
 		_:
 			_build_phone()
 
+## Read the save list again and rebuild the cards: the Settings screen deletes
+## saved courses from underneath this screen, and the Continue card must not
+## keep offering a course that is no longer on the device.
+func refresh() -> void:
+	_build()
+
+
 ## Wide desktop: title and hero cards on the left, a Continue rail on the
 ## right, so a 1600-2600 px window is a two-column clubhouse rather than a
 ## narrow strip of buttons in the middle of the screen.
