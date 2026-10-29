@@ -24,7 +24,7 @@ func initialize(grid: TerrainGrid) -> void:
 	grid.tile_changed.connect(_on_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
 	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
-	_update_draw_interval()
+	_apply_wildlife_quality()
 	rebuild()
 
 func _exit_tree() -> void:
@@ -37,9 +37,21 @@ func _exit_tree() -> void:
 
 func _on_performance_profile_changed(_low_detail: bool) -> void:
 	_update_draw_interval()
+	_apply_wildlife_quality()
+	_refresh_residents()
+
+## Wildlife is decoration: a device that needs the frames more than the ducks
+## can switch the residents off, or keep half of them. The overlay still holds
+## its habitat cache so putting them back costs one refresh, not a new course.
+func _apply_wildlife_quality() -> void:
+	visible = PerformanceSettings.wildlife_detail != PerformanceSettings.WildlifeDetail.OFF
 
 func _update_draw_interval() -> void:
 	_draw_interval = PerformanceSettings.animation_redraw_interval()
+
+## How many residents of a kind the current quality keeps.
+func _resident_limit(base_limit: int) -> int:
+	return int(floor(float(base_limit) * PerformanceSettings.wildlife_density()))
 
 func _on_load_completed(success: bool) -> void:
 	if success:
@@ -76,16 +88,18 @@ func _refresh_residents() -> void:
 		# Skip isolated painted puddles and fragile one-tile-wide corners.
 		if wet_neighbors >= 3:
 			ponds.append(pos)
-	_duck_homes = _spaced_homes(ponds, MAX_DUCK_FAMILIES, 5.0)
+	_duck_homes = _spaced_homes(ponds, _resident_limit(MAX_DUCK_FAMILIES), 5.0)
 	var gardens: Array[Vector2i] = []
 	for pos in _flower_tiles:
 		gardens.append(pos)
-	_garden_homes = _spaced_homes(gardens, MAX_GARDENS, 2.0)
+	_garden_homes = _spaced_homes(gardens, _resident_limit(MAX_GARDENS), 2.0)
 	_habitats_dirty = false
 	_refresh_elapsed = 0.0
 	queue_redraw()
 
 func _spaced_homes(candidates: Array[Vector2i], limit: int, spacing: float) -> Array[Vector2i]:
+	if limit <= 0:
+		return []
 	# Prefer the playable center; stable tie-breaking makes load/new-game repeatable.
 	var center := Vector2(terrain_grid.grid_width, terrain_grid.grid_height) * 0.5
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
@@ -110,7 +124,9 @@ func _process(delta: float) -> void:
 	_refresh_elapsed += real_delta
 	if _habitats_dirty and _refresh_elapsed >= 0.25:
 		_refresh_residents()
-	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED:
+	# Nothing to animate while the residents are switched off; skip the clock
+	# and the redraws that would only be thrown away.
+	if not visible or GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED:
 		return
 	_time += real_delta
 	_draw_elapsed += real_delta
@@ -128,7 +144,7 @@ static func butterflies_active(season: int, raining: bool) -> bool:
 	return season != SeasonSystem.Season.WINTER and not raining
 
 func _draw() -> void:
-	if not terrain_grid:
+	if not terrain_grid or not visible:
 		return
 	var weather := GameManager.weather_system
 	var raining := is_instance_valid(weather) and weather.is_raining()

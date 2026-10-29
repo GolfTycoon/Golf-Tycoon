@@ -15,10 +15,15 @@ const TERRAIN_PARTICLE_COLORS: Dictionary = {
 }
 
 var _particles_finished: int = 0
+var _particle_count: int = 0
 var _terrain_type: String = "default"
 
 func _ready() -> void:
 	z_index = 150
+	_particle_count = PerformanceSettings.particle_count(PARTICLE_COUNT)
+	if _particle_count <= 0:
+		queue_free()
+		return
 	_spawn_particles()
 
 func set_terrain_type(type: String) -> void:
@@ -27,7 +32,7 @@ func set_terrain_type(type: String) -> void:
 func _spawn_particles() -> void:
 	var colors = TERRAIN_PARTICLE_COLORS.get(_terrain_type, TERRAIN_PARTICLE_COLORS["default"])
 
-	for i in range(PARTICLE_COUNT):
+	for i in range(_particle_count):
 		var particle = Polygon2D.new()
 		particle.color = colors[randi() % colors.size()]
 
@@ -41,7 +46,7 @@ func _spawn_particles() -> void:
 		add_child(particle)
 
 		# Radial burst — particles fly outward in all directions
-		var angle = (i / float(PARTICLE_COUNT)) * TAU + randf_range(-0.3, 0.3)
+		var angle = (i / float(_particle_count)) * TAU + randf_range(-0.3, 0.3)
 		var speed = randf_range(15.0, 40.0)
 		var target_offset = Vector2(cos(angle), sin(angle) * 0.5) * speed  # Flatten Y for isometric
 		var lifetime = randf_range(PARTICLE_LIFETIME * 0.6, PARTICLE_LIFETIME)
@@ -70,13 +75,14 @@ func _spawn_particles() -> void:
 
 func _on_particle_finished() -> void:
 	_particles_finished += 1
-	if _particles_finished >= PARTICLE_COUNT:
+	if _particles_finished >= _particle_count:
 		queue_free()
 
-## Create impact effect at a world position with terrain-aware coloring
-## On web, skip the effect entirely to reduce node creation + tween overhead
+## Create impact effect at a world position with terrain-aware coloring.
+## Skipped entirely - no nodes, no tweens - on web and when the player has set
+## impact effects Off: the burst is feedback, not part of the shot.
 static func create_at(parent: Node, world_position: Vector2, terrain_type: String = "default") -> LandingImpactEffect:
-	if OS.get_name() == "Web":
+	if OS.get_name() == "Web" or not PerformanceSettings.particle_burst_enabled():
 		return null
 	var effect = LandingImpactEffect.new()
 	effect._terrain_type = terrain_type

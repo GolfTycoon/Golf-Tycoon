@@ -3,6 +3,9 @@ class_name SandSprayEffect
 ## SandSprayEffect - Temporary particle effect for bunker shots
 
 const PARTICLE_COUNT: int = 10
+## The web build keeps a lighter burst of its own; graphics quality scales it
+## down further (see PerformanceSettings.particle_count).
+const WEB_PARTICLE_COUNT: int = 4
 const PARTICLE_LIFETIME: float = 0.8
 const PARTICLE_COLORS: Array = [
 	Color(0.85, 0.78, 0.55),  # Light sand
@@ -11,15 +14,20 @@ const PARTICLE_COLORS: Array = [
 ]
 
 var _particles_finished: int = 0
+var _particle_count: int = 0
 var _web_mode: bool = false
 
 func _ready() -> void:
 	z_index = 200  # Above everything
+	_particle_count = PerformanceSettings.particle_count(
+		WEB_PARTICLE_COUNT if _web_mode else PARTICLE_COUNT)
+	if _particle_count <= 0:
+		queue_free()
+		return
 	_spawn_particles()
 
 func _spawn_particles() -> void:
-	var count = 4 if _web_mode else PARTICLE_COUNT
-	for i in range(count):
+	for i in range(_particle_count):
 		var particle = Polygon2D.new()
 		particle.color = PARTICLE_COLORS[randi() % PARTICLE_COLORS.size()]
 
@@ -48,13 +56,14 @@ func _spawn_particles() -> void:
 
 func _on_particle_finished() -> void:
 	_particles_finished += 1
-	var count = 4 if _web_mode else PARTICLE_COUNT
-	if _particles_finished >= count:
+	if _particles_finished >= _particle_count:
 		queue_free()
 
-## Play the effect at a world position
-## Reduced particle count on web for performance
+## Play the effect at a world position. The web build plays a reduced burst;
+## impact effects Off skips the effect altogether.
 static func create_at(parent: Node, world_position: Vector2) -> SandSprayEffect:
+	if not PerformanceSettings.particle_burst_enabled():
+		return null
 	var effect = SandSprayEffect.new()
 	effect.global_position = world_position
 	if OS.get_name() == "Web":

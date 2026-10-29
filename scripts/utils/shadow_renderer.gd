@@ -131,27 +131,48 @@ static func create_contact_shadow_polygon(
 
 	return polygon
 
-## Create both shadow polygons and add to parent node
+## Which of the two shadow shapes a prop paints at a given quality, before its
+## own configuration has a say. Shadows are one polygon per prop and a busy
+## course carries many, so the quality setting can shed the stretched sun
+## shadow (the extra polygon) while keeping the contact blob that grounds it.
+static func shadow_plan(config: ShadowConfig, detail: int = -1) -> Dictionary:
+	var resolved := detail
+	if resolved < 0:
+		resolved = PerformanceSettings.shadow_detail
+	var plan := {"contact": false, "drop": false}
+	if resolved == PerformanceSettings.ShadowDetail.OFF:
+		return plan
+	plan["contact"] = config.cast_contact_shadow
+	plan["drop"] = config.cast_drop_shadow and resolved == PerformanceSettings.ShadowDetail.FULL
+	return plan
+
+## Create the shadow polygons the quality setting allows and add them to parent.
+## `detail` defaults to the live graphics setting; callers that already hold a
+## choice (or a test) can pass one.
 static func add_shadows_to_entity(
 	parent: Node2D,
 	config: ShadowConfig,
-	shadow_system: Node = null
+	shadow_system: Node = null,
+	detail: int = -1
 ) -> Dictionary:
 	var shadows = {}
+	var plan := shadow_plan(config, detail)
 
-	if config.cast_contact_shadow:
+	if plan["contact"]:
 		var contact = create_contact_shadow_polygon(config, shadow_system)
 		parent.add_child(contact)
 		shadows["contact"] = contact
 
-	if config.cast_drop_shadow:
+	if plan["drop"]:
 		var drop = create_drop_shadow_polygon(config, shadow_system)
 		parent.add_child(drop)
 		shadows["drop"] = drop
 
 	return shadows
 
-## Update existing shadow polygons when sun direction changes
+## Update existing shadow polygons when sun direction changes. A quality change
+## adds or removes shapes rather than reshaping them, so the entity rebuilds
+## from add_shadows_to_entity() instead of calling this.
 static func update_shadows(
 	shadows: Dictionary,
 	config: ShadowConfig,

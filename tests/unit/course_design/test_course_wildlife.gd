@@ -4,9 +4,20 @@ extends GameTest
 ## weather bring them out.
 
 var grid: TerrainGrid
+## These tests are about where residents live, not about how many of them a
+## device asks for: keep the wildlife quality at Full whatever profile the
+## machine running the suite would pick on its own (see PerformanceSettings).
+var _original_preset: int = PerformanceSettings.GraphicsPreset.AUTO
+var _original_settings: Dictionary = {}
 
 func before_each() -> void:
 	super()
+	_original_preset = PerformanceSettings.graphics_preset
+	_original_settings.clear()
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		_original_settings[setting] = PerformanceSettings.get_graphics_setting(setting)
+	PerformanceSettings.set_graphics_setting(
+		PerformanceSettings.GraphicsSetting.WILDLIFE_DETAIL, PerformanceSettings.WildlifeDetail.FULL)
 	GameManager.entity_layer = null
 	grid = TerrainGrid.new()
 	grid.grid_width = 16
@@ -16,6 +27,10 @@ func before_each() -> void:
 
 func after_each() -> void:
 	await process_frames(1)
+	PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		PerformanceSettings.set_graphics_setting(setting, _original_settings[setting])
+	PerformanceSettings.set_graphics_preset(_original_preset)
 	super()
 
 func test_habitats_are_bounded_repeatable_and_do_not_modify_course_or_rng() -> void:
