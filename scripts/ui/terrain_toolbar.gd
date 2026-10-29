@@ -519,6 +519,11 @@ func _build_ui() -> void:
 	# curve. The backdrop paints the entire shelf; an inset layout keeps text and
 	# scrolling content clear of its rim instead.
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	# The game theme gives every ScrollContainer a solid green panel. Clear it
+	# locally for all shelf scrolls (including nested staff/player views), so
+	# they reveal the translucent fairway instead of painting over it.
+	theme = Theme.new()
+	theme.set_stylebox("panel", "ScrollContainer", StyleBoxEmpty.new())
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_backdrop = ShelfFanBackdrop.new()
