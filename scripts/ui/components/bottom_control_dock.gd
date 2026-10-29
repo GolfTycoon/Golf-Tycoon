@@ -5,8 +5,8 @@ class_name BottomControlDock
 ## The utility circles fill the space below Build and beside Golfers, growing
 ## with the taller dock on compact/touch layouts. Behind them all,
 ## DockArcBackdrop paints a mown quarter-green fan cut to the arc the circles
-## describe, its rim trim in the open section's colour - the straight bottom
-## bar now only backs the shelf to this dock's right (see main.gd).
+## describe, its rim trim in the open section's colour. The shelf to its right
+## has its own mirrored curve and matching trim (see ShelfFanBackdrop).
 
 const WIDTH := 218.0
 const TOUCH_WIDTH := 220.0
@@ -93,7 +93,7 @@ func apply_screen() -> void:
 			inner_circles.append(_circle_of(button))
 
 	# Shape the backdrop's fan around the circles as they now stand: the
-	# rim sweeps across the section medallions, the utilities echo inside.
+	# rim curves around the section medallions, the utilities echo inside.
 	# Pause and Speed sit under SpeedControls, which the loop above keeps
 	# at this control's origin, so their positions are already local here.
 	if _backdrop:

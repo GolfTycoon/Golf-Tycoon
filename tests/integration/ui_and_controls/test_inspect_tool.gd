@@ -3,8 +3,8 @@ extends MainSceneTest
 ## bottom-right corner of the terrain toolbar, in the real HUD (no course is
 ## generated: the HUD is shown over the empty grid). Menu stays alone in the
 ## bottom-left stack; the Feed card on the Club tab opens the event feed and
-## carries the unread count; the Map button sits in the minimap's corner, off
-## its diamond, and follows the minimap. Inspect clears and blocks the other
+## carries the unread count; the corner Map button is gone and the minimap
+## follows its Display setting instead. Inspect clears and blocks the other
 ## tools, Esc and right-click leave it, and hovering a tile shows its details
 ## without painting, measuring or spending.
 
@@ -123,34 +123,29 @@ func test_the_club_tab_feed_card_opens_the_feed_and_shows_the_unread_count() -> 
 		"on every badge it lit")
 
 
-func test_the_map_button_sits_in_the_minimaps_corner_and_follows_it() -> void:
-	var map_btn: Button = main.map_btn
-	assert_false(main.left_controls.is_ancestor_of(map_btn), "The Map button left the control stack")
-	assert_eq(map_btn.get_parent(), main.mini_map.get_parent(), "for a place beside the minimap")
-	assert_not_null(map_btn.icon, "It shows a map icon")
-	assert_eq(map_btn.text, "", "rather than a label")
-	var map_rect: Rect2 = main.mini_map.get_global_rect()
-	var button_rect := map_btn.get_global_rect()
-	assert_true(map_rect.encloses(button_rect), "It sits inside the minimap's bounds")
-	assert_lte(button_rect.position.x - map_rect.position.x, 4.0, "in the left corner")
-	assert_lte(map_rect.end.y - button_rect.end.y, 4.0, "at the bottom")
-	var covered: Array = []
-	for corner in [button_rect.position, Vector2(button_rect.end.x, button_rect.position.y), button_rect.end,
-			Vector2(button_rect.position.x, button_rect.end.y)]:
-		if main.mini_map._is_within_map(corner - map_rect.position):
-			covered.append(corner)
-	assert_eq(covered, [], "The Map button does not cover the minimap's diamond")
+func test_the_minimap_has_no_button_and_follows_its_setting() -> void:
+	var original_enabled := GameManager.minimap_enabled
+	assert_null(main.left_controls.get_node_or_null("MapBtn"), "No Map button in the control stack")
+	assert_null(main.get_node_or_null("UI/HUD/MapBtn"), "No Map button on the HUD")
+	assert_null(main.mini_map.find_child("MapBtn", true, false), "No Map button inside the minimap")
 
-	assert_true(map_btn.button_pressed and main.mini_map.visible, "The map starts shown, its button pressed")
-	map_btn.button_pressed = false
-	assert_false(main.mini_map.visible, "The Map button hides the minimap")
-	assert_true(map_btn.is_visible_in_tree(), "and stays on screen itself")
-	map_btn.button_pressed = true
-	assert_true(main.mini_map.visible, "and shows it again")
-	main.mini_map.visible = false
-	assert_false(map_btn.button_pressed, "Hiding the minimap (Tab) lets the button up")
-	main.mini_map.visible = true
-	assert_true(map_btn.button_pressed, "and showing it presses the button again")
+	assert_true(GameManager.minimap_enabled and main.mini_map.visible, "The minimap starts enabled and shown")
+	GameManager.set_minimap_enabled(false)
+	assert_false(main.mini_map.visible, "Disabling the minimap setting hides the minimap")
+	main._set_gameplay_ui_visible(false)
+	main._set_gameplay_ui_visible(true)
+	assert_false(main.mini_map.visible, "Returning to the course HUD keeps a disabled minimap hidden")
+	GameManager.set_minimap_enabled(true)
+	assert_true(main.mini_map.visible, "Re-enabling the minimap setting shows it again")
+
+	# Pressing Tab on the course stays in sync with the minimap setting.
+	press_key(KEY_TAB)
+	await process_frames(1)
+	assert_false(GameManager.minimap_enabled or main.mini_map.visible, "Tab disables and hides the minimap")
+	press_key(KEY_TAB)
+	await process_frames(1)
+	assert_true(GameManager.minimap_enabled and main.mini_map.visible, "Tab re-enables and shows the minimap")
+	SaveManager.set_user_preference("display", "minimap_enabled", original_enabled)
 
 
 func test_inspect_clears_the_tools_and_esc_or_right_click_leave_it() -> void:

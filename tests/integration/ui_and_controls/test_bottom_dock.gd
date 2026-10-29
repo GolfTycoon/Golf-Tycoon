@@ -186,15 +186,14 @@ func test_the_corner_wears_an_arc_backdrop_in_the_open_sections_colour() -> void
 	assert_eq(backdrop.accent, DockArcBackdrop.FALLBACK_ACCENT,
 		"A hidden shelf drops the trim to the bar's sage")
 
-	# The straight bar backdrop now backs only the shelf: even with a
-	# section open it starts at the dock's right edge, leaving the corner
-	# (and the course above the fan's rim) to the backdrop.
+	# The shelf paints its own mirrored rim instead of placing a rectangular bar
+	# behind either the shelf's cutout or the left fan.
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await process_frames(2)
-	var bg: Control = main.get_node("UI/HUD/BottomBarBG")
-	assert_almost_eq(bg.get_global_rect().position.x, dock.get_global_rect().end.x, 0.5,
-		"The bar's rectangle starts where the fan-shaped corner ends")
-	assert_eq(bg.anchor_right, 1.0, "and still runs to the screen's right edge")
+	assert_null(main.get_node_or_null("UI/HUD/BottomBarBG"), "no opaque rectangle remains")
+	var shelf_backdrop: ShelfFanBackdrop = main.terrain_toolbar._backdrop
+	assert_true(shelf_backdrop.get_global_rect().is_equal_approx(main.terrain_toolbar.get_global_rect()))
+	assert_eq(shelf_backdrop.accent, TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
 
 func test_utility_circles_and_section_circles_do_not_overlap() -> void:
 	var buttons: Array = main.left_controls.section_buttons.duplicate()

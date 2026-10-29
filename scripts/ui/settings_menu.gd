@@ -94,6 +94,7 @@ var _min_zoom_slider: HSlider = null
 var _max_zoom_slider: HSlider = null
 var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
+var _minimap_toggle: CheckButton = null
 ## The Controls page's editable keycaps and their reset buttons, keyed by
 ## InputBindings action. They are rebuilt with the page; the signal handlers
 ## refresh their captions in place instead of rebuilding the page, so focus
@@ -123,6 +124,8 @@ func _ready() -> void:
 		InputBindings.bindings_changed.connect(_on_binding_changed)
 	if not InputBindings.bindings_reset.is_connected(_on_bindings_reset):
 		InputBindings.bindings_reset.connect(_on_bindings_reset)
+	if EventBus.has_signal("minimap_enabled_changed") and not EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
+		EventBus.minimap_enabled_changed.connect(_on_minimap_enabled_changed)
 
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
@@ -131,6 +134,8 @@ func _exit_tree() -> void:
 		InputBindings.bindings_changed.disconnect(_on_binding_changed)
 	if InputBindings.bindings_reset.is_connected(_on_bindings_reset):
 		InputBindings.bindings_reset.disconnect(_on_bindings_reset)
+	if EventBus.has_signal("minimap_enabled_changed") and EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
+		EventBus.minimap_enabled_changed.disconnect(_on_minimap_enabled_changed)
 
 ## Pure responsive breakpoint decision, also used by the layout tests.
 static func layout_mode_for(view: Vector2) -> int:
@@ -170,6 +175,7 @@ func _build() -> void:
 	_max_zoom_slider = null
 	_min_zoom_value_label = null
 	_max_zoom_value_label = null
+	_minimap_toggle = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -442,8 +448,12 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	_add_ui_scale_control(performance_body, mode)
 	cards.append(performance["panel"])
 
-	var benchmark := _build_benchmark_card(mode)
-	cards.append(benchmark)
+	var hud := _make_group("COURSE HUD", "Choose which overlays stay on the course screen.", mode)
+	var hud_body: VBoxContainer = hud["body"]
+	_minimap_toggle = _add_toggle_row(hud_body, "Minimap",
+		"Show the course overview map in the bottom-left corner.",
+		GameManager.minimap_enabled, _set_minimap_enabled, mode)
+	cards.append(hud["panel"])
 
 	var accessibility := _make_group("ACCESSIBILITY", "Alternative course colours for colour-vision needs.", mode)
 	var accessibility_body: VBoxContainer = accessibility["body"]
@@ -461,6 +471,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 		_save_display_settings())
 	accessibility_body.add_child(color_options)
 	cards.append(accessibility["panel"])
+
+	var benchmark := _build_benchmark_card(mode)
+	cards.append(benchmark)
 	return cards
 
 ## The one card the game's only benchmark gets: what the tour does, the
@@ -900,7 +913,7 @@ func _add_ui_scale_control(parent: VBoxContainer, mode: int) -> void:
 	parent.add_child(stack)
 
 func _add_toggle_row(parent: VBoxContainer, title: String, description: String, enabled: bool,
-		on_change: Callable, mode: int) -> void:
+		on_change: Callable, mode: int) -> CheckButton:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var copy := VBoxContainer.new()
@@ -921,6 +934,7 @@ func _add_toggle_row(parent: VBoxContainer, title: String, description: String, 
 	toggle.toggled.connect(func(value: bool): on_change.call(value))
 	row.add_child(toggle)
 	parent.add_child(row)
+	return toggle
 
 ## Zoom limits (Settings → Controls → Camera).
 func _format_zoom_value(value: float) -> String:
@@ -1182,6 +1196,14 @@ func _set_vsync(enabled: bool) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if enabled else DisplayServer.VSYNC_DISABLED)
 	_save_display_settings()
 
+func _set_minimap_enabled(enabled: bool) -> void:
+	GameManager.set_minimap_enabled(enabled)
+	_save_display_settings()
+
+func _on_minimap_enabled_changed(enabled: bool) -> void:
+	if is_instance_valid(_minimap_toggle):
+		_minimap_toggle.set_pressed_no_signal(enabled)
+
 func _on_invert_zoom_toggled(enabled: bool) -> void:
 	GameManager.invert_zoom_scroll = enabled
 	_save_controls_settings()
@@ -1213,6 +1235,7 @@ func _save_display_settings() -> void:
 	config.set_value("display", "vsync", DisplayServer.window_get_vsync_mode())
 	config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
 	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
+	config.set_value("display", "minimap_enabled", GameManager.minimap_enabled)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:

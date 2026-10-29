@@ -29,6 +29,15 @@ var heightmap_noise_seed: int = 0
 var tee_booking_interval: int = 90
 var colorblind_mode: int = ColorblindMode.Mode.OFF
 var invert_zoom_scroll: bool = false
+## Whether the corner minimap is shown on the course HUD (player preference,
+## persisted in settings.cfg).
+var minimap_enabled: bool = true:
+	set(value):
+		if minimap_enabled == value:
+			return
+		minimap_enabled = value
+		if is_inside_tree():
+			EventBus.minimap_enabled_changed.emit(minimap_enabled)
 ## Camera zoom limits (player preference, persisted in settings.cfg).
 ## The defaults match the original IsometricCamera range so older installs are
 ## unchanged until the player opens Settings.
@@ -931,6 +940,10 @@ func set_colorblind_mode(mode: int) -> void:
 	var remapped := ColorblindMode.remap_colors(base_colors, colorblind_mode)
 	TerrainPalette.set_theme_colors(remapped)
 	EventBus.theme_changed.emit(current_theme)
+
+func set_minimap_enabled(enabled: bool) -> void:
+	"""Enable or disable the corner minimap on the course HUD."""
+	minimap_enabled = enabled
 
 func _exit_tree() -> void:
 	# Disconnect signals to prevent memory leaks and double-callbacks on reload

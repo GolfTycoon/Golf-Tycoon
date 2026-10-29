@@ -33,12 +33,13 @@ func test_section_buttons_hide_and_reveal_their_shelf() -> void:
 
 func test_hidden_section_shows_the_course_where_the_shelf_was() -> void:
 	var toolbar: TerrainToolbar = main.terrain_toolbar
-	var bg: Control = main.get_node("UI/HUD/BottomBarBG")
-	assert_eq(bg.anchor_right, 1.0, "An open section keeps the full-width bar")
+	var backdrop := toolbar.get_node("ShelfFanBackdrop") as ShelfFanBackdrop
+	assert_null(main.get_node_or_null("UI/HUD/BottomBarBG"),
+		"there is no rectangular bar behind the curved shelf")
+	assert_true(toolbar.visible and backdrop.visible, "the open shelf paints its own backdrop")
 	toolbar.collapse_section()
 	await process_frames(2)
-	var controls_right: float = main.left_controls.get_global_rect().end.x
-	assert_lte(bg.get_global_rect().end.x, controls_right + 0.5, "The backdrop stops at the left controls")
+	assert_false(toolbar.visible, "hiding the shelf also hides its child backdrop")
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await process_frames(2)
-	assert_eq(bg.anchor_right, 1.0, "Reopening restores the full-width bar")
+	assert_true(toolbar.visible and backdrop.visible, "reopening restores the curved backdrop")

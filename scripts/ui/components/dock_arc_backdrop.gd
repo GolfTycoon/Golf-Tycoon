@@ -4,16 +4,10 @@ class_name DockArcBackdrop
 ## dock's medallions, replacing the straight rectangle the bottom bar used
 ## to paint behind them.
 ##
-## The six circles of BottomControlDock already describe a descending arc -
-## Build, Manage and Golfers curving down from the corner, Menu, Pause and
-## Speed echoing them underneath - so the backdrop is cut to that arc
-## instead of to the bar's rectangle. Its rim is one smooth spline swept
-## across the three section medallions - a single anchor per circle, part
-## way from its centre toward the hub's outside - rather than a scalloped
-## outline wrapped around each one, so the medallions sit astride the rim
-## and poke out past it over the course. The turf fills everything below
-## the rim to the screen's corner, and the course shows through above it
-## where the old bar was dead space.
+## The six circles of BottomControlDock describe a descending arc. A single
+## quarter-ellipse forms the rim around them, rather than a spline whose
+## changing bends can make the border look uneven. The turf fills below the
+## rim to the screen corner, with the course visible above it.
 ##
 ## The turf is mown like a green seen from its corner: concentric mowing
 ## rings around the hub alternate two deep greens, fainter wedge sectors
@@ -37,18 +31,10 @@ class_name DockArcBackdrop
 ## Display pixels per generated image pixel: the two-pixel grain the
 ## medallion faces are drawn at.
 const PIXEL := 2
-## How far across a section medallion the rim crosses it, as a fraction of
-## its radius measured from the centre along the hub ray: the rim's anchor
-## sits this far out, so the remaining fraction of the medallion pokes
-## past the border over the course. One anchor per medallion is what keeps
-## the rim one clean arc instead of a scallop around every circle.
-const RIM_CROSS_FRACTION := 0.4
-## The rim's synthetic end anchors run it off the top and right edges of
-## the corner: this far above the first medallion, and this far beyond
-## the last, so the arc sweeps in and out of frame instead of stopping
-## dead at the end circles.
-const RIM_EDGE_LIFT := 18.0
-const RIM_EDGE_RUN := 42.0
+## Extra room beyond the last section medallion and above the dock. These
+## make the quarter-ellipse extend naturally beyond the visible edges.
+const RIM_SIDE_MARGIN := 16.0
+const RIM_TOP_LIFT := 10.0
 ## Rim band edges, inside distance from the rim in display pixels: the
 ## pixel frame's cross-section (ink, trim, bevel, sheen) bent along the arc.
 const BAND_INK := 2.0
@@ -100,7 +86,7 @@ var accent: Color = FALLBACK_ACCENT:
 			if is_inside_tree():
 				queue_redraw()
 
-## Medallions the rim sweeps across (the section circles), and the inner
+## Medallions the rim curves around (the section circles), and the inner
 ## row echoing them (the utility circles), each a Vector3 of centre x,
 ## centre y and radius in this control's coordinates. BottomControlDock
 ## hands over fresh geometry whenever it lays its buttons out, so the arc
@@ -120,7 +106,7 @@ func _init() -> void:
 	resized.connect(queue_redraw)
 
 ## Take the dock's current medallion geometry: the outer (section) circles
-## the rim sweeps across, and the inner (utility) circles beneath them.
+## the rim curves around, and the inner (utility) circles beneath them.
 func set_circles(outer: Array, inner: Array) -> void:
 	_outer_circles = outer.duplicate()
 	_inner_circles = inner.duplicate()
@@ -138,60 +124,29 @@ func _draw() -> void:
 # RIM GEOMETRY
 # =============================================================================
 
-## The rim's anchor points: one per outer medallion, part way across its
-## face on the ray from the hub through its centre, so the spline through
-## them is one smooth arc following the row's curve and the medallions -
-## drawn on top - poke out past it. Synthetic anchors beyond the first
-## and last circles run the arc off the top and right edges. Circles are
-## ordered by their angle around the hub, so the spline sweeps from the
-## top edge down to the shelf without doubling back.
-static func rim_anchors(outer_circles: Array, hub: Vector2) -> Array:
-	var ordered: Array = outer_circles.duplicate()
-	ordered.sort_custom(func(a: Vector3, b: Vector3) -> bool:
-		return atan2(-(a.y - hub.y), a.x - hub.x) > atan2(-(b.y - hub.y), b.x - hub.x))
-	var anchors: Array = []
-	for circle: Vector3 in ordered:
-		var center := Vector2(circle.x, circle.y)
-		anchors.append(center + (center - hub).normalized() * circle.z * RIM_CROSS_FRACTION)
-	if ordered.size() < 2:
-		return anchors
-	var first: Vector3 = ordered[0]
-	var last: Vector3 = ordered[-1]
-	var start := Vector2(first.x - first.z * 0.9, first.y - first.z - RIM_EDGE_LIFT)
-	var end := Vector2(last.x + last.z + RIM_EDGE_RUN, last.y + last.z * 0.85)
-	return [start] + anchors + [end]
-
-## The rim as a densely sampled Catmull-Rom spline through its anchors.
-## Samples land at most a couple of display pixels apart, close enough
-## that stamping the rim bands along them leaves no gaps.
+## A single quarter-ellipse, centred on the bottom-left hub. Its horizontal
+## radius follows the outermost button, while its vertical radius follows the
+## dock height. Sampling by angle keeps the curve smooth even where it becomes
+## steep near the right edge, on both desktop and touch layouts.
 static func rim_curve(outer_circles: Array, hub: Vector2) -> PackedVector2Array:
-	var anchors := rim_anchors(outer_circles, hub)
 	var curve := PackedVector2Array()
-	if anchors.size() < 2:
-		for anchor: Vector2 in anchors:
-			curve.append(anchor)
+	if outer_circles.is_empty():
 		return curve
-	var pts: Array = [anchors[0]] + anchors + [anchors[-1]]
-	for i in range(1, pts.size() - 2):
-		var p0: Vector2 = pts[i - 1]
-		var p1: Vector2 = pts[i]
-		var p2: Vector2 = pts[i + 1]
-		var p3: Vector2 = pts[i + 2]
-		var steps := clampi(int(p1.distance_to(p2) / 2.0), 4, 48)
-		for j in steps:
-			var t := float(j) / float(steps)
-			var t2 := t * t
-			var t3 := t2 * t
-			curve.append(0.5 * ((2.0 * p1) + (-p0 + p2) * t
-					+ (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2
-					+ (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3))
-	curve.append(anchors[-1])
+	var radius_x := 0.0
+	for circle: Vector3 in outer_circles:
+		radius_x = maxf(radius_x, circle.x + circle.z - hub.x)
+	radius_x += RIM_SIDE_MARGIN
+	var radius_y := maxf(hub.y + RIM_TOP_LIFT, 1.0)
+	var steps := maxi(48, int(ceil(maxf(radius_x, radius_y) * PI / 4.0)))
+	for i in steps + 1:
+		var angle := (PI * 0.5) * float(i) / float(steps)
+		curve.append(hub + Vector2(radius_x * sin(angle), -radius_y * cos(angle)))
 	return curve
 
 ## The rim's height at every display column: the highest (smallest y)
-## spline sample in that column, interpolated across any column the
-## spline skips on its steep drop beside the last medallion, and held
-## flat beyond the spline's ends. Everything below this line is turf.
+## curve sample in that column, interpolated across any column the
+## curve skips on its steep drop beside the last medallion, and held
+## flat beyond the curve's ends. Everything below this line is turf.
 static func _rim_top(curve: PackedVector2Array, width: int) -> PackedFloat32Array:
 	var top := PackedFloat32Array()
 	top.resize(maxi(width, 1))
@@ -264,14 +219,12 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 			var column := clampi(int(point.x), 0, top.size() - 1)
 			var socket_d := INF
 			var filled := point.y >= top[column]
-			# The section medallions deliberately get no turf beyond the
-			# rim: the arc cuts across their faces and they poke out past
-			# it. Their distance still feeds the socket shading below it.
+			# Section circles still feed the socket shading below the rim.
 			for circle: Vector3 in outer_circles:
 				socket_d = minf(socket_d,
 						point.distance_to(Vector2(circle.x, circle.y)) - circle.z)
 			# The inner row lives below the rim, but keep its sockets whole
-			# even if a future layout lets the spline clip one.
+			# even if a future layout lets the curve clip one.
 			for circle: Vector3 in inner_circles:
 				var d := point.distance_to(Vector2(circle.x, circle.y))
 				socket_d = minf(socket_d, d - circle.z)
@@ -282,7 +235,7 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 			inside[py * w + px] = 1
 			image.set_pixel(px, py, _turf_at(point, hub, socket_d,
 					point.y - maxf(top[column], 0.0), px, py, dots))
-	_stamp_rim(image, inside, curve, canvas_size, top, trim)
+	stamp_rim(image, inside, curve, canvas_size, top, trim)
 	_draw_flag(image, inside, circles)
 	_image_cache[key] = image
 	return image
@@ -325,12 +278,13 @@ static func _flight_dots(row: Array, color: Color) -> Array:
 ## The rim's shadow on the course and its frame bands on the turf,
 ## stamped as hard discs along the rim. Stamping largest first lets each
 ## inner band paint over the middle of the last, which keeps every band
-## a constant thickness round the spline's bends for a fraction of the
+## a constant thickness round the curve's bends for a fraction of the
 ## cost of a true per-pixel distance field. The stamp path follows the
 ## rim's columns (clamped onto the canvas, so the bands also run along
-## the top edge where the spline leaves through it, as the old bar's top
-## bands did) resampled evenly along its length.
-static func _stamp_rim(image: Image, inside: PackedByteArray,
+## the top edge where the curve leaves through it, as the old bar's top
+## bands did) resampled evenly along its length. The shelf uses this same
+## painter for its mirrored rim, so both sides keep identical frame bands.
+static func stamp_rim(image: Image, inside: PackedByteArray,
 		curve: PackedVector2Array, canvas_size: Vector2,
 		top: PackedFloat32Array, trim: Color) -> void:
 	var path: Array = []

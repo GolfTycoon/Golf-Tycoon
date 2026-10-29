@@ -72,6 +72,7 @@ signal ball_shot_landed_precise(golfer_id: int, from_screen: Vector2, to_screen:
 signal ui_notification(message: String, type: String)
 signal tooltip_requested(text: String, position: Vector2)
 signal tooltip_hidden()
+signal minimap_enabled_changed(enabled: bool)
 
 # Wind Signals
 signal wind_changed(direction: float, speed: float)

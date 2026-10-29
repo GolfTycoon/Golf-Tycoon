@@ -113,7 +113,8 @@ const COURSE_BANNER_GROUP := "course_location_banner"
 const COURSE_BANNER_GAP := 6
 
 # Bottom bar height: view/speed controls on the left + tabbed toolbar on the right.
-# Keep in sync with main.tscn BottomBar offset_top.
+# Keep in sync with main.tscn BottomBar offset_top. The tab rail now carries
+# 44px/52px medallions (up from 32px/40px) for a more thumb-friendly target.
 const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
 const TOUCH_BOTTOM_BAR_HEIGHT := 232  # Tall enough for 44px camera / speed targets
 const TOUCH_TARGET_SIZE := 44  # Comfortable minimum for primary touch controls

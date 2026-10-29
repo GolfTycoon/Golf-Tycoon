@@ -198,6 +198,54 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	menu._save_controls_settings()
 
 
+func test_the_minimap_setting_enables_and_disables_the_minimap() -> void:
+	await set_window(DESIGN_WINDOW)
+	var original_enabled := GameManager.minimap_enabled
+	var was_hud_visible: bool = main.mini_map.hud_visible
+
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(5)
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var toggle := menu.find_child("Toggle_minimap", true, false) as CheckButton
+	assert_not_null(toggle, "The Minimap toggle is on the Display page")
+	if toggle == null:
+		return
+	assert_eq(toggle.button_pressed, original_enabled, "The toggle reflects the live minimap setting")
+
+	# On the title screen (gameplay HUD hidden), toggling the setting updates and
+	# persists the preference without popping the minimap onto the title screen.
+	main._set_gameplay_ui_visible(false)
+	toggle.button_pressed = false
+	await process_frames(2)
+	assert_false(GameManager.minimap_enabled, "Turning the toggle off disables the minimap")
+	assert_false(main.mini_map.visible, "and keeps it hidden")
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "The setting saves to settings.cfg")
+	assert_eq(bool(saved.get_value("display", "minimap_enabled", true)), false,
+		"with minimap_enabled stored under [display]")
+
+	toggle.button_pressed = true
+	await process_frames(2)
+	assert_true(GameManager.minimap_enabled, "Turning the toggle on enables the minimap preference")
+	assert_false(main.mini_map.visible, "while keeping the minimap off the title screen")
+
+	# On the course HUD, the setting immediately hides and shows the minimap.
+	main._set_gameplay_ui_visible(true)
+	assert_true(main.mini_map.visible, "The enabled minimap appears when the course HUD is shown")
+	toggle.button_pressed = false
+	await process_frames(2)
+	assert_false(main.mini_map.visible, "Disabling the setting hides the live minimap at once")
+	toggle.button_pressed = true
+	await process_frames(2)
+	assert_true(main.mini_map.visible, "Enabling the setting brings the live minimap back at once")
+
+	# Restore global and HUD state.
+	main._set_gameplay_ui_visible(was_hud_visible)
+	GameManager.set_minimap_enabled(original_enabled)
+	menu._save_display_settings()
+
+
 func test_the_settings_benchmark_offers_a_run_and_the_past_results() -> void:
 	await set_window(DESIGN_WINDOW)
 	_old_history_path = BenchmarkHistory.history_path

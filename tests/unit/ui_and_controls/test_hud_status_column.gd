@@ -1,7 +1,7 @@
 extends GameTest
 ## The HUD status column (pinned to the top-right corner) reads out one card
-## per stat. Every card carries its own background, border, icon, name and
-## value; there is no game-mode (PLAYING / PAUSED) row at the top any more,
+## per stat. Every card carries its own background, border, value and
+## right-hand icon; there is no game-mode (PLAYING / PAUSED) row at the top any more,
 ## the column itself has no background, and it can no longer be collapsed.
 ## Weather, Wind and Seasons are optional, so their cards are hidden while the
 ## feature is off: a course playing without them has no rows left reading
@@ -109,7 +109,7 @@ func test_every_row_is_a_card_with_a_background_a_border_an_icon_and_a_value() -
 	for field in ROW_FIELDS:
 		var card: Control = _row(column, field)
 		assert_true(card is PanelContainer, "%s is a panel card" % field)
-		var style := (card as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
+		var style := (card.get_node("Content/ValueBackground") as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat
 		assert_not_null(style, "%s has its own background style" % field)
 		assert_gt(style.bg_color.a, 0.0, "%s paints a background" % field)
 		var borders := style.border_width_left + style.border_width_top \
@@ -117,17 +117,103 @@ func test_every_row_is_a_card_with_a_background_a_border_an_icon_and_a_value() -
 		assert_gt(borders, 0, "%s paints a border" % field)
 		assert_true(style.corner_radius_top_left > 0, "%s has rounded card corners" % field)
 
-		var icon := card.get_node_or_null("Content/Icon") as TextureRect
+		var icon := card.get_node_or_null("Content/IconBackground/Icon") as TextureRect
 		assert_not_null(icon, "%s carries an icon" % field)
 		if icon:
 			assert_not_null(icon.texture, "%s's icon is painted" % field)
 			assert_eq(icon.custom_minimum_size, Vector2(HUDStatusColumn.ICON_SIZE,
-				HUDStatusColumn.ICON_SIZE), "%s's icon keeps its 16px grid" % field)
+				HUDStatusColumn.ICON_SIZE), "%s's icon uses the enlarged pixel grid" % field)
 
-		var value := card.get_node_or_null("Content/Value") as Label
-		assert_not_null(value, "%s carries a value" % field)
-		if value:
-			assert_ne(value.text, "", "%s shows its value" % field)
+		if field == "_rating_row":
+			var stars := card.get_node_or_null("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+			assert_not_null(stars, "RatingRow carries star icons in its value background")
+			assert_null(card.get_node_or_null("Content/ValueBackground/ValueContent/Value"),
+				"RatingRow shows no text value label inside the pill")
+		else:
+			var value := card.get_node_or_null("Content/ValueBackground/ValueContent/Value") as Label
+			assert_not_null(value, "%s carries a value" % field)
+			if value:
+				assert_ne(value.text, "", "%s shows its value" % field)
+
+func test_rows_show_values_before_right_hand_icons_without_titles() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(2)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		var content := card.get_node("Content") as HBoxContainer
+		var value_background := content.get_node("ValueBackground") as PanelContainer
+		var icon_background := content.get_node("IconBackground") as PanelContainer
+		assert_null(content.get_node_or_null("Title"), "%s has no title" % field)
+		assert_lt(value_background.get_index(), icon_background.get_index(), "%s places its value before the icon" % field)
+		assert_gt(icon_background.position.x, value_background.position.x, "%s places its icon on the right" % field)
+		assert_lt(icon_background.position.y, value_background.position.y, "%s raises its icon background" % field)
+		assert_eq(icon_background.size, Vector2(40, 40), "%s has a circular icon background" % field)
+		var icon_style := icon_background.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(icon_style.corner_radius_top_left, 20, "%s has fully rounded icon corners" % field)
+		var value_style := value_background.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_gt(value_style.corner_radius_top_left, 4, "%s has more rounded value corners" % field)
+	var funds := _row(column, "_funds_row").get_node("Content/ValueBackground/ValueContent")
+	assert_gt(funds.get_node("Trend").get_index(), funds.get_node("Value").get_index(),
+		"the funds trend follows the value")
+
+func test_dynamic_icons_update_their_accented_medallion_and_value_pill() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	var card := _row(column, "_weather_row")
+	var icon := card.get_node("Content/IconBackground/Icon") as TextureRect
+	var icon_background := icon.get_parent() as PanelContainer
+	var value_background := card.get_node("Content/ValueBackground") as PanelContainer
+	var accent := Color(0.2, 0.6, 0.9)
+	column._set_row_icon(icon, PixelIcon.Kind.RAIN, accent)
+	var icon_style := icon_background.get_theme_stylebox("panel") as StyleBoxFlat
+	var value_style := value_background.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_eq(icon_style.border_color, Color(accent, 0.9), "medallion follows its icon")
+	assert_eq(value_style.border_color, Color(accent, 0.58), "value pill matches the medallion")
+	assert_gt(icon_style.bg_color.b, value_style.bg_color.b, "the medallion is more richly tinted")
+	assert_gt(value_style.shadow_size, 0, "the pill has depth over the course")
+
+func test_cards_are_double_height() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(2)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		assert_almost_eq(card.size.y, 48.0, 0.5, "%s is 48 pixels tall" % field)
+		var icon := card.get_node("Content/IconBackground/Icon") as TextureRect
+		assert_eq(icon.custom_minimum_size, Vector2(32, 32), "the icon is doubled")
+		if field == "_rating_row":
+			var stars := card.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+			assert_eq(stars.star_side(), CourseRatingStars.DESKTOP_SIDE,
+				"desktop rating row uses the desktop star grid")
+		else:
+			var value := card.get_node("Content/ValueBackground/ValueContent/Value") as Label
+			assert_eq(value.get_theme_font_size("font_size"), 24, "the value font is doubled")
+		var icon_background := card.get_node("Content/IconBackground") as Control
+		assert_almost_eq(icon.global_position.y + icon.size.y / 2.0,
+			icon_background.global_position.y + icon_background.size.y / 2.0, 1.0,
+			"%s keeps its icon centered in its circle" % field)
+
+func test_card_backgrounds_fit_their_values_and_remain_right_aligned() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	await process_frames(3)
+	for field in ROW_FIELDS:
+		var card := _row(column, field)
+		var parent := card.get_parent() as Control
+		assert_lt(card.size.x, parent.size.x, "%s does not fill the column" % field)
+		assert_almost_eq(card.position.x + card.size.x, parent.size.x, 1.0,
+			"%s is aligned to the right" % field)
+	var funds := _row(column, "_funds_row")
+	column._set_value_text(column._money_label, "$ 1")
+	await process_frames(2)
+	var short_width := funds.size.x
+	column._set_value_text(column._money_label, "$ 1,234,567")
+	await process_frames(2)
+	assert_gt(funds.size.x, short_width, "the background grows with the value")
+	column._set_value_text(column._money_label, "$ 1")
+	await process_frames(2)
+	assert_almost_eq(funds.size.x, short_width, 1.0, "the background shrinks again")
 
 func test_the_rows_are_separate_cards_not_a_shared_bar() -> void:
 	_set_features(true, true, true)
@@ -242,3 +328,81 @@ func test_a_new_game_refreshes_the_rows() -> void:
 	EventBus.new_game_started.emit()
 	for field in FEATURE_ROWS:
 		assert_true(_row_visible(column, field), "%s returns with its feature" % field)
+
+# ---------------------------------------------------------------------------
+# Course rating row: star icons in the value pill, numeric value in tooltip
+# ---------------------------------------------------------------------------
+
+func test_rating_row_shows_star_icons_without_text_and_puts_numeric_value_in_tooltip() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	var rating_row := _row(column, "_rating_row")
+	var action := rating_row.get_node("Action") as Button
+	var stars := rating_row.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+
+	assert_not_null(stars, "RatingRow renders CourseRatingStars inside ValueBackground")
+	assert_eq(_nodes_of_class(rating_row, "Label").size(), 0,
+		"RatingRow contains no visible text Label")
+
+	# Before a rating arrives, all five star sockets are unlit and the tooltip says Unrated.
+	assert_false(stars.rated, "starts unrated until a course pushes a rating")
+	for i in CourseRatingStars.STAR_COUNT:
+		assert_almost_eq(stars.star_fill(i), 0.0, 0.001, "star %d starts unlit" % i)
+	assert_true(action.tooltip_text.contains("Unrated"),
+		"unrated tooltip reports Unrated (got: %s)" % action.tooltip_text)
+
+	# Updating the rating lights the stars (including fractional fill) and writes
+	# the formatted number into the hover tooltip.
+	column.update_rating(3.5)
+	assert_true(stars.rated, "rating is now active")
+	assert_almost_eq(stars.star_fill(0), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(1), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(2), 1.0, 0.001)
+	assert_almost_eq(stars.star_fill(3), 0.5, 0.001, "fourth star is half filled at 3.5")
+	assert_almost_eq(stars.star_fill(4), 0.0, 0.001, "fifth star stays unlit at 3.5")
+	assert_true(action.tooltip_text.contains("3.5"),
+		"hover tooltip shows the numeric rating 3.5 (got: %s)" % action.tooltip_text)
+	assert_true(action.tooltip_text.contains("5.0"),
+		"hover tooltip shows the 5.0 scale (got: %s)" % action.tooltip_text)
+	assert_eq(rating_row.tooltip_text, action.tooltip_text,
+		"row tooltip stays in sync with its hover button")
+	assert_eq(action.accessibility_description, action.tooltip_text,
+		"accessibility description stays in sync with the hover tooltip")
+
+	# EventBus.course_rating_changed updates both the star strip and tooltip live.
+	EventBus.course_rating_changed.emit({"overall": 4.7})
+	assert_almost_eq(stars.stars, 4.7, 0.001)
+	assert_almost_eq(stars.star_fill(4), 0.7, 0.001)
+	assert_true(action.tooltip_text.contains("4.7"),
+		"hover tooltip updates when course_rating_changed fires (got: %s)" % action.tooltip_text)
+	assert_true(action.tooltip_text.contains("Excellent"),
+		"hover tooltip includes the tier description (got: %s)" % action.tooltip_text)
+
+func test_rating_row_stars_fit_both_desktop_and_compact_columns() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	column.update_rating(4.5)
+	await process_frames(2)
+
+	var rating_row := _row(column, "_rating_row")
+	var stars := rating_row.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
+	assert_false(stars.compact, "desktop window uses desktop star strip")
+	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
+		"desktop rating row fits inside the 210px column")
+
+	get_window().size = Vector2i(390, 844)
+	await process_frames(2)
+	column.apply_screen()
+	await process_frames(2)
+
+	assert_true(stars.compact, "compact window switches to compact 15x15 stars")
+	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
+		"compact rating row fits inside the 150px phone column")
+	assert_almost_eq(stars.stars, 4.5, 0.001, "resizing preserves the active star rating")
+	assert_true((rating_row.get_node("Action") as Button).tooltip_text.contains("4.5"),
+		"resizing preserves the numeric tooltip")
+
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+	column.apply_screen()
+

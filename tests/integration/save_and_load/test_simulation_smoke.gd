@@ -65,9 +65,9 @@ func test_the_panels_and_the_view_work_while_days_go_by() -> void:
 		main._on_view_rotate_cw()
 		await process_frames(3)
 		main._on_view_rotate_ccw()
-		main._on_map_toggled(true)
+		GameManager.set_minimap_enabled(false)
 		await process_frames(3)
-		main._on_map_toggled(false)
+		GameManager.set_minimap_enabled(true)
 		assert_true(await _run_a_day(), "Day %d goes by" % day)
 
 

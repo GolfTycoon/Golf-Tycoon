@@ -6,9 +6,9 @@ extends GameTest
 var toolbar: TerrainToolbar
 
 ## The headless test window is 64x64, which Screen reads as a compact — and so
-## touch-sized — layout: 40px tab buttons measured against the 232px touch
+## touch-sized — layout: 52px tab buttons measured against the 232px touch
 ## bottom bar. Every height budget below is the desktop one (BOTTOM_BAR_HEIGHT
-## and a 32px rail), so each test pins the reference window size and pauses the
+## and a 44px rail), so each test pins the reference window size and pauses the
 ## per-frame polling that would put the tiny test window back, then restores
 ## both. The touch layout has its own coverage in the bottom dock tests.
 var _window_size: Vector2 = Vector2(1600, 1000)
@@ -30,13 +30,13 @@ func after_each() -> void:
 	super()
 
 ## The desktop layout the whole file measures against: a toolbar that fits the
-## bottom bar with a 32px tab rail, not the compact one the test window implies.
+## bottom bar with a 44px tab rail, not the compact one the test window implies.
 func test_the_toolbar_is_measured_in_the_desktop_layout() -> void:
 	assert_false(Screen.uses_touch_layout(), "The tests run the desktop layout")
 	assert_eq(Screen.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
 		"so the bottom bar is the desktop one")
 	for button in toolbar._tab_buttons.values():
-		assert_eq((button as PixelCircleButton).diameter, 32.0,
+		assert_eq((button as PixelCircleButton).diameter, 44.0,
 			"and the tab rail wears its desktop diameter")
 
 func test_bottom_bar_fits_two_rows_of_course_tiles() -> void:
@@ -172,9 +172,11 @@ func test_two_rows_of_big_tiles_fill_the_toolbar_page_height() -> void:
 
 	# The page the tiles sit on: the bottom bar less the tab bar, the panel
 	# margins and the horizontal scrollbar shown when a page overflows.
+	# The larger 44px/52px rail adds about 10px of slack above the tile rows,
+	# so the rows fill the page with a little breathing room rather than exactly.
 	var page_height: float = toolbar._pages[TerrainToolbar.Tab.TERRAIN].size.y
 	assert_lte(two_rows + 2.0, page_height, "Two rows (plus drop shadow) fit the page")
-	assert_gte(two_rows, page_height - 8.0, "Two rows should fill the page height")
+	assert_gte(two_rows, page_height - 16.0, "Two rows should fill the page height")
 
 func test_tile_rows_keep_space_above_below_and_between_them() -> void:
 	var padding: int = TerrainToolbar.TILE_V_PADDING
@@ -215,6 +217,11 @@ func test_tile_rows_keep_space_above_below_and_between_them() -> void:
 ## Containers lay their children out over the next frame.
 func _settle_layout() -> void:
 	await process_frames(2)
+
+## The rail's width plus the gap beside it: how far the pinned corner controls
+## are held in from a page's left edge, which now reaches under the rail.
+func _body_inset() -> float:
+	return toolbar._pinned_inset
 
 ## The diamond's four vertices plus the midpoints of its edges: enough points to
 ## show a nestled button is clear of the tiles either side of it.
@@ -263,6 +270,70 @@ func test_all_pages_scroll_horizontally_behind_fixed_chrome() -> void:
 		var content = scroll.get_child(0)
 		assert_true(content is HBoxContainer, "Page %d content container should be HBoxContainer" % i)
 
+# ---------------------------------------------------------------------------
+# THE CURVED PAGE WINDOW
+# ---------------------------------------------------------------------------
+
+## The pages reach left under the curved tab buttons: they ride in a window cut
+## to the fairway's own curve, so their left side is curved rather than a
+## straight edge beside the rail.
+func test_the_pages_ride_in_a_window_cut_to_the_fairways_curve() -> void:
+	await _settle_layout()
+	var backdrop: ShelfFanBackdrop = toolbar._backdrop
+	var window: ShelfPageWindow = toolbar._page_window
+	assert_not_null(window, "the shelf cuts its pages to a curved window")
+	assert_eq(window.get_parent(), toolbar)
+	assert_almost_eq(window.curve_width, backdrop.curve_width, 0.01,
+		"cut to the same curve the rim is painted on")
+	assert_almost_eq(window.seam_inset, backdrop.seam_inset, 0.01)
+	assert_lt(window.get_index(), toolbar.get_child_count() - 1,
+		"drawn over the fairway, so the pages sit on the turf")
+	assert_gt(window.get_index(), 0, "and behind the tab rail, which is added after it")
+	assert_false(window.is_ancestor_of(toolbar._tab_rail),
+		"the medallions straddle the rim, so they must not be cut by the window")
+	for i in toolbar._pages.size():
+		assert_true(window.is_ancestor_of(toolbar._pages[i]),
+			"page %d is cut to the curved window" % i)
+
+func test_every_page_reaches_under_the_curved_tab_rail() -> void:
+	# Every page shares the window, so measure them all at once: a tab that has
+	# never been opened has not been laid out yet.
+	for page in toolbar._pages:
+		page.visible = true
+	await _settle_layout()
+	var rail_right := toolbar._tab_rail.get_global_rect().end.x
+	var shelf_left := toolbar.get_global_rect().position.x
+	for i in toolbar._pages.size():
+		var scroll: ScrollContainer = toolbar.page_scroll(i)
+		var rect := scroll.get_global_rect()
+		assert_almost_eq(rect.position.x, shelf_left + TerrainToolbar.SHELF_PAD_X, 0.01,
+			"page %d starts at the shelf's own left padding" % i)
+		assert_lt(rect.position.x, rail_right,
+			"page %d reaches under the tab rail instead of stopping beside it" % i)
+		assert_almost_eq(rect.end.x,
+			toolbar.get_global_rect().end.x - TerrainToolbar.SHELF_PAD_X, 0.01,
+			"and still fills the shelf to its right padding")
+	toolbar.select_tab(toolbar.current_tab)
+
+## The window is a mask: the corner left of the curve is cut away, the pages'
+## own corner beside it stays.
+func test_the_window_cuts_the_corner_left_of_its_curve() -> void:
+	await _settle_layout()
+	var window: ShelfPageWindow = toolbar._page_window
+	var origin := window.get_global_position()
+	var page: Control = toolbar._pages[TerrainToolbar.Tab.TERRAIN]
+	var local := page.get_global_position() - origin
+	assert_false(window.contains_content_point(local),
+		"the page's top-left corner is behind the curved tab buttons")
+	assert_true(window.contains_content_point(local + Vector2(page.size.x - 1.0, 0.0)),
+		"while its top-right corner is on the shelf")
+	assert_true(window.contains_content_point(local + page.size - Vector2.ONE),
+		"and so is its bottom-right corner")
+	assert_true(window.contains_content_point(local + Vector2(2.0, page.size.y - 2.0)),
+		"and its bottom-left corner, where the turf runs to the shelf's edge")
+	assert_almost_eq(window.content_left_at(window.size.y - 2.0), TerrainToolbar.SHELF_PAD_X, 0.1,
+		"the curve meets the shelf's own left padding at the bottom")
+
 func test_tab_selection_toggles_visibility() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	assert_true(toolbar._pages[TerrainToolbar.Tab.TERRAIN].visible)
@@ -289,7 +360,7 @@ func test_bulldozer_pins_to_the_removal_tabs_bottom_left_corners() -> void:
 		assert_almost_eq(btn.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
 		assert_almost_eq(btn.anchor_right, 0.0, 0.001, "Anchored to the left edge")
 		assert_almost_eq(btn.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
-		assert_almost_eq(btn.offset_left, BulldozerButton.CORNER_MARGIN, 0.01)
+		assert_almost_eq(btn.offset_left, _body_inset() + BulldozerButton.CORNER_MARGIN, 0.01)
 		assert_almost_eq(btn.offset_bottom, -BulldozerButton.CORNER_MARGIN, 0.01)
 		# A round button: square bounds of the fixed diameter, circular hit face.
 		assert_eq(btn.custom_minimum_size,
@@ -407,7 +478,7 @@ func test_inspect_toggle_keeps_clear_of_the_bottom_left_corner_chrome() -> void:
 		assert_almost_eq(dozer.anchor_left, 0.0, 0.001,
 			"while the Bulldozer is left-anchored")
 		assert_almost_eq(inspect.offset_right, -InspectButton.CORNER_MARGIN, 0.01)
-		assert_almost_eq(dozer.offset_left, BulldozerButton.CORNER_MARGIN, 0.01)
+		assert_almost_eq(dozer.offset_left, _body_inset() + BulldozerButton.CORNER_MARGIN, 0.01)
 
 func test_tool_selection_and_signals() -> void:
 	watch_signals(toolbar)
@@ -619,8 +690,8 @@ func test_every_course_terrain_tile_says_it_replaces_the_others() -> void:
 
 func test_course_terrain_tab_has_no_green_size_presets() -> void:
 	var terrain_content: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.TERRAIN)
-	assert_eq(terrain_content.get_child_count(), 1,
-		"The scrolling terrain tab is just the unified tile grid — the brush is pinned to the page, and there is no extra separator or preset group")
+	assert_eq(terrain_content.get_child_count(), 2,
+		"The scrolling terrain tab leads with a breathing-space spacer, then the unified tile grid — the brush is pinned to the page, and there is no extra separator or preset group")
 
 ## Open Hole pairs the tee box and the green, so the Course Terrain tab nestles
 ## the action into the notch between those two tiles instead of leaving it in the
@@ -758,15 +829,15 @@ func test_brush_controls_pin_to_the_terrain_tabs_bottom_left_corner() -> void:
 	assert_almost_eq(dock.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
 	assert_almost_eq(dock.anchor_right, 0.0, 0.001, "Anchored to the left edge")
 	assert_almost_eq(dock.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
-	assert_almost_eq(dock.offset_left, TerrainToolbar.BRUSH_DOCK_MARGIN, 0.01)
+	assert_almost_eq(dock.offset_left, _body_inset() + TerrainToolbar.BRUSH_DOCK_MARGIN, 0.01)
 	assert_almost_eq(dock.offset_bottom, -TerrainToolbar.BRUSH_DOCK_MARGIN, 0.01)
 
 	await _settle_layout()
 	var side := TerrainToolbar.brush_dock_side()
 	assert_eq(dock.size, Vector2(side, side), "A square plate of four cells")
-	assert_eq(dock.position, Vector2(TerrainToolbar.BRUSH_DOCK_MARGIN,
+	assert_eq(dock.position, Vector2(_body_inset() + TerrainToolbar.BRUSH_DOCK_MARGIN,
 		page.size.y - TerrainToolbar.BRUSH_DOCK_MARGIN - side),
-		"Held in the bottom-left corner of the tab")
+		"Held in the body's bottom-left corner, where the rail cannot cover it")
 	assert_true(Rect2(Vector2.ZERO, page.size).encloses(Rect2(dock.position, dock.size)),
 		"The plate stays inside the tab")
 
@@ -839,29 +910,25 @@ func test_pinned_brush_dock_carries_the_whole_brush() -> void:
 	assert_false(shape.disabled)
 	toolbar.set_brush_size(1)
 
-## The plate floats above the shelf in the corner the staggered rows leave
-## empty, so no tile loses a pixel of its clickable diamond to it.
-func test_pinned_brush_dock_leaves_every_tile_diamond_clear() -> void:
+## The plate floats above the shelf in the body's corner: inside the curved
+## window (so the rim never cuts it), right of the tab rail (so no medallion can
+## cover it), and above the catalogue, which scrolls beneath it.
+func test_pinned_brush_dock_rides_inside_the_curved_page_window() -> void:
 	await _settle_layout()
 	var dock: PanelContainer = toolbar._brush_dock
 	var dock_origin: Vector2 = dock.get_global_transform_with_canvas().origin
 	var dock_rect := Rect2(dock_origin, dock.size)
 	assert_gt(dock_rect.size.x, 0.0, "The dock is laid out")
 
-	var checked := 0
-	for tile in toolbar._course_tiles.flow_children() + [toolbar._open_hole_buttons[0]]:
-		var covered := false
-		for offset_y in range(0, int(dock_rect.size.y) + 1, 2):
-			for offset_x in range(0, int(dock_rect.size.x) + 1, 2):
-				var local: Vector2 = dock_rect.position + Vector2(offset_x, offset_y) \
-						- tile.get_global_transform_with_canvas().origin
-				if TerrainTileButton.point_on_tile(local):
-					covered = true
-		assert_false(covered,
-			"%s keeps its diamond clear of the pinned brush" % (tile as ToolButton).tool_name)
-		checked += 1
-	assert_eq(checked, toolbar._course_tiles.flow_children().size() + 1,
-		"Every tile on the tab, plus the nestled Open Hole action, was checked")
+	var window: ShelfPageWindow = toolbar._page_window
+	var window_origin := window.get_global_transform_with_canvas().origin
+	for corner: Vector2 in [dock_rect.position, dock_rect.end]:
+		assert_true(window.contains_content_point(corner - window_origin),
+			"The whole plate rides inside the curved window, clear of the rim")
+	assert_gte(dock_rect.position.x, toolbar._tab_rail.get_global_rect().end.x,
+		"The plate clears the tab rail, so no medallion sits over it")
+	assert_lte(dock_rect.end.y, window.get_global_rect().end.y,
+		"and stays above the shelf's bottom edge")
 
 func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar.hole_grid, "hole_grid should exist")
@@ -870,13 +937,13 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 3,
-		"The Holes tab holds the hole register, the hole detail view and the course scorecard")
-	assert_same(page_content.get_child(0), toolbar._hole_register,
-		"The hole register leads the tab")
-	assert_same(page_content.get_child(1), toolbar._hole_detail,
+	assert_eq(page_content.get_child_count(), 4,
+		"The Holes tab leads with a breathing-space spacer, then the hole register, the hole detail view and the course scorecard")
+	assert_same(page_content.get_child(1), toolbar._hole_register,
+		"The hole register leads the tab after the leading spacer")
+	assert_same(page_content.get_child(2), toolbar._hole_detail,
 		"with the hole detail view beside it")
-	assert_same(page_content.get_child(2), toolbar._hole_scorecard,
+	assert_same(page_content.get_child(3), toolbar._hole_scorecard,
 		"and the course scorecard after it")
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
@@ -2282,9 +2349,9 @@ func test_elevation_selectors_fill_the_same_page_height_as_the_course_tiles() ->
 
 func test_elevation_tab_is_just_the_selector_honeycomb() -> void:
 	var content: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.ELEVATION)
-	assert_eq(content.get_child_count(), 1,
-		"The Elevation tab is just the selector honeycomb — the brush rides in its notch")
-	assert_eq(content.get_child(0).get_child(0), toolbar._elevation_selectors,
+	assert_eq(content.get_child_count(), 2,
+		"The Elevation tab leads with a breathing-space spacer, then the selector honeycomb — the brush rides in its notch")
+	assert_eq(content.get_child(1).get_child(0), toolbar._elevation_selectors,
 		"The honeycomb is the tab's only group")
 
 func test_elevation_brush_shares_settings_between_square_tools() -> void:
@@ -2396,7 +2463,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 		["REVIEW", ["aura_map", "finance", "feed"]],
 		["MILESTONES", ["course_milestones", "world_milestones", "achievements"]],
 	]
-	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
+	var groups := _club_groups()
 	assert_eq(groups.size(), expected.size(), "One column per folded tab")
 	watch_signals(toolbar)
 	for i in expected.size():
@@ -2436,9 +2503,18 @@ func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
 
 ## Every action card on the Club tab, in reading order: Maps, Review,
 ## Milestones.
+## The labelled group columns on the Club tab, skipping the leading spacer
+## the shelf adds before the first object.
+func _club_groups() -> Array[VBoxContainer]:
+	var groups: Array[VBoxContainer] = []
+	for child in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+		if child is VBoxContainer:
+			groups.append(child)
+	return groups
+
 func _club_cards() -> Array[DockActionButton]:
 	var cards: Array[DockActionButton] = []
-	for group in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+	for group in _club_groups():
 		for child in group.get_child(1).get_children():
 			if child is DockActionButton:
 				cards.append(child)

@@ -12,6 +12,14 @@ const BORDER_WIDTH: int = 2
 ## COMPACT_MAP_SIZE as the window resizes.
 var _map_size: int = MAP_SIZE
 
+## Whether the surrounding gameplay HUD is currently shown. Main clears this on
+## the title screen and fullscreen overlays so enabling the minimap from Main
+## Menu Settings keeps it hidden until the course is on screen.
+var hud_visible: bool = true:
+	set(value):
+		hud_visible = value
+		_sync_visibility()
+
 var _terrain_grid: TerrainGrid = null
 var _entity_layer = null  # EntityLayer reference
 var _golfer_manager = null  # GolferManager reference
@@ -50,9 +58,36 @@ func _ready() -> void:
 	add_to_group("native_touch_input")
 	apply_screen()
 	_refresh_trail_color()
-	# Listen for theme changes to update colors
-	if EventBus.has_signal("theme_changed"):
+	# Listen for theme and preference changes
+	if EventBus.has_signal("theme_changed") and not EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.connect(_on_theme_changed)
+	if EventBus.has_signal("minimap_enabled_changed") and not EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
+		EventBus.minimap_enabled_changed.connect(_on_minimap_enabled_changed)
+	if not visibility_changed.is_connected(_on_visibility_changed):
+		visibility_changed.connect(_on_visibility_changed)
+	_sync_visibility()
+
+func _exit_tree() -> void:
+	if EventBus.has_signal("theme_changed") and EventBus.theme_changed.is_connected(_on_theme_changed):
+		EventBus.theme_changed.disconnect(_on_theme_changed)
+	if EventBus.has_signal("minimap_enabled_changed") and EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
+		EventBus.minimap_enabled_changed.disconnect(_on_minimap_enabled_changed)
+
+func _on_minimap_enabled_changed(_enabled: bool) -> void:
+	_sync_visibility()
+
+func _sync_visibility() -> void:
+	visible = hud_visible and GameManager.minimap_enabled
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		_is_dragging = false
+		_touch_index = -1
+		return
+	if _needs_redraw:
+		_regenerate_map_texture()
+		_needs_redraw = false
+	queue_redraw()
 
 ## Total drawn size of the map (isometric diamond bounding box + border).
 func get_map_total_size() -> Vector2:
@@ -116,6 +151,8 @@ func set_camera_rect(viewport_rect: Rect2, _grid_width: int, _grid_height: int) 
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	if not visible:
+		return
 	_update_timer += delta
 	if _update_timer >= UPDATE_INTERVAL:
 		_update_timer = 0.0
@@ -400,6 +437,8 @@ func _input(event: InputEvent) -> void:
 
 	# Toggle visibility with Tab key - except while a screen or panel is open,
 	# where Tab moves focus between its controls instead.
+	if not hud_visible:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if has_node("/root/InputManager") and InputManager.has_visible_scope():
 			return
@@ -409,7 +448,9 @@ func _input(event: InputEvent) -> void:
 			return
 		if event.keycode == KEY_TAB and not event.is_command_or_control_pressed() \
 				and not event.shift_pressed:
-			visible = not visible
+			GameManager.set_minimap_enabled(not GameManager.minimap_enabled)
+			if has_node("/root/SaveManager"):
+				SaveManager.set_user_preference("display", "minimap_enabled", GameManager.minimap_enabled)
 			get_viewport().set_input_as_handled()
 
 func force_redraw() -> void:

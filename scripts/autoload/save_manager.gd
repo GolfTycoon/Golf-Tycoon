@@ -728,6 +728,7 @@ func _load_user_settings() -> void:
 		# Defer to after SoundManager is ready
 		call_deferred("_apply_audio_settings", config)
 	if config.has_section("display"):
+		GameManager.set_minimap_enabled(bool(config.get_value("display", "minimap_enabled", true)))
 		call_deferred("_apply_display_settings", config)
 	if config.has_section("controls"):
 		_apply_controls_settings(config)
@@ -760,6 +761,9 @@ func _apply_display_settings(config: ConfigFile) -> void:
 	# Restore colorblind mode
 	var cb_name = config.get_value("display", "colorblind_mode", "off")
 	GameManager.colorblind_mode = ColorblindMode.from_string(cb_name)
+
+	# Restore minimap preference
+	GameManager.set_minimap_enabled(bool(config.get_value("display", "minimap_enabled", true)))
 
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)

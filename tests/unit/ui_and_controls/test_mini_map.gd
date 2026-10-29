@@ -44,3 +44,30 @@ func test_camera_rect_preserves_actual_viewport() -> void:
 	var viewport := Rect2(200, 100, 400, 200)
 	mini_map.set_camera_rect(viewport, 16, 16)
 	assert_eq(mini_map._camera_rect, viewport)
+
+func test_minimap_follows_enabled_preference_and_hud_visibility() -> void:
+	assert_true(mini_map.visible, "Minimap starts visible by default")
+	GameManager.set_minimap_enabled(false)
+	assert_false(mini_map.visible, "Disabling minimap_enabled hides the minimap")
+	GameManager.set_minimap_enabled(true)
+	assert_true(mini_map.visible, "Enabling minimap_enabled shows the minimap")
+
+	mini_map.hud_visible = false
+	assert_false(mini_map.visible, "Hiding the gameplay HUD hides the minimap")
+	GameManager.set_minimap_enabled(false)
+	GameManager.set_minimap_enabled(true)
+	assert_false(mini_map.visible, "Enabling the setting while the HUD is hidden keeps the minimap hidden")
+	mini_map.hud_visible = true
+	assert_true(mini_map.visible, "Showing the gameplay HUD reveals the enabled minimap")
+
+func test_display_settings_restore_minimap_preference() -> void:
+	var config := ConfigFile.new()
+	config.set_value("display", "minimap_enabled", false)
+	SaveManager._apply_display_settings(config)
+	assert_false(GameManager.minimap_enabled)
+	assert_false(mini_map.visible)
+
+	var defaults := ConfigFile.new()
+	SaveManager._apply_display_settings(defaults)
+	assert_true(GameManager.minimap_enabled)
+	assert_true(mini_map.visible)
