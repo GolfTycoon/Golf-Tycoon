@@ -1,4 +1,5 @@
 extends GameTest
+const PerformanceSettingsScript = preload("res://scripts/autoload/performance_settings.gd")
 ## The Save / Load archive and the Settings office: which arrangement each window
 ## size asks for, and how a typed save name is cleaned before it becomes a file
 ## name. (The save list the archive shows is covered with SaveManager, in
@@ -60,20 +61,20 @@ func test_settings_breakpoints_respect_their_minimums() -> void:
 
 func test_auto_graphics_profile_targets_web_and_mobile_devices() -> void:
 	var auto := PerformanceSettings.GraphicsPreset.AUTO
-	assert_true(PerformanceSettings.should_use_low_detail(auto, "Web", 16))
-	assert_true(PerformanceSettings.should_use_low_detail(auto, "Android", 8))
-	assert_true(PerformanceSettings.should_use_low_detail(auto, "iOS", 8))
+	assert_true(PerformanceSettingsScript.should_use_low_detail(auto, "Web", 16))
+	assert_true(PerformanceSettingsScript.should_use_low_detail(auto, "Android", 8))
+	assert_true(PerformanceSettingsScript.should_use_low_detail(auto, "iOS", 8))
 
 func test_auto_graphics_profile_uses_processor_count_on_desktop() -> void:
 	var auto := PerformanceSettings.GraphicsPreset.AUTO
-	assert_true(PerformanceSettings.should_use_low_detail(auto, "Linux", 4))
-	assert_false(PerformanceSettings.should_use_low_detail(auto, "Linux", 8))
+	assert_true(PerformanceSettingsScript.should_use_low_detail(auto, "Linux", 4))
+	assert_false(PerformanceSettingsScript.should_use_low_detail(auto, "Linux", 8))
 
 func test_graphics_profile_overrides_are_deterministic() -> void:
-	assert_true(PerformanceSettings.should_use_low_detail(
+	assert_true(PerformanceSettingsScript.should_use_low_detail(
 			PerformanceSettings.GraphicsPreset.PERFORMANCE, "Linux", 32))
 	for preset in [PerformanceSettings.GraphicsPreset.BALANCED, PerformanceSettings.GraphicsPreset.HIGH]:
-		assert_false(PerformanceSettings.should_use_low_detail(preset, "Android", 2))
+		assert_false(PerformanceSettingsScript.should_use_low_detail(preset, "Android", 2))
 
 func test_quality_presets_apply_independent_component_settings() -> void:
 	var original_preset := PerformanceSettings.graphics_preset
@@ -82,7 +83,7 @@ func test_quality_presets_apply_independent_component_settings() -> void:
 		original_settings[setting] = PerformanceSettings.get_graphics_setting(setting)
 
 	PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.AUTO)
-	var auto_uses_fast_path := PerformanceSettings.should_use_low_detail(
+	var auto_uses_fast_path := PerformanceSettingsScript.should_use_low_detail(
 		PerformanceSettings.GraphicsPreset.AUTO, OS.get_name(), OS.get_processor_count())
 	assert_eq(PerformanceSettings.terrain_quality,
 		PerformanceSettings.TerrainQuality.FAST if auto_uses_fast_path else PerformanceSettings.TerrainQuality.FULL)

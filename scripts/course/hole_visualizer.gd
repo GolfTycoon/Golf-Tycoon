@@ -13,6 +13,7 @@ var waypoint_markers: Array[Node2D] = []
 var carry_annotations: Array[Node2D] = []
 static var carry_annotations_visible: bool = false  # Toggled by J hotkey with fairway width
 var _line_update_pending: bool = false
+var _highlighted: bool = false
 
 signal hole_selected(hole_number: int)
 
@@ -70,18 +71,25 @@ func _update_line() -> void:
 	_update_waypoint_markers(waypoints)
 
 func _update_waypoint_markers(waypoints: Array[Vector2i]) -> void:
-	# Clear existing markers immediately (not queue_free) to prevent stale rendering
-	for marker in waypoint_markers:
+	# Reuse marker nodes when terrain edits change the route. Apart from avoiding
+	# allocations this keeps the selection highlight across recalculations.
+	var count := maxi(waypoints.size() - 2, 0)
+	while waypoint_markers.size() > count:
+		var marker: Node2D = waypoint_markers.pop_back()
 		if is_instance_valid(marker):
 			remove_child(marker)
 			marker.free()
-	waypoint_markers.clear()
-
-	# Create markers at intermediate waypoints (skip first=tee and last=flag)
-	for i in range(1, waypoints.size() - 1):
-		var marker: Node2D = _create_waypoint_marker(waypoints[i])
-		add_child(marker)
-		waypoint_markers.append(marker)
+	for i in range(count):
+		var marker: Node2D
+		if i < waypoint_markers.size():
+			marker = waypoint_markers[i]
+			marker.position = to_local(terrain_grid.grid_to_screen_center(waypoints[i + 1]))
+		else:
+			marker = _create_waypoint_marker(waypoints[i + 1])
+			add_child(marker)
+			waypoint_markers.append(marker)
+		var inner: Polygon2D = marker.get_child(1)
+		inner.color = Color(1.0, 1.0, 0.3, 0.8) if _highlighted else Color(0.5, 0.85, 1.0, 0.7)
 
 func _create_waypoint_marker(grid_pos: Vector2i) -> Node2D:
 	var marker := Node2D.new()
@@ -169,6 +177,7 @@ func set_visible_state(visible_state: bool) -> void:
 	visible = visible_state
 
 func highlight(enabled: bool) -> void:
+	_highlighted = enabled
 	if not line:
 		return
 

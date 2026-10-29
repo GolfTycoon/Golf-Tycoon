@@ -75,3 +75,33 @@ func test_a_potential_hole_does_not_borrow_another_holes_green() -> void:
 	assert_ne(borrowed, clean, "Precondition: hole 1's green bends a borrowed route")
 	assert_eq(ShotPathCalculator.calculate_route(TEE, par5_cup, 5, -1), clean,
 			"hole_index -1 ignores the course's existing holes")
+
+func test_visualizer_reuses_markers_and_preserves_highlight() -> void:
+	var visualizer := HoleVisualizer.new()
+	add_child_autofree(visualizer)
+	visualizer.initialize(_hole(TEE, CUP), grid)
+	assert_eq(visualizer.waypoint_markers.size(), 1)
+	var marker := visualizer.waypoint_markers[0]
+	visualizer.highlight(true)
+	visualizer.update_visualization()
+	assert_eq(visualizer.waypoint_markers[0], marker)
+	assert_eq((marker.get_child(1) as Polygon2D).color, Color(1.0, 1.0, 0.3, 0.8))
+	visualizer.hole_data.par = 3
+	visualizer.update_visualization()
+	assert_eq(visualizer.waypoint_markers.size(), 0)
+	visualizer.hole_data.par = 4
+	visualizer.update_visualization()
+	assert_eq((visualizer.waypoint_markers[0].get_child(1) as Polygon2D).color, Color(1.0, 1.0, 0.3, 0.8))
+
+func test_combined_flight_scan_matches_original_helpers() -> void:
+	var start := Vector2i(4, 20)
+	var end := Vector2i(24, 20)
+	for x in range(4, 25):
+		var copy := grid.create_analysis_copy()
+		copy.set_analysis_tile(Vector2i(x, 20), TerrainTypes.Type.TREES)
+		var combined := ShotAI._flight_tree_count(start, end, copy)
+		if ShotAI._path_crosses_trees(start, end, copy):
+			assert_eq(combined, -1)
+		else:
+			assert_eq(combined, ShotAI._count_trees_along_path(start, end, copy))
+		copy.free()

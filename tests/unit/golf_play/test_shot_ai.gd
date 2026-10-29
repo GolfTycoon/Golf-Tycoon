@@ -952,3 +952,25 @@ func test_short_approach_doesnt_overshoot() -> void:
 	var target_from_ball = Vector2(decision.target).distance_to(Vector2(ball))
 	assert_lt(target_from_ball, ball_to_flag * 2.0,
 		"Should not overshoot: target %.1f tiles from ball, flag %.1f tiles" % [target_from_ball, ball_to_flag])
+
+func test_pruned_scan_matches_exhaustive_best_score() -> void:
+	# Compare the optimized search to the full scan across approaches, layups,
+	# map edges, hazards and personality values (including negative risk scaling).
+	_paint_rect(TerrainTypes.Type.FAIRWAY, Vector2i(10, 14), Vector2i(29, 26))
+	_paint_rect(TerrainTypes.Type.WATER, Vector2i(17, 18), Vector2i(19, 22))
+	_paint_rect(TerrainTypes.Type.TREES, Vector2i(24, 15), Vector2i(25, 18))
+	for pair in [[Vector2i(5, 20), Vector2i(33, 20)],
+			[Vector2i(15, 23), Vector2i(29, 19)],
+			[Vector2i(1, 2), Vector2i(20, 7)]]:
+		for aggression in [0.1, 0.8, 3.0]:
+			var gd := _make_golfer({"ball_position": pair[0], "aggression": aggression, "current_hole": -1})
+			var distance := Vector2(pair[0]).distance_to(Vector2(pair[1]))
+			var remaining := ShotAI._estimate_shots_to_hole(gd, distance)
+			var target := ShotAI._get_ideal_shot_distance(gd, distance, remaining)
+			var fast := ShotAI._evaluate_all_candidates(gd, pair[1], _terrain_grid, target, remaining, true, true)
+			var full := ShotAI._evaluate_all_candidates(gd, pair[1], _terrain_grid, target, remaining, true, false)
+			var fast_best = ShotAI._best_candidate(fast)
+			var full_best = ShotAI._best_candidate(full)
+			assert_almost_eq(fast_best.score, full_best.score, 0.00001, "Pruning must retain the best score")
+			assert_eq(fast_best.aim_point, full_best.aim_point, "Pruning retains the best target")
+			assert_eq(fast_best.club, full_best.club, "Pruning retains the best club")

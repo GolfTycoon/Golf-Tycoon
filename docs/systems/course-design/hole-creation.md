@@ -117,7 +117,7 @@ ready          = can_cut_cup and exactly one tee waiting and distance ≥ MIN_HO
 - **`hole_index = −1`.** The pair is not in `course.holes` yet. Without this flag, ShotAI's green-centre bias would read `holes[0]` and bend the approach toward another hole's green.
 - **Preview terrain.** The route is planned on a copy of the terrain painted the way it will look once the hole opens: the cup tile is green.
 
-ShotAI takes about 0.2 s for a par 4 and 0.4 s for a par 5. That is too slow for the main thread on every tile the cursor crosses, so the planner works as follows:
+ShotAI can still be expensive on the main thread when the cursor crosses many tiles, so the planner works as follows:
 
 | Case | What happens |
 | --- | --- |

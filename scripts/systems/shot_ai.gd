@@ -170,8 +170,7 @@ static func decide_shot_for(gd: GolferData, hole_position: Vector2i, ignore_wind
 		return _make_decision(hole_position, Golfer.Club.WEDGE, "normal", 0.0)
 
 	# --- Pick the best candidate ---
-	candidates.sort_custom(func(a, b): return a.score > b.score)
-	var best: _ShotCandidate = candidates[0]
+	var best: _ShotCandidate = _best_candidate(candidates)
 
 	return _make_decision(best.aim_point, best.club, best.strategy, best.score)
 
@@ -255,6 +254,8 @@ static func _decide_recovery_shot(
 	var direction_to_hole: Vector2 = Vector2(hole_position - ball_pos).normalized()
 	var best_candidate: _ShotCandidate = null
 	var best_score: float = -99999.0
+	# Rounded scan positions frequently coincide across directions and clubs.
+	var hazard_penalties: Dictionary = {}
 
 	for club in allowed_clubs:
 		var stats: Dictionary = Golfer.CLUB_STATS[club]
@@ -304,7 +305,9 @@ static func _decide_recovery_shot(
 					score += 50.0  # Getting on the green from trouble is ideal
 
 				# Penalty for nearby hazards at landing zone
-				score -= _nearby_hazard_penalty(test_pos, terrain_grid, gd.aggression)
+				if not hazard_penalties.has(test_pos):
+					hazard_penalties[test_pos] = _nearby_hazard_penalty(test_pos, terrain_grid, gd.aggression)
+				score -= hazard_penalties[test_pos]
 
 				# Recovery skill bonus — skilled recovery players find better escape routes
 				score += gd.recovery_ability * 30.0
@@ -420,7 +423,7 @@ static func _get_ideal_shot_distance(
 static func _evaluate_all_candidates(
 	gd: GolferData, hole_position: Vector2i,
 	terrain_grid: TerrainGrid, target_distance: float, shots_remaining: int,
-	ignore_wind: bool = false
+	ignore_wind: bool = false, prune: bool = true
 ) -> Array:
 	var ball_pos: Vector2i = gd.ball_position
 	var distance_to_hole: float = Vector2(ball_pos).distance_to(Vector2(hole_position))
@@ -432,6 +435,7 @@ static func _evaluate_all_candidates(
 	# and reused: the same scores, a fraction of the work.
 	var zone_scores: Dictionary = {}
 	var miss_risks: Dictionary = {}
+	var best_score: float = -INF
 
 	# --- Build candidate club list ---
 	var club_list: Array = _get_candidate_clubs(gd, distance_to_hole, target_distance)
@@ -520,6 +524,13 @@ static func _evaluate_all_candidates(
 						terrain_grid, club, shots_remaining
 					)
 
+					# Risk is always non-negative. Once the optimistic score cannot beat
+					# the best evaluated candidate, sampling misses cannot change the
+					# winner (or the rescan decision). Keep equal scores for tie handling.
+					var accuracy_bonus: float = stats["accuracy_modifier"] * 20.0 if shots_remaining <= 1 else 0.0
+					if prune and gd.aggression <= 2.5 and score + accuracy_bonus < best_score:
+						continue
+
 					# --- Risk analysis: sample miss distribution against hazards ---
 					var risk_key := Vector3i(wind_adjusted_landing.x, wind_adjusted_landing.y, club)
 					var risk_penalty: float
@@ -533,8 +544,8 @@ static func _evaluate_all_candidates(
 					score -= risk_penalty
 
 					# --- Club accuracy preference for approach shots ---
-					if shots_remaining <= 1:
-						score += stats["accuracy_modifier"] * 20.0
+					score += accuracy_bonus
+					best_score = maxf(best_score, score)
 
 					var strategy: String = "attack" if can_reach_green else "layup"
 
@@ -551,8 +562,7 @@ static func _evaluate_all_candidates(
 	# fairway/green, the direct line to the hole bypasses the fairway.
 	# Re-scan with wider angle but fewer samples — just finding fairway, not full risk analysis.
 	if can_reach_green and not candidates.is_empty():
-		candidates.sort_custom(func(a, b): return a.score > b.score)
-		var best_terrain: int = terrain_grid.get_tile(candidates[0].landing_zone)
+		var best_terrain: int = terrain_grid.get_tile(_best_candidate(candidates).landing_zone)
 		var good_terrains := [TerrainTypes.Type.GREEN, TerrainTypes.Type.FAIRWAY,
 			TerrainTypes.Type.FIRM_FAIRWAY, TerrainTypes.Type.TEE_BOX]
 		if best_terrain not in good_terrains:
@@ -626,6 +636,16 @@ static func _evaluate_all_candidates(
 
 	return candidates
 
+## Keep the first candidate on ties, so pruning losing candidates cannot change
+## tie-breaking. A linear pass also avoids sorting the entire candidate list.
+static func _best_candidate(candidates: Array) -> _ShotCandidate:
+	var best: _ShotCandidate = candidates[0]
+	for i in range(1, candidates.size()):
+		var candidate: _ShotCandidate = candidates[i]
+		if candidate.score > best.score:
+			best = candidate
+	return best
+
 ## Build candidate club list, filtering out clubs that can't reach or would massively overshoot.
 static func _get_candidate_clubs(gd: GolferData, distance_to_hole: float, target_distance: float) -> Array:
 	var clubs: Array = []
@@ -679,11 +699,11 @@ static func _score_landing_zone(
 	_club: int, shots_remaining: int
 ) -> float:
 	# --- Tree collision check (ball flight path) ---
-	if _path_crosses_trees(ball_pos, landing, terrain_grid):
+	var trees_overflown: int = _flight_tree_count(ball_pos, landing, terrain_grid)
+	if trees_overflown < 0:
 		return -2000.0
 
 	# --- Graduated penalty for flying over tree canopy ---
-	var trees_overflown: int = _count_trees_along_path(ball_pos, landing, terrain_grid)
 	var tree_fly_penalty: float = 0.0
 	if trees_overflown > 0:
 		var risk_factor: float = 1.0 - gd.accuracy_ability * 0.3
@@ -766,11 +786,12 @@ static func _nearby_hazard_penalty(pos: Vector2i, terrain_grid: TerrainGrid, agg
 			if not terrain_grid.is_valid_position(check):
 				continue
 			var t: int = terrain_grid.get_tile(check)
-			var dist: float = Vector2(dx, dy).length()
 			if TerrainTypes.is_out_of_play(t):
+				var dist: float = Vector2(dx, dy).length()
 				# Distance falloff: adjacent tiles (dist=1) are worst
 				penalty += (20.0 / dist) * (1.0 - aggression * 0.5)
 			elif TerrainTypes.is_tree(t):
+				var dist: float = Vector2(dx, dy).length()
 				# Trees nearby add rollout risk penalty (less severe than water/OB)
 				penalty += (10.0 / dist) * (1.0 - aggression * 0.3)
 	return penalty
@@ -798,6 +819,8 @@ static func _situation_modifier(gd: GolferData, shots_remaining: int) -> float:
 
 ## Estimate how many of the golfer's typical misses would land in hazards.
 ## Uses Monte Carlo sampling of the angular dispersion model.
+const MISS_SIGMA_VALUES = [-2.0, -1.0, -0.5, -0.25, 0.25, 0.5, 1.0, 2.0]
+
 static func _assess_miss_risk(
 	gd: GolferData, ball_pos: Vector2i, target: Vector2i,
 	terrain_grid: TerrainGrid, club: int
@@ -827,8 +850,7 @@ static func _assess_miss_risk(
 	for i in range(MISS_SAMPLE_COUNT):
 		# Deterministic spread sampling (evenly spaced across distribution)
 		# Use ±0.5σ, ±1.0σ, ±1.5σ, ±2.0σ for even coverage
-		var sigma_values: Array = [-2.0, -1.0, -0.5, -0.25, 0.25, 0.5, 1.0, 2.0]
-		var sample_angle_deg: float = sigma_values[i] * spread_std + tendency_bias
+		var sample_angle_deg: float = MISS_SIGMA_VALUES[i] * spread_std + tendency_bias
 		var sample_angle_rad: float = deg_to_rad(sample_angle_deg)
 
 		var miss_dir: Vector2 = direction.rotated(sample_angle_rad)
@@ -954,6 +976,22 @@ static func _get_shot_accuracy(gd: GolferData, club: int) -> float:
 			return gd.putting_ability
 		_:
 			return 0.5
+
+## Count trees and detect low-altitude collisions in a single flight scan.
+## A negative result means the flight is blocked. Sampling matches the separate
+## path helpers, including repeated tiles and the excluded endpoint.
+static func _flight_tree_count(start: Vector2i, end: Vector2i, terrain_grid: TerrainGrid) -> int:
+	var num_samples: int = int(Vector2(start).distance_to(Vector2(end))) + 1
+	var count: int = 0
+	for i in range(num_samples):
+		var t: float = i / float(num_samples)
+		var pos: Vector2i = Vector2i(Vector2(start).lerp(Vector2(end), t))
+		if not terrain_grid.is_valid_position(pos) or not TerrainTypes.is_tree(terrain_grid.get_tile(pos)):
+			continue
+		if 4.0 * t * (1.0 - t) < 0.3:
+			return -1
+		count += 1
+	return count
 
 ## Check if a ball flight path crosses trees at low altitude.
 ## Trees block when ball is in the first/last 30% of flight (low trajectory).

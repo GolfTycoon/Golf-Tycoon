@@ -5,8 +5,8 @@ class_name HolePathPlanner
 ## While a tee box waits, the Green tool previews the hole the hovered tile would
 ## make (HoleLayout.potential_hole()). That route has to match what HoleVisualizer
 ## draws once the hole opens, so it comes from the same ShotPathCalculator/ShotAI
-## pipeline — which costs roughly 0.2 s for a par 4 and 0.4 s for a par 5, far too
-## slow to run on the main thread for every tile the cursor crosses. So:
+## pipeline — which can still be expensive to run on the main thread for every
+## tile the cursor crosses. So:
 ##
 ##   * Par 3 routes are just [tee, cup] and come back immediately.
 ##   * Par 4/5 routes are planned by a WorkerThreadPool task against a detached
