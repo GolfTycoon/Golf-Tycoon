@@ -80,7 +80,19 @@ const TAB_TITLES := {
 const TAB_ICONS := ["terrain", "improvements", "buildings", "elevation", "holes",
 	"golfers", "play", "club", "staff", "edit", "skills"]
 const PLAYER_TABS := [Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]
-const HEADER_HEIGHT := 22.0
+const HEADER_HEIGHT := 28.0
+## The tabs occupy a mirrored arc to the left of the scrolling pages. On a
+## narrow phone the rail gives up width before the pinned page controls do.
+const SHELF_PAD_X := 6.0
+const SHELF_PAD_Y := 2.0
+const SHELF_ROW_GAP := 6.0
+## Together with the 6px inset this matches the left fan's 224px radius.
+## Compact windows shorten it only as much as the page needs to stay usable.
+const TAB_RAIL_WIDTH := 218.0
+const TAB_RAIL_MIN_WIDTH := 58.0
+## A 52px brush plate plus its 10px corner margin must fit even on a phone.
+const SHELF_BODY_MIN_WIDTH := 62.0
+const TAB_RAIL_GAP := 2.0
 
 const TOOL_TAB_MAP := {
 	TerrainTypes.Type.TEE_BOX: Tab.TERRAIN,
@@ -225,7 +237,7 @@ var current_section: int = Section.BUILD
 var section_collapsed: bool = false
 var _last_tabs := {Section.BUILD: Tab.TERRAIN, Section.MANAGE: Tab.CLUB, Section.GOLFERS: Tab.GOLFERS}
 var _tab_buttons: Dictionary = {}
-var _tab_rail: VBoxContainer
+var _tab_rail: Control
 var _page_title: Label
 var _pages: Array[Control] = []  # One wrapper per tab; the scroll + fixed chrome
 ## The shelf's fairway backdrop (see ShelfFanBackdrop): painted behind the tab
@@ -336,19 +348,28 @@ func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
 
-## Roomier medallions for a thumb-friendly rail: 44px on desktop and
-## 52px on touch/compact (up from 32px/40px) so the right-bottom shelf's
-## tabs read as real medallions, not tiny chips.
+## Fit the curved rail into the available width without pushing the shelf or
+## the fixed page controls off a phone-sized screen. The page still scrolls.
 func apply_screen() -> void:
 	if _tab_rail == null:
 		return
-	# The widened 150px floor (see _build_ui) plus the bottom dock (220px on
-	# touch, 218px on desktop) and the bar's separation need about 372px.
-	# On the narrowest phones that sum is wider than the window, which would
-	# push the whole bottom bar off screen, so there the shelf keeps the old
-	# 136px floor and lets its pages scroll a little sooner instead.
-	custom_minimum_size.x = 136.0 if Screen.window_size.x < 372.0 else 150.0
+	var available := Screen.window_size.x
+	var parent := get_parent() as HBoxContainer
+	if parent:
+		# The bottom bar has the fixed left dock alongside this shelf. Use the
+		# window width too: on a live shrink the container may not have sorted yet.
+		if parent.size.x > 0.0:
+			available = minf(available, parent.size.x)
+		for sibling in parent.get_children():
+			if sibling != self and sibling is Control and sibling.visible:
+				available -= sibling.get_combined_minimum_size().x
+				available -= parent.get_theme_constant("separation")
+	var rail_width := clampf(available - 2.0 * SHELF_PAD_X - SHELF_ROW_GAP
+			- SHELF_BODY_MIN_WIDTH, TAB_RAIL_MIN_WIDTH, TAB_RAIL_WIDTH)
 	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
+	# Reserve enough height for all four tabs, even on a three-tab section.
+	_tab_rail.custom_minimum_size = Vector2(rail_width, 4.0 * diameter + 3.0 * TAB_RAIL_GAP)
+	custom_minimum_size.x = rail_width + 2.0 * SHELF_PAD_X + SHELF_ROW_GAP + SHELF_BODY_MIN_WIDTH
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
 			continue
@@ -356,54 +377,92 @@ func apply_screen() -> void:
 		button.custom_minimum_size = Vector2.ONE * diameter
 		button.size = Vector2.ONE * diameter
 		button.queue_redraw()
-	_sync_backdrop()
+	_sync_pending = true
 
 func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
 	apply_screen()
 
-## Hand the fairway backdrop the shared hub and the tab rail's live medallion
-## geometry, so its sockets hug the circles and its rings sweep on from the
-## dock's fan. Called after every layout that can move the rail.
-func _sync_backdrop() -> void:
-	if _backdrop == null:
+## The left fan's theoretical ellipse extends slightly past its canvas. Mirror
+## the visible portion, scaled to this rail, so the two coloured rims meet at
+## the dock/shelf seam instead of ending at different heights.
+static func _shelf_seam_inset(width: float, touch_layout: bool) -> float:
+	var dock_radius := 0.0
+	for i in BottomControlDock.SECTION_POSITIONS.size():
+		dock_radius = maxf(dock_radius, BottomControlDock.SECTION_POSITIONS[i].x
+				+ BottomControlDock.SECTION_SIZES[i])
+	dock_radius += DockArcBackdrop.RIM_SIDE_MARGIN
+	var dock_width := BottomControlDock.TOUCH_WIDTH if touch_layout else BottomControlDock.WIDTH
+	return width * maxf(0.0, (dock_radius - dock_width) / dock_radius)
+
+## Seat the visible tabs on the same mirrored ellipse as the backdrop. A plain
+## Control lets them move horizontally instead of forcing a vertical column.
+func _layout_tab_rail() -> void:
+	var rail_rect := _tab_rail.get_global_rect()
+	var rail_origin := rail_rect.position - get_global_position()
+	var curve_width := rail_origin.x + rail_rect.size.x
+	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
+	var tabs: Array = SECTION_TABS[current_section]
+	var count := tabs.size()
+	if count == 0:
 		return
-	# The backdrop is a sibling of the layout, so it fills the panel's content
-	# rect exactly like the tabs and pages do, and its hub, sockets and title
-	# rule are all given in that same content space.
-	var style := get_theme_stylebox("panel")
-	var panel_size := Vector2(style.content_margin_left + style.content_margin_right,
-		style.content_margin_top + style.content_margin_bottom)
-	var pad := Vector2(style.content_margin_left, style.content_margin_top)
-	_backdrop.set_position(pad)
-	_backdrop.set_size(size - panel_size)
-	# The hub is the dock's bottom-left corner - the screen's bottom-left -
-	# which sits to this shelf's left. In this control's coordinates it is
-	# the viewport's bottom-left minus the shelf's own top-left corner.
+	for i in count:
+		var button: PixelCircleButton = _tab_buttons[tabs[i]]
+		var diameter := button.diameter
+		var radius := diameter * 0.5
+		var t := float(i) / float(maxi(count - 1, 1))
+		var center_y := rail_origin.y + radius + (rail_rect.size.y - diameter) * t
+		var rim_x := ShelfFanBackdrop.rim_x_at(center_y, size, curve_width, inset)
+		# Circles straddle the rim like the dock's, without leaving the rail or
+		# stealing room from the page. Their native circular hit areas stay intact.
+		var center_x := clampf(rim_x + radius * 0.85,
+				rail_origin.x + radius, rail_origin.x + rail_rect.size.x - radius)
+		button.position = Vector2(roundf(center_x - rail_origin.x - radius),
+				roundf(center_y - rail_origin.y - radius))
+		button.size = Vector2.ONE * diameter
+
+## Hand the backdrop the current rail, tabs and title in shelf coordinates.
+## Layout runs first so its sockets and rim always follow the visible buttons.
+func _sync_backdrop() -> void:
+	if _backdrop == null or _tab_rail == null:
+		return
+	_layout_tab_rail()
+	var origin := get_global_position()
+	var rail_rect := _tab_rail.get_global_rect()
+	var curve_width := rail_rect.end.x - origin.x
+	_backdrop.set_curve(curve_width, _shelf_seam_inset(curve_width, Screen.uses_touch_layout()))
 	var viewport := get_viewport()
-	var hub := Vector2(0.0, viewport.get_visible_rect().size.y) - get_global_position() - pad
+	var hub := Vector2(0.0, viewport.get_visible_rect().size.y) - origin
 	var circles: Array = []
-	for button in _tab_buttons.values():
-		if not is_instance_valid(button) or not button.visible:
-			continue
-		var rect: Rect2 = button.get_global_rect()
-		var local: Vector2 = rect.position - get_global_position() - pad
+	for tab in SECTION_TABS[current_section]:
+		var button: PixelCircleButton = _tab_buttons[tab]
+		var rect := button.get_global_rect()
+		var local := rect.position - origin
 		circles.append(Vector3(local.x + rect.size.x * 0.5,
-			local.y + rect.size.y * 0.5,
-			minf(rect.size.x, rect.size.y) * 0.5))
+				local.y + rect.size.y * 0.5, rect.size.x * 0.5))
 	_backdrop.set_hub(hub)
 	_backdrop.set_circles(circles)
-	# The title's curved gold rule sits on the fairway too, so the shelf's one
-	# line of type wears the same arc the dock's rim is drawn on.
 	if _page_title != null and _page_title.visible:
 		var title_global := _page_title.get_global_rect()
-		var rule_origin := title_global.position - get_global_position() - pad
-		_backdrop.set_title_rule(Rect2(rule_origin, title_global.size))
+		_backdrop.set_title_rule(Rect2(title_global.position - origin, title_global.size))
 	else:
 		_backdrop.set_title_rule(Rect2())
 
+## Only the painted fairway consumes otherwise empty shelf clicks. Its children
+## (including the parts of the circular tabs outside the rim) remain clickable.
+func _has_point(point: Vector2) -> bool:
+	if _backdrop == null:
+		return Rect2(Vector2.ZERO, size).has_point(point)
+	return ShelfFanBackdrop.contains_point(point, size, _backdrop.curve_width, _backdrop.seam_inset)
+
+## TouchInput normally guards a control's whole rectangle against accidental
+## painting. This shelf explicitly exposes its curved hit shape instead.
+func has_touch_point(point: Vector2) -> bool:
+	return _has_point(point)
+
 func _on_resized() -> void:
-	# The rail's circles only settle once the layout has run, so sync on the
-	# next process frame rather than in the resized handler itself.
+	# The parent container can resize independently of the screen. Refit the
+	# rail now, then sync the buttons once the container has sorted its children.
+	apply_screen()
 	_sync_pending = true
 
 func _process(_delta: float) -> void:
@@ -412,35 +471,36 @@ func _process(_delta: float) -> void:
 		_sync_backdrop()
 
 func _build_ui() -> void:
-	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
-		SECTION_COLORS[Section.BUILD], Color("14271f"), 6, 2))
+	# A rectangular PanelContainer frame would fill the transparent side of the
+	# curve. The backdrop paints the entire shelf; an inset layout keeps text and
+	# scrolling content clear of its rim instead.
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# The body can shrink to a sliver on a narrow window: it scrolls rather
-	# than pushing the utility buttons or section rail off screen.
-	# Widened for the larger 44px/52px rail (up from 56px to 68px) so the
-	# pinned brush dock (52px) still fits inside the page when the shelf
-	# is at its minimum width. apply_screen narrows this floor again on
-	# the narrowest windows, where the dock and shelf must share 360px.
-	custom_minimum_size = Vector2(150, 0)
-	# The fairway backdrop fills the panel's content rect (inset by its
-	# margins), so the notched frame the panel style still draws around it
-	# stays the shelf's rim. It is added first and moved to the front so
-	# every circle and tile lands on top of the turf.
 	_backdrop = ShelfFanBackdrop.new()
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_backdrop)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	add_child(row)
+	var margins := MarginContainer.new()
+	margins.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margins.add_theme_constant_override("margin_left", int(SHELF_PAD_X))
+	margins.add_theme_constant_override("margin_right", int(SHELF_PAD_X))
+	margins.add_theme_constant_override("margin_top", int(SHELF_PAD_Y))
+	margins.add_theme_constant_override("margin_bottom", int(SHELF_PAD_Y))
+	add_child(margins)
 	move_child(_backdrop, 0)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", int(SHELF_ROW_GAP))
+	margins.add_child(row)
 	_build_tab_rail(row)
 	var body := VBoxContainer.new()
+	body.custom_minimum_size.x = SHELF_BODY_MIN_WIDTH
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 0)
 	row.add_child(body)
 	_page_title = Label.new()
 	_page_title.custom_minimum_size.y = HEADER_HEIGHT
+	_page_title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_page_title.add_theme_font_override("font", PixelCircleButton.FONT)
 	_page_title.add_theme_font_size_override("font_size", 14)
 	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -462,15 +522,10 @@ func _build_ui() -> void:
 	_build_refresh_timer()
 
 func _build_tab_rail(parent: HBoxContainer) -> void:
-	_tab_rail = VBoxContainer.new()
+	_tab_rail = Control.new()
 	_tab_rail.name = "SectionTabs"
-	_tab_rail.alignment = BoxContainer.ALIGNMENT_CENTER
-	_tab_rail.add_theme_constant_override("separation", 2)
-	# Room either side of the medallions for the fairway backdrop's mowed
-	# rings and dark sockets to show through - the rail is the one place the
-	# shelf's turf is on screen around its circles. Widened for the larger
-	# 44px/52px medallions so their sockets never clip the rail edges.
-	_tab_rail.custom_minimum_size = Vector2(68, 0)
+	_tab_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tab_rail.custom_minimum_size = Vector2(TAB_RAIL_MIN_WIDTH, 0.0)
 	parent.add_child(_tab_rail)
 	for section in SECTION_TABS:
 		for tab_index in SECTION_TABS[section]:
@@ -526,8 +581,6 @@ func _sync_navigation(tab_index: int) -> void:
 		_tab_buttons[index].set_pressed_no_signal(index == tab_index)
 	_page_title.text = "%s  /  %s" % [SECTION_TITLES[current_section].to_upper(), TAB_TITLES[tab_index]]
 	_page_title.add_theme_color_override("font_color", SECTION_COLORS[current_section])
-	add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
-		SECTION_COLORS[current_section], Color("14271f"), 6, 2))
 	# The shelf's fairway wears the open section's colour on its accent
 	# details, the way the dock's fan trims its rim, and re-lays its sockets
 	# for whichever medallions the section shows.
@@ -637,6 +690,23 @@ func _pin_inspect_button(page: Control) -> void:
 	btn.offset_right = -InspectButton.CORNER_MARGIN
 	btn.offset_bottom = -InspectButton.CORNER_MARGIN
 	_inspect_buttons.append(btn)
+	page.resized.connect(_reflow_inspect_button.bind(page, btn))
+
+## On a very narrow shelf, the two pinned corners would overlap. Stack Inspect
+## above the brush or Bulldozer instead, then restore the corner on wider pages.
+func _reflow_inspect_button(page: Control, button: InspectButton) -> void:
+	var left_size := 0.0
+	if page.get_node_or_null("BrushDock"):
+		left_size = brush_dock_side()
+	elif page.get_node_or_null("BulldozerButton"):
+		left_size = BulldozerButton.BUTTON_DIAMETER
+	var bottom := InspectButton.CORNER_MARGIN
+	var gap := 4.0
+	if left_size > 0.0 and page.size.x < left_size + InspectButton.BUTTON_DIAMETER \
+			+ 2.0 * InspectButton.CORNER_MARGIN + gap:
+		bottom += left_size + gap
+	button.offset_top = -bottom - InspectButton.BUTTON_DIAMETER
+	button.offset_bottom = -bottom
 
 func _on_inspect_button_toggled(enabled: bool) -> void:
 	inspect_toggled.emit(enabled)

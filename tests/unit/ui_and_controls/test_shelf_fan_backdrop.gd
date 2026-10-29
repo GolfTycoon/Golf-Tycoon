@@ -1,13 +1,7 @@
 extends GameTest
-## ShelfFanBackdrop: the bottom-right shelf's fairway. The shelf is painted
-## with the *same* mown rings the bottom-left dock's fan is cut from - both
-## are centred on the screen's bottom-left hub and mowed at one rhythm - so
-## the two read as one continuous putting surface. The tab rail's medallions
-## sit in dark sockets on the turf and a dotted gold ball-flight arc joins
-## them, and the page title wears a curved gold rule echoing the fan's rim.
-## These tests read the generated images pixel by pixel, the same way the
-## dock's fan tests do, using the shelf's own layout constants so a change
-## that breaks the fairway breaks a test.
+## ShelfFanBackdrop: the right shelf mirrors the left dock's ellipse and its
+## section-coloured rim, while retaining the same mown rings, tab sockets,
+## flight dots and title rule. Test the generated pixels and live geometry.
 
 ## A medallion circle (centre, radius packed as Vector3).
 func _circle(x: float, y: float, r: float) -> Vector3:
@@ -41,6 +35,74 @@ func test_the_fairway_is_painted_at_the_two_pixel_grain() -> void:
 	assert_eq(image.get_height(),
 		int(ceil(150.0 / ShelfFanBackdrop.PIXEL)),
 		"and half height, drawn back up with nearest filtering")
+
+func test_the_shelf_rim_is_the_left_dock_curve_reflected() -> void:
+	var outer: Array = []
+	for i in BottomControlDock.SECTION_POSITIONS.size():
+		var pos: Vector2 = BottomControlDock.SECTION_POSITIONS[i]
+		var radius: float = BottomControlDock.SECTION_SIZES[i] * 0.5
+		outer.append(Vector3(pos.x + radius, pos.y + radius, radius))
+	var width := BottomControlDock.SECTION_POSITIONS[-1].x \
+			+ BottomControlDock.SECTION_SIZES[-1] + DockArcBackdrop.RIM_SIDE_MARGIN
+	for height in [UIConstants.BOTTOM_BAR_HEIGHT, UIConstants.TOUCH_BOTTOM_BAR_HEIGHT]:
+		var canvas := Vector2(400, height)
+		var left := DockArcBackdrop.rim_curve(outer, Vector2(0.0, height))
+		for point in left:
+			var reflected_x: float = width - point.x
+			assert_almost_eq(ShelfFanBackdrop.rim_top_at(reflected_x, canvas, width),
+					point.y, 0.01, "the shelf is the dock's reflected ellipse")
+			if point.y >= 0.0:
+				assert_almost_eq(ShelfFanBackdrop.rim_x_at(point.y, canvas, width),
+						reflected_x, 0.01, "tab placement and painted rim use the same arc")
+
+func test_the_reflected_rim_meets_the_dock_at_every_rail_width() -> void:
+	var dock_radius := BottomControlDock.SECTION_POSITIONS[-1].x \
+			+ BottomControlDock.SECTION_SIZES[-1] + DockArcBackdrop.RIM_SIDE_MARGIN
+	for touch in [false, true]:
+		var height := float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if touch else UIConstants.BOTTOM_BAR_HEIGHT)
+		var dock_width := BottomControlDock.TOUCH_WIDTH if touch else BottomControlDock.WIDTH
+		var normalized := dock_width / dock_radius
+		var dock_seam_y := height - (height + DockArcBackdrop.RIM_TOP_LIFT) \
+				* sqrt(1.0 - normalized * normalized)
+		for width in [224.0, 134.0, 66.0]:
+			var inset := TerrainToolbar._shelf_seam_inset(width, touch)
+			var canvas := Vector2(400, height)
+			assert_almost_eq(ShelfFanBackdrop.rim_top_at(0.0, canvas, width, inset),
+					dock_seam_y, 0.01, "the rims join at the same height")
+			assert_almost_eq(ShelfFanBackdrop.rim_x_at(dock_seam_y, canvas, width, inset),
+					0.0, 0.01, "the tab curve shares that join")
+			var image := ShelfFanBackdrop.shelf_image(canvas, Vector2(-dock_width, height),
+					[], Color.WHITE, Rect2(), width, inset)
+			# On a narrow rail the curve is steep, so sample above the nearby
+			# columns (and their 3px shadow), not just above x=0.
+			var above := ShelfFanBackdrop.rim_top_at(4.0, canvas, width, inset) - 8.0
+			assert_eq(_at(image, Vector2(1, above)).a, 0.0,
+					"course remains visible above the join")
+			assert_eq(_at(image, Vector2(1, dock_seam_y + 12)).a, 1.0,
+					"the turf continues below it")
+
+func test_the_curve_reveals_the_course_and_anchors_the_shelf() -> void:
+	var canvas := Vector2(400, 190)
+	var image := ShelfFanBackdrop.shelf_image(canvas, Vector2(-220, 190), [],
+			TerrainToolbar.SECTION_COLORS[0], Rect2(), 134.0)
+	assert_eq(_at(image, Vector2(8, 8)).a, 0.0, "the upper-left cutout is transparent")
+	assert_eq(_at(image, Vector2(32, 32)).a, 0.0, "the curve clears space above the rim")
+	assert_eq(_at(image, Vector2(32, 170)).a, 1.0, "turf fills below the rim")
+	assert_eq(_at(image, Vector2(200, 40)).a, 1.0, "the scrolling pages remain backed")
+	assert_eq(_at(image, Vector2(4, 188)).a, 1.0, "the shelf meets the dock at the bottom")
+	assert_false(ShelfFanBackdrop.contains_point(Vector2(8, 8), canvas, 134.0))
+	assert_true(ShelfFanBackdrop.contains_point(Vector2(32, 170), canvas, 134.0))
+
+func test_the_mirrored_rim_uses_the_open_sections_trim() -> void:
+	var canvas := Vector2(400, 190)
+	var build := TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD]
+	var golfers := TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.GOLFERS]
+	var first := ShelfFanBackdrop.shelf_image(canvas, Vector2(-220, 190), [], build, Rect2(), 134.0)
+	var second := ShelfFanBackdrop.shelf_image(canvas, Vector2(-220, 190), [], golfers, Rect2(), 134.0)
+	assert_gt(_count(first, DockArcBackdrop.INK), 40, "the same ink band outlines the rim")
+	assert_gt(_count(first, build), 20, "the rim wears the Build colour")
+	assert_gt(_count(second, golfers), 20, "changing section recolours the rim")
+	assert_eq(_count(second, build), 0, "the previous section's trim is gone")
 
 func test_the_shelf_mows_at_the_dock_fans_one_rhythm() -> void:
 	# The shelf's rings are the dock fan's rings continued: same ring width,
@@ -104,6 +166,23 @@ func test_without_a_title_there_is_no_rule() -> void:
 	assert_eq(_count(image, ShelfFanBackdrop.FLIGHT_GOLD), 0,
 		"no title, no rule")
 
+func test_the_title_rule_never_paints_in_the_transparent_cutout() -> void:
+	var rule := Rect2(0, 0, 120, 20)
+	var image := ShelfFanBackdrop.shelf_image(Vector2(300, 150), Vector2(-220, 150),
+			[], Color.WHITE, rule, 134.0)
+	assert_eq(_at(image, Vector2(10, 18)).a, 0.0,
+			"a rule extending outside the fairway cannot fill the cutout")
+
+func test_resize_artwork_caches_are_bounded() -> void:
+	for i in ShelfFanBackdrop.CACHE_LIMIT + 4:
+		var canvas := Vector2(40 + i, 30)
+		ShelfFanBackdrop.texture_for(canvas, Vector2(-100, 30), [], Color.WHITE,
+				Rect2(), 20.0 + i)
+	assert_lte(ShelfFanBackdrop._image_cache.size(), ShelfFanBackdrop.CACHE_LIMIT,
+			"old images do not accumulate during live resizes")
+	assert_lte(ShelfFanBackdrop._texture_cache.size(), ShelfFanBackdrop.CACHE_LIMIT,
+			"old textures do not accumulate either")
+
 # ---------------------------------------------------------------------------
 # THE TOOLBAR
 # ---------------------------------------------------------------------------
@@ -113,13 +192,10 @@ func test_the_backdrop_covers_the_shelf_content() -> void:
 	add_child_autofree(toolbar)
 	await get_tree().process_frame
 	var backdrop := toolbar.get_node("ShelfFanBackdrop") as ShelfFanBackdrop
-	var style := toolbar.get_theme_stylebox("panel")
-	var panel_size := Vector2(style.content_margin_left + style.content_margin_right,
-		style.content_margin_top + style.content_margin_bottom)
-	assert_eq(backdrop.position, Vector2(style.content_margin_left, style.content_margin_top),
-		"the fairway fills the panel's content rect")
-	assert_eq(backdrop.size, toolbar.size - panel_size,
-		"and every tab and tile sits on it")
+	assert_true(toolbar.get_theme_stylebox("panel") is StyleBoxEmpty,
+		"no rectangular panel frame fills the transparent corner")
+	assert_eq(backdrop.position, Vector2.ZERO, "the fairway starts at the shelf edge")
+	assert_eq(backdrop.size, toolbar.size, "the backdrop fills the entire shelf canvas")
 
 func test_the_sockets_hug_the_rails_live_medallions() -> void:
 	var toolbar := TerrainToolbar.new()

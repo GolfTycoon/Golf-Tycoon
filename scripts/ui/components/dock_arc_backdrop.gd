@@ -235,7 +235,7 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 			inside[py * w + px] = 1
 			image.set_pixel(px, py, _turf_at(point, hub, socket_d,
 					point.y - maxf(top[column], 0.0), px, py, dots))
-	_stamp_rim(image, inside, curve, canvas_size, top, trim)
+	stamp_rim(image, inside, curve, canvas_size, top, trim)
 	_draw_flag(image, inside, circles)
 	_image_cache[key] = image
 	return image
@@ -282,8 +282,9 @@ static func _flight_dots(row: Array, color: Color) -> Array:
 ## cost of a true per-pixel distance field. The stamp path follows the
 ## rim's columns (clamped onto the canvas, so the bands also run along
 ## the top edge where the curve leaves through it, as the old bar's top
-## bands did) resampled evenly along its length.
-static func _stamp_rim(image: Image, inside: PackedByteArray,
+## bands did) resampled evenly along its length. The shelf uses this same
+## painter for its mirrored rim, so both sides keep identical frame bands.
+static func stamp_rim(image: Image, inside: PackedByteArray,
 		curve: PackedVector2Array, canvas_size: Vector2,
 		top: PackedFloat32Array, trim: Color) -> void:
 	var path: Array = []

@@ -100,9 +100,10 @@ mode — the medallion's ring stays lit while inspecting, and `Esc` or right-cli
 leaves it on every tab.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
-and **Golfers**. Each opens a bottom shelf with small icon tabs down its left edge.
-The selected section and tab stay lit, and the shelf heading names the current
-page. Switching sections remembers the last tab used in each.
+and **Golfers**. Each opens a bottom shelf whose small icon tabs follow a mirrored
+curve along its left edge. The selected section and tab stay lit, and the shelf
+heading names the current page. Switching sections remembers the last tab used in
+each.
 
 Behind the six circles the corner is a fan of mown turf cut to their arc
 (`DockArcBackdrop`), not the bar's old rectangle: concentric mowing rings and
@@ -114,10 +115,16 @@ outline wrapped around each of them, banded ink, trim, bevel and sheen like
 the pixel frames, with the trim in the open section's own colour — sage while
 the shelf is hidden. The medallions sit astride the rim and poke out past it
 over the course, which shows through above the arc where the bar used to be
-dead space; the straight bottom bar now begins at the dock's right edge,
-backing only the shelf. The fan is regenerated from the circles' live
-geometry whenever the dock reflows, so the touch layout's taller arc gets
-the same treatment.
+dead space. The fan is regenerated from the circles' live geometry whenever
+the dock reflows, so the touch layout's taller arc gets the same treatment.
+
+The shelf's own backdrop (`ShelfFanBackdrop`) mirrors that quarter-ellipse:
+its rim joins the dock and sweeps up past the tab medallions, then continues
+along the top of the scrolling pages. It shares the
+dock's mowing rings and section-coloured pixel trim; the course is visible and
+accepts mouse and touch input in the space outside the curve. The rail narrows
+on phones without shrinking its touch targets, and, when space is tight, Inspect
+stacks above the pinned brush or Bulldozer rather than overlapping it.
 
 | Section | Tabs and actions |
 | --- | --- |

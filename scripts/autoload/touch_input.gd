@@ -462,6 +462,12 @@ func _collect_touch_targets(node: Node, screen_pos: Vector2, result: Dictionary)
 		# Respect clipped containers: their off-rect children are not touch UI.
 		if control.clip_contents and not inside:
 			return
+		# Most controls guard their whole rectangle, which is forgiving for touch.
+		# A shaped surface may opt in to a more precise hit area, so transparent
+		# cutouts (such as the curved bottom shelf) remain part of the course.
+		if inside and control.has_method("has_touch_point"):
+			var local := control.get_global_transform_with_canvas().affine_inverse() * screen_pos
+			inside = bool(control.call("has_touch_point", local))
 
 	# Children are visited first so a nested ScrollContainer wins over its
 	# parent. Reverse order approximates GUI draw order for overlapping siblings.
