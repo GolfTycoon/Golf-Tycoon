@@ -12,7 +12,7 @@ func _process(delta: float) -> void:
 	var real_delta := delta / maxf(Engine.time_scale, 0.01)
 	_time += real_delta
 	_redraw_elapsed += real_delta
-	if _redraw_elapsed >= 1.0 / 15.0:
+	if _redraw_elapsed >= PerformanceSettings.animation_redraw_interval():
 		_redraw_elapsed = 0.0
 		queue_redraw()
 

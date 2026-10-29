@@ -15,6 +15,7 @@ var _garden_homes: Array[Vector2i] = []
 var _time := 0.0
 var _refresh_elapsed := 0.0
 var _draw_elapsed := 0.0
+var _draw_interval := 1.0 / 15.0
 var _habitats_dirty := false
 
 func initialize(grid: TerrainGrid) -> void:
@@ -22,10 +23,23 @@ func initialize(grid: TerrainGrid) -> void:
 	z_index = 1 # Water residents sit below the trees, golfers, and UI.
 	grid.tile_changed.connect(_on_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
+	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
+	_update_draw_interval()
 	rebuild()
 
 func _exit_tree() -> void:
-	EventBus.load_completed.disconnect(_on_load_completed)
+	if is_instance_valid(terrain_grid) and terrain_grid.tile_changed.is_connected(_on_tile_changed):
+		terrain_grid.tile_changed.disconnect(_on_tile_changed)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+	if PerformanceSettings.profile_changed.is_connected(_on_performance_profile_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_performance_profile_changed)
+
+func _on_performance_profile_changed(_low_detail: bool) -> void:
+	_update_draw_interval()
+
+func _update_draw_interval() -> void:
+	_draw_interval = PerformanceSettings.animation_redraw_interval()
 
 func _on_load_completed(success: bool) -> void:
 	if success:
@@ -100,7 +114,7 @@ func _process(delta: float) -> void:
 		return
 	_time += real_delta
 	_draw_elapsed += real_delta
-	if _draw_elapsed >= 1.0 / 15.0:
+	if _draw_elapsed >= _draw_interval:
 		_draw_elapsed = 0.0
 		queue_redraw()
 

@@ -95,6 +95,9 @@ var _max_zoom_slider: HSlider = null
 var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
 var _minimap_toggle: CheckButton = null
+## Live controls for each independent part of the graphics configuration.
+var _graphics_preset_options: OptionButton = null
+var _graphics_setting_options: Dictionary = {}
 ## The Controls page's editable keycaps and their reset buttons, keyed by
 ## InputBindings action. They are rebuilt with the page; the signal handlers
 ## refresh their captions in place instead of rebuilding the page, so focus
@@ -176,6 +179,8 @@ func _build() -> void:
 	_min_zoom_value_label = null
 	_max_zoom_value_label = null
 	_minimap_toggle = null
+	_graphics_preset_options = null
+	_graphics_setting_options.clear()
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -440,10 +445,63 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	window_body.add_child(mode_options)
 	cards.append(window["panel"])
 
-	var performance := _make_group("PERFORMANCE & SCALE", "Tune redraw timing and the size of the interface.", mode)
+	var performance := _make_group("PERFORMANCE & SCALE", "Tune each course-rendering budget independently, or apply a preset.", mode)
 	var performance_body: VBoxContainer = performance["body"]
 	_add_toggle_row(performance_body, "VSync", "Match the display refresh to reduce tearing.",
 		DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED, _set_vsync, mode)
+	performance_body.add_child(_make_separator())
+	performance_body.add_child(Kit.make_label("Graphics quality preset", 12, COLOR_TEXT))
+	_graphics_preset_options = OptionButton.new()
+	_graphics_preset_options.name = "GraphicsPreset"
+	_graphics_preset_options.custom_minimum_size.y = 42
+	_graphics_preset_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_graphics_preset_options.add_theme_font_size_override("font_size", 12)
+	for preset in range(PerformanceSettings.PRESET_LABELS.size()):
+		_graphics_preset_options.add_item(PerformanceSettings.preset_label(preset), preset)
+	_graphics_preset_options.set_item_disabled(
+		_graphics_preset_options.get_item_index(PerformanceSettings.GraphicsPreset.CUSTOM), true)
+	_graphics_preset_options.select(PerformanceSettings.graphics_preset)
+	_graphics_preset_options.item_selected.connect(func(index: int):
+		PerformanceSettings.set_graphics_preset(_graphics_preset_options.get_item_id(index))
+		_sync_graphics_controls()
+		_save_display_settings())
+	performance_body.add_child(_graphics_preset_options)
+	var graphics_hint := Kit.make_label(
+		"A preset sets every option below. Change any one option for a Custom setup. Auto chooses Performance on phones, Web and lower-core devices.",
+		10, COLOR_MUTED)
+	graphics_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	performance_body.add_child(graphics_hint)
+	performance_body.add_child(_make_separator())
+	_add_graphics_setting(performance_body, "Terrain rendering", "TerrainQuality",
+		PerformanceSettings.GraphicsSetting.TERRAIN_QUALITY, [
+			{"label": "Fast", "value": PerformanceSettings.TerrainQuality.FAST},
+			{"label": "Full", "value": PerformanceSettings.TerrainQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Grass blades", "GrassQuality",
+		PerformanceSettings.GraphicsSetting.GRASS_QUALITY, [
+			{"label": "Off", "value": PerformanceSettings.GrassQuality.OFF},
+			{"label": "Full", "value": PerformanceSettings.GrassQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Terrain-aware tree occlusion", "TreeOcclusion",
+		PerformanceSettings.GraphicsSetting.TREE_OCCLUSION, [
+			{"label": "Off", "value": 0}, {"label": "On", "value": 1},
+		])
+	_add_graphics_setting(performance_body, "Water shimmer detail", "WaterQuality",
+		PerformanceSettings.GraphicsSetting.WATER_QUALITY, [
+			{"label": "Reduced", "value": PerformanceSettings.WaterQuality.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WaterQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Wind flag outlines", "WindFlagQuality",
+		PerformanceSettings.GraphicsSetting.WIND_FLAG_QUALITY, [
+			{"label": "Reduced", "value": PerformanceSettings.WindFlagQuality.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WindFlagQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Decorative animation rate", "AnimationRate",
+		PerformanceSettings.GraphicsSetting.ANIMATION_RATE, _animation_rate_options())
+	_add_graphics_setting(performance_body, "Camera redraw rate", "CameraUpdateRate",
+		PerformanceSettings.GraphicsSetting.CAMERA_UPDATE_RATE, _update_rate_options())
+	_add_graphics_setting(performance_body, "Golfer coordination rate", "GolferUpdateRate",
+		PerformanceSettings.GraphicsSetting.GOLFER_UPDATE_RATE, _update_rate_options())
 	performance_body.add_child(_make_separator())
 	_add_ui_scale_control(performance_body, mode)
 	cards.append(performance["panel"])
@@ -475,6 +533,54 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	var benchmark := _build_benchmark_card(mode)
 	cards.append(benchmark)
 	return cards
+
+func _add_graphics_setting(body: VBoxContainer, title: String, node_name: String,
+		setting: int, options: Array) -> OptionButton:
+	body.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.custom_minimum_size.y = 38
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.add_theme_font_size_override("font_size", 12)
+	for option_data in options:
+		selector.add_item(option_data["label"], int(option_data["value"]))
+	var selected_index := selector.get_item_index(PerformanceSettings.get_graphics_setting(setting))
+	if selected_index >= 0:
+		selector.select(selected_index)
+	selector.item_selected.connect(func(index: int):
+		PerformanceSettings.set_graphics_setting(setting, selector.get_item_id(index))
+		_sync_graphics_controls()
+		_save_display_settings())
+	body.add_child(selector)
+	_graphics_setting_options[setting] = selector
+	return selector
+
+func _update_rate_options() -> Array:
+	return [
+		{"label": "Low — 15 Hz", "value": PerformanceSettings.UpdateRate.LOW},
+		{"label": "Standard — 30 Hz", "value": PerformanceSettings.UpdateRate.STANDARD},
+		{"label": "High — 60 Hz", "value": PerformanceSettings.UpdateRate.HIGH},
+	]
+
+func _animation_rate_options() -> Array:
+	return [
+		{"label": "Low — 4 Hz", "value": PerformanceSettings.UpdateRate.LOW},
+		{"label": "Standard — 15 Hz", "value": PerformanceSettings.UpdateRate.STANDARD},
+		{"label": "High — 30 Hz", "value": PerformanceSettings.UpdateRate.HIGH},
+	]
+
+func _sync_graphics_controls() -> void:
+	if is_instance_valid(_graphics_preset_options):
+		var preset_index := _graphics_preset_options.get_item_index(PerformanceSettings.graphics_preset)
+		if preset_index >= 0:
+			_graphics_preset_options.select(preset_index)
+	for setting in _graphics_setting_options:
+		var selector: OptionButton = _graphics_setting_options[setting]
+		if not is_instance_valid(selector):
+			continue
+		var selected_index := selector.get_item_index(PerformanceSettings.get_graphics_setting(setting))
+		if selected_index >= 0:
+			selector.select(selected_index)
 
 ## The one card the game's only benchmark gets: what the tour does, the
 ## rating the last run earned, and two buttons - Run Benchmark, which hands
@@ -1236,6 +1342,7 @@ func _save_display_settings() -> void:
 	config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
 	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
 	config.set_value("display", "minimap_enabled", GameManager.minimap_enabled)
+	PerformanceSettings.save_to_config(config)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:

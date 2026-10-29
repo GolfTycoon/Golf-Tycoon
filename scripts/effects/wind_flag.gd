@@ -12,18 +12,24 @@ var _pole_height: float = 24.0
 var _flag_length: float = 10.0
 var _phase_offset: float = 0.0  # Per-flag variation
 var _is_web: bool = false
-var _web_redraw_timer: float = 0.0
+var _redraw_timer: float = 0.0
 const WEB_FLAG_REDRAW_INTERVAL: float = 0.1  # 10 FPS for flag flutter on web
 
 func _ready() -> void:
 	_is_web = OS.get_name() == "Web"
 	EventBus.wind_changed.connect(_on_wind_changed)
+	PerformanceSettings.profile_changed.connect(_on_graphics_settings_changed)
 	_phase_offset = randf() * TAU  # Random phase so flags don't all flutter in sync
 	z_index = 5  # Above terrain, below golfers
 
 func _exit_tree() -> void:
 	if EventBus.wind_changed.is_connected(_on_wind_changed):
 		EventBus.wind_changed.disconnect(_on_wind_changed)
+	if PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_graphics_settings_changed)
+
+func _on_graphics_settings_changed(_terrain_fast: bool) -> void:
+	queue_redraw()
 
 func _on_wind_changed(direction: float, speed: float) -> void:
 	_wind_direction = direction
@@ -31,12 +37,12 @@ func _on_wind_changed(direction: float, speed: float) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_redraw_timer += delta / maxf(Engine.time_scale, 0.01)
+	var redraw_interval := PerformanceSettings.animation_redraw_interval()
 	if _is_web:
-		_web_redraw_timer += delta
-		if _web_redraw_timer >= WEB_FLAG_REDRAW_INTERVAL:
-			_web_redraw_timer = 0.0
-			queue_redraw()
-	else:
+		redraw_interval = maxf(redraw_interval, WEB_FLAG_REDRAW_INTERVAL)
+	if _redraw_timer >= redraw_interval:
+		_redraw_timer = 0.0
 		queue_redraw()
 
 func _draw() -> void:
@@ -92,7 +98,7 @@ func _draw() -> void:
 		draw_colored_polygon(polygon, fill_color)
 
 		# Outline for definition (skip on web — N draw_line calls per flag)
-		if not _is_web:
+		if not _is_web and PerformanceSettings.wind_flag_quality == PerformanceSettings.WindFlagQuality.FULL:
 			var outline_color := Color(_flag_color.r * 0.6, _flag_color.g * 0.6, _flag_color.b * 0.6, flag_alpha)
 			for i in range(polygon.size()):
 				var next := (i + 1) % polygon.size()

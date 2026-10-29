@@ -385,7 +385,7 @@ func test_a_trees_angle_belongs_to_its_tile() -> void:
 			grid.set_tile(Vector2i(x, y), TerrainTypes.Type.PINE)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay
 	assert_eq(trees._tree_tiles.size(), grid.grid_width * grid.grid_height,
-			"the overlay is drawing the whole plantation")
+			"the overlay indexes the whole plantation")
 	var first: Dictionary = {}
 	for pos in trees._tree_tiles:
 		first[pos] = trees.facing_for(pos)
@@ -402,6 +402,40 @@ func test_a_trees_angle_belongs_to_its_tile() -> void:
 	for pos in first:
 		assert_eq(trees.facing_for(pos), first[pos],
 				"a rescan leaves the pine on %s as it was" % pos)
+
+func test_only_visible_tree_tiles_have_nodes_and_pan_reuses_them() -> void:
+	var grid := make_grid(64, 64)
+	for x in range(grid.grid_width):
+		for y in range(grid.grid_height):
+			grid._grid[Vector2i(x, y)] = TerrainTypes.Type.PINE
+	var camera := Camera2D.new()
+	camera.zoom = Vector2(4.0, 4.0)
+	camera.position = grid.grid_to_screen_center(Vector2i(16, 16))
+	grid.add_child(camera)
+	camera.make_current()
+	await process_frames(2)
+
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	trees.rescan()
+	assert_eq(trees._tree_tiles.size(), grid.grid_width * grid.grid_height,
+		"the lightweight terrain index still covers every tree")
+	assert_lt(trees._visuals.size(), trees._tree_tiles.size(),
+		"only trees inside the camera range get CanvasItems")
+	var first_ids: Dictionary = {}
+	for visual in trees._visuals.values():
+		first_ids[visual.get_instance_id()] = true
+
+	camera.position = grid.grid_to_screen_center(Vector2i(52, 52))
+	await process_frames(2)
+	trees.update_visible_trees()
+	var reused := false
+	for visual in trees._visuals.values():
+		if first_ids.has(visual.get_instance_id()):
+			reused = true
+			break
+	assert_true(reused, "panning recycles nearby tree visual nodes")
+	assert_lte(trees._pooled_visuals.size(), TreeOverlay.MAX_POOLED_VISUALS,
+		"the hidden visual pool has a fixed memory ceiling")
 
 
 ## Neighbouring trees do not march in step: a plain linear seed would stripe the

@@ -198,6 +198,70 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	menu._save_controls_settings()
 
 
+func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
+	await set_window(DESIGN_WINDOW)
+	var original_preset := PerformanceSettings.graphics_preset
+	var original_graphics: Dictionary = {}
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		original_graphics[setting] = PerformanceSettings.get_graphics_setting(setting)
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(5)
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var options := menu.find_child("GraphicsPreset", true, false) as OptionButton
+	assert_not_null(options, "Graphics quality is on the Display page")
+	if options == null:
+		return
+	assert_eq(options.item_count, PerformanceSettings.PRESET_LABELS.size(),
+		"the named presets and the current Custom combination are shown")
+	assert_eq(options.selected, original_preset, "the menu reflects the saved choice")
+	for control_name in ["TerrainQuality", "GrassQuality", "TreeOcclusion", "WaterQuality",
+			"WindFlagQuality", "AnimationRate", "CameraUpdateRate", "GolferUpdateRate"]:
+		assert_not_null(menu.find_child(control_name, true, false),
+			"%s is an independently adjustable graphics setting" % control_name)
+
+	var performance_index := options.get_item_index(PerformanceSettings.GraphicsPreset.PERFORMANCE)
+	options.select(performance_index)
+	options.item_selected.emit(performance_index)
+	await process_frames(1)
+	assert_eq(PerformanceSettings.graphics_preset, PerformanceSettings.GraphicsPreset.PERFORMANCE,
+		"choosing a preset applies it immediately")
+	assert_eq(PerformanceSettings.terrain_quality, PerformanceSettings.TerrainQuality.FAST)
+	assert_eq(PerformanceSettings.grass_quality, PerformanceSettings.GrassQuality.OFF)
+	assert_false(PerformanceSettings.tree_occlusion_enabled)
+	assert_eq(PerformanceSettings.water_quality, PerformanceSettings.WaterQuality.REDUCED)
+	assert_eq(PerformanceSettings.animation_rate, PerformanceSettings.UpdateRate.LOW)
+
+	var grass_options := menu.find_child("GrassQuality", true, false) as OptionButton
+	var water_before := PerformanceSettings.water_quality
+	var grass_full_index := grass_options.get_item_index(PerformanceSettings.GrassQuality.FULL)
+	grass_options.select(grass_full_index)
+	grass_options.item_selected.emit(grass_full_index)
+	await process_frames(1)
+	assert_eq(PerformanceSettings.graphics_preset, PerformanceSettings.GraphicsPreset.CUSTOM,
+		"editing one component changes the preset label to Custom")
+	assert_eq(PerformanceSettings.grass_quality, PerformanceSettings.GrassQuality.FULL)
+	assert_eq(PerformanceSettings.water_quality, water_before,
+		"the other quality settings keep the preset's values")
+	assert_eq(options.selected, PerformanceSettings.GraphicsPreset.CUSTOM)
+
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "the display settings file still loads")
+	assert_eq(int(saved.get_value("display", "graphics_preset", -1)),
+		PerformanceSettings.GraphicsPreset.CUSTOM, "the active preset label is persisted")
+	assert_eq(int(saved.get_value("graphics", "grass_quality", -1)),
+		PerformanceSettings.GrassQuality.FULL, "the changed component is persisted separately")
+	assert_eq(int(saved.get_value("graphics", "water_quality", -1)),
+		PerformanceSettings.WaterQuality.REDUCED, "untouched component settings are persisted too")
+
+	if original_preset == PerformanceSettings.GraphicsPreset.CUSTOM:
+		PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+		for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+			PerformanceSettings.set_graphics_setting(setting, original_graphics[setting])
+	else:
+		PerformanceSettings.set_graphics_preset(original_preset)
+	menu._save_display_settings()
+
 func test_the_minimap_setting_enables_and_disables_the_minimap() -> void:
 	await set_window(DESIGN_WINDOW)
 	var original_enabled := GameManager.minimap_enabled

@@ -105,10 +105,18 @@ const JITTER_X := 6.0
 const JITTER_Y := 3.0
 const SCALE_MIN := 0.85
 const SCALE_MAX := 1.15
+## Only the trees near the camera need CanvasItems. A small hidden pool avoids
+## reallocating sprites while panning without retaining one node per map tree.
+const MAX_POOLED_VISUALS := 256
 
 var terrain_grid: TerrainGrid
-var _visuals: Dictionary = {}
+var _visuals: Dictionary = {}  # visible Vector2i -> Node2D
+var _pooled_visuals: Array[Node2D] = []
 var _tree_tiles: Dictionary = {}  # Vector2i -> species key drawn on that tile
+var _visual_sync_pending := false
+var _occlusion_enabled := false
+var _last_visible_min := Vector2i(-1, -1)
+var _last_visible_max := Vector2i(-1, -1)
 
 static var _texture_cache: Dictionary = {}  # sprite path -> Texture2D (or null)
 ## Per-file layout supplied by a mod's optional `tree_art/layout.json`.
@@ -149,12 +157,15 @@ func initialize(grid: TerrainGrid) -> void:
 	z_index = 2
 	y_sort_enabled = true
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	rescan()
+	_occlusion_enabled = _should_enable_occlusion()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.season_changed.connect(_on_season_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
 	EventBus.view_rotated.connect(_on_view_rotated)
+	terrain_grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
+	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
+	rescan()
 
 func _exit_tree() -> void:
 	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
@@ -167,10 +178,15 @@ func _exit_tree() -> void:
 		EventBus.theme_changed.disconnect(_on_theme_changed)
 	if EventBus.view_rotated.is_connected(_on_view_rotated):
 		EventBus.view_rotated.disconnect(_on_view_rotated)
+	if is_instance_valid(terrain_grid) and terrain_grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
+		terrain_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
+	if PerformanceSettings.profile_changed.is_connected(_on_performance_profile_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_performance_profile_changed)
 
-## Rebuild every woodland tile from scratch: after a load, a generated course,
-## or a theme change that moved the species mix under us.
+## Rebuild the lightweight tile index after a load, generated course or theme
+## change. Sprite CanvasItems are made only for the camera's visible tile range.
 func rescan() -> void:
+	_refresh_occlusion_mode(true)
 	_tree_tiles.clear()
 	if terrain_grid:
 		for x in range(terrain_grid.grid_width):
@@ -179,7 +195,7 @@ func rescan() -> void:
 				var type: int = terrain_grid.get_tile(pos)
 				if TerrainTypes.is_tree(type):
 					_tree_tiles[pos] = species_at(type, pos)
-	queue_redraw()
+	_sync_visuals(true)
 
 ## The angle the course is viewed from: the grid's view orientation, so
 ## rotating the course turns every tree with it, exactly as it turns the
@@ -618,15 +634,42 @@ func _on_load_completed(_success: bool) -> void:
 	rescan()
 
 func _on_season_changed(_old_season: int, _new_season: int) -> void:
-	queue_redraw()  # The art lookup follows the calendar; the tiles do not move.
+	_redraw_active_visuals() # Art changes; the trees themselves do not move.
 
 func _on_theme_changed(_theme: int) -> void:
-	rescan()  # Only the generic Trees tiles pick their species from the theme.
+	rescan() # Only generic Trees tiles pick their species from the theme.
 
 func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
+	_sync_visuals(true)
+
+func _on_performance_profile_changed(_low_detail: bool) -> void:
+	var previous_occlusion := _occlusion_enabled
+	_refresh_occlusion_mode()
+	if previous_occlusion != _occlusion_enabled:
+		for visual in _visuals.values():
+			visual.queue_redraw()
+
+func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> void:
+	_refresh_occlusion_mode()
+	for pos in terrain_grid.tiles_around_vertex(vertex):
+		if not _visuals.has(pos):
+			continue
+		var visual: Node2D = _visuals[pos]
+		var new_position := terrain_grid.grid_to_screen_center(pos)
+		if visual.position != new_position:
+			visual.position = new_position
+		if _occlusion_enabled:
+			visual.queue_redraw()
+
+## Bulk elevation loads do not emit one vertex signal per point. Refresh only
+## the currently visible trees after such a load.
+func refresh_elevation_visuals() -> void:
+	_refresh_occlusion_mode(true)
 	for pos in _visuals:
-		_configure_occlusion(_visuals[pos], pos)
-	queue_redraw()  # The art lookup follows the view; the tiles do not move.
+		var visual: Node2D = _visuals[pos]
+		visual.position = terrain_grid.grid_to_screen_center(pos)
+		if _occlusion_enabled:
+			visual.queue_redraw()
 
 func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
 	if TerrainTypes.is_tree(new_type):
@@ -634,38 +677,131 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 	elif TerrainTypes.is_tree(old_type):
 		_tree_tiles.erase(tile_pos)
 	else:
-		return  # Something else was painted here; the wood is unchanged.
+		return # Something else was painted here; the wood is unchanged.
+	# Tile generation may change thousands of tiles in one frame. Defer the
+	# visible-node diff so those edits coalesce into one bounded sync.
+	_visual_sync_pending = true
 	queue_redraw()
 
 func _draw() -> void:
-	_sync_visuals()
+	if _visual_sync_pending:
+		_visual_sync_pending = false
+		_sync_visible_trees(false, true)
 
-func _sync_visuals() -> void:
+## Called by TerrainGrid only when the camera's visible range needs refreshing.
+## Existing tree sprites stay cached as the camera moves; no camera pan redraws
+## every canopy or touches off-screen terrain.
+func update_visible_trees() -> void:
+	_sync_visible_trees(false, false)
+
+## Compatibility/test entry point: force the current visible-node set to match
+## the full tile index immediately.
+func _sync_visuals(force_redraw: bool = false) -> void:
+	_sync_visible_trees(force_redraw, true)
+
+func _sync_visible_trees(force_redraw: bool, force_membership: bool) -> void:
+	if terrain_grid == null:
+		return
+	var tile_range := terrain_grid.get_visible_tile_range()
+	if tile_range.size() < 2:
+		return
+	var first: Vector2i = tile_range[0]
+	var last: Vector2i = tile_range[1]
+	if not force_membership and first == _last_visible_min and last == _last_visible_max:
+		return
+	_last_visible_min = first
+	_last_visible_max = last
+
+	var desired: Dictionary = {}
+	if last.x >= first.x and last.y >= first.y:
+		for x in range(first.x, last.x + 1):
+			for y in range(first.y, last.y + 1):
+				var pos := Vector2i(x, y)
+				if _tree_tiles.has(pos):
+					desired[pos] = true
+
 	for pos in _visuals.keys():
-		if not _tree_tiles.has(pos):
-			var obsolete: Node2D = _visuals[pos]
-			remove_child(obsolete)
-			obsolete.queue_free()
-			_visuals.erase(pos)
-	for pos in _tree_tiles:
-		if not _visuals.has(pos):
-			var tree := Node2D.new()
-			var occlusion_material := ShaderMaterial.new()
-			occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
-			tree.material = occlusion_material
-			tree.draw.connect(func(): _draw_tree(tree, pos, Vector2.ZERO, facing_for(pos)))
-			add_child(tree)
-			_visuals[pos] = tree
-			_configure_occlusion(tree, pos)
+		if not desired.has(pos):
+			_release_visual(pos)
+
+	for pos in desired:
+		var visual: Node2D
+		var is_new := false
+		if _visuals.has(pos):
+			visual = _visuals[pos]
+			if force_redraw:
+				_configure_occlusion(visual, pos)
+		else:
+			visual = _obtain_visual()
+			visual.set_meta("tree_pos", pos)
+			visual.name = "Tree_%d_%d" % [pos.x, pos.y]
+			visual.visible = true
+			_visuals[pos] = visual
+			_configure_occlusion(visual, pos)
+			is_new = true
+
+		var projected_position := terrain_grid.grid_to_screen_center(pos)
+		if visual.position != projected_position:
+			visual.position = projected_position
+			visual.queue_redraw()
+		elif force_redraw or is_new:
+			visual.queue_redraw()
+
+func _obtain_visual() -> Node2D:
+	if not _pooled_visuals.is_empty():
+		return _pooled_visuals.pop_back()
+	var visual := Node2D.new()
+	visual.draw.connect(_on_tree_visual_draw.bind(visual))
+	add_child(visual)
+	return visual
+
+func _release_visual(pos: Vector2i) -> void:
+	var visual: Node2D = _visuals[pos]
+	_visuals.erase(pos)
+	visual.visible = false
+	visual.set_meta("tree_pos", Vector2i(-1, -1))
+	if _pooled_visuals.size() < MAX_POOLED_VISUALS:
+		_pooled_visuals.append(visual)
+	else:
+		visual.queue_free()
+
+func _on_tree_visual_draw(visual: Node2D) -> void:
+	var pos: Vector2i = visual.get_meta("tree_pos", Vector2i(-1, -1))
+	if _tree_tiles.has(pos):
+		_draw_tree(visual, pos, Vector2.ZERO, facing_for(pos))
+
+func _redraw_active_visuals() -> void:
+	for pos in _visuals:
 		var visual: Node2D = _visuals[pos]
-		visual.position = terrain_grid.grid_to_screen_center(pos)
+		_configure_occlusion(visual, pos)
 		visual.queue_redraw()
 
-func _configure_occlusion(tree: Node2D, pos: Vector2i) -> void:
-	if terrain_grid == null or terrain_grid._course_surface == null:
+func _should_enable_occlusion() -> bool:
+	return terrain_grid != null and terrain_grid.has_relief() \
+		and PerformanceSettings.tree_occlusion_enabled
+
+func _refresh_occlusion_mode(force: bool = false) -> void:
+	var should_enable := _should_enable_occlusion()
+	if not force and should_enable == _occlusion_enabled:
 		return
+	_occlusion_enabled = should_enable
+	for pos in _visuals:
+		_configure_occlusion(_visuals[pos], pos)
+	for visual in _pooled_visuals:
+		if not _occlusion_enabled:
+			visual.material = null
+
+func _configure_occlusion(tree: Node2D, pos: Vector2i) -> void:
+	if not _occlusion_enabled or terrain_grid == null or terrain_grid._course_surface == null:
+		tree.material = null
+		return
+	var occlusion_material := tree.material as ShaderMaterial
+	if occlusion_material == null or occlusion_material.shader != TERRAIN_SPRITE_OCCLUSION:
+		occlusion_material = ShaderMaterial.new()
+		occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
+		tree.material = occlusion_material
 	terrain_grid._course_surface.configure_sprite_occlusion(
-			tree.material as ShaderMaterial, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
+			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
 
 ## The angle this overlay paints the tree on `pos` from right now: the course's
 ## view turned by the tile's own offset, so a wood holds several angles at once
