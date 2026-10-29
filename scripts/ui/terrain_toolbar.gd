@@ -87,6 +87,10 @@ const HEADER_HEIGHT := 28.0
 const SHELF_PAD_X := 6.0
 const SHELF_PAD_Y := 2.0
 const SHELF_ROW_GAP := 6.0
+## Breathing room kept before the first object in every scrollable shelf page,
+## so the first tile/card never rubs against the curved rim at the shelf's
+## left edge.
+const SHELF_CONTENT_LEAD := 80.0
 ## Together with the 6px inset this matches the left fan's 224px radius.
 ## Compact windows shorten it only as much as the page needs to stay usable.
 const TAB_RAIL_WIDTH := 218.0
@@ -707,6 +711,13 @@ func _build_page(tab_index: int) -> Control:
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.alignment = BoxContainer.ALIGNMENT_BEGIN
 	scroll.add_child(hbox)
+
+	# Leading space before the first object, so the first tile/card never
+	# rubs against the curved rim at the shelf's left edge.
+	var lead := Control.new()
+	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lead.custom_minimum_size.x = SHELF_CONTENT_LEAD
+	hbox.add_child(lead)
 
 	match tab_index:
 		Tab.TERRAIN:

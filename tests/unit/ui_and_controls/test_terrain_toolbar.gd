@@ -690,8 +690,8 @@ func test_every_course_terrain_tile_says_it_replaces_the_others() -> void:
 
 func test_course_terrain_tab_has_no_green_size_presets() -> void:
 	var terrain_content: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.TERRAIN)
-	assert_eq(terrain_content.get_child_count(), 1,
-		"The scrolling terrain tab is just the unified tile grid — the brush is pinned to the page, and there is no extra separator or preset group")
+	assert_eq(terrain_content.get_child_count(), 2,
+		"The scrolling terrain tab leads with a breathing-space spacer, then the unified tile grid — the brush is pinned to the page, and there is no extra separator or preset group")
 
 ## Open Hole pairs the tee box and the green, so the Course Terrain tab nestles
 ## the action into the notch between those two tiles instead of leaving it in the
@@ -937,13 +937,13 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 3,
-		"The Holes tab holds the hole register, the hole detail view and the course scorecard")
-	assert_same(page_content.get_child(0), toolbar._hole_register,
-		"The hole register leads the tab")
-	assert_same(page_content.get_child(1), toolbar._hole_detail,
+	assert_eq(page_content.get_child_count(), 4,
+		"The Holes tab leads with a breathing-space spacer, then the hole register, the hole detail view and the course scorecard")
+	assert_same(page_content.get_child(1), toolbar._hole_register,
+		"The hole register leads the tab after the leading spacer")
+	assert_same(page_content.get_child(2), toolbar._hole_detail,
 		"with the hole detail view beside it")
-	assert_same(page_content.get_child(2), toolbar._hole_scorecard,
+	assert_same(page_content.get_child(3), toolbar._hole_scorecard,
 		"and the course scorecard after it")
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
@@ -2349,9 +2349,9 @@ func test_elevation_selectors_fill_the_same_page_height_as_the_course_tiles() ->
 
 func test_elevation_tab_is_just_the_selector_honeycomb() -> void:
 	var content: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.ELEVATION)
-	assert_eq(content.get_child_count(), 1,
-		"The Elevation tab is just the selector honeycomb — the brush rides in its notch")
-	assert_eq(content.get_child(0).get_child(0), toolbar._elevation_selectors,
+	assert_eq(content.get_child_count(), 2,
+		"The Elevation tab leads with a breathing-space spacer, then the selector honeycomb — the brush rides in its notch")
+	assert_eq(content.get_child(1).get_child(0), toolbar._elevation_selectors,
 		"The honeycomb is the tab's only group")
 
 func test_elevation_brush_shares_settings_between_square_tools() -> void:
@@ -2463,7 +2463,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 		["REVIEW", ["aura_map", "finance", "feed"]],
 		["MILESTONES", ["course_milestones", "world_milestones", "achievements"]],
 	]
-	var groups := toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children()
+	var groups := _club_groups()
 	assert_eq(groups.size(), expected.size(), "One column per folded tab")
 	watch_signals(toolbar)
 	for i in expected.size():
@@ -2503,9 +2503,18 @@ func test_the_club_tab_fits_inside_the_bottom_bar() -> void:
 
 ## Every action card on the Club tab, in reading order: Maps, Review,
 ## Milestones.
+## The labelled group columns on the Club tab, skipping the leading spacer
+## the shelf adds before the first object.
+func _club_groups() -> Array[VBoxContainer]:
+	var groups: Array[VBoxContainer] = []
+	for child in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+		if child is VBoxContainer:
+			groups.append(child)
+	return groups
+
 func _club_cards() -> Array[DockActionButton]:
 	var cards: Array[DockActionButton] = []
-	for group in toolbar.page_content(TerrainToolbar.Tab.CLUB).get_children():
+	for group in _club_groups():
 		for child in group.get_child(1).get_children():
 			if child is DockActionButton:
 				cards.append(child)
