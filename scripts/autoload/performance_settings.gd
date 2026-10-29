@@ -10,6 +10,11 @@ enum GrassQuality { OFF, FULL }
 enum WaterQuality { REDUCED, FULL }
 enum WindFlagQuality { REDUCED, FULL }
 enum UpdateRate { LOW, STANDARD, HIGH }
+## These ids are stored in settings.cfg; append new choices rather than
+## reordering the existing ones.
+enum FpsCounterPosition { TOP_CENTER, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
+enum FpsCounterSize { SMALL, MEDIUM, LARGE }
+enum FpsCounterRefresh { FAST, NORMAL, SLOW }
 enum GraphicsSetting {
 	TERRAIN_QUALITY,
 	GRASS_QUALITY,
@@ -48,10 +53,25 @@ const GRAPHICS_SETTING_KEYS: Dictionary = {
 }
 const ANIMATION_INTERVALS: Array[float] = [0.25, 1.0 / 15.0, 1.0 / 30.0]
 const UPDATE_INTERVALS: Array[float] = [1.0 / 15.0, 1.0 / 30.0, 1.0 / 60.0]
+const FPS_POSITION_LABELS: Array[String] = [
+	"Top center", "Top left", "Top right", "Bottom left", "Bottom right",
+]
+const FPS_SIZE_LABELS: Array[String] = ["Small", "Medium", "Large"]
+const FPS_FONT_SIZES: Array[int] = [12, 16, 20]
+const FPS_REFRESH_LABELS: Array[String] = ["Fast — 0.25 s", "Normal — 0.5 s", "Slow — 1 s"]
+const FPS_REFRESH_INTERVALS: Array[float] = [0.25, 0.5, 1.0]
 
 ## Emitted whenever the preset or any component changes. The argument is true
 ## when the terrain shader is using its fast, low-detail path.
 signal profile_changed(terrain_fast: bool)
+## Separate from graphics presets: these are preferences for the live readout,
+## and changing a quality preset must not change or hide the counter.
+signal fps_counter_changed
+
+var fps_counter_enabled: bool = false
+var fps_counter_position: int = FpsCounterPosition.TOP_CENTER
+var fps_counter_size: int = FpsCounterSize.MEDIUM
+var fps_counter_refresh: int = FpsCounterRefresh.NORMAL
 
 var graphics_preset: int = GraphicsPreset.AUTO
 var terrain_quality: int = TerrainQuality.FULL
@@ -84,6 +104,7 @@ func load_from_config(config: ConfigFile) -> void:
 		_load_custom_settings(config)
 	else:
 		_apply_preset_values(graphics_preset)
+	_load_fps_counter_settings(config)
 
 ## Apply a named preset. Auto maps to Performance on mobile, Web and
 ## four-core-or-smaller devices, and Balanced on other desktop-class devices.
@@ -131,8 +152,62 @@ func get_graphics_setting(setting: int) -> int:
 
 func save_to_config(config: ConfigFile) -> void:
 	config.set_value("display", "graphics_preset", graphics_preset)
+	config.set_value("display", "fps_counter_enabled", fps_counter_enabled)
+	config.set_value("display", "fps_counter_position", fps_counter_position)
+	config.set_value("display", "fps_counter_size", fps_counter_size)
+	config.set_value("display", "fps_counter_refresh", fps_counter_refresh)
 	for setting in GRAPHICS_SETTINGS:
 		config.set_value("graphics", GRAPHICS_SETTING_KEYS[setting], get_graphics_setting(setting))
+
+func set_fps_counter_enabled(enabled: bool) -> void:
+	if fps_counter_enabled == enabled:
+		return
+	fps_counter_enabled = enabled
+	fps_counter_changed.emit()
+
+func set_fps_counter_position(position: int) -> void:
+	var choice := clampi(position, FpsCounterPosition.TOP_CENTER, FpsCounterPosition.BOTTOM_RIGHT)
+	if fps_counter_position == choice:
+		return
+	fps_counter_position = choice
+	fps_counter_changed.emit()
+
+func set_fps_counter_size(size: int) -> void:
+	var choice := clampi(size, FpsCounterSize.SMALL, FpsCounterSize.LARGE)
+	if fps_counter_size == choice:
+		return
+	fps_counter_size = choice
+	fps_counter_changed.emit()
+
+func set_fps_counter_refresh(refresh: int) -> void:
+	var choice := clampi(refresh, FpsCounterRefresh.FAST, FpsCounterRefresh.SLOW)
+	if fps_counter_refresh == choice:
+		return
+	fps_counter_refresh = choice
+	fps_counter_changed.emit()
+
+func fps_counter_font_size() -> int:
+	return FPS_FONT_SIZES[fps_counter_size]
+
+func fps_counter_refresh_interval() -> float:
+	return FPS_REFRESH_INTERVALS[fps_counter_refresh]
+
+func _load_fps_counter_settings(config: ConfigFile) -> void:
+	var enabled: Variant = config.get_value("display", "fps_counter_enabled", false)
+	fps_counter_enabled = enabled if typeof(enabled) == TYPE_BOOL else false
+	fps_counter_position = _read_fps_option(config, "fps_counter_position",
+		FpsCounterPosition.TOP_CENTER, FpsCounterPosition.BOTTOM_RIGHT)
+	fps_counter_size = _read_fps_option(config, "fps_counter_size",
+		FpsCounterSize.MEDIUM, FpsCounterSize.LARGE)
+	fps_counter_refresh = _read_fps_option(config, "fps_counter_refresh",
+		FpsCounterRefresh.NORMAL, FpsCounterRefresh.SLOW)
+	fps_counter_changed.emit()
+
+## Old settings files have none of these fields; invalid types use the defaults
+## and out-of-range ids are kept inside the choices the UI can represent.
+func _read_fps_option(config: ConfigFile, key: String, fallback: int, last: int) -> int:
+	var value: Variant = config.get_value("display", key, fallback)
+	return clampi(value, 0, last) if typeof(value) == TYPE_INT else fallback
 
 func animation_redraw_interval() -> float:
 	return ANIMATION_INTERVALS[clampi(animation_rate, UpdateRate.LOW, UpdateRate.HIGH)]

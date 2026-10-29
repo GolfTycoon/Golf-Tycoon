@@ -83,6 +83,8 @@ Every screen works with a mouse, a keyboard, both together, a gamepad or a touch
 
 **Every course control can be rebound.** Open **Settings → Controls**, click a keycap and press the key or controller button you want. A key already in use is taken from the other action (and swapped when that leaves it with nothing), `Backspace` unbinds, and each row's ↺ or **Reset All Controls** puts the defaults back. Bindings apply immediately, are saved to `user://settings.cfg` and show up in the `F1` shortcut sheet. Menu navigation (`Esc`, `Tab`, `Enter`, the arrows and `A`/`B`) stays fixed.
 
+To monitor performance, turn on **Settings → Display → FPS Counter**. Choose its position, text size and refresh interval; the live readout works over menus and the course, including while paused, and does not block input. The counter is off by default and its preferences are saved between sessions.
+
 | Action | Keys, mouse and gamepad |
 | --- | --- |
 | Pan the camera | `W` `A` `S` `D`, middle-mouse drag, or the left stick |

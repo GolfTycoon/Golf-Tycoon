@@ -444,6 +444,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	mode_options.item_selected.connect(_on_window_mode_selected)
 	window_body.add_child(mode_options)
 	cards.append(window["panel"])
+	# Keep the counter near the top of Display, ahead of the longer quality
+	# controls, so it is easy to find on a phone as well as on desktop.
+	cards.append(_build_fps_counter_card(mode))
 
 	var performance := _make_group("PERFORMANCE & SCALE", "Tune each course-rendering budget independently, or apply a preset.", mode)
 	var performance_body: VBoxContainer = performance["body"]
@@ -533,6 +536,41 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	var benchmark := _build_benchmark_card(mode)
 	cards.append(benchmark)
 	return cards
+
+func _build_fps_counter_card(mode: int) -> PanelContainer:
+	var card := _make_group("FPS COUNTER",
+		"See the live frame rate over menus and the course. Changes apply immediately.", mode)
+	var body: VBoxContainer = card["body"]
+	var toggle := _add_toggle_row(body, "Show FPS counter",
+		"Display frames per second without blocking clicks or touches.",
+		PerformanceSettings.fps_counter_enabled, _set_fps_counter_enabled, mode)
+	toggle.accessibility_name = "Show FPS counter"
+	_add_fps_option(body, "Position", "FpsCounterPosition", PerformanceSettings.FPS_POSITION_LABELS,
+		PerformanceSettings.fps_counter_position, PerformanceSettings.set_fps_counter_position)
+	_add_fps_option(body, "Text size", "FpsCounterSize", PerformanceSettings.FPS_SIZE_LABELS,
+		PerformanceSettings.fps_counter_size, PerformanceSettings.set_fps_counter_size)
+	_add_fps_option(body, "Refresh interval", "FpsCounterRefresh", PerformanceSettings.FPS_REFRESH_LABELS,
+		PerformanceSettings.fps_counter_refresh, PerformanceSettings.set_fps_counter_refresh)
+	return card["panel"]
+
+## These remain editable while the counter is off, so it can be configured
+## before it is shown. Like the other display controls, each choice saves now.
+func _add_fps_option(body: VBoxContainer, title: String, node_name: String,
+		labels: Array[String], current: int, on_change: Callable) -> void:
+	body.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.accessibility_name = "FPS counter " + title.to_lower()
+	selector.custom_minimum_size.y = 42
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.add_theme_font_size_override("font_size", 12)
+	for choice in range(labels.size()):
+		selector.add_item(labels[choice], choice)
+	selector.select(current)
+	selector.item_selected.connect(func(index: int):
+		on_change.call(selector.get_item_id(index))
+		_save_display_settings())
+	body.add_child(selector)
 
 func _add_graphics_setting(body: VBoxContainer, title: String, node_name: String,
 		setting: int, options: Array) -> OptionButton:
@@ -1300,6 +1338,10 @@ func _set_muted(value: bool) -> void:
 
 func _set_vsync(enabled: bool) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if enabled else DisplayServer.VSYNC_DISABLED)
+	_save_display_settings()
+
+func _set_fps_counter_enabled(enabled: bool) -> void:
+	PerformanceSettings.set_fps_counter_enabled(enabled)
 	_save_display_settings()
 
 func _set_minimap_enabled(enabled: bool) -> void:

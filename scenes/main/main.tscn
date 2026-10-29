@@ -10,6 +10,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/components/pixel_circle_button.gd" id="11_circle"]
 [ext_resource type="Script" path="res://scripts/ui/components/bottom_control_dock.gd" id="12_dock"]
+[ext_resource type="Script" path="res://scripts/ui/fps_counter.gd" id="13_fps"]
 
 [node name="Main" type="Node2D" unique_id=1113796788]
 script = ExtResource("1_main")
@@ -45,6 +46,9 @@ script = ExtResource("7_hole_manager")
 [node name="IsometricCamera" type="Camera2D" parent="." unique_id=581873074]
 position = Vector2(2000, 1000)
 script = ExtResource("2_camera")
+
+[node name="FpsCounter" type="CanvasLayer" parent="."]
+script = ExtResource("13_fps")
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=251056778]
 
