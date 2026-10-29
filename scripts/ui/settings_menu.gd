@@ -521,6 +521,30 @@ func _build_display_cards(mode: int) -> Array[Control]:
 			{"label": "Reduced", "value": PerformanceSettings.WindFlagQuality.REDUCED},
 			{"label": "Full", "value": PerformanceSettings.WindFlagQuality.FULL},
 		])
+	performance_body.add_child(_make_separator())
+	var detail_hint := Kit.make_label(
+		"Decoration costs draw calls, not simulation: trimming it speeds a busy course up without changing how it plays.",
+		10, COLOR_MUTED)
+	detail_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	performance_body.add_child(detail_hint)
+	_add_graphics_setting(performance_body, "Prop & ball shadows", "ShadowDetail",
+		PerformanceSettings.GraphicsSetting.SHADOW_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.ShadowDetail.OFF},
+			{"label": "Contact only", "value": PerformanceSettings.ShadowDetail.CONTACT_ONLY},
+			{"label": "Full", "value": PerformanceSettings.ShadowDetail.FULL},
+		])
+	_add_graphics_setting(performance_body, "Course wildlife", "WildlifeDetail",
+		PerformanceSettings.GraphicsSetting.WILDLIFE_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.WildlifeDetail.OFF},
+			{"label": "Reduced", "value": PerformanceSettings.WildlifeDetail.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WildlifeDetail.FULL},
+		])
+	_add_graphics_setting(performance_body, "Impact particle effects", "EffectDetail",
+		PerformanceSettings.GraphicsSetting.EFFECT_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.EffectDetail.OFF},
+			{"label": "Reduced", "value": PerformanceSettings.EffectDetail.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.EffectDetail.FULL},
+		])
 	_add_graphics_setting(performance_body, "Decorative animation rate", "AnimationRate",
 		PerformanceSettings.GraphicsSetting.ANIMATION_RATE, _animation_rate_options())
 	_add_graphics_setting(performance_body, "Camera redraw rate", "CameraUpdateRate",

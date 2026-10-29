@@ -327,7 +327,8 @@ func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
 		"the named presets and the current Custom combination are shown")
 	assert_eq(options.selected, original_preset, "the menu reflects the saved choice")
 	for control_name in ["TerrainQuality", "GrassQuality", "TreeOcclusion", "WaterQuality",
-			"WindFlagQuality", "AnimationRate", "CameraUpdateRate", "GolferUpdateRate"]:
+			"WindFlagQuality", "ShadowDetail", "WildlifeDetail", "EffectDetail",
+			"AnimationRate", "CameraUpdateRate", "GolferUpdateRate"]:
 		assert_not_null(menu.find_child(control_name, true, false),
 			"%s is an independently adjustable graphics setting" % control_name)
 
@@ -341,6 +342,9 @@ func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
 	assert_eq(PerformanceSettings.grass_quality, PerformanceSettings.GrassQuality.OFF)
 	assert_false(PerformanceSettings.tree_occlusion_enabled)
 	assert_eq(PerformanceSettings.water_quality, PerformanceSettings.WaterQuality.REDUCED)
+	assert_eq(PerformanceSettings.shadow_detail, PerformanceSettings.ShadowDetail.OFF)
+	assert_eq(PerformanceSettings.wildlife_detail, PerformanceSettings.WildlifeDetail.OFF)
+	assert_eq(PerformanceSettings.effect_detail, PerformanceSettings.EffectDetail.REDUCED)
 	assert_eq(PerformanceSettings.animation_rate, PerformanceSettings.UpdateRate.LOW)
 
 	var grass_options := menu.find_child("GrassQuality", true, false) as OptionButton

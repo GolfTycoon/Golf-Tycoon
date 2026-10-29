@@ -85,6 +85,8 @@ Every screen works with a mouse, a keyboard, both together, a gamepad or a touch
 
 To monitor performance, turn on **Settings → Display → FPS Counter**. Choose its position, text size and refresh interval; the live readout works over menus and the course, including while paused, and does not block input. The counter is off by default and its preferences are saved between sessions.
 
+If the course runs slowly, **Settings → Display → Performance & Scale** has a graphics quality preset and the individual controls behind it: terrain rendering, grass, tree occlusion, water shimmer, wind flag outlines, prop and ball shadows, course wildlife, impact particle bursts, and the rates at which decoration, the camera and golfer coordination repaint. **Auto** picks Performance on phones, Web and smaller devices; **Performance** turns the decoration off or down, which is the cheapest way to speed up a busy course without changing how it plays. Changes apply at once and are saved. See [Graphics quality](docs/ui-and-controls.md#graphics-quality).
+
 **Your data stays on this device, and you can delete it.** **Settings → Data** lists the saved courses, preferences, career records, benchmark reports and custom golfer skins stored here, with a delete button for each group and one **Delete All Player Data** action. Every deletion asks first; deleting the saved courses during a game closes the course, because there is nothing left to autosave into. Mods are left to the Mods screen, where they can be uninstalled safely. See [Save & Load](docs/save-and-load.md#deleting-player-data).
 
 | Action | Keys, mouse and gamepad |

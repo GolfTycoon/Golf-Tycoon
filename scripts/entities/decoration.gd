@@ -18,6 +18,9 @@ var _layout_refresh_pending := false
 ## Shadow references for updates when sun changes
 var _shadow_refs: Dictionary = {}
 var _shadow_config: ShadowRenderer.ShadowConfig = null
+## The shadow quality the current polygons were built for, so an unrelated
+## graphics change (a rate, the water detail) does not rebuild every prop.
+var _shadow_detail_built: int = -1
 
 ## Variation data for this decoration instance
 var _variation: PropVariation.VariationResult = null
@@ -84,6 +87,10 @@ func _ready() -> void:
 		var shadow_system = get_node("/root/ShadowSystem")
 		if shadow_system.has_signal("sun_direction_changed"):
 			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
+	# Switching shadow quality on the Display page re-shapes every prop at once;
+	# a decoration follows without the course being rebuilt.
+	if not PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
+		PerformanceSettings.profile_changed.connect(_on_graphics_settings_changed)
 
 
 func _exit_tree() -> void:
@@ -98,6 +105,8 @@ func _exit_tree() -> void:
 		var shadow_system = get_node("/root/ShadowSystem")
 		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
 			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
+	if PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_graphics_settings_changed)
 
 
 func set_decoration_type(type: String, data: Dictionary) -> void:
@@ -267,6 +276,7 @@ func _update_visuals() -> void:
 		shadow_system = get_node("/root/ShadowSystem")
 
 	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
+	_shadow_detail_built = PerformanceSettings.shadow_detail
 
 	# Use sprite if available, otherwise procedural fallback
 	if decoration_type in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
@@ -449,13 +459,28 @@ func _make_circle_polygon(radius: float, segments: int, offset: Vector2 = Vector
 
 func _on_sun_direction_changed(_direction: Vector2) -> void:
 	"""Update shadows when sun direction changes"""
-	if _shadow_config and has_node("Visual"):
-		var visual = get_node("Visual")
-		var shadow_system: Node = null
-		if has_node("/root/ShadowSystem"):
-			shadow_system = get_node("/root/ShadowSystem")
-		# Remove old shadows
-		for key in _shadow_refs:
-			if _shadow_refs[key] and is_instance_valid(_shadow_refs[key]):
-				_shadow_refs[key].queue_free()
-		_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
+	_rebuild_shadows()
+
+
+## The graphics quality owns how many shadow polygons a prop carries: redraw
+## this one from the shapes the new setting allows, keeping the sprite as it is.
+func _on_graphics_settings_changed(_terrain_fast: bool) -> void:
+	if PerformanceSettings.shadow_detail == _shadow_detail_built:
+		return
+	_rebuild_shadows()
+
+
+func _rebuild_shadows() -> void:
+	if _shadow_config == null or not has_node("Visual"):
+		return
+	var visual = get_node("Visual")
+	var shadow_system: Node = null
+	if has_node("/root/ShadowSystem"):
+		shadow_system = get_node("/root/ShadowSystem")
+	# Remove old shadows
+	for key in _shadow_refs:
+		if _shadow_refs[key] and is_instance_valid(_shadow_refs[key]):
+			_shadow_refs[key].queue_free()
+	_shadow_refs.clear()
+	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
+	_shadow_detail_built = PerformanceSettings.shadow_detail

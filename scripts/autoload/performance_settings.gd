@@ -10,6 +10,12 @@ enum GrassQuality { OFF, FULL }
 enum WaterQuality { REDUCED, FULL }
 enum WindFlagQuality { REDUCED, FULL }
 enum UpdateRate { LOW, STANDARD, HIGH }
+## Decorative detail. These three cost draw calls rather than redraw cadence:
+## each one paints something the course can do without, so a device that is
+## short of fill rate can shed it instead of slowing the whole course down.
+enum ShadowDetail { OFF, CONTACT_ONLY, FULL }
+enum WildlifeDetail { OFF, REDUCED, FULL }
+enum EffectDetail { OFF, REDUCED, FULL }
 ## These ids are stored in settings.cfg; append new choices rather than
 ## reordering the existing ones.
 enum FpsCounterPosition { TOP_CENTER, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
@@ -24,6 +30,9 @@ enum GraphicsSetting {
 	ANIMATION_RATE,
 	CAMERA_UPDATE_RATE,
 	GOLFER_UPDATE_RATE,
+	SHADOW_DETAIL,
+	WILDLIFE_DETAIL,
+	EFFECT_DETAIL,
 }
 
 const SETTINGS_PATH := "user://settings.cfg"
@@ -40,6 +49,9 @@ const GRAPHICS_SETTINGS: Array[int] = [
 	GraphicsSetting.ANIMATION_RATE,
 	GraphicsSetting.CAMERA_UPDATE_RATE,
 	GraphicsSetting.GOLFER_UPDATE_RATE,
+	GraphicsSetting.SHADOW_DETAIL,
+	GraphicsSetting.WILDLIFE_DETAIL,
+	GraphicsSetting.EFFECT_DETAIL,
 ]
 const GRAPHICS_SETTING_KEYS: Dictionary = {
 	GraphicsSetting.TERRAIN_QUALITY: "terrain_quality",
@@ -50,9 +62,16 @@ const GRAPHICS_SETTING_KEYS: Dictionary = {
 	GraphicsSetting.ANIMATION_RATE: "animation_rate",
 	GraphicsSetting.CAMERA_UPDATE_RATE: "camera_update_rate",
 	GraphicsSetting.GOLFER_UPDATE_RATE: "golfer_update_rate",
+	GraphicsSetting.SHADOW_DETAIL: "shadow_detail",
+	GraphicsSetting.WILDLIFE_DETAIL: "wildlife_detail",
+	GraphicsSetting.EFFECT_DETAIL: "effect_detail",
 }
 const ANIMATION_INTERVALS: Array[float] = [0.25, 1.0 / 15.0, 1.0 / 30.0]
 const UPDATE_INTERVALS: Array[float] = [1.0 / 15.0, 1.0 / 30.0, 1.0 / 60.0]
+## Fraction of the wildlife residents a course keeps, and of the particles a
+## burst spawns, indexed by the detail choice.
+const WILDLIFE_DENSITY: Array[float] = [0.0, 0.5, 1.0]
+const EFFECT_PARTICLE_SCALE: Array[float] = [0.0, 0.5, 1.0]
 const FPS_POSITION_LABELS: Array[String] = [
 	"Top center", "Top left", "Top right", "Bottom left", "Bottom right",
 ]
@@ -82,6 +101,9 @@ var wind_flag_quality: int = WindFlagQuality.FULL
 var animation_rate: int = UpdateRate.STANDARD
 var camera_update_rate: int = UpdateRate.STANDARD
 var golfer_update_rate: int = UpdateRate.STANDARD
+var shadow_detail: int = ShadowDetail.FULL
+var wildlife_detail: int = WildlifeDetail.FULL
+var effect_detail: int = EffectDetail.FULL
 
 ## Compatibility alias for existing callers/tests: terrain detail is the
 ## setting historically exposed as `low_detail_mode`.
@@ -148,6 +170,12 @@ func get_graphics_setting(setting: int) -> int:
 			return camera_update_rate
 		GraphicsSetting.GOLFER_UPDATE_RATE:
 			return golfer_update_rate
+		GraphicsSetting.SHADOW_DETAIL:
+			return shadow_detail
+		GraphicsSetting.WILDLIFE_DETAIL:
+			return wildlife_detail
+		GraphicsSetting.EFFECT_DETAIL:
+			return effect_detail
 	return 0
 
 func save_to_config(config: ConfigFile) -> void:
@@ -220,6 +248,35 @@ func camera_redraw_interval() -> float:
 func simulation_update_interval() -> float:
 	return UPDATE_INTERVALS[clampi(golfer_update_rate, UpdateRate.LOW, UpdateRate.HIGH)]
 
+## A prop's stretched sun shadow follows the sun and costs a second polygon;
+## the contact blob under it is the cheap half and is what keeps a prop
+## standing on the ground rather than hovering over it.
+func drop_shadows_enabled() -> bool:
+	return shadow_detail == ShadowDetail.FULL
+
+func contact_shadows_enabled() -> bool:
+	return shadow_detail != ShadowDetail.OFF
+
+## Fraction of the course's duck families and butterflies to keep. Off is a
+## clean win: the overlay stops running and drawing altogether.
+func wildlife_density() -> float:
+	return WILDLIFE_DENSITY[clampi(wildlife_detail, WildlifeDetail.OFF, WildlifeDetail.FULL)]
+
+## The particle effects are decoration too, and one shot can spawn a dozen
+## nodes and a tween each. Off builds none of them; Reduced halves the burst.
+func effect_particle_scale() -> float:
+	return EFFECT_PARTICLE_SCALE[clampi(effect_detail, EffectDetail.OFF, EffectDetail.FULL)]
+
+func particle_burst_enabled() -> bool:
+	return effect_detail != EffectDetail.OFF
+
+## How many particles of a burst to build, rounded to whole pieces and kept at
+## one rather than eight if the setting says a burst should still play.
+func particle_count(base_count: int) -> int:
+	if base_count <= 0 or not particle_burst_enabled():
+		return 0
+	return maxi(1, int(round(float(base_count) * effect_particle_scale())))
+
 func preset_label(preset: int) -> String:
 	return PRESET_LABELS[clampi(preset, GraphicsPreset.AUTO, GraphicsPreset.CUSTOM)]
 
@@ -251,6 +308,9 @@ func _preset_values(preset: int) -> Dictionary:
 				GraphicsSetting.ANIMATION_RATE: UpdateRate.LOW,
 				GraphicsSetting.CAMERA_UPDATE_RATE: UpdateRate.LOW,
 				GraphicsSetting.GOLFER_UPDATE_RATE: UpdateRate.LOW,
+				GraphicsSetting.SHADOW_DETAIL: ShadowDetail.OFF,
+				GraphicsSetting.WILDLIFE_DETAIL: WildlifeDetail.OFF,
+				GraphicsSetting.EFFECT_DETAIL: EffectDetail.REDUCED,
 			}
 		GraphicsPreset.HIGH:
 			return {
@@ -262,6 +322,9 @@ func _preset_values(preset: int) -> Dictionary:
 				GraphicsSetting.ANIMATION_RATE: UpdateRate.HIGH,
 				GraphicsSetting.CAMERA_UPDATE_RATE: UpdateRate.HIGH,
 				GraphicsSetting.GOLFER_UPDATE_RATE: UpdateRate.HIGH,
+				GraphicsSetting.SHADOW_DETAIL: ShadowDetail.FULL,
+				GraphicsSetting.WILDLIFE_DETAIL: WildlifeDetail.FULL,
+				GraphicsSetting.EFFECT_DETAIL: EffectDetail.FULL,
 			}
 		_:
 			return {
@@ -273,6 +336,9 @@ func _preset_values(preset: int) -> Dictionary:
 				GraphicsSetting.ANIMATION_RATE: UpdateRate.STANDARD,
 				GraphicsSetting.CAMERA_UPDATE_RATE: UpdateRate.STANDARD,
 				GraphicsSetting.GOLFER_UPDATE_RATE: UpdateRate.STANDARD,
+				GraphicsSetting.SHADOW_DETAIL: ShadowDetail.FULL,
+				GraphicsSetting.WILDLIFE_DETAIL: WildlifeDetail.FULL,
+				GraphicsSetting.EFFECT_DETAIL: EffectDetail.FULL,
 			}
 
 func _normalize_setting_value(setting: int, value: int) -> int:
@@ -289,6 +355,12 @@ func _normalize_setting_value(setting: int, value: int) -> int:
 			return clampi(value, WindFlagQuality.REDUCED, WindFlagQuality.FULL)
 		GraphicsSetting.ANIMATION_RATE, GraphicsSetting.CAMERA_UPDATE_RATE, GraphicsSetting.GOLFER_UPDATE_RATE:
 			return clampi(value, UpdateRate.LOW, UpdateRate.HIGH)
+		GraphicsSetting.SHADOW_DETAIL:
+			return clampi(value, ShadowDetail.OFF, ShadowDetail.FULL)
+		GraphicsSetting.WILDLIFE_DETAIL:
+			return clampi(value, WildlifeDetail.OFF, WildlifeDetail.FULL)
+		GraphicsSetting.EFFECT_DETAIL:
+			return clampi(value, EffectDetail.OFF, EffectDetail.FULL)
 	return 0
 
 func _set_graphics_setting_value(setting: int, value: int) -> void:
@@ -309,6 +381,12 @@ func _set_graphics_setting_value(setting: int, value: int) -> void:
 			camera_update_rate = value
 		GraphicsSetting.GOLFER_UPDATE_RATE:
 			golfer_update_rate = value
+		GraphicsSetting.SHADOW_DETAIL:
+			shadow_detail = value
+		GraphicsSetting.WILDLIFE_DETAIL:
+			wildlife_detail = value
+		GraphicsSetting.EFFECT_DETAIL:
+			effect_detail = value
 
 ## Kept pure so Auto's device policy can be covered without changing the
 ## machine running the tests.
