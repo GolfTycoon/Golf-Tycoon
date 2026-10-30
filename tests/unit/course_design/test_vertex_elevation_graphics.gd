@@ -219,8 +219,44 @@ func test_elevation_texture_decodes_flat_and_every_level_exactly() -> void:
 		assert_almost_eq(decoded, float(level - grid.BASE_ELEVATION), 0.00001,
 			"level %d has no quantization offset after shader decoding" % level)
 
+func test_relief_index_tracks_edits_loads_migration_and_analysis_copies() -> void:
+	assert_false(grid.has_relief(), "new courses start flat")
+	var surface_material := grid._course_surface.material as ShaderMaterial
+	assert_false(surface_material.get_shader_parameter("has_elevation"),
+		"the flat-course shader path starts enabled")
+	var first := Vector2i(4, 4)
+	var second := Vector2i(5, 5)
+	grid.set_vertex_elevation(first, BASE + 1)
+	assert_true(surface_material.get_shader_parameter("has_elevation"),
+		"the shader switches to relief mapping with the first sculpt")
+	grid.set_vertex_elevation(second, BASE + 2)
+	assert_true(grid.has_relief())
+	grid.set_vertex_elevation(first, BASE)
+	assert_true(grid.has_relief(), "one reset vertex does not hide remaining relief")
+	grid.set_vertex_elevation(second, BASE)
+	assert_false(grid.has_relief(), "returning every vertex to base clears relief")
+
+	grid.deserialize_elevation({"4,4": BASE + 3})
+	assert_true(grid.has_relief(), "bulk deserialization recounts relief")
+	var copy := grid.create_analysis_copy()
+	assert_true(copy.has_relief(), "analysis copies keep their relief index")
+	copy.free()
+	grid.deserialize_elevation({})
+	assert_false(grid.has_relief(), "a flat load clears relief")
+	assert_false(surface_material.get_shader_parameter("has_elevation"),
+		"bulk loads restore the flat-course shader path")
+
+	grid.migrate_tile_elevation({"5,5": BASE + 2})
+	assert_true(grid.has_relief(), "legacy elevation migration recounts relief")
+
 func test_tree_sprites_share_the_terrain_occlusion_heightfield() -> void:
+	var previous_preset := PerformanceSettings.graphics_preset
+	var previous_graphics_settings: Dictionary = {}
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		previous_graphics_settings[setting] = PerformanceSettings.get_graphics_setting(setting)
+	PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.HIGH)
 	var pos := Vector2i(5, 5)
+	grid.set_vertex_elevation(pos, BASE + 1)
 	grid.set_tile(pos, TerrainTypes.Type.OAK)
 	var trees := grid._tree_overlay as TreeOverlay
 	trees._sync_visuals()
@@ -235,6 +271,12 @@ func test_tree_sprites_share_the_terrain_occlusion_heightfield() -> void:
 	grid.set_view_orientation(1)
 	assert_eq(mat.get_shader_parameter("grid_origin"), grid.projection.grid_origin(),
 		"the occlusion projection turns with the tree and the ground")
+	if previous_preset == PerformanceSettings.GraphicsPreset.CUSTOM:
+		PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+		for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+			PerformanceSettings.set_graphics_setting(setting, previous_graphics_settings[setting])
+	else:
+		PerformanceSettings.set_graphics_preset(previous_preset)
 
 func test_elevated_terrain_occludes_only_sprite_pixels_behind_it() -> void:
 	var tree_ground := Vector2(5.5, 5.5)

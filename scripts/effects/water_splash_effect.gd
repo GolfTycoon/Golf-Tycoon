@@ -3,6 +3,9 @@ class_name WaterSplashEffect
 ## WaterSplashEffect - Temporary particle effect for water hazard shots
 
 const PARTICLE_COUNT: int = 12
+## The web build keeps a lighter splash of its own; graphics quality scales it
+## down further (see PerformanceSettings.particle_count).
+const WEB_PARTICLE_COUNT: int = 5
 const PARTICLE_LIFETIME: float = 1.0
 const PARTICLE_COLORS: Array = [
 	Color(0.4, 0.6, 0.9, 0.8),  # Light blue
@@ -12,15 +15,20 @@ const PARTICLE_COLORS: Array = [
 ]
 
 var _particles_finished: int = 0
+var _particle_count: int = 0
 var _web_mode: bool = false
 
 func _ready() -> void:
 	z_index = 200  # Above everything
+	_particle_count = PerformanceSettings.particle_count(
+		WEB_PARTICLE_COUNT if _web_mode else PARTICLE_COUNT)
+	if _particle_count <= 0:
+		queue_free()
+		return
 	_spawn_particles()
 
 func _spawn_particles() -> void:
-	var count = 5 if _web_mode else PARTICLE_COUNT
-	for i in range(count):
+	for i in range(_particle_count):
 		var particle = Polygon2D.new()
 		particle.color = PARTICLE_COLORS[randi() % PARTICLE_COLORS.size()]
 
@@ -51,9 +59,11 @@ func _spawn_particles() -> void:
 		var alpha_tween = create_tween()
 		alpha_tween.tween_property(particle, "modulate:a", 0.0, lifetime).set_ease(Tween.EASE_IN)
 
-## Play the effect at a world position
-## Reduced particle count on web for performance
+## Play the effect at a world position. The web build plays a reduced splash;
+## impact effects Off skips the effect altogether.
 static func create_at(parent: Node, world_position: Vector2) -> WaterSplashEffect:
+	if not PerformanceSettings.particle_burst_enabled():
+		return null
 	var effect = WaterSplashEffect.new()
 	effect.global_position = world_position
 	if OS.get_name() == "Web":
@@ -63,6 +73,5 @@ static func create_at(parent: Node, world_position: Vector2) -> WaterSplashEffec
 
 func _on_particle_finished() -> void:
 	_particles_finished += 1
-	var count = 5 if _web_mode else PARTICLE_COUNT
-	if _particles_finished >= count:
+	if _particles_finished >= _particle_count:
 		queue_free()

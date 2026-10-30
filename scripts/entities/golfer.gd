@@ -272,6 +272,7 @@ const BUILDING_CHECK_INTERVAL: float = 0.5
 ## (The golfer's own draw band is the entity band - see the class doc - so the
 ## offset only shifts the art within it.)
 var visual_offset: Vector2 = Vector2.ZERO
+var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
 
 ## Active golfer highlight (shows who is currently taking their shot)
@@ -921,9 +922,18 @@ func _process(delta: float) -> void:
 	if _amenity_phase > 0:
 		_process_amenity_visit(delta)
 		return
+	# Keep selection and tier rings attached to the moving golfer each frame;
+	# their pulsing colour and attitude tint are decorative and can update at a
+	# modest real-time cadence (4–15 Hz).
 	_update_highlight_ring()
-	_update_tier_ring()
-	_update_attitude_visuals()
+	if _tier_ring:
+		_tier_ring.position = visual_offset
+	_visual_refresh_elapsed += delta / maxf(Engine.time_scale, 0.01)
+	var visual_interval := PerformanceSettings.animation_redraw_interval()
+	if _visual_refresh_elapsed >= visual_interval:
+		_visual_refresh_elapsed = fposmod(_visual_refresh_elapsed, visual_interval)
+		_update_tier_ring()
+		_update_attitude_visuals()
 
 	# The owner's own golfer, working the course between rounds: their duty
 	# (see OwnerDuty) walks them and does their job, so none of the play
@@ -3615,7 +3625,6 @@ func _create_tier_ring() -> void:
 func _update_tier_ring() -> void:
 	if not _tier_ring:
 		return
-	_tier_ring.position = visual_offset
 	var base_color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
 	if golfer_tier == GolferTier.Tier.PRO:
 		var pulse = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)

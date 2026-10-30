@@ -2,8 +2,8 @@
 
 > Saves are JSON files under `user://`. A save holds the whole company and the active course. Golfers are not stored, and they arrive again after loading.
 
-**Source:** `scripts/autoload/save_manager.gd` (`SAVE_DIR`, `SETTINGS_PATH`, `SAVE_VERSION`, `SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`, `build_location_snapshot()`, autosave), `scripts/autoload/game_manager.gd` (`AUTOSAVE_INTERVAL_DAYS`)
-**Tests:** `tests/unit/test_save_manager.gd`, `tests/unit/test_save_load_validation.gd`, `tests/integration/world_map_flow.gd`
+**Source:** `scripts/autoload/save_manager.gd` (`SAVE_DIR`, `SETTINGS_PATH`, `SAVE_VERSION`, `SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`, `build_location_snapshot()`, autosave), `scripts/autoload/game_manager.gd` (`AUTOSAVE_INTERVAL_DAYS`), `scripts/systems/player_data_store.gd` (the catalogue of on-device data the Settings screen deletes)
+**Tests:** `tests/unit/test_save_manager.gd`, `tests/unit/test_save_load_validation.gd`, `tests/unit/ui_and_controls/test_player_data_store.gd`, `tests/integration/world_map_flow.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`
 
 ---
 
@@ -11,11 +11,50 @@
 
 | File | Path | Contents |
 | --- | --- | --- |
-| Saves | `user://saves/` | One JSON file per save slot |
+| Saves | `user://saves/*.save` | One JSON file per save slot |
+| Autosave | `user://saves/autosave.save` | Written automatically |
 | Settings | `user://settings.cfg` | Display, audio, gameplay and rebindable control settings, the tutorial flag, and the achievement unlocks that stay with the player between saves |
-| Autosave | `user://saves/autosave` | Written automatically |
+| Benchmark shelf | `user://benchmark_history.json` | The last twelve device benchmark runs and their reports (see [Device Benchmark](development/benchmark.md)) |
+| Diagnostic snapshot | `user://economic_snapshots.json` | Optional day-by-day economy log, written only while `economic_snapshots_enabled` is on |
+| Custom golfer skins | `user://golfer_skins/` | Skins painted in the studio (see [Golfer Skins](golfer-skins.md)) |
 
 `user://` is Godot's per-user data folder. Its location depends on your operating system.
+
+## Deleting Player Data
+
+**Settings → Data** lists what this device holds, group by group, with the delete
+action beside each one and a single **Delete All Player Data** button at the end.
+`PlayerDataStore` is the catalogue behind it; every group names the file the
+game already writes, so nothing is guessed at:
+
+| Group | Removes | Leaves alone |
+| --- | --- | --- |
+| Saved courses | Every `*.save` file in `user://saves/` - the autosave and all checkpoints | Preferences, career records, reports, custom skins |
+| Preferences | The `audio`, `display`, `controls`, `camera`, `gameplay` and `graphics` sections of `user://settings.cfg` | Saved courses, achievements, the tutorial flag |
+| Career records | The `achievements` and `tutorial` sections of `user://settings.cfg` | Saved courses, preferences |
+| Benchmark reports | `user://benchmark_history.json` and the diagnostic snapshot | Everything else |
+| Custom golfer skins | The `user://golfer_skins/` folder | Shipped skins, saved courses |
+
+Every deletion opens a confirm card first, with **Keep it** focused as the safe
+answer. Once deleted, the running game follows the change at once: preferences
+return to the shipped mixer, graphics, display, control and camera defaults
+(UI scale and VSync included), the career shelf empties, the benchmark card
+forgets the last run, custom skins unload and a golfer wearing one falls back to
+a shipped skin, and the title screen's Continue card is rebuilt from the save
+list that is left.
+
+Deleting the **saved courses** during a pause session would leave the running
+course with nowhere to autosave, so the confirm card says the course will close:
+confirming ends the pause session and returns to the title screen instead of
+quietly writing a new autosave over the files that were just deleted. Deleting
+preferences, career records, reports or skins alone leaves the course open.
+
+Mods are not one of the groups. A loaded mod cannot be removed while it runs, so
+the Mods screen keeps ownership of uninstalling them; the Data page says so.
+
+`erase_all()` leaves the device in the state a first launch starts from: no
+settings file (the game writes a fresh one the next time a preference changes),
+no saves, no reports, no custom skins.
 
 ## When Saves Happen
 

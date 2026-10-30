@@ -302,12 +302,15 @@ func _draw_ball_at_rest(visual: Node2D) -> void:
 	ball.polygon = ball_polygon(BALL_RADIUS)
 	visual.add_child(ball)
 
-	# Shadow, scaled with the ball so it stays under it at any size
-	var shadow = Polygon2D.new()
-	shadow.color = Color(0, 0, 0, 0.3)
-	shadow.position = Vector2(BALL_RADIUS * 0.5, BALL_RADIUS * 0.75)
-	shadow.polygon = ellipse_polygon(Vector2(BALL_RADIUS * 0.75, BALL_RADIUS * 0.375))
-	visual.add_child(shadow)
+	# Shadow, scaled with the ball so it stays under it at any size. It is the
+	# same kind of ground contact the props get, and it goes with them when
+	# shadows are switched off on the Display page.
+	if PerformanceSettings.contact_shadows_enabled():
+		var shadow = Polygon2D.new()
+		shadow.color = Color(0, 0, 0, 0.3)
+		shadow.position = Vector2(BALL_RADIUS * 0.5, BALL_RADIUS * 0.75)
+		shadow.polygon = ellipse_polygon(Vector2(BALL_RADIUS * 0.75, BALL_RADIUS * 0.375))
+		visual.add_child(shadow)
 
 func _draw_ball_in_flight(visual: Node2D) -> void:
 	# Slightly larger for visibility

@@ -39,6 +39,9 @@ const ANCHOR_RIM_MARGIN: float = 0.5
 var _grid: Dictionary = {}
 var _vertex_elevation: PackedInt32Array = PackedInt32Array()  # (grid_width+1) * (grid_height+1)
 var _vertex_stride: int = 0  # Row length of _vertex_elevation (grid_width + 1)
+## Maintained as heights are edited/loaded so flat courses can skip the shader's
+## per-pixel heightfield ray intersection and relief-normal sampling entirely.
+var _non_base_vertex_count: int = 0
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 ## Green tiles carrying a cup that is not yet part of a hole — a "Green With Hole" tile
 ## waiting to be paired with a tee box. Once a hole is opened the marker is consumed and
@@ -121,6 +124,8 @@ const GROUND_DETAIL_ORDER: Array[String] = [
 ## Camera tracking for viewport-culling overlays — redraw when camera moves
 var _last_camera_pos: Vector2 = Vector2.ZERO
 var _last_camera_zoom: float = 1.0
+var _camera_redraw_elapsed: float = 0.0
+var _camera_redraw_pending: bool = false
 
 func _ready() -> void:
 	_init_projection()
@@ -153,21 +158,32 @@ func _ready() -> void:
 	add_child(_wildlife)
 	_wildlife.initialize(self)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Flush any pending heightmap blur + texture uploads (batched for performance)
 	if _heightmap:
 		_heightmap.flush_dirty()
-	# Overlays use viewport culling in _draw() so their content depends on
-	# camera position. Redraw them when the camera has moved.
-	var camera = get_viewport().get_camera_2d() if get_viewport() else null
+	# Canvas overlays cull their draw lists to the camera. Queue them at a capped
+	# cadence instead of once per rendered frame while the player pans/zooms;
+	# the small prefetch margin keeps the screen edges filled between redraws.
+	var viewport := get_viewport()
+	var camera := viewport.get_camera_2d() if viewport else null
 	if not camera:
 		return
-	var cam_pos = camera.global_position
-	var cam_zoom = camera.zoom.x
+	var cam_pos := camera.global_position
+	var cam_zoom := camera.zoom.x
 	if cam_pos != _last_camera_pos or cam_zoom != _last_camera_zoom:
 		_last_camera_pos = cam_pos
 		_last_camera_zoom = cam_zoom
+		_camera_redraw_pending = true
+	if not _camera_redraw_pending:
+		return
+	_camera_redraw_elapsed += delta / maxf(Engine.time_scale, 0.01)
+	if _camera_redraw_elapsed >= PerformanceSettings.camera_redraw_interval():
+		_camera_redraw_elapsed = 0.0
+		_camera_redraw_pending = false
 		_redraw_all_overlays()
+		if _tree_overlay:
+			_tree_overlay.update_visible_trees()
 
 
 func _redraw_all_overlays() -> void:
@@ -185,8 +201,8 @@ func _redraw_all_overlays() -> void:
 		_grass_overlay.queue_redraw()
 	if _fairway_overlay:
 		_fairway_overlay.queue_redraw()
-	if _tree_overlay:
-		_tree_overlay.queue_redraw()
+	# Tree visuals are persistent, Y-sorted child CanvasItems. Camera movement
+	# only changes which ones are instantiated, not how their art is drawn.
 	if _flower_overlay:
 		_flower_overlay.queue_redraw()
 	if _walking_path_overlay:
@@ -873,6 +889,7 @@ func create_analysis_copy() -> TerrainGrid:
 	_ensure_vertex_storage()
 	copy._vertex_elevation = _vertex_elevation.duplicate()
 	copy._vertex_stride = _vertex_stride
+	copy._non_base_vertex_count = _non_base_vertex_count
 	copy.terrain_revision = terrain_revision
 	return copy
 
@@ -1146,6 +1163,11 @@ func is_debug_overlay_enabled() -> bool:
 func vertex_grid_size() -> Vector2i:
 	return Vector2i(grid_width + 1, grid_height + 1)
 
+## Whether any vertex differs from level ground. Read by the course renderer to
+## bypass elevation-ray work on flat courses.
+func has_relief() -> bool:
+	return _non_base_vertex_count > 0
+
 func is_valid_vertex(vertex: Vector2i) -> bool:
 	return vertex.x >= 0 and vertex.x <= grid_width \
 		and vertex.y >= 0 and vertex.y <= grid_height
@@ -1164,6 +1186,7 @@ func _ensure_vertex_storage() -> void:
 	_vertex_elevation.resize(needed)
 	_vertex_elevation.fill(BASE_ELEVATION)
 	_vertex_stride = stride
+	_non_base_vertex_count = 0
 	if previous.size() == 0 or previous_stride <= 0:
 		return
 	var rows: int = mini(int(previous.size() / float(previous_stride)), grid_height + 1)
@@ -1171,9 +1194,18 @@ func _ensure_vertex_storage() -> void:
 	for y in rows:
 		for x in cols:
 			_vertex_elevation[y * stride + x] = previous[y * previous_stride + x]
+	for height in _vertex_elevation:
+		if height != BASE_ELEVATION:
+			_non_base_vertex_count += 1
 
 func _vertex_index(vertex: Vector2i) -> int:
 	return vertex.y * (grid_width + 1) + vertex.x
+
+func _recount_non_base_vertices() -> void:
+	_non_base_vertex_count = 0
+	for height in _vertex_elevation:
+		if height != BASE_ELEVATION:
+			_non_base_vertex_count += 1
 
 ## Height stored at a grid vertex (clamped to MIN_ELEVATION..MAX_ELEVATION).
 ## Off-grid vertices report BASE_ELEVATION so slopes at the rim stay level.
@@ -1192,6 +1224,10 @@ func set_vertex_elevation(vertex: Vector2i, height: int) -> void:
 	var old_height: int = _vertex_elevation[index]
 	if old_height == new_height:
 		return
+	if old_height == BASE_ELEVATION and new_height != BASE_ELEVATION:
+		_non_base_vertex_count += 1
+	elif old_height != BASE_ELEVATION and new_height == BASE_ELEVATION:
+		_non_base_vertex_count = maxi(0, _non_base_vertex_count - 1)
 
 	var affected: Array[Vector2i] = tiles_around_vertex(vertex)
 	var before: Dictionary = {}
@@ -1517,6 +1553,7 @@ func deserialize_elevation(data: Dictionary) -> void:
 			if is_valid_vertex(vertex):
 				_vertex_elevation[_vertex_index(vertex)] = clampi(int(data[key]),
 						MIN_ELEVATION, MAX_ELEVATION)
+	_recount_non_base_vertices()
 	_after_elevation_bulk_load()
 
 func migrate_tile_elevation(data: Dictionary) -> void:
@@ -1540,6 +1577,7 @@ func migrate_tile_elevation(data: Dictionary) -> void:
 				count += 1
 			if count > 0:
 				_vertex_elevation[_vertex_index(vertex)] = roundi(float(total) / float(count))
+	_recount_non_base_vertices()
 	_after_elevation_bulk_load()
 
 ## Rebuild every elevation-derived texture after a bulk write (load, migration).
@@ -1553,3 +1591,5 @@ func _after_elevation_bulk_load() -> void:
 	if _heightmap:
 		_heightmap.request_rebuild(self)
 	_refresh_elevation_visuals()
+	if _tree_overlay:
+		_tree_overlay.refresh_elevation_visuals()

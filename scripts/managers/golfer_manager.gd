@@ -29,6 +29,11 @@ var _cached_groups: Dictionary = {}  # group_id -> Array[Golfer]
 var _cached_sorted_group_ids: Array = []
 var _groups_dirty: bool = true  # Rebuild groups when golfers are added/removed
 
+## Course-wide group checks are budgeted separately from each golfer's
+## per-frame movement and shot animation. The accumulated game-time delta keeps
+## decisions in sync with simulation speed while the profile limits CPU work.
+var _simulation_update_elapsed: float = 0.0
+
 ## True while clear_all_golfers() empties the course (see _on_golfer_left_course).
 var _clearing_golfers: bool = false
 
@@ -297,23 +302,34 @@ func _is_area_clear_of_golfers(target: Vector2, radius: float, exclude_group_id:
 	return true
 
 func _process(delta: float) -> void:
-	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
+	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED:
+		return
 	if GameManager.game_mode != GameManager.GameMode.SIMULATING:
+		_simulation_update_elapsed = 0.0
 		return
 
-	# Periodically refresh cached spawn rate modifier
+	# Periodically refresh cached spawn rate modifier. This is cheap on ordinary
+	# frames; its relatively expensive modifier calculation only runs every five
+	# game-seconds.
 	_spawn_modifier_cache_timer += delta
 	if _spawn_modifier_cache_timer >= SPAWN_MODIFIER_CACHE_DURATION:
 		_spawn_modifier_cache_timer = 0.0
 		_cached_spawn_modifier = get_spawn_rate_modifier()
 
+	# Cooldown time remains exact in game-time even though group coordination is
+	# throttled below.
+	time_since_last_spawn += delta
+	_simulation_update_elapsed += delta
+	var update_interval := PerformanceSettings.simulation_update_interval() * maxf(Engine.time_scale, 0.01)
+	if _simulation_update_elapsed < update_interval:
+		return
+	var update_delta := _simulation_update_elapsed
+	_simulation_update_elapsed = 0.0
+
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown).
 	# The course never closes, so spawning continues around the clock.
-	time_since_last_spawn += delta  # delta already scaled by Engine.time_scale
-
-	# Don't spawn regular golfers during tournaments
+	# Don't spawn regular golfers during tournaments.
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
-
 	if not tournament_active and GameManager.get_open_hole_count() > 0:
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
@@ -323,8 +339,9 @@ func _process(delta: float) -> void:
 				spawn_initial_group()
 				time_since_last_spawn = 0.0
 
-	# Update active golfers
-	_update_golfers(delta)
+	# Update active groups at the selected cadence. Movement and ball animation
+	# remain per-frame on each Golfer node.
+	_update_golfers(update_delta)
 
 func _update_golfers(delta: float) -> void:
 	# Rebuild groups only when golfers are added/removed (not every frame)
@@ -1270,6 +1287,7 @@ func clear_all_golfers() -> void:
 	next_golfer_id = 0
 	next_group_id = 0
 	time_since_last_spawn = 0.0
+	_simulation_update_elapsed = 0.0
 	_spawned_visitor_names.clear()
 	_clearing_golfers = false
 

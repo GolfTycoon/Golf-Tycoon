@@ -15,7 +15,11 @@ When an AI golfer's turn comes, they must decide **where to aim** and **which cl
 2. **Plan the sequence.** How many shots will the hole take? Work backwards from the green to find the ideal distance for *this* shot.
 3. **Evaluate candidates.** For each club, scan a fan of angles and distances around the line to the hole. Score each landing zone on terrain, distance gained, hazard risk and the setup for the next shot.
 4. **Apply personality and situation.** Aggressive golfers discount hazards. Cautious golfers amplify them. Golfers over par play more aggressively, and golfers well under par play safe.
-5. **Pick the best.** Sort the candidates and return the highest-scoring option.
+5. **Pick the best.** Return the highest-scoring option; equally scored candidates use scan order as a deterministic tie-break.
+
+### Search efficiency
+
+Within a decision, repeated landing scores and miss risks are cached. Miss sampling is skipped when the landing score plus any accuracy bonus cannot beat the best candidate: miss risk cannot improve the score for normal aggression values. The full scan remains in use if an unusual aggression value would make risk negative. Tree collision and canopy density share one flight scan. The route calculator uses this same decision engine.
 
 ### Recovery mode
 

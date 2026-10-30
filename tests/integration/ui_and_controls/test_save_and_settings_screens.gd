@@ -22,6 +22,14 @@ const SEEDED_SAVES := ["integration_layout_one", "integration_layout_two"]
 const CHECKPOINT := "integration_layout_checkpoint"
 ## The benchmark's run shelf, kept off the player's own file.
 const HISTORY_PATH := "user://test_settings_benchmark_history.json"
+## The Data page's tests point PlayerDataStore at this scratch folder, so the
+## deletion buttons are exercised without touching the real player's files.
+const DATA_ROOT := "user://test_settings_data_page"
+const DATA_SAVES := DATA_ROOT + "/saves/"
+const DATA_SETTINGS := DATA_ROOT + "/settings.cfg"
+const DATA_HISTORY := DATA_ROOT + "/benchmark_history.json"
+const DATA_SNAPSHOT := DATA_ROOT + "/economic_snapshots.json"
+const DATA_SKINS := DATA_ROOT + "/golfer_skins"
 
 var _old_history_path := ""
 
@@ -42,6 +50,109 @@ func after_all() -> void:
 	for save_id in SEEDED_SAVES + [CHECKPOINT]:
 		SaveManager.delete_save(save_id)
 	super()
+
+
+func before_each() -> void:
+	super()
+	PlayerDataStore.restore_default_paths()
+	_remove_data_root()
+
+
+func after_each() -> void:
+	PlayerDataStore.restore_default_paths()
+	_remove_data_root()
+	await super()
+
+
+# ---------------------------------------------------------------------------
+# The Data page's scratch device
+# ---------------------------------------------------------------------------
+
+func _use_scratch_data() -> void:
+	PlayerDataStore.saves_dir = DATA_SAVES
+	PlayerDataStore.settings_path = DATA_SETTINGS
+	PlayerDataStore.benchmark_history_path = DATA_HISTORY
+	PlayerDataStore.economic_snapshot_path = DATA_SNAPSHOT
+	PlayerDataStore.golfer_skins_dir = DATA_SKINS
+	DirAccess.make_dir_recursive_absolute(DATA_SAVES)
+
+
+func _write_data(path: String, text: String) -> void:
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
+
+
+func _remove_data_root() -> void:
+	if not DirAccess.dir_exists_absolute(DATA_ROOT):
+		return
+	var dir := DirAccess.open(DATA_ROOT)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while not entry.is_empty():
+		if entry != "." and entry != "..":
+			var full := DATA_ROOT.path_join(entry)
+			if dir.current_is_dir():
+				_remove_tree(full)
+			else:
+				DirAccess.remove_absolute(full)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	DirAccess.remove_absolute(DATA_ROOT)
+
+
+func _remove_tree(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while not entry.is_empty():
+		if entry != "." and entry != "..":
+			var full := path.path_join(entry)
+			if dir.current_is_dir():
+				_remove_tree(full)
+			else:
+				DirAccess.remove_absolute(full)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	DirAccess.remove_absolute(path)
+
+
+func _seed_data_device() -> void:
+	_write_data(DATA_SAVES + "checkpoint.save", "{\"game_state\": {}}")
+	var config := ConfigFile.new()
+	config.set_value("audio", "master_volume", 0.4)
+	config.set_value("display", "fps_counter_enabled", true)
+	config.set_value("achievements", "unlocked", {"ach_first_steps": 4})
+	config.set_value("tutorial", "completed", true)
+	config.save(DATA_SETTINGS)
+	_write_data(DATA_HISTORY, JSON.stringify({"version": 2, "runs": [{"at_unix": 1}]}))
+	_write_data(DATA_SKINS.path_join("painted").path_join("skin.txt"), "id=painted")
+
+
+func _open_data_page(origin: int = SettingsMenu.Origin.MAIN_MENU) -> SettingsMenu:
+	await set_window(DESIGN_WINDOW)
+	var menu := SettingsMenu.new()
+	menu.origin = origin
+	add_child_autofree(menu)
+	await process_frames(6)
+	menu._select_category(SettingsMenu.Category.DATA)
+	await process_frames(3)
+	return menu
+
+
+func _confirmation_says(menu: SettingsMenu, fragment: String) -> bool:
+	var overlay := menu.find_child("SettingsConfirmation", true, false)
+	if overlay == null:
+		return false
+	for label in nodes_of_class(overlay, "Label"):
+		if str((label as Label).text).contains(fragment):
+			return true
+	return false
 
 
 func _open_archive(mode: SaveLoadPanel.ScreenMode) -> SaveLoadPanel:
@@ -147,7 +258,7 @@ func test_the_settings_office_fits_every_window() -> void:
 		for category in SettingsMenu.Category.values():
 			if menu.find_child("Category_%s" % menu._category_key(category), true, false):
 				categories += 1
-		assert_eq(categories, 3, "%s: all three categories are in reach" % tag)
+		assert_eq(categories, 4, "%s: all four categories are in reach" % tag)
 		_assert_targets(tag, menu, size)
 		_assert_fits(tag, menu.get_node_or_null("SettingsFrame"), size,
 			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
@@ -197,6 +308,74 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	GameManager.invert_zoom_scroll = inverted
 	menu._save_controls_settings()
 
+
+func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
+	await set_window(DESIGN_WINDOW)
+	var original_preset := PerformanceSettings.graphics_preset
+	var original_graphics: Dictionary = {}
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		original_graphics[setting] = PerformanceSettings.get_graphics_setting(setting)
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(5)
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(2)
+	var options := menu.find_child("GraphicsPreset", true, false) as OptionButton
+	assert_not_null(options, "Graphics quality is on the Display page")
+	if options == null:
+		return
+	assert_eq(options.item_count, PerformanceSettings.PRESET_LABELS.size(),
+		"the named presets and the current Custom combination are shown")
+	assert_eq(options.selected, original_preset, "the menu reflects the saved choice")
+	for control_name in ["TerrainQuality", "GrassQuality", "TreeOcclusion", "WaterQuality",
+			"WindFlagQuality", "ShadowDetail", "WildlifeDetail", "EffectDetail",
+			"AnimationRate", "CameraUpdateRate", "GolferUpdateRate"]:
+		assert_not_null(menu.find_child(control_name, true, false),
+			"%s is an independently adjustable graphics setting" % control_name)
+
+	var performance_index := options.get_item_index(PerformanceSettings.GraphicsPreset.PERFORMANCE)
+	options.select(performance_index)
+	options.item_selected.emit(performance_index)
+	await process_frames(1)
+	assert_eq(PerformanceSettings.graphics_preset, PerformanceSettings.GraphicsPreset.PERFORMANCE,
+		"choosing a preset applies it immediately")
+	assert_eq(PerformanceSettings.terrain_quality, PerformanceSettings.TerrainQuality.FAST)
+	assert_eq(PerformanceSettings.grass_quality, PerformanceSettings.GrassQuality.OFF)
+	assert_false(PerformanceSettings.tree_occlusion_enabled)
+	assert_eq(PerformanceSettings.water_quality, PerformanceSettings.WaterQuality.REDUCED)
+	assert_eq(PerformanceSettings.shadow_detail, PerformanceSettings.ShadowDetail.OFF)
+	assert_eq(PerformanceSettings.wildlife_detail, PerformanceSettings.WildlifeDetail.OFF)
+	assert_eq(PerformanceSettings.effect_detail, PerformanceSettings.EffectDetail.REDUCED)
+	assert_eq(PerformanceSettings.animation_rate, PerformanceSettings.UpdateRate.LOW)
+
+	var grass_options := menu.find_child("GrassQuality", true, false) as OptionButton
+	var water_before := PerformanceSettings.water_quality
+	var grass_full_index := grass_options.get_item_index(PerformanceSettings.GrassQuality.FULL)
+	grass_options.select(grass_full_index)
+	grass_options.item_selected.emit(grass_full_index)
+	await process_frames(1)
+	assert_eq(PerformanceSettings.graphics_preset, PerformanceSettings.GraphicsPreset.CUSTOM,
+		"editing one component changes the preset label to Custom")
+	assert_eq(PerformanceSettings.grass_quality, PerformanceSettings.GrassQuality.FULL)
+	assert_eq(PerformanceSettings.water_quality, water_before,
+		"the other quality settings keep the preset's values")
+	assert_eq(options.selected, PerformanceSettings.GraphicsPreset.CUSTOM)
+
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "the display settings file still loads")
+	assert_eq(int(saved.get_value("display", "graphics_preset", -1)),
+		PerformanceSettings.GraphicsPreset.CUSTOM, "the active preset label is persisted")
+	assert_eq(int(saved.get_value("graphics", "grass_quality", -1)),
+		PerformanceSettings.GrassQuality.FULL, "the changed component is persisted separately")
+	assert_eq(int(saved.get_value("graphics", "water_quality", -1)),
+		PerformanceSettings.WaterQuality.REDUCED, "untouched component settings are persisted too")
+
+	if original_preset == PerformanceSettings.GraphicsPreset.CUSTOM:
+		PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+		for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+			PerformanceSettings.set_graphics_setting(setting, original_graphics[setting])
+	else:
+		PerformanceSettings.set_graphics_preset(original_preset)
+	menu._save_display_settings()
 
 func test_the_minimap_setting_enables_and_disables_the_minimap() -> void:
 	await set_window(DESIGN_WINDOW)
@@ -404,3 +583,173 @@ func test_the_game_opens_the_archive_in_the_right_mode() -> void:
 		assert_eq(from_pause._mode, SaveLoadPanel.ScreenMode.SAVE, "on the save page")
 		assert_eq(from_pause.camera, main.camera, "and the course camera to look around with")
 		from_pause.free()
+
+
+# ---------------------------------------------------------------------------
+# The Data page
+# ---------------------------------------------------------------------------
+
+func test_the_data_page_reports_what_is_stored_and_asks_before_deleting() -> void:
+	await set_window(DESIGN_WINDOW)
+	_use_scratch_data()
+	_write_data(DATA_SAVES + "checkpoint.save", "{\"game_state\": {}}")
+	var menu: SettingsMenu = await _open_data_page()
+	watch_signals(menu)
+
+	var summary := menu.find_child("PlayerDataSummary", true, false) as Label
+	assert_not_null(summary, "the page says how much of the device is in use")
+	if summary:
+		assert_string_contains(summary.text, "1 of 5 data groups")
+	var usage := menu.find_child("DataUsage_saved_courses", true, false) as Label
+	assert_not_null(usage, "the saved-courses card says what it holds")
+	if usage:
+		assert_string_contains(usage.text, "1 saved course")
+	var delete_saves := menu.find_child("DeleteData_saved_courses", true, false) as Button
+	assert_not_null(delete_saves, "and offers to delete it")
+	assert_false(delete_saves.disabled, "the button is live while a save is stored")
+	var delete_preferences := menu.find_child("DeleteData_preferences", true, false) as Button
+	assert_not_null(delete_preferences)
+	assert_true(delete_preferences.disabled, "an empty group offers no dead action")
+	var delete_all := menu.find_child("DeleteAllDataButton", true, false) as Button
+	assert_not_null(delete_all, "one button clears all of it")
+	assert_false(delete_all.disabled)
+	if delete_saves == null:
+		return
+
+	delete_saves.pressed.emit()
+	await process_frames(2)
+	assert_not_null(menu.find_child("SettingsConfirmation", true, false),
+		"deleting asks first")
+	assert_true(FileAccess.file_exists(DATA_SAVES + "checkpoint.save"),
+		"nothing is gone before the answer")
+	var keep := menu.find_child("KeepDataButton", true, false) as Button
+	assert_not_null(keep, "the safe answer is offered")
+	if keep:
+		keep.pressed.emit()
+		await process_frames(2)
+	assert_null(menu.find_child("SettingsConfirmation", true, false), "the card closes")
+	assert_true(FileAccess.file_exists(DATA_SAVES + "checkpoint.save"),
+		"keeping the data deletes nothing")
+	assert_signal_not_emitted(menu, "data_deleted")
+
+	delete_saves.pressed.emit()
+	await process_frames(2)
+	var confirm := menu.find_child("ConfirmDataDeleteButton", true, false) as Button
+	assert_not_null(confirm, "confirming is a second, separate press")
+	if confirm:
+		confirm.pressed.emit()
+		await process_frames(3)
+	assert_false(FileAccess.file_exists(DATA_SAVES + "checkpoint.save"),
+		"confirming deletes the group")
+	assert_signal_emitted(menu, "data_deleted")
+	assert_signal_not_emitted(menu, "quit_to_menu_requested",
+		"a title-screen session has no course to close")
+	var status := menu.find_child("DataStatus", true, false) as Label
+	assert_not_null(status)
+	if status:
+		assert_string_contains(status.text, "deleted")
+	var refreshed_all := menu.find_child("DeleteAllDataButton", true, false) as Button
+	assert_not_null(refreshed_all)
+	if refreshed_all:
+		assert_true(refreshed_all.disabled, "with nothing left, the all-data action stands down")
+	assert_eq(PlayerDataStore.anything_stored(), false, "the scratch device is empty")
+
+
+func test_deleting_all_player_data_clears_every_group_at_once() -> void:
+	await set_window(DESIGN_WINDOW)
+	_use_scratch_data()
+	_seed_data_device()
+	var menu: SettingsMenu = await _open_data_page()
+	watch_signals(menu)
+	var delete_all := menu.find_child("DeleteAllDataButton", true, false) as Button
+	assert_not_null(delete_all)
+	if delete_all == null:
+		return
+	delete_all.pressed.emit()
+	await process_frames(2)
+	assert_not_null(menu.find_child("SettingsConfirmation", true, false),
+		"deleting everything asks first")
+	var confirm := menu.find_child("ConfirmDataDeleteButton", true, false) as Button
+	assert_not_null(confirm)
+	if confirm:
+		confirm.pressed.emit()
+		await process_frames(3)
+	assert_eq(PlayerDataStore.usage(PlayerDataStore.SAVED_COURSES)["count"], 0,
+		"saved courses are gone")
+	assert_false(FileAccess.file_exists(DATA_SETTINGS), "preferences and records are gone")
+	assert_false(FileAccess.file_exists(DATA_HISTORY), "the benchmark shelf is gone")
+	assert_false(DirAccess.dir_exists_absolute(DATA_SKINS), "the custom skins are gone")
+	assert_signal_emitted(menu, "data_deleted")
+	var emitted: Array = get_signal_parameters(menu, "data_deleted", 0)
+	assert_eq(emitted.size(), 1)
+	if emitted.size() > 0:
+		assert_eq((emitted[0] as Array).size(), PlayerDataStore.GROUP_IDS.size(),
+			"the host is told every group went")
+	var summary := menu.find_child("PlayerDataSummary", true, false) as Label
+	assert_not_null(summary)
+	if summary:
+		assert_string_contains(summary.text, "Nothing is stored")
+
+
+func test_deleting_saved_courses_from_a_pause_session_asks_to_close_the_course() -> void:
+	_use_scratch_data()
+	_write_data(DATA_SAVES + "checkpoint.save", "{\"game_state\": {}}")
+	var menu: SettingsMenu = await _open_data_page(SettingsMenu.Origin.PAUSE_MENU)
+	watch_signals(menu)
+	var delete_saves := menu.find_child("DeleteData_saved_courses", true, false) as Button
+	assert_not_null(delete_saves)
+	if delete_saves == null:
+		return
+	delete_saves.pressed.emit()
+	await process_frames(2)
+	assert_true(_confirmation_says(menu, "current course will close"),
+		"the confirmation warns that the course will close")
+	var confirm := menu.find_child("ConfirmDataDeleteButton", true, false) as Button
+	assert_not_null(confirm)
+	if confirm:
+		confirm.pressed.emit()
+		await process_frames(3)
+	assert_false(FileAccess.file_exists(DATA_SAVES + "checkpoint.save"))
+	assert_signal_emitted(menu, "quit_to_menu_requested",
+		"the host is asked to close the course before it can autosave again")
+
+
+func test_deleting_benchmark_reports_clears_the_display_cards_last_run() -> void:
+	await set_window(DESIGN_WINDOW)
+	_use_scratch_data()
+	_write_data(DATA_HISTORY, JSON.stringify({"version": 2, "runs": [{"at_unix": 1}]}))
+	PerformanceBenchmark.last_result = {
+		"frame": {"sample_count": 120, "average_fps": 61.0, "one_percent_low_fps": 55.0,
+			"p95_frame_ms": 18.0},
+		"score": {"overall": 82.0, "stars": 4, "tier": "Eagle"},
+		"engine": {}, "gpu": {},
+	}
+	var menu: SettingsMenu = await _open_data_page()
+	# The Display card adopts the newest run when the menu opens.
+	assert_string_contains(menu._benchmark_summary_text, "Eagle",
+		"the card starts on the run this machine holds")
+	var delete_reports := menu.find_child("DeleteData_benchmark_reports", true, false) as Button
+	assert_not_null(delete_reports)
+	if delete_reports == null:
+		return
+	delete_reports.pressed.emit()
+	await process_frames(2)
+	var confirm := menu.find_child("ConfirmDataDeleteButton", true, false) as Button
+	assert_not_null(confirm)
+	if confirm:
+		confirm.pressed.emit()
+		await process_frames(3)
+	assert_false(FileAccess.file_exists(DATA_HISTORY), "the shelf is gone")
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(3)
+	var summary := menu.find_child("BenchmarkSummary", true, false) as Label
+	var status := menu.find_child("BenchmarkStatus", true, false) as Label
+	assert_not_null(summary)
+	assert_not_null(status)
+	if summary:
+		assert_string_contains(summary.text, "No results yet",
+			"the card no longer describes a deleted report")
+	if status:
+		assert_string_contains(status.text, "Ready",
+			"and it offers a fresh run instead")
+	PerformanceBenchmark.last_result = {}

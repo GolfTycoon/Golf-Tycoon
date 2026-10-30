@@ -18,19 +18,36 @@ func _ready() -> void:
 func setup(terrain_grid: TerrainGrid) -> void:
 	_terrain_grid = terrain_grid
 	_is_web = OS.get_name() == "Web"
+	visible = PerformanceSettings.grass_quality != PerformanceSettings.GrassQuality.OFF
 	_regenerate_grass()
 	terrain_grid.tile_changed.connect(_on_tile_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
 	EventBus.building_placed.connect(_on_building_changed)
 	EventBus.building_removed.connect(_on_building_changed)
+	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
 
 func _exit_tree() -> void:
+	if is_instance_valid(_terrain_grid) and _terrain_grid.tile_changed.is_connected(_on_tile_changed):
+		_terrain_grid.tile_changed.disconnect(_on_tile_changed)
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.disconnect(_on_theme_changed)
 	if EventBus.building_placed.is_connected(_on_building_changed):
 		EventBus.building_placed.disconnect(_on_building_changed)
 	if EventBus.building_removed.is_connected(_on_building_changed):
 		EventBus.building_removed.disconnect(_on_building_changed)
+	if PerformanceSettings.profile_changed.is_connected(_on_performance_profile_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_performance_profile_changed)
+
+func _on_performance_profile_changed(_terrain_fast: bool) -> void:
+	var should_be_visible := PerformanceSettings.grass_quality != PerformanceSettings.GrassQuality.OFF
+	if visible == should_be_visible:
+		return
+	visible = should_be_visible
+	if not should_be_visible:
+		_grass_positions.clear()
+	else:
+		_regenerate_grass()
+	queue_redraw()
 
 func _on_theme_changed(_theme_type: int) -> void:
 	# Regenerate grass with new theme colors
@@ -43,6 +60,8 @@ func _on_building_changed(_arg1, _arg2 = null) -> void:
 	queue_redraw()
 
 func _on_tile_changed(pos: Vector2i, _old_type: int, new_type: int) -> void:
+	if PerformanceSettings.grass_quality == PerformanceSettings.GrassQuality.OFF:
+		return
 	if new_type in GRASS_TYPES:
 		var el = GameManager.entity_layer if GameManager else null
 		if el and el.is_tile_occupied_by_building(pos):
@@ -55,7 +74,7 @@ func _on_tile_changed(pos: Vector2i, _old_type: int, new_type: int) -> void:
 
 func _regenerate_grass() -> void:
 	_grass_positions.clear()
-	if not _terrain_grid:
+	if not _terrain_grid or PerformanceSettings.grass_quality == PerformanceSettings.GrassQuality.OFF:
 		return
 
 	var el = GameManager.entity_layer if GameManager else null

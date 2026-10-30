@@ -31,7 +31,6 @@ static func calculate_waypoints(hole_data: GameManager.HoleData, terrain_grid: T
 ## (TerrainGrid.create_analysis_copy()) to plan off the main thread.
 static func calculate_route(tee: Vector2i, cup: Vector2i, par: int, hole_index: int = -1,
 		terrain_grid: TerrainGrid = null) -> Array[Vector2i]:
-	var grid: TerrainGrid = terrain_grid if terrain_grid else GameManager.terrain_grid
 	var waypoints: Array[Vector2i] = [tee]
 
 	# Shots to reach the green = par - 2 putts
@@ -40,6 +39,8 @@ static func calculate_route(tee: Vector2i, cup: Vector2i, par: int, hole_index: 
 	if num_intermediate <= 0:
 		waypoints.append(cup)
 		return waypoints
+
+	var grid: TerrainGrid = terrain_grid if terrain_grid else GameManager.terrain_grid
 
 	# Create lightweight golfer data for visualization (no scene tree needed)
 	var gd: ShotAI.GolferData = _create_avg_golfer_data(tee, hole_index)

@@ -20,6 +20,9 @@ uniform float elevation_texture_scale = 25.0;
 // of it, so a pond only deepens through tiles at one level.
 uniform float elevation_levels = 10.0;
 uniform bool is_isometric = true;
+// Flat and Performance-profile courses avoid the expensive exact ray traversal.
+uniform bool has_elevation = true;
+uniform bool low_detail_mode = false;
 
 uniform vec2 grid_origin = vec2(0.0);
 uniform vec2 grid_axis_x = vec2(64.0, 32.0);
@@ -209,6 +212,63 @@ vec3 palette_color(float id) {
 	// The palette holds one texel per terrain id; its width is the id count.
 	float count = float(textureSize(palette, 0).x);
 	return texture(palette, vec2((id + 0.5) / count, 0.5)).rgb;
+}
+
+// Approximate the visible heightfield in a few bilinear samples. The fast
+// profile keeps hills and valleys, while trading exact cliff-edge ray hits for
+// a small fixed-point solve (three samples instead of up to 48).
+vec2 fast_surface_grid_at_world(vec2 world, out bool hit) {
+	vec2 flat_point = world_to_grid(world);
+	vec2 point = flat_point;
+	hit = true;
+	if (!is_isometric || elevation_step_y <= 0.0 || !has_elevation) {
+		return point;
+	}
+	vec2 ray_direction = world_to_grid(world + vec2(0.0, 1.0)) - flat_point;
+	for (int step = 0; step < 3; step++) {
+		point = flat_point + ray_direction * elevation_at_grid(point) * elevation_step_y;
+	}
+	hit = point.x >= 0.0 && point.y >= 0.0
+		&& point.x <= grid_size.x && point.y <= grid_size.y;
+	return point;
+}
+
+// A deliberately inexpensive surface for Performance mode: palette colour,
+// subtle world-anchored grain, and a narrow material seam. The detail-heavy
+// terrain functions below remain the Balanced/High path.
+vec3 low_detail_surface(float id, vec2 cell, vec2 local, vec2 world, float elevation) {
+	vec3 color = palette_color(id);
+	float grain = hash(floor(world * 0.18));
+	float brightness = (0.97 + grain * 0.06) * (0.96 + elevation * 0.08);
+	if (id == 2.0 || id == T_FIRM_FAIRWAY) {
+		brightness *= mix(0.98, 1.02, step(0.5, fract((cell.x + cell.y) * 0.5)));
+	} else if (id == 7.0 || id == T_POT_BUNKER || id == T_WASTE_BUNKER) {
+		brightness *= 0.96 + grain * 0.12;
+	} else if (id == 8.0 || id == T_STREAM) {
+		brightness *= 0.98 + grain * 0.04;
+	} else if (is_tree(id) || id == T_BRUSH || id == T_FLOWER_BED) {
+		brightness *= 0.94 + grain * 0.08;
+	}
+	color *= brightness;
+
+	float border = 0.0;
+	if (local.x < 0.035) {
+		border = max(border, differs(id, tile_at(cell + vec2(-1.0, 0.0)))
+			* (1.0 - smoothstep(0.0, 0.035, local.x)));
+	}
+	if (local.x > 0.965) {
+		border = max(border, differs(id, tile_at(cell + vec2(1.0, 0.0)))
+			* (1.0 - smoothstep(0.0, 0.035, 1.0 - local.x)));
+	}
+	if (local.y < 0.035) {
+		border = max(border, differs(id, tile_at(cell + vec2(0.0, -1.0)))
+			* (1.0 - smoothstep(0.0, 0.035, local.y)));
+	}
+	if (local.y > 0.965) {
+		border = max(border, differs(id, tile_at(cell + vec2(0.0, 1.0)))
+			* (1.0 - smoothstep(0.0, 0.035, 1.0 - local.y)));
+	}
+	return mix(color, color * 0.76, border * 0.42);
 }
 
 // Polynomial smooth minimum: rounds the inside corner where two shapes meet.
@@ -1320,9 +1380,23 @@ vec3 neighbour_surface(float tile, float cover, float self_id, vec2 world, float
 void fragment() {
 	vec2 world = surface_origin + UV * surface_size;
 	bool surface_hit;
-	vec2 p = surface_grid_at_world(world, surface_hit);
+	vec2 p;
+	if (low_detail_mode) {
+		p = fast_surface_grid_at_world(world, surface_hit);
+	} else if (has_elevation) {
+		p = surface_grid_at_world(world, surface_hit);
+	} else {
+		p = world_to_grid(world);
+		surface_hit = true;
+	}
 	if (!surface_hit || p.x < 0.0 || p.y < 0.0 || p.x > grid_size.x || p.y > grid_size.y) {
 		COLOR = vec4(0.0);
+	} else if (low_detail_mode) {
+		vec2 cell = floor(p);
+		vec2 local = fract(p);
+		vec4 tile_data = tile_data_at(cell);
+		float id = floor(tile_data.r * 255.0 + 0.5);
+		COLOR = vec4(low_detail_surface(id, cell, local, p * tile_size, tile_data.b), 1.0);
 	} else {
 		vec2 tile_world = p * tile_size;
 		// A restrained contour perturbation breaks stair steps without moving tile centers.
@@ -1429,24 +1503,25 @@ void fragment() {
 		if (w_w > 0.0) { color += neighbour_surface(t_w, cov_w, a, tile_world, grain, patch) * w_w; }
 		if (w_n > 0.0) { color += neighbour_surface(t_n, cov_n, a, tile_world, grain, patch) * w_n; }
 		color /= max(w_sum, 0.0001);
-		// Elevation slopes & 3D relief normal
-		float left_h = elevation_at_grid(p - vec2(0.6, 0.0));
-		float right_h = elevation_at_grid(p + vec2(0.6, 0.0));
-		float up_h = elevation_at_grid(p - vec2(0.0, 0.6));
-		float down_h = elevation_at_grid(p + vec2(0.0, 0.6));
-		float dh_x = (right_h - left_h) * (elevation_step_y * 0.8);
-		float dh_y = (down_h - up_h) * (elevation_step_y * 0.8);
-		float det = grid_axis_x.x * grid_axis_y.y - grid_axis_y.x * grid_axis_x.y;
-		vec3 normal = vec3(
-			(grid_axis_x.y * dh_y - grid_axis_y.y * dh_x) / det,
-			(grid_axis_y.x * dh_x - grid_axis_x.x * dh_y) / det,
-			1.0
-		);
-		normal = normalize(normal);
-		vec3 sunlight = normalize(vec3(relief_light, 1.3));
-		float ndotl = dot(normal, sunlight);
-		float relief = clamp(1.0 + (dot(normal, sunlight) - sunlight.z) * 0.28, 0.84, 1.08);
-
+		// Elevation slopes & 3D relief normal are unnecessary on a flat course.
+		float relief = 1.0;
+		if (has_elevation) {
+			float left_h = elevation_at_grid(p - vec2(0.6, 0.0));
+			float right_h = elevation_at_grid(p + vec2(0.6, 0.0));
+			float up_h = elevation_at_grid(p - vec2(0.0, 0.6));
+			float down_h = elevation_at_grid(p + vec2(0.0, 0.6));
+			float dh_x = (right_h - left_h) * (elevation_step_y * 0.8);
+			float dh_y = (down_h - up_h) * (elevation_step_y * 0.8);
+			float det = grid_axis_x.x * grid_axis_y.y - grid_axis_y.x * grid_axis_x.y;
+			vec3 normal = vec3(
+				(grid_axis_x.y * dh_y - grid_axis_y.y * dh_x) / det,
+				(grid_axis_y.x * dh_x - grid_axis_x.x * dh_y) / det,
+				1.0
+			);
+			normal = normalize(normal);
+			vec3 sunlight = normalize(vec3(relief_light, 1.3));
+			relief = clamp(1.0 + (dot(normal, sunlight) - sunlight.z) * 0.28, 0.84, 1.08);
+		}
 		COLOR = vec4(color * relief, 1.0);
 	}
 }

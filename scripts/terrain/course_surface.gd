@@ -61,6 +61,9 @@ func initialize(grid: TerrainGrid) -> void:
 	surface_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
 	surface_material.set_shader_parameter("elevation_levels", float(grid.MAX_ELEVATION - grid.MIN_ELEVATION))
 	surface_material.set_shader_parameter("is_isometric", grid.view_isometric)
+	surface_material.set_shader_parameter("has_elevation", grid.has_relief())
+	surface_material.set_shader_parameter("low_detail_mode",
+		PerformanceSettings.terrain_quality == PerformanceSettings.TerrainQuality.FAST)
 	material = surface_material
 	apply_projection(grid.projection)
 	refresh_palette()
@@ -68,8 +71,10 @@ func initialize(grid: TerrainGrid) -> void:
 	rebuild_elevation()
 	grid.tile_changed.connect(_on_tile_changed)
 	grid.elevation_changed.connect(_on_elevation_changed)
+	grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
 	EventBus.load_completed.connect(_on_load_completed)
+	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
 
 func apply_projection(proj: GridProjection) -> void:
 	if proj == null:
@@ -154,9 +159,27 @@ func rebuild_elevation() -> void:
 		for y in range(_grid.grid_height + 1):
 			_write_vertex(Vector2i(x, y))
 	_elevation_dirty = true
+	_update_relief_uniform()
 
 func update_vertex(vertex: Vector2i) -> void:
 	_write_vertex(vertex)
+
+func _update_relief_uniform() -> void:
+	var surface_material := material as ShaderMaterial
+	if surface_material and _grid:
+		surface_material.set_shader_parameter("has_elevation", _grid.has_relief())
+
+func _on_vertex_elevation_changed(_vertex: Vector2i, _old: int, _new: int) -> void:
+	_update_relief_uniform()
+
+func _on_performance_profile_changed(_terrain_fast: bool) -> void:
+	var surface_material := material as ShaderMaterial
+	if not surface_material:
+		return
+	var terrain_fast := PerformanceSettings.terrain_quality == PerformanceSettings.TerrainQuality.FAST
+	if bool(surface_material.get_shader_parameter("low_detail_mode")) == terrain_fast:
+		return
+	surface_material.set_shader_parameter("low_detail_mode", terrain_fast)
 
 func _write_vertex(vertex: Vector2i) -> void:
 	if _elevation_image == null or not _grid.is_valid_vertex(vertex):
@@ -207,7 +230,16 @@ func _process(_delta: float) -> void:
 	flush_elevation()
 
 func _exit_tree() -> void:
+	if is_instance_valid(_grid):
+		if _grid.tile_changed.is_connected(_on_tile_changed):
+			_grid.tile_changed.disconnect(_on_tile_changed)
+		if _grid.elevation_changed.is_connected(_on_elevation_changed):
+			_grid.elevation_changed.disconnect(_on_elevation_changed)
+		if _grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
+			_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
 	if EventBus.theme_changed.is_connected(_on_theme_changed):
 		EventBus.theme_changed.disconnect(_on_theme_changed)
 	if EventBus.load_completed.is_connected(_on_load_completed):
 		EventBus.load_completed.disconnect(_on_load_completed)
+	if PerformanceSettings.profile_changed.is_connected(_on_performance_profile_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_performance_profile_changed)

@@ -3,7 +3,8 @@ class_name SettingsMenu
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
-## Preferences are grouped into Audio, Display and Controls. Wide
+## Preferences are grouped into Audio, Display and Controls, and Data holds the
+## buttons that delete what this device keeps (see PlayerDataStore). Wide
 ## desktop windows use a navigation rail beside the control cards; tablets
 ## keep the cards roomy, while phones use a swipeable category strip and one
 ## scrollable settings column. Every control keeps its original live behavior
@@ -20,6 +21,13 @@ signal results_requested
 ## benchmarks run from the title screen only, never over a game in
 ## progress.
 signal tour_requested(suite_id: String)
+## The Data page deleted something. The host can refresh whatever it built from
+## those files - the title screen's Continue card reads the save list, for one.
+signal data_deleted(groups: Array[String])
+## Deleting the saved courses during a pause session leaves the running course
+## with nowhere to autosave, so the host closes the course and goes back to the
+## title screen once the deletion is done.
+signal quit_to_menu_requested()
 
 ## Where this menu was opened from. Main sets it before adding the menu:
 ## MAIN_MENU from the title screen, PAUSE_MENU from an in-game pause
@@ -28,7 +36,7 @@ signal tour_requested(suite_id: String)
 ## is never borrowed, paused mid-frame, as the test scene.
 enum Origin { MAIN_MENU, PAUSE_MENU }
 
-enum Category { AUDIO, DISPLAY, CONTROLS }
+enum Category { AUDIO, DISPLAY, CONTROLS, DATA }
 
 const DESKTOP_MIN_WIDTH := MenuScreenKit.DESKTOP_MIN_WIDTH
 const DESKTOP_MIN_HEIGHT := MenuScreenKit.DESKTOP_MIN_HEIGHT
@@ -63,6 +71,11 @@ const BENCHMARK_GATE_TEXT := "Benchmarks run from the Main Menu - open Settings 
 const BENCHMARK_TOUR_TEXT := "Prepare a throwaway course, then build and play every fixed test course on it - preparing each one, course types, hole counts, terrain, buildings, golfers, camera moves, editing and game speeds - and measure each part. About 95 seconds; Esc cancels it."
 ## What the card says once a run has landed on the shelf.
 const BENCHMARK_DONE_TEXT := "Complete. Open Past Results for the full report and the runs behind it; reports stay on this machine."
+## What the card says with an empty shelf. Named so the Data page can put the
+## card back on these lines after deleting the reports.
+const BENCHMARK_READY_TEXT := "Ready. The tour prepares its own course and builds every test course on screen - about 95 seconds. Esc cancels it."
+const BENCHMARK_EMPTY_SUMMARY_TEXT := "No results yet. Every run builds the same fixed test courses - every course type, hole count and game speed - so runs compare on any device."
+const BENCHMARK_EMPTY_DETAILS_TEXT := "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay on this machine."
 
 ## The course tour - the game's only benchmark - runs only when this menu
 ## was accessed from the Main Menu screen. Reading the last run and the
@@ -85,9 +98,9 @@ var _benchmark_stars_row: BenchmarkVisuals.StarRow
 var _benchmark_score_meter: BenchmarkVisuals.SegmentMeter
 var _benchmark_stars: int = 0
 var _benchmark_score: float = 0.0
-var _benchmark_status_text: String = "Ready. The tour prepares its own course and builds every test course on screen - about 95 seconds. Esc cancels it."
-var _benchmark_summary_text: String = "No results yet. Every run builds the same fixed test courses - every course type, hole count and game speed - so runs compare on any device."
-var _benchmark_details_text: String = "The tour prepares a throwaway course from here and takes it down afterwards; no game is opened or written. Reports stay on this machine."
+var _benchmark_status_text: String = BENCHMARK_READY_TEXT
+var _benchmark_summary_text: String = BENCHMARK_EMPTY_SUMMARY_TEXT
+var _benchmark_details_text: String = BENCHMARK_EMPTY_DETAILS_TEXT
 ## Camera zoom limit controls (Controls → Camera). Rebuilt with the page so
 ## references are cleared each build.
 var _min_zoom_slider: HSlider = null
@@ -95,6 +108,9 @@ var _max_zoom_slider: HSlider = null
 var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
 var _minimap_toggle: CheckButton = null
+## Live controls for each independent part of the graphics configuration.
+var _graphics_preset_options: OptionButton = null
+var _graphics_setting_options: Dictionary = {}
 ## The Controls page's editable keycaps and their reset buttons, keyed by
 ## InputBindings action. They are rebuilt with the page; the signal handlers
 ## refresh their captions in place instead of rebuilding the page, so focus
@@ -106,6 +122,13 @@ var _reset_all_controls_button: Button = null
 ## The action whose row is listening for the next key, or "" when none is.
 var _capturing_action: String = ""
 var _controls_status_text: String = "Click a binding, then press a key or controller button. Esc cancels; Backspace unbinds."
+
+## The Data page. Its status line survives a rebuild (a resize, or the rebuild
+## that follows a deletion) so the player still reads what just happened.
+var _data_status_text: String = "Choose what to delete. This cannot be undone."
+## The confirm card standing over the page while a deletion waits for its
+## second press, or null when nothing is being confirmed.
+var _data_confirmation: Control = null
 
 func _ready() -> void:
 	name = "SettingsMenu"
@@ -176,6 +199,9 @@ func _build() -> void:
 	_min_zoom_value_label = null
 	_max_zoom_value_label = null
 	_minimap_toggle = null
+	_graphics_preset_options = null
+	_graphics_setting_options.clear()
+	_data_confirmation = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
@@ -389,6 +415,7 @@ func _build_category_cards(mode: int) -> Array[Control]:
 		Category.AUDIO: return _build_audio_cards(mode)
 		Category.DISPLAY: return _build_display_cards(mode)
 		Category.CONTROLS: return _build_controls_cards(mode)
+		Category.DATA: return _build_data_cards(mode)
 	return []
 
 func _build_audio_cards(mode: int) -> Array[Control]:
@@ -439,11 +466,91 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	mode_options.item_selected.connect(_on_window_mode_selected)
 	window_body.add_child(mode_options)
 	cards.append(window["panel"])
+	# Keep the counter near the top of Display, ahead of the longer quality
+	# controls, so it is easy to find on a phone as well as on desktop.
+	cards.append(_build_fps_counter_card(mode))
 
-	var performance := _make_group("PERFORMANCE & SCALE", "Tune redraw timing and the size of the interface.", mode)
+	var performance := _make_group("PERFORMANCE & SCALE", "Tune each course-rendering budget independently, or apply a preset.", mode)
 	var performance_body: VBoxContainer = performance["body"]
 	_add_toggle_row(performance_body, "VSync", "Match the display refresh to reduce tearing.",
 		DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED, _set_vsync, mode)
+	performance_body.add_child(_make_separator())
+	performance_body.add_child(Kit.make_label("Graphics quality preset", 12, COLOR_TEXT))
+	_graphics_preset_options = OptionButton.new()
+	_graphics_preset_options.name = "GraphicsPreset"
+	_graphics_preset_options.custom_minimum_size.y = 42
+	_graphics_preset_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_graphics_preset_options.add_theme_font_size_override("font_size", 12)
+	for preset in range(PerformanceSettings.PRESET_LABELS.size()):
+		_graphics_preset_options.add_item(PerformanceSettings.preset_label(preset), preset)
+	_graphics_preset_options.set_item_disabled(
+		_graphics_preset_options.get_item_index(PerformanceSettings.GraphicsPreset.CUSTOM), true)
+	_graphics_preset_options.select(PerformanceSettings.graphics_preset)
+	_graphics_preset_options.item_selected.connect(func(index: int):
+		PerformanceSettings.set_graphics_preset(_graphics_preset_options.get_item_id(index))
+		_sync_graphics_controls()
+		_save_display_settings())
+	performance_body.add_child(_graphics_preset_options)
+	var graphics_hint := Kit.make_label(
+		"A preset sets every option below. Change any one option for a Custom setup. Auto chooses Performance on phones, Web and lower-core devices.",
+		10, COLOR_MUTED)
+	graphics_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	performance_body.add_child(graphics_hint)
+	performance_body.add_child(_make_separator())
+	_add_graphics_setting(performance_body, "Terrain rendering", "TerrainQuality",
+		PerformanceSettings.GraphicsSetting.TERRAIN_QUALITY, [
+			{"label": "Fast", "value": PerformanceSettings.TerrainQuality.FAST},
+			{"label": "Full", "value": PerformanceSettings.TerrainQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Grass blades", "GrassQuality",
+		PerformanceSettings.GraphicsSetting.GRASS_QUALITY, [
+			{"label": "Off", "value": PerformanceSettings.GrassQuality.OFF},
+			{"label": "Full", "value": PerformanceSettings.GrassQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Terrain-aware tree occlusion", "TreeOcclusion",
+		PerformanceSettings.GraphicsSetting.TREE_OCCLUSION, [
+			{"label": "Off", "value": 0}, {"label": "On", "value": 1},
+		])
+	_add_graphics_setting(performance_body, "Water shimmer detail", "WaterQuality",
+		PerformanceSettings.GraphicsSetting.WATER_QUALITY, [
+			{"label": "Reduced", "value": PerformanceSettings.WaterQuality.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WaterQuality.FULL},
+		])
+	_add_graphics_setting(performance_body, "Wind flag outlines", "WindFlagQuality",
+		PerformanceSettings.GraphicsSetting.WIND_FLAG_QUALITY, [
+			{"label": "Reduced", "value": PerformanceSettings.WindFlagQuality.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WindFlagQuality.FULL},
+		])
+	performance_body.add_child(_make_separator())
+	var detail_hint := Kit.make_label(
+		"Decoration costs draw calls, not simulation: trimming it speeds a busy course up without changing how it plays.",
+		10, COLOR_MUTED)
+	detail_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	performance_body.add_child(detail_hint)
+	_add_graphics_setting(performance_body, "Prop & ball shadows", "ShadowDetail",
+		PerformanceSettings.GraphicsSetting.SHADOW_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.ShadowDetail.OFF},
+			{"label": "Contact only", "value": PerformanceSettings.ShadowDetail.CONTACT_ONLY},
+			{"label": "Full", "value": PerformanceSettings.ShadowDetail.FULL},
+		])
+	_add_graphics_setting(performance_body, "Course wildlife", "WildlifeDetail",
+		PerformanceSettings.GraphicsSetting.WILDLIFE_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.WildlifeDetail.OFF},
+			{"label": "Reduced", "value": PerformanceSettings.WildlifeDetail.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.WildlifeDetail.FULL},
+		])
+	_add_graphics_setting(performance_body, "Impact particle effects", "EffectDetail",
+		PerformanceSettings.GraphicsSetting.EFFECT_DETAIL, [
+			{"label": "Off", "value": PerformanceSettings.EffectDetail.OFF},
+			{"label": "Reduced", "value": PerformanceSettings.EffectDetail.REDUCED},
+			{"label": "Full", "value": PerformanceSettings.EffectDetail.FULL},
+		])
+	_add_graphics_setting(performance_body, "Decorative animation rate", "AnimationRate",
+		PerformanceSettings.GraphicsSetting.ANIMATION_RATE, _animation_rate_options())
+	_add_graphics_setting(performance_body, "Camera redraw rate", "CameraUpdateRate",
+		PerformanceSettings.GraphicsSetting.CAMERA_UPDATE_RATE, _update_rate_options())
+	_add_graphics_setting(performance_body, "Golfer coordination rate", "GolferUpdateRate",
+		PerformanceSettings.GraphicsSetting.GOLFER_UPDATE_RATE, _update_rate_options())
 	performance_body.add_child(_make_separator())
 	_add_ui_scale_control(performance_body, mode)
 	cards.append(performance["panel"])
@@ -475,6 +582,89 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	var benchmark := _build_benchmark_card(mode)
 	cards.append(benchmark)
 	return cards
+
+func _build_fps_counter_card(mode: int) -> PanelContainer:
+	var card := _make_group("FPS COUNTER",
+		"See the live frame rate over menus and the course. Changes apply immediately.", mode)
+	var body: VBoxContainer = card["body"]
+	var toggle := _add_toggle_row(body, "Show FPS counter",
+		"Display frames per second without blocking clicks or touches.",
+		PerformanceSettings.fps_counter_enabled, _set_fps_counter_enabled, mode)
+	toggle.accessibility_name = "Show FPS counter"
+	_add_fps_option(body, "Position", "FpsCounterPosition", PerformanceSettings.FPS_POSITION_LABELS,
+		PerformanceSettings.fps_counter_position, PerformanceSettings.set_fps_counter_position)
+	_add_fps_option(body, "Text size", "FpsCounterSize", PerformanceSettings.FPS_SIZE_LABELS,
+		PerformanceSettings.fps_counter_size, PerformanceSettings.set_fps_counter_size)
+	_add_fps_option(body, "Refresh interval", "FpsCounterRefresh", PerformanceSettings.FPS_REFRESH_LABELS,
+		PerformanceSettings.fps_counter_refresh, PerformanceSettings.set_fps_counter_refresh)
+	return card["panel"]
+
+## These remain editable while the counter is off, so it can be configured
+## before it is shown. Like the other display controls, each choice saves now.
+func _add_fps_option(body: VBoxContainer, title: String, node_name: String,
+		labels: Array[String], current: int, on_change: Callable) -> void:
+	body.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.accessibility_name = "FPS counter " + title.to_lower()
+	selector.custom_minimum_size.y = 42
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.add_theme_font_size_override("font_size", 12)
+	for choice in range(labels.size()):
+		selector.add_item(labels[choice], choice)
+	selector.select(current)
+	selector.item_selected.connect(func(index: int):
+		on_change.call(selector.get_item_id(index))
+		_save_display_settings())
+	body.add_child(selector)
+
+func _add_graphics_setting(body: VBoxContainer, title: String, node_name: String,
+		setting: int, options: Array) -> OptionButton:
+	body.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.custom_minimum_size.y = 38
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.add_theme_font_size_override("font_size", 12)
+	for option_data in options:
+		selector.add_item(option_data["label"], int(option_data["value"]))
+	var selected_index := selector.get_item_index(PerformanceSettings.get_graphics_setting(setting))
+	if selected_index >= 0:
+		selector.select(selected_index)
+	selector.item_selected.connect(func(index: int):
+		PerformanceSettings.set_graphics_setting(setting, selector.get_item_id(index))
+		_sync_graphics_controls()
+		_save_display_settings())
+	body.add_child(selector)
+	_graphics_setting_options[setting] = selector
+	return selector
+
+func _update_rate_options() -> Array:
+	return [
+		{"label": "Low — 15 Hz", "value": PerformanceSettings.UpdateRate.LOW},
+		{"label": "Standard — 30 Hz", "value": PerformanceSettings.UpdateRate.STANDARD},
+		{"label": "High — 60 Hz", "value": PerformanceSettings.UpdateRate.HIGH},
+	]
+
+func _animation_rate_options() -> Array:
+	return [
+		{"label": "Low — 4 Hz", "value": PerformanceSettings.UpdateRate.LOW},
+		{"label": "Standard — 15 Hz", "value": PerformanceSettings.UpdateRate.STANDARD},
+		{"label": "High — 30 Hz", "value": PerformanceSettings.UpdateRate.HIGH},
+	]
+
+func _sync_graphics_controls() -> void:
+	if is_instance_valid(_graphics_preset_options):
+		var preset_index := _graphics_preset_options.get_item_index(PerformanceSettings.graphics_preset)
+		if preset_index >= 0:
+			_graphics_preset_options.select(preset_index)
+	for setting in _graphics_setting_options:
+		var selector: OptionButton = _graphics_setting_options[setting]
+		if not is_instance_valid(selector):
+			continue
+		var selected_index := selector.get_item_index(PerformanceSettings.get_graphics_setting(setting))
+		if selected_index >= 0:
+			selector.select(selected_index)
 
 ## The one card the game's only benchmark gets: what the tour does, the
 ## rating the last run earned, and two buttons - Run Benchmark, which hands
@@ -564,6 +754,217 @@ func _build_benchmark_card(mode: int) -> PanelContainer:
 
 	_refresh_benchmark_controls()
 	return benchmark["panel"]
+
+## The Data page: what this device keeps, one delete button per group, and a
+## button that clears all of it. Every deletion asks first - a confirm card over
+## the page, with the safe answer focused - and the page is rebuilt afterwards
+## so its lines and buttons tell the truth about what is left.
+func _build_data_cards(mode: int) -> Array[Control]:
+	var cards: Array[Control] = []
+	var overview := _make_group("ON THIS DEVICE",
+		"Golf Tycoon keeps everything here on this device - nothing is uploaded. Delete a part, or all of it, and it is gone for good.",
+		mode)
+	var overview_body: VBoxContainer = overview["body"]
+	var summary := Kit.make_label(PlayerDataStore.total_label(), 11, COLOR_TEXT)
+	summary.name = "PlayerDataSummary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	overview_body.add_child(summary)
+	var status := Kit.make_label(_data_status_text,
+		10 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 11, COLOR_MINT)
+	status.name = "DataStatus"
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	overview_body.add_child(status)
+	cards.append(overview["panel"])
+	for id in PlayerDataStore.GROUP_IDS:
+		cards.append(_build_data_group_card(id, mode))
+	cards.append(_build_delete_all_card(mode))
+	return cards
+
+
+## One group: what it holds now, and the button that deletes it. The button is
+## disabled while the group is empty, so a dead action never invites a press.
+func _build_data_group_card(id: String, mode: int) -> Control:
+	var use := PlayerDataStore.usage(id)
+	var group := _make_group(PlayerDataStore.group_title(id),
+		PlayerDataStore.group_description(id), mode)
+	var body: VBoxContainer = group["body"]
+	var present := bool(use["present"])
+	var line := Kit.make_label(str(use["label"]), 11, COLOR_TEXT if present else COLOR_QUIET)
+	line.name = "DataUsage_%s" % id
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_child(line)
+	var button := _make_data_button("DeleteData_%s" % id,
+		PlayerDataStore.group_action(id, int(use["count"])), mode)
+	button.tooltip_text = PlayerDataStore.group_confirm_message(id, int(use["count"]))
+	button.disabled = not present
+	button.pressed.connect(_request_data_delete.bind(id))
+	body.add_child(button)
+	return group["panel"]
+
+
+func _build_delete_all_card(mode: int) -> Control:
+	var card := _make_group("ALL PLAYER DATA",
+		"Saved courses, preferences, career records, benchmark reports and custom skins. Mods are managed on the Mods screen and are not touched.",
+		mode)
+	var body: VBoxContainer = card["body"]
+	var warning := Kit.make_label("Removes every group above. This cannot be undone.",
+		11, COLOR_MUTED)
+	warning.name = "DeleteAllWarning"
+	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.add_child(warning)
+	var button := _make_data_button("DeleteAllDataButton", "Delete All Player Data", mode)
+	button.tooltip_text = "Remove every saved course, preference, career record, benchmark report and custom golfer skin from this device."
+	button.disabled = not PlayerDataStore.anything_stored()
+	button.pressed.connect(_request_all_data_delete)
+	body.add_child(button)
+	return card["panel"]
+
+
+## The destructive action both the group cards and the all-data card use.
+func _make_data_button(node_name: String, text: String, mode: int) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.text = text
+	button.accessibility_name = text
+	button.custom_minimum_size = Vector2(0, 44)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12)
+	Kit.paint_danger_button(button)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return button
+
+
+func _request_data_delete(id: String) -> void:
+	var use := PlayerDataStore.usage(id)
+	var message := PlayerDataStore.group_confirm_message(id, int(use["count"]))
+	if id == PlayerDataStore.SAVED_COURSES and origin == Origin.PAUSE_MENU:
+		message += " Your current course will close, and progress since the last save will be lost."
+	_show_data_confirmation(PlayerDataStore.group_confirm_title(id), message,
+		PlayerDataStore.group_action(id, int(use["count"])),
+		func(): _delete_player_data([id]))
+
+
+func _request_all_data_delete() -> void:
+	var message := "Every saved course, preference, career record, benchmark report and custom golfer skin on this device is removed, leaving Golf Tycoon as it was on its first launch."
+	if origin == Origin.PAUSE_MENU:
+		message += " Your current course will close, and progress since the last save will be lost."
+	_show_data_confirmation("Delete all player data?", message, "Delete Everything",
+		func(): _delete_player_data(PlayerDataStore.GROUP_IDS))
+
+
+func _delete_player_data(ids: Array) -> void:
+	var result := PlayerDataStore.erase_many(ids)
+	var errors: Array = result.get("errors", [])
+	if errors.is_empty():
+		_data_status_text = "%s deleted from this device." % _deleted_summary(ids)
+	else:
+		_data_status_text = "Some data could not be deleted: %s" % str(errors[0])
+	if ids.has(PlayerDataStore.BENCHMARK_REPORTS):
+		_reset_benchmark_card()
+	EventBus.notify(_data_status_text, "success" if errors.is_empty() else "error")
+	data_deleted.emit(_group_ids(ids))
+	# Rebuild first, so the page is already true if the host keeps it open.
+	_build()
+	# A pause session has nothing left to autosave into once the saved courses
+	# are gone, so it is handed back to the title screen instead of quietly
+	# writing a fresh autosave over the files the player just deleted.
+	if ids.has(PlayerDataStore.SAVED_COURSES) and origin == Origin.PAUSE_MENU:
+		quit_to_menu_requested.emit()
+
+
+func _deleted_summary(ids: Array) -> String:
+	if ids.size() >= PlayerDataStore.GROUP_IDS.size():
+		return "All player data"
+	var names: Array[String] = []
+	for id in ids:
+		names.append(PlayerDataStore.group_name(str(id)))
+	return ", ".join(names)
+
+
+func _group_ids(ids: Array) -> Array[String]:
+	var typed: Array[String] = []
+	for id in ids:
+		typed.append(str(id))
+	return typed
+
+
+## The confirm card: the same notched panel and pinned footer as the archive's
+## confirmation, sized to the window so it fits a phone.
+func _show_data_confirmation(title_text: String, message_text: String,
+		confirm_text: String, on_confirm: Callable) -> void:
+	_close_data_confirmation()
+	_data_confirmation = Control.new()
+	_data_confirmation.name = "SettingsConfirmation"
+	_data_confirmation.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_data_confirmation.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_data_confirmation)
+
+	var shade := ColorRect.new()
+	shade.color = Color(0.0, 0.0, 0.0, 0.72)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_data_confirmation.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_data_confirmation.add_child(center)
+	var view := _window_size()
+	var panel := PanelContainer.new()
+	panel.name = "ConfirmationCard"
+	panel.custom_minimum_size.x = minf(470.0, maxf(280.0, view.x - 28.0))
+	panel.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_SURFACE,
+		MenuStyle.with_alpha(UIConstants.COLOR_DANGER, 0.75), 14, 20, 18, 2))
+	center.add_child(panel)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
+	panel.add_child(content)
+	var title := Kit.make_label(title_text, 19, UIConstants.COLOR_DANGER)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+	var message := Kit.make_label(message_text, 13, COLOR_MUTED)
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message.custom_minimum_size.x = panel.custom_minimum_size.x - 44.0
+	content.add_child(message)
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 9)
+	content.add_child(buttons)
+	var cancel := Button.new()
+	cancel.name = "KeepDataButton"
+	cancel.text = "Keep it"
+	cancel.custom_minimum_size = Vector2(0, 44)
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Kit.paint_utility_button(cancel, false)
+	cancel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Deleting is destructive: the safe answer takes focus, as in ConfirmDialog.
+	cancel.set_meta(InputManager.DEFAULT_FOCUS_META, true)
+	cancel.pressed.connect(_close_data_confirmation)
+	buttons.add_child(cancel)
+	var confirm := Button.new()
+	confirm.name = "ConfirmDataDeleteButton"
+	confirm.text = confirm_text
+	confirm.custom_minimum_size = Vector2(0, 44)
+	confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	confirm.add_theme_font_size_override("font_size", 12)
+	Kit.paint_danger_button(confirm)
+	confirm.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	confirm.pressed.connect(func():
+		_close_data_confirmation()
+		on_confirm.call())
+	buttons.add_child(confirm)
+	# The card is its own focus scope while it is up, so the arrow keys and
+	# Tab stay on its two answers and the safe one starts focused. Closing it
+	# hands focus back to the settings page.
+	if has_node("/root/InputManager"):
+		InputManager.register_scope(_data_confirmation)
+	else:
+		cancel.grab_focus()
+
+
+func _close_data_confirmation() -> void:
+	if is_instance_valid(_data_confirmation):
+		_data_confirmation.queue_free()
+	_data_confirmation = null
+
 
 ## The Controls page: one editable keycap per rebindable action, grouped the
 ## way InputBindings groups them, plus the camera's own invert-zoom toggle
@@ -1089,6 +1490,17 @@ func _request_tour() -> void:
 	_refresh_benchmark_controls()
 	tour_requested.emit(CourseBenchmarkScenarios.SUITE_FULL)
 
+## Back to "no results yet" once the Data page has deleted the shelf. The card
+## caches these lines between rebuilds, so clearing the run alone would leave it
+## describing a report that is no longer on the device.
+func _reset_benchmark_card() -> void:
+	_benchmark_stars = 0
+	_benchmark_score = 0.0
+	_benchmark_status_text = BENCHMARK_READY_TEXT if benchmarks_allowed() else BENCHMARK_GATE_TEXT
+	_benchmark_summary_text = BENCHMARK_EMPTY_SUMMARY_TEXT
+	_benchmark_details_text = BENCHMARK_EMPTY_DETAILS_TEXT
+
+
 ## Pick up the run the tour finished, so the card opens showing the newest
 ## report this machine holds - the tour publishes it as it ends.
 func _adopt_last_benchmark() -> void:
@@ -1162,6 +1574,9 @@ func _select_category(category: int) -> void:
 	if category == _category:
 		return
 	_category = category
+	if category != Category.DATA:
+		# A deletion message belongs to the page it happened on.
+		_data_status_text = "Choose what to delete. This cannot be undone."
 	_build()
 
 func _on_window_mode_selected(index: int) -> void:
@@ -1194,6 +1609,10 @@ func _set_muted(value: bool) -> void:
 
 func _set_vsync(enabled: bool) -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if enabled else DisplayServer.VSYNC_DISABLED)
+	_save_display_settings()
+
+func _set_fps_counter_enabled(enabled: bool) -> void:
+	PerformanceSettings.set_fps_counter_enabled(enabled)
 	_save_display_settings()
 
 func _set_minimap_enabled(enabled: bool) -> void:
@@ -1236,25 +1655,27 @@ func _save_display_settings() -> void:
 	config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
 	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
 	config.set_value("display", "minimap_enabled", GameManager.minimap_enabled)
+	PerformanceSettings.save_to_config(config)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:
-	return ["audio", "display", "controls"][category]
+	return ["audio", "display", "controls", "data"][category]
 
 func _category_name(category: int) -> String:
-	return ["Audio", "Display", "Controls"][category]
+	return ["Audio", "Display", "Controls", "Data"][category]
 
 func _category_title(category: int) -> String:
-	return ["Sound & ambience", "Screen & accessibility", "Your controls"][category]
+	return ["Sound & ambience", "Screen & accessibility", "Your controls", "Your data"][category]
 
 func _category_short_description(category: int) -> String:
-	return ["Mixer", "Screen", "Keys"][category]
+	return ["Mixer", "Screen", "Keys", "Files"][category]
 
 func _category_description(category: int) -> String:
 	return [
 		"Balance the master, effects and ambient volume for the course.",
 		"Adjust how the game looks and feels on this display.",
 		"Rebind every course action, reset one control or reset them all.",
+		"What this device keeps: saved courses, records and custom art - delete any part, or all of it.",
 	][category]
 
 func _make_separator() -> HSeparator:
@@ -1271,6 +1692,17 @@ func _on_close() -> void:
 	queue_free()
 
 func _input(event: InputEvent) -> void:
+	# The confirm card is the innermost thing on screen: Escape or Cancel puts
+	# the data back, and the menu itself stays open.
+	if is_instance_valid(_data_confirmation):
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+			_close_data_confirmation()
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventJoypadButton and event.is_action_pressed("cancel"):
+			_close_data_confirmation()
+			get_viewport().set_input_as_handled()
+			return
 	# A listening keycap consumes the next key or controller button before
 	# Escape can close the menu, the GUI can press a button, or a gameplay
 	# hotkey can reach the course behind it.
