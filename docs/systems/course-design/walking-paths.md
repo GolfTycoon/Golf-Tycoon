@@ -49,6 +49,8 @@ A network that never touches the clubhouse stays dirt, and that is a normal outc
 
 `tile_draw_commands(pos, upgraded, detail)` returns the drawing for one tile as data, so the same geometry can be unit-tested and reused by the toolbar button's art. The `_draw()` loop culls off-screen tiles and feeds the commands to Godot; `detail` is off on the Web build.
 
+A trail tile's commands are also **kept**: `_commands_for()` shelves them per tile, because the overlay repaints whenever the camera reaches a new tile window: `TerrainGrid._process()` queues that repaint on the tile window and the wall clock, not on every pixel the camera drifts. A pan is therefore a replay of the visible walks rather than a rebuild of every band, pebble and blade on them. The shelf is dropped by `rebuild()` (the trail changed), by a vertex being sculpted and by `invalidate_ground()` after a bulk elevation load (the projected points moved), and by `EventBus.view_rotated` (a quarter turn reprojects every point).
+
 | | Dirt | Paved |
 | --- | --- | --- |
 | Verge | `DIRT_VERGE` band, half-width `DIRT_VERGE_W` | `PAVED_VERGE` band, half-width `PAVED_VERGE_W` |

@@ -366,7 +366,9 @@ func test_an_eighteen_hole_company_builds_and_saves_its_championship_course() ->
 
 func test_quick_start_buys_and_plays_a_location_of_its_own() -> void:
 	main._on_menu_quick_start()
-	await process_frames(3)
+	assert_true(await process_frames_until(func() -> bool:
+		return main._generating_course_screen == null, 30),
+		"Quick Start finishes preparing and generating the course")
 	assert_ne(WorldMap.active_location_id, "", "Quick Start plays a location")
 	assert_true(WorldMap.is_owned(WorldMap.active_location_id), "that it bought")
 	assert_eq(GameManager.current_course.holes.size(), 3, "Its course starts with 3 generated holes")

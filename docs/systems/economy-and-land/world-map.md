@@ -2,8 +2,8 @@
 
 > The company grows by buying golf course **locations** around the world. Each location is a separate site, and the money, reputation and calendar carry over between them.
 
-**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/ui/world_map_screen.gd` (`BUY_LABEL`, `BUY_AND_PLAY_LABEL`, `_on_buy_pressed()`, `_on_buy_and_play_pressed()`), `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to, `_frame_seconds()`, `_take_hold()`, `LandStyle.PIXEL`), `shaders/globe_planet.gdshader` (`pixel_block`), `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
-**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/unit/ui_and_controls/test_world_map_visual_style.gd`, `tests/unit/ui_and_controls/test_world_map_actions.gd`, `tests/integration/world_map_flow.gd`
+**Source:** `scripts/systems/world_locations.gd` (`LOCATIONS`, `SIZE_DATA`, `compute_price()`, `max_unlocked_for_size()`, `layout_order()`, `get_required_parcels()`), `scripts/autoload/world_map_state.gd` (`WorldMap` autoload: owned locations, unlocked land, `reset_world()`, `switch_to_location()`), `scripts/main/main.gd` (`_on_menu_quick_start()`, `_on_new_game_started()`), `scripts/ui/generating_course_screen.gd`, `scripts/ui/world_map_screen.gd` (`BUY_LABEL`, `BUY_AND_PLAY_LABEL`, `_on_buy_pressed()`, `_on_buy_and_play_pressed()`), `scripts/ui/globe_map.gd` (`build_land_mask()`, `project_point()`, drag, zoom, fly-to, `_frame_seconds()`, `_take_hold()`, `LandStyle.PIXEL`), `shaders/globe_planet.gdshader` (`pixel_block`), `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/systems/generated_course.gd` (`LAYOUT_9`, `LAYOUT_18_BACK`, `AMENITY_SPOTS`), `scripts/ui/start_new_game_screen.gd` (`MONEY_OPTIONS`, `HOLE_OPTIONS`), `scripts/autoload/save_manager.gd` (`SITE_STATE_KEYS`, `SNAPSHOT_COMPANY_KEYS`)
+**Tests:** `tests/unit/test_world_map.gd`, `tests/unit/test_world_map_layout.gd`, `tests/unit/test_globe_map.gd`, `tests/unit/ui_and_controls/test_world_map_visual_style.gd`, `tests/unit/ui_and_controls/test_world_map_actions.gd`, `tests/integration/economy_and_land/test_world_map_flow.gd`, `tests/integration/ui_and_controls/test_quick_start_loading.gd`
 
 ---
 
@@ -19,7 +19,7 @@ Each location's land is partly cleared already. How much is cleared is rolled fo
 
 The globe in the middle of the screen is an atlas you can spin and zoom. Sprite pins mark each destination, the selected one ringed in gold brackets. Clicking a destination in the list selects it and flies the globe round to centre on it, just as clicking its pin does. A hand on the globe always wins: grabbing it stops the fly-to, so the globe follows the pointer instead of the animation. The whole screen wears the menu's pixel-art look: notched sprite frames, Pixelify Sans type, and the planet itself drawn in chunky cells (`LandStyle.PIXEL`, the shader's `pixel_block` mode) in the game's palette. The smooth-shaded planet remains the default for other callers.
 
-**How you reach it.** The **World Map** button sits in the Club tab's **Maps** column beside **Land Parcels**; the same tab gathers **Review** and **Milestones**. Opening it there freezes the course — the day, the golfers and the daily costs all wait — so a site can be bought, browsed or switched without the club falling behind. **Back** (or Escape) hands the course back exactly as it was: the gameplay UI returns and the day resumes only if it was running before the map opened. Start New Game and Quick Start open the same screen before the company has a course.
+**How you reach it.** The **World Map** button sits in the Club tab's **Maps** column beside **Land Parcels**; the same tab gathers **Review** and **Milestones**. Opening it there freezes the course — the day, the golfers and the daily costs all wait — so a site can be bought, browsed or switched without the club falling behind. **Back** (or Escape) hands the course back exactly as it was: the gameplay UI returns and the day resumes only if it was running before the map opened. Start New Game opens the map before the company has a course; Quick Start opens it only if it cannot buy an affordable location automatically.
 
 ---
 
@@ -97,6 +97,8 @@ Each unowned location's directory card offers **Buy & Play** (`WorldMapScreen.BU
 ### 7. Generated first course
 
 What a new site starts with depends on **Generated Holes** on the Start New Game screen. Quick Start uses 3 generated holes and buys a random affordable location (`WorldMap.pick_random_affordable_location()`), so it starts playing at once.
+
+Quick Start first shows the Generating Course screen with **Finding a location**, giving it a frame to paint before the synchronous world roll, purchase and game initialization. The same screen then names the chosen location and continues through terrain, holes, clubhouse and paths. Other input and repeated starts are blocked until the screen closes. If the picker finds nothing affordable or a purchase fails, the screen is removed and the World Map opens for the player to choose.
 
 ### The guided tutorial
 
