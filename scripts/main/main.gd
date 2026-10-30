@@ -441,6 +441,10 @@ func _load_decorations_data() -> void:
 	print("Loaded %d decoration types" % decoration_registry.size())
 
 func _process(_delta: float) -> void:
+	# The title screen has no live course HUD to maintain. Avoid polling gameplay
+	# controls, the minimap and tile inspection on every frame while it is open.
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU and not _benchmark_tour_active:
+		return
 	_update_ui()
 	_update_mini_map_camera()
 	_update_tile_inspector()
@@ -950,6 +954,9 @@ func _show_main_menu() -> void:
 	main_menu.settings_requested.connect(_on_main_menu_settings)
 	main_menu.quit_requested.connect(_on_quit_pressed)
 	$UI/HUD.add_child(main_menu)
+	# The title is an opaque UI screen; drawing the idle course underneath it
+	# wastes fill-rate and texture bandwidth, especially on integrated GPUs.
+	_set_course_world_visible(false)
 	# Hide gameplay UI while in menu
 	_set_gameplay_ui_visible(false)
 
@@ -981,6 +988,18 @@ func _hide_main_menu() -> void:
 		main_menu.queue_free()
 		main_menu = null
 	_disconnect_main_menu_load_signal()
+	_set_course_world_visible(true)
+
+## The title screen fully covers the idle course, so skip its rendering until
+## the player leaves the menu (or starts a benchmark tour).
+func _set_course_world_visible(is_visible: bool) -> void:
+	if is_instance_valid(terrain_grid):
+		terrain_grid.visible = is_visible
+	if is_instance_valid(entity_layer):
+		entity_layer.visible = is_visible
+	var holes := get_node_or_null("Holes") as CanvasItem
+	if holes != null:
+		holes.visible = is_visible
 
 ## Hand the player the course a save just restored. The title screen and the
 ## gameplay HUD are the two halves of one trade — the menu was hiding the
