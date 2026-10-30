@@ -2,7 +2,9 @@
 
 > Expanding the course means buying land parcels on a 6×6 map. Premium and Elite parcels cost more and come with terrain already built. Prebuilt packages lay out playable holes on land you already own.
 
-**Source:** `scripts/managers/land_manager.gd` (`BASE_PARCEL_COST`, `COST_ESCALATION`, `TIER_COST_MULTIPLIER`, `ELITE_REPUTATION_REQUIREMENT`, tier layout, purchase rules), `scripts/terrain/premium_feature_generator.gd` (feature generation), `scripts/systems/prebuilt_course_generator.gd` (`PACKAGE_COSTS`, `PACKAGE_NAMES`, package layouts), `scripts/ui/components/course_map_land_panel.gd` (the Course Map's Land mode)
+**Source:** `scripts/managers/land_manager.gd` (`BASE_PARCEL_COST`, `COST_ESCALATION`, `TIER_COST_MULTIPLIER`, `ELITE_REPUTATION_REQUIREMENT`, tier layout, purchase rules), `scripts/terrain/premium_feature_generator.gd` (feature generation), `scripts/systems/prebuilt_course_generator.gd` (`PACKAGE_COSTS`, `PACKAGE_NAMES`, package layouts), `scripts/ui/components/course_map_land_panel.gd` (the Course Map's Land mode), `scripts/terrain/overlays/land_boundary_overlay.gd` (the property lines and the unowned tint)
+
+**Tests:** `tests/unit/course_design/test_land_boundary_overlay.gd`, `tests/unit/economy_and_land/test_land_manager.gd`, `tests/unit/course_design/test_camera_redraw_cadence.gd`
 
 ---
 
@@ -62,6 +64,12 @@ Packages are bought before a new game. Each lays out finished holes with fairway
 | Championship 18 | 18 (mixed) | 72 | $200,000 |
 
 The Championship needs at least 8 parcels. The old main-menu package picker has been replaced by the World Map and Start New Game flow. See [World Map](world-map.md).
+
+### 5. Drawing the boundary
+
+`LandBoundaryOverlay` shows where the plot ends: one gold property line per edge between owned and unowned land (cached, rebuilt on a purchase), and a subtle dark tint over the land the company does not own.
+
+The tint is drawn only for the camera's visible tile window (`TerrainGrid.get_visible_tile_range()`), walked a parcel row at a time — ownership is per parcel, so a row asks the land manager once per parcel it crosses instead of once per tile — and emitted as **one triangle batch** rather than one `draw_colored_polygon()` per tile. A camera-driven repaint therefore touches the tiles on screen, not all 16,384 of the map, and records one renderer call for them. Each tile's projected diamond is shelved and reused until the ground is sculpted (`vertex_elevation_changed`, or `invalidate_ground()` after a bulk load) or the course is turned (`EventBus.view_rotated`).
 
 ---
 

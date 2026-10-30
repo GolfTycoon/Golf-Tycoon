@@ -26,7 +26,7 @@ The arrow is a fixed-size sign, not a miniature map, so every tee looks the same
 
 `TeeAimOverlay.rebuild()` indexes each hole's cup by its tee tile (`hole.tee_position`). It then walks `TerrainGrid.get_tee_box_tiles()`. Any tee not claimed by a hole aims at the single waiting cup from `HoleLayout.unused_cups()`. Opening a hole consumes that cup marker, so the two cases never overlap.
 
-`TerrainGrid` runs this rebuild, deferred and coalesced, whenever a tile, a waiting cup or a hole changes. The overlay also redraws when the view rotates or the camera moves.
+`TerrainGrid` runs this rebuild, deferred and coalesced, whenever a tile, a waiting cup or a hole changes. The overlay also redraws when the view rotates or the camera reaches a tile window it did not already cover (see [Walking Paths](walking-paths.md#3-drawing) for how the camera drives the ground overlays' repaints).
 
 ### 2. Finding a dogleg
 

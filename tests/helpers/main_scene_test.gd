@@ -32,8 +32,16 @@ const NEW_COURSE_FRAMES := 8
 ## pin makes everything drawn from it (the heightmap noise seed, golfer
 ## variety) reproducible too.
 const COURSE_SEED := 20261012
+## Frames the harness will give a scene to finish its startup before it gives up
+## and lets the tests fail on whatever is missing. Generous on purpose: this is
+## a guard against an endless startup, not a speed limit.
+const MAX_STARTUP_FRAMES := 240
 
 var main: Node
+## Frames this script's scene spent building itself in before_all(). One on a
+## build that does its startup in a single frame; one per slice on a build that
+## spreads it over frames (every web build, see WebBoot.split_startup).
+var startup_frames: int = 0
 
 
 func before_all() -> void:
@@ -43,6 +51,10 @@ func before_all() -> void:
 	main = load(MAIN_SCENE_PATH).instantiate()
 	add_child(main)
 	await process_frames(2)
+	# A scene that slices its startup is still building after those two frames.
+	while not main._startup_complete and startup_frames < MAX_STARTUP_FRAMES:
+		await process_frames(1)
+		startup_frames += 1
 
 
 func after_all() -> void:

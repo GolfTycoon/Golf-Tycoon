@@ -31,7 +31,7 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 | `scripts/ui/` | Menus, panels, HUD and components | 53 |
 | `scripts/effects/` | Particles and cosmetic effects | 11 |
 | `scripts/tools/` | Course-building tools such as hole creation | 5 |
-| `scripts/utils/` | Shared helpers | 4 |
+| `scripts/utils/` | Shared helpers | 5 |
 | `scripts/audio/` | Audio helpers | 1 |
 | `scripts/main/` | `main.gd`, the game controller | 1 |
 | `shaders/` | Course, elevation, planet and foliage shaders | 5 |
@@ -95,6 +95,31 @@ Main (Node2D)                      main.gd
 ```
 
 The main scene is set in `project.godot` as `res://scenes/main/main.tscn`.
+
+### Startup
+
+`main.gd` builds the scene in seven steps (`STARTUP_STEPS`): the content
+catalogs, the course layer, the managers, the HUD, the panels, the screens that
+drive a course, and the title screen last. Every step is a group of setup calls
+small enough to run between two frames, and `_ready()` walks them.
+
+On a native build that walk is a plain sequence: it finishes inside `_ready()`
+before the first frame, and with it the engine's boot splash stays up, so
+nothing half-built is ever seen. On the web the scene spreads the same steps
+over frames — one per step — because the loading screen there is the exported
+page's own HTML (`web/custom_shell.html`): while the engine holds the thread the
+page cannot repaint, so a startup that ran in one go would leave the loader
+frozen on the last thing it painted. Between slices the game reports the step to
+that page through `WebBoot` (`scripts/utils/web_boot.gd`, see
+[UI & Controls](ui-and-controls.md#boot-splash)), which keeps the stage line
+moving, and it tells the page when the title screen is really up — the engine's
+own `startGame()` promise resolves as soon as the engine has set up its main
+loop, long before the menu exists.
+
+A native build can take the same path with the `--split-startup` command-line
+argument (`godot --path . -- --split-startup`), which is how the browser's
+behaviour is reproduced without a browser.
+`tests/integration/ui_and_controls/test_startup_slices.gd` covers it.
 
 ---
 

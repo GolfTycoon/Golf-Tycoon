@@ -68,6 +68,14 @@ make warnings
 
 Export from the Godot editor under **Project → Export**, or with the Godot command line and the preset name.
 
+The Web preset wraps the build in `web/custom_shell.html`, which carries its own
+loading screen: artwork, a progress bar and a stage line over the canvas while
+`index.wasm` and the `.pck` download. That page is what the player looks at
+while the engine boots, so the game keeps it alive — the main scene builds itself
+in slices on the web and reports each step to the page through `WebBoot`, and
+tells it when the title screen is up. See
+[Architecture](../architecture.md#startup).
+
 ## Display Settings
 
 The main window is 1600 × 1000 with window mode 2 (maximised). The game also has a compact layout for small windows and touch screens. See [UI & Controls](../ui-and-controls.md).
