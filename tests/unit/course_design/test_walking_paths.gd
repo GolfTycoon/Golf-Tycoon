@@ -660,3 +660,79 @@ func test_fewer_than_three_points_fill_nothing() -> void:
 	assert_eq(WalkingPathOverlay.triangulate_outline(PackedVector2Array()), PackedInt32Array(), "No points, no fill")
 	assert_eq(WalkingPathOverlay.triangulate_outline(PackedVector2Array([Vector2.ZERO, Vector2.ONE])),
 		PackedInt32Array(), "and a line has no area to fill")
+
+
+# ---------------------------------------------------------------------------
+# The geometry shelf a camera repaint re-emits
+# ---------------------------------------------------------------------------
+
+## A camera pan repaints every overlay's visible draw list. Rebuilding each
+## trail tile's bands, pebbles and blades on every repaint was the cost of the
+## pan, so a tile's commands are kept until something they depend on moves.
+func test_a_trail_tiles_commands_are_reused_between_repaints() -> void:
+	var overlay := _overlay()
+	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 3), true)
+
+	var first := overlay._commands_for(Vector2i(3, 3))
+	assert_gt(first.size(), 0, "the tile has a walk to draw")
+	assert_eq(overlay._commands_for(Vector2i(3, 3)), first,
+		"the same walk is emitted again")
+	assert_same(overlay._commands_for(Vector2i(3, 3)), first,
+		"without rebuilding it")
+
+func test_the_shelf_matches_the_shape_of_the_trail() -> void:
+	var overlay := _overlay()
+	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 3), true)
+	var alone := overlay._commands_for(Vector2i(3, 3))
+
+	# Laying the next tile of the trail changes this tile's shape: a lone dot
+	# becomes an arm reaching for its neighbour.
+	grid.set_tile(Vector2i(4, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(4, 3), true)
+	var joined := overlay._commands_for(Vector2i(3, 3))
+	assert_ne(joined.size(), alone.size(), "the rebuilt walk reaches for its neighbour")
+	var fresh := overlay.tile_draw_commands(Vector2i(3, 3), false, not overlay._is_web)
+	assert_eq(_signatures(joined), _signatures(fresh),
+		"and is exactly the walk the overlay would build now")
+
+## The geometry of a command list, comparable by value (DrawCommands themselves
+## compare by identity).
+func _signatures(commands: Array) -> Array:
+	var signatures: Array = []
+	for cmd in commands:
+		signatures.append([cmd.kind, cmd.points, cmd.a, cmd.b, cmd.center, cmd.radius,
+			cmd.color, cmd.width])
+	return signatures
+
+func test_sculpting_the_ground_drops_the_shelf() -> void:
+	var overlay := _overlay()
+	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 3), true)
+	overlay._commands_for(Vector2i(3, 3))
+	assert_false(overlay._command_cache.is_empty(), "precondition: the walk is cached")
+
+	grid.set_vertex_elevation(Vector2i(4, 4), TerrainGrid.BASE_ELEVATION + 2)
+	assert_true(overlay._command_cache.is_empty(),
+		"the projected walk is rebuilt after the ground moves")
+
+func test_turning_the_course_drops_the_shelf() -> void:
+	var overlay := _overlay()
+	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 3), true)
+	overlay._commands_for(Vector2i(3, 3))
+	assert_false(overlay._command_cache.is_empty(), "precondition: the walk is cached")
+
+	grid.rotate_view_cw()
+	assert_true(overlay._command_cache.is_empty(),
+		"a quarter turn reprojects every trail")
+
+func test_a_bulk_elevation_load_can_drop_the_shelf() -> void:
+	var overlay := _overlay()
+	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
+	grid.set_walking_path(Vector2i(3, 3), true)
+	overlay._commands_for(Vector2i(3, 3))
+	overlay.invalidate_ground()
+	assert_true(overlay._command_cache.is_empty(),
+		"a load that writes the heightfield without a per-vertex signal clears it")
