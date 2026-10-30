@@ -57,6 +57,21 @@ catch state leaking from one suite into the other:
 
 CI runs the combined suite as well as the unit-only and warning checks.
 
+Integration scripts build the real main scene through `MainSceneTest`, which
+waits for the scene's startup to finish before the first test (a web build, and
+any run with `--split-startup`, spreads it over several frames; see
+[Architecture](../architecture.md#startup)). To see or profile that path on a
+desktop, run the game with the argument:
+
+```bash
+godot --path . -- --split-startup
+```
+
+`tests/integration/ui_and_controls/test_startup_slices.gd` covers it
+automatically: it forces the sliced startup on for its own scene and checks that
+the scene really did build over several frames, that every step ran, and that
+the title screen is up at the end.
+
 ### Manual previews and reports
 
 The scripts and scene under `tests/manual/` are for inspection, not automated
