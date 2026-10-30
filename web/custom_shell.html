@@ -370,7 +370,10 @@ progress {
 }
 
 #status-detail {
+	min-width: 0;
+	overflow: hidden;
 	font-variant-numeric: tabular-nums;
+	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
@@ -856,8 +859,72 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	let initializing = true;
 	let statusMode = '';
 	let booting = false;
+	// The step of its startup the game last reported (see setStage below).
+	let bootStage = '';
+	// Set once a boot has outlasted a patient wait: from then on the detail
+	// line carries a word of reassurance as well as the stage.
+	let bootHinted = false;
+	// How long the loader waits for the game's ready() before giving up and
+	// handing the canvas back anyway (see awaitTitleScreen).
+	const TITLE_SCREEN_TIMEOUT_MS = 60000;
 
 	statusMotto.textContent = loadingMottos[Math.floor(Math.random() * loadingMottos.length)];
+
+	// The line under the bar while the engine boots. The game replaces it at
+	// every startup checkpoint, so it doubles as proof the screen is alive.
+	function renderBootDetail() {
+		const stage = bootStage !== '' ? bootStage : 'Preparing the course…';
+		statusDetail.textContent = bootHinted ? `${stage} · taking longer than usual` : stage;
+	}
+
+	// A boot that has gone on this long is usually a slow device rather than a
+	// hang. Say so once, so a player does not reload in the middle of a load
+	// that was going to finish.
+	function watchBoot() {
+		window.setTimeout(function () {
+			if (!initializing || statusMode !== 'progress' || !booting) {
+				return;
+			}
+			bootHinted = true;
+			renderBootDetail();
+		}, 12000);
+	}
+
+	// The engine has started; the title screen has not. On the web the
+	// engine's startGame() promise resolves as soon as the engine is up, while
+	// the main scene is still building itself in slices (Main._ready), so
+	// hiding the loader here would uncover a half-built course. The game calls
+	// ready() when the menu is really up. The timeout is the safety net: a
+	// build whose startup never reports in still gets its canvas back.
+	function awaitTitleScreen() {
+		window.setTimeout(function () {
+			if (initializing) {
+				setStatusMode('hidden');
+			}
+		}, TITLE_SCREEN_TIMEOUT_MS);
+	}
+
+	// The game's end of the handshake, called from scripts/utils/web_boot.gd.
+	// setStage() names the work the main scene is doing: the exported shell is
+	// a web page, so while the engine holds the thread it cannot repaint, and
+	// the main scene therefore builds itself in slices and reports each one
+	// from between them (see Main._ready). ready() says the title screen is
+	// really up — on the web the engine's startGame() promise resolves as soon
+	// as the engine is up, which is long before the menu exists.
+	window.GolfTycoonBoot = {
+		setStage: function (stage) {
+			if (!initializing || statusMode === 'notice') {
+				return;
+			}
+			bootStage = typeof stage === 'string' ? stage.trim() : '';
+			if (booting) {
+				renderBootDetail();
+			}
+		},
+		ready: function () {
+			setStatusMode('hidden');
+		},
+	};
 
 	function focusGame() {
 		try {
@@ -944,8 +1011,9 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 			statusProgress.removeAttribute('max');
 			statusPercent.textContent = '100%';
 			statusTitle.textContent = 'Starting up';
-			statusDetail.textContent = 'Preparing the course…';
 			statusOverlay.classList.add('is-indeterminate');
+			renderBootDetail();
+			watchBoot();
 			return;
 		}
 
@@ -1035,9 +1103,7 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 	} else {
 		engine.startGame({
 			'onProgress': updateProgress,
-		}).then(() => {
-			setStatusMode('hidden');
-		}, displayFailureNotice);
+		}).then(awaitTitleScreen, displayFailureNotice);
 	}
 }());
 		</script>
