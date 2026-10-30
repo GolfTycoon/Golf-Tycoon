@@ -47,7 +47,7 @@
 | Course wildlife | Off, Reduced, Full | Duck families and butterflies: half the residents at Reduced, none at Off |
 | Impact particle effects | Off, Reduced, Full | The sand, water and landing bursts, and the nodes and tweens each one builds |
 | Decorative animation rate | Low, Standard, High (4, 15, 30 Hz) | How often flags, water, wildlife and golfer trims repaint |
-| Camera redraw rate | Low, Standard, High (15, 30, 60 Hz) | How often the ground overlays repaint while the camera moves |
+| Camera redraw rate | Low, Standard, High (15, 30, 60 Hz) | How often the ground overlays repaint while the camera reaches new tiles (a pan inside one tile window repaints nothing) |
 | Golfer coordination rate | Low, Standard, High (15, 30, 60 Hz) | How often the course-wide golfer group scheduling runs |
 
 The **Performance** preset turns terrain rendering Fast, grass and tree occlusion off, water and wind flag detail reduced, prop and ball shadows off, wildlife off and impact bursts to half size, and all three rates to Low. **Balanced** and **High quality** keep every detail on, at Standard and High rates respectively.

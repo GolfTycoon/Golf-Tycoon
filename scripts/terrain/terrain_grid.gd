@@ -121,11 +121,23 @@ const GROUND_DETAIL_ORDER: Array[String] = [
 	"FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
 ]
 
-## Camera tracking for viewport-culling overlays — redraw when camera moves
-var _last_camera_pos: Vector2 = Vector2.ZERO
-var _last_camera_zoom: float = 1.0
+## Camera tracking for the viewport-culling overlays. A pan only changes what
+## a culling overlay has to paint once it reaches a tile it did not have before:
+## a sub-pixel drift inside the tile window leaves every cached draw list valid,
+## so it must not queue a rebuild. The zoom step catches the zoom-dependent
+## detail levels an overlay picks (the elevation lattice), which can change
+## without the tile window moving.
+const CAMERA_ZOOM_STEP: float = 0.05
+var _last_visible_min: Vector2i = Vector2i(-1, -1)
+var _last_visible_max: Vector2i = Vector2i(-1, -1)
+var _last_camera_zoom_step: float = -1.0
 var _camera_redraw_elapsed: float = 0.0
 var _camera_redraw_pending: bool = false
+var _last_camera_redraw_ms: int = 0
+## How many camera-driven repaints the ground overlays have been given. The
+## count is the thing a pan is charged for (see `_process`), so the tests read
+## it to prove that drifting inside a tile window costs nothing.
+var camera_repaint_count: int = 0
 
 func _ready() -> void:
 	_init_projection()
@@ -158,29 +170,48 @@ func _ready() -> void:
 	add_child(_wildlife)
 	_wildlife.initialize(self)
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	# Flush any pending heightmap blur + texture uploads (batched for performance)
 	if _heightmap:
 		_heightmap.flush_dirty()
 	# Canvas overlays cull their draw lists to the camera. Queue them at a capped
 	# cadence instead of once per rendered frame while the player pans/zooms;
 	# the small prefetch margin keeps the screen edges filled between redraws.
+	# The overlap of the old and new tile windows is what makes a pan cheap:
+	# every redraw rebuilds the visible draw lists, so it is only worth one when
+	# the window actually gained or lost tiles (see `get_visible_tile_range()`).
 	var viewport := get_viewport()
 	var camera := viewport.get_camera_2d() if viewport else null
 	if not camera:
 		return
-	var cam_pos := camera.global_position
-	var cam_zoom := camera.zoom.x
-	if cam_pos != _last_camera_pos or cam_zoom != _last_camera_zoom:
-		_last_camera_pos = cam_pos
-		_last_camera_zoom = cam_zoom
+	var tile_range := get_visible_tile_range()
+	if tile_range.size() < 2:
+		return
+	var first: Vector2i = tile_range[0]
+	var last: Vector2i = tile_range[1]
+	var zoom_step := snappedf(camera.zoom.x, CAMERA_ZOOM_STEP)
+	if first != _last_visible_min or last != _last_visible_max \
+			or not is_equal_approx(zoom_step, _last_camera_zoom_step):
+		_last_visible_min = first
+		_last_visible_max = last
+		_last_camera_zoom_step = zoom_step
 		_camera_redraw_pending = true
 	if not _camera_redraw_pending:
 		return
-	_camera_redraw_elapsed += delta / maxf(Engine.time_scale, 0.01)
+	# Wall-clock cadence: the overlays, like the camera that moves under them,
+	# are player-facing UI. A delta scaled by Engine.time_scale is 0 while the
+	# game is paused, which used to freeze the overlays with the simulation (and
+	# made a paused pan look free while a live one paid for every repaint).
+	var now_ms := Time.get_ticks_msec()
+	if _last_camera_redraw_ms <= 0:
+		_last_camera_redraw_ms = now_ms
+	var real_delta := clampf(float(now_ms - _last_camera_redraw_ms) / 1000.0, 0.0, 0.1)
+	_last_camera_redraw_ms = now_ms
+	_camera_redraw_elapsed += real_delta
 	if _camera_redraw_elapsed >= PerformanceSettings.camera_redraw_interval():
 		_camera_redraw_elapsed = 0.0
 		_camera_redraw_pending = false
+		camera_repaint_count += 1
 		_redraw_all_overlays()
 		if _tree_overlay:
 			_tree_overlay.update_visible_trees()
@@ -224,6 +255,12 @@ func _redraw_all_overlays() -> void:
 ## uploads are handled separately; these are the CanvasItems whose projected
 ## vertices and child-node anchors would otherwise remain at the old height.
 func _refresh_elevation_visuals() -> void:
+	# Projected ground art keeps a per-tile shelf so a camera repaint is cheap;
+	# the heightfield just moved, so the shelf is stale.
+	if _walking_path_overlay:
+		_walking_path_overlay.invalidate_ground()
+	if _land_boundary_overlay:
+		_land_boundary_overlay.invalidate_ground()
 	_redraw_all_overlays()
 	if _cup_overlay:
 		_cup_overlay.refresh_pin_positions()
@@ -234,6 +271,10 @@ func _refresh_elevation_visuals() -> void:
 
 func _initialize_grid() -> void:
 	terrain_revision += 1
+	# A new course may carry a different grid and a different view: forget the
+	# window the last one wore so the first frame after a load repaints.
+	_last_visible_min = Vector2i(-1, -1)
+	_last_visible_max = Vector2i(-1, -1)
 	_ensure_vertex_storage()
 	_tee_box_tiles.clear()
 	_walking_paths.clear()

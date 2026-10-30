@@ -89,6 +89,14 @@ var _path_tiles: Dictionary = {}
 var _upgraded_tiles: Dictionary = {}
 var _building_tiles: Dictionary = {}
 var _is_web: bool = false
+## Projected draw commands per trail tile, built on the fly and reused by every
+## camera-driven repaint. The geometry only depends on the trail's shape (which
+## `rebuild()` settles), the clubhouse paving, the projection and the ground's
+## height, so a pan or a zoom re-emits it instead of rebuilding it. A long
+## session panning over a large course keeps at most `MAX_CACHED_TILES` of
+## them; past that the shelf is dropped and rebuilt from the visible tiles.
+var _command_cache: Dictionary = {}  # Vector2i -> Array[DrawCommand]
+const MAX_CACHED_TILES: int = 2048
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -102,6 +110,7 @@ func initialize(grid: TerrainGrid) -> void:
 		grid.walking_paths_changed.connect(rebuild)
 		grid.elevation_changed.connect(_on_elevation_changed)
 	EventBus.load_completed.connect(_on_load_completed)
+	EventBus.view_rotated.connect(_on_view_rotated)
 	rebuild()
 
 func _exit_tree() -> void:
@@ -118,13 +127,27 @@ func _exit_tree() -> void:
 			el.building_placed.disconnect(_on_entity_building_placed)
 	if EventBus.load_completed.is_connected(_on_load_completed):
 		EventBus.load_completed.disconnect(_on_load_completed)
+	if EventBus.view_rotated.is_connected(_on_view_rotated):
+		EventBus.view_rotated.disconnect(_on_view_rotated)
 
 func _on_load_completed(_success: bool) -> void:
 	rebuild()
 
-## Trails follow the ground, so sculpted elevation must reproject them.
+## Trails follow the ground, so sculpted elevation must reproject them. A lift
+## reaches the tiles whose shared corners it moved, so the whole shelf goes.
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
+	_command_cache.clear()
 	queue_redraw()
+
+## A quarter turn changes every projected point, so the commands are rebuilt.
+func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
+	_command_cache.clear()
+	queue_redraw()
+
+## Drop the cached geometry after a bulk elevation load, which writes the
+## heightfield without a per-vertex signal (see TerrainGrid).
+func invalidate_ground() -> void:
+	_command_cache.clear()
 
 ## The entity layer is created after the grid, so hook its building signals
 ## lazily: a placed or removed clubhouse changes which trails are paved.
@@ -155,6 +178,7 @@ func _on_entity_building_moved(_building, _from_pos: Vector2i, _to_pos: Vector2i
 ## few of them.
 func rebuild() -> void:
 	_ensure_entity_connections()
+	_command_cache.clear()
 	_path_tiles.clear()
 	_upgraded_tiles.clear()
 	_building_tiles = _occupied_tiles()
@@ -262,7 +286,7 @@ func _draw() -> void:
 		var center := to_local(terrain_grid.grid_to_screen_center(pos))
 		if not visible_rect.has_point(center):
 			continue
-		for cmd in tile_draw_commands(pos, _upgraded_tiles.has(pos), not _is_web):
+		for cmd in _commands_for(pos):
 			match cmd.kind:
 				"polygon":
 					_draw_outline(cmd.points, cmd.color)
@@ -272,6 +296,18 @@ func _draw() -> void:
 					draw_polyline(cmd.points, cmd.color, cmd.width)
 				"circle":
 					draw_circle(cmd.center, cmd.radius, cmd.color)
+
+## The draw commands for one trail tile, from the shelf when it is already
+## there. `tile_draw_commands()` measures and allocates every band, pebble and
+## blade of a walk; a camera pan must not pay for that again on every tile.
+func _commands_for(pos: Vector2i) -> Array:
+	if _command_cache.has(pos):
+		return _command_cache[pos]
+	if _command_cache.size() >= MAX_CACHED_TILES:
+		_command_cache.clear()
+	var commands := tile_draw_commands(pos, _upgraded_tiles.has(pos), not _is_web)
+	_command_cache[pos] = commands
+	return commands
 
 ## Fill one projected outline. Every outline is convex in tile units (a band,
 ## a taper or a pad), but sculpted ground lifts its corners by different heights,
