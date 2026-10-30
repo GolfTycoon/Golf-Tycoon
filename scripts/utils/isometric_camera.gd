@@ -8,6 +8,9 @@ class_name IsometricCamera
 ## at any game speed.
 
 @export var pan_speed: float = 800.0
+## Screen-edge zone (in viewport pixels) that pans the camera when hovered.
+@export var edge_pan_enabled: bool = true
+@export_range(1.0, 100.0, 1.0) var edge_pan_margin: float = 24.0
 @export var zoom_speed: float = 0.1
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
@@ -180,6 +183,18 @@ func _handle_keyboard_input(delta: float) -> void:
 	if Input.is_action_pressed("camera_pan_down"): direction.y += 1
 	if Input.is_action_pressed("camera_pan_left"): direction.x -= 1
 	if Input.is_action_pressed("camera_pan_right"): direction.x += 1
+
+	# Edge scrolling uses viewport-local coordinates, so it also works with
+	# window scaling and the responsive game viewport. Don't steal the pointer
+	# from HUD panels or other controls at the edge of the screen.
+	if edge_pan_enabled and not _is_dragging and get_viewport().gui_get_hovered_control() == null:
+		var mouse_pos := get_viewport().get_mouse_position()
+		var viewport_size := get_viewport_rect().size
+		if mouse_pos.x >= 0.0 and mouse_pos.x <= viewport_size.x and mouse_pos.y >= 0.0 and mouse_pos.y <= viewport_size.y:
+			if mouse_pos.x < edge_pan_margin: direction.x -= 1.0
+			elif mouse_pos.x > viewport_size.x - edge_pan_margin: direction.x += 1.0
+			if mouse_pos.y < edge_pan_margin: direction.y -= 1.0
+			elif mouse_pos.y > viewport_size.y - edge_pan_margin: direction.y += 1.0
 
 	# Gamepad: the left stick pans and the triggers zoom, but only while no
 	# screen or focused control owns the D-pad/stick (InputManager).
