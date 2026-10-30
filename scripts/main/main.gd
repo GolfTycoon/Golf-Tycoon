@@ -992,14 +992,14 @@ func _hide_main_menu() -> void:
 
 ## The title screen fully covers the idle course, so skip its rendering until
 ## the player leaves the menu (or starts a benchmark tour).
-func _set_course_world_visible(is_visible: bool) -> void:
+func _set_course_world_visible(world_visible: bool) -> void:
 	if is_instance_valid(terrain_grid):
-		terrain_grid.visible = is_visible
+		terrain_grid.visible = world_visible
 	if is_instance_valid(entity_layer):
-		entity_layer.visible = is_visible
+		entity_layer.visible = world_visible
 	var holes := get_node_or_null("Holes") as CanvasItem
 	if holes != null:
-		holes.visible = is_visible
+		holes.visible = world_visible
 
 ## Hand the player the course a save just restored. The title screen and the
 ## gameplay HUD are the two halves of one trade — the menu was hiding the
