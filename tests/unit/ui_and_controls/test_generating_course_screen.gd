@@ -17,6 +17,21 @@ func test_quick_start_checklist_has_three_holes_and_paths() -> void:
 		GeneratingCourseScreen.STAGE_OPENING,
 	], "quick start builds the full five-stage checklist")
 
+func test_location_preparation_precedes_the_normal_generation_stages() -> void:
+	var holes := GeneratingCourseScreen.holes_stage_text(false, 3, false)
+	var stages := GeneratingCourseScreen.stages_for_job(holes, true, true)
+	assert_eq(stages, [
+		GeneratingCourseScreen.STAGE_LOCATION,
+		GeneratingCourseScreen.STAGE_TERRAIN,
+		"Laying out 3 holes",
+		GeneratingCourseScreen.STAGE_CLUBHOUSE,
+		GeneratingCourseScreen.STAGE_PATHS,
+		GeneratingCourseScreen.STAGE_OPENING,
+	], "the location and generation are one continuous job")
+	assert_lt(GeneratingCourseScreen.fraction_for_stage(0, stages.size()),
+		GeneratingCourseScreen.fraction_for_stage(1, stages.size()),
+		"the bar advances from finding the location to shaping the land")
+
 func test_generated_holes_are_worded_with_their_count() -> void:
 	assert_eq(GeneratingCourseScreen.holes_stage_text(false, 6, false),
 		"Laying out 6 holes", "six requested holes")
@@ -145,6 +160,28 @@ func test_stages_complete_in_order_as_they_start() -> void:
 	screen.finish()
 	assert_eq(_pip_states(screen), [2, 2, 2, 2, 2], "everything done")
 	assert_eq(screen.get("_display_fraction"), 1.0, "the bar is full")
+
+func test_updating_the_chosen_course_preserves_progress_and_starts_its_theme_tip() -> void:
+	Screen.window_size = Vector2(1600, 1000)
+	var holes := GeneratingCourseScreen.holes_stage_text(false, 3, false)
+	var stages := GeneratingCourseScreen.stages_for_job(holes, true, true)
+	var screen := autofree(GeneratingCourseScreen.new()) as GeneratingCourseScreen
+	screen.setup("Your new course", "3 holes", stages)
+	add_child(screen)
+	screen.set_stage_by_title(GeneratingCourseScreen.STAGE_LOCATION)
+	screen._display_fraction = 0.07
+	screen._tip_index = 2
+	screen.setup("Monterey Golf Club", "Links | 3 holes", stages, "A coastal course.")
+	assert_eq(screen._display_fraction, 0.07, "updating the details keeps progress")
+	assert_eq(screen._status_base(), GeneratingCourseScreen.STAGE_LOCATION, "the location stage stays active")
+	var title := screen.get_node("Root/Center/Card/Column/Header/TitleBlock/CourseName") as Label
+	assert_eq(title.text, "Monterey Golf Club", "the chosen course replaces the placeholder")
+	var tip := screen.get_node("Root/Center/Card/Column/TipBox/Content/Tip") as Label
+	assert_eq(tip.text, "A coastal course.", "the chosen theme is the first tip")
+	screen.set_stage_by_title(GeneratingCourseScreen.STAGE_TERRAIN)
+	assert_eq(_pip_states(screen), [2, 1, 0, 0, 0, 0], "generation follows location preparation")
+	await get_tree().process_frame
+	await get_tree().process_frame  # The replaced card's queued controls are freed.
 
 func test_empty_jobs_build_without_a_checklist() -> void:
 	var screen := autofree(GeneratingCourseScreen.new()) as GeneratingCourseScreen

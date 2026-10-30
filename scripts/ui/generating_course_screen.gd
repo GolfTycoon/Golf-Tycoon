@@ -26,10 +26,12 @@ class_name GeneratingCourseScreen
 ## Flow: main.gd builds the stage list with stages_for_job(), calls setup(),
 ## adds the screen, then calls set_stage_by_title() before each build phase
 ## (awaiting a frame so the new stage paints before the blocking work) and
-## finish() once the course is ready.
+## finish() once the course is ready. Quick Start shows it even earlier, while
+## the world and location are being prepared, and updates it once they are known.
 
 ## Build phases with a fixed title. The holes phase is worded per job by
 ## holes_stage_text() ("Laying out 6 holes", ...).
+const STAGE_LOCATION := "Finding a location"
 const STAGE_TERRAIN := "Shaping the land"
 const STAGE_CLUBHOUSE := "Opening the clubhouse"
 const STAGE_PATHS := "Laying walking paths"
@@ -197,6 +199,10 @@ func setup(course_name: String, subtitle: String, stages: Array[String],
 	if not theme_description.is_empty():
 		_tips.append(theme_description)
 	_tips.append_array(TIPS)
+	# A Quick Start screen is updated once its location and theme are known.
+	# Start its tips again with the new theme, but keep the progress already made.
+	_tip_index = 0
+	_tip_time = 0.0
 	if _built:
 		_build()
 
@@ -239,11 +245,15 @@ static func is_compact(window_size: Vector2) -> bool:
 static func is_tiny(window_size: Vector2) -> bool:
 	return window_size.y < 460.0
 
-## The checklist for one generation job: shaping the land, the holes phase
-## (worded by holes_stage_text(), absent for an empty lot), the clubhouse,
-## walking paths when the course opens with holes, and opening day.
-static func stages_for_job(holes_stage: String, with_paths: bool) -> Array[String]:
-	var stages: Array[String] = [STAGE_TERRAIN]
+## The checklist for one generation job: optionally find a Quick Start location,
+## then shape the land, lay out holes (absent for an empty lot), open the
+## clubhouse, lay paths when there are holes, and get ready for opening day.
+static func stages_for_job(holes_stage: String, with_paths: bool,
+		with_location: bool = false) -> Array[String]:
+	var stages: Array[String] = []
+	if with_location:
+		stages.append(STAGE_LOCATION)
+	stages.append(STAGE_TERRAIN)
 	if not holes_stage.is_empty():
 		stages.append(holes_stage)
 	stages.append(STAGE_CLUBHOUSE)

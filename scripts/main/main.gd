@@ -144,6 +144,9 @@ var _moving_building: Building = null
 var placement_preview: PlacementPreview = null
 var main_menu: MainMenu = null
 var world_map_screen: WorldMapScreen = null
+## One overlay owns input from the start of Quick Start preparation until the
+## course is built. Other new courses create it when generation begins.
+var _generating_course_screen: GeneratingCourseScreen = null
 ## Controller/keyboard pointer and the on-screen prompt strip (see
 ## _setup_input_layer). Both live in the HUD and never take pointer input.
 var gamepad_cursor: GamepadCursor = null
@@ -532,7 +535,7 @@ func _setup_input_layer() -> void:
 
 ## True on the course with no screen/panel (or benchmark) owning input.
 func _gameplay_input_active() -> bool:
-	if not _startup_complete:
+	if not _startup_complete or is_instance_valid(_generating_course_screen):
 		return false
 	if _benchmark_tour_active:
 		return false
@@ -598,6 +601,12 @@ func _input(event: InputEvent) -> void:
 	# in which hotkeys would reach a half-built scene. The title screen handles
 	# its own input as GUI events, so nothing is lost by standing down here.
 	if not _startup_complete:
+		return
+	# The loading overlay blocks mouse clicks, but keyboard and controller
+	# shortcuts are handled here before GUI input. Do not let them start another
+	# game, open a menu or change the course while it is being prepared.
+	if is_instance_valid(_generating_course_screen):
+		get_viewport().set_input_as_handled()
 		return
 	# The benchmark tour owns the keyboard while it runs: Escape cancels it
 	# (and restores the player's course); every other hotkey stands down so
@@ -794,6 +803,9 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _startup_complete:
+		return
+	if is_instance_valid(_generating_course_screen):
+		get_viewport().set_input_as_handled()
 		return
 	# Nothing paints, places or measures on a course the benchmark tour is
 	# driving; the tour banner's own controls are GUI input and already ran.
@@ -1074,8 +1086,8 @@ func _initialize_game() -> void:
 	_show_main_menu()
 
 ## ── Main menu ────────────────────────────────────────────────────────────
-## Start New Game and Quick Start both lead to the world map, where the
-## company buys the location for its first course.
+## Start New Game goes to the world map. Quick Start buys an affordable
+## location itself, opening the map only if it cannot make the purchase.
 
 func _show_main_menu() -> void:
 	_close_world_map()
@@ -1168,16 +1180,56 @@ func _on_menu_start_new_game() -> void:
 ## 3 generated holes, every feature off), then a random location the company can
 ## afford is bought and its course is started straight away.
 func _on_menu_quick_start() -> void:
+	if is_instance_valid(_generating_course_screen):
+		return  # Ignore repeated clicks / shortcuts while a course is starting.
+
+	# World creation, location signals and GameManager.new_game can all do
+	# substantial synchronous work. Show the loading screen *before* any of it,
+	# while the idle course is still hidden behind the title screen.
+	var holes := WorldMapStateScript.QUICK_START_HOLES
+	var holes_stage := GeneratingCourseScreen.holes_stage_text(false, holes, false)
+	var loading_overlay := GeneratingCourseScreen.new()
+	loading_overlay.name = "GeneratingCourseScreen"
+	loading_overlay.setup("Your new course", "%d holes" % holes,
+		GeneratingCourseScreen.stages_for_job(holes_stage, true, true))
+	_generating_course_screen = loading_overlay
+	add_child(loading_overlay)
+	loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_LOCATION)
+	if is_instance_valid(main_menu):
+		main_menu.hide()
+
+	# process_frame fires before _process and drawing. Waiting twice gives the
+	# screen a complete frame to actually paint, even in a slow browser build.
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+
 	_hide_main_menu()
 	WorldMap.new_world(WorldMapStateScript.quick_start_options())
 	var location_id := WorldMap.pick_random_affordable_location()
 	if location_id.is_empty() or not WorldMap.buy_location(location_id):
 		# Nothing affordable (or the purchase failed): let the player choose.
+		_dismiss_generating_course_screen()
 		EventBus.notify("No location is affordable right now. Choose one on the World Map.", "info")
 		_show_world_map_screen(true)
 		return
 	WorldMap.set_active_location(location_id)
-	_start_new_course_at_location(location_id, true)
+	# Give the screen another repaint between the world roll and course setup.
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	_start_new_course_at_location(location_id, WorldMapOrigin.TITLE_SCREEN)
+
+
+## Remove the shared loader on either successful generation or a fallback to
+## the world map. Clear the reference immediately so input can resume.
+func _dismiss_generating_course_screen() -> void:
+	if is_instance_valid(_generating_course_screen):
+		_generating_course_screen.queue_free()
+	_generating_course_screen = null
 
 ## Continue: play the newest checkpoint straight away, the shortcut past the
 ## archive. The load itself is the archive's; what Continue adds is taking the
@@ -1508,9 +1560,9 @@ func _on_main_menu_prebuilt_course(course_name: String, theme_type: int, package
 
 func _on_main_menu_quick_start(course_name: String = "", theme_type: int = -1,
 		options: Dictionary = {}) -> void:
-	"""Legacy entry point (tests, harnesses and the Quick Start hotkey): start a
-	game right away on the landscaped nine-hole Quick Start course. The menu's
-	Quick Start button goes through the world map instead."""
+	"""Legacy entry point (tests and harnesses): start a game right away on the
+	landscaped nine-hole Quick Start course. The title screen's Quick Start
+	button and hotkey use the world-map flow instead."""
 	var theme := theme_type if theme_type >= 0 else CourseTheme.Type.PARKLAND
 	var difficulty: int = WorldMap.difficulty
 	_pending_terrain_seed = int(options.get("terrain_seed", 0))
@@ -2709,15 +2761,22 @@ func _on_new_game_started() -> void:
 	var with_paths := is_quick_start or is_prebuilt or holes_requested > 0
 	var theme_name := CourseTheme.get_theme_name(GameManager.current_theme)
 
-	# Show loading screen and wait a frame so it actually renders
-	# before the synchronous generation blocks the main thread.
-	var loading_overlay := GeneratingCourseScreen.new()
+	# Quick Start already showed this screen before the world roll. Reuse it and
+	# replace the placeholder with the chosen course and theme; other entry
+	# points create their screen here as before.
+	var with_location := is_instance_valid(_generating_course_screen)
+	var loading_overlay := _generating_course_screen
+	if not with_location:
+		loading_overlay = GeneratingCourseScreen.new()
+		loading_overlay.name = "GeneratingCourseScreen"
 	loading_overlay.setup(GameManager.course_name,
 		GeneratingCourseScreen.subtitle_for_job(
 			theme_name, is_quick_start, holes_requested, is_prebuilt),
-		GeneratingCourseScreen.stages_for_job(holes_stage, with_paths),
+		GeneratingCourseScreen.stages_for_job(holes_stage, with_paths, with_location),
 		CourseTheme.get_description(GameManager.current_theme))
-	add_child(loading_overlay)
+	if not with_location:
+		_generating_course_screen = loading_overlay
+		add_child(loading_overlay)
 	loading_overlay.set_stage_by_title(GeneratingCourseScreen.STAGE_TERRAIN)
 	await get_tree().process_frame
 	await get_tree().process_frame  # Two frames to ensure the overlay paints
@@ -2869,7 +2928,7 @@ func _on_new_game_started() -> void:
 	# a beat, then remove the loading screen.
 	loading_overlay.finish()
 	await get_tree().process_frame
-	loading_overlay.queue_free()
+	_dismiss_generating_course_screen()
 
 	# The owner's own golfer is on the course from the start, working the
 	# ground the player gave them.
