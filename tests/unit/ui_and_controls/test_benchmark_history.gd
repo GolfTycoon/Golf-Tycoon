@@ -25,7 +25,7 @@ func _run(unix_time: int, overall: float, fps: float, cpu: float, gpu: float,
 	return {
 		"started_at_unix": unix_time,
 		"benchmark_version": "GTB-2",
-		"game_version": "0.5.5",
+		"game_version": "0.5.6",
 		"platform": "Test OS",
 		"device_model": device,
 		"cpu_name": "Test CPU",
