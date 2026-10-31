@@ -328,7 +328,7 @@ func test_keyboard_repeat_keeps_the_virtual_mouse_button_held() -> void:
 	var cursor := GamepadCursor.new()
 	add_child_autofree(cursor)
 	manager.device = InputManagerScript.Device.KEYBOARD
-	var previous_mode: int = GameManager.current_mode
+	var previous_mode: GameManager.GameMode = GameManager.current_mode
 	GameManager.current_mode = GameManager.GameMode.SIMULATING
 	cursor._active = true
 	var enter := InputEventKey.new()
