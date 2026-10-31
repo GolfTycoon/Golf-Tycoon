@@ -4,7 +4,7 @@ class_name CourseMapView
 ##
 ## The whole 128x128 grid is projected through the course's own GridProjection -
 ## so the map is a true isometric diamond, and it turns with the course when the
-## view is rotated with Q - and the terrain is sampled into a texture that is laid
+## view is rotated with Q or E - and the terrain is sampled into a texture that is laid
 ## over the diamond (the same trick the corner minimap uses, at a size that fills
 ## a whole screen).
 ##

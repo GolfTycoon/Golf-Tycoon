@@ -112,7 +112,7 @@ const ACTIONS: Array[Dictionary] = [
 	{
 		"action": "rotate_camera_cw", "group": "camera",
 		"label": "Rotate view clockwise", "hint": "",
-		"defaults": [{"type": "key", "keycode": KEY_Q, "shift": true}],
+		"defaults": [{"type": "key", "keycode": KEY_E}],
 	},
 	# --- Game and saving ---------------------------------------------------
 	{
@@ -371,8 +371,8 @@ const ACTIONS: Array[Dictionary] = [
 	},
 	{
 		"action": "tab_elevation", "group": "tools",
-		"label": "Elevations tab", "hint": "",
-		"defaults": [{"type": "key", "keycode": KEY_E}],
+		"label": "Elevations tab", "hint": "R opens this tab; Q and E turn the course.",
+		"defaults": [{"type": "key", "keycode": KEY_R}],
 	},
 	{
 		"action": "elevation_vertex", "group": "tools",

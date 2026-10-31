@@ -227,7 +227,7 @@ The Weather, Wind and Seasons rows appear only while their feature is on: with a
 
 The top-left corner carries the course location banner (`CourseLocationBanner`), a two-column postcard for the course being played. The first column is a square 1:1 pixel-art picture of the location inside a hairline photo frame with no background of its own — the course shows right up to the frame. `CourseLocationPicture` procedurally paints a different scene for every location from its theme and a seed derived from its id, so each of the world-map sites (and any mod-added location) gets its own deterministic picture: mesas and saguaros in the desert, snowcaps and pines in the mountains, a skyline in the city, palms and volcanic islands in the tropics, fescue dunes on links courses, and so on. The second column is the only part of the banner with a background, a dark card carrying the location's name and the calendar date (with a gold calendar icon; the full weekday date on desktop, a compact stamp on narrow windows). The banner hides while no location is active, swaps its picture and name with a short fade when the player moves between owned courses, and ignores the mouse so shots pass through the corner. The round-score dock stacks directly underneath it.
 
-The two **Rotate** arrows stand in that same corner, on the right of the details card: each turns the course a quarter turn, the same as `Q` and `Shift+Q`, and they are drawn as mirrored pixel arrows rather than font glyphs. In the card's own top-right corner sits the **facing chip** (`OrientationToggleButton`) — a pixel arrow pointing the way the course faces beside its `N` / `E` / `S` / `W` letter, turned by the same quarter turn a press on either arrow gives. The chip doubles as the switch for the arrows: click it to fold them away when the corner should stay quiet, and click it again to bring them back. It stays in place either way — its arrow and rim are gold while the arrows are out and muted while they are stowed — and the banner narrows back into their room while they are hidden.
+The two **Rotate** arrows stand in that same corner, on the right of the details card: each turns the course a quarter turn, the same as `Q` and `E`, and they are drawn as mirrored pixel arrows rather than font glyphs. In the card's own top-right corner sits the **facing chip** (`OrientationToggleButton`) — a pixel arrow pointing the way the course faces beside its `N` / `E` / `S` / `W` letter, turned by the same quarter turn a press on either arrow gives. The chip doubles as the switch for the arrows: click it to fold them away when the corner should stay quiet, and click it again to bring them back. It stays in place either way — its arrow and rim are gold while the arrows are out and muted while they are stowed — and the banner narrows back into their room while they are hidden.
 
 ## Keyboard
 
@@ -261,7 +261,7 @@ Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the
 | `W` `A` `S` `D` | Pan the camera |
 | Middle mouse drag | Pan the camera |
 | Mouse wheel, `[` and `]` | Zoom |
-| `Q` and `Shift+Q` | Rotate the view |
+| `Q` and `E` | Rotate the view counter-clockwise and clockwise |
 | `Tab` | Toggle the minimap |
 | `Shift+Tab` | Focus the bottom-left dock (then arrows/Enter drive it; `Esc` returns) |
 | `V` | Toggle the heatmap. `Shift+V` changes the heatmap mode |
@@ -290,7 +290,7 @@ Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the
 | `1` to `9`, `0` | Terrain tools |
 | `Shift+2`, `Shift+5` to `Shift+9`, `Shift+0`, `Shift+F` | More terrain tools (Shift+9 Small Boulders, Shift+0 Large Boulders) |
 | `T`, `B`, `O`, `H`, `X` | Tool shortcuts. `T` is the Tree tool and `H` is Open Hole. |
-| `=`, `.`, `E` | Switch the toolbar tabs |
+| `=`, `.`, `R` | Switch the toolbar tabs |
 | `V`, `+`, `-` | Elevation tools |
 | `F`, `U`, `M`, `Z`, `G`, `C`, `N` | Management shortcuts (`G` Course Milestones, `Shift+G` World Milestones, `Shift+T` Achievements) |
 

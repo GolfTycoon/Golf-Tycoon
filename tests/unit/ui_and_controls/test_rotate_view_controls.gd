@@ -61,7 +61,7 @@ func test_buttons_are_drawn_not_typed() -> void:
 	var cw_button := RotateViewButton.new()
 	cw_button.clockwise = true
 	add_child_autofree(cw_button)
-	assert_true(cw_button.clockwise, "The Shift+Q button sweeps clockwise")
+	assert_true(cw_button.clockwise, "The E button sweeps clockwise")
 	assert_eq(cw_button.text, "")
 
 # ---------------------------------------------------------------------------
