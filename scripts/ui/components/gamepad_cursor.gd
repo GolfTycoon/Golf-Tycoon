@@ -6,7 +6,7 @@ class_name GamepadCursor
 ## pointer surface: terrain painting, placing a building, aiming a shot and
 ## clicking a hole all read the mouse position. Rather than giving the game a
 ## second, parallel set of code paths, this node moves the real mouse pointer
-## with the controller's right stick (or the keyboard's arrow keys) and clicks
+## with the controller's right stick (or Shift + arrow keys) and clicks
 ## it with A (or Enter). Every existing mouse feature therefore works unchanged
 ## with a gamepad or with a keyboard alone.
 ##
@@ -90,9 +90,11 @@ func _process(delta: float) -> void:
 		"gamepad_cursor_left", "gamepad_cursor_right",
 		"gamepad_cursor_up", "gamepad_cursor_down")
 	if InputManager.is_keyboard():
-		# No UI has focus (that is part of _should_be_active), so the arrow
-		# keys are free to drive the pointer.
-		stick = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+		# Unmodified arrows enter HUD navigation. Shift+arrows move the
+		# pointer while no control owns focus.
+		stick = Vector2.ZERO
+		if Input.is_key_pressed(KEY_SHIFT):
+			stick = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	elif _ui_pointer_mode:
 		# Inside a screen the right stick is the pointer; the left stick stays
 		# with focus navigation so the player can return to the buttons.
@@ -205,7 +207,9 @@ func _place_pointer() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _active:
+	# Focus may have changed since the last process frame. Never click the
+	# course behind a newly focused control or opened screen.
+	if not _active or not _should_be_active():
 		return
 	# On a screen, B leaves pointer mode first (the screen stays open), and a
 	# D-pad or left-stick nudge hands control back to focus navigation.
@@ -232,8 +236,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Space stays the pause shortcut for keyboard players; Enter clicks.
 		if event is InputEventKey and (event as InputEventKey).keycode == KEY_SPACE:
 			return
-		var pressed: bool = event.is_pressed() and not event.is_echo()
-		if pressed:
+		# Key repeat is not a release: keep the synthetic button held so a
+		# keyboard player can paint or drag while Enter is held down.
+		if event.is_echo():
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_pressed():
 			_holding = true
 			_send_button(true)
 		else:

@@ -92,7 +92,7 @@ func _refresh() -> void:
 	var gamepad: bool = device == InputManager.Device.GAMEPAD
 	var touch: bool = device == InputManager.Device.TOUCH
 	var keyboard: bool = device == InputManager.Device.KEYBOARD
-	var should_show := gamepad or (touch and in_screen) or (keyboard and in_screen)
+	var should_show := gamepad or keyboard or (touch and in_screen)
 	if not should_show:
 		visible = false
 		return
@@ -126,7 +126,7 @@ func _hints_for(device: int, in_screen: bool) -> Array[String]:
 			return ["Left stick  Pan", "Right stick  Pointer", "A  Click", "B  Cancel",
 				"X/Y  Rotate", "LT/RT  Zoom", "View  UI", "Start  Pause"]
 		InputManager.Device.KEYBOARD:
-			return ["WASD  Pan", "Arrows  Move", "Enter  Select", "F1  Help"]
+			return ["WASD  Pan", "Shift+Arrows  Pointer", "Arrows  HUD", "Enter  Click", "Esc  Back", "F1  Help"]
 		_:
 			return []
 

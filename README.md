@@ -94,7 +94,7 @@ If the course runs slowly, **Settings → Display → Performance & Scale** has 
 | Action | Keys, mouse and gamepad |
 | --- | --- |
 | Pan the camera | `W` `A` `S` `D`, middle-mouse drag, or the left stick |
-| Move the pointer | Arrow keys, or the right stick |
+| Move the pointer | `Shift` + arrow keys (with HUD unfocused), or the right stick |
 | Click at the pointer | `Enter`, or `A` |
 | Zoom | Mouse wheel, `[` and `]`, or `LT`/`RT` |
 | Rotate the view | `Q` and `E`, or `X`/`Y` |
@@ -102,7 +102,7 @@ If the course runs slowly, **Settings → Display → Performance & Scale** has 
 | Save | `Ctrl+S` |
 | Undo and redo | `Ctrl+Z` and `Ctrl+Shift+Z` |
 | Cancel | `Esc`, right-click, or `B` |
-| Focus the HUD | `Tab`, or the controller's View/Back button |
+| Focus the HUD | Arrow keys or `Shift+Tab`, or the controller's View/Back button |
 | Hotkey help | `F1` |
 
 Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch open or closed to zoom — on the course, the World Map globe and the Course Map) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).

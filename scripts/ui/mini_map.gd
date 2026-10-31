@@ -450,7 +450,7 @@ func _input(event: InputEvent) -> void:
 		if focused is LineEdit or focused is TextEdit:
 			return
 		if event.keycode == KEY_TAB and not event.is_command_or_control_pressed() \
-				and not event.shift_pressed:
+				and not event.shift_pressed and focused == null:
 			GameManager.set_minimap_enabled(not GameManager.minimap_enabled)
 			if has_node("/root/SaveManager"):
 				SaveManager.set_user_preference("display", "minimap_enabled", GameManager.minimap_enabled)

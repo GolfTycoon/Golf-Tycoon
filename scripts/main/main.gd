@@ -11,6 +11,7 @@ const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd"
 @onready var golfer_manager: GolferManager = $GolferManager
 @onready var bottom_bar: HBoxContainer = $UI/HUD/BottomBar
 var terrain_toolbar: TerrainToolbar = null
+var _last_hud_focus: WeakRef = null
 var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up in _setup_terrain_toolbar)
 @onready var left_controls: BottomControlDock = $UI/HUD/BottomBar/LeftControls
 ## The view controls ride on the top-left location banner (see
@@ -526,6 +527,7 @@ func _startup_title_screen() -> void:
 ## prompts for the input method in use. Both are children of the HUD so they
 ## sit above the course and below the screens opened from it.
 func _setup_input_layer() -> void:
+	get_viewport().gui_focus_changed.connect(_remember_hud_focus)
 	gamepad_cursor = GamepadCursor.new()
 	gamepad_cursor.camera = camera
 	$UI/HUD.add_child(gamepad_cursor)
@@ -545,9 +547,24 @@ func _gameplay_input_active() -> bool:
 		return false
 	return true
 
+## Remember only gameplay HUD controls, not controls in overlay screens.
+func _remember_hud_focus(control: Control) -> void:
+	if control != null and not InputManager.has_visible_scope() \
+			and $UI/HUD.is_ancestor_of(control):
+		_last_hud_focus = weakref(control)
+
+
 ## View/Back on a controller (or the dock's own Tab cycle) can put focus on
 ## the bottom-left controls; this gives the player a deliberate way in.
-func _focus_gameplay_hud() -> void:
+func _focus_gameplay_hud(restore_last: bool = false) -> void:
+	if restore_last and _last_hud_focus != null:
+		var previous := _last_hud_focus.get_ref() as Control
+		if is_instance_valid(previous) and previous.is_inside_tree() \
+				and $UI/HUD.is_ancestor_of(previous) and previous.is_visible_in_tree() \
+				and previous.focus_mode != Control.FOCUS_NONE \
+				and not (previous is BaseButton and previous.disabled):
+			InputManager.focus_control(previous)
+			return
 	if left_controls == null:
 		return
 	var target := left_controls.get_node_or_null("MenuBtn") as Control
@@ -632,6 +649,16 @@ func _input(event: InputEvent) -> void:
 			elif not InputManager.has_visible_scope():
 				_show_pause_menu()
 			get_viewport().set_input_as_handled()
+		return
+	# Unmodified arrows enter HUD navigation. Shift+arrows remain available to
+	# move the course pointer without a mouse; consume this first arrow so it
+	# restores focus rather than immediately advancing to another control.
+	if event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN] \
+			and not (event.shift_pressed or event.ctrl_pressed or event.alt_pressed or event.meta_pressed) \
+			and _gameplay_input_active() and get_viewport().gui_get_focus_owner() == null:
+		_focus_gameplay_hud(true)
+		get_viewport().set_input_as_handled()
 		return
 	# Shift+Tab (or LB) focuses the bottom-left dock when the course has no
 	# focused control. Handled in _input because the GUI consumes the

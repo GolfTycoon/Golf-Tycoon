@@ -65,7 +65,7 @@ Every screen and panel is built from Godot `Control`s, so all five input methods
 | Scroll a list | Wheel over the list | Focus moves with the arrows and `Tab`; the list follows | D-pad / left stick, or `LB`/`RB` for the next control | One-finger drag |
 | Change a slider | Drag | Focus it and use the arrows | Focus it and use the D-pad | Drag the slider |
 | Pause on the course | `Esc`, or the Menu button | `Space` or `Esc` | `Start` | The dock's Menu button |
-| Operate the course | Click, drag | Arrow keys move the pointer, `Enter` clicks, `WASD` pans | Right stick points, `A` clicks, left stick pans | Tap, one-finger drag, pinch open or closed |
+| Operate the course | Click, drag | `Shift` + arrows move the pointer when the HUD is unfocused, `Enter` clicks, `WASD` pans | Right stick points, `A` clicks, left stick pans | Tap, one-finger drag, pinch open or closed |
 
 **Screen-edge panning.** With a mouse, moving the pointer into the 24-pixel strip at any window edge pans the course at the keyboard's pan speed. It stands down when the pointer is over a HUD panel, during a middle-mouse drag, and when the pointer leaves the window; it also never runs before the first pointer event, so a window that opens with the OS cursor parked in a corner does not scroll on its own. Touch drags and the sticks pan the camera directly, so a finger at the edge never scrolls the course. The preference lives on **Settings → Controls → Camera → Edge Panning** and is saved to `user://settings.cfg` (`camera/edge_pan_enabled`); a settings file from before the option existed keeps panning on.
 
@@ -73,7 +73,7 @@ On the title screen and other pixel-framed menus, the focused action has a bold 
 
 On a screen, moving the right stick brings the pointer up and temporarily stands focus navigation down, so freeform surfaces (the world globe, the Course Map, the golfer-skin canvas) can be used with a controller. A D-pad nudge, a left-stick nudge or `B` returns to focus navigation and keeps the screen open. Switching to the keyboard restores its focus highlight; mouse or touch takes over without forcing focus onto a button. The same pointer draws its own reticle and clicks the control under it with `A`.
 
-The pointer is the one shared implementation: `GamepadCursor` moves the real mouse pointer (right stick or arrow keys) and clicks it (`A` or `Enter`), so painting, placing, aiming, hole selection and every other mouse feature work unchanged. On the course `B` cancels; `View`/`Back` puts focus on the bottom-left dock so the HUD is reachable without a mouse, and `B` returns focus to the course. Opening any screen automatically hands focus to it and hides the pointer; closing it gives the course back.
+The pointer is the one shared implementation: `GamepadCursor` moves the real mouse pointer (right stick or `Shift` + arrow keys) and clicks it (`A` or `Enter`), so painting, placing, aiming, hole selection and every other mouse feature work unchanged. On the course, unmodified arrows focus the last HUD control (or the dock if it is unavailable). Enter on a terrain tile selects it and returns focus to the course, so the next Enter clicks at the pointer. `Esc` leaves the HUD; `Shift` + arrows then move the pointer. `B` cancels; `View`/`Back` puts focus on the bottom-left dock so the HUD is reachable without a mouse, and `B` returns focus to the course. Opening any screen automatically hands focus to it and hides the pointer; closing it gives the course back.
 
 ### Controller map
 
@@ -252,7 +252,7 @@ Every course action listed in the `F1` sheet from **Camera**, **Game & saving**,
 - `Esc` cancels listening without closing Settings; `B` does the same on a controller. `Esc`, `Tab`, `Enter`, the arrow keys, `Backspace`/`Delete` and the controller's `A`, `B`, D-pad and bumpers are reserved for menus and unbinding, and the sticks stay with navigation and the pointer. Triggers and the other controller buttons are free.
 - Bindings are applied to the running game immediately and saved to the `controls` section of `user://settings.cfg`. The `F1` sheet always shows the bindings you have now, not the defaults.
 
-Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the touch gestures in the table below always work. The menu keys stay fixed too. `Shift+Tab`, the controller's View/Back button and LB/RB focus the dock regardless of the course bindings.
+Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the touch gestures in the table below always work. The menu keys stay fixed too. Arrow keys, `Shift+Tab`, the controller's View/Back button and LB/RB focus the HUD regardless of the course bindings.
 
 ### Camera
 
@@ -263,6 +263,8 @@ Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the
 | Mouse wheel, `[` and `]` | Zoom |
 | `Q` and `E` | Rotate the view counter-clockwise and clockwise |
 | `Tab` | Toggle the minimap |
+| Arrows | Focus the last HUD control, or move between controls |
+| `Shift` + arrows | Move the course pointer when the HUD is unfocused |
 | `Shift+Tab` | Focus the bottom-left dock (then arrows/Enter drive it; `Esc` returns) |
 | `V` | Toggle the heatmap. `Shift+V` changes the heatmap mode |
 

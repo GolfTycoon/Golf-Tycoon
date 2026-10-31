@@ -322,3 +322,25 @@ func test_game_state_restores_input_device_and_pointer() -> void:
 	assert_eq(manager.device, state["input_device"])
 	assert_eq(manager.pointer_mode, state["input_pointer_mode"])
 	assert_eq(manager.virtual_pointer, state["input_virtual_pointer"])
+
+
+func test_keyboard_repeat_keeps_the_virtual_mouse_button_held() -> void:
+	var cursor := GamepadCursor.new()
+	add_child_autofree(cursor)
+	manager.device = InputManagerScript.Device.KEYBOARD
+	var previous_mode: int = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.SIMULATING
+	cursor._active = true
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	cursor._unhandled_input(enter)
+	assert_true(cursor._holding)
+	enter.echo = true
+	cursor._unhandled_input(enter)
+	assert_true(cursor._holding, "key repeat does not end a paint stroke")
+	enter.echo = false
+	enter.pressed = false
+	cursor._unhandled_input(enter)
+	assert_false(cursor._holding)
+	GameManager.current_mode = previous_mode
