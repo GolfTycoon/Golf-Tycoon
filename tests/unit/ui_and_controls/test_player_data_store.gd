@@ -320,6 +320,7 @@ func test_resetting_preferences_puts_the_running_game_on_defaults() -> void:
 	tree.root.content_scale_factor = 1.4
 	GameManager.invert_zoom_scroll = true
 	GameManager.set_minimap_enabled(false)
+	GameManager.set_edge_pan_enabled(false)
 	GameManager.set_colorblind_mode(ColorblindMode.Mode.DEUTERANOPIA)
 	GameManager.set_camera_zoom_limits(1.0, 3.0)
 	GameManager.player_skin_id = "custom"
@@ -337,6 +338,7 @@ func test_resetting_preferences_puts_the_running_game_on_defaults() -> void:
 	assert_almost_eq(tree.root.content_scale_factor, 1.0, 0.001, "UI scale returns to 100%")
 	assert_false(GameManager.invert_zoom_scroll)
 	assert_true(GameManager.minimap_enabled)
+	assert_true(GameManager.edge_pan_enabled, "screen-edge camera panning is back on")
 	assert_eq(GameManager.colorblind_mode, ColorblindMode.Mode.OFF)
 	assert_almost_eq(GameManager.camera_min_zoom, GameManager.CAMERA_MIN_ZOOM_DEFAULT, 0.001)
 	assert_almost_eq(GameManager.camera_max_zoom, GameManager.CAMERA_MAX_ZOOM_DEFAULT, 0.001)
