@@ -68,6 +68,40 @@ func test_clicking_an_arrow_turns_the_course_and_the_chip_follows() -> void:
 	assert_eq(_chip().letter, "N", "and the chip comes back to north")
 	await _restore_orientation()
 
+func test_q_and_e_turn_the_course_from_the_keyboard() -> void:
+	await _restore_orientation()
+	var start: int = main.terrain_grid.get_view_orientation()
+
+	press_key(KEY_Q)
+	await process_frames(2)
+	assert_eq(main.terrain_grid.get_view_orientation(), wrapi(start - 1, 0, 4),
+		"Q turns the course a quarter turn counter-clockwise")
+	assert_eq(_chip().letter, "W", "and the chip follows it to west")
+
+	press_key(KEY_E)
+	await process_frames(2)
+	assert_eq(main.terrain_grid.get_view_orientation(), start,
+		"E turns the course back clockwise")
+	assert_eq(_chip().letter, "N", "and the chip comes back to north")
+	await _restore_orientation()
+
+
+func test_the_rotate_tooltips_name_the_keys_in_force() -> void:
+	assert_string_contains(main.rotate_ccw_btn.tooltip_text, "(Q)",
+		"the counter-clockwise arrow names its default key")
+	assert_string_contains(main.rotate_cw_btn.tooltip_text, "(E)",
+		"and the clockwise arrow names E")
+
+	var rebound := InputEventKey.new()
+	rebound.keycode = KEY_F6
+	InputBindings.assign_binding("rotate_camera_cw", rebound)
+	assert_string_contains(main.rotate_cw_btn.tooltip_text, "(F6)",
+		"the tooltip follows a rebind instead of going stale")
+	InputBindings.reset_binding("rotate_camera_cw")
+	assert_string_contains(main.rotate_cw_btn.tooltip_text, "(E)",
+		"and Reset brings the default name back")
+
+
 func test_the_chip_folds_the_arrows_away_and_brings_them_back() -> void:
 	await _restore_orientation()
 	var banner := _banner()

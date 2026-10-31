@@ -222,16 +222,15 @@ func _build_ui() -> void:
 
 	rotate_ccw_btn = RotateViewButton.new()
 	rotate_ccw_btn.name = "RotateCCWBtn"
-	rotate_ccw_btn.tooltip_text = "Rotate course counter-clockwise (Q)"
 	rotate_ccw_btn.accessibility_name = "Rotate course counter-clockwise"
 	rotate_controls.add_child(rotate_ccw_btn)
 
 	rotate_cw_btn = RotateViewButton.new()
 	rotate_cw_btn.name = "RotateCWBtn"
 	rotate_cw_btn.clockwise = true
-	rotate_cw_btn.tooltip_text = "Rotate course clockwise (Shift+Q)"
 	rotate_cw_btn.accessibility_name = "Rotate course clockwise"
 	rotate_controls.add_child(rotate_cw_btn)
+	_refresh_rotate_tooltips()
 
 	_apply_layout_sizes()
 
@@ -278,6 +277,9 @@ func _connect_signals() -> void:
 		EventBus.day_changed.connect(_on_day_changed)
 		EventBus.load_completed.connect(_on_load_completed)
 		EventBus.new_game_started.connect(refresh)
+	if has_node("/root/InputBindings"):
+		InputBindings.bindings_changed.connect(_on_binding_changed)
+		InputBindings.bindings_reset.connect(_on_bindings_reset)
 
 
 ## Re-read the active location and the calendar. Safe to call any time; the
@@ -356,6 +358,31 @@ func toggle_rotate_controls() -> void:
 
 func _on_orientation_toggle_pressed() -> void:
 	toggle_rotate_controls()
+
+
+## The arrows' tooltips name the keys in force, so they never go stale after a
+## player rebinds the view rotation in Settings.
+func _refresh_rotate_tooltips() -> void:
+	if is_instance_valid(rotate_ccw_btn):
+		rotate_ccw_btn.tooltip_text = _rotate_tooltip("counter-clockwise", "rotate_camera")
+	if is_instance_valid(rotate_cw_btn):
+		rotate_cw_btn.tooltip_text = _rotate_tooltip("clockwise", "rotate_camera_cw")
+
+
+func _rotate_tooltip(direction: String, action: String) -> String:
+	var keys := InputBindings.binding_text(action)
+	if keys.is_empty() or keys == "Unbound":
+		return "Rotate course %s" % direction
+	return "Rotate course %s (%s)" % [direction, keys]
+
+
+func _on_binding_changed(action: String) -> void:
+	if action == "rotate_camera" or action == "rotate_camera_cw":
+		_refresh_rotate_tooltips()
+
+
+func _on_bindings_reset() -> void:
+	_refresh_rotate_tooltips()
 
 
 ## The chip reads as a switch as well as a compass: its rim and ink follow the
