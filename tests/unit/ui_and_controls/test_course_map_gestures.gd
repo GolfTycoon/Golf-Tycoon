@@ -11,6 +11,7 @@ const SIDE := 16
 
 var grid: TerrainGrid
 var view: CourseMapView
+var pressed_tiles: Array = []
 
 
 func before_each() -> void:
@@ -143,3 +144,36 @@ func test_a_cancelled_touch_is_not_a_pick() -> void:
 	await process_frames(1)
 	assert_eq(pressed.size(), 0, "an interrupted touch must not pick the tile under it")
 	assert_true(view._touches.is_empty(), "the interrupted finger is forgotten")
+
+
+func test_a_panel_over_the_map_owns_the_touch_instead_of_the_map() -> void:
+	# The Course Map reads raw touches, so a finger that lands on a dialogue
+	# drawn over it must not be claimed by the map underneath — otherwise the
+	# delete-hole confirmation's buttons could never be tapped.
+	await resize_window(Vector2i(800, 600))
+	view.position = Vector2(100, 100)
+	view.size = Vector2(480, 360)
+	var overlay := ColorRect.new()
+	overlay.color = Color.BLACK
+	overlay.position = Vector2(120, 120)
+	overlay.size = Vector2(300, 200)
+	add_child_autofree(overlay)
+	var button := Button.new()
+	button.text = "Delete Hole"
+	button.position = Vector2(40, 60)
+	button.size = Vector2(200, 44)
+	overlay.add_child(button)
+	pressed_tiles.clear()
+	view.map_pressed.connect(func(tile: Vector2i, hit: Dictionary) -> void: pressed_tiles.append([tile, hit]))
+	var taps: Array = []
+	button.pressed.connect(func() -> void: taps.append(true))
+	await process_frames(2)
+
+	await touch_tap(button.get_global_rect().get_center())
+	assert_eq(taps.size(), 1, "the tap reaches the button on the panel")
+	assert_eq(pressed_tiles.size(), 0, "the map underneath never picks a tile")
+	assert_true(view._touches.is_empty(), "and never claims the finger")
+
+	# A tap on an uncovered part of the map still belongs to the map.
+	await touch_tap(Vector2(520, 400))
+	assert_eq(pressed_tiles.size(), 1, "the uncovered map still answers taps")

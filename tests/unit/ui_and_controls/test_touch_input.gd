@@ -393,3 +393,71 @@ func test_touch_sets_a_vertical_slider_bottom_up() -> void:
 	assert_almost_eq(slider.value, 75.0, 1.0)
 	_push_touch(false, 0, Vector2(310, 150))
 	await _settle()
+
+
+# ---------------------------------------------------------------------------
+# Native surfaces and the things drawn over them
+# ---------------------------------------------------------------------------
+#
+# The globe, the minimap and the Course Map read raw touches themselves, so
+# they see a finger before the shared adapter does. A control drawn over one of
+# them (a confirmation dialogue, a floating panel) must win the touch, or its
+# buttons are dead to touch input — the bug that made the World Map's Reset
+# World confirmation untappable.
+
+class NativeSurface:
+	extends Control
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		add_to_group("native_touch_input")
+
+## A native surface (like the globe) with a dialogue-like panel over its left
+## half, holding a button. Sized to the design window so it is clear of the
+## test runner's own (small) overlay, which also lives in the window root.
+func _covered_surface() -> Array:
+	await resize_window(Vector2i(1600, 1000))
+	var surface := NativeSurface.new()
+	surface.position = Vector2(300, 200)
+	surface.size = Vector2(400, 300)
+	add_child_autofree(surface)
+	var overlay := ColorRect.new()
+	overlay.color = Color.BLACK
+	overlay.position = Vector2(300, 200)
+	overlay.size = Vector2(200, 300)
+	add_child_autofree(overlay)
+	var button := Button.new()
+	button.text = "Reset World"
+	button.position = Vector2(30, 220)
+	button.size = Vector2(140, 44)
+	overlay.add_child(button)
+	await process_frames(2)
+	return [surface, overlay, button]
+
+
+func test_touch_over_a_native_surface_is_still_native() -> void:
+	var parts := await _covered_surface()
+	var surface: Control = parts[0]
+	assert_true(touch._has_native_touch_target(Vector2(600, 350)),
+		"the uncovered part of the globe/minimap is still its own touch target")
+	assert_true(touch.owns_native_touch(surface, Vector2(600, 350)),
+		"and the surface may claim it")
+	assert_false(touch.owns_native_touch(surface, Vector2(400, 350)),
+		"a control drawn over the surface owns touches that land on it")
+	assert_false(touch._has_native_touch_target(Vector2(400, 350)),
+		"so the shared adapter turns that touch into a click instead")
+
+
+func test_tap_on_a_dialogue_over_a_native_surface_reaches_its_button() -> void:
+	var parts := await _covered_surface()
+	var button: Button = parts[2]
+	var pressed: Array = []
+	button.pressed.connect(func() -> void: pressed.append(true))
+	var center := button.get_global_rect().get_center()
+	assert_false(touch._has_native_touch_target(center),
+		"the dialogue on top, not the surface under it, owns the touch")
+	assert_true(bool(touch._touch_target_at(center)["over_ui"]),
+		"and the shared adapter treats it as UI, so a tap becomes a click")
+	_push_touch(true, 0, center)
+	_push_touch(false, 0, center)
+	await _settle()
+	assert_eq(pressed.size(), 1, "a tap on the dialogue's button activates it")

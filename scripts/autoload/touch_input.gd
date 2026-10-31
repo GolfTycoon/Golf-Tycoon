@@ -428,18 +428,91 @@ func _camera_panning_allowed() -> bool:
 # TOUCH TARGETING
 # =============================================================================
 
-## Mark touches on controls so they can't inadvertently paint or pan behind a
-## button. ScrollContainers are handled directly here because Godot's mouse
-## emulation is disabled for this project.
+## Whether a control with its own raw-touch handling (the globe, the minimap,
+## the Course Map) owns the touch at `screen_pos`.
+##
+## The check follows what the player sees: only the control a finger would
+## actually land on can claim the touch. Any control drawn above the surface
+## (a dialogue, a floating panel, a tool tip) gets the tap itself. Testing a
+## native surface's rectangle alone used to claim every touch inside it, even
+## with a modal confirmation on top — which left the World Map's Reset World
+## (and the Course Map's delete-hole) confirmation buttons dead to touch,
+## because the globe underneath swallowed the taps before they could become
+## clicks.
 func _has_native_touch_target(screen_pos: Vector2) -> bool:
-	if get_tree() == null:
+	if get_tree() == null or get_tree().root == null:
 		return false
-	for target in get_tree().get_nodes_in_group("native_touch_input"):
-		if not is_instance_valid(target) or not target.is_visible_in_tree() or not target is Control:
-			continue
-		if (target as Control).get_global_rect().has_point(screen_pos):
+	var target := _topmost_control_at(get_tree().root, screen_pos)
+	var node: Node = target
+	while node != null:
+		if node.is_in_group("native_touch_input"):
 			return true
+		node = node.get_parent()
 	return false
+
+## Whether `surface` is the control a touch at `screen_pos` actually lands on:
+## nothing drawn above it (a confirmation dialogue, a floating panel, a tool
+## tip) may sit between the finger and the surface.
+##
+## A native touch surface owns its raw touch stream, so it receives touches
+## before the shared adapter gets to turn them into clicks. Each of them asks
+## this before claiming a finger, which is what keeps the buttons of a dialogue
+## opened over one of them tappable.
+func owns_native_touch(surface: Control, screen_pos: Vector2) -> bool:
+	if not is_instance_valid(surface) or not surface.is_visible_in_tree():
+		return false
+	var root := _canvas_root_for(surface)
+	if root == null:
+		return true
+	var target := _topmost_control_at(root, screen_pos)
+	if target == null:
+		return false
+	return target == surface or surface.is_ancestor_of(target)
+
+## The canvas a surface is drawn in: the nearest CanvasLayer above it, or the
+## window root when it is not inside one. A surface compares itself only with
+## the controls of its own canvas, so separate layers (the tool tips, the FPS
+## counter, a benchmark overlay) never take a finger away from the course.
+func _canvas_root_for(surface: Node) -> Node:
+	if get_tree() == null:
+		return null
+	var node := surface.get_parent()
+	while node != null:
+		if node is CanvasLayer:
+			return node
+		node = node.get_parent()
+	return get_tree().root
+
+## The control a tap at `screen_pos` would land on: the top-most one under the
+## finger in draw order. Later siblings are drawn over earlier ones and
+## children over their parent, so both are searched last-to-first — the same
+## order the GUI uses to hit-test overlapping controls.
+func _topmost_control_at(node: Node, screen_pos: Vector2) -> Control:
+	if node is CanvasItem and not (node as CanvasItem).is_visible_in_tree():
+		return null
+	var control := node as Control
+	var inside := true
+	if control != null:
+		inside = control.get_global_rect().has_point(screen_pos)
+		# A clipped container hides its children outside its own rect.
+		if control.clip_contents and not inside:
+			return null
+		if inside and control.has_method("has_touch_point"):
+			var local := control.get_global_transform_with_canvas().affine_inverse() * screen_pos
+			inside = bool(control.call("has_touch_point", local))
+			if not inside and control.clip_contents:
+				return null
+
+	# Children draw over their parent, and the last child draws over its
+	# siblings, so search them last-to-first.
+	for child_index in range(node.get_child_count() - 1, -1, -1):
+		var found := _topmost_control_at(node.get_child(child_index), screen_pos)
+		if found != null:
+			return found
+
+	if control != null and inside and control.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		return control
+	return null
 
 func _touch_target_at(screen_pos: Vector2) -> Dictionary:
 	var result := {"over_ui": false, "scroll": null, "slider": null}
