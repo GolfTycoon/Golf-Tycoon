@@ -387,3 +387,131 @@ func _declared_uniforms(source: String) -> Array:
 		if parts.size() >= 2:
 			names.append(parts[1])
 	return names
+
+## ── Touch: one finger spins, two pinch to zoom ───────────────────────────
+
+func _push_touch(pressed: bool, index: int, pos: Vector2) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = index
+	event.pressed = pressed
+	event.position = pos
+	get_viewport().push_input(event, true)
+
+func _push_drag(index: int, pos: Vector2) -> void:
+	var event := InputEventScreenDrag.new()
+	event.index = index
+	event.position = pos
+	get_viewport().push_input(event, true)
+
+## Two fingers starting `from_span` apart around `centre` and moved to
+## `to_span` apart — inwards closes the pinch, outwards opens it.
+func _pinch(_globe: GlobeMap, centre: Vector2, from_span: float, to_span: float) -> void:
+	var left_from := centre - Vector2(from_span * 0.5, 0.0)
+	var right_from := centre + Vector2(from_span * 0.5, 0.0)
+	var left_to := centre - Vector2(to_span * 0.5, 0.0)
+	var right_to := centre + Vector2(to_span * 0.5, 0.0)
+	_push_touch(true, 0, left_from)
+	_push_touch(true, 1, right_from)
+	_push_drag(0, left_to)
+	_push_drag(1, right_to)
+	_push_touch(false, 0, left_to)
+	_push_touch(false, 1, right_to)
+
+func test_a_pinch_open_zooms_the_globe_in() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	_pinch(globe, globe.size * 0.5, 100.0, 150.0)
+	await process_frames(1)
+	assert_almost_eq(globe._radius_scale, 1.5, 0.01,
+		"opening the fingers from 100px to 150px zooms the globe 1.5x")
+	assert_almost_eq(globe._zoom_target, globe._radius_scale, 0.001,
+		"the eased zoom target follows the hand, so the buttons never fight it")
+
+func test_a_pinch_closed_zooms_the_globe_out() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.6})
+	_pinch(globe, globe.size * 0.5, 150.0, 75.0)
+	await process_frames(1)
+	assert_almost_eq(globe._radius_scale, 0.8, 0.01,
+		"closing the fingers to half their span zooms the globe out to half its size")
+
+func test_a_pinch_stops_at_the_globe_zoom_limits() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	_pinch(globe, globe.size * 0.5, 50.0, 400.0)
+	await process_frames(1)
+	assert_almost_eq(globe._radius_scale, GlobeMap.MAX_RADIUS_SCALE, 0.001,
+		"opening the fingers wide stops at the maximum radius")
+	_pinch(globe, globe.size * 0.5, 400.0, 50.0)
+	await process_frames(1)
+	assert_almost_eq(globe._radius_scale, GlobeMap.MIN_RADIUS_SCALE, 0.001,
+		"closing them stops at the minimum radius")
+
+func test_a_pinch_never_selects_the_pin_under_a_finger() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "greenwich", "name": "Greenwich", "lon": 0.0, "lat": 0.0}])
+	await process_frames(2)
+	var clicked: Array = []
+	globe.location_clicked.connect(func(id: String) -> void: clicked.append(id))
+	var pin := Vector2(globe.size.x * 0.5, globe.size.y * 0.5)
+	# The first finger lands on the pin, then the pair opens into a pinch.
+	_push_touch(true, 0, pin)
+	_push_touch(true, 1, pin + Vector2(100.0, 0.0))
+	_push_drag(0, pin - Vector2(50.0, 0.0))
+	_push_drag(1, pin + Vector2(150.0, 0.0))
+	_push_touch(false, 0, pin - Vector2(50.0, 0.0))
+	_push_touch(false, 1, pin + Vector2(150.0, 0.0))
+	await process_frames(1)
+	assert_eq(clicked.size(), 0, "letting go of a pinch must not pick a destination")
+
+func test_a_tap_still_selects_a_pin() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "greenwich", "name": "Greenwich", "lon": 0.0, "lat": 0.0}])
+	await process_frames(2)
+	var clicked: Array = []
+	globe.location_clicked.connect(func(id: String) -> void: clicked.append(id))
+	var pin := Vector2(globe.size.x * 0.5, globe.size.y * 0.5)
+	_push_touch(true, 0, pin)
+	_push_touch(false, 0, pin + Vector2(2.0, 1.0))
+	await process_frames(1)
+	assert_eq(clicked, ["greenwich"], "a one-finger tap on the pin still selects it")
+
+func test_two_fingers_moving_together_spin_the_globe() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	var centre := globe.size * 0.5
+	var radius := globe._sphere_radius()
+	# Both fingers travel 20px right and the span only wobbles between 80 and
+	# 100px as they are reported one at a time, so this is a two-finger spin
+	# rather than a zoom.
+	_push_touch(true, 0, centre - Vector2(50.0, 0.0))
+	_push_touch(true, 1, centre + Vector2(50.0, 0.0))
+	_push_drag(0, centre - Vector2(30.0, 0.0))
+	_push_drag(1, centre + Vector2(70.0, 0.0))
+	_push_touch(false, 0, centre - Vector2(30.0, 0.0))
+	_push_touch(false, 1, centre + Vector2(70.0, 0.0))
+	await process_frames(1)
+	assert_almost_eq(globe._radius_scale, 1.0, 0.001, "a two-finger drag does not change the zoom")
+	assert_almost_eq(globe._center_lon, fposmod(-20.0 * (190.0 / radius), 360.0), 0.5,
+		"a two-finger drag turns the globe with the fingers")
+
+func test_a_cancelled_touch_is_not_a_tap() -> void:
+	var globe := _make_globe()
+	globe.set_view_state({"center_lon": 0.0, "center_lat": 0.0, "radius_scale": 1.0})
+	globe.set_locations([{"id": "greenwich", "name": "Greenwich", "lon": 0.0, "lat": 0.0}])
+	await process_frames(2)
+	var clicked: Array = []
+	globe.location_clicked.connect(func(id: String) -> void: clicked.append(id))
+	var pin := Vector2(globe.size.x * 0.5, globe.size.y * 0.5)
+	_push_touch(true, 0, pin)
+	var cancel := InputEventScreenTouch.new()
+	cancel.index = 0
+	cancel.pressed = false
+	cancel.canceled = true
+	cancel.position = pin
+	get_viewport().push_input(cancel, true)
+	await process_frames(1)
+	assert_eq(clicked.size(), 0, "an interrupted touch must not select the pin under it")
+	assert_true(globe._touches.is_empty(), "the interrupted finger is forgotten")

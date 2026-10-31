@@ -499,8 +499,8 @@ func _globe_minimum(mode: int) -> Vector2:
 
 func _map_hint(mode: int) -> String:
 	if mode == Kit.LayoutMode.PHONE_LANDSCAPE or mode == Kit.LayoutMode.PHONE_PORTRAIT:
-		return "Drag to explore  ·  tap a pin  ·  use + / - to zoom"
-	return "Drag to rotate  ·  tap a pin or a destination card  ·  use + / - to zoom"
+		return "Drag to explore  ·  pinch or + / - to zoom  ·  tap a pin"
+	return "Drag to rotate  ·  tap a pin or a card  ·  wheel, pinch or + / - to zoom"
 
 ## The pin colours the globe itself uses (see GlobeMap.marker_color), so the
 ## legend always agrees with the map.

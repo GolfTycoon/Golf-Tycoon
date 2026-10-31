@@ -236,6 +236,24 @@ func test_two_finger_drag_zooms_the_camera() -> void:
 	# No taps/clicks should come out of a real pinch.
 	assert_eq(sink.mouse_events.size(), 0)
 
+func test_two_finger_pinch_together_zooms_the_camera_out() -> void:
+	camera = autofree(IsometricCamera.new())
+	add_child(camera)
+	camera.set_zoom_level(2.0, true)
+	camera._target_position = Vector2(0, 0)
+	touch.camera = camera
+
+	# Fingers 400px apart close to 200px: half the span, half the zoom.
+	_push_touch(true, 0, Vector2(300, 400))
+	_push_touch(true, 1, Vector2(700, 400))
+	_push_drag(0, Vector2(400, 400))
+	_push_drag(1, Vector2(600, 400))
+	_push_touch(false, 0, Vector2(400, 400))
+	_push_touch(false, 1, Vector2(600, 400))
+	await _settle()
+	assert_almost_eq(camera._target_zoom, 1.0, 0.01)
+	assert_eq(sink.mouse_events.size(), 0, "closing a pinch must not click")
+
 func test_two_finger_pan_moves_camera_with_midpoint() -> void:
 	camera = autofree(IsometricCamera.new())
 	add_child(camera)

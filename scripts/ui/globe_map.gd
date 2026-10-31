@@ -23,8 +23,11 @@ class_name GlobeMap
 ## the menu screens' pixel frames, sprites and Pixelify type.
 ##
 ## Drag to spin (with a little inertia), scroll or pinch to zoom, click a
-## marker (or the list beside it) to select. The globe animates on wall-clock
-## time rather than the simulation's, so it still turns when the screen hosting
+## marker (or the list beside it) to select. On a touchscreen one finger spins
+## and two fingers pinch open or closed to zoom, moving together to spin as
+## well; a pinch never picks the marker under a lifted finger. The globe
+## animates on wall-clock time rather than the simulation's, so it still turns
+## when the screen hosting
 ## it has frozen the course behind it — and taking hold of it cancels any
 ## fly-to still in flight, so a drag always wins. Public API: `set_locations`,
 ## `set_selected`, `look_at_location`, `set_view_state` / `get_view_state`,
@@ -64,6 +67,8 @@ const SPIN_DECAY := 0.02
 ## used for zoom.
 const CENTER_DURATION := 0.5
 const ZOOM_SETTLE_RATE := 14.0
+## Finger travel (px) past which a touch is a spin rather than a tap on a pin.
+const TAP_SLOP := 6.0
 
 const OCEAN_COLOR := Color("16314a")
 const OCEAN_RIM := Color("0c1c2c")
@@ -127,9 +132,26 @@ var _dragging: bool = false
 var _drag_start: Vector2 = Vector2.ZERO
 var _drag_last: Vector2 = Vector2.ZERO
 var _drag_distance: float = 0.0
-## Active finger, if a touch began on the globe. The global TouchInput adapter
+## Fingers on the globe, keyed by touch index (position in this control's
+## space). One finger spins; two pinch to zoom. The global TouchInput adapter
 ## is for camera gestures; a touch on this control belongs to the atlas instead.
+var _touches: Dictionary = {}
+## The finger driving the spin.
 var _touch_index: int = -1
+## The pinch, measured against the view it started from: the span between the
+## fingers, the midpoint, the radius scale, the centre and the sphere radius.
+## Using that reference rather than the last event keeps the zoom steady when
+## the two fingers' events interleave (their span appears to wobble between
+## reports) and makes the gesture return exactly to the view it started from.
+var _pinch_start_span: float = 0.0
+var _pinch_mid: Vector2 = Vector2.ZERO
+var _pinch_start_scale: float = 1.0
+var _pinch_start_lon: float = 0.0
+var _pinch_start_lat: float = 0.0
+var _pinch_radius: float = 0.0
+## True once a second finger has joined. It keeps the release of the last
+## finger of a pinch from reading as a tap on a destination pin.
+var _multi_touch_used: bool = false
 var _marker_positions: Dictionary = {}
 ## Planet surface (shader) and the marker layer drawn over it.
 var _planet: ColorRect = null
@@ -860,44 +882,61 @@ static func marker_color(loc: Dictionary) -> Color:
 ## ── Interaction ──────────────────────────────────────────────────────────
 
 ## Handle raw screen touches here instead of letting the game's camera gesture
-## adapter claim them. On phones, a drag on the atlas rotates this globe; a tap
-## on a marker selects a destination. Other screen gestures still flow to the
-## shared TouchInput adapter as usual.
+## adapter claim them. On phones, one finger drags the atlas round, two fingers
+## pinch it open or closed to zoom, and a tap on a pin selects a destination.
+## Other screen gestures still flow to the shared TouchInput adapter as usual.
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
 		return
 	if event is InputEventScreenTouch:
 		_handle_screen_touch(event)
-	elif event is InputEventScreenDrag and event.index == _touch_index:
-		var local_pos := _screen_to_local(event.position)
-		var delta := local_pos - _drag_last
-		_drag_last = local_pos
-		_drag_distance += delta.length()
-		var radius := maxf(_sphere_radius(), 1.0)
-		_center_lon = fposmod(_center_lon - delta.x * (190.0 / radius), 360.0)
-		_center_lat = clampf(_center_lat + delta.y * (170.0 / radius), -MAX_CENTER_LAT, MAX_CENTER_LAT)
-		_remember_flick(_spin_from_velocity(event.velocity, radius))
-		_redraw_view()
-		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag:
+		_handle_screen_drag(event)
 
 func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 	var local_pos := _screen_to_local(event.position)
-	var inside := Rect2(Vector2.ZERO, size).has_point(local_pos)
 	if event.pressed:
-		if not inside:
+		if not _contains(local_pos):
 			return
-		if _touch_index == -1:
-			_touch_index = event.index
-			_take_hold()
-			_dragging = true
-			_drag_start = local_pos
-			_drag_last = local_pos
-			_drag_distance = 0.0
+		_touches[event.index] = local_pos
+		if _touches.size() == 1:
+			# A fresh gesture: one finger owns the spin and nothing is pinched.
+			_multi_touch_used = false
+			_begin_spin(event.index, local_pos)
+		else:
+			# A second finger joins. This is a pinch from here on, so it must
+			# never end as a tap on whichever pin is under a lifted finger.
+			_multi_touch_used = true
+			_begin_pinch()
 		get_viewport().set_input_as_handled()
 		return
-	if event.index == _touch_index:
+
+	if not _touches.has(event.index):
+		return
+	if event.canceled:
+		# The OS interrupted the gesture (a call, an app switch): drop every
+		# finger, and never let the interruption read as a tap on a pin.
+		_cancel_touches()
+		get_viewport().set_input_as_handled()
+		return
+	# A release carries the finger's final position, which can be beyond the
+	# last drag event; fold it in before judging what the gesture was.
+	_touches[event.index] = local_pos
+	_touches.erase(event.index)
+	get_viewport().set_input_as_handled()
+
+	if _touches.is_empty():
+		var was_multi := _multi_touch_used
+		_touch_index = -1
 		_dragging = false
-		if _drag_distance < 6.0:
+		_pinch_start_span = 0.0
+		_multi_touch_used = false
+		if was_multi:
+			# Releasing a pinch neither picks a marker nor coasts the globe.
+			_spin_lon = 0.0
+			_spin_lat = 0.0
+			return
+		if _drag_distance < TAP_SLOP:
 			_spin_lon = 0.0
 			_spin_lat = 0.0
 			var hit := _marker_at(local_pos)
@@ -906,11 +945,133 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 		else:
 			# Let go mid-flick: the globe keeps the spin and coasts.
 			_start_animating()
-		_touch_index = -1
+		return
+
+	if _touches.size() >= 2:
+		# A third finger joined, or a second one came down after a release:
+		# carry on pinching with the fingers that are still on the globe.
+		_begin_pinch()
+		return
+
+	# One finger is left after a pinch. It can carry on spinning, but the
+	# gesture stays a pinch so its release is not read as a tap.
+	var remaining_index: int = int(_touches.keys()[0])
+	_begin_spin(remaining_index, Vector2(_touches[remaining_index]))
+
+func _handle_screen_drag(event: InputEventScreenDrag) -> void:
+	if not _touches.has(event.index):
+		return
+	var local_pos := _screen_to_local(event.position)
+	_touches[event.index] = local_pos
+	if _touches.size() >= 2:
+		_update_pinch()
 		get_viewport().set_input_as_handled()
-	elif inside:
-		# A second finger on the map should not start panning the course behind it.
-		get_viewport().set_input_as_handled()
+		return
+	if event.index != _touch_index:
+		return
+	var delta := local_pos - _drag_last
+	_drag_last = local_pos
+	_drag_distance += delta.length()
+	var radius := maxf(_sphere_radius(), 1.0)
+	_rotate_by_screen_offset(delta)
+	_remember_flick(_spin_from_velocity(event.velocity, radius))
+	_redraw_view()
+	get_viewport().set_input_as_handled()
+
+## Forget every finger of an interrupted gesture. The globe stays on the view
+## it had reached, with no spin carrying on afterwards.
+func _cancel_touches() -> void:
+	_touches.clear()
+	_touch_index = -1
+	_dragging = false
+	_pinch_start_span = 0.0
+	_multi_touch_used = false
+	_spin_lon = 0.0
+	_spin_lat = 0.0
+
+## Start (or resume) a one-finger spin at `local_pos`. A finger left over from
+## a pinch picks the spin up where it is, so the globe never jumps.
+func _begin_spin(index: int, local_pos: Vector2) -> void:
+	_touch_index = index
+	_take_hold()
+	_dragging = true
+	_drag_start = local_pos
+	_drag_last = local_pos
+	_drag_distance = 0.0
+
+## Take the reference span and midpoint a pinch is measured from. The globe
+## stops coasting so the fingers work on the view that is on screen.
+func _begin_pinch() -> void:
+	_take_hold()
+	_dragging = false
+	_pinch_start_span = _touch_span()
+	_pinch_mid = _touch_midpoint()
+	_pinch_radius = maxf(_sphere_radius(), 1.0)
+	_pinch_start_scale = _radius_scale
+	# Drop the eased target a wheel notch may still be settling towards: the
+	# hand owns the zoom from here, and letting go must not resume that ease.
+	_zoom_target = _radius_scale
+	_pinch_start_lon = _center_lon
+	_pinch_start_lat = _center_lat
+
+## The fingers moved: the span between them zooms the globe, and their shared
+## midpoint spins it, so a two-finger gesture can bring a coast into view as
+## well as open it up.
+func _update_pinch() -> void:
+	var span := _touch_span()
+	var mid := _touch_midpoint()
+	if _pinch_start_span > 1.0 and span > 1.0:
+		_pinch_to(_pinch_start_scale * span / _pinch_start_span)
+	# Both fingers moving together spin the globe about the view the pinch
+	# began from, so a pinch-and-drag turns it as one steady movement.
+	var midpoint_delta := mid - _pinch_mid
+	if _pinch_radius > 0.0 and midpoint_delta.length() > 0.0:
+		_center_lon = fposmod(_pinch_start_lon - midpoint_delta.x * (190.0 / _pinch_radius), 360.0)
+		_center_lat = clampf(_pinch_start_lat + midpoint_delta.y * (170.0 / _pinch_radius),
+			-MAX_CENTER_LAT, MAX_CENTER_LAT)
+	_redraw_view()
+
+## Show the globe at `radius_scale`. A pinch tracks the hand directly rather
+## than easing, and the target follows the hand, so the eased zoom the buttons
+## and the wheel use never fights the gesture.
+func _pinch_to(radius_scale: float) -> void:
+	radius_scale = clampf(radius_scale, MIN_RADIUS_SCALE, MAX_RADIUS_SCALE)
+	_zoom_target = radius_scale
+	if is_equal_approx(radius_scale, _radius_scale):
+		return
+	_radius_scale = radius_scale
+
+## Turn the globe as if a pointer had been dragged `delta` screen pixels.
+func _rotate_by_screen_offset(delta: Vector2) -> void:
+	if delta == Vector2.ZERO:
+		return
+	var sphere_radius := maxf(_sphere_radius(), 1.0)
+	_center_lon = fposmod(_center_lon - delta.x * (190.0 / sphere_radius), 360.0)
+	_center_lat = clampf(_center_lat + delta.y * (170.0 / sphere_radius), -MAX_CENTER_LAT, MAX_CENTER_LAT)
+
+## The two fingers a pinch is measured between, nearest first.
+func _touch_positions() -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	for index in _touches:
+		positions.append(Vector2(_touches[index]))
+		if positions.size() == 2:
+			break
+	return positions
+
+func _touch_span() -> float:
+	var positions := _touch_positions()
+	if positions.size() < 2:
+		return 0.0
+	return positions[0].distance_to(positions[1])
+
+func _touch_midpoint() -> Vector2:
+	var positions := _touch_positions()
+	if positions.size() < 2:
+		return Vector2.ZERO
+	return (positions[0] + positions[1]) * 0.5
+
+func _contains(local_pos: Vector2) -> bool:
+	return Rect2(Vector2.ZERO, size).has_point(local_pos)
 
 func _screen_to_local(screen_pos: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * screen_pos
