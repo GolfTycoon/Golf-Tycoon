@@ -347,8 +347,8 @@ static func _apply_defaults(id: String) -> void:
 
 ## Put the running game back on the shipped preference defaults: the mixer,
 ## graphics preset, FPS counter, UI scale, VSync, course HUD, colour palette,
-## camera limits, key bindings and the owner's skin choice. Nothing is written
-## to disk - the delete path has just removed the file.
+## camera panning and limits, key bindings and the owner's skin choice.
+## Nothing is written to disk - the delete path has just removed the file.
 static func reset_live_preferences() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree:
@@ -359,6 +359,7 @@ static func reset_live_preferences() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
 	GameManager.set_minimap_enabled(true)
 	GameManager.set_colorblind_mode(ColorblindMode.Mode.OFF)
+	GameManager.set_edge_pan_enabled(true)
 	GameManager.invert_zoom_scroll = false
 	GameManager.set_camera_zoom_limits(
 		GameManager.CAMERA_MIN_ZOOM_DEFAULT, GameManager.CAMERA_MAX_ZOOM_DEFAULT)

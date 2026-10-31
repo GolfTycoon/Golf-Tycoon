@@ -108,6 +108,7 @@ var _max_zoom_slider: HSlider = null
 var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
 var _minimap_toggle: CheckButton = null
+var _edge_pan_toggle: CheckButton = null
 ## Live controls for each independent part of the graphics configuration.
 var _graphics_preset_options: OptionButton = null
 var _graphics_setting_options: Dictionary = {}
@@ -149,6 +150,8 @@ func _ready() -> void:
 		InputBindings.bindings_reset.connect(_on_bindings_reset)
 	if EventBus.has_signal("minimap_enabled_changed") and not EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
 		EventBus.minimap_enabled_changed.connect(_on_minimap_enabled_changed)
+	if EventBus.has_signal("edge_pan_enabled_changed") and not EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
+		EventBus.edge_pan_enabled_changed.connect(_on_edge_pan_enabled_changed)
 
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
@@ -159,6 +162,8 @@ func _exit_tree() -> void:
 		InputBindings.bindings_reset.disconnect(_on_bindings_reset)
 	if EventBus.has_signal("minimap_enabled_changed") and EventBus.minimap_enabled_changed.is_connected(_on_minimap_enabled_changed):
 		EventBus.minimap_enabled_changed.disconnect(_on_minimap_enabled_changed)
+	if EventBus.has_signal("edge_pan_enabled_changed") and EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
+		EventBus.edge_pan_enabled_changed.disconnect(_on_edge_pan_enabled_changed)
 
 ## Pure responsive breakpoint decision, also used by the layout tests.
 static func layout_mode_for(view: Vector2) -> int:
@@ -199,6 +204,7 @@ func _build() -> void:
 	_min_zoom_value_label = null
 	_max_zoom_value_label = null
 	_minimap_toggle = null
+	_edge_pan_toggle = null
 	_graphics_preset_options = null
 	_graphics_setting_options.clear()
 	_data_confirmation = null
@@ -967,9 +973,10 @@ func _close_data_confirmation() -> void:
 
 
 ## The Controls page: one editable keycap per rebindable action, grouped the
-## way InputBindings groups them, plus the camera's own invert-zoom toggle
-## and the zoom-limit sliders. Changes apply live and save at once; the intro
-## card carries the listening hint, the result message and Reset All.
+## way InputBindings groups them, plus the camera's own edge-panning and
+## invert-zoom toggles and the zoom-limit sliders. Changes apply live and save
+## at once; the intro card carries the listening hint, the result message and
+## Reset All.
 func _build_controls_cards(mode: int) -> Array[Control]:
 	var cards: Array[Control] = []
 	cards.append(_build_controls_intro_card(mode))
@@ -979,6 +986,10 @@ func _build_controls_cards(mode: int) -> Array[Control]:
 			str(group.get("description", "")), mode)
 		var body: VBoxContainer = group_card["body"]
 		if group_id == "camera":
+			_edge_pan_toggle = _add_toggle_row(body, "Edge Panning",
+				"Pan the camera by moving the pointer to the edge of the screen. Off keeps the view still until you drag, use the keys or the stick.",
+				GameManager.edge_pan_enabled, _set_edge_pan_enabled, mode)
+			body.add_child(_make_separator())
 			_add_toggle_row(body, "Invert Scroll Zoom", "Reverse the scroll wheel zoom direction.",
 				GameManager.invert_zoom_scroll, _on_invert_zoom_toggled, mode)
 			body.add_child(_make_separator())
@@ -1623,6 +1634,14 @@ func _on_minimap_enabled_changed(enabled: bool) -> void:
 	if is_instance_valid(_minimap_toggle):
 		_minimap_toggle.set_pressed_no_signal(enabled)
 
+func _set_edge_pan_enabled(enabled: bool) -> void:
+	GameManager.set_edge_pan_enabled(enabled)
+	_save_camera_settings()
+
+func _on_edge_pan_enabled_changed(enabled: bool) -> void:
+	if is_instance_valid(_edge_pan_toggle):
+		_edge_pan_toggle.set_pressed_no_signal(enabled)
+
 func _on_invert_zoom_toggled(enabled: bool) -> void:
 	GameManager.invert_zoom_scroll = enabled
 	_save_controls_settings()
@@ -1644,6 +1663,7 @@ func _save_camera_settings() -> void:
 	config.load(SaveManager.SETTINGS_PATH)
 	config.set_value("camera", "min_zoom", GameManager.camera_min_zoom)
 	config.set_value("camera", "max_zoom", GameManager.camera_max_zoom)
+	config.set_value("camera", "edge_pan_enabled", GameManager.edge_pan_enabled)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _save_display_settings() -> void:

@@ -179,10 +179,13 @@ func test_every_tab_scrolls_in_a_window_curved_under_the_rail() -> void:
 		# And the turf below the cut is the page: its first tile still answers.
 		toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 		await process_frames(3)
-		var fairway: Control = toolbar._tool_buttons[TerrainTypes.Type.FAIRWAY]
-		assert_true(fairway.get_global_rect().position.x < toolbar._tab_rail.get_global_rect().end.x,
+		# The first tile of the first row: on a narrow shelf the shifted
+		# bottom row can start past the scroll window, so the row's leading
+		# tile is the one that proves the grid reaches in under the rail.
+		var first_tile: Control = toolbar._tool_buttons[TerrainTypes.Type.TEE_BOX]
+		assert_true(first_tile.get_global_rect().position.x < toolbar._tab_rail.get_global_rect().end.x,
 			"the first row of tiles runs under the rail at %s" % window_size)
-		var fairway_local := fairway.get_global_rect().get_center() - window.get_global_position()
-		assert_true(window.contains_content_point(fairway_local),
+		var first_tile_local := first_tile.get_global_rect().get_center() - window.get_global_position()
+		assert_true(window.contains_content_point(first_tile_local),
 			"and sits inside the curved window at %s" % window_size)
 	await set_window(DESIGN_WINDOW)

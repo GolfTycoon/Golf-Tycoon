@@ -775,6 +775,9 @@ func _apply_camera_settings(config: ConfigFile) -> void:
 	min_zoom = clampf(min_zoom, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
 	max_zoom = clampf(max_zoom, GameManager.CAMERA_ZOOM_ABSOLUTE_MIN, GameManager.CAMERA_ZOOM_ABSOLUTE_MAX)
 	GameManager.set_camera_zoom_limits(min_zoom, max_zoom)
+	# Older settings files have no edge-pan key: screen-edge panning stays on,
+	# which is how the camera behaved before the preference existed.
+	GameManager.set_edge_pan_enabled(bool(config.get_value("camera", "edge_pan_enabled", true)))
 
 
 ## Write one preference that belongs to the player rather than to a save -
