@@ -152,8 +152,8 @@ func _ready() -> void:
 	for state_name in states:
 		add_theme_stylebox_override(state_name,
 			PixelButtonStyle.texture_style(FRAME_ACCENT, states[state_name], fills[state_name]))
-	# The focus ring floats clear of the frame instead of sitting on it, so it
-	# never masks the notch or the trim.
+	# The shared focus overlay makes the navigated card stand out from hover
+	# and from its own open/closed state.
 	add_theme_stylebox_override("focus", PixelButtonStyle.focus_ring(FRAME_ACCENT))
 	# The card draws its own caption, so the button's real text stays empty and
 	# its colours never fight the art.

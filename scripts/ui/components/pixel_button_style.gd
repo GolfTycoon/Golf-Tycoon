@@ -26,7 +26,8 @@ class_name PixelButtonStyle
 ##  * hover brightens the trim to full strength and lights the bevel up;
 ##  * pressed swaps the bevel (dark on top and left, lit below) so the card
 ##    reads as physically pushed into the panel, and darkens the fill;
-##  * focus is a bright notched ring floating just outside the frame;
+##  * focus has a high-contrast, ink-edged cream ring and a light surface wash,
+##    distinct from both hover and an already-picked option;
 ##  * disabled desaturates the accent and drops the sheen and bevel;
 ##  * inset is the same cross-section sunk the other way (dark above, lit
 ##    below, no sheen), for the recessed surfaces a form sits on: a text
@@ -65,6 +66,13 @@ const BAR_STRETCH := 4
 
 ## The frame's own ink: a near-black green, in the family of the menu cards.
 const INK := Color("08130f")
+## Focus is deliberately lighter and thicker than any card's accent trim. The
+## ink edge separates it from bright scenery, while the wash makes the whole
+## focused surface read differently even where an outer edge is clipped.
+const FOCUS_LIGHT := Color("fff6dc")
+const FOCUS_WARM := Color("f4d28c")
+const FOCUS_WASH := Color(1.0, 0.96, 0.84, 0.14)
+const FOCUS_EXPAND := 3.0
 ## Ring order, outside in (see MARGIN): what each band of the frame is.
 const RING_INK := 0
 const RING_TRIM := 1
@@ -107,10 +115,10 @@ static func paint_card(button: Button, accent: Color, caption_block: float, pad:
 	for state in [State.NORMAL, State.HOVER, State.PRESSED, State.DISABLED]:
 		button.add_theme_stylebox_override(names[state], card_style(accent, state, fills[state],
 			pad, pad, bottom))
-	# The focus ring floats clear of the frame instead of sitting on it, so it
-	# never masks the notch or the trim that carries the accent.
+	# Keep the focus overlay's margins identical to the other states: adding a
+	# visible selection must not move the title or change the card's size.
 	var focus := card_style(accent, State.FOCUS, Color(0, 0, 0, 0), pad, pad, bottom)
-	focus.set_expand_margin_all(3.0)
+	focus.set_expand_margin_all(FOCUS_EXPAND)
 	button.add_theme_stylebox_override("focus", focus)
 
 	var font_colors := {
@@ -167,9 +175,8 @@ static func paint_primary(button: Button, accent: Color = MenuStyle.ACCENT_PRIMA
 			else "font_%s_color" % font_state, MenuStyle.INK)
 	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
 
-## Paint a text field as a recessed pixel surface with the screen's focus
-## ring: the frame says "type here", and focus floats clear of it instead of
-## covering the trim.
+## Paint a text field as a recessed pixel surface with the same visible focus
+## treatment as the buttons. The light wash stays under the field's text.
 static func paint_field(field: LineEdit, accent: Color, fill: Color, pad: int) -> void:
 	field.add_theme_stylebox_override("normal", inset_style(accent, fill, pad))
 	field.add_theme_stylebox_override("read_only", inset_style(accent, fill, pad))
@@ -178,11 +185,12 @@ static func paint_field(field: LineEdit, accent: Color, fill: Color, pad: int) -
 		focus.set_content_margin(side, float(pad))
 	field.add_theme_stylebox_override("focus", focus)
 
-## The focus ring on its own: the frame's notch drawn as a bright band, with
-## everything inside it air and the whole thing floated clear of the frame.
+## The focus overlay: a notched, ink-edged light band and a translucent wash.
+## It is drawn over the normal/hover/pressed frame but under the control's text,
+## so focus remains distinct from a choice that has actually been selected.
 static func focus_ring(accent: Color) -> StyleBoxTexture:
 	var style := _styled(accent, State.FOCUS, Color(0, 0, 0, 0))
-	style.set_expand_margin_all(3.0)
+	style.set_expand_margin_all(FOCUS_EXPAND)
 	return style
 
 ## A full-width strip of the frame's cross-section - ink, trim, bevel and the
@@ -401,23 +409,25 @@ static func _palette(accent: Color, state: int, fill: Color) -> Dictionary:
 			palette["lip_top"] = fill.darkened(0.02)
 			palette["lip_bottom"] = fill
 		State.FOCUS:
-			# A bright notched ring floating just outside the frame: only the
-			# ink and first trim band draw, everything else is air.
-			var ring := _mix(UIConstants.COLOR_TEXT, accent, 0.35)
-			palette["trim"] = Color(ring.r, ring.g, ring.b, 0.9)
-			palette["trim_inner"] = Color(ring.r, ring.g, ring.b, 0.45)
-			palette["bevel_light"] = Color(0, 0, 0, 0)
-			palette["bevel_dark"] = Color(0, 0, 0, 0)
-			palette["sheen_top"] = Color(0, 0, 0, 0)
-			palette["sheen_mid"] = Color(0, 0, 0, 0)
-			palette["sheen_side"] = Color(0, 0, 0, 0)
-			palette["sheen_side_mid"] = Color(0, 0, 0, 0)
-			palette["shade_bottom"] = Color(0, 0, 0, 0)
-			palette["shade_mid"] = Color(0, 0, 0, 0)
-			palette["lip_top"] = Color(0, 0, 0, 0)
-			palette["lip_bottom"] = Color(0, 0, 0, 0)
-			palette["ink"] = Color(0, 0, 0, 0)
-			palette["fill"] = Color(0, 0, 0, 0)
+			# A solid ink outline around two cream pixels and a warm inner band
+			# stands out on both dark cards and the bright scenery behind them.
+			# The translucent wash is a second cue, without hiding a toggle's
+			# pressed frame or changing the contrast of the text drawn over it.
+			var inner := FOCUS_WARM.lerp(_opaque(accent), 0.15)
+			palette["ink"] = INK
+			palette["trim"] = FOCUS_LIGHT
+			palette["trim_inner"] = FOCUS_LIGHT
+			palette["bevel_light"] = inner
+			palette["bevel_dark"] = inner
+			palette["sheen_top"] = FOCUS_WASH
+			palette["sheen_mid"] = FOCUS_WASH
+			palette["sheen_side"] = FOCUS_WASH
+			palette["sheen_side_mid"] = FOCUS_WASH
+			palette["shade_bottom"] = FOCUS_WASH
+			palette["shade_mid"] = FOCUS_WASH
+			palette["lip_top"] = FOCUS_WASH
+			palette["lip_bottom"] = FOCUS_WASH
+			palette["fill"] = FOCUS_WASH
 		State.DISABLED:
 			# Desaturated trim, no bevel or sheen: the card is furniture until
 			# a save turns up.

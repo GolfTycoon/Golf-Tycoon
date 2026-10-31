@@ -136,7 +136,14 @@ func _update_ui_pointer_mode() -> void:
 		_scope_id = id
 		if _ui_pointer_mode:
 			_set_ui_pointer_mode(false)
-	if not InputManager.is_gamepad() or scope == null:
+	# Pointer mode belongs to the controller. A keyboard, mouse or touch event
+	# must leave it so navigation can show focus (or the real pointer can take
+	# over) instead of keeping the screen stuck in virtual-pointer mode.
+	if not InputManager.is_gamepad():
+		if _ui_pointer_mode:
+			_set_ui_pointer_mode(false)
+		return
+	if scope == null:
 		return
 	var stick := Input.get_vector(
 		"gamepad_cursor_left", "gamepad_cursor_right",
@@ -157,7 +164,7 @@ func _set_ui_pointer_mode(enabled: bool) -> void:
 			InputManager.clear_focus()
 		else:
 			var scope := InputManager.active_scope()
-			if scope != null:
+			if scope != null and InputManager.is_navigation_device():
 				InputManager.focus_scope(scope)
 
 
@@ -213,6 +220,12 @@ func _unhandled_input(event: InputEvent) -> void:
 					JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
 			_set_ui_pointer_mode(false)
 			return
+		if event is InputEventJoypadMotion:
+			var motion := event as InputEventJoypadMotion
+			if motion.axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y] \
+					and absf(motion.axis_value) > InputManager.JOYPAD_DEADZONE:
+				_set_ui_pointer_mode(false)
+				return
 	# A / Enter - click (and hold, so brushing and dragging work).
 	var click_action := "gamepad_click" if InputManager.is_gamepad() else "ui_accept"
 	if event.is_action(click_action):

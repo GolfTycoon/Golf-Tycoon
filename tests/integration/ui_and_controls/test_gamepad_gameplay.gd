@@ -90,6 +90,12 @@ func test_start_opens_the_pause_menu_and_b_closes_it() -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	assert_not_null(focus, "the pause menu takes focus for the controller")
 	assert_true(main.pause_menu.is_ancestor_of(focus))
+	if focus != null:
+		assert_true(focus.has_focus(true), "the focused pause action shows its indicator")
+		var ring := focus.get_theme_stylebox("focus") as StyleBoxFlat
+		assert_not_null(ring, "the pause menu inherits the shared button highlight")
+		if ring:
+			assert_gte(ring.border_width_left, 3, "the outline is prominent")
 	await _push_joy(JOY_BUTTON_B)
 	assert_null(main.pause_menu, "B resumes and closes the menu")
 
