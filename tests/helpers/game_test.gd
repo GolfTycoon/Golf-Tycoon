@@ -65,6 +65,36 @@ func process_frames_until(condition: Callable, max_frames: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Touch
+# ---------------------------------------------------------------------------
+
+## Resize the window (and so the viewport) and let the layout settle. Touch
+## tests need a realistic window: a finger outside the viewport reaches no
+## control at all, and the headless default is a 64x64 window.
+func resize_window(size: Vector2i) -> void:
+	if get_window().size != size:
+		get_window().size = size
+	await process_frames(3)
+
+
+## Tap the screen at `pos` with one finger, the way a player does: the raw
+## touch goes through TouchInput, which turns the tap into the mouse click the
+## Control toolkit understands.
+func touch_tap(pos: Vector2) -> void:
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = pos
+	get_viewport().push_input(down, true)
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = pos
+	get_viewport().push_input(up, true)
+	await process_frames(2)
+
+
+# ---------------------------------------------------------------------------
 # Builders
 # ---------------------------------------------------------------------------
 

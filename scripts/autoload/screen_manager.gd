@@ -18,6 +18,9 @@ extends Node
 ##    controls and a taller bottom dock for comfortable thumb targets.
 ##  * available_panel_size() - the rect popup panels may occupy, keeping
 ##    clear of the bottom control bar.
+##  * modal_panel_rect() - the rect a modal overlay (the pause menu, a
+##    confirmation dialogue) may occupy: the whole window, since a modal
+##    covers the HUD and its bottom bar.
 ##
 ## The `changed` signal fires whenever the window size (or its derived
 ## values) change - on live desktop resizes and on mobile rotation.
@@ -35,6 +38,9 @@ const COMPACT_HEIGHT := 640.0
 ## Physical window widths at or above this scale the world with the window;
 ## below it the world stays at 1:1 pixel scale so tiles remain tappable.
 const WORLD_SCALE_FLOOR_WIDTH := 900.0
+
+## Breathing room a modal overlay keeps from the window edge.
+const MODAL_MARGIN := 12.0
 
 var window_size: Vector2 = BASE_SIZE
 var world_scale: float = 1.0
@@ -116,4 +122,16 @@ func available_panel_rect() -> Rect2:
 		margin.x, margin.y,
 		window_size.x - margin.x * 2.0,
 		window_size.y - margin.y * 2.0 - hud_bottom_clearance()
+	)
+
+## Full rect available to a modal overlay (the pause menu, a confirmation
+## dialogue). A modal dims the whole game and covers the HUD, bottom bar
+## included, so unlike a HUD popup it may use the entire window — only a small
+## margin is kept as breathing room. On a phone held sideways this is the
+## difference between a menu that fits and one squeezed into a narrow strip.
+func modal_panel_rect() -> Rect2:
+	return Rect2(
+		MODAL_MARGIN, MODAL_MARGIN,
+		maxf(window_size.x - MODAL_MARGIN * 2.0, 120.0),
+		maxf(window_size.y - MODAL_MARGIN * 2.0, 120.0)
 	)

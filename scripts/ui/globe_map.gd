@@ -898,6 +898,11 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> void:
 	if event.pressed:
 		if not _contains(local_pos):
 			return
+		# A dialogue or panel drawn over the globe owns the touch, even when
+		# the finger is inside the globe's circle: the globe must not eat the
+		# tap meant for a button on top of it.
+		if not TouchInput.owns_native_touch(self, event.position):
+			return
 		_touches[event.index] = local_pos
 		if _touches.size() == 1:
 			# A fresh gesture: one finger owns the spin and nothing is pinched.

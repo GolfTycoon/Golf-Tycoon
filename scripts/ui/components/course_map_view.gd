@@ -937,6 +937,10 @@ func _input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and not _is_inside(touch.position):
 			return
+		# A dialogue or panel drawn over the map owns the touch: the map must
+		# not swallow a tap that belongs to a button on top of it.
+		if touch.pressed and not TouchInput.owns_native_touch(self, touch.position):
+			return
 		if not touch.pressed and not _touches.has(touch.index):
 			return
 		var local := _screen_to_local(touch.position)

@@ -12,6 +12,10 @@ class_name PauseMenu
 ## look around the course: pointer events that land on the dimmed backdrop
 ## (not on the menu panel) are forwarded to the isometric camera, which runs
 ## on wall-clock time.
+##
+## The menu fits the window it opens in: on a short window (a phone held
+## sideways, a small browser frame) the buttons scroll inside the panel instead
+## of running off the bottom of the screen, where they could not be tapped.
 
 signal resume_requested
 signal save_requested
@@ -26,12 +30,25 @@ var camera: IsometricCamera = null
 
 var _bg: ColorRect = null
 var _panel: PanelContainer = null
+var _scroll: ScrollContainer = null
+var _vbox: VBoxContainer = null
+var _hint: Label = null
+var _info: Label = null
+var _title: Label = null
+var _spacer: Control = null
+var _buttons: Array[Button] = []
+var _compact := false
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	add_to_group("touch_camera_backdrop")
 	_build_ui()
+	_fit_to_view.call_deferred()
+	# Re-fit when the window changes shape (rotation, a browser resize).
+	resized.connect(_fit_to_view)
+	if has_node("/root/Screen"):
+		Screen.changed.connect(func(_size: Vector2, _scale: float) -> void: _fit_to_view())
 
 	if has_node("/root/InputManager"):
 		InputManager.register_scope(self)
@@ -53,6 +70,7 @@ func _build_ui() -> void:
 	# Menu panel
 	var panel = PanelContainer.new()
 	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
+	_compact = compact
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.12, 0.1, 0.95)
 	style.border_color = UIConstants.COLOR_PRIMARY
@@ -65,13 +83,27 @@ func _build_ui() -> void:
 	style.content_margin_top = margin_v
 	style.content_margin_bottom = margin_v
 	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(280 if compact else 320, 0)
+	panel.custom_minimum_size = Vector2(_menu_width(), 0)
 	_panel = panel
 	center.add_child(panel)
 
+	# The buttons live in a ScrollContainer: on a screen too short for the
+	# whole menu it scrolls (touch drags scroll it, see TouchInput), so Quit to
+	# Menu and Quit to Desktop never sit off the bottom where nothing can reach
+	# them.
+	var scroll = ScrollContainer.new()
+	scroll.name = "PauseScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll = scroll
+	panel.add_child(scroll)
+
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
-	panel.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_vbox = vbox
+	scroll.add_child(vbox)
 
 	# Title
 	var title = Label.new()
@@ -79,6 +111,7 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
 	title.add_theme_color_override("font_color", Color(0.85, 0.95, 0.75))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title = title
 	vbox.add_child(title)
 
 	# Separator
@@ -90,11 +123,16 @@ func _build_ui() -> void:
 	info_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Wrapped, so a long course name never forces the panel wider than a phone.
+	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info = info_label
 	vbox.add_child(info_label)
 
 	# Spacer
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 8)
+	_spacer = spacer
 	vbox.add_child(spacer)
 
 	# Menu buttons. Resume is the default focus, so A/Enter continues the game.
@@ -119,7 +157,68 @@ func _build_ui() -> void:
 	hint.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
 	hint.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hint = hint
 	vbox.add_child(hint)
+
+## Keep the whole menu on screen: the panel is clamped to the space a modal may
+## use and its content scrolls when it does not fit. Called after the first
+## layout pass, and again whenever the window or the screen metrics change, so
+## the menu is right in every window it can open in.
+func _fit_to_view() -> void:
+	if not is_instance_valid(_panel) or not is_instance_valid(_vbox) or not is_instance_valid(_scroll):
+		return
+	var view := get_viewport().get_visible_rect().size
+	var available := view - Vector2(24.0, 24.0)
+	if has_node("/root/Screen"):
+		available = Screen.modal_panel_rect().size
+	available = available.max(Vector2(160.0, 120.0))
+
+	var style := _panel.get_theme_stylebox("panel") as StyleBox
+	var vertical_padding := 0.0
+	var horizontal_padding := 0.0
+	if style != null:
+		vertical_padding = style.get_margin(SIDE_TOP) + style.get_margin(SIDE_BOTTOM)
+		horizontal_padding = style.get_margin(SIDE_LEFT) + style.get_margin(SIDE_RIGHT)
+
+	# A short window (a phone held sideways) gets tighter spacing and loses the
+	# gesture footnote, so every option — Quit to Menu and Quit to Desktop
+	# included — is on screen without scrolling.
+	var short_window := available.y < 420.0
+	_vbox.add_theme_constant_override("separation", 6 if short_window else 12)
+	if is_instance_valid(_hint):
+		_hint.visible = not short_window
+	# On a short window the course line and its spacer give way first: the
+	# options themselves are what the player opened the menu for.
+	if is_instance_valid(_info):
+		_info.visible = not short_window
+	if is_instance_valid(_spacer):
+		_spacer.visible = not short_window
+	if is_instance_valid(_title):
+		_title.add_theme_font_size_override("font_size",
+			UIConstants.FONT_SIZE_LG if short_window else UIConstants.FONT_SIZE_XL)
+	if _compact:
+		for button in _buttons:
+			if is_instance_valid(button):
+				button.custom_minimum_size.y = 40 if short_window else 44
+
+	var natural_size := _vbox.get_combined_minimum_size()
+	var width := minf(maxf(_menu_width(), natural_size.x + horizontal_padding), available.x)
+	var natural_height := natural_size.y + vertical_padding
+	var height := minf(natural_height, available.y)
+	var needs_scroll := natural_height > height + 1.0
+	_scroll.vertical_scroll_mode = (
+		ScrollContainer.SCROLL_MODE_AUTO if needs_scroll
+		else ScrollContainer.SCROLL_MODE_DISABLED)
+	_panel.custom_minimum_size = Vector2(width, height)
+
+
+## The width the menu wants when there is room for it: a little narrower in the
+## touch layout, where it may share the window with a small phone's edges.
+func _menu_width() -> float:
+	return 280.0 if has_node("/root/Screen") and Screen.uses_touch_layout() else 320.0
+
 
 func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, text_color: Color = Color.WHITE) -> Button:
 	var btn = Button.new()
@@ -131,6 +230,7 @@ func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, t
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	else:
 		btn.custom_minimum_size = Vector2(260, 40)
+	_buttons.append(btn)
 	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
 	if text_color != Color.WHITE:
 		btn.add_theme_color_override("font_color", text_color)
