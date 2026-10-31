@@ -127,6 +127,15 @@ panning never selects anything. Hovering writes a one-line description under the
 map — the parcel's tier and cost, the hole's length and par, the mood of a cell,
 or the employee's name, wage and area.
 
+On a touchscreen the map reads the raw fingers itself (`CourseMapView` joins the
+`native_touch_input` group): one finger taps and pans, and two fingers pinch open
+or closed to zoom about the point between them. The pinch is measured against
+the view it started from (`_pinch_start_span`, `_pinch_start_zoom`), so the zoom
+returns exactly to where it began when the fingers come back together, and the
+fingers' shared midpoint pans the map with them. A pinch never picks a tile, and
+the finger left over when one of the pair lifts takes the pan over where it is
+rather than jumping by the pinch's travel.
+
 ### 3. Routing edits
 
 The Routing panel is the Course Map's front end for

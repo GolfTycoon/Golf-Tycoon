@@ -105,7 +105,7 @@ If the course runs slowly, **Settings → Display → Performance & Scale** has 
 | Focus the HUD | `Tab`, or the controller's View/Back button |
 | Hotkey help | `F1` |
 
-Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch to zoom) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).
+Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch open or closed to zoom — on the course, the World Map globe and the Course Map) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).
 
 ## Project Structure
 
