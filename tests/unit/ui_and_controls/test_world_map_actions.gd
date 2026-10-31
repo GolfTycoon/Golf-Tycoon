@@ -217,3 +217,65 @@ func test_clicking_a_list_row_centres_the_globe_on_that_location() -> void:
 	assert_true(screen.globe._animating, "and starts the globe flying towards it")
 	assert_almost_eq(screen.globe._anim_to_lat, float(def["lat"]), 0.001, "aimed at the site's latitude")
 	assert_almost_eq(screen.globe._anim_to_lon, float(def["lon"]), 0.001, "aimed at the site's longitude")
+
+
+# ---------------------------------------------------------------------------
+# Reset World: the confirmation sits on top of the globe
+# ---------------------------------------------------------------------------
+#
+# The globe reads raw touches itself, so before the dialogue learned to look at
+# what is drawn over it, every tap inside the globe's rectangle went to the
+# globe — including taps on the Reset World confirmation's buttons, which made
+# them impossible to answer on a touchscreen.
+
+func _open_reset_confirmation(screen: WorldMapScreen) -> ConfirmDialog:
+	var reset := screen.find_child("ResetWorldButton", true, false) as Button
+	assert_not_null(reset, "the World Map offers Reset World")
+	if reset == null:
+		return null
+	reset.pressed.emit()
+	await process_frames(3)
+	for child in screen.get_children():
+		if child is ConfirmDialog:
+			return child
+	return null
+
+
+func test_reset_world_confirmation_answers_a_touch_confirm() -> void:
+	await resize_window(Vector2i(1600, 1000))
+	WorldMap.new_world(WorldMapStateScript.default_options(), 90210)
+	GameManager.money = 500000
+	var screen := _screen()
+	await process_frames(3)
+	var dialog := await _open_reset_confirmation(screen)
+	assert_not_null(dialog, "the confirmation opens")
+	if dialog == null:
+		return
+	var confirmed: Array = []
+	dialog.confirmed.connect(func() -> void: confirmed.append(true))
+	var confirm_btn := dialog.find_child("ConfirmButton", true, false) as Button
+	assert_not_null(confirm_btn, "the confirmation has its Reset World answer")
+	assert_false(TouchInput._has_native_touch_target(confirm_btn.get_global_rect().get_center()),
+		"the dialogue on top owns the touch, not the globe underneath it")
+	await touch_tap(confirm_btn.get_global_rect().get_center())
+	assert_eq(confirmed.size(), 1, "a tap on Reset World confirms")
+	assert_false(is_instance_valid(dialog), "and the confirmation closes")
+
+
+func test_reset_world_confirmation_answers_a_touch_cancel() -> void:
+	await resize_window(Vector2i(1280, 800))
+	WorldMap.new_world(WorldMapStateScript.default_options(), 90210)
+	GameManager.money = 500000
+	var screen := _screen()
+	await process_frames(3)
+	var dialog := await _open_reset_confirmation(screen)
+	assert_not_null(dialog, "the confirmation opens")
+	if dialog == null:
+		return
+	var cancelled: Array = []
+	dialog.cancelled.connect(func() -> void: cancelled.append(true))
+	var keep_btn := dialog.find_child("CancelButton", true, false) as Button
+	assert_not_null(keep_btn, "the confirmation has its Keep World answer")
+	await touch_tap(keep_btn.get_global_rect().get_center())
+	assert_eq(cancelled.size(), 1, "a tap on Keep World cancels")
+	assert_false(is_instance_valid(dialog), "and the confirmation closes")

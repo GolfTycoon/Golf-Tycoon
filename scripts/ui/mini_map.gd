@@ -413,7 +413,10 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch and visible:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
-			if _touch_index == -1 and _is_within_map(_screen_to_local(touch.position)):
+			# A dialogue or panel drawn over the minimap owns the touch, so a
+			# button on top of the map stays tappable.
+			if _touch_index == -1 and _is_within_map(_screen_to_local(touch.position)) \
+					and TouchInput.owns_native_touch(self, touch.position):
 				_touch_index = touch.index
 				_is_dragging = true
 				_navigate_to_map_pos(_screen_to_local(touch.position))
@@ -447,7 +450,7 @@ func _input(event: InputEvent) -> void:
 		if focused is LineEdit or focused is TextEdit:
 			return
 		if event.keycode == KEY_TAB and not event.is_command_or_control_pressed() \
-				and not event.shift_pressed:
+				and not event.shift_pressed and focused == null:
 			GameManager.set_minimap_enabled(not GameManager.minimap_enabled)
 			if has_node("/root/SaveManager"):
 				SaveManager.set_user_preference("display", "minimap_enabled", GameManager.minimap_enabled)

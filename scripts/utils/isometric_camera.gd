@@ -8,6 +8,12 @@ class_name IsometricCamera
 ## at any game speed.
 
 @export var pan_speed: float = 800.0
+## Whether hovering the window edge pans the camera. The player preference in
+## Settings (GameManager.edge_pan_enabled) drives it: _ready applies it and a
+## change reaches the live camera through EventBus.edge_pan_enabled_changed.
+@export var edge_pan_enabled: bool = true
+## Screen-edge zone (in viewport pixels) that pans the camera when hovered.
+@export_range(1.0, 100.0, 1.0) var edge_pan_margin: float = 24.0
 @export var zoom_speed: float = 0.1
 @export var min_zoom: float = 0.5
 @export var max_zoom: float = 2.0
@@ -49,6 +55,13 @@ var _drag_start_camera: Vector2
 var _last_wall_ms: int = 0
 var _pointer_position: Vector2 = Vector2.ZERO
 var _has_pointer: bool = false
+## True while the pointer is known to be over this window. Edge panning needs
+## a pointer that is really on the screen: before the first pointer event there
+## is no position to test (headless runs and a window that opens with the OS
+## cursor parked in a corner), and a pointer that has left the window must not
+## keep the camera scrolling. Touch has no cursor at all - see
+## _edge_pan_active.
+var _pointer_inside_window: bool = false
 
 # Shake state
 var _shake_offset: Vector2 = Vector2.ZERO
@@ -62,6 +75,7 @@ func _ready() -> void:
 	# Apply the player's preferred zoom limits before the first frame.
 	if has_node("/root/GameManager"):
 		_apply_zoom_limits(GameManager.camera_min_zoom, GameManager.camera_max_zoom)
+		edge_pan_enabled = GameManager.edge_pan_enabled
 	# Pick up the responsive world scale before the first frame renders.
 	# (Main re-applies it and tracks Screen.changed afterwards.)
 	if has_node("/root/Screen"):
@@ -69,6 +83,15 @@ func _ready() -> void:
 	# Keep in sync when the player changes limits in Settings.
 	if has_node("/root/EventBus") and not EventBus.camera_zoom_limits_changed.is_connected(_on_zoom_limits_changed):
 		EventBus.camera_zoom_limits_changed.connect(_on_zoom_limits_changed)
+	if has_node("/root/EventBus") and not EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
+		EventBus.edge_pan_enabled_changed.connect(_on_edge_pan_enabled_changed)
+	# Edge panning follows the pointer only while it is inside this window.
+	var window := get_window()
+	if window != null:
+		if not window.mouse_entered.is_connected(_on_window_pointer_entered):
+			window.mouse_entered.connect(_on_window_pointer_entered)
+		if not window.mouse_exited.is_connected(_on_window_pointer_exited):
+			window.mouse_exited.connect(_on_window_pointer_exited)
 	# Disable Godot's built-in smoothing — we handle it manually in _apply_movement
 	# to avoid the one-frame lag that causes bouncing on rapid direction changes.
 	position_smoothing_enabled = false
@@ -76,9 +99,26 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if has_node("/root/EventBus") and EventBus.camera_zoom_limits_changed.is_connected(_on_zoom_limits_changed):
 		EventBus.camera_zoom_limits_changed.disconnect(_on_zoom_limits_changed)
+	if has_node("/root/EventBus") and EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
+		EventBus.edge_pan_enabled_changed.disconnect(_on_edge_pan_enabled_changed)
+	var window := get_window()
+	if window != null:
+		if window.mouse_entered.is_connected(_on_window_pointer_entered):
+			window.mouse_entered.disconnect(_on_window_pointer_entered)
+		if window.mouse_exited.is_connected(_on_window_pointer_exited):
+			window.mouse_exited.disconnect(_on_window_pointer_exited)
 
 func _on_zoom_limits_changed(min_z: float, max_z: float) -> void:
 	_apply_zoom_limits(min_z, max_z)
+
+func _on_edge_pan_enabled_changed(pan_enabled: bool) -> void:
+	edge_pan_enabled = pan_enabled
+
+func _on_window_pointer_entered() -> void:
+	_pointer_inside_window = _has_pointer
+
+func _on_window_pointer_exited() -> void:
+	_pointer_inside_window = false
 
 func _apply_zoom_limits(min_z: float, max_z: float) -> void:
 	min_zoom = clampf(min_z, ZOOM_ABSOLUTE_MIN, ZOOM_ABSOLUTE_MAX)
@@ -111,6 +151,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion or event is InputEventMouseButton:
 		_pointer_position = event.position
 		_has_pointer = true
+		_pointer_inside_window = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	handle_input_event(event, false)
@@ -181,6 +222,13 @@ func _handle_keyboard_input(delta: float) -> void:
 	if Input.is_action_pressed("camera_pan_left"): direction.x -= 1
 	if Input.is_action_pressed("camera_pan_right"): direction.x += 1
 
+	# Edge scrolling uses the last pointer event's viewport-local coordinates,
+	# so it also works with window scaling and the responsive game viewport
+	# (and never pans on a stale or absent cursor). Don't steal the pointer
+	# from HUD panels or other controls at the edge of the screen.
+	if _edge_pan_active():
+		direction += edge_pan_direction(_pointer_position, get_viewport_rect().size, edge_pan_margin)
+
 	# Gamepad: the left stick pans and the triggers zoom, but only while no
 	# screen or focused control owns the D-pad/stick (InputManager).
 	if _gamepad_camera_enabled():
@@ -199,6 +247,44 @@ func _handle_keyboard_input(delta: float) -> void:
 		# Move camera in screen space (visual direction) instead of isometric coordinates
 		_target_position += direction * pan_speed * delta / zoom.x
 
+
+## The camera direction a pointer at `pointer` (viewport pixels) asks for in a
+## `viewport_size` window: one full step on each axis it is within `margin` of
+## that edge. A pointer outside the window asks for nothing. Pure, so the edge
+## zones are testable without a real mouse.
+static func edge_pan_direction(pointer: Vector2, viewport_size: Vector2, margin: float) -> Vector2:
+	var direction := Vector2.ZERO
+	if margin <= 0.0:
+		return direction
+	if pointer.x < 0.0 or pointer.y < 0.0 or pointer.x > viewport_size.x or pointer.y > viewport_size.y:
+		return direction
+	if pointer.x < margin:
+		direction.x -= 1.0
+	elif pointer.x > viewport_size.x - margin:
+		direction.x += 1.0
+	if pointer.y < margin:
+		direction.y -= 1.0
+	elif pointer.y > viewport_size.y - margin:
+		direction.y += 1.0
+	return direction
+
+## Whether the pointer is parked in an edge zone and may pan the camera now:
+## the preference is on, a pointer is known to be inside the window, no drag is
+## in progress, no control under it owns the pointer, and the active input
+## device is not touch (a finger resting at the edge has no cursor to pan with).
+func _edge_pan_active() -> bool:
+	if not edge_pan_enabled or _is_dragging or not _pointer_inside_window:
+		return false
+	if _get_hovered_control() != null:
+		return false
+	if has_node("/root/InputManager") and InputManager.is_touch():
+		return false
+	return true
+
+## The control under the pointer, or null. A wrapper so a test double can
+## pretend a HUD control owns the edge without a real hover.
+func _get_hovered_control() -> Control:
+	return get_viewport().gui_get_hovered_control()
 
 ## True when a controller's sticks/triggers should drive the camera: on the
 ## course, with no UI screen or focused HUD control taking the stick first.

@@ -4,7 +4,7 @@ class_name CourseMapView
 ##
 ## The whole 128x128 grid is projected through the course's own GridProjection -
 ## so the map is a true isometric diamond, and it turns with the course when the
-## view is rotated with Q - and the terrain is sampled into a texture that is laid
+## view is rotated with Q or E - and the terrain is sampled into a texture that is laid
 ## over the diamond (the same trick the corner minimap uses, at a size that fills
 ## a whole screen).
 ##
@@ -154,9 +154,18 @@ var _drag_start := Vector2.ZERO
 var _drag_from_pan := Vector2.ZERO
 var _hover_tile := Vector2i(-1, -1)
 var _hover_hit: Dictionary = {}
+## Fingers on the map, keyed by touch index (position in this control's space).
 var _touches: Dictionary = {}
 var _touch_dragged: bool = false
-var _pinch_distance: float = 0.0
+## The pinch, measured against the view it started from: the span between the
+## fingers, the midpoint, and the zoom and pan at that moment. A reference
+## keeps the gesture steady when the two fingers' events interleave (their
+## span appears to wobble between reports) and returns exactly to the view it
+## started from when the fingers come back together.
+var _pinch_start_span: float = 0.0
+var _pinch_mid: Vector2 = Vector2.ZERO
+var _pinch_start_zoom: float = 1.0
+var _pinch_start_pan: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -920,7 +929,7 @@ func _gui_input(event: InputEvent) -> void:
 
 ## Touch is handled directly (the view is in the "native_touch_input" group, so
 ## the shared gesture adapter leaves it alone): one finger taps and pans, two
-## fingers pinch to zoom.
+## fingers pinch open or closed to zoom (and, moved together, pan the map).
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -928,23 +937,43 @@ func _input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and not _is_inside(touch.position):
 			return
+		# A dialogue or panel drawn over the map owns the touch: the map must
+		# not swallow a tap that belongs to a button on top of it.
+		if touch.pressed and not TouchInput.owns_native_touch(self, touch.position):
+			return
 		if not touch.pressed and not _touches.has(touch.index):
 			return
 		var local := _screen_to_local(touch.position)
+		if touch.canceled:
+			# An interrupted gesture must not pick the tile under a finger.
+			_touches.clear()
+			_touch_dragged = false
+			_pinch_start_span = 0.0
+			get_viewport().set_input_as_handled()
+			return
 		if touch.pressed:
 			_touches[touch.index] = local
 			if _touches.size() == 1:
-				_touch_dragged = false
-				_drag_start = local
-				_drag_from_pan = _pan
-			elif _touches.size() == 2:
-				_pinch_distance = _touch_span()
+				_begin_touch_pan(local)
+			else:
+				_begin_touch_pinch()
 		else:
 			var was_single := _touches.size() == 1
+			# A release carries the finger's final position, so a pinch that
+			# ended with a drag event still gets its last movement.
+			_touches[touch.index] = local
 			_touches.erase(touch.index)
-			if was_single and not _touch_dragged and _is_inside(touch.position):
-				_press_at(local)
-			_pinch_distance = _touch_span()
+			if _touches.is_empty():
+				if was_single and not _touch_dragged and _is_inside(touch.position):
+					_press_at(local)
+				_pinch_start_span = 0.0
+			elif _touches.size() == 1:
+				# One finger left after a pinch: carry on panning from where
+				# it is, rather than jumping by the whole pinch travel.
+				var remaining_index: int = int(_touches.keys()[0])
+				_begin_touch_pan(Vector2(_touches[remaining_index]))
+			else:
+				_begin_touch_pinch()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
@@ -953,30 +982,88 @@ func _input(event: InputEvent) -> void:
 		var local_drag := _screen_to_local(drag.position)
 		_touches[drag.index] = local_drag
 		if _touches.size() >= 2:
-			var span := _touch_span()
-			if _pinch_distance > 1.0 and span > 1.0:
-				_zoom_by(span / _pinch_distance, _touch_midpoint())
-			_pinch_distance = span
-			_touch_dragged = true
+			_update_touch_pinch()
 		elif _touches.size() == 1:
-			var travel := local_drag - _drag_start
-			if travel.length() > CLICK_SLOP:
-				_touch_dragged = true
-			if _touch_dragged:
-				_pan = _drag_from_pan + travel
-				_clamp_pan()
-				view_changed.emit()
-				queue_redraw()
+			_update_touch_pan(local_drag)
 		get_viewport().set_input_as_handled()
 
+## A single finger takes the map's pan from where it lands. A finger left over
+## from a pinch starts a fresh pan, and the gesture stays a drag, so lifting it
+## never picks the tile under it.
+func _begin_touch_pan(local: Vector2) -> void:
+	_touch_dragged = false if _pinch_start_span <= 0.0 else true
+	_drag_start = local
+	_drag_from_pan = _pan
+
+func _update_touch_pan(local: Vector2) -> void:
+	var travel := local - _drag_start
+	if travel.length() > CLICK_SLOP:
+		_touch_dragged = true
+	if _touch_dragged:
+		_pan = _drag_from_pan + travel
+		_clamp_pan()
+		view_changed.emit()
+		queue_redraw()
+
+## Two fingers (or more) on the map: measure the span they start at and the
+## point between them. The pinch begins as a drag, so no tile is picked when
+## the fingers come up.
+func _begin_touch_pinch() -> void:
+	_pinch_start_span = _touch_span()
+	_pinch_mid = _touch_midpoint()
+	_pinch_start_zoom = _zoom
+	_pinch_start_pan = _pan
+	_touch_dragged = true
+
+func _update_touch_pinch() -> void:
+	var span := _touch_span()
+	var mid := _touch_midpoint()
+	if _pinch_start_span > 1.0 and span > 1.0:
+		_pinch_to(_pinch_start_zoom * span / _pinch_start_span)
+	# The fingers' shared midpoint carries the map with them, so a pinch can
+	# also be a two-finger pan.
+	var midpoint_delta := mid - _pinch_mid
+	if midpoint_delta.length() > 0.0:
+		_pan += midpoint_delta
+		_clamp_pan()
+		view_changed.emit()
+		queue_redraw()
+
+## Zoom the gesture to `target`, always built from the view the pinch started
+## from rather than from the previous event: the ground under the fingers stays
+## put, and a span that wobbles as the two fingers are reported returns to the
+## zoom it came from.
+func _pinch_to(target: float) -> void:
+	target = clampf(target, MIN_ZOOM, MAX_ZOOM)
+	var factor := target / _pinch_start_zoom
+	_zoom = _pinch_start_zoom
+	_pan = _pinch_start_pan
+	if is_equal_approx(factor, 1.0):
+		view_changed.emit()
+		queue_redraw()
+		return
+	_zoom_at(_pinch_mid, factor)
+	_zoom = target
+	view_changed.emit()
+	queue_redraw()
+
+## The two fingers a pinch is measured between, nearest first.
+func _touch_points() -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	for index in _touches:
+		points.append(Vector2(_touches[index]))
+		if points.size() == 2:
+			break
+	return points
+
 func _touch_span() -> float:
-	var points: Array = _touches.values()
+	var points := _touch_points()
 	if points.size() < 2:
 		return 0.0
 	return points[0].distance_to(points[1])
 
 func _touch_midpoint() -> Vector2:
-	var points: Array = _touches.values()
+	var points := _touch_points()
 	if points.size() < 2:
 		return size * 0.5
 	return (points[0] + points[1]) * 0.5
@@ -990,17 +1077,15 @@ func _is_inside(screen_pos: Vector2) -> bool:
 func _zoom_at(local: Vector2, factor: float) -> void:
 	var before := _grid_of_local(local)
 	_zoom = clampf(_zoom * factor, MIN_ZOOM, MAX_ZOOM)
-	# Keep whatever was under the pointer under it.
-	var after := _local_of_grid(before)
-	_pan += local - after
+	# Keep whatever was under the pointer under it. With no course bound (a
+	# preview before the world exists) there is no ground to anchor, so the
+	# view simply zooms about the middle.
+	if _terrain_grid != null:
+		var after := _local_of_grid(before)
+		_pan += local - after
 	_clamp_pan()
 	view_changed.emit()
 	queue_redraw()
-
-func _zoom_by(factor: float, focus: Vector2) -> void:
-	if is_equal_approx(factor, 1.0):
-		return
-	_zoom_at(focus, factor)
 
 ## Keep at least a corner of the course inside the control.
 func _clamp_pan() -> void:

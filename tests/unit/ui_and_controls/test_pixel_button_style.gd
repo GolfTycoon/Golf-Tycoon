@@ -106,12 +106,31 @@ func test_disabled_drops_the_accent_and_the_sheen() -> void:
 		"no sheen on a disabled card")
 
 
-func test_the_focus_ring_is_only_a_ring() -> void:
+func test_focus_has_a_high_contrast_ring_and_a_translucent_wash() -> void:
 	var img := _frame(PixelButtonStyle.State.FOCUS)
-	assert_eq(_px(img, HALF, HALF).a, 0.0, "the middle is air")
-	assert_eq(_px(img, HALF, PixelButtonStyle.RING_SHEEN).a, 0.0, "no frame bands")
-	assert_gt(_px(img, HALF, 1).a, 0.5, "the ring draws in the trim band")
-	assert_eq(_px(img, 0, 0).a, 0.0, "and follows the notch")
+	assert_eq(_px(img, 0, 0).a, 0.0, "the outline follows the notch")
+	assert_gt(_px(img, HALF, 0).a, 0.99, "a solid ink edge separates focus from the background")
+	assert_lt(_px(img, HALF, 0).get_luminance(), 0.1, "the outer edge is dark")
+	for band in [PixelButtonStyle.RING_TRIM, PixelButtonStyle.RING_TRIM_INNER]:
+		var light := _px(img, HALF, band)
+		assert_gt(light.a, 0.99, "focus band %d is solid" % band)
+		assert_gt(light.get_luminance(), 0.85, "focus band %d is bright" % band)
+	assert_gt(_px(img, HALF, PixelButtonStyle.RING_BEVEL).a, 0.99,
+		"a third warm band makes focus heavier than the normal trim")
+	for point in [Vector2i(HALF, HALF), Vector2i(HALF, PixelButtonStyle.RING_SHEEN)]:
+		assert_almost_eq(_px(img, point.x, point.y).a, PixelButtonStyle.FOCUS_WASH.a, 0.005,
+			"the surface is lightly washed, not hidden by an opaque focus fill")
+
+
+func test_focus_is_brighter_than_hover_for_every_menu_accent() -> void:
+	for accent in [MenuStyle.ACCENT_PRIMARY, MenuStyle.ACCENT_SECONDARY,
+			MenuStyle.ACCENT_UTILITY, MenuStyle.ACCENT_QUIT]:
+		var focus := _frame(PixelButtonStyle.State.FOCUS, accent)
+		var hover := _frame(PixelButtonStyle.State.HOVER, accent)
+		assert_gt(_px(focus, HALF, 1).get_luminance(), _px(hover, HALF, 1).get_luminance(),
+			"focus is unmistakable even against a hovered %s card" % accent)
+		assert_almost_eq(_px(focus, HALF, HALF).a, PixelButtonStyle.FOCUS_WASH.a, 0.005,
+			"the wash is equally visible for every accent")
 
 
 func test_frames_are_cached_per_palette() -> void:
@@ -140,8 +159,24 @@ func test_paint_card_puts_a_pixel_frame_on_every_state() -> void:
 				"%s leaves room for the caption" % state)
 	var focus := button.get_theme_stylebox("focus") as StyleBoxTexture
 	assert_not_null(focus, "focus has its own ring")
-	assert_eq(focus.get_expand_margin(SIDE_LEFT), 3.0,
-		"the ring floats clear of the frame")
+	assert_eq(focus.get_expand_margin(SIDE_LEFT), PixelButtonStyle.FOCUS_EXPAND,
+		"the ring extends beyond the frame")
+	assert_true(focus.draw_center, "the surface wash is drawn inside the ring")
+	assert_eq(focus.content_margin_left, 20.0, "focus does not shift the title")
+	assert_eq(focus.content_margin_bottom, 48.0, "focus preserves the caption room")
+
+
+func test_the_fallback_button_theme_has_a_matching_focus_treatment() -> void:
+	var theme := load("res://assets/themes/game_theme.tres") as Theme
+	var focus := theme.get_stylebox("focus", "Button") as StyleBoxFlat
+	assert_not_null(focus, "ordinary buttons such as the pause menu get a focus style")
+	if focus == null:
+		return
+	assert_gte(focus.border_width_left, 3, "the focus outline is thicker than the normal border")
+	assert_gt(focus.border_color.get_luminance(), 0.85, "the outline is light")
+	assert_gt(focus.bg_color.a, 0.0, "the surface is tinted")
+	assert_lt(focus.bg_color.a, 0.2, "the normal/pressed appearance remains visible beneath it")
+	assert_gt(focus.get_expand_margin(SIDE_LEFT), 0.0, "focus extends beyond the button")
 
 
 func test_panel_style_is_a_frame_without_button_states() -> void:
@@ -164,7 +199,27 @@ func test_choice_cards_keep_pixel_frames_for_every_selection_state() -> void:
 	var selected := button.get_theme_stylebox("pressed") as StyleBoxTexture
 	assert_ne(normal.texture, selected.texture, "the selected card switches to its lit accent palette")
 	var focus := button.get_theme_stylebox("focus") as StyleBoxTexture
-	assert_not_null(focus, "choice cards keep the floating pixel focus ring")
+	assert_not_null(focus, "choice cards keep the visible focus overlay")
+	if focus:
+		assert_ne(focus.texture, normal.texture, "focused is not the unpicked state")
+		assert_ne(focus.texture, selected.texture, "focused is not the picked state")
+
+
+func test_primary_buttons_and_fields_share_the_focus_overlay() -> void:
+	var primary := Button.new()
+	var field := LineEdit.new()
+	add_child_autofree(primary)
+	add_child_autofree(field)
+	PixelButtonStyle.paint_primary(primary, GOLD)
+	PixelButtonStyle.paint_field(field, GOLD, MenuStyle.INSET_BG, 9)
+	var primary_focus := primary.get_theme_stylebox("focus") as StyleBoxTexture
+	var field_focus := field.get_theme_stylebox("focus") as StyleBoxTexture
+	assert_not_null(primary_focus)
+	assert_not_null(field_focus)
+	if primary_focus and field_focus:
+		assert_eq(primary_focus.texture, field_focus.texture, "both use the shared overlay")
+		assert_eq(field_focus.content_margin_left, 9.0, "the field keeps its own padding")
+		assert_eq(field_focus.get_expand_margin(SIDE_LEFT), PixelButtonStyle.FOCUS_EXPAND)
 
 
 func test_inset_reverses_the_bevel_for_a_recessed_pixel_surface() -> void:

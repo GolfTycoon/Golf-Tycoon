@@ -309,6 +309,36 @@ func test_a_settings_toggle_changes_the_live_setting() -> void:
 	menu._save_controls_settings()
 
 
+func test_the_edge_pan_setting_switches_the_live_camera() -> void:
+	var original_enabled := GameManager.edge_pan_enabled
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(6)
+	menu._select_category(SettingsMenu.Category.CONTROLS)
+	await process_frames(3)
+	var toggle := menu.find_child("Toggle_edge_panning", true, false) as CheckButton
+	assert_not_null(toggle, "The edge-panning toggle is on the Controls page")
+	if toggle == null:
+		return
+	assert_eq(toggle.button_pressed, original_enabled, "The toggle reflects the live preference")
+
+	toggle.button_pressed = not original_enabled
+	await process_frames(2)
+	assert_eq(GameManager.edge_pan_enabled, not original_enabled, "Flipping the toggle changes the setting")
+	assert_eq(main.camera.edge_pan_enabled, not original_enabled, "and the live camera follows it at once")
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "The setting saves to settings.cfg")
+	assert_eq(bool(saved.get_value("camera", "edge_pan_enabled", original_enabled)), not original_enabled,
+		"with edge_pan_enabled stored under [camera]")
+
+	toggle.button_pressed = original_enabled
+	await process_frames(2)
+	assert_eq(GameManager.edge_pan_enabled, original_enabled, "Turning the toggle back restores the preference")
+	assert_eq(main.camera.edge_pan_enabled, original_enabled, "and the live camera follows it back")
+
+	# Put the real setting back on disk.
+	menu._save_camera_settings()
+
+
 func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
 	await set_window(DESIGN_WINDOW)
 	var original_preset := PerformanceSettings.graphics_preset

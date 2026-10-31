@@ -78,14 +78,27 @@ func test_every_group_lists_bindable_actions_with_a_keycap_text() -> void:
 
 func test_binding_text_uses_the_games_short_names() -> void:
 	assert_eq(InputBindings.binding_text("quick_save"), "Ctrl + S")
-	assert_eq(InputBindings.binding_text("rotate_camera_cw"), "Shift + Q")
+	assert_eq(InputBindings.binding_text("rotate_camera"), "Q")
+	assert_eq(InputBindings.binding_text("rotate_camera_cw"), "E")
 	assert_eq(InputBindings.binding_text("redo"), "Ctrl + Shift + Z / Ctrl + Y")
 	assert_eq(InputBindings.binding_text("pause_menu"), "P / Start")
 	assert_eq(InputBindings.binding_text("terrain_water"), "6")
 	assert_eq(InputBindings.binding_text("tab_terrain"), "=")
+	assert_eq(InputBindings.binding_text("tab_elevation"), "R",
+		"the Elevations tab moved off E, which now rotates the view")
 	assert_eq(InputBindings.binding_text("elevation_flat"), "Shift + =")
 	assert_eq(InputBindings.binding_text("gamepad_rotate_ccw"), "X")
 	assert_eq(InputBindings.binding_text("gamepad_zoom_in"), "RT")
+
+
+func test_the_rotate_keys_are_free_of_the_toolbar_tabs() -> void:
+	for action in ["tab_terrain", "tab_improvements", "tab_elevation"]:
+		assert_eq(InputBindings.action_for_event(_key(KEY_Q), [action]), "",
+			"%s does not sit on Q" % action)
+		assert_eq(InputBindings.action_for_event(_key(KEY_E), [action]), "",
+			"%s does not sit on E either: the rotate keys own them" % action)
+	assert_eq(InputBindings.action_for_event(_key(KEY_R), ["tab_elevation"]), "tab_elevation",
+		"the Elevations tab answers to R instead")
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +123,18 @@ func test_key_matching_is_exact_about_modifiers() -> void:
 	assert_eq(InputBindings.action_for_event(_key(KEY_S), ["quick_save"]), "",
 		"a plain S is not a quick save")
 	assert_eq(InputBindings.action_for_event(_key(KEY_S, false, true), ["quick_save"]), "quick_save")
+	assert_eq(InputBindings.action_for_event(_key(KEY_Q), ["rotate_camera"]), "rotate_camera",
+		"Q turns the view counter-clockwise by default")
+	assert_eq(InputBindings.action_for_event(_key(KEY_E), ["rotate_camera_cw"]), "rotate_camera_cw",
+		"and E turns it clockwise")
 	assert_eq(InputBindings.action_for_event(_key(KEY_Q, true), ["rotate_camera"]), "",
-		"Shift+Q is not the counter-clockwise rotate")
-	assert_eq(InputBindings.action_for_event(_key(KEY_Q, true), ["rotate_camera_cw"]), "rotate_camera_cw")
+		"Shift+Q is no longer the counter-clockwise rotate")
+	assert_eq(InputBindings.action_for_event(_key(KEY_Q, true), ["rotate_camera_cw"]), "",
+		"nor is it the clockwise one")
+	assert_eq(InputBindings.action_for_event(_key(KEY_E, true), ["rotate_camera_cw"]), "",
+		"Shift+E is not the clockwise rotate either")
+	assert_eq(InputBindings.action_for_event(_key(KEY_Q), ["rotate_camera_cw"]), "",
+		"and Q is not the clockwise rotate")
 	assert_eq(InputBindings.action_for_event(_key(KEY_2, true), ["terrain_rough"]), "",
 		"Shift+2 paints rough's harsher variant, not rough")
 

@@ -270,6 +270,10 @@ func focus_first(root: Control) -> Control:
 			target = control
 			break
 	if get_viewport().gui_get_focus_owner() == target:
+		# Godot may keep a pointer-clicked control focused while hiding its
+		# focus style. Re-show it when returning to keyboard/controller use.
+		if is_navigation_device() and not target.has_focus(true):
+			target.grab_focus()
 		return target
 	target.grab_focus()
 	return target
@@ -314,9 +318,15 @@ func _collect_focusables(node: Node, controls: Array[Control]) -> void:
 
 
 func _ensure_focus() -> void:
-	if not is_navigation_device():
+	if not is_navigation_device() or pointer_mode:
 		return
-	if get_viewport().gui_get_focus_owner() != null:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused != null:
+		# Mouse clicks can hide the focus indicator without releasing focus.
+		# The first controller/key event must reveal that same control, even
+		# when it isn't a directional event that would make Godot reveal it.
+		if not focused.has_focus(true):
+			focused.grab_focus()
 		return
 	var scope := active_scope()
 	if scope != null:

@@ -73,6 +73,8 @@ signal ui_notification(message: String, type: String)
 signal tooltip_requested(text: String, position: Vector2)
 signal tooltip_hidden()
 signal minimap_enabled_changed(enabled: bool)
+## Whether hovering the window edge pans the course camera (Settings).
+signal edge_pan_enabled_changed(enabled: bool)
 
 # Wind Signals
 signal wind_changed(direction: float, speed: float)

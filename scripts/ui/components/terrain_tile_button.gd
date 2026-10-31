@@ -46,9 +46,24 @@ var _hovered := false
 func _ready() -> void:
 	super._ready()
 	_build_tile()
+	gui_input.connect(_on_terrain_gui_input)
 	focus_entered.connect(_update_visual_state)
 	focus_exited.connect(_update_visual_state)
 	EventBus.theme_changed.connect(_on_theme_changed)
+
+
+## Let Button handle Enter normally, then return focus to the course after the
+## key is released. Mouse clicks and non-terrain subclasses keep their focus.
+func _on_terrain_gui_input(event: InputEvent) -> void:
+	if event is InputEventKey and not event.pressed and not event.echo \
+			and event.keycode in [KEY_ENTER, KEY_KP_ENTER] \
+			and tool_type is int and not disabled:
+		_release_keyboard_focus.call_deferred()
+
+
+func _release_keyboard_focus() -> void:
+	if is_inside_tree() and has_focus():
+		release_focus()
 
 func _exit_tree() -> void:
 	if EventBus.theme_changed.is_connected(_on_theme_changed):

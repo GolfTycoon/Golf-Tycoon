@@ -38,6 +38,16 @@ var minimap_enabled: bool = true:
 		minimap_enabled = value
 		if is_inside_tree():
 			EventBus.minimap_enabled_changed.emit(minimap_enabled)
+## Whether hovering the window edge pans the course camera (player preference,
+## persisted in settings.cfg). The live camera follows this through
+## EventBus.edge_pan_enabled_changed and applies it before its first frame.
+var edge_pan_enabled: bool = true:
+	set(value):
+		if edge_pan_enabled == value:
+			return
+		edge_pan_enabled = value
+		if is_inside_tree():
+			EventBus.edge_pan_enabled_changed.emit(edge_pan_enabled)
 ## Camera zoom limits (player preference, persisted in settings.cfg).
 ## The defaults match the original IsometricCamera range so older installs are
 ## unchanged until the player opens Settings.
@@ -944,6 +954,10 @@ func set_colorblind_mode(mode: int) -> void:
 func set_minimap_enabled(enabled: bool) -> void:
 	"""Enable or disable the corner minimap on the course HUD."""
 	minimap_enabled = enabled
+
+func set_edge_pan_enabled(enabled: bool) -> void:
+	"""Enable or disable screen-edge camera panning."""
+	edge_pan_enabled = enabled
 
 func _exit_tree() -> void:
 	# Disconnect signals to prevent memory leaks and double-callbacks on reload

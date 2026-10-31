@@ -90,6 +90,12 @@ func test_start_opens_the_pause_menu_and_b_closes_it() -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	assert_not_null(focus, "the pause menu takes focus for the controller")
 	assert_true(main.pause_menu.is_ancestor_of(focus))
+	if focus != null:
+		assert_true(focus.has_focus(true), "the focused pause action shows its indicator")
+		var ring := focus.get_theme_stylebox("focus") as StyleBoxFlat
+		assert_not_null(ring, "the pause menu inherits the shared button highlight")
+		if ring:
+			assert_gte(ring.border_width_left, 3, "the outline is prominent")
 	await _push_joy(JOY_BUTTON_B)
 	assert_null(main.pause_menu, "B resumes and closes the menu")
 
@@ -116,13 +122,6 @@ func test_view_focuses_the_hud_and_b_returns_to_the_course() -> void:
 
 func test_shift_tab_focuses_the_hud_for_a_keyboard_player() -> void:
 	await new_game()
-	# Any key press switches the active device to the keyboard.
-	var key := InputEventKey.new()
-	key.keycode = KEY_LEFT
-	key.physical_keycode = KEY_LEFT
-	key.pressed = true
-	get_viewport().push_input(key)
-	await process_frames(2)
 	var shift_tab := InputEventKey.new()
 	shift_tab.keycode = KEY_TAB
 	shift_tab.physical_keycode = KEY_TAB
@@ -163,14 +162,122 @@ func test_shift_tab_focuses_the_dock_for_a_keyboard_player() -> void:
 	await process_frames(2)
 
 
-func test_the_arrow_keys_drive_the_course_pointer_for_a_keyboard_player() -> void:
+func test_arrow_keys_focus_the_hud_for_a_keyboard_player() -> void:
+	await new_game()
+	main._last_hud_focus = null
+	await _push_key(KEY_RIGHT)
+	var focus := get_viewport().gui_get_focus_owner()
+	assert_not_null(focus, "the first arrow enters the HUD")
+	if focus != null:
+		assert_true(main.left_controls.is_ancestor_of(focus))
+
+
+func test_enter_selects_terrain_then_clicks_the_course_and_arrow_restores_focus() -> void:
+	await new_game()
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(2)
+	var tile: TerrainTileButton = main.terrain_toolbar._tool_buttons[TerrainTypes.Type.FAIRWAY]
+	tile.grab_focus()
+	await _push_key(KEY_ENTER)
+	assert_eq(main.current_tool, TerrainTypes.Type.FAIRWAY)
+	assert_true(tile.is_selected())
+	assert_null(get_viewport().gui_get_focus_owner(), "Enter returns focus to the course")
+	await process_frames(2)
+	assert_true(main.gamepad_cursor.visible)
+	# Confirm the second Enter is routed through the course pointer, not the tile.
+	var target := Button.new()
+	target.focus_mode = Control.FOCUS_NONE
+	target.size = Vector2(120, 80)
+	target.position = main.gamepad_cursor.position - target.size * 0.5
+	var clicks: Array = []
+	target.pressed.connect(func(): clicks.append(true))
+	main.get_node("UI/HUD").add_child(target)
+	await process_frames(2)
+	await _push_key(KEY_ENTER)
+	assert_eq(clicks.size(), 1, "the next Enter clicks the pointer")
+	target.queue_free()
+	await _push_key(KEY_LEFT)
+	assert_eq(get_viewport().gui_get_focus_owner(), tile, "the first arrow restores the last HUD control")
+
+
+func test_second_enter_paints_the_selected_terrain_on_the_course() -> void:
+	await new_game()
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	var tile: TerrainTileButton = main.terrain_toolbar._tool_buttons[TerrainTypes.Type.FAIRWAY]
+	tile.grab_focus()
+	await _push_key(KEY_ENTER)
+	await process_frames(2)
+	var grid_pos := Vector2i(60, 52)
+	main._suppress_tile_undo = true
+	main.terrain_grid.set_tile(grid_pos, TerrainTypes.Type.ROUGH)
+	main._suppress_tile_undo = false
+	main.brush_size = 1
+	var world: Vector2 = main.terrain_grid.grid_to_screen_center(grid_pos)
+	main.camera.focus_on(world, true)
+	await process_frames(2)
+	main.gamepad_cursor.position = get_viewport().get_visible_rect().size * 0.5
+	main.gamepad_cursor._place_pointer()
+	await _push_key(KEY_ENTER)
+	assert_eq(main.terrain_grid.get_tile(grid_pos), TerrainTypes.Type.FAIRWAY,
+		"Enter paints the tile beneath the keyboard pointer")
+
+
+func test_shift_arrows_move_the_course_pointer_without_focusing_the_hud() -> void:
+	await new_game()
+	await _push_key(KEY_SHIFT)
+	await process_frames(2)
+	var start: Vector2 = main.gamepad_cursor.position
+	var shift := InputEventKey.new()
+	shift.keycode = KEY_SHIFT
+	shift.pressed = true
+	Input.parse_input_event(shift)
+	var right := InputEventKey.new()
+	right.keycode = KEY_RIGHT
+	right.shift_pressed = true
+	right.pressed = true
+	Input.parse_input_event(right)
+	await process_frames(8)
+	right.pressed = false
+	Input.parse_input_event(right)
+	shift.pressed = false
+	Input.parse_input_event(shift)
+	await process_frames(2)
+	assert_gt(main.gamepad_cursor.position.x, start.x)
+	assert_null(get_viewport().gui_get_focus_owner(), "pointer movement does not focus the HUD")
+
+
+func test_gamepad_terrain_selection_keeps_focus() -> void:
+	await new_game()
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await _use_gamepad()
+	var tile: TerrainTileButton = main.terrain_toolbar._tool_buttons[TerrainTypes.Type.ROUGH]
+	tile.grab_focus()
+	await _push_joy(JOY_BUTTON_A)
+	assert_eq(main.current_tool, TerrainTypes.Type.ROUGH)
+	assert_eq(get_viewport().gui_get_focus_owner(), tile, "keyboard-only behavior leaves controller navigation unchanged")
+
+
+func test_tab_navigates_the_hud_without_toggling_the_minimap() -> void:
 	await new_game()
 	await _push_key(KEY_RIGHT)
-	await process_frames(2)
-	assert_true(main.gamepad_cursor.visible,
-		"a keyboard player gets the pointer on the course")
-	assert_null(get_viewport().gui_get_focus_owner(),
-		"and focus stays off the HUD while pointing")
+	var enabled: bool = GameManager.minimap_enabled
+	await _push_key(KEY_TAB)
+	assert_eq(GameManager.minimap_enabled, enabled)
+	assert_not_null(get_viewport().gui_get_focus_owner())
+
+
+func test_hidden_last_hud_control_falls_back_to_the_dock() -> void:
+	await new_game()
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	var tile: TerrainTileButton = main.terrain_toolbar._tool_buttons[TerrainTypes.Type.FAIRWAY]
+	tile.grab_focus()
+	get_viewport().gui_release_focus()
+	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
+	await _push_key(KEY_DOWN)
+	var focus := get_viewport().gui_get_focus_owner()
+	assert_not_null(focus)
+	if focus != null:
+		assert_true(main.left_controls.is_ancestor_of(focus))
 
 
 func test_arrow_keys_move_between_dock_controls_after_shift_tab() -> void:

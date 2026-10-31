@@ -11,6 +11,7 @@ func before_each() -> void:
 	super()
 	manager = get_node("/root/InputManager")
 	manager.device = InputManagerScript.Device.MOUSE
+	manager.pointer_mode = false
 	manager._scopes.clear()
 	manager._wired_scopes.clear()
 	manager._last_active_scope = null
@@ -20,6 +21,7 @@ func before_each() -> void:
 func after_each() -> void:
 	get_viewport().gui_release_focus()
 	manager.device = InputManagerScript.Device.MOUSE
+	manager.pointer_mode = false
 	manager._scopes.clear()
 	manager._wired_scopes.clear()
 	manager._last_active_scope = null
@@ -144,6 +146,41 @@ func test_focus_first_prefers_the_screens_marked_default() -> void:
 	_make_button(root, "Last", Vector2(0, 100))
 
 	assert_eq(manager.focus_first(root), preferred)
+
+
+func test_navigation_reveals_a_pointer_hidden_focus_without_moving_it() -> void:
+	var root := _make_root()
+	var button := _make_button(root, "Focused", Vector2(0, 0))
+	# A mouse click can leave focus on a button but hide its focus style.
+	button.grab_focus(true)
+	assert_true(button.has_focus(), "the button still owns focus")
+	assert_false(button.has_focus(true), "but Godot hides its focus indicator")
+	manager._input(_joy_button(JOY_BUTTON_Y))
+	await process_frames(2)
+	assert_eq(get_viewport().gui_get_focus_owner(), button, "the same button keeps focus")
+	assert_true(button.has_focus(true), "a controller event makes the focus indicator visible")
+
+
+func test_refocusing_the_same_target_reveals_its_hidden_indicator() -> void:
+	var root := _make_root()
+	var button := _make_button(root, "First", Vector2(0, 0))
+	button.grab_focus(true)
+	manager.device = InputManagerScript.Device.KEYBOARD
+	assert_eq(manager.focus_first(root), button)
+	assert_true(button.has_focus(true), "focus_scope can reveal its already-focused target")
+
+
+func test_switching_to_gamepad_does_not_steal_focus_from_pointer_mode() -> void:
+	var root := _make_root()
+	_make_button(root, "Button", Vector2(0, 0))
+	manager.register_scope(root)
+	manager._last_active_scope = root
+	manager.clear_focus()
+	manager.pointer_mode = true
+	manager._input(_joy_button(JOY_BUTTON_Y))
+	await process_frames(2)
+	assert_null(get_viewport().gui_get_focus_owner(), "the controller pointer keeps focus navigation off")
+	assert_true(manager.pointer_mode)
 
 
 func test_directional_neighbours_follow_screen_positions() -> void:
@@ -285,3 +322,25 @@ func test_game_state_restores_input_device_and_pointer() -> void:
 	assert_eq(manager.device, state["input_device"])
 	assert_eq(manager.pointer_mode, state["input_pointer_mode"])
 	assert_eq(manager.virtual_pointer, state["input_virtual_pointer"])
+
+
+func test_keyboard_repeat_keeps_the_virtual_mouse_button_held() -> void:
+	var cursor := GamepadCursor.new()
+	add_child_autofree(cursor)
+	manager.device = InputManagerScript.Device.KEYBOARD
+	var previous_mode: GameManager.GameMode = GameManager.current_mode
+	GameManager.current_mode = GameManager.GameMode.SIMULATING
+	cursor._active = true
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	cursor._unhandled_input(enter)
+	assert_true(cursor._holding)
+	enter.echo = true
+	cursor._unhandled_input(enter)
+	assert_true(cursor._holding, "key repeat does not end a paint stroke")
+	enter.echo = false
+	enter.pressed = false
+	cursor._unhandled_input(enter)
+	assert_false(cursor._holding)
+	GameManager.current_mode = previous_mode

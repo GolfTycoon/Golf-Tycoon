@@ -68,7 +68,8 @@ func _build_ui() -> void:
 	# Controls that are part of the input language rather than a course action:
 	# menus, the pointer, touch and the Course Map's own keys.
 	_add_section(vbox, "Fixed - Menus & Navigation", [
-		["Arrows / D-pad", "Move focus"],
+		["Arrows / D-pad", "Move focus (arrows enter the HUD on the course)"],
+		["Shift+Arrows", "Move the course pointer when the HUD is unfocused"],
 		["Enter / A", "Select the focused control"],
 		["Esc / B", "Back, cancel or close"],
 		["Tab / LB, RB", "Next or previous control"],

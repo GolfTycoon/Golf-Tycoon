@@ -83,6 +83,8 @@ Every screen works with a mouse, a keyboard, both together, a gamepad or a touch
 
 **Every course control can be rebound.** Open **Settings → Controls**, click a keycap and press the key or controller button you want. A key already in use is taken from the other action (and swapped when that leaves it with nothing), `Backspace` unbinds, and each row's ↺ or **Reset All Controls** puts the defaults back. Bindings apply immediately, are saved to `user://settings.cfg` and show up in the `F1` shortcut sheet. Menu navigation (`Esc`, `Tab`, `Enter`, the arrows and `A`/`B`) stays fixed.
 
+**Screen-edge panning** pans the course when the mouse pointer rests in a narrow strip at the edge of the window - handy for looking around without pressing a key. It stands down while the pointer is over a HUD panel, during a middle-mouse drag, and once the pointer leaves the window. To turn it off, use **Settings → Controls → Camera → Edge Panning**; the choice is saved with your preferences. The same card has the invert-scroll-zoom switch and the camera zoom limits.
+
 To monitor performance, turn on **Settings → Display → FPS Counter**. Choose its position, text size and refresh interval; the live readout works over menus and the course, including while paused, and does not block input. The counter is off by default and its preferences are saved between sessions.
 
 If the course runs slowly, **Settings → Display → Performance & Scale** has a graphics quality preset and the individual controls behind it: terrain rendering, grass, tree occlusion, water shimmer, wind flag outlines, prop and ball shadows, course wildlife, impact particle bursts, and the rates at which decoration, the camera and golfer coordination repaint. **Auto** picks Performance on phones, Web and smaller devices; **Performance** turns the decoration off or down, which is the cheapest way to speed up a busy course without changing how it plays. Changes apply at once and are saved. See [Graphics quality](docs/ui-and-controls.md#graphics-quality).
@@ -92,18 +94,18 @@ If the course runs slowly, **Settings → Display → Performance & Scale** has 
 | Action | Keys, mouse and gamepad |
 | --- | --- |
 | Pan the camera | `W` `A` `S` `D`, middle-mouse drag, or the left stick |
-| Move the pointer | Arrow keys, or the right stick |
+| Move the pointer | `Shift` + arrow keys (with HUD unfocused), or the right stick |
 | Click at the pointer | `Enter`, or `A` |
 | Zoom | Mouse wheel, `[` and `]`, or `LT`/`RT` |
-| Rotate the view | `Q` and `Shift+Q`, or `X`/`Y` |
+| Rotate the view | `Q` and `E`, or `X`/`Y` |
 | Pause or resume | `Space`, or `Start` |
 | Save | `Ctrl+S` |
 | Undo and redo | `Ctrl+Z` and `Ctrl+Shift+Z` |
 | Cancel | `Esc`, right-click, or `B` |
-| Focus the HUD | `Tab`, or the controller's View/Back button |
+| Focus the HUD | Arrow keys or `Shift+Tab`, or the controller's View/Back button |
 | Hotkey help | `F1` |
 
-Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch to zoom) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).
+Touch uses taps, one-finger drags (pan, paint or scroll), two-finger drags (pan and pinch open or closed to zoom — on the course, the World Map globe and the Course Map) and two-finger taps (cancel). The full list is in [UI & Controls](docs/ui-and-controls.md).
 
 ## Project Structure
 
