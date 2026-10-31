@@ -222,6 +222,9 @@ func test_a_spawned_visitor_is_the_person_on_their_card() -> void:
 	assert_eq(golfer.attributes.gender_name(), str(card["gender"]))
 	assert_eq(golfer.golfer_tier, int(card["tier"]), "The card's tier is the golfer's")
 	assert_eq(golfer.skin_id, str(card["skin_id"]), "The card's skin is the golfer's")
+	assert_not_null(golfer.sprite_node(), "The visitor is drawn after their final skin is applied")
+	assert_eq(golfer.skin().id, str(card["skin_id"]),
+		"The spawn builds frames for the visitor's chosen skin")
 	for key in GolferAttributes.TRAIT_KEYS:
 		assert_eq(golfer.attributes.trait_on(key), key in card["traits"],
 			"Trait %s follows the card" % key)

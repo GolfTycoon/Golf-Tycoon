@@ -114,6 +114,11 @@ const CLUB_SWITCH_MARGIN: float = 0.05
 ## player-profile role-key overrides still take priority when both exist.
 var group_color_overrides: Dictionary = {}
 
+## Spawn callers that assign a tier, skin or visitor palette after instantiation
+## set this before add_child(). It avoids building an initial set of sprite
+## frames that would immediately be discarded for the golfer's real appearance.
+var defer_skin_setup: bool = false
+
 ## Golfer tier (Beginner, Casual, Serious, Pro)
 var golfer_tier: int = GolferTier.Tier.CASUAL
 
@@ -414,8 +419,11 @@ func _ready() -> void:
 	# Connect to green fee payment signal
 	EventBus.green_fee_paid.connect(_on_green_fee_paid)
 
-	# Try to set up sprite-based rendering
-	_setup_sprite_animations()
+	# Spawn flows that set the final tier / visitor skin after instantiation
+	# defer frame building until those values are known, avoiding an expensive
+	# recolor of the default skin that would immediately be thrown away.
+	if not defer_skin_setup:
+		_setup_sprite_animations()
 
 	_update_visual()
 
@@ -464,6 +472,15 @@ func _setup_sprite_animations() -> bool:
 	if _animated_sprite.sprite_frames.has_animation("idle_south"):
 		_animated_sprite.play("idle_south")
 	return true
+
+## Finish sprite setup after a deferred spawn has received its final tier,
+## skin and palette. This is intentionally idempotent for defensive callers.
+func finish_spawn_setup() -> void:
+	defer_skin_setup = false
+	if not is_node_ready() or _use_sprites:
+		return
+	_setup_sprite_animations()
+	_update_visual()
 
 ## Build the sprite renderer for a golfer that was not instantiated from the
 ## golfer scene - the skin editor's preview. Returns whether the golfer is drawn

@@ -849,12 +849,14 @@ func _find_next_open_hole(from_index: int, course_data: GameManager.CourseData) 
 	return index  # Past end = round complete
 
 ## Spawn a new golfer
-func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int = -1) -> Golfer:
+func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int = -1,
+		defer_skin_setup: bool = false) -> Golfer:
 	if not golfers_container:
 		push_error("No golfers container found")
 		return null
 
 	var golfer = GOLFER_SCENE.instantiate() as Golfer
+	golfer.defer_skin_setup = defer_skin_setup
 	golfer.golfer_id = next_golfer_id
 	next_golfer_id += 1
 	golfer.golfer_name = golfer_name
@@ -936,7 +938,7 @@ func _send_golfer_in_from_clubhouse(golfer: Golfer) -> void:
 func spawn_random_golfer(group_id: int = -1) -> Golfer:
 	var returning := FeedbackManager.take_returning_guest()
 	if not returning.is_empty():
-		var regular := spawn_golfer(returning.name, .5, group_id)
+		var regular := spawn_golfer(returning.name, .5, group_id, true)
 		if regular:
 			regular.initialize_from_tier(int(returning.tier))
 			regular.guest_key = returning.key
@@ -951,6 +953,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 				regular.attributes = GolferAttributes.from_data(saved_attributes)
 			regular.needs.setup(regular.golfer_tier, regular.patience)
 			regular.walk_speed = 100.0 * regular.attributes.walk_speed_multiplier()
+			regular.finish_spawn_setup()
 		return regular
 
 	# Select tier based on course quality, difficulty, and hole count
@@ -964,7 +967,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 
 	# Spawn with defaults; the tier block below rolls identity, traits, skills
 	# and golf skill points over the top
-	var golfer = spawn_golfer(identity.name, 0.5, group_id)
+	var golfer = spawn_golfer(identity.name, 0.5, group_id, true)
 	if golfer:
 		golfer.initialize_from_tier(tier)
 		# Keep the identity rolled for the name they spawned under; the tier
@@ -974,6 +977,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 		golfer.attributes.age = identity.age
 		golfer.attributes.gender = identity.gender
 		golfer.attributes.marital_status = identity.marital_status
+		golfer.finish_spawn_setup()
 		print("Spawned %s, %s (%s tier)" % [identity.name, identity.profession,
 			GolferTier.get_tier_name(tier)])
 
@@ -1002,7 +1006,7 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	var tier := int(visitor.get("tier", GolferTier.Tier.CASUAL))
 	var skin := str(visitor.get("skin_id", ""))
 	var group_colors := WorldLocations.parse_visitor_group_colors(visitor)
-	var golfer := spawn_golfer(visitor_name, 0.5, group_id)
+	var golfer := spawn_golfer(visitor_name, 0.5, group_id, true)
 	if golfer == null:
 		return null
 	golfer.initialize_from_tier(tier)
@@ -1016,7 +1020,7 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	golfer.walk_speed = 100.0 * golfer.attributes.walk_speed_multiplier()
 	golfer.skin_id = skin
 	golfer.group_color_overrides = group_colors
-	golfer.refresh_skin_sprites()
+	golfer.finish_spawn_setup()
 	_spawned_visitor_names[visitor_name] = true
 	print("Spawned visiting golfer: %s, %s (%s skin, %s tier) at %s" % [
 		golfer.attributes.name, golfer.attributes.profession, skin,
@@ -1075,6 +1079,7 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 	var full_name = identity.name
 
 	var golfer = GOLFER_SCENE.instantiate() as Golfer
+	golfer.defer_skin_setup = true
 	golfer.golfer_id = next_golfer_id
 	next_golfer_id += 1
 	golfer.golfer_name = full_name
@@ -1094,6 +1099,7 @@ func spawn_tournament_golfer(forced_tier: int, group_id: int) -> Golfer:
 	golfer.attributes.age = identity.age
 	golfer.attributes.gender = identity.gender
 	golfer.attributes.marital_status = identity.marital_status
+	golfer.finish_spawn_setup()
 
 	EventBus.golfer_spawned.emit(golfer.golfer_id, full_name)
 	golfer_spawned.emit(golfer)
