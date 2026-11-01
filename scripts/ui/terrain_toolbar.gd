@@ -445,6 +445,16 @@ func _sync_backdrop() -> void:
 		return
 	_layout_tab_rail()
 	var origin := get_global_position()
+	# Keep the page heading clear of the curved tab row: start it just after
+	# the first tab medallion at the top of the rail, so the heading names the
+	# page from the left of the shelf instead of at the rail's far end.
+	var tabs: Array = SECTION_TABS[current_section]
+	if tabs.size() > 0:
+		var button: PixelCircleButton = _tab_buttons.get(tabs[0])
+		if button != null:
+			var title_left := button.get_global_rect().end.x - origin.x + SHELF_ROW_GAP + 30.0
+			_page_title.position = Vector2(title_left, SHELF_PAD_Y)
+			_page_title.size = Vector2(maxf(size.x - title_left - SHELF_PAD_X, 0.0), HEADER_HEIGHT)
 	var rail_rect := _tab_rail.get_global_rect()
 	# The rail's laid-out width, not the width apply_screen() asked for: a
 	# container can hand the shelf less room than the window suggests, and the
@@ -552,23 +562,19 @@ func _build_ui() -> void:
 	row.add_theme_constant_override("separation", int(SHELF_ROW_GAP))
 	margins.add_child(row)
 	_build_tab_rail(row)
-	# The body now carries the page heading alone: the scrolling pages reach
-	# left under the rail, so they cannot be laid out in this column. With no
-	# pages inside it the column takes no clicks: it rides over the pages, and
-	# anything it swallowed would never reach the tiles or the pinned controls.
-	var body := VBoxContainer.new()
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.custom_minimum_size.x = SHELF_BODY_MIN_WIDTH
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 0)
-	row.add_child(body)
+	# The page heading rides over the top of the shelf and names the page for
+	# the section that is open. It starts just after the first tab medallion
+	# at the top of the rail (its position is synced in _sync_backdrop), so
+	# the heading reads from the left of the page it names instead of sitting
+	# at the far end of the tab rail. It takes no clicks: anything it covers
+	# falls through to the page or the course beneath it.
 	_page_title = Label.new()
-	_page_title.custom_minimum_size.y = HEADER_HEIGHT
 	_page_title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_page_title.add_theme_font_override("font", PixelCircleButton.FONT)
 	_page_title.add_theme_font_size_override("font_size", 14)
 	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	body.add_child(_page_title)
+	_page_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_page_title)
 	# The page shelf: the whole width between the shelf's side padding, from
 	# under the heading to the bottom. Its left edge is the curved window above.
 	var pages_container := PanelContainer.new()

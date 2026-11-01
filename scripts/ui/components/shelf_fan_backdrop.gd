@@ -233,9 +233,9 @@ static func _flight_dots(row: Array) -> Array:
 				dots.append(Vector3(point.x, point.y, 0.0))
 	return dots
 
-## The page title's curved gold rule: a gentle arch along the title's bottom
-## edge, the mirror of the dock fan's concave rim so the two arcs read as one
-## composition. Drawn in generated-image pixels, one band thick.
+## The page title's gold rule: a straight solid line along the title's bottom
+## edge. Every step sits on the same row, so the rule has no bump in its
+## middle. Drawn in generated-image pixels, one band thick.
 static func _draw_title_rule(image: Image, rule: Rect2, inside: PackedByteArray) -> void:
 	if rule.size.x < 6.0:
 		return
@@ -244,11 +244,10 @@ static func _draw_title_rule(image: Image, rule: Rect2, inside: PackedByteArray)
 	var x0 := rule.position.x
 	var x1 := rule.end.x
 	var steps := maxi(1, int((x1 - x0) / 2.0))
-	var arch := 3.0
 	for i in steps + 1:
 		var t := float(i) / float(steps)
 		var x := x0 + (x1 - x0) * t
-		var y := rule.end.y - arch * sin(PI * t)
+		var y := rule.end.y
 		var px := int(round(x / float(PIXEL)))
 		var py := int(round(y / float(PIXEL)))
 		if px >= 0 and px < w and py >= 0 and py < h and inside[py * w + px] == 1:
