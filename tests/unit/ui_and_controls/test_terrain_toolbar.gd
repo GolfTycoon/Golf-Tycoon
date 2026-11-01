@@ -905,8 +905,14 @@ func test_header_row_brush_carries_the_whole_brush() -> void:
 	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
 	assert_eq((shape as PixelCircleButton).accent,
 		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
-	assert_eq((shape as PixelCircleButton).glyph, "brush_round")
-	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
+	# The picker wears a miniature of the brush, not a fixed shape glyph.
+	assert_true(shape is BrushShapeButton,
+		"The shape picker draws the brush's own footprint")
+	var preview := shape as BrushShapeButton
+	assert_eq(preview.glyph, "", "No fixed shape glyph sits under the preview")
+	assert_eq(preview.brush_size, toolbar.effective_brush_size(),
+		"The preview is drawn at the size the brush paints with")
+	assert_eq(preview.footprint().size(), 1, "A one-tile round brush covers one tile")
 
 	var chips := row.find_children("BrushSizeChip", "Label", true, false)
 	assert_eq(chips.size(), 1, "One size readout")
@@ -930,17 +936,17 @@ func test_header_row_brush_carries_the_whole_brush() -> void:
 	# and the chip reads back the size the selected tool paints with.
 	watch_signals(toolbar)
 	toolbar.set_brush_size(5)
-	assert_eq(chip.text, "5x5")
+	assert_eq(chip.text, "5", "The plate shows the size on its own, not 5x5")
 	for step in steps:
 		if step.text == "+":
 			step.pressed.emit()
 	assert_signal_emitted_with_parameters(toolbar, "brush_size_changed", [6])
 	assert_eq(toolbar.get_brush_size(), 6)
-	assert_eq(chip.text, "6x6")
+	assert_eq(chip.text, "6", "The plate follows the brush one size up")
 
 	# A tool capped at a single tile locks the controls, like every other brush UI.
 	toolbar.set_brush_limit(1)
-	assert_eq(chip.text, "1x1", "The chip shows the capped size")
+	assert_eq(chip.text, "1", "The chip shows the capped size")
 	assert_true(shape.disabled, "The shape picker is locked")
 	for step in steps:
 		assert_true(step.disabled, "The stepper is locked")
@@ -996,8 +1002,12 @@ func test_elevation_brush_controls_sit_in_the_header_row() -> void:
 	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
 	assert_eq((shape as PixelCircleButton).accent,
 		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
-	assert_eq((shape as PixelCircleButton).glyph, "brush_square")
-	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
+	assert_true(shape is BrushShapeButton,
+		"The elevation shape button draws the brush's own footprint")
+	assert_eq((shape as BrushShapeButton).brush_square, true,
+		"It previews the square shape the brush starts in")
+	assert_eq((shape as BrushShapeButton).glyph, "",
+		"No fixed shape glyph sits under the preview")
 	assert_has(toolbar._elevation_brush_shape_buttons, shape,
 		"The toolbar tracks it in the elevation shape array")
 	for step in toolbar._elevation_brush_buttons:
@@ -1768,13 +1778,14 @@ func test_brush_limit_caps_the_brush_for_the_selected_tool() -> void:
 
 	toolbar.set_brush_limit(1)
 	assert_eq(toolbar.effective_brush_size(), 1)
-	assert_eq(toolbar._brush_labels[0].text, "1x1")
+	assert_eq(toolbar._brush_labels[0].text, "1",
+		"The plate reads 1 for a single tile, not 1x1")
 	for button in toolbar._brush_buttons:
 		assert_true(button.disabled, "A 1x1 cap leaves nothing to change")
 
 	toolbar.set_brush_limit(HoleLayout.UNLIMITED_BRUSH)
 	assert_eq(toolbar.effective_brush_size(), 5)
-	assert_eq(toolbar._brush_labels[0].text, "5x5")
+	assert_eq(toolbar._brush_labels[0].text, "5")
 	for button in toolbar._brush_buttons:
 		assert_false(button.disabled)
 
@@ -2338,19 +2349,24 @@ func test_elevation_selectors_have_no_brush_notches_between_squares() -> void:
 	assert_eq(elevation_page.find_children("*", "ElevationBrushNotchButton", true, false).size(), 0,
 		"No ElevationBrushNotchButton on the Elevation page")
 
-## The header row's elevation brush shape button carries the brush's state as a
-## pixel glyph and updates the Square selector examples when toggled.
+## The header row's elevation brush shape button draws the brush's own
+## footprint at its current size and shape, and updates the Square selector
+## examples when toggled.
 func test_elevation_brush_shape_cell_shows_the_shape_it_paints_with() -> void:
 	await _settle_layout()
-	var shape: PixelCircleButton = toolbar._header_elevation_shape
+	var shape: BrushShapeButton = toolbar._header_elevation_shape
 	toolbar.set_elevation_tool("flat")
 	assert_eq(shape.text, "□", "A square brush sets the square text")
-	assert_eq(shape.glyph, "brush_square", "A square brush shows the square glyph")
+	assert_true(shape.brush_square, "A square brush previews the square footprint")
+	assert_eq(shape.footprint().size(), 9, "The 3x3 square preview covers nine tiles")
 	assert_string_contains(shape.tooltip_text, "Square elevation brush",
 		"The hover tooltip still names the control")
+	assert_string_contains(shape.tooltip_text, "3 tiles",
+		"The tooltip says how wide the brush is")
 	toolbar._on_elevation_brush_shape_toggled()
 	assert_eq(shape.text, "○", "A round brush sets the round text")
-	assert_eq(shape.glyph, "brush_round", "A round brush shows the round glyph")
+	assert_false(shape.brush_square, "A round brush previews the round footprint")
+	assert_eq(shape.footprint().size(), 5, "The 3x3 round preview keeps five tiles")
 	assert_false(toolbar._tool_buttons["flat"]._brush_square,
 		"The Flat Square example follows the round brush shape")
 	assert_false(toolbar._tool_buttons["gradual"]._brush_square,
@@ -2379,13 +2395,42 @@ func test_elevation_brush_header_controls_change_the_brush() -> void:
 	increase.pressed.emit()
 	assert_signal_emitted(toolbar, "elevation_brush_size_changed")
 	assert_eq(toolbar.get_elevation_brush_size(), 4, "Bigger paints one size up")
-	assert_eq(chip.text, "4x4", "The readout keeps up with the tool")
+	assert_eq(chip.text, "4", "The readout keeps up with the tool")
 	decrease.pressed.emit()
 	assert_eq(toolbar.get_elevation_brush_size(), 3, "Smaller paints one size down")
 
 	shape.pressed.emit()
 	assert_signal_emitted(toolbar, "elevation_brush_shape_changed")
 	assert_false(toolbar.get_elevation_brush_square(), "The shape toggle flips the brush")
+
+## Both brush size plates read the size in tiles as a plain number: a one-tile
+## brush reads "1", not "1x1", because a square brush is the same across and
+## down. The Terrain and Elevation plates share that format.
+func test_brush_size_plates_read_a_plain_number() -> void:
+	await _settle_layout()
+	assert_eq(TerrainToolbar.brush_size_text(1), "1", "A single tile reads 1")
+	assert_eq(TerrainToolbar.brush_size_text(5), "5")
+	assert_eq(TerrainToolbar.brush_size_text(9), "9")
+
+	# Terrain: the pinned plate caps at a single tile for the tee box.
+	toolbar.set_brush_size(1)
+	toolbar.set_brush_limit(HoleLayout.UNLIMITED_BRUSH)
+	var terrain_chip: Label = toolbar._brush_labels[0]
+	assert_eq(terrain_chip.text, "1", "The Terrain plate reads 1, not 1x1")
+	assert_false(terrain_chip.text.contains("x"),
+		"Neither a width nor a height pair reaches the plate")
+	assert_eq(terrain_chip.tooltip_text, "Brush size 1 tile",
+		"The tooltip spells the single tile out")
+
+	# Elevation: same format on its own plate.
+	toolbar._set_elevation_brush_size(1)
+	var elevation_chip: Label = toolbar._elevation_brush_labels[0]
+	assert_eq(elevation_chip.text, "1", "The Elevation plate reads 1, not 1x1")
+	assert_eq(elevation_chip.tooltip_text, "Elevation brush size 1 tile",
+		"The tooltip spells the single tile out")
+	toolbar._set_elevation_brush_size(3)
+	assert_eq(elevation_chip.text, "3", "A wider brush reads its size alone")
+	assert_eq(elevation_chip.tooltip_text, "Elevation brush size 3 tiles")
 
 ## The selectors' single row of doubled diamonds fills the same page height as
 ## the two interlocking course rows, so the toolbar never changes height with

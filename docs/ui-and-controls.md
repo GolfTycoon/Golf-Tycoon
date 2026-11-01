@@ -125,7 +125,13 @@ serves every Build tab — the medallion's ring stays lit while inspecting,
 and `Esc` or right-click leaves it on every tab. The other header buttons
 follow the shelf: Terrain shows the Terrain Brush Shape and Brush Size
 buttons, Improvements and Buildings show the Bulldozer, and Elevation shows
-its own Brush Shape and Brush Size buttons.
+its own Brush Shape and Brush Size buttons. Each Brush Size plate reads the
+size in tiles as a plain number — `1`, `5`, `9` — rather than a `1x1` width by
+height pair, since a square brush is the same across and down. Each Brush
+Shape toggle draws the brush itself: a miniature of the exact tile footprint
+it will paint at the current size and shape, which steps with the size plate
+beside it — one chunky tile for a 1-tile brush, a clipped square for a round
+one — instead of a fixed square or circle glyph.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf whose small icon tabs follow a mirrored
