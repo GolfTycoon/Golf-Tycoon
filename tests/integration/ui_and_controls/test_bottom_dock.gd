@@ -20,6 +20,45 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			await click(main.terrain_toolbar._tab_buttons[tab])
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
+## Where the shelf's page heading belongs: at the shelf's top padding, just
+## after the first tab medallion of the open section.
+func _expected_heading_position(toolbar: TerrainToolbar) -> Vector2:
+	var tabs: Array = TerrainToolbar.SECTION_TABS[toolbar.current_section]
+	var first: Control = toolbar._tab_buttons[tabs[0]]
+	return Vector2(first.get_global_rect().end.x + TerrainToolbar.SHELF_ROW_GAP + 30.0,
+			toolbar.get_global_position().y + TerrainToolbar.SHELF_PAD_Y)
+
+func test_the_shelf_heading_stays_put_after_every_section_button() -> void:
+	# Switching between Build and Manage/Golfers shows or hides the header
+	# row, and the shelf re-laid itself out a frame later: that used to drag
+	# the heading from the top of the shelf to a strip across its middle.
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	var buttons: Array = main.left_controls.section_buttons
+	var title: Label = toolbar._page_title
+	for start_hidden in [false, true]:
+		for i in [1, 2, 0, 2, 1, 0]:
+			if start_hidden:
+				toolbar.collapse_section()
+				await process_frames(2)
+			await click(buttons[i])
+			assert_eq(toolbar.current_section, i)
+			for frame in 3:
+				await process_frames(1)
+				var expected := _expected_heading_position(toolbar)
+				var rect := title.get_global_rect()
+				var label := "%s%s, frame %d" % [TerrainToolbar.SECTION_TITLES[i],
+						" from a hidden shelf" if start_hidden else "", frame]
+				assert_almost_eq(rect.position.x, expected.x, 0.01,
+					"the heading starts after the first tab (%s)" % label)
+				assert_almost_eq(rect.position.y, expected.y, 0.01,
+					"the heading sits at the top of the shelf (%s)" % label)
+				assert_almost_eq(rect.size.y, TerrainToolbar.HEADER_HEIGHT, 0.01,
+					"the heading keeps its height (%s)" % label)
+				assert_lt(rect.size.x, toolbar.size.x,
+					"the heading is not stretched across the shelf (%s)" % label)
+				assert_true(title.text.begins_with(TerrainToolbar.SECTION_TITLES[i].to_upper()),
+					"the heading names the section (%s)" % label)
+
 func test_the_rotate_arrows_left_the_dock_for_the_location_banner() -> void:
 	assert_null(main.left_controls.get_node_or_null("RotateViewControls"),
 		"The dock no longer carries a view row")
