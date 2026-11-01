@@ -194,17 +194,10 @@ const ELEVATION_BRUSH_NOTCH_SLOT := 1
 const ELEVATION_V_PADDING := 15
 ## Paint-brush sizes in tiles. Same 1×1 through 9×9 steps as the Elevation Brush.
 const BRUSH_SIZES: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-## Brush controls pinned to the Course Terrain page's bottom-left corner: a
-## 2x2 plate of square cells (shape, size, smaller, bigger). The plate is held
-## this narrow so its right edge stops short of the tile diamonds beside it —
-## the staggered bottom row leaves that corner of the page empty, so the brush
-## floats above the shelf without ever covering a tile.
+## The brush controls' cells: the header row's square shape toggle, size chip
+## and step buttons each take one of these, with a small gap between them.
 const BRUSH_DOCK_CELL := 24.0
 const BRUSH_DOCK_GAP := 2.0
-const BRUSH_DOCK_PADDING := 1.0
-## Same corner margin the pinned Bulldozer keeps on the other two tabs.
-const BRUSH_DOCK_MARGIN := BulldozerButton.CORNER_MARGIN
-const BRUSH_DOCK_TOOLTIP := "Paint brush: shape, size, smaller and bigger. Stays put while the tiles scroll."
 ## Holes stack three deep per column and the columns run off to the right, so
 ## the tab grows along the axis the page already scrolls on and never past the
 ## bottom bar's height.
@@ -258,14 +251,18 @@ var _backdrop: ShelfFanBackdrop = null
 ## the curved tab buttons instead of stopping at a straight edge beside them.
 var _page_window: ShelfPageWindow = null
 var _sync_pending := false  # True when the fairway needs re-syncing after layout
-## How far the pinned corner controls sit from the page's left edge: the tab
-## rail and the gap beside it. The pages reach under the rail, but the brush,
-## the Bulldozer and Inspect stay in the body's corner where the tabs cannot
-## cover them. _sync_backdrop() keeps it in step with the rail's width.
-var _pinned_inset := TAB_RAIL_WIDTH + TAB_RAIL_GAP
-var _bulldozer_buttons: Array[BulldozerButton] = []  # Pinned to Improvements & Buildings
-var _inspect_buttons: Array[InspectButton] = []  # Pinned to every Build tab
-var _brush_dock: PanelContainer = null  # Pinned to the Course Terrain corner
+# The row of tool buttons in the top-right of the shelf header. It holds the
+# Inspect toggle, the brush size stepper group, the brush shape toggle and the
+# Bulldozer button — the controls that used to be pinned to each page's
+# corners. The row floats over the empty top-right of the page area, beside
+# the page title at the top-left, and stays in step with the rail's width.
+var _header_row: Control = null
+var _inspect_button: InspectButton = null  # The shared Inspect toggle
+var _bulldozer_button: BulldozerButton = null  # The shared Bulldozer button
+var _header_terrain_shape: Button = null  # Terrain brush shape in the header row
+var _header_terrain_size: HBoxContainer = null  # Terrain brush size stepper in the header row
+var _header_elevation_shape: Button = null  # Elevation brush shape in the header row
+var _header_elevation_size: HBoxContainer = null  # Elevation brush size stepper in the header row
 var _brush_size: int = 1
 var _round_brush := true
 var _brush_limit: int = HoleLayout.UNLIMITED_BRUSH  # 1 = current tool paints a single tile
@@ -284,7 +281,7 @@ var _elevation_square := true
 var _elevation_brush_size_notches: Array[ElevationBrushSizeNotch] = []
 var _elevation_brush_labels: Array[Label] = []
 var _elevation_brush_buttons: Array[Button] = []
-var _elevation_brush_shape_buttons: Array[ElevationBrushNotchButton] = []
+var _elevation_brush_shape_buttons: Array[Button] = []
 var _open_hole_buttons: Array[ToolButton] = []
 var _green_tile_button: TerrainTileButton = null
 var _tee_tile_button: TerrainTileButton = null
@@ -386,7 +383,6 @@ func apply_screen() -> void:
 	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
 	# Reserve enough height for all four tabs, even on a three-tab section.
 	_tab_rail.custom_minimum_size = Vector2(rail_width, 4.0 * diameter + 3.0 * TAB_RAIL_GAP)
-	_set_pinned_inset(rail_width + TAB_RAIL_GAP)
 	custom_minimum_size.x = rail_width + 2.0 * SHELF_PAD_X + SHELF_ROW_GAP + SHELF_BODY_MIN_WIDTH
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
@@ -445,6 +441,31 @@ func _sync_backdrop() -> void:
 		return
 	_layout_tab_rail()
 	var origin := get_global_position()
+	# Seat the header row at the top-right of the shelf, like the page title
+	# at the top-left. Its width is whatever its visible children need; it
+	# hugs the right padding and sits at the top padding. On a shelf too
+	# narrow for the row, hide it: the row would otherwise cover the tab rail
+	# and swallow touches meant for the curved cutout.
+	if _header_row != null:
+		var visible_children := []
+		for child in _header_row.get_children():
+			if child.visible:
+				visible_children.append(child)
+		if visible_children.is_empty():
+			_header_row.visible = false
+		else:
+			var row_width := 0.0
+			for child in visible_children:
+				row_width += child.get_combined_minimum_size().x
+			if visible_children.size() > 1:
+				row_width += float(_header_row.get_theme_constant("separation")) * float(visible_children.size() - 1)
+			_header_row.visible = row_width <= size.x - 2.0 * SHELF_PAD_X
+			if _header_row.visible:
+				var row_size := Vector2(row_width, _header_row.get_combined_minimum_size().y)
+				_header_row.global_position = Vector2(
+					origin.x + size.x - SHELF_PAD_X - row_width,
+					origin.y + SHELF_PAD_Y)
+				_header_row.size = row_size
 	# Keep the page heading clear of the curved tab row: start it just after
 	# the first tab medallion at the top of the rail, so the heading names the
 	# page from the left of the shelf instead of at the rail's far end.
@@ -454,12 +475,14 @@ func _sync_backdrop() -> void:
 		if button != null:
 			var title_left := button.get_global_rect().end.x - origin.x + SHELF_ROW_GAP + 30.0
 			_page_title.position = Vector2(title_left, SHELF_PAD_Y)
-			_page_title.size = Vector2(maxf(size.x - title_left - SHELF_PAD_X, 0.0), HEADER_HEIGHT)
+			var title_width := size.x - title_left - SHELF_PAD_X
+			# Keep the heading clear of the header row's buttons on the right:
+			# the title truncates with an ellipsis before it reaches them.
+			if _header_row != null and _header_row.visible:
+				var row_left := _header_row.position.x
+				title_width = maxf(row_left - title_left - SHELF_ROW_GAP, 0.0)
+			_page_title.size = Vector2(title_width, HEADER_HEIGHT)
 	var rail_rect := _tab_rail.get_global_rect()
-	# The rail's laid-out width, not the width apply_screen() asked for: a
-	# container can hand the shelf less room than the window suggests, and the
-	# pinned controls must sit beside the rail that is actually drawn.
-	_set_pinned_inset(rail_rect.size.x + TAB_RAIL_GAP)
 	var curve_width := rail_rect.end.x - origin.x
 	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
 	_backdrop.set_curve(curve_width, inset)
@@ -494,28 +517,6 @@ func _has_point(point: Vector2) -> bool:
 ## painting. This shelf explicitly exposes its curved hit shape instead.
 func has_touch_point(point: Vector2) -> bool:
 	return _has_point(point)
-
-## Move the pinned corner controls in step with the rail. A page now starts
-## under the curved tabs, so its own left edge is no longer the body's: the
-## brush and the Bulldozer are held the rail's width in from it, in the corner
-## of the body where no medallion can cover them.
-func _set_pinned_inset(inset: float) -> void:
-	_pinned_inset = maxf(inset, 0.0)
-	for btn in _bulldozer_buttons:
-		if is_instance_valid(btn):
-			btn.offset_left = _pinned_inset + BulldozerButton.CORNER_MARGIN
-			btn.offset_right = btn.offset_left + BulldozerButton.BUTTON_DIAMETER
-	if is_instance_valid(_brush_dock):
-		var side := brush_dock_side()
-		_brush_dock.offset_left = _pinned_inset + BRUSH_DOCK_MARGIN
-		_brush_dock.offset_right = _brush_dock.offset_left + side
-	# Inspect's stacked-or-corner decision depends on that inset too.
-	for btn in _inspect_buttons:
-		var page := btn.get_parent() as Control
-		# A page that has never been laid out (a tab not yet opened) keeps the
-		# corner it was built in; it reflows when it is first shown.
-		if is_instance_valid(btn) and page != null and page.size.x > 0.0:
-			_reflow_inspect_button(page, btn)
 
 func _on_resized() -> void:
 	# The parent container can resize independently of the screen. Refit the
@@ -575,6 +576,7 @@ func _build_ui() -> void:
 	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_page_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_page_title)
+	_build_header_row()
 	# The page shelf: the whole width between the shelf's side padding, from
 	# under the heading to the bottom. Its left edge is the curved window above.
 	var pages_container := PanelContainer.new()
@@ -688,8 +690,8 @@ func _on_player_section_changed(index: int) -> void:
 
 func _build_page(tab_index: int) -> Control:
 	# Each page is a plain wrapper Control holding the horizontally-scrollable
-	# content plus any chrome pinned to the page itself (the Bulldozer on the
-	# Improvements and Buildings tabs) so it never scrolls away with the shelf.
+	# content. The tool buttons live in the shared header row at the top of the
+	# shelf, not pinned to any page.
 	var page = Control.new()
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -728,19 +730,12 @@ func _build_page(tab_index: int) -> Control:
 	match tab_index:
 		Tab.TERRAIN:
 			_build_terrain_tab(hbox)
-			_pin_brush_dock(page)
-			_pin_inspect_button(page)
 		Tab.IMPROVEMENTS:
 			_build_improvements_tab(hbox)
-			_pin_bulldozer_button(page)
-			_pin_inspect_button(page)
 		Tab.BUILDINGS:
 			_build_buildings_tab(hbox)
-			_pin_bulldozer_button(page)
-			_pin_inspect_button(page)
 		Tab.ELEVATION:
 			_build_elevation_tab(hbox)
-			_pin_inspect_button(page)
 		Tab.HOLES:
 			_build_holes_tab(hbox)
 		Tab.GOLFERS:
@@ -754,152 +749,105 @@ func _build_page(tab_index: int) -> Control:
 
 	return page
 
-## Pin the round Bulldozer button to a page's bottom-left corner. Anchored to
-## the page (not the scrolling shelf) so it stays put while tiles scroll by.
-func _pin_bulldozer_button(page: Control) -> void:
-	var btn := BulldozerButton.new()
-	btn.name = "BulldozerButton"
-	btn.accessibility_name = "Bulldozer"
-	btn.accessibility_description = BULLDOZER_TOOLTIP
-	btn.pressed.connect(_on_tool_button_pressed.bind("bulldozer"))
-	page.add_child(btn)
-	btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	btn.offset_left = _pinned_inset + BulldozerButton.CORNER_MARGIN
-	btn.offset_top = -BulldozerButton.CORNER_MARGIN - BulldozerButton.BUTTON_DIAMETER
-	btn.offset_right = btn.offset_left + BulldozerButton.BUTTON_DIAMETER
-	btn.offset_bottom = -BulldozerButton.CORNER_MARGIN
-	_bulldozer_buttons.append(btn)
+## The row of tool buttons in the top-right of the shelf header. Each build
+## shelf shows its own controls: Terrain carries the Terrain Brush Shape and
+## Brush Size buttons plus Inspect; Improvements and Buildings carry the
+## Bulldozer and Inspect; Elevation carries its own Brush Shape and Brush Size
+## buttons plus Inspect. Other shelves carry nothing. The row floats over the
+## empty top-right of the page area, beside the page title at the top-left.
+func _build_header_row() -> void:
+	# A plain Control wrapper, like the page title: it is positioned in
+	# _sync_backdrop, not by the parent's layout. The HBoxContainer inside it
+	# lays the buttons out in a row and fills the wrapper.
+	var wrapper := HBoxContainer.new()
+	wrapper.name = "HeaderControls"
+	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.add_theme_constant_override("separation", 8)
+	# The PanelContainer's layout would expand and reposition this row on every
+	# frame, overriding the manual positioning in _sync_backdrop. Making it a
+	# top-level node keeps the layout from touching it; its global position is
+	# set from the shelf's own global position in _sync_backdrop.
+	wrapper.set_as_top_level(true)
+	add_child(wrapper)
+	_header_row = wrapper
 
-## Pin the round Inspect toggle to a page's bottom-right corner. The bottom-left
-## corner is already taken on the Build tabs — the brush dock on Course Terrain,
-## the Bulldozer on Improvements and Buildings — so Inspect takes the opposite
-## corner, where nothing else is pinned. Anchored to the page (not the scrolling
-## shelf) so it stays put while tiles scroll by, the same contract the Bulldozer
-## keeps. Each copy reports the shared mode through `toggled`; main.gd owns the
-## mode and mirrors it back to every copy with set_inspect_active.
-func _pin_inspect_button(page: Control) -> void:
-	var btn := InspectButton.new()
-	btn.name = "InspectButton"
-	btn.toggled.connect(_on_inspect_button_toggled)
-	page.add_child(btn)
-	btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	btn.offset_left = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
-	btn.offset_top = -InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER
-	btn.offset_right = -InspectButton.CORNER_MARGIN
-	btn.offset_bottom = -InspectButton.CORNER_MARGIN
-	_inspect_buttons.append(btn)
-	page.resized.connect(_reflow_inspect_button.bind(page, btn))
+	# Terrain brush shape: round/square toggle.
+	_header_terrain_shape = _create_brush_shape(Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL))
+	_style_dock_cell(_header_terrain_shape)
+	wrapper.add_child(_header_terrain_shape)
 
-## On a very narrow shelf, the two pinned corners would overlap. Stack Inspect
-## above the brush or Bulldozer instead, then restore the corner on wider pages.
-func _reflow_inspect_button(page: Control, button: InspectButton) -> void:
-	var left_size := 0.0
-	if page.get_node_or_null("BrushDock"):
-		left_size = brush_dock_side()
-	elif page.get_node_or_null("BulldozerButton"):
-		left_size = BulldozerButton.BUTTON_DIAMETER
-	# Both pinned controls hold their distance from the page's edges: the left
-	# one sits a rail's width in from the edge the pages now reach under, so the
-	# room they need counts that inset too.
-	var gap := 4.0
-	var needed := _pinned_inset + left_size + InspectButton.BUTTON_DIAMETER \
-		+ 2.0 * InspectButton.CORNER_MARGIN + gap
-	var bottom := InspectButton.CORNER_MARGIN
-	if left_size > 0.0 and page.size.x < needed:
-		bottom += left_size + gap
-	button.offset_top = -bottom - InspectButton.BUTTON_DIAMETER
-	button.offset_bottom = -bottom
+	# Terrain brush size: a small stepper group (-, NxN, +).
+	_header_terrain_size = _create_brush_size_stepper(
+		_on_brush_decrease, _on_brush_increase)
+	wrapper.add_child(_header_terrain_size)
+
+	# Bulldozer.
+	_bulldozer_button = BulldozerButton.new()
+	_bulldozer_button.name = "BulldozerButton"
+	_bulldozer_button.accessibility_name = "Bulldozer"
+	_bulldozer_button.accessibility_description = BULLDOZER_TOOLTIP
+	_bulldozer_button.pressed.connect(_on_tool_button_pressed.bind("bulldozer"))
+	wrapper.add_child(_bulldozer_button)
+
+	# Elevation brush shape: round/square toggle.
+	_header_elevation_shape = _create_elevation_brush_shape_button()
+	_style_dock_cell(_header_elevation_shape)
+	wrapper.add_child(_header_elevation_shape)
+
+	# Elevation brush size: a small stepper group (-, NxN, +).
+	_header_elevation_size = _create_elevation_brush_size_stepper()
+	wrapper.add_child(_header_elevation_size)
+
+	# Inspect toggle (shared across all build shelves).
+	var inspect := InspectButton.new()
+	inspect.name = "InspectButton"
+	inspect.toggled.connect(_on_inspect_button_toggled)
+	wrapper.add_child(inspect)
+	_inspect_button = inspect
+
+	_sync_header_row_content()
+
+## Show the controls the current shelf needs and hide the rest. Terrain shows
+## the terrain brush shape and size stepper; Improvements and Buildings show
+## the Bulldozer; Elevation shows its own brush shape and size stepper. Every
+## build shelf shows Inspect; other shelves show nothing.
+func _sync_header_row_content() -> void:
+	if _header_row == null:
+		return
+	var tab := current_tab
+	var is_build := tab in SECTION_TABS[Section.BUILD]
+	_header_terrain_shape.visible = tab == Tab.TERRAIN
+	_header_terrain_size.visible = tab == Tab.TERRAIN
+	_bulldozer_button.visible = tab in [Tab.IMPROVEMENTS, Tab.BUILDINGS]
+	_header_elevation_shape.visible = tab == Tab.ELEVATION
+	_header_elevation_size.visible = tab == Tab.ELEVATION
+	_inspect_button.visible = is_build
 
 func _on_inspect_button_toggled(enabled: bool) -> void:
 	inspect_toggled.emit(enabled)
 
-## The first pinned Inspect toggle (the Course Terrain tab's). Kept as a stable
-## reference for code that just needs one button to drive the mode; every copy
-## stays in step through set_inspect_active.
+## The shared Inspect toggle. Kept as a stable reference for code that just
+## needs one button to drive the mode.
 func inspect_button() -> InspectButton:
-	return _inspect_buttons[0] if not _inspect_buttons.is_empty() else null
+	return _inspect_button
 
-## Press (or release) every pinned Inspect toggle without re-emitting `toggled`,
-## so the four tabs always show the same mode no matter which one changed it or
-## where the mode was cancelled (Esc, right-click, another tool).
+## Press (or release) the Inspect toggle without re-emitting `toggled`, so the
+## button stays in step with the mode no matter where the mode was cancelled
+## (Esc, right-click, another tool).
 func set_inspect_active(active: bool) -> void:
-	for btn in _inspect_buttons:
-		if not is_instance_valid(btn):
-			continue
-		btn.set_pressed_no_signal(active)
-		btn.active = active
-		btn.queue_redraw()
+	if is_instance_valid(_inspect_button):
+		_inspect_button.set_pressed_no_signal(active)
+		_inspect_button.active = active
+		_inspect_button.queue_redraw()
 
-## True while any pinned toggle shows Inspect mode as active.
+## True while the Inspect toggle shows Inspect mode as active.
 func is_inspect_active() -> bool:
-	for btn in _inspect_buttons:
-		if is_instance_valid(btn) and btn.button_pressed:
-			return true
-	return false
+	return is_instance_valid(_inspect_button) and _inspect_button.button_pressed
 
-## Pin the Course Terrain brush controls to the page's bottom-left corner: a
-## compact plate of four square cells — brush shape, brush size, smaller,
-## bigger. Anchored to the page (not the scrolling shelf) so the brush rides
-## above the tiles and stays put while the catalogue scrolls beneath it, the
-## same way the Bulldozer stays put on the two tabs it belongs to. The plate
-## fits the corner the staggered tile rows leave empty, so it floats over the
-## shelf without covering a single tile diamond.
-func _pin_brush_dock(page: Control) -> void:
-	var dock := PanelContainer.new()
-	dock.name = "BrushDock"
-	dock.tooltip_text = BRUSH_DOCK_TOOLTIP
-	dock.mouse_filter = Control.MOUSE_FILTER_STOP
-	dock.focus_mode = Control.FOCUS_NONE
-	var plate := StyleBoxFlat.new()
-	plate.bg_color = Color(UIConstants.COLOR_BG_PANEL, 0.9)
-	for corner in ["corner_radius_top_left", "corner_radius_top_right",
-			"corner_radius_bottom_right", "corner_radius_bottom_left"]:
-		plate.set(corner, 6)
-	for margin in ["content_margin_left", "content_margin_top",
-			"content_margin_right", "content_margin_bottom"]:
-		plate.set(margin, BRUSH_DOCK_PADDING)
-	dock.add_theme_stylebox_override("panel", plate)
-
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", int(BRUSH_DOCK_GAP))
-	dock.add_child(stack)
-
-	# Shape and the size it paints with on top, the stepper underneath.
-	var shape_row := HBoxContainer.new()
-	shape_row.add_theme_constant_override("separation", int(BRUSH_DOCK_GAP))
-	stack.add_child(shape_row)
-	var shape := _create_brush_shape(Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL))
-	_style_dock_cell(shape)
-	shape_row.add_child(shape)
-	shape_row.add_child(_create_brush_size_chip())
-
-	var step_row := HBoxContainer.new()
-	step_row.add_theme_constant_override("separation", int(BRUSH_DOCK_GAP))
-	stack.add_child(step_row)
-	step_row.add_child(_create_brush_step_button("-", "Smaller brush", _on_brush_decrease))
-	step_row.add_child(_create_brush_step_button("+", "Bigger brush", _on_brush_increase))
-
-	page.add_child(dock)
-	var side := brush_dock_side()
-	dock.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	dock.offset_left = _pinned_inset + BRUSH_DOCK_MARGIN
-	dock.offset_top = -BRUSH_DOCK_MARGIN - side
-	dock.offset_right = dock.offset_left + side
-	dock.offset_bottom = -BRUSH_DOCK_MARGIN
-	_brush_dock = dock
-	_apply_brush_limit()
-
-## Edge of the square brush plate: two cells, the gap between them and the
-## plate's own padding. The plate is deliberately held this narrow so its right
-## edge stops before the staggered bottom row's first tile begins.
-static func brush_dock_side() -> float:
-	return BRUSH_DOCK_CELL * 2.0 + BRUSH_DOCK_GAP + BRUSH_DOCK_PADDING * 2.0
-
-## Show on every pinned Bulldozer whether bulldozer mode is running.
+## Show on the Bulldozer button whether bulldozer mode is running.
 func set_bulldozer_active(active: bool) -> void:
-	for btn in _bulldozer_buttons:
-		if is_instance_valid(btn):
-			btn.set_active(active)
+	if is_instance_valid(_bulldozer_button):
+		_bulldozer_button.set_active(active)
 
 ## The horizontally-scrollable shelf of a tab page (the wrapper's full-rect child).
 func page_scroll(tab_index: int) -> ScrollContainer:
@@ -924,12 +872,12 @@ func _on_scroll_gui_input(event: InputEvent, scroll: ScrollContainer) -> void:
 
 func _build_terrain_tab(hbox: HBoxContainer) -> void:
 	# The tab is nothing but the tile honeycomb: the brush controls it paints
-	# with are pinned to the page's bottom-left corner (see _pin_brush_dock) so
-	# they stay above the tiles instead of scrolling off with them. (Demolition
-	# is not a course tool: the Bulldozer is pinned to the Improvements and
-	# Buildings tabs, whose tiles it can remove. Open Hole is not a paint tool
-	# either — it nestles between the tee and green tiles it pairs, see
-	# _add_open_hole_notch.)
+	# with live in the shelf header's tool row (see _build_header_row) so they
+	# stay above the tiles instead of scrolling off with them. (Demolition
+	# is not a course tool: the Bulldozer button sits in the header row too,
+	# but only removes Improvements and Buildings tiles. Open Hole is not a
+	# paint tool either — it nestles between the tee and green tiles it pairs,
+	# see _add_open_hole_notch.)
 
 	# The course tiles share one honeycomb of two rows, the bottom row shifted
 	# half a tile right so each diamond drops into a notch between the two tiles
@@ -1647,7 +1595,7 @@ func _make_small_group_label(text: String) -> Label:
 
 ## Brush size stepper row ("-" label "+"), used by the Elevation tab's brush
 ## group; the caller sets size flags. The Course Terrain tab's brush lives in
-## the pinned corner dock instead (see _pin_brush_dock).
+## the shelf header's tool row instead (see _build_header_row).
 func _create_brush_row() -> HBoxContainer:
 	var brush_row = HBoxContainer.new()
 	brush_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1729,6 +1677,79 @@ func _create_brush_step_button(caption: String, tip: String, action: Callable) -
 	_style_dock_cell(btn)
 	_brush_buttons.append(btn)
 	return btn
+
+## The brush size stepper as a single row: smaller, the size it paints with,
+## bigger. Shared by the header row's Terrain brush controls.
+func _create_brush_size_stepper(decrease_action: Callable, increase_action: Callable) -> HBoxContainer:
+	var group := HBoxContainer.new()
+	group.add_theme_constant_override("separation", int(BRUSH_DOCK_GAP))
+	group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	group.add_child(_create_brush_step_button("-", "Smaller brush", decrease_action))
+	group.add_child(_create_brush_size_chip())
+	group.add_child(_create_brush_step_button("+", "Bigger brush", increase_action))
+	return group
+
+## Round/square elevation brush shape picker for the header row. Like the
+## terrain brush shape button, but wired to the Elevation Brush state and
+## added to the elevation shape button array so the shared update reaches it.
+func _create_elevation_brush_shape_button() -> Button:
+	var shape := Button.new()
+	shape.focus_mode = Control.FOCUS_ALL
+	shape.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
+	shape.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	shape.toggle_mode = true
+	_update_elevation_brush_shape_button(shape)
+	shape.pressed.connect(_on_elevation_brush_shape_toggled)
+	_elevation_brush_shape_buttons.append(shape)
+	return shape
+
+## One square step button of the header row's Elevation Brush size stepper.
+func _create_elevation_brush_step_button(caption: String, tip: String, action: Callable) -> Button:
+	var btn := Button.new()
+	btn.text = caption
+	btn.tooltip_text = tip
+	btn.accessibility_name = tip
+	btn.accessibility_description = tip
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	btn.pressed.connect(action)
+	_style_dock_cell(btn)
+	_elevation_brush_buttons.append(btn)
+	return btn
+
+## The elevation brush size readout for the header row: one square cell showing
+## the size the Square tool paints with. Shares `_elevation_brush_labels` with
+## the Elevation tab's notch stepper, so both always read the same number.
+func _create_elevation_brush_size_chip() -> Label:
+	var chip := Label.new()
+	chip.name = "ElevationBrushSizeChip"
+	chip.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
+	chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	chip.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+	chip.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chip_style := StyleBoxFlat.new()
+	chip_style.bg_color = UIConstants.COLOR_BG_DARK
+	chip_style.corner_radius_top_left = 4
+	chip_style.corner_radius_top_right = 4
+	chip_style.corner_radius_bottom_right = 4
+	chip_style.corner_radius_bottom_left = 4
+	chip.add_theme_stylebox_override("normal", chip_style)
+	_elevation_brush_labels.append(chip)
+	_update_elevation_brush_label()
+	return chip
+
+## The Elevation Brush size stepper as a single row: smaller, the size it
+## paints with, bigger. Shared by the header row's Elevation brush controls.
+func _create_elevation_brush_size_stepper() -> HBoxContainer:
+	var group := HBoxContainer.new()
+	group.add_theme_constant_override("separation", int(BRUSH_DOCK_GAP))
+	group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	group.add_child(_create_elevation_brush_step_button("-", "Smaller elevation brush", _on_elevation_brush_decrease))
+	group.add_child(_create_elevation_brush_size_chip())
+	group.add_child(_create_elevation_brush_step_button("+", "Bigger elevation brush", _on_elevation_brush_increase))
+	return group
 
 ## Give a brush dock cell its fixed square footprint. The theme's button
 ## styleboxes carry content margins of their own, which would push the cell —
@@ -1822,7 +1843,8 @@ func _update_elevation_brush_group() -> void:
 			button.disabled = false
 	for shape in _elevation_brush_shape_buttons:
 		if is_instance_valid(shape):
-			shape.set_brush_enabled(true)
+			if shape is ElevationBrushNotchButton:
+				shape.set_brush_enabled(true)
 			_update_elevation_brush_shape_button(shape)
 	for notch in _elevation_brush_size_notches:
 		if is_instance_valid(notch):
@@ -1841,14 +1863,21 @@ func _update_elevation_brush_label() -> void:
 			label.text = text
 			label.tooltip_text = "Elevation brush size %s tiles" % text
 
-func _update_elevation_brush_shape_button(btn: ElevationBrushNotchButton) -> void:
-	if _elevation_brush_square():
-		btn.set_caption("□")
+func _update_elevation_brush_shape_button(btn: Button) -> void:
+	var square := _elevation_brush_square()
+	if square:
+		if btn is ElevationBrushNotchButton:
+			btn.set_caption("□")
+		else:
+			btn.text = "□"
 		btn.tooltip_text = "Square elevation brush — click for Round"
 	else:
-		btn.set_caption("○")
+		if btn is ElevationBrushNotchButton:
+			btn.set_caption("○")
+		else:
+			btn.text = "○"
 		btn.tooltip_text = "Round elevation brush — click for Square"
-	btn.button_pressed = not _elevation_brush_square()
+	btn.button_pressed = not square
 	btn.accessibility_name = "Elevation brush shape"
 	btn.accessibility_description = btn.tooltip_text
 
@@ -1936,6 +1965,7 @@ func select_tab(tab_index: int) -> void:
 		expand_section()
 		current_tab = tab_index
 		_sync_navigation(tab_index)
+		_sync_header_row_content()
 		_show_page(tab_index)
 
 func _tab_index_for_tool(tool_type) -> int:

@@ -101,17 +101,18 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
-		# Inspect left the dock for the toolbar's pinned Build-tab toggles; those
-		# keep a fixed footprint that still clears the touch minimum.
+		# Inspect left the dock for the toolbar's header row; the shared toggle
+		# keeps a fixed footprint that still clears the touch minimum.
 		assert_null(main.left_controls.get_node_or_null("InspectBtn"),
 			"Inspect no longer occupies the dock's utility row")
-		for button in main.terrain_toolbar._inspect_buttons:
-			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
-				"%s meets the minimum touch target" % button.accessibility_name)
-			if button.is_visible_in_tree():
-				assert_true(rect_within(button.get_global_rect(),
-					Rect2(Vector2.ZERO, Vector2(window_size))),
-					"The pinned Inspect toggle stays on screen")
+		var inspect: InspectButton = main.terrain_toolbar.inspect_button()
+		assert_not_null(inspect, "The header row holds the Inspect toggle")
+		assert_gte(inspect.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
+			"%s meets the minimum touch target" % inspect.accessibility_name)
+		if inspect.is_visible_in_tree():
+			assert_true(rect_within(inspect.get_global_rect(),
+				Rect2(Vector2.ZERO, Vector2(window_size))),
+				"The Inspect toggle stays on screen")
 		for button in main.terrain_toolbar._tab_buttons.values():
 			assert_gte(button.size.x, 40.0, "Toolbar tabs also grow for touch")
 

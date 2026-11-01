@@ -218,10 +218,13 @@ func test_tile_rows_keep_space_above_below_and_between_them() -> void:
 func _settle_layout() -> void:
 	await process_frames(2)
 
-## The rail's width plus the gap beside it: how far the pinned corner controls
-## are held in from a page's left edge, which now reaches under the rail.
-func _body_inset() -> float:
-	return toolbar._pinned_inset
+## The Elevation tab's notch shape button, not the header row's plain Button
+## (both live in `_elevation_brush_shape_buttons`).
+func _elevation_shape_notch(toolbar: TerrainToolbar) -> ElevationBrushNotchButton:
+	for b in toolbar._elevation_brush_shape_buttons:
+		if b is ElevationBrushNotchButton:
+			return b
+	return null
 
 ## The diamond's four vertices plus the midpoints of its edges: enough points to
 ## show a nestled button is clear of the tiles either side of it.
@@ -347,138 +350,152 @@ func test_tab_selection_toggles_visibility() -> void:
 	assert_false(toolbar._pages[TerrainToolbar.Tab.IMPROVEMENTS].visible)
 	assert_true(toolbar._pages[TerrainToolbar.Tab.BUILDINGS].visible)
 
-func test_bulldozer_pins_to_the_removal_tabs_bottom_left_corners() -> void:
-	assert_eq(toolbar._bulldozer_buttons.size(), 2,
-		"One pinned Bulldozer per tab whose tiles it can remove")
-	for tab in [TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
-		var page: Control = toolbar._pages[tab]
-		var found := page.find_children("*", "BulldozerButton", false, false)
-		assert_eq(found.size(), 1, "%s page pins exactly one Bulldozer" % TerrainToolbar.TAB_TITLES[tab])
-		var btn: BulldozerButton = found[0]
-		# Anchored to the page's bottom-left corner, clear of the page edges.
-		assert_almost_eq(btn.anchor_left, 0.0, 0.001, "Anchored to the left edge")
-		assert_almost_eq(btn.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
-		assert_almost_eq(btn.anchor_right, 0.0, 0.001, "Anchored to the left edge")
-		assert_almost_eq(btn.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
-		assert_almost_eq(btn.offset_left, _body_inset() + BulldozerButton.CORNER_MARGIN, 0.01)
-		assert_almost_eq(btn.offset_bottom, -BulldozerButton.CORNER_MARGIN, 0.01)
-		# A round button: square bounds of the fixed diameter, circular hit face.
-		assert_eq(btn.custom_minimum_size,
-			Vector2(BulldozerButton.BUTTON_DIAMETER, BulldozerButton.BUTTON_DIAMETER))
-		assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
-		assert_false(btn._has_point(Vector2(1, 1)),
-			"The bounding box corners fall through to the tiles underneath")
-		assert_string_contains(btn.accessibility_description, "Course Terrain tiles are not affected",
-			"The tooltip explains the Bulldozer's scope")
-	# The Course Terrain page pins nothing: ground tiles are never bulldozed.
-	assert_eq(toolbar._pages[TerrainToolbar.Tab.TERRAIN].find_children(
-		"*", "BulldozerButton", true, false).size(), 0,
-		"Course Terrain has no Bulldozer button")
+func test_bulldozer_sits_in_the_header_row() -> void:
+	assert_not_null(toolbar._header_row, "The shelf builds a header row")
+	assert_eq(toolbar._header_row.get_parent(), toolbar,
+		"The header row is a child of the shelf, not a page")
+	var btn: BulldozerButton = toolbar._bulldozer_button
+	assert_not_null(btn, "The header row holds the Bulldozer button")
+	assert_true(toolbar._header_row.is_ancestor_of(btn),
+		"The Bulldozer lives in the header row")
+	# No page pins its own Bulldozer: the button is shared across all tabs.
+	for tab in [TerrainToolbar.Tab.TERRAIN, TerrainToolbar.Tab.IMPROVEMENTS,
+			TerrainToolbar.Tab.BUILDINGS, TerrainToolbar.Tab.ELEVATION]:
+		assert_eq(toolbar._pages[tab].find_children(
+			"*", "BulldozerButton", true, false).size(), 0,
+			"%s has no pinned Bulldozer button" % TerrainToolbar.TAB_TITLES[tab])
+	# A round button: square bounds of the fixed diameter, circular hit face.
+	assert_eq(btn.custom_minimum_size,
+		Vector2(BulldozerButton.BUTTON_DIAMETER, BulldozerButton.BUTTON_DIAMETER))
+	assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
+	assert_false(btn._has_point(Vector2(1, 1)),
+		"The bounding box corners fall through to the tiles underneath")
+	assert_string_contains(btn.accessibility_description, "Course Terrain tiles are not affected",
+		"The tooltip explains the Bulldozer's scope")
 
-func test_bulldozer_buttons_trigger_and_share_the_mode_state() -> void:
-	watch_signals(toolbar)
-	var buttons: Array = toolbar._bulldozer_buttons
-
-	# Pressing a pinned button stays on its own tab and starts bulldozer mode.
+func test_bulldozer_only_shows_on_improvements_and_buildings() -> void:
+	var btn: BulldozerButton = toolbar._bulldozer_button
+	# Shown on the shelves it removes from.
 	toolbar.select_tab(TerrainToolbar.Tab.IMPROVEMENTS)
-	buttons[0].pressed.emit()
+	assert_true(btn.visible, "The Bulldozer shows on Improvements")
+	toolbar.select_tab(TerrainToolbar.Tab.BUILDINGS)
+	assert_true(btn.visible, "The Bulldozer shows on Buildings")
+	# Hidden on the shelves it does not belong to.
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	assert_false(btn.visible, "The Bulldozer hides on Terrain")
+	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
+	assert_false(btn.visible, "The Bulldozer hides on Elevation")
+
+func test_bulldozer_button_triggers_and_shares_mode_state() -> void:
+	watch_signals(toolbar)
+	var btn: BulldozerButton = toolbar._bulldozer_button
+	assert_not_null(btn, "The header row holds the Bulldozer button")
+
+	# Pressing the button starts bulldozer mode without switching tabs.
+	toolbar.select_tab(TerrainToolbar.Tab.IMPROVEMENTS)
+	btn.pressed.emit()
 	assert_signal_emitted(toolbar, "bulldozer_pressed")
 	assert_true(toolbar._pages[TerrainToolbar.Tab.IMPROVEMENTS].visible,
-		"Pressing the pinned Bulldozer keeps its tab open")
+		"Pressing the Bulldozer keeps its tab open")
 
 	toolbar.select_tab(TerrainToolbar.Tab.BUILDINGS)
-	buttons[1].pressed.emit()
-	assert_signal_emitted(toolbar, "bulldozer_pressed")
-	assert_true(toolbar._pages[TerrainToolbar.Tab.BUILDINGS].visible,
-		"Pressing the pinned Bulldozer keeps its tab open")
+	assert_true(btn.is_visible_in_tree(),
+		"The Bulldozer button stays visible across tabs")
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	assert_false(btn.is_visible_in_tree(),
+		"The Bulldozer button hides on the Terrain tab")
 
-	# Both circles report the mode: gold ring while it runs, quiet when it ends.
+	# The button reports the mode: gold ring while it runs, quiet when it ends.
 	toolbar.set_bulldozer_active(true)
-	for btn in buttons:
-		assert_true(btn.is_active(), "The pinned Bulldozer shows the mode is on")
+	assert_true(btn.is_active(), "The Bulldozer shows the mode is on")
 	toolbar.set_bulldozer_active(false)
-	for btn in buttons:
-		assert_false(btn.is_active(), "The pinned Bulldozer shows the mode is off")
+	assert_false(btn.is_active(), "The Bulldozer shows the mode is off")
 
-func test_inspect_pins_to_every_build_tab_bottom_right_corner() -> void:
-	assert_eq(toolbar._inspect_buttons.size(), TerrainToolbar.INSPECT_TABS.size(),
-		"One pinned Inspect toggle per Build tab")
-	for tab in TerrainToolbar.INSPECT_TABS:
-		var page: Control = toolbar._pages[tab]
-		var found := page.find_children("*", "InspectButton", false, false)
-		assert_eq(found.size(), 1, "%s page pins exactly one Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
-		var btn: InspectButton = found[0]
-		# Anchored to the page's bottom-right corner, the opposite corner from
-		# the Bulldozer and brush dock pinned on the left.
-		assert_almost_eq(btn.anchor_left, 1.0, 0.001, "Anchored to the right edge")
-		assert_almost_eq(btn.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
-		assert_almost_eq(btn.anchor_right, 1.0, 0.001, "Anchored to the right edge")
-		assert_almost_eq(btn.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
-		assert_almost_eq(btn.offset_right, -InspectButton.CORNER_MARGIN, 0.01)
-		assert_almost_eq(btn.offset_bottom, -InspectButton.CORNER_MARGIN, 0.01)
-		assert_almost_eq(btn.offset_left,
-			-InspectButton.CORNER_MARGIN - InspectButton.BUTTON_DIAMETER, 0.01)
-		# A round toggle: square bounds of the fixed diameter, circular hit face.
-		assert_eq(btn.custom_minimum_size,
-			Vector2(InspectButton.BUTTON_DIAMETER, InspectButton.BUTTON_DIAMETER))
-		assert_true(btn.toggle_mode, "Inspect is a toggle")
-		assert_eq(btn.glyph, "inspect", "It wears the magnifier glyph")
-		assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
-		assert_false(btn._has_point(Vector2(1, 1)),
-			"The bounding box corners fall through to the tiles underneath")
-		assert_string_contains(btn.accessibility_description, "Esc or right-click to exit",
-			"The tooltip explains how to leave Inspect")
-	# Manage and Golfers tabs pin nothing: inspection belongs beside the Build shelves.
-	for tab in [TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.STAFF,
-			TerrainToolbar.Tab.GOLFERS, TerrainToolbar.Tab.PLAYER]:
+func test_inspect_sits_in_the_header_row() -> void:
+	assert_not_null(toolbar._header_row, "The shelf builds a header row")
+	var btn: InspectButton = toolbar._inspect_button
+	assert_not_null(btn, "The header row holds the Inspect toggle")
+	assert_true(toolbar._header_row.is_ancestor_of(btn),
+		"The Inspect toggle lives in the header row")
+	# No page pins its own Inspect toggle: the button is shared across all tabs.
+	for tab in TerrainToolbar.TAB_TITLES:
 		assert_eq(toolbar._pages[tab].find_children(
 			"*", "InspectButton", true, false).size(), 0,
-			"%s has no Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+			"%s has no pinned Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
+	# A round toggle: square bounds of the fixed diameter, circular hit face.
+	assert_eq(btn.custom_minimum_size,
+		Vector2(InspectButton.BUTTON_DIAMETER, InspectButton.BUTTON_DIAMETER))
+	assert_true(btn.toggle_mode, "Inspect is a toggle")
+	assert_eq(btn.glyph, "inspect", "It wears the magnifier glyph")
+	assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
+	assert_false(btn._has_point(Vector2(1, 1)),
+		"The bounding box corners fall through to the tiles underneath")
+	assert_string_contains(btn.accessibility_description, "Esc or right-click to exit",
+		"The tooltip explains how to leave Inspect")
 
-func test_inspect_buttons_toggle_and_share_the_mode_state() -> void:
+func test_inspect_shows_on_every_build_tab_and_hides_elsewhere() -> void:
+	var btn: InspectButton = toolbar._inspect_button
+	# Shown on every Build shelf.
+	for tab in [TerrainToolbar.Tab.TERRAIN, TerrainToolbar.Tab.IMPROVEMENTS,
+			TerrainToolbar.Tab.BUILDINGS, TerrainToolbar.Tab.ELEVATION]:
+		toolbar.select_tab(tab)
+		assert_true(btn.visible,
+			"Inspect shows on %s" % TerrainToolbar.TAB_TITLES[tab])
+	# Hidden on non-build shelves.
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	assert_false(btn.visible, "Inspect hides on the Holes tab")
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	assert_false(btn.visible, "Inspect hides on the Golfers tab")
+
+func test_inspect_button_toggles_and_shares_mode_state() -> void:
 	watch_signals(toolbar)
-	var buttons: Array = toolbar._inspect_buttons
+	var btn: InspectButton = toolbar._inspect_button
+	assert_not_null(btn, "The header row holds the Inspect toggle")
 
-	# Pressing a pinned toggle stays on its own tab and reports the switch.
+	# Pressing the toggle reports the switch without switching tabs.
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
-	buttons[0].button_pressed = true
+	btn.button_pressed = true
 	assert_signal_emitted_with_parameters(toolbar, "inspect_toggled", [true])
 	assert_true(toolbar._pages[TerrainToolbar.Tab.TERRAIN].visible,
-		"Pressing the pinned Inspect toggle keeps its tab open")
-	buttons[0].button_pressed = false
+		"Pressing the Inspect toggle keeps its tab open")
+	btn.button_pressed = false
 	assert_signal_emitted_with_parameters(toolbar, "inspect_toggled", [false])
 
-	# main.gd mirrors the mode back to every copy without re-emitting the signal:
+	# main.gd mirrors the mode back without re-emitting the signal:
 	# the two user toggles above stay the only emissions.
 	toolbar.set_inspect_active(true)
 	assert_signal_emit_count(toolbar, "inspect_toggled", 2,
 		"Syncing the mode on does not re-emit the toggle")
 	assert_true(toolbar.is_inspect_active(), "The toolbar reports Inspect as active")
-	for btn in buttons:
-		assert_true(btn.button_pressed and btn.active,
-			"Every pinned toggle shows the mode is on")
+	assert_true(btn.button_pressed and btn.active,
+		"The toggle shows the mode is on")
 	toolbar.set_inspect_active(false)
 	assert_signal_emit_count(toolbar, "inspect_toggled", 2,
 		"Syncing the mode off does not re-emit the toggle")
 	assert_false(toolbar.is_inspect_active(), "The toolbar reports Inspect as off")
-	for btn in buttons:
-		assert_false(btn.button_pressed or btn.active,
-			"Every pinned toggle shows the mode is off")
+	assert_false(btn.button_pressed or btn.active,
+		"The toggle shows the mode is off")
 
-func test_inspect_toggle_keeps_clear_of_the_bottom_left_corner_chrome() -> void:
-	# The two pinned controls hold opposite corners, so they can never collide
-	# regardless of how wide the page grows (geometry is checked head-on in the
-	# bottom-dock integration tests).
-	for tab in [TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
-		var page: Control = toolbar._pages[tab]
-		var inspect: InspectButton = page.find_children("*", "InspectButton", false, false)[0]
-		var dozer: BulldozerButton = page.find_children("*", "BulldozerButton", false, false)[0]
-		assert_almost_eq(inspect.anchor_left, 1.0, 0.001,
-			"Inspect is right-anchored on %s" % TerrainToolbar.TAB_TITLES[tab])
-		assert_almost_eq(dozer.anchor_left, 0.0, 0.001,
-			"while the Bulldozer is left-anchored")
-		assert_almost_eq(inspect.offset_right, -InspectButton.CORNER_MARGIN, 0.01)
-		assert_almost_eq(dozer.offset_left, _body_inset() + BulldozerButton.CORNER_MARGIN, 0.01)
+func test_header_row_controls_keep_clear_of_each_other() -> void:
+	# The Inspect toggle and the Bulldozer button both show on the Improvements
+	# shelf, so they sit in the header row together and must not collide.
+	toolbar.select_tab(TerrainToolbar.Tab.IMPROVEMENTS)
+	await _settle_layout()
+	var inspect: InspectButton = toolbar._inspect_button
+	var dozer: BulldozerButton = toolbar._bulldozer_button
+	assert_not_null(inspect)
+	assert_not_null(dozer)
+	assert_true(inspect.visible, "Inspect shows on Improvements")
+	assert_true(dozer.visible, "The Bulldozer shows on Improvements")
+	assert_false(inspect.get_global_rect().intersects(dozer.get_global_rect()),
+		"Inspect and the Bulldozer stay clear of each other in the header row")
+	# The header row itself is at the top-right of the shelf.
+	var row_rect := toolbar._header_row.get_global_rect()
+	var shelf_rect := toolbar.get_global_rect()
+	assert_almost_eq(row_rect.end.x - shelf_rect.end.x,
+		-TerrainToolbar.SHELF_PAD_X, 0.01, "The row's right edge hugs the shelf's right padding")
+	assert_almost_eq(row_rect.position.y - shelf_rect.position.y,
+		TerrainToolbar.SHELF_PAD_Y, 0.01, "The row sits at the top of the shelf")
 
 func test_tool_selection_and_signals() -> void:
 	watch_signals(toolbar)
@@ -811,84 +828,84 @@ func test_theme_changes_keep_the_open_hole_between_the_tee_and_green() -> void:
 	GameManager.current_theme = original_theme
 	EventBus.theme_changed.emit(original_theme)
 
-## The Course Terrain brush controls no longer lead the scrolling shelf: they
-## are pinned to the page's bottom-left corner so they stay above the tiles.
-func test_brush_controls_pin_to_the_terrain_tabs_bottom_left_corner() -> void:
+## The Course Terrain brush controls live in the shelf header's tool row, not
+## pinned to the page's bottom-left corner.
+func test_brush_controls_sit_in_the_header_row() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	var row: Control = toolbar._header_row
+	assert_not_null(row, "The shelf builds a header row")
+	assert_eq(row.get_parent(), toolbar,
+		"The header row is a child of the shelf, not a page")
+	# No page pins a brush dock: the brush controls are shared in the header.
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.TERRAIN]
-	var dock: PanelContainer = toolbar._brush_dock
-	assert_not_null(dock, "The Course Terrain tab pins a brush dock")
-	assert_eq(dock.name, "BrushDock")
-	assert_eq(dock.get_parent(), page, "Pinned to the page, not to the scrolling shelf")
-	assert_false(toolbar.page_scroll(TerrainToolbar.Tab.TERRAIN).is_ancestor_of(dock),
-		"The brush stays fixed while the tiles scroll beneath it")
+	assert_eq(page.find_children("BrushDock", "", true, false).size(), 0,
+		"The Terrain tab pins no brush dock")
 	assert_eq(page.find_children("*", "TerrainToolsColumn", true, false).size(), 0,
 		"The old tools column is gone")
-
-	# Anchored to the page's bottom-left corner, clear of the page edges.
-	assert_almost_eq(dock.anchor_left, 0.0, 0.001, "Anchored to the left edge")
-	assert_almost_eq(dock.anchor_top, 1.0, 0.001, "Anchored to the bottom edge")
-	assert_almost_eq(dock.anchor_right, 0.0, 0.001, "Anchored to the left edge")
-	assert_almost_eq(dock.anchor_bottom, 1.0, 0.001, "Anchored to the bottom edge")
-	assert_almost_eq(dock.offset_left, _body_inset() + TerrainToolbar.BRUSH_DOCK_MARGIN, 0.01)
-	assert_almost_eq(dock.offset_bottom, -TerrainToolbar.BRUSH_DOCK_MARGIN, 0.01)
-
-	await _settle_layout()
-	var side := TerrainToolbar.brush_dock_side()
-	assert_eq(dock.size, Vector2(side, side), "A square plate of four cells")
-	assert_eq(dock.position, Vector2(_body_inset() + TerrainToolbar.BRUSH_DOCK_MARGIN,
-		page.size.y - TerrainToolbar.BRUSH_DOCK_MARGIN - side),
-		"Held in the body's bottom-left corner, where the rail cannot cover it")
-	assert_true(Rect2(Vector2.ZERO, page.size).encloses(Rect2(dock.position, dock.size)),
-		"The plate stays inside the tab")
+	# The brush controls are in the header row, not on the scrolling shelf.
+	assert_false(toolbar.page_scroll(TerrainToolbar.Tab.TERRAIN).is_ancestor_of(row),
+		"The brush stays fixed while the tiles scroll beneath it")
+	# The terrain brush shape and size stepper show on the Terrain shelf.
+	assert_true(toolbar._header_terrain_shape.visible,
+		"The Terrain brush shape shows on the Terrain shelf")
+	assert_true(toolbar._header_terrain_size.visible,
+		"The Terrain brush size stepper shows on the Terrain shelf")
+	# ...and hide on the Elevation shelf, where the elevation brush takes over.
+	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
+	assert_false(toolbar._header_terrain_shape.visible,
+		"The Terrain brush shape hides on the Elevation shelf")
+	assert_false(toolbar._header_terrain_size.visible,
+		"The Terrain brush size stepper hides on the Elevation shelf")
 
 ## "Fixed" means fixed: scrolling the catalogue moves the tiles, and the brush
-## stays where it was pinned.
-func test_pinned_brush_stays_put_while_the_tiles_scroll() -> void:
+## controls in the header row stay where they are.
+func test_brush_controls_stay_put_while_the_tiles_scroll() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	var scroll: ScrollContainer = toolbar.page_scroll(TerrainToolbar.Tab.TERRAIN)
-	var dock: PanelContainer = toolbar._brush_dock
 	await _settle_layout()
-	var dock_before: Vector2 = dock.get_global_transform_with_canvas().origin
+	var row_before: Vector2 = toolbar._header_row.get_global_transform_with_canvas().origin
 	var tee: Control = toolbar._tool_buttons[TerrainTypes.Type.TEE_BOX]
 	var tee_before: Vector2 = tee.get_global_transform_with_canvas().origin
 
 	scroll.scroll_horizontal = 200
 	await _settle_layout()
 	assert_gt(scroll.scroll_horizontal, 0, "The shelf scrolled")
-	assert_eq(dock.get_global_transform_with_canvas().origin, dock_before,
-		"The brush stays fixed in the corner of the tab")
+	assert_eq(toolbar._header_row.get_global_transform_with_canvas().origin, row_before,
+		"The brush controls stay fixed in the header row")
 	assert_ne(tee.get_global_transform_with_canvas().origin, tee_before,
 		"The tiles scroll beneath it")
 
 	scroll.scroll_horizontal = 0
 	await _settle_layout()
-	assert_eq(dock.get_global_transform_with_canvas().origin, dock_before)
+	assert_eq(toolbar._header_row.get_global_transform_with_canvas().origin, row_before)
 
-## The pinned plate carries the whole brush — shape, the size it paints with,
-## and the two steps — and drives exactly the brush it used to.
-func test_pinned_brush_dock_carries_the_whole_brush() -> void:
-	var dock: PanelContainer = toolbar._brush_dock
+## The header row's brush controls carry the whole brush — shape, the size it
+## paints with, and the two steps — and drive exactly the brush they used to.
+func test_header_row_brush_carries_the_whole_brush() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	var row: Control = toolbar._header_row
 	var cell := Vector2(TerrainToolbar.BRUSH_DOCK_CELL, TerrainToolbar.BRUSH_DOCK_CELL)
 
-	var shapes: Array = dock.find_children("*", "Button", true, false).filter(
+	var shapes: Array = row.find_children("*", "Button", true, false).filter(
 		func(button): return button in toolbar._brush_shape_buttons)
 	assert_eq(shapes.size(), 1, "One round/square picker")
 	var shape: Button = shapes[0]
 	assert_true(shape.toggle_mode)
 	assert_eq(shape.custom_minimum_size, cell)
 
-	var chips := dock.find_children("BrushSizeChip", "Label", true, false)
+	var chips := row.find_children("BrushSizeChip", "Label", true, false)
 	assert_eq(chips.size(), 1, "One size readout")
 	var chip: Label = chips[0]
 	assert_has(toolbar._brush_labels, chip, "The toolbar writes the size into the chip")
 	assert_eq(chip.custom_minimum_size, cell)
 
-	var steps: Array = dock.find_children("*", "Button", true, false).filter(
+	var steps: Array = row.find_children("*", "Button", true, false).filter(
 		func(button): return button in toolbar._brush_buttons)
 	assert_eq(steps.size(), 2, "Smaller and bigger")
 	for step in steps:
 		assert_eq(step.custom_minimum_size, cell)
 
-	# The dock is the terrain tab's brush: stepping it changes the real brush,
+	# The brush controls drive the real brush: stepping changes the brush,
 	# and the chip reads back the size the selected tool paints with.
 	watch_signals(toolbar)
 	toolbar.set_brush_size(5)
@@ -900,7 +917,7 @@ func test_pinned_brush_dock_carries_the_whole_brush() -> void:
 	assert_eq(toolbar.get_brush_size(), 6)
 	assert_eq(chip.text, "6x6")
 
-	# A tool capped at a single tile locks the dock, like every other brush UI.
+	# A tool capped at a single tile locks the controls, like every other brush UI.
 	toolbar.set_brush_limit(1)
 	assert_eq(chip.text, "1x1", "The chip shows the capped size")
 	assert_true(shape.disabled, "The shape picker is locked")
@@ -910,25 +927,64 @@ func test_pinned_brush_dock_carries_the_whole_brush() -> void:
 	assert_false(shape.disabled)
 	toolbar.set_brush_size(1)
 
-## The plate floats above the shelf in the body's corner: inside the curved
-## window (so the rim never cuts it), right of the tab rail (so no medallion can
-## cover it), and above the catalogue, which scrolls beneath it.
-func test_pinned_brush_dock_rides_inside_the_curved_page_window() -> void:
+## The header row floats above the shelf at the top-right: inside the shelf
+## (so the rim never cuts it), at the top edge, and clear of the tab rail.
+func test_header_row_rides_inside_the_shelf() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await _settle_layout()
-	var dock: PanelContainer = toolbar._brush_dock
-	var dock_origin: Vector2 = dock.get_global_transform_with_canvas().origin
-	var dock_rect := Rect2(dock_origin, dock.size)
-	assert_gt(dock_rect.size.x, 0.0, "The dock is laid out")
+	var row_rect := toolbar._header_row.get_global_rect()
+	assert_gt(row_rect.size.x, 0.0, "The row is laid out")
+	assert_gt(row_rect.size.y, 0.0, "The row is laid out")
 
-	var window: ShelfPageWindow = toolbar._page_window
-	var window_origin := window.get_global_transform_with_canvas().origin
-	for corner: Vector2 in [dock_rect.position, dock_rect.end]:
-		assert_true(window.contains_content_point(corner - window_origin),
-			"The whole plate rides inside the curved window, clear of the rim")
-	assert_gte(dock_rect.position.x, toolbar._tab_rail.get_global_rect().end.x,
-		"The plate clears the tab rail, so no medallion sits over it")
-	assert_lte(dock_rect.end.y, window.get_global_rect().end.y,
-		"and stays above the shelf's bottom edge")
+	# The row sits at the top-right of the shelf, hugging the right padding.
+	var shelf_rect := toolbar.get_global_rect()
+	assert_almost_eq(row_rect.end.x - shelf_rect.end.x,
+		-TerrainToolbar.SHELF_PAD_X, 0.01,
+		"The row's right edge hugs the shelf's right padding")
+	assert_almost_eq(row_rect.position.y - shelf_rect.position.y,
+		TerrainToolbar.SHELF_PAD_Y, 0.01,
+		"The row sits at the top of the shelf")
+	# The row stays inside the shelf's horizontal bounds.
+	assert_gte(row_rect.position.x, shelf_rect.position.x,
+		"The row starts at or after the shelf's left edge")
+	assert_lte(row_rect.end.x, shelf_rect.end.x,
+		"The row ends at or before the shelf's right edge")
+
+## The Elevation shelf's header row carries its own brush shape and size
+## stepper, wired to the Elevation Brush state just like the notch controls.
+func test_elevation_brush_controls_sit_in_the_header_row() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.ELEVATION)
+	await _settle_layout()
+	assert_true(toolbar._header_elevation_shape.visible,
+		"The elevation brush shape shows on the Elevation shelf")
+	assert_true(toolbar._header_elevation_size.visible,
+		"The elevation brush size stepper shows on the Elevation shelf")
+	assert_true(toolbar._inspect_button.visible,
+		"Inspect shows on the Elevation shelf")
+	# The elevation brush shape button is wired to the elevation brush state.
+	var shape: Button = toolbar._header_elevation_shape
+	assert_true(shape.toggle_mode, "The elevation brush shape is a toggle")
+	assert_has(toolbar._elevation_brush_shape_buttons, shape,
+		"The toolbar tracks it in the elevation shape array")
+	# The elevation brush size stepper reads the elevation brush size.
+	var chips := toolbar._header_elevation_size.find_children(
+		"ElevationBrushSizeChip", "Label", true, false)
+	assert_eq(chips.size(), 1, "One elevation size readout")
+	assert_has(toolbar._elevation_brush_labels, chips[0] as Label,
+		"The toolbar writes the elevation size into the chip")
+
+## Non-build shelves carry no header row buttons at all: the row hides.
+func test_header_row_hides_on_non_build_shelves() -> void:
+	for tab in [TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.GOLFERS,
+			TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.STAFF]:
+		toolbar.select_tab(tab)
+		await _settle_layout()
+		assert_false(toolbar._header_row.visible,
+			"The header row hides on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_false(toolbar._inspect_button.visible,
+			"Inspect hides on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_false(toolbar._bulldozer_button.visible,
+			"The Bulldozer hides on %s" % TerrainToolbar.TAB_TITLES[tab])
 
 func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar.hole_grid, "hole_grid should exist")
@@ -2201,16 +2257,16 @@ func test_elevation_brush_controls_stay_enabled_without_a_square_tool() -> void:
 	toolbar.set_elevation_tool("flat")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "flat: size buttons enabled")
-	assert_false(toolbar._elevation_brush_shape_buttons[0].disabled, "flat: shape enabled")
+	assert_false(_elevation_shape_notch(toolbar).disabled, "flat: shape enabled")
 	toolbar.set_elevation_tool("vertex")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "vertex: size buttons stay enabled")
-	assert_false(toolbar._elevation_brush_shape_buttons[0].disabled, "vertex: shape stays enabled")
+	assert_false(_elevation_shape_notch(toolbar).disabled, "vertex: shape stays enabled")
 	assert_false(toolbar._elevation_brush_size_notches[0].disabled, "vertex: size stepper stays on")
 	toolbar.set_elevation_tool("")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "none: size buttons stay enabled")
-	assert_false(toolbar._elevation_brush_shape_buttons[0].disabled, "none: shape stays enabled")
+	assert_false(_elevation_shape_notch(toolbar).disabled, "none: shape stays enabled")
 	assert_false(toolbar._elevation_brush_size_notches[0].disabled, "none: size stepper stays on")
 	toolbar._set_elevation_brush_size(2)
 	toolbar._on_elevation_brush_shape_toggled()
@@ -2228,7 +2284,7 @@ func test_elevation_brush_nestles_between_the_two_square_selectors() -> void:
 	var flat: Control = toolbar._tool_buttons["flat"]
 	var gradual: Control = toolbar._tool_buttons["gradual"]
 	var size_notch: ElevationBrushSizeNotch = toolbar._elevation_brush_size_notches[0]
-	var shape_notch: ElevationBrushNotchButton = toolbar._elevation_brush_shape_buttons[0]
+	var shape_notch: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
 
 	# The selectors share one honeycomb of a single row, and the brush controls
 	# take no slot along it.
@@ -2298,7 +2354,7 @@ func test_elevation_brush_size_stepper_cells_stay_inside_the_diamond() -> void:
 ## both small enough to stay inside the diamond.
 func test_elevation_brush_shape_cell_shows_the_shape_it_paints_with() -> void:
 	await _settle_layout()
-	var shape: ElevationBrushNotchButton = toolbar._elevation_brush_shape_buttons[0]
+	var shape: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
 	toolbar.set_elevation_tool("flat")
 	assert_eq(shape.caption, "□", "A square brush shows the square glyph")
 	assert_string_contains(shape.tooltip_text, "Square elevation brush",
@@ -2324,7 +2380,7 @@ func test_elevation_brush_notch_cells_still_change_the_brush() -> void:
 	await _settle_layout()
 	toolbar.set_elevation_tool("flat")
 	var notch: ElevationBrushSizeNotch = toolbar._elevation_brush_size_notches[0]
-	var shape: ElevationBrushNotchButton = toolbar._elevation_brush_shape_buttons[0]
+	var shape: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
 	watch_signals(toolbar)
 
 	notch.increase_button.pressed.emit()

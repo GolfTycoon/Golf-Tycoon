@@ -119,11 +119,13 @@ banner](#course-location-banner), beside the course they turn. The **Feed** live
 the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
 badge with the count in its tooltip, and the same count rides on the Club tab and
 Manage section buttons so unread events still show from anywhere. **Inspect** also
-left this corner: every Build section tab (Terrain, Improvements, Buildings,
-Elevations) pins an Inspect toggle to its bottom-right corner, beside the tiles it
-reads, mirroring the Bulldozer's pinned corner button. The four toggles share one
-mode — the medallion's ring stays lit while inspecting, and `Esc` or right-click
-leaves it on every tab.
+left this corner for the shelf header: the toolbar carries a single shared
+Inspect toggle in a header row at the top-right of the shelf. One toggle
+serves every Build tab — the medallion's ring stays lit while inspecting,
+and `Esc` or right-click leaves it on every tab. The other header buttons
+follow the shelf: Terrain shows the Terrain Brush Shape and Brush Size
+buttons, Improvements and Buildings show the Bulldozer, and Elevation shows
+its own Brush Shape and Brush Size buttons.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf whose small icon tabs follow a mirrored
@@ -149,8 +151,8 @@ its rim joins the dock and sweeps up past the tab medallions, then continues
 along the top of the scrolling pages. It shares the
 dock's mowing rings and section-coloured pixel trim; the course is visible and
 accepts mouse and touch input in the space outside the curve. The rail narrows
-on phones without shrinking its touch targets, and, when space is tight, Inspect
-stacks above the pinned brush or Bulldozer rather than overlapping it.
+on phones without shrinking its touch targets, and, when a shelf is too narrow
+for its own header row, the row hides so the tab rail keeps its room.
 
 Every tab scrolls in a window cut to that same curve (`ShelfPageWindow`): the
 pages start at the shelf's own left padding and their left side is curved, so
@@ -160,9 +162,11 @@ pixel-stepped mask a frame's width inside the rim, so the rim's ink, trim, bevel
 and sheen bands stay whole beside the content and nothing spills over the rim
 onto the course. The same shape gates input: the cut-out above the curve
 stays course for the mouse, touch and hover, while the tiles below it are the
-page. The pinned corner controls — the brush plate, the Bulldozer and Inspect —
-stay a rail's width in from the page edge, in the body's corner where no
-medallion can cover them, and the catalogue scrolls beneath them.
+page. The header row's controls — the Brush Size plate, the Brush Shape button,
+the Bulldozer and Inspect — sit at the top-right of the shelf header, clear of
+the scrolling catalogue below. Each Build shelf shows only the buttons it
+needs: Terrain and Elevation carry their brush shape and size stepper, while
+Improvements and Buildings carry the Bulldozer.
 
 | Section | Tabs and actions |
 | --- | --- |

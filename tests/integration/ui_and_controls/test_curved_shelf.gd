@@ -115,30 +115,51 @@ func test_course_cutout_passes_input_but_exposed_tab_edges_work() -> void:
 		await process_frames(1)
 	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.TERRAIN, "the exposed tab face is clickable")
 
-func test_pinned_controls_stack_without_overlap_on_a_narrow_phone() -> void:
+func test_header_row_controls_stay_on_screen_on_a_narrow_phone() -> void:
 	await set_window(Vector2i(360, 800))
 	var toolbar: TerrainToolbar = main.terrain_toolbar
-	for tab in [TerrainToolbar.Tab.TERRAIN, TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
+	# The Terrain shelf's row (brush shape + size + Inspect) is too wide for
+	# the narrow shelf, so it hides and touches in the cutout reach the course.
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(3)
+	assert_false(toolbar._header_row.visible,
+		"the Terrain row hides on the narrow shelf so the tab rail keeps its room")
+	var cutout := toolbar.get_global_position() + Vector2(4, 8)
+	assert_false(bool(TouchInput._touch_target_at(cutout)["over_ui"]),
+		"touches in the cutout reach the course on Terrain")
+	# The Improvements and Buildings rows (Bulldozer + Inspect) fit, so they
+	# stay visible and their buttons are on screen.
+	for tab in [TerrainToolbar.Tab.IMPROVEMENTS, TerrainToolbar.Tab.BUILDINGS]:
 		toolbar.select_tab(tab)
 		await process_frames(3)
-		var page: Control = toolbar._pages[tab]
-		var inspect := page.get_node("InspectButton") as InspectButton
-		var left := page.get_node("BrushDock" if tab == TerrainToolbar.Tab.TERRAIN
-				else "BulldozerButton") as Control
-		assert_true(page.get_global_rect().encloses(left.get_global_rect()), "left control fits the page")
-		assert_true(page.get_global_rect().encloses(inspect.get_global_rect()), "Inspect fits the page")
-		assert_false(left.get_global_rect().intersects(inspect.get_global_rect()),
-				"both pinned controls stay independently accessible")
-		await click(inspect)
-		assert_true(toolbar.is_inspect_active(), "Inspect can be pressed on the narrow shelf")
-		await click(inspect)
-		assert_false(toolbar.is_inspect_active())
+		assert_true(toolbar._header_row.visible,
+			"the %s row fits on the narrow shelf" % TerrainToolbar.TAB_TITLES[tab])
+		var screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+		var dozer: BulldozerButton = toolbar._bulldozer_button
+		assert_true(rect_within(dozer.get_global_rect(), screen),
+			"the Bulldozer stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
+		var inspect: InspectButton = toolbar.inspect_button()
+		assert_true(rect_within(inspect.get_global_rect(), screen),
+			"Inspect stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
 	await set_window(DESIGN_WINDOW)
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await process_frames(3)
-	var desktop_inspect := toolbar._pages[TerrainToolbar.Tab.TERRAIN].get_node("InspectButton") as InspectButton
-	assert_almost_eq(desktop_inspect.offset_bottom, -InspectButton.CORNER_MARGIN, 0.1,
-			"Inspect returns to the corner on desktop")
+	# On desktop the header row sits at the top-right of the shelf, and the
+	# Inspect toggle can be pressed there.
+	assert_true(toolbar._header_row.visible, "the row shows on a wide shelf")
+	var inspect: InspectButton = toolbar.inspect_button()
+	assert_not_null(inspect, "The header row holds the Inspect toggle")
+	var screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	assert_true(rect_within(inspect.get_global_rect(), screen),
+		"Inspect stays on screen on desktop")
+	await click(inspect)
+	assert_true(toolbar.is_inspect_active(), "Inspect can be pressed on desktop")
+	await click(inspect)
+	assert_false(toolbar.is_inspect_active())
+	var row_rect := toolbar._header_row.get_global_rect()
+	var shelf_rect := toolbar.get_global_rect()
+	assert_almost_eq(row_rect.end.x - shelf_rect.end.x,
+		-TerrainToolbar.SHELF_PAD_X, 0.01, "The row hugs the shelf's right padding")
 
 ## The scrollable section of every tab reaches under the curved tab buttons,
 ## with its left side cut along the rim: the course above the cut stays part of
