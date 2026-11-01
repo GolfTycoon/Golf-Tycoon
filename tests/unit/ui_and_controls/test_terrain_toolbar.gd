@@ -905,8 +905,14 @@ func test_header_row_brush_carries_the_whole_brush() -> void:
 	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
 	assert_eq((shape as PixelCircleButton).accent,
 		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
-	assert_eq((shape as PixelCircleButton).glyph, "brush_round")
-	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
+	# The picker wears a miniature of the brush, not a fixed shape glyph.
+	assert_true(shape is BrushShapeButton,
+		"The shape picker draws the brush's own footprint")
+	var preview := shape as BrushShapeButton
+	assert_eq(preview.glyph, "", "No fixed shape glyph sits under the preview")
+	assert_eq(preview.brush_size, toolbar.effective_brush_size(),
+		"The preview is drawn at the size the brush paints with")
+	assert_eq(preview.footprint().size(), 1, "A one-tile round brush covers one tile")
 
 	var chips := row.find_children("BrushSizeChip", "Label", true, false)
 	assert_eq(chips.size(), 1, "One size readout")
@@ -996,8 +1002,12 @@ func test_elevation_brush_controls_sit_in_the_header_row() -> void:
 	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
 	assert_eq((shape as PixelCircleButton).accent,
 		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
-	assert_eq((shape as PixelCircleButton).glyph, "brush_square")
-	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
+	assert_true(shape is BrushShapeButton,
+		"The elevation shape button draws the brush's own footprint")
+	assert_eq((shape as BrushShapeButton).brush_square, true,
+		"It previews the square shape the brush starts in")
+	assert_eq((shape as BrushShapeButton).glyph, "",
+		"No fixed shape glyph sits under the preview")
 	assert_has(toolbar._elevation_brush_shape_buttons, shape,
 		"The toolbar tracks it in the elevation shape array")
 	for step in toolbar._elevation_brush_buttons:
@@ -2339,19 +2349,24 @@ func test_elevation_selectors_have_no_brush_notches_between_squares() -> void:
 	assert_eq(elevation_page.find_children("*", "ElevationBrushNotchButton", true, false).size(), 0,
 		"No ElevationBrushNotchButton on the Elevation page")
 
-## The header row's elevation brush shape button carries the brush's state as a
-## pixel glyph and updates the Square selector examples when toggled.
+## The header row's elevation brush shape button draws the brush's own
+## footprint at its current size and shape, and updates the Square selector
+## examples when toggled.
 func test_elevation_brush_shape_cell_shows_the_shape_it_paints_with() -> void:
 	await _settle_layout()
-	var shape: PixelCircleButton = toolbar._header_elevation_shape
+	var shape: BrushShapeButton = toolbar._header_elevation_shape
 	toolbar.set_elevation_tool("flat")
 	assert_eq(shape.text, "□", "A square brush sets the square text")
-	assert_eq(shape.glyph, "brush_square", "A square brush shows the square glyph")
+	assert_true(shape.brush_square, "A square brush previews the square footprint")
+	assert_eq(shape.footprint().size(), 9, "The 3x3 square preview covers nine tiles")
 	assert_string_contains(shape.tooltip_text, "Square elevation brush",
 		"The hover tooltip still names the control")
+	assert_string_contains(shape.tooltip_text, "3 tiles",
+		"The tooltip says how wide the brush is")
 	toolbar._on_elevation_brush_shape_toggled()
 	assert_eq(shape.text, "○", "A round brush sets the round text")
-	assert_eq(shape.glyph, "brush_round", "A round brush shows the round glyph")
+	assert_false(shape.brush_square, "A round brush previews the round footprint")
+	assert_eq(shape.footprint().size(), 5, "The 3x3 round preview keeps five tiles")
 	assert_false(toolbar._tool_buttons["flat"]._brush_square,
 		"The Flat Square example follows the round brush shape")
 	assert_false(toolbar._tool_buttons["gradual"]._brush_square,

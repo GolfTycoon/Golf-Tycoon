@@ -267,9 +267,9 @@ var _sync_pending := false  # True when the fairway needs re-syncing after layou
 var _header_row: Control = null
 var _inspect_button: InspectButton = null  # The shared Inspect toggle
 var _bulldozer_button: BulldozerButton = null  # The shared Bulldozer button
-var _header_terrain_shape: PixelCircleButton = null  # Terrain brush shape in the header row
+var _header_terrain_shape: BrushShapeButton = null  # Terrain brush shape in the header row
 var _header_terrain_size: HBoxContainer = null  # Terrain brush size stepper in the header row
-var _header_elevation_shape: PixelCircleButton = null  # Elevation brush shape in the header row
+var _header_elevation_shape: BrushShapeButton = null  # Elevation brush shape in the header row
 var _header_elevation_size: HBoxContainer = null  # Elevation brush size stepper in the header row
 var _brush_size: int = 1
 var _round_brush := true
@@ -1567,9 +1567,10 @@ func _create_brush_row() -> HBoxContainer:
 	return brush_row
 
 ## Round/square brush shape picker. Wears the same PixelCircleButton medallion
-## style as InspectButton, swapping between the round and square pixel glyphs.
-func _create_brush_shape(cell_size: Vector2 = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)) -> PixelCircleButton:
-	var shape := PixelCircleButton.new()
+## style as InspectButton, and shows a miniature of the brush it will paint —
+## the current shape at the current size — instead of a fixed shape glyph.
+func _create_brush_shape(cell_size: Vector2 = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)) -> BrushShapeButton:
+	var shape := BrushShapeButton.new()
 	shape.diameter = cell_size.x
 	shape.custom_minimum_size = cell_size
 	shape.accent = SECTION_COLORS[Section.BUILD]
@@ -1635,8 +1636,8 @@ func _create_brush_size_stepper(decrease_action: Callable, increase_action: Call
 ## Round/square elevation brush shape picker for the header row. Like the
 ## terrain brush shape button, but wired to the Elevation Brush state and
 ## added to the elevation shape button array so the shared update reaches it.
-func _create_elevation_brush_shape_button() -> PixelCircleButton:
-	var shape := PixelCircleButton.new()
+func _create_elevation_brush_shape_button() -> BrushShapeButton:
+	var shape := BrushShapeButton.new()
 	shape.diameter = BRUSH_DOCK_CELL
 	shape.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
 	shape.accent = SECTION_COLORS[Section.BUILD]
@@ -1706,16 +1707,18 @@ func _style_dock_cell(control: Control) -> void:
 		control.accent = SECTION_COLORS[Section.BUILD]
 
 func _update_brush_shape_button(btn: Button) -> void:
+	var square := not _round_brush
+	var shown: int = effective_brush_size()
+	if btn is BrushShapeButton:
+		(btn as BrushShapeButton).set_brush(shown, square)
 	if _round_brush:
 		btn.text = "○"
-		if btn is PixelCircleButton:
-			btn.glyph = "brush_round"
-		btn.tooltip_text = "Round brush (Circle) — click for Square"
+		btn.tooltip_text = "Round brush (Circle), %s %s — click for Square" % [
+			shown, "tile" if shown == 1 else "tiles"]
 	else:
 		btn.text = "□"
-		if btn is PixelCircleButton:
-			btn.glyph = "brush_square"
-		btn.tooltip_text = "Square brush — click for Round (Circle)"
+		btn.tooltip_text = "Square brush, %s %s — click for Round (Circle)" % [
+			shown, "tile" if shown == 1 else "tiles"]
 	btn.set_pressed_no_signal(_round_brush)
 	btn.accessibility_name = "Brush shape"
 	btn.accessibility_description = btn.tooltip_text
@@ -1792,19 +1795,24 @@ func _update_elevation_brush_label() -> void:
 			label.text = text
 			label.tooltip_text = "Elevation brush size %s %s" % [text,
 				"tile" if brush_size == 1 else "tiles"]
+	# The shape plate draws the brush at this size, so it steps with the number.
+	for shape in _elevation_brush_shape_buttons:
+		if is_instance_valid(shape):
+			_update_elevation_brush_shape_button(shape)
 
 func _update_elevation_brush_shape_button(btn: Button) -> void:
 	var square := _elevation_brush_square()
+	var shown: int = _elevation_brush_size()
+	if btn is BrushShapeButton:
+		(btn as BrushShapeButton).set_brush(shown, square)
 	if square:
 		btn.text = "□"
-		if btn is PixelCircleButton:
-			btn.glyph = "brush_square"
-		btn.tooltip_text = "Square elevation brush — click for Round"
+		btn.tooltip_text = "Square elevation brush, %s %s — click for Round" % [
+			shown, "tile" if shown == 1 else "tiles"]
 	else:
 		btn.text = "○"
-		if btn is PixelCircleButton:
-			btn.glyph = "brush_round"
-		btn.tooltip_text = "Round elevation brush — click for Square"
+		btn.tooltip_text = "Round elevation brush, %s %s — click for Square" % [
+			shown, "tile" if shown == 1 else "tiles"]
 	btn.set_pressed_no_signal(not square)
 	btn.accessibility_name = "Elevation brush shape"
 	btn.accessibility_description = btn.tooltip_text
@@ -2660,6 +2668,10 @@ func _update_brush_label() -> void:
 			label.text = text
 			label.tooltip_text = "Brush size %s %s" % [text,
 				"tile" if shown == 1 else "tiles"]
+	# The shape plate draws the brush at this size, so it steps with the number.
+	for shape in _brush_shape_buttons:
+		if is_instance_valid(shape):
+			_update_brush_shape_button(shape)
 
 ## The brush size the selected tool actually paints with. Tee boxes, and a green
 ## that is about to become a Green With Hole, are capped at a single tile.

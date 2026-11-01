@@ -24,7 +24,7 @@ With a selector active:
 - No corner outside the selection is touched. Corners under buildings, or on land you don't own, are skipped.
 - **Esc** cancels the tool. Right-click no longer cancels.
 
-The two square tools share one **Elevation Brush Size** and one **Brush Shape** control (square or round). They are kept separate from the Terrain Brush controls on the Course Terrain tab. Both square tools offer sizes from 1×1 to 9×9. Switching between them keeps the same size and shape.
+The two square tools share one **Elevation Brush Size** and one **Brush Shape** control (square or round). They are kept separate from the Terrain Brush controls on the Course Terrain tab. Both square tools offer sizes from 1×1 to 9×9. Switching between them keeps the same size and shape. The Brush Shape button shows the brush itself: a miniature of the tiles it will change at the current size and shape, so the square and round footprints sit side by side at a glance.
 
 ### Brush sizes are counted in tiles
 
