@@ -32,6 +32,10 @@ const ROW_HEIGHT := 48
 ## Corner radius shared by the cards and their hover / focus rings.
 const CARD_RADIUS := 18
 const ICON_BACKGROUND_SIZE := 40
+## Breathing room on each side of the value inside its pill.
+const VALUE_HORIZONTAL_PADDING := 20
+## Extend the value pill behind the icon without crowding its contents.
+const VALUE_ICON_OVERLAP := 20
 
 # UI References
 var _funds_row: PanelContainer
@@ -186,7 +190,9 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 
 	var content := HBoxContainer.new()
 	content.name = "Content"
-	content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	# The icon is drawn after the pill, so the negative gap tucks the pill
+	# underneath the raised medallion rather than covering it.
+	content.add_theme_constant_override("separation", -VALUE_ICON_OVERLAP)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(content)
 
@@ -250,7 +256,9 @@ func _set_value_text(label: Label, text: String) -> void:
 	label.text = text
 	var font := label.get_theme_font("font")
 	var font_size := label.get_theme_font_size("font_size")
-	var available := _column_width() - ICON_BACKGROUND_SIZE - 17.0
+	# The extra right margin is hidden under the icon and cancelled by the
+	# overlap, leaving the same visible padding on both sides of the value.
+	var available := _column_width() - ICON_BACKGROUND_SIZE - 2.0 * VALUE_HORIZONTAL_PADDING
 	if label == _money_label:
 		available -= 30.0
 	label.custom_minimum_size.x = minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
@@ -266,9 +274,9 @@ func _card_style(accent: Color) -> StyleBoxFlat:
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
 	style.shadow_size = 2
 	style.shadow_offset = Vector2(0, 2)
-	style.content_margin_left = 6
+	style.content_margin_left = VALUE_HORIZONTAL_PADDING
 	style.content_margin_top = 4
-	style.content_margin_right = 7
+	style.content_margin_right = VALUE_HORIZONTAL_PADDING + VALUE_ICON_OVERLAP
 	style.content_margin_bottom = 4
 	return style
 

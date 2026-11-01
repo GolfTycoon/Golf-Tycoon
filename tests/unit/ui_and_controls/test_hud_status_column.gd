@@ -157,6 +157,38 @@ func test_rows_show_values_before_right_hand_icons_without_titles() -> void:
 	assert_gt(funds.get_node("Trend").get_index(), funds.get_node("Value").get_index(),
 		"the funds trend follows the value")
 
+func test_value_pills_have_horizontal_padding_on_desktop_and_compact() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	for window_size in [Vector2i(1600, 1000), Vector2i(390, 844)]:
+		get_window().size = window_size
+		await process_frames(2)
+		column.apply_screen()
+		await process_frames(2)
+		for field in ROW_FIELDS:
+			var card := _row(column, field)
+			var pill := card.get_node("Content/ValueBackground") as PanelContainer
+			var content := pill.get_node("ValueContent") as Control
+			var icon := card.get_node("Content/IconBackground") as PanelContainer
+			assert_almost_eq(content.position.x, float(HUDStatusColumn.VALUE_HORIZONTAL_PADDING), 0.5,
+				"%s has left padding" % field)
+			assert_almost_eq(pill.position.x + pill.size.x - icon.position.x,
+				float(HUDStatusColumn.VALUE_ICON_OVERLAP), 0.5, "%s overlaps behind the icon" % field)
+			assert_almost_eq(icon.position.x - (pill.position.x + content.position.x + content.size.x),
+				float(HUDStatusColumn.VALUE_HORIZONTAL_PADDING), 0.5, "%s keeps visible right padding" % field)
+			assert_lt(pill.get_index(), icon.get_index(), "%s draws its icon above the pill" % field)
+			assert_lte(card.size.x, column.custom_minimum_size.x, "%s fits the column" % field)
+
+		# Long values still respect the responsive width, even with a trend mark.
+		column._money_trend.text = "^"
+		column._set_value_text(column._money_label, "$ 1,234,567,890")
+		await process_frames(2)
+		assert_lte(_row(column, "_funds_row").size.x, column.custom_minimum_size.x,
+			"long funds values and the trend fit alongside the padding")
+
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+
 func test_dynamic_icons_update_their_accented_medallion_and_value_pill() -> void:
 	_set_features(true, true, true)
 	var column := _make_column()
