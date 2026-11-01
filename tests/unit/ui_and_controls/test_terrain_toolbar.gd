@@ -505,6 +505,67 @@ func test_header_row_controls_keep_clear_of_each_other() -> void:
 	assert_gt(row_rect.end.y, shelf_rect.position.y,
 		"The buttons straddle the top border of the shelf")
 
+## Where the page heading belongs: at the shelf's top padding, starting just
+## after the first tab medallion of the open section.
+func _expected_title_position() -> Vector2:
+	var tabs: Array = TerrainToolbar.SECTION_TABS[toolbar.current_section]
+	var first: Control = toolbar._tab_buttons[tabs[0]]
+	return Vector2(first.get_global_rect().end.x + TerrainToolbar.SHELF_ROW_GAP + 30.0,
+			toolbar.get_global_position().y + TerrainToolbar.SHELF_PAD_Y)
+
+func test_the_page_heading_keeps_its_spot_when_the_shelf_relays_out() -> void:
+	# The shelf is a PanelContainer, which re-lays every ordinary child to fill
+	# its rect whenever it sorts. The heading is positioned by hand, like the
+	# header row, so the container must not be allowed to move it: switching
+	# from Build to Manage hides the header row, and that sort used to leave
+	# the heading stretched across the middle of the shelf.
+	var title: Label = toolbar._page_title
+	assert_not_null(title, "The shelf names its open page in a heading")
+	assert_eq(title.get_parent(), toolbar, "The heading is a child of the shelf")
+	assert_true(title.is_set_as_top_level(),
+		"The heading is top-level, so the container's layout never moves it")
+	for section in [TerrainToolbar.Section.BUILD, TerrainToolbar.Section.MANAGE,
+			TerrainToolbar.Section.GOLFERS, TerrainToolbar.Section.BUILD]:
+		toolbar.select_section(section)
+		# Check every frame: the first sync runs in _process, the container's
+		# deferred sort lands after it, and the heading must survive both.
+		for frame in 3:
+			await process_frames(1)
+			var expected := _expected_title_position()
+			var rect := title.get_global_rect()
+			var section_name: String = TerrainToolbar.SECTION_TITLES[section]
+			assert_almost_eq(rect.position.x, expected.x, 0.01,
+				"%s: the heading starts just after the first tab (frame %d)" % [section_name, frame])
+			assert_almost_eq(rect.position.y, expected.y, 0.01,
+				"%s: the heading sits at the top of the shelf (frame %d)" % [section_name, frame])
+			assert_almost_eq(rect.size.y, TerrainToolbar.HEADER_HEIGHT, 0.01,
+				"%s: the heading keeps its header height (frame %d)" % [section_name, frame])
+			assert_lt(rect.size.x, toolbar.size.x,
+				"%s: the heading is not stretched across the shelf (frame %d)" % [section_name, frame])
+			assert_true(title.text.begins_with(section_name.to_upper()),
+				"%s: the heading names the open section" % section_name)
+
+func test_the_page_heading_stops_short_of_the_header_row() -> void:
+	# On a Build shelf the header row shows at the top-right; the heading must
+	# end before it (measured in one coordinate space: both are top-level).
+	# With no bottom bar around it the bare shelf sits at its minimum width,
+	# so give it the room it has in the HUD for the row and heading to share.
+	toolbar.size = Vector2(1200.0, toolbar.size.y)
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await _settle_layout()
+	var row: Control = toolbar._header_row
+	assert_true(row.visible, "The Terrain shelf shows its header row")
+	var title_rect: Rect2 = toolbar._page_title.get_global_rect()
+	assert_almost_eq(title_rect.end.x, row.get_global_rect().position.x - TerrainToolbar.SHELF_ROW_GAP,
+		0.01, "The heading ends one row gap before the header row")
+	# Without a header row (Manage), the heading runs to the right padding.
+	toolbar.select_tab(TerrainToolbar.Tab.CLUB)
+	await _settle_layout()
+	assert_false(row.visible, "The Club shelf has no header row")
+	title_rect = toolbar._page_title.get_global_rect()
+	assert_almost_eq(title_rect.end.x, toolbar.get_global_rect().end.x - TerrainToolbar.SHELF_PAD_X,
+		0.01, "The heading runs to the shelf's right padding")
+
 func test_tool_selection_and_signals() -> void:
 	watch_signals(toolbar)
 

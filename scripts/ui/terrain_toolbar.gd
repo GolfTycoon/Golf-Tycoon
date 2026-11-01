@@ -339,7 +339,22 @@ func _ready() -> void:
 	# circles only settle once the first layout has run, so the sync is
 	# deferred to the next process frame.
 	resized.connect(_on_resized)
+	# The heading and the header row are top-level, so they do not ride along
+	# when the bottom bar moves this shelf: re-seat them whenever its rect
+	# changes, not only when its size does.
+	item_rect_changed.connect(_mark_sync_pending)
 	apply_screen()
+	_sync_pending = true
+
+## A container sorts its children a frame after whatever changed them, which
+## is after _process has already synced the fairway for that frame. Anything
+## the sort moved — the tab rail, and so the tab medallions, the heading and
+## the header row placed against them — is re-synced on the next frame.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_SORT_CHILDREN:
+		_sync_pending = true
+
+func _mark_sync_pending() -> void:
 	_sync_pending = true
 
 func _exit_tree() -> void:
@@ -474,18 +489,21 @@ func _sync_backdrop() -> void:
 				_header_row.size = row_size
 	# Keep the page heading clear of the curved tab row: start it just after
 	# the first tab medallion at the top of the rail, so the heading names the
-	# page from the left of the shelf instead of at the rail's far end.
+	# page from the left of the shelf instead of at the rail's far end. Like
+	# the header row, the heading is a top-level node, so it is placed from
+	# the shelf's global position (see _build_ui).
 	var tabs: Array = SECTION_TABS[current_section]
 	if tabs.size() > 0:
 		var button: PixelCircleButton = _tab_buttons.get(tabs[0])
 		if button != null:
 			var title_left := button.get_global_rect().end.x - origin.x + SHELF_ROW_GAP + 30.0
-			_page_title.position = Vector2(title_left, SHELF_PAD_Y)
+			_page_title.global_position = origin + Vector2(title_left, SHELF_PAD_Y)
 			var title_width := size.x - title_left - SHELF_PAD_X
 			# Keep the heading clear of the header row's buttons on the right:
-			# the title truncates with an ellipsis before it reaches them.
+			# the title truncates with an ellipsis before it reaches them. The
+			# row is top-level too, so its edge is read back in shelf space.
 			if _header_row != null and _header_row.visible:
-				var row_left := _header_row.position.x
+				var row_left := _header_row.global_position.x - origin.x
 				title_width = maxf(row_left - title_left - SHELF_ROW_GAP, 0.0)
 			_page_title.size = Vector2(title_width, HEADER_HEIGHT)
 	var rail_rect := _tab_rail.get_global_rect()
@@ -576,11 +594,20 @@ func _build_ui() -> void:
 	# at the far end of the tab rail. It takes no clicks: anything it covers
 	# falls through to the page or the course beneath it.
 	_page_title = Label.new()
+	_page_title.name = "PageTitle"
 	_page_title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_page_title.add_theme_font_override("font", PixelCircleButton.FONT)
 	_page_title.add_theme_font_size_override("font_size", 14)
 	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_page_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# This shelf is a PanelContainer, and a container re-lays every ordinary
+	# child to fill its rect whenever it sorts — which it does a frame after
+	# _sync_backdrop has placed the heading, each time the header row shows
+	# or hides with a section change. That left the heading stretched across
+	# the shelf, part way down it, until the next resize. As a top-level node
+	# (like the header row) the container never touches it, and
+	# _sync_backdrop places it from the shelf's global position instead.
+	_page_title.set_as_top_level(true)
 	add_child(_page_title)
 	_build_header_row()
 	# The page shelf: the whole width between the shelf's side padding, from
@@ -625,6 +652,9 @@ func _build_tab_rail(parent: HBoxContainer) -> void:
 	_tab_rail.name = "SectionTabs"
 	_tab_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tab_rail.custom_minimum_size = Vector2(TAB_RAIL_MIN_WIDTH, 0.0)
+	# The tabs, the heading and the fairway's sockets are all laid out against
+	# the rail, so they follow it whenever the shelf's containers move it.
+	_tab_rail.item_rect_changed.connect(_mark_sync_pending)
 	parent.add_child(_tab_rail)
 	for section in SECTION_TABS:
 		for tab_index in SECTION_TABS[section]:
