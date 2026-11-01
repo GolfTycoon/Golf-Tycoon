@@ -41,7 +41,7 @@ The preview disappears when the cup is cut, when you switch tool, or when no tee
 - **Deleting a hole** returns its tee box to the unused pool, so you can pair it with a new cup instead of bulldozing it.
 - **Painting over** a Green With Hole with any other terrain removes its cup.
 - **Undo and redo** restore cups with their tiles. Waiting cups are saved in the save file.
-- **Brush limits** are enforced. While a tee tool or a cup-cutting green is selected, the toolbar shows `1x1` and locks its size controls. A drag that cuts the first cup finishes as an ordinary green brush.
+- **Brush limits** are enforced. While a tee tool or a cup-cutting green is selected, the toolbar shows `1` and locks its size controls. A drag that cuts the first cup finishes as an ordinary green brush.
 
 ---
 

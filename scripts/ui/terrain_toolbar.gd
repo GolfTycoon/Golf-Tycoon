@@ -194,6 +194,14 @@ const ELEVATION_SELECTOR_COLUMNS := 3
 const ELEVATION_V_PADDING := 15
 ## Paint-brush sizes in tiles. Same 1×1 through 9×9 steps as the Elevation Brush.
 const BRUSH_SIZES: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+## What the Terrain and Elevation Brush Size plates read: the size in tiles on
+## its own ("1", "5", "9"), not a "1x1" width-by-height pair. Square brushes
+## are always the same across and down, so the second number only repeated the
+## first.
+static func brush_size_text(tiles: int) -> String:
+	return str(tiles)
+
 ## The brush controls' cells: the header row's shape toggle, size chip and step
 ## buttons match the Inspect button's diameter, with a small gap between them.
 const BRUSH_DOCK_CELL := InspectButton.BUTTON_DIAMETER
@@ -1547,7 +1555,7 @@ func _create_brush_row() -> HBoxContainer:
 	brush_row.add_child(_create_brush_step_button("-", "Smaller brush", _on_brush_decrease))
 
 	var brush_label = Label.new()
-	brush_label.text = "%dx%d" % [_brush_size, _brush_size]
+	brush_label.text = brush_size_text(_brush_size)
 	brush_label.custom_minimum_size = Vector2(30, 0)
 	brush_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	brush_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
@@ -1579,7 +1587,7 @@ func _create_brush_shape(cell_size: Vector2 = Vector2(BRUSH_DOCK_CELL, BRUSH_DOC
 func _create_brush_size_chip() -> Label:
 	var chip := Label.new()
 	chip.name = "BrushSizeChip"
-	chip.text = "%dx%d" % [_brush_size, _brush_size]
+	chip.text = brush_size_text(_brush_size)
 	chip.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
 	chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1778,11 +1786,12 @@ func _update_elevation_brush_label() -> void:
 	if not sizes.is_empty() and not (brush_size in sizes):
 		brush_size = sizes.min() if brush_size < sizes.min() else sizes.max()
 		_elevation_size = brush_size
-	var text := "%dx%d" % [brush_size, brush_size]
+	var text := brush_size_text(brush_size)
 	for label in _elevation_brush_labels:
 		if is_instance_valid(label):
 			label.text = text
-			label.tooltip_text = "Elevation brush size %s tiles" % text
+			label.tooltip_text = "Elevation brush size %s %s" % [text,
+				"tile" if brush_size == 1 else "tiles"]
 
 func _update_elevation_brush_shape_button(btn: Button) -> void:
 	var square := _elevation_brush_square()
@@ -2645,11 +2654,12 @@ func _on_brush_increase() -> void:
 
 func _update_brush_label() -> void:
 	var shown: int = effective_brush_size()
-	var text := "%dx%d" % [shown, shown]
+	var text := brush_size_text(shown)
 	for label in _brush_labels:
 		if is_instance_valid(label):
 			label.text = text
-			label.tooltip_text = "Brush size %s" % text
+			label.tooltip_text = "Brush size %s %s" % [text,
+				"tile" if shown == 1 else "tiles"]
 
 ## The brush size the selected tool actually paints with. Tee boxes, and a green
 ## that is about to become a Green With Hole, are capped at a single tile.
