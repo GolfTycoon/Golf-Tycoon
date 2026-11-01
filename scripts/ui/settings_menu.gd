@@ -109,6 +109,17 @@ var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
 var _minimap_toggle: CheckButton = null
 var _edge_pan_toggle: CheckButton = null
+## The UI scale card: automatic (follow the device) or a pinned manual size.
+## Cleared with every rebuild and kept in step by Screen.ui_scale_changed.
+var _ui_scale_slider: HSlider = null
+var _ui_scale_auto_toggle: CheckButton = null
+var _ui_scale_value_label: Label = null
+var _ui_scale_hint: Label = null
+## While the player is moving the scale slider the page would otherwise
+## rebuild on every step (the logical window changes), re-creating the slider
+## under their pointer. Hold the rebuild until they stop.
+var _ui_scale_hold_until_msec: int = 0
+var _ui_scale_rebuild_pending: bool = false
 ## Live controls for each independent part of the graphics configuration.
 var _graphics_preset_options: OptionButton = null
 var _graphics_setting_options: Dictionary = {}
@@ -135,11 +146,15 @@ func _ready() -> void:
 	name = "SettingsMenu"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	# Only needed while a UI scale change is settling (see _hold_ui_scale_rebuild).
+	set_process(false)
 	_adopt_last_benchmark()
 	if not benchmarks_allowed():
 		_benchmark_status_text = BENCHMARK_GATE_TEXT
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.connect(_on_screen_changed)
+	if has_node("/root/Screen") and not Screen.ui_scale_changed.is_connected(_on_ui_scale_changed):
+		Screen.ui_scale_changed.connect(_on_ui_scale_changed)
 	_build()
 
 	if has_node("/root/InputManager"):
@@ -156,6 +171,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
 		Screen.changed.disconnect(_on_screen_changed)
+	if has_node("/root/Screen") and Screen.ui_scale_changed.is_connected(_on_ui_scale_changed):
+		Screen.ui_scale_changed.disconnect(_on_ui_scale_changed)
 	if InputBindings.bindings_changed.is_connected(_on_binding_changed):
 		InputBindings.bindings_changed.disconnect(_on_binding_changed)
 	if InputBindings.bindings_reset.is_connected(_on_bindings_reset):
@@ -175,11 +192,23 @@ func _window_size() -> Vector2:
 	return get_viewport().get_visible_rect().size
 
 func _on_screen_changed(window_size: Vector2, _world_scale: float) -> void:
+	# The UI scale control changes this very page's logical size. Rebuilding
+	# between steps would recreate the slider under the drag; wait until the
+	# player lets go, then re-flow once at the final size.
+	if Time.get_ticks_msec() < _ui_scale_hold_until_msec:
+		_ui_scale_rebuild_pending = true
+		return
 	var new_layout := layout_mode_for(window_size)
 	var remeasure := absf(window_size.x - _built_size.x) > maxf(128.0, _built_size.x * 0.16) \
 		or absf(window_size.y - _built_size.y) > maxf(112.0, _built_size.y * 0.16)
 	if new_layout != _layout_mode or remeasure:
 		_build()
+
+func _process(_delta: float) -> void:
+	if _ui_scale_rebuild_pending and Time.get_ticks_msec() >= _ui_scale_hold_until_msec:
+		_ui_scale_rebuild_pending = false
+		set_process(false)
+		_on_screen_changed(_window_size(), Screen.world_scale)
 
 func _build() -> void:
 	for child in get_children():
@@ -205,6 +234,12 @@ func _build() -> void:
 	_max_zoom_value_label = null
 	_minimap_toggle = null
 	_edge_pan_toggle = null
+	_ui_scale_slider = null
+	_ui_scale_auto_toggle = null
+	_ui_scale_value_label = null
+	_ui_scale_hint = null
+	_ui_scale_rebuild_pending = false
+	set_process(false)
 	_graphics_preset_options = null
 	_graphics_setting_options.clear()
 	_data_confirmation = null
@@ -476,7 +511,8 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	# controls, so it is easy to find on a phone as well as on desktop.
 	cards.append(_build_fps_counter_card(mode))
 
-	var performance := _make_group("PERFORMANCE & SCALE", "Tune each course-rendering budget independently, or apply a preset.", mode)
+	var performance := _make_group("PERFORMANCE & SCALE",
+		"Tune each course-rendering budget independently, or apply a preset. The UI size follows this display unless you set it yourself.", mode)
 	var performance_body: VBoxContainer = performance["body"]
 	_add_toggle_row(performance_body, "VSync", "Match the display refresh to reduce tearing.",
 		DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED, _set_vsync, mode)
@@ -1293,36 +1329,109 @@ func _add_volume_control(parent: VBoxContainer, title: String, hint: String, val
 	stack.add_child(slider)
 	parent.add_child(stack)
 
+## UI size. "Match this display" is the default: Screen follows the device's
+## system display scale (Retina, Windows DPI scaling, phone density,
+## devicePixelRatio) so the game is the same physical size as everything else
+## on the screen. Moving the slider takes manual control instead.
 func _add_ui_scale_control(parent: VBoxContainer, mode: int) -> void:
 	var stack := VBoxContainer.new()
+	stack.name = "UIScaleStack"
 	stack.add_theme_constant_override("separation", 4)
 	var header := HBoxContainer.new()
 	var label := Kit.make_label("UI Scale", 12, COLOR_TEXT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(label)
-	var value_label := Kit.make_label("", 11, COLOR_GOLD)
-	value_label.custom_minimum_size.x = 44
-	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	header.add_child(value_label)
+	_ui_scale_value_label = Kit.make_label("", 11, COLOR_GOLD)
+	_ui_scale_value_label.custom_minimum_size.x = 76
+	_ui_scale_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(_ui_scale_value_label)
 	stack.add_child(header)
-	var scale_slider := HSlider.new()
-	scale_slider.name = "UIScale"
-	scale_slider.min_value = 0.8
-	scale_slider.max_value = 1.5
-	scale_slider.step = 0.1
-	scale_slider.value = _load_ui_scale()
-	scale_slider.custom_minimum_size.y = 25
-	scale_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	value_label.text = "%d%%" % int(scale_slider.value * 100)
-	scale_slider.value_changed.connect(func(value: float):
-		value_label.text = "%d%%" % int(value * 100)
-		get_tree().root.content_scale_factor = value
-		_save_display_settings())
-	stack.add_child(scale_slider)
-	var range_label := Kit.make_label("80%  ·  150%", 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+
+	_ui_scale_auto_toggle = _add_toggle_row(stack, "Match this display",
+		"Detect the UI size from the system display scale and this window. Turn off to set it yourself.",
+		not has_node("/root/Screen") or Screen.uses_automatic_ui_scale(),
+		_on_ui_scale_auto_toggled, mode)
+	_ui_scale_auto_toggle.accessibility_name = "Match this display's UI scale"
+
+	var minimum := 0.8
+	var maximum := 4.0
+	var step := 0.1
+	if has_node("/root/Screen"):
+		minimum = Screen.MIN_UI_SCALE
+		maximum = Screen.MAX_UI_SCALE
+		step = Screen.UI_SCALE_STEP
+	_ui_scale_slider = HSlider.new()
+	_ui_scale_slider.name = "UIScale"
+	_ui_scale_slider.min_value = minimum
+	_ui_scale_slider.max_value = maximum
+	_ui_scale_slider.step = step
+	_ui_scale_slider.custom_minimum_size.y = 25
+	_ui_scale_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ui_scale_slider.value_changed.connect(_on_ui_scale_slider_changed)
+	stack.add_child(_ui_scale_slider)
+
+	_ui_scale_hint = Kit.make_label("", 9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+	_ui_scale_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(_ui_scale_hint)
+	var range_label := Kit.make_label(
+		"%s  ·  %s" % [_ui_scale_text(minimum), _ui_scale_text(maximum)],
+		9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
 	range_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	stack.add_child(range_label)
 	parent.add_child(stack)
+	_sync_ui_scale_controls()
+
+func _on_ui_scale_auto_toggled(enabled: bool) -> void:
+	if not has_node("/root/Screen"):
+		return
+	Screen.set_ui_scale_mode(
+		Screen.UIScaleMode.AUTO if enabled else Screen.UIScaleMode.MANUAL, false)
+	_hold_ui_scale_rebuild()
+	_save_display_settings()
+	_sync_ui_scale_controls()
+
+func _on_ui_scale_slider_changed(value: float) -> void:
+	if not has_node("/root/Screen"):
+		get_tree().root.content_scale_factor = value
+		return
+	# Touching the slider is how a player chooses a size of their own, so it
+	# leaves automatic mode even when the new value matches the detected one.
+	Screen.set_ui_scale(value, false)
+	_hold_ui_scale_rebuild()
+	_save_display_settings()
+	_sync_ui_scale_controls()
+
+func _on_ui_scale_changed(_scale: float, _mode: int) -> void:
+	_sync_ui_scale_controls()
+
+## Keep the label, switch and slider showing Screen's current decision. The
+## slider is updated without its signal so syncing never re-enters.
+func _sync_ui_scale_controls() -> void:
+	if not has_node("/root/Screen"):
+		return
+	var automatic: bool = Screen.uses_automatic_ui_scale()
+	if is_instance_valid(_ui_scale_auto_toggle):
+		_ui_scale_auto_toggle.set_pressed_no_signal(automatic)
+	if is_instance_valid(_ui_scale_value_label):
+		_ui_scale_value_label.text = ("AUTO · " if automatic else "") + _ui_scale_text(Screen.ui_scale)
+	if is_instance_valid(_ui_scale_slider):
+		_ui_scale_slider.set_value_no_signal(Screen.ui_scale)
+	if is_instance_valid(_ui_scale_hint):
+		if automatic:
+			_ui_scale_hint.text = Screen.auto_ui_scale_hint()
+		else:
+			_ui_scale_hint.text = "Manual — %s. This display suggests %s; Match this display switches back." % [
+				_ui_scale_text(Screen.ui_scale), _ui_scale_text(Screen.detected_ui_scale)]
+
+func _ui_scale_text(value: float) -> String:
+	return "%d%%" % int(roundf(value * 100.0))
+
+## The slider changes the logical window, and so this page's own layout. Let
+## the control settle before the page rebuilds around it.
+func _hold_ui_scale_rebuild() -> void:
+	_ui_scale_hold_until_msec = Time.get_ticks_msec() + 350
+	_ui_scale_rebuild_pending = true
+	set_process(true)
 
 func _add_toggle_row(parent: VBoxContainer, title: String, description: String, enabled: bool,
 		on_change: Callable, mode: int) -> CheckButton:
@@ -1646,12 +1755,6 @@ func _on_invert_zoom_toggled(enabled: bool) -> void:
 	GameManager.invert_zoom_scroll = enabled
 	_save_controls_settings()
 
-func _load_ui_scale() -> float:
-	var config := ConfigFile.new()
-	if config.load(SaveManager.SETTINGS_PATH) == OK:
-		return clampf(float(config.get_value("display", "ui_scale", 1.0)), 0.8, 1.5)
-	return 1.0
-
 func _save_controls_settings() -> void:
 	var config := ConfigFile.new()
 	config.load(SaveManager.SETTINGS_PATH)
@@ -1672,7 +1775,10 @@ func _save_display_settings() -> void:
 	config.set_value("display", "window_mode", DisplayServer.window_get_mode())
 	config.set_value("display", "borderless", DisplayServer.window_get_flag(DisplayServer.WINDOW_FLAG_BORDERLESS))
 	config.set_value("display", "vsync", DisplayServer.window_get_vsync_mode())
-	config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
+	if has_node("/root/Screen"):
+		Screen.save_ui_scale_to_config(config)
+	else:
+		config.set_value("display", "ui_scale", get_tree().root.content_scale_factor)
 	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
 	config.set_value("display", "minimap_enabled", GameManager.minimap_enabled)
 	PerformanceSettings.save_to_config(config)

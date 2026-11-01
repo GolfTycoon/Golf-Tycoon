@@ -753,10 +753,15 @@ func _apply_display_settings(config: ConfigFile) -> void:
 	var vsync = config.get_value("display", "vsync", DisplayServer.VSYNC_ENABLED)
 	DisplayServer.window_set_vsync_mode(vsync)
 
-	# Restore UI scale
-	var ui_scale = config.get_value("display", "ui_scale", 1.0)
-	if ui_scale != 1.0:
-		get_tree().root.content_scale_factor = ui_scale
+	# Restore UI scale. Screen owns it (automatic unless the player pinned a
+	# size) and applied it before the first screen was built; this keeps a
+	# settings file edited outside the running game in step too.
+	if has_node("/root/Screen"):
+		Screen.load_ui_scale_from_config(config)
+	else:
+		var ui_scale = config.get_value("display", "ui_scale", 1.0)
+		if ui_scale != 1.0:
+			get_tree().root.content_scale_factor = ui_scale
 
 	# Restore colorblind mode
 	var cb_name = config.get_value("display", "colorblind_mode", "off")

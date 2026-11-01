@@ -308,6 +308,8 @@ func test_resetting_preferences_puts_the_running_game_on_defaults() -> void:
 	var saved_performance := _performance_state()
 	var tree := Engine.get_main_loop() as SceneTree
 	var saved_scale: float = tree.root.content_scale_factor
+	var saved_mode: int = Screen.ui_scale_mode
+	var saved_ui_scale: float = Screen.ui_scale
 	var saved_vsync := DisplayServer.window_get_vsync_mode()
 
 	SoundManager.load_settings_data({
@@ -335,7 +337,9 @@ func test_resetting_preferences_puts_the_running_game_on_defaults() -> void:
 		"graphics return to the device-aware Auto preset")
 	assert_false(PerformanceSettings.fps_counter_enabled, "the FPS counter is off again")
 	assert_eq(PerformanceSettings.fps_counter_position, PerformanceSettings.FpsCounterPosition.TOP_CENTER)
-	assert_almost_eq(tree.root.content_scale_factor, 1.0, 0.001, "UI scale returns to 100%")
+	assert_eq(Screen.ui_scale_mode, Screen.UIScaleMode.AUTO, "UI scale returns to automatic sizing")
+	assert_almost_eq(tree.root.content_scale_factor, Screen.detected_ui_scale, 0.001,
+		"at the size detected for this display")
 	assert_false(GameManager.invert_zoom_scroll)
 	assert_true(GameManager.minimap_enabled)
 	assert_true(GameManager.edge_pan_enabled, "screen-edge camera panning is back on")
@@ -347,6 +351,9 @@ func test_resetting_preferences_puts_the_running_game_on_defaults() -> void:
 	# Put the live game back for every test that runs after this one.
 	SoundManager.load_settings_data(saved_audio)
 	_put_performance_state(saved_performance)
+	Screen.set_ui_scale_mode(saved_mode, false)
+	if saved_mode == Screen.UIScaleMode.MANUAL:
+		Screen.set_ui_scale(saved_ui_scale, false)
 	tree.root.content_scale_factor = saved_scale
 	DisplayServer.window_set_vsync_mode(saved_vsync)
 

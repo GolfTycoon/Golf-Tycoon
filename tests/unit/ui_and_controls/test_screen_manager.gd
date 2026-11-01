@@ -41,6 +41,90 @@ func test_world_scale_is_scale_clamped_by_narrow_window_floor() -> void:
 		var expected: float = maxf(ScreenScript.compute_scale(size), minf(1.0, 900.0 / width))
 		assert_almost_eq(ScreenScript.compute_world_scale(size), expected, 0.0001)
 
+# ---------------------------------------------------------------------------
+# Automatic UI scale
+# ---------------------------------------------------------------------------
+
+func test_system_display_scale_comes_from_the_platform_that_reports_it() -> void:
+	# macOS Retina, phones and the web expose the backing scale / density.
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(2.0, 254, "macOS"), 2.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(2.0, 192, "Web"), 2.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(3.0, 288, "iOS"), 3.0, 0.001)
+	# Android's screen scale is cropped for an 800x600 canvas; its densityDpi
+	# is the dp scale (160 = 100%, 480 = 300%).
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(3.0, 480, "Android"), 3.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.35, 420, "Android"), 2.625, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 0, "Android"), 1.0, 0.001)
+	# Windows reports the monitor's effective DPI (and a flat 1.0 scale).
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 96, "Windows"), 1.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 120, "Windows"), 1.25, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 144, "Windows"), 1.5, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 192, "Windows"), 2.0, 0.001)
+	# X11's DPI is the panel's physical resolution, not the desktop's chosen
+	# text size, so only the toolkit's own scale counts there.
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 157, "Linux", 1.0), 1.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.0, 96, "Linux", 2.0), 2.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(1.5, 96, "Linux", 1.0), 1.5, 0.001)
+	# No useful report: the design's own 100%, never smaller.
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(0.0, 0, "Web"), 1.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(0.75, 96, "macOS"), 1.0, 0.001)
+	assert_almost_eq(ScreenScript.detect_system_ui_scale(9.0, 96, "Web"), ScreenScript.MAX_UI_SCALE, 0.001)
+
+
+func test_auto_scale_follows_the_device_and_keeps_desktop_size_elsewhere() -> void:
+	# A 4K desktop at 200% system scaling lays out like a 1920x1080 one.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(3840, 2160), 1.0, 192, "Windows", false, 1.0, false), 2.0, 0.001)
+	# A 1080p desktop at 100% keeps the 1600x1000 design's own size.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1920, 1080), 1.0, 96, "Windows", false, 1.0, true), 1.0, 0.001)
+	# A Retina Mac window is 2x its points.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(2880, 1800), 2.0, 254, "macOS", false, 1.0, true), 2.0, 0.001)
+	# Phones lay out in density-independent pixels: density is the scale, and
+	# the desktop room cap does not apply to them.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1080, 2400), 3.0, 480, "Android", true, 1.0, true), 3.0, 0.001)
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1080, 2400), 1.35, 420, "Android", true, 1.0, true), 2.65, 0.001)
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1170, 2532), 3.0, 288, "Web", true, 1.0, true), 3.0, 0.001)
+	# A desktop browser at devicePixelRatio 2 gets the same 2x.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(2880, 1800), 2.0, 192, "Web", false, 1.0, true), 2.0, 0.001)
+
+
+func test_auto_scale_keeps_a_windowed_desktop_window_usable() -> void:
+	# A large Retina window has room for the full display scale...
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(2560, 1600), 2.0, 254, "macOS", false, 1.0, true), 2.0, 0.001)
+	# ...a small one is capped so the layout keeps 1180x680 logical pixels.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1440, 900), 2.0, 254, "macOS", false, 1.0, true), 1.2, 0.001)
+	# A maximised window is never capped.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(1440, 900), 2.0, 254, "macOS", false, 1.0, false), 2.0, 0.001)
+	# The cap never shrinks the UI below the design's 100%.
+	assert_almost_eq(ScreenScript.compute_auto_ui_scale(
+		Vector2(640, 480), 2.0, 192, "Windows", false, 1.0, true), 1.0, 0.001)
+
+
+func test_auto_scale_is_snapped_and_clamped() -> void:
+	assert_almost_eq(ScreenScript.snap_ui_scale(1.37), 1.35, 0.001)
+	assert_almost_eq(ScreenScript.snap_ui_scale(0.5), ScreenScript.MIN_UI_SCALE, 0.001)
+	assert_almost_eq(ScreenScript.snap_ui_scale(9.0), ScreenScript.MAX_UI_SCALE, 0.001)
+	assert_eq(ScreenScript.format_ui_scale(2.0), "200%")
+
+
+func test_only_phone_platforms_lay_out_in_density_independent_pixels() -> void:
+	assert_true(ScreenScript.is_mobile_platform("Android", false))
+	assert_true(ScreenScript.is_mobile_platform("iOS", false))
+	assert_true(ScreenScript.is_mobile_platform("Web", true))
+	assert_false(ScreenScript.is_mobile_platform("Web", false))
+	assert_false(ScreenScript.is_mobile_platform("Windows", true))
+	assert_false(ScreenScript.is_mobile_platform("macOS", false))
+
+
 func test_compact_flags() -> void:
 	var s := _make_screen()
 	s.window_size = Vector2(1600, 1000)

@@ -339,6 +339,71 @@ func test_the_edge_pan_setting_switches_the_live_camera() -> void:
 	menu._save_camera_settings()
 
 
+## The UI scale control: automatic by default, following the detected display
+## scale; moving the slider pins a manual size and saves both facts, and
+## "Match this display" goes back to automatic.
+func test_the_ui_scale_control_matches_the_display_or_pins_a_manual_size() -> void:
+	await set_window(DESIGN_WINDOW)
+	var saved_mode: int = Screen.ui_scale_mode
+	var saved_scale: float = Screen.ui_scale
+	var saved_root: float = get_tree().root.content_scale_factor
+	var had_file := FileAccess.file_exists(SaveManager.SETTINGS_PATH)
+	var saved_bytes := FileAccess.get_file_as_bytes(SaveManager.SETTINGS_PATH) if had_file else PackedByteArray()
+
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(6)
+	menu._select_category(SettingsMenu.Category.DISPLAY)
+	await process_frames(3)
+	var slider := menu.find_child("UIScale", true, false) as HSlider
+	var auto_toggle := menu.find_child("Toggle_match_this_display", true, false) as CheckButton
+	assert_not_null(slider, "The UI scale slider is on the Display page")
+	assert_not_null(auto_toggle, "The automatic UI scale switch is on the Display page")
+	if slider == null or auto_toggle == null:
+		return
+	assert_eq(auto_toggle.button_pressed, Screen.uses_automatic_ui_scale(),
+		"the switch reflects the live sizing choice")
+	assert_almost_eq(slider.value, Screen.ui_scale, 0.001,
+		"the slider shows the size in use")
+
+	# Dragging the slider is choosing a size of your own: manual and saved now.
+	slider.value = 1.4
+	await process_frames(3)
+	assert_eq(Screen.ui_scale_mode, Screen.UIScaleMode.MANUAL, "moving the slider takes manual control")
+	assert_almost_eq(Screen.ui_scale, 1.4, 0.001)
+	assert_almost_eq(get_tree().root.content_scale_factor, 1.4, 0.001,
+		"the chosen size applies to the running game")
+	# The page re-flows around the new logical window a moment after the
+	# slider settles, so read the control from the live tree.
+	auto_toggle = menu.find_child("Toggle_match_this_display", true, false) as CheckButton
+	assert_not_null(auto_toggle, "the automatic switch is still on the page")
+	if auto_toggle == null:
+		return
+	assert_false(auto_toggle.button_pressed, "and the automatic switch follows the manual size off")
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "the choice saves to settings.cfg")
+	assert_eq(int(saved.get_value("display", "ui_scale_mode", -1)), Screen.UIScaleMode.MANUAL,
+		"with ui_scale_mode marking it as a manual choice")
+	assert_almost_eq(float(saved.get_value("display", "ui_scale", 0.0)), 1.4, 0.001)
+
+	# "Match this display" drops the manual size and re-detects.
+	auto_toggle.button_pressed = true
+	await process_frames(2)
+	assert_eq(Screen.ui_scale_mode, Screen.UIScaleMode.AUTO, "the switch returns to automatic sizing")
+	assert_almost_eq(Screen.ui_scale, Screen.detected_ui_scale, 0.001)
+
+	# Put the live preference and the real settings file back for later tests.
+	Screen.set_ui_scale_mode(saved_mode, false)
+	if saved_mode == Screen.UIScaleMode.MANUAL:
+		Screen.set_ui_scale(saved_scale, false)
+	get_tree().root.content_scale_factor = saved_root
+	if had_file:
+		var file := FileAccess.open(SaveManager.SETTINGS_PATH, FileAccess.WRITE)
+		file.store_buffer(saved_bytes)
+		file.close()
+	elif FileAccess.file_exists(SaveManager.SETTINGS_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveManager.SETTINGS_PATH))
+
+
 func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
 	await set_window(DESIGN_WINDOW)
 	var original_preset := PerformanceSettings.graphics_preset
