@@ -231,7 +231,7 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 
 There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Value pills keep 20px of visible padding on each side and extend 20px behind their icon medallion. The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
 
 ### Course location banner
 

@@ -20,9 +20,12 @@ const STAR_COUNT := 5
 const DESKTOP_SIDE := 21
 const COMPACT_SIDE := 15
 const DESKTOP_GAP := 3
-const COMPACT_GAP := 2
+## Compact textures overlap by their two transparent edge columns. Their ink
+## stays separate while the strip fits the phone pill's 20px side padding.
+const COMPACT_GAP := -2
 const DESKTOP_PAD_X := 3
-const COMPACT_PAD_X := 1
+## The HUD pill supplies the outer padding on compact windows.
+const COMPACT_PAD_X := 0
 const DESKTOP_HEIGHT := 28
 const COMPACT_HEIGHT := 24
 
@@ -158,6 +161,7 @@ func star_side() -> int:
 	return COMPACT_SIDE if compact else DESKTOP_SIDE
 
 
+## Gap between texture bounds; compact overlaps only transparent edge columns.
 func star_gap() -> int:
 	return COMPACT_GAP if compact else DESKTOP_GAP
 
