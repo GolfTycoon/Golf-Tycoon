@@ -37,6 +37,11 @@ const ICONS := {
 	"rotate_ccw": ["...xxxx..", "..xx..xx.", ".xx....xx", "xxxx...xx", "xxx....xx", ".......xx", "..x...xx.", "..xxxxx..", "...xxx..."],
 	"rotate_cw": ["..xxxx...", ".xx..xx..", "xx....xx.", "xx...xxxx", "xx....xxx", "xx.......", ".xx...x..", "..xxxxx..", "...xxx..."],
 	"finance": ["....x....", "..xxxxx..", ".xx.x....", "..xxx....", "....xxx..", "....x.xx.", "..xxxxx..", "....x....", "........."],
+	"bulldozer": [".........", "....xxxx.", ".x..x..x.", ".x..xxxxx", ".xx.xxxxx", ".x..xxxxx", ".x.xxxxxx", "...xxxxxx", "........."],
+	"brush_round": ["..xxxxx..", ".xx...xx.", "xx.....xx", "x.......x", "x.......x", "x.......x", "xx.....xx", ".xx...xx.", "..xxxxx.."],
+	"brush_square": [".xxxxxxx.", ".xxxxxxx.", ".xx...xx.", ".xx...xx.", ".xx...xx.", ".xx...xx.", ".xx...xx.", ".xxxxxxx.", ".xxxxxxx."],
+	"minus": [".........", ".........", ".........", ".xxxxxxx.", ".xxxxxxx.", ".xxxxxxx.", ".........", ".........", "........."],
+	"plus": [".........", "...xxx...", "...xxx...", ".xxxxxxx.", ".xxxxxxx.", ".xxxxxxx.", "...xxx...", "...xxx...", "........."],
 }
 
 ## The icon can change while the button is on screen (the speed toggle wears
@@ -50,8 +55,23 @@ const ICONS := {
 			if is_inside_tree():
 				queue_redraw()
 @export var caption := ""
-@export var diameter := 32.0
-@export var accent := Color("a2ba85")
+@export var diameter := 32.0:
+	set(value):
+		diameter = value
+		custom_minimum_size = Vector2.ONE * diameter
+		if is_inside_tree():
+			queue_redraw()
+@export var accent := Color("a2ba85"):
+	set(value):
+		if accent != value:
+			accent = value
+			if is_inside_tree():
+				queue_redraw()
+## Toggle buttons that switch a mode on/off (Inspect, Pause, section/tab
+## medallions) light their face while pressed; toggle buttons that cycle
+## between two states (the round/square brush shape picker) swap their glyph
+## instead of staying lit in only one of the two shapes.
+@export var pressed_lights_face := true
 var notification_count := 0:
 	set(value):
 		if notification_count != value:
@@ -83,7 +103,7 @@ func _has_point(point: Vector2) -> bool:
 	return point.distance_to(size * 0.5) <= minf(size.x, size.y) * 0.5
 
 func _draw() -> void:
-	var selected := active or button_pressed
+	var selected := active or (button_pressed and pressed_lights_face)
 	var lit := is_hovered() or has_focus()
 	var d := int(minf(size.x, size.y))
 	if d < 8:
@@ -115,15 +135,27 @@ func _draw() -> void:
 		draw_string(FONT, origin + Vector2(floorf((d - width) * 0.5), d - 15), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, CREAM)
 
 func _make_face(d: int, selected: bool, lit: bool) -> ImageTexture:
+	return _build_face(d, accent, selected, lit, disabled, has_focus())
+
+static func face_stylebox(d: int, btn_accent: Color) -> StyleBoxTexture:
+	var key := "%d:%s:%s:%s:%s:%s" % [d, btn_accent, false, false, false, false]
+	if not _faces.has(key):
+		_faces[key] = _build_face(d, btn_accent, false, false, false, false)
+	var box := StyleBoxTexture.new()
+	box.texture = _faces[key]
+	return box
+
+static func _build_face(d: int, btn_accent: Color, selected: bool, lit: bool,
+		muted: bool, focused: bool) -> ImageTexture:
 	var side := maxi(4, int(d / 2.0))
 	var image := Image.create(side, side, false, Image.FORMAT_RGBA8)
 	var center := Vector2.ONE * (side - 1) * 0.5
 	var radius := side * 0.5
-	var trim := accent if selected or lit else accent.darkened(0.38)
+	var trim := btn_accent if selected or lit else btn_accent.darkened(0.38)
 	var fill := Color("284c3c") if selected else Color("192e26")
 	if lit:
 		fill = fill.lightened(0.12)
-	if disabled:
+	if muted:
 		trim = Color("59665d")
 	for y in side:
 		for x in side:
@@ -134,7 +166,7 @@ func _make_face(d: int, selected: bool, lit: bool) -> ImageTexture:
 			if distance > radius - 1.5:
 				color = INK
 			elif distance > radius - 2.5:
-				color = CREAM if has_focus() else trim
+				color = CREAM if focused else trim
 			elif distance > radius - 3.5:
 				color = trim.lightened(0.3) if x + y < side else trim.darkened(0.5)
 			elif y < side * 0.32:

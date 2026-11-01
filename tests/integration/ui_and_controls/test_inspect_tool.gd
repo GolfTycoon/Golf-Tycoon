@@ -76,10 +76,16 @@ func test_inspect_toggle_stays_on_screen_in_the_header_row() -> void:
 		await process_frames(2)
 		var toggle := _inspect_toggle()
 		assert_not_null(toggle, "%s shows the Inspect toggle" % TerrainToolbar.TAB_TITLES[tab])
-		assert_true(rect_within(toggle.get_global_rect(), screen),
+		var toggle_rect: Rect2 = toggle.get_global_rect()
+		var bar_rect: Rect2 = main.bottom_bar.get_global_rect()
+		assert_true(rect_within(toggle_rect, screen),
 			"The Inspect toggle stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
-		assert_true(rect_within(toggle.get_global_rect(), main.bottom_bar.get_global_rect()),
-			"and inside the bottom bar on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_lt(toggle_rect.position.y, bar_rect.position.y,
+			"The top of the Inspect toggle rises above the shelf border on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_gt(toggle_rect.end.y, bar_rect.position.y,
+			"and straddles the top border of the shelf on %s" % TerrainToolbar.TAB_TITLES[tab])
+		assert_lte(toggle_rect.end.x, bar_rect.end.x,
+			"and stays inside the bottom bar's right edge on %s" % TerrainToolbar.TAB_TITLES[tab])
 
 
 func test_the_club_tab_feed_card_opens_the_feed_and_shows_the_unread_count() -> void:

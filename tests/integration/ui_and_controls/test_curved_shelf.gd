@@ -134,12 +134,12 @@ func test_header_row_controls_stay_on_screen_on_a_narrow_phone() -> void:
 		await process_frames(3)
 		assert_true(toolbar._header_row.visible,
 			"the %s row fits on the narrow shelf" % TerrainToolbar.TAB_TITLES[tab])
-		var screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+		var phone_screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
 		var dozer: BulldozerButton = toolbar._bulldozer_button
-		assert_true(rect_within(dozer.get_global_rect(), screen),
+		assert_true(rect_within(dozer.get_global_rect(), phone_screen),
 			"the Bulldozer stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
-		var inspect: InspectButton = toolbar.inspect_button()
-		assert_true(rect_within(inspect.get_global_rect(), screen),
+		var phone_inspect: InspectButton = toolbar.inspect_button()
+		assert_true(rect_within(phone_inspect.get_global_rect(), phone_screen),
 			"Inspect stays on screen on %s" % TerrainToolbar.TAB_TITLES[tab])
 	await set_window(DESIGN_WINDOW)
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)

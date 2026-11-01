@@ -86,6 +86,9 @@ const HEADER_HEIGHT := 28.0
 ## gives up width before the pinned page controls do.
 const SHELF_PAD_X := 6.0
 const SHELF_PAD_Y := 2.0
+## Vertical offset of the header row from the shelf's top edge: negative so
+## the top of the circular tool buttons rises above the shelf border.
+const HEADER_ROW_TOP_OFFSET := -13.0
 const SHELF_ROW_GAP := 6.0
 ## Breathing room kept before the first object in every scrollable shelf page,
 ## so the first tile/card never rubs against the curved rim at the shelf's
@@ -185,18 +188,15 @@ const TILE_V_PADDING := 20
 ## The Elevation tab's three Square Selectors share one honeycomb of a single
 ## row — Vertex, Flat Square, Gradual Square.
 const ELEVATION_SELECTOR_COLUMNS := 3
-## Flow slot of the Flat Square selector: the tile to the left of the notch the
-## Elevation Brush fills, with Gradual Square following it along the row.
-const ELEVATION_BRUSH_NOTCH_SLOT := 1
 ## Half the course tabs' vertical padding: the selector diamonds are twice as
 ## tall, so their single row fills the same page height as the two interlocking
 ## course rows and the toolbar never changes height with the tab.
 const ELEVATION_V_PADDING := 15
 ## Paint-brush sizes in tiles. Same 1×1 through 9×9 steps as the Elevation Brush.
 const BRUSH_SIZES: Array[int] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-## The brush controls' cells: the header row's square shape toggle, size chip
-## and step buttons each take one of these, with a small gap between them.
-const BRUSH_DOCK_CELL := 24.0
+## The brush controls' cells: the header row's shape toggle, size chip and step
+## buttons match the Inspect button's diameter, with a small gap between them.
+const BRUSH_DOCK_CELL := InspectButton.BUTTON_DIAMETER
 const BRUSH_DOCK_GAP := 2.0
 ## Holes stack three deep per column and the columns run off to the right, so
 ## the tab grows along the axis the page already scrolls on and never past the
@@ -259,9 +259,9 @@ var _sync_pending := false  # True when the fairway needs re-syncing after layou
 var _header_row: Control = null
 var _inspect_button: InspectButton = null  # The shared Inspect toggle
 var _bulldozer_button: BulldozerButton = null  # The shared Bulldozer button
-var _header_terrain_shape: Button = null  # Terrain brush shape in the header row
+var _header_terrain_shape: PixelCircleButton = null  # Terrain brush shape in the header row
 var _header_terrain_size: HBoxContainer = null  # Terrain brush size stepper in the header row
-var _header_elevation_shape: Button = null  # Elevation brush shape in the header row
+var _header_elevation_shape: PixelCircleButton = null  # Elevation brush shape in the header row
 var _header_elevation_size: HBoxContainer = null  # Elevation brush size stepper in the header row
 var _brush_size: int = 1
 var _round_brush := true
@@ -272,13 +272,11 @@ var _brush_shape_buttons: Array[Button] = []
 # Elevation brush: the Square Selector tools share one size and shape,
 # separate from the terrain paint brush above. Switching between Flat and
 # Gradual keeps the same settings, and the controls stay usable even when
-# neither Square tool is selected. The two controls themselves are notch cells
-# between the Square selectors, not a group of their own beside the row
-# (see _add_elevation_brush_notches).
+# neither Square tool is selected. The controls live in the shelf header's tool
+# row (see _build_header_row).
 var _elevation_tool: String = ""  # "vertex" | "flat" | "gradual" | "" (none)
 var _elevation_size: int = 3
 var _elevation_square := true
-var _elevation_brush_size_notches: Array[ElevationBrushSizeNotch] = []
 var _elevation_brush_labels: Array[Label] = []
 var _elevation_brush_buttons: Array[Button] = []
 var _elevation_brush_shape_buttons: Array[Button] = []
@@ -464,7 +462,7 @@ func _sync_backdrop() -> void:
 				var row_size := Vector2(row_width, _header_row.get_combined_minimum_size().y)
 				_header_row.global_position = Vector2(
 					origin.x + size.x - SHELF_PAD_X - row_width,
-					origin.y + SHELF_PAD_Y)
+					origin.y + HEADER_ROW_TOP_OFFSET)
 				_header_row.size = row_size
 	# Keep the page heading clear of the curved tab row: start it just after
 	# the first tab medallion at the top of the rail, so the heading names the
@@ -786,6 +784,7 @@ func _build_header_row() -> void:
 	_bulldozer_button.name = "BulldozerButton"
 	_bulldozer_button.accessibility_name = "Bulldozer"
 	_bulldozer_button.accessibility_description = BULLDOZER_TOOLTIP
+	_bulldozer_button.tooltip_text = BULLDOZER_TOOLTIP
 	_bulldozer_button.pressed.connect(_on_tool_button_pressed.bind("bulldozer"))
 	wrapper.add_child(_bulldozer_button)
 
@@ -805,6 +804,7 @@ func _build_header_row() -> void:
 	wrapper.add_child(inspect)
 	_inspect_button = inspect
 
+	_update_elevation_brush_group()
 	_sync_header_row_content()
 
 ## Show the controls the current shelf needs and hide the rest. Terrain shows
@@ -1193,12 +1193,10 @@ func decoration_unlock_text(decoration_data: Dictionary) -> String:
 
 func _build_elevation_tab(hbox: HBoxContainer) -> void:
 	# The three Square Selectors share one honeycomb of interlocking diamonds —
-	# Vertex, Flat Square and Gradual Square in a single row — and the Elevation
-	# Brush that belongs to the two Square tools nestles into the notch between
-	# them instead of standing in a group of its own beside the row: the size
-	# stepper in the V above the point where those tiles meet, the shape toggle
-	# in the V below it. The same treatment the Open Hole action gets on the
-	# Course Terrain tab (see TileHoneycomb.set_notch_child).
+	# Vertex, Flat Square and Gradual Square in a single row. The Elevation
+	# Brush controls that belong to the two Square tools live in the shelf
+	# header's tool row (see _build_header_row), so the tab itself is just the
+	# three selector tiles.
 	var selectors = TileHoneycomb.new()
 	selectors.name = "ElevationSelectors"
 	_elevation_selectors = selectors
@@ -1214,61 +1212,6 @@ func _build_elevation_tab(hbox: HBoxContainer) -> void:
 	# The grid carries its own breathing room above and below the row, so it keeps
 	# that spacing instead of stretching to fill the whole page height.
 	hbox.add_child(_make_tab_group("", selectors, true))
-
-	# The brush controls ride in the notch between the two Square tools, so they
-	# are added after the tiles: a nestled child takes no slot, and the row stays
-	# exactly Vertex, Flat Square, Gradual Square.
-	_add_elevation_brush_notches(selectors)
-
-## Nestle the Elevation Brush controls into the notch between the Elevation
-## tab's Flat Square and Gradual Square tiles — the two tools the brush belongs
-## to. The size stepper takes the V above the point where those tiles meet (the
-## same notch the Open Hole action fills on the Course Terrain tab) and the shape
-## toggle the V below it, where the next row of a honeycomb would tuck in.
-func _add_elevation_brush_notches(selectors: TileHoneycomb) -> void:
-	selectors.set_notch_child(_make_elevation_brush_size_notch(), ELEVATION_BRUSH_NOTCH_SLOT, true)
-	selectors.set_notch_child(_make_elevation_brush_shape_notch(), ELEVATION_BRUSH_NOTCH_SLOT, false)
-	# Size and shape stay usable whether or not a Square tool is selected.
-	_update_elevation_brush_group()
-
-## The Elevation Brush size stepper — smaller, the size it paints with, bigger —
-## as a half-size selector diamond in the V above the Square tiles. Its three
-## cells keep the wiring they had when they stood in a brush group of their own:
-## the same `_elevation_brush_buttons` and `_elevation_brush_labels` the toolbar
-## refreshes as the tool changes.
-func _make_elevation_brush_size_notch() -> ElevationBrushSizeNotch:
-	var notch := ElevationBrushSizeNotch.new()
-	notch.name = "ElevationBrushSizeNotch"
-
-	var decrease := notch.decrease_button
-	decrease.tooltip_text = "Smaller elevation brush"
-	decrease.accessibility_name = decrease.tooltip_text
-	decrease.accessibility_description = decrease.tooltip_text
-	decrease.pressed.connect(_on_elevation_brush_decrease)
-	_elevation_brush_buttons.append(decrease)
-
-	_elevation_brush_labels.append(notch.size_label)
-
-	var increase := notch.increase_button
-	increase.tooltip_text = "Bigger elevation brush"
-	increase.accessibility_name = increase.tooltip_text
-	increase.accessibility_description = increase.tooltip_text
-	increase.pressed.connect(_on_elevation_brush_increase)
-	_elevation_brush_buttons.append(increase)
-
-	_elevation_brush_size_notches.append(notch)
-	return notch
-
-## The Elevation Brush shape toggle — square or round — as a half-size selector
-## diamond in the V below the Square tiles.
-func _make_elevation_brush_shape_notch() -> ElevationBrushNotchButton:
-	var notch := ElevationBrushNotchButton.new()
-	notch.name = "ElevationBrushShapeNotch"
-	notch.focus_mode = Control.FOCUS_ALL
-	notch.toggle_mode = true
-	notch.pressed.connect(_on_elevation_brush_shape_toggled)
-	_elevation_brush_shape_buttons.append(notch)
-	return notch
 
 func _build_holes_tab(hbox: HBoxContainer) -> void:
 	# The Course Terrain tab owns the Open Hole action. When no hole is picked,
@@ -1601,13 +1544,7 @@ func _create_brush_row() -> HBoxContainer:
 	brush_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	brush_row.add_theme_constant_override("separation", 3)
 
-	var brush_decrease = Button.new()
-	brush_decrease.text = "-"
-	brush_decrease.custom_minimum_size = Vector2(24, 26)
-	brush_decrease.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	brush_decrease.pressed.connect(_on_brush_decrease)
-	brush_row.add_child(brush_decrease)
-	_brush_buttons.append(brush_decrease)
+	brush_row.add_child(_create_brush_step_button("-", "Smaller brush", _on_brush_decrease))
 
 	var brush_label = Label.new()
 	brush_label.text = "%dx%d" % [_brush_size, _brush_size]
@@ -1618,23 +1555,18 @@ func _create_brush_row() -> HBoxContainer:
 	brush_row.add_child(brush_label)
 	_brush_labels.append(brush_label)
 
-	var brush_increase = Button.new()
-	brush_increase.text = "+"
-	brush_increase.custom_minimum_size = Vector2(24, 26)
-	brush_increase.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	brush_increase.pressed.connect(_on_brush_increase)
-	brush_row.add_child(brush_increase)
-	_brush_buttons.append(brush_increase)
+	brush_row.add_child(_create_brush_step_button("+", "Bigger brush", _on_brush_increase))
 	return brush_row
 
-## Round/square brush shape picker. Shared by the pinned Course Terrain brush
-## dock and the Elevation tab's brush group; the caller passes the cell it has
-## room for. A toggle button that swaps between Square and Circle icons.
-func _create_brush_shape(cell_size: Vector2 = Vector2(32, 26)) -> Button:
-	var shape := Button.new()
-	shape.focus_mode = Control.FOCUS_ALL
+## Round/square brush shape picker. Wears the same PixelCircleButton medallion
+## style as InspectButton, swapping between the round and square pixel glyphs.
+func _create_brush_shape(cell_size: Vector2 = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)) -> PixelCircleButton:
+	var shape := PixelCircleButton.new()
+	shape.diameter = cell_size.x
 	shape.custom_minimum_size = cell_size
-	shape.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	shape.accent = SECTION_COLORS[Section.BUILD]
+	shape.pressed_lights_face = false
+	shape.focus_mode = Control.FOCUS_ALL
 	shape.toggle_mode = true
 	_update_brush_shape_button(shape)
 	shape.pressed.connect(_on_brush_shape_toggled)
@@ -1651,28 +1583,31 @@ func _create_brush_size_chip() -> Label:
 	chip.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
 	chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	chip.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	chip.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	chip.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	chip.add_theme_font_override("font", PixelCircleButton.FONT)
+	chip.add_theme_font_size_override("font_size", 14)
+	chip.add_theme_color_override("font_color", PixelCircleButton.CREAM)
+	chip.add_theme_color_override("font_shadow_color", PixelCircleButton.INK)
+	chip.add_theme_constant_override("shadow_offset_x", 0)
+	chip.add_theme_constant_override("shadow_offset_y", 2)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var chip_style := StyleBoxFlat.new()
-	chip_style.bg_color = UIConstants.COLOR_BG_DARK
-	chip_style.corner_radius_top_left = 4
-	chip_style.corner_radius_top_right = 4
-	chip_style.corner_radius_bottom_right = 4
-	chip_style.corner_radius_bottom_left = 4
-	chip.add_theme_stylebox_override("normal", chip_style)
+	chip.add_theme_stylebox_override(
+		"normal", PixelCircleButton.face_stylebox(int(BRUSH_DOCK_CELL), SECTION_COLORS[Section.BUILD]))
 	_brush_labels.append(chip)
 	return chip
 
-## One square step button of the pinned brush dock (smaller / bigger).
-func _create_brush_step_button(caption: String, tip: String, action: Callable) -> Button:
-	var btn := Button.new()
+## One step button of the pinned brush dock (smaller / bigger), wearing the
+## same PixelCircleButton medallion style as InspectButton.
+func _create_brush_step_button(caption: String, tip: String, action: Callable) -> PixelCircleButton:
+	var btn := PixelCircleButton.new()
+	btn.diameter = BRUSH_DOCK_CELL
+	btn.accent = SECTION_COLORS[Section.BUILD]
+	btn.glyph = "minus" if caption == "-" else "plus"
 	btn.text = caption
 	btn.tooltip_text = tip
 	btn.accessibility_name = tip
 	btn.accessibility_description = tip
 	btn.focus_mode = Control.FOCUS_ALL
-	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	btn.pressed.connect(action)
 	_style_dock_cell(btn)
 	_brush_buttons.append(btn)
@@ -1692,50 +1627,54 @@ func _create_brush_size_stepper(decrease_action: Callable, increase_action: Call
 ## Round/square elevation brush shape picker for the header row. Like the
 ## terrain brush shape button, but wired to the Elevation Brush state and
 ## added to the elevation shape button array so the shared update reaches it.
-func _create_elevation_brush_shape_button() -> Button:
-	var shape := Button.new()
-	shape.focus_mode = Control.FOCUS_ALL
+func _create_elevation_brush_shape_button() -> PixelCircleButton:
+	var shape := PixelCircleButton.new()
+	shape.diameter = BRUSH_DOCK_CELL
 	shape.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
-	shape.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+	shape.accent = SECTION_COLORS[Section.BUILD]
+	shape.pressed_lights_face = false
+	shape.focus_mode = Control.FOCUS_ALL
 	shape.toggle_mode = true
 	_update_elevation_brush_shape_button(shape)
 	shape.pressed.connect(_on_elevation_brush_shape_toggled)
 	_elevation_brush_shape_buttons.append(shape)
 	return shape
 
-## One square step button of the header row's Elevation Brush size stepper.
-func _create_elevation_brush_step_button(caption: String, tip: String, action: Callable) -> Button:
-	var btn := Button.new()
+## One step button of the header row's Elevation Brush size stepper, wearing
+## the same PixelCircleButton medallion style as InspectButton.
+func _create_elevation_brush_step_button(caption: String, tip: String, action: Callable) -> PixelCircleButton:
+	var btn := PixelCircleButton.new()
+	btn.diameter = BRUSH_DOCK_CELL
+	btn.accent = SECTION_COLORS[Section.BUILD]
+	btn.glyph = "minus" if caption == "-" else "plus"
 	btn.text = caption
 	btn.tooltip_text = tip
 	btn.accessibility_name = tip
 	btn.accessibility_description = tip
 	btn.focus_mode = Control.FOCUS_ALL
-	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	btn.pressed.connect(action)
 	_style_dock_cell(btn)
 	_elevation_brush_buttons.append(btn)
 	return btn
 
 ## The elevation brush size readout for the header row: one square cell showing
-## the size the Square tool paints with. Shares `_elevation_brush_labels` with
-## the Elevation tab's notch stepper, so both always read the same number.
+## the size the Square tool paints with.
 func _create_elevation_brush_size_chip() -> Label:
 	var chip := Label.new()
 	chip.name = "ElevationBrushSizeChip"
 	chip.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
 	chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	chip.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	chip.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	chip.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	chip.add_theme_font_override("font", PixelCircleButton.FONT)
+	chip.add_theme_font_size_override("font_size", 14)
+	chip.add_theme_color_override("font_color", PixelCircleButton.CREAM)
+	chip.add_theme_color_override("font_shadow_color", PixelCircleButton.INK)
+	chip.add_theme_constant_override("shadow_offset_x", 0)
+	chip.add_theme_constant_override("shadow_offset_y", 2)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var chip_style := StyleBoxFlat.new()
-	chip_style.bg_color = UIConstants.COLOR_BG_DARK
-	chip_style.corner_radius_top_left = 4
-	chip_style.corner_radius_top_right = 4
-	chip_style.corner_radius_bottom_right = 4
-	chip_style.corner_radius_bottom_left = 4
-	chip.add_theme_stylebox_override("normal", chip_style)
+	chip.add_theme_stylebox_override(
+		"normal", PixelCircleButton.face_stylebox(int(BRUSH_DOCK_CELL), SECTION_COLORS[Section.BUILD]))
 	_elevation_brush_labels.append(chip)
 	_update_elevation_brush_label()
 	return chip
@@ -1751,44 +1690,28 @@ func _create_elevation_brush_size_stepper() -> HBoxContainer:
 	group.add_child(_create_elevation_brush_step_button("+", "Bigger elevation brush", _on_elevation_brush_increase))
 	return group
 
-## Give a brush dock cell its fixed square footprint. The theme's button
-## styleboxes carry content margins of their own, which would push the cell —
-## and so the whole plate — past the corner the tile rows leave clear, so the
-## dock draws its own flush cells instead.
+## Give a brush dock cell its fixed footprint matching InspectButton.
 func _style_dock_cell(control: Control) -> void:
 	control.custom_minimum_size = Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL)
-	if control is Button:
-		var faces := {
-			"normal": UIConstants.COLOR_BG_BUTTON,
-			"hover": UIConstants.COLOR_BG_HOVER,
-			"pressed": UIConstants.COLOR_PRIMARY_PRESSED,
-			"hover_pressed": UIConstants.COLOR_PRIMARY_PRESSED,
-			"focus": UIConstants.COLOR_BG_BUTTON,
-			"disabled": UIConstants.COLOR_BG_DARK,
-		}
-		for state in faces:
-			var box := StyleBoxFlat.new()
-			box.bg_color = faces[state]
-			box.corner_radius_top_left = 4
-			box.corner_radius_top_right = 4
-			box.corner_radius_bottom_right = 4
-			box.corner_radius_bottom_left = 4
-			for margin in ["content_margin_left", "content_margin_top",
-					"content_margin_right", "content_margin_bottom"]:
-				box.set(margin, 0.0)
-			control.add_theme_stylebox_override(state, box)
-		control.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
+	if control is PixelCircleButton:
+		control.diameter = BRUSH_DOCK_CELL
+		control.accent = SECTION_COLORS[Section.BUILD]
 
 func _update_brush_shape_button(btn: Button) -> void:
 	if _round_brush:
 		btn.text = "○"
+		if btn is PixelCircleButton:
+			btn.glyph = "brush_round"
 		btn.tooltip_text = "Round brush (Circle) — click for Square"
 	else:
 		btn.text = "□"
+		if btn is PixelCircleButton:
+			btn.glyph = "brush_square"
 		btn.tooltip_text = "Square brush — click for Round (Circle)"
-	btn.button_pressed = _round_brush
+	btn.set_pressed_no_signal(_round_brush)
 	btn.accessibility_name = "Brush shape"
 	btn.accessibility_description = btn.tooltip_text
+	btn.queue_redraw()
 
 func _make_brush_group() -> VBoxContainer:
 	var group = VBoxContainer.new()
@@ -1821,8 +1744,8 @@ func _elevation_brush_square() -> bool:
 	return _elevation_square
 
 ## Set the selected elevation selector tool and sync the brush controls: the
-## notch cells keep the shared size and shape, and stay enabled whether or not
-## a Square tool is selected.
+## header row controls keep the shared size and shape, and stay enabled whether
+## or not a Square tool is selected.
 func set_elevation_tool(tool_name: String) -> void:
 	_elevation_tool = tool_name
 	_update_elevation_brush_group()
@@ -1834,21 +1757,19 @@ func get_elevation_brush_size() -> int:
 func get_elevation_brush_square() -> bool:
 	return _elevation_brush_square()
 
-## Mirror the shared brush settings in the two notch cells. Size and shape stay
-## enabled even when the Vertex tool is selected or no Square tool is selected,
-## so the player can set the brush before (or after) picking Flat or Gradual.
+## Mirror the shared brush settings in the header row controls. Size and shape
+## stay enabled even when the Vertex tool is selected or no Square tool is
+## selected, so the player can set the brush before (or after) picking Flat or
+## Gradual.
 func _update_elevation_brush_group() -> void:
 	for button in _elevation_brush_buttons:
 		if is_instance_valid(button):
 			button.disabled = false
+			button.queue_redraw()
 	for shape in _elevation_brush_shape_buttons:
 		if is_instance_valid(shape):
-			if shape is ElevationBrushNotchButton:
-				shape.set_brush_enabled(true)
+			shape.disabled = false
 			_update_elevation_brush_shape_button(shape)
-	for notch in _elevation_brush_size_notches:
-		if is_instance_valid(notch):
-			notch.set_brush_enabled(true)
 	_update_elevation_brush_label()
 
 func _update_elevation_brush_label() -> void:
@@ -1866,20 +1787,19 @@ func _update_elevation_brush_label() -> void:
 func _update_elevation_brush_shape_button(btn: Button) -> void:
 	var square := _elevation_brush_square()
 	if square:
-		if btn is ElevationBrushNotchButton:
-			btn.set_caption("□")
-		else:
-			btn.text = "□"
+		btn.text = "□"
+		if btn is PixelCircleButton:
+			btn.glyph = "brush_square"
 		btn.tooltip_text = "Square elevation brush — click for Round"
 	else:
-		if btn is ElevationBrushNotchButton:
-			btn.set_caption("○")
-		else:
-			btn.text = "○"
+		btn.text = "○"
+		if btn is PixelCircleButton:
+			btn.glyph = "brush_round"
 		btn.tooltip_text = "Round elevation brush — click for Square"
-	btn.button_pressed = not square
+	btn.set_pressed_no_signal(not square)
 	btn.accessibility_name = "Elevation brush shape"
 	btn.accessibility_description = btn.tooltip_text
+	btn.queue_redraw()
 
 func _on_elevation_brush_decrease() -> void:
 	var sizes: Array = _elevation_brush_sizes()
@@ -2750,9 +2670,11 @@ func _apply_brush_limit() -> void:
 	for button in _brush_buttons:
 		if is_instance_valid(button):
 			button.disabled = locked
+			button.queue_redraw()
 	for shape in _brush_shape_buttons:
 		if is_instance_valid(shape):
 			shape.disabled = locked
+			shape.queue_redraw()
 	_update_brush_label()
 
 func set_brush_size(value: int) -> void:

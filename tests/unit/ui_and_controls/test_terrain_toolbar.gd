@@ -218,14 +218,6 @@ func test_tile_rows_keep_space_above_below_and_between_them() -> void:
 func _settle_layout() -> void:
 	await process_frames(2)
 
-## The Elevation tab's notch shape button, not the header row's plain Button
-## (both live in `_elevation_brush_shape_buttons`).
-func _elevation_shape_notch(toolbar: TerrainToolbar) -> ElevationBrushNotchButton:
-	for b in toolbar._elevation_brush_shape_buttons:
-		if b is ElevationBrushNotchButton:
-			return b
-	return null
-
 ## The diamond's four vertices plus the midpoints of its edges: enough points to
 ## show a nestled button is clear of the tiles either side of it.
 func _diamond_samples(box: Vector2) -> Array[Vector2]:
@@ -364,9 +356,19 @@ func test_bulldozer_sits_in_the_header_row() -> void:
 		assert_eq(toolbar._pages[tab].find_children(
 			"*", "BulldozerButton", true, false).size(), 0,
 			"%s has no pinned Bulldozer button" % TerrainToolbar.TAB_TITLES[tab])
-	# A round button: square bounds of the fixed diameter, circular hit face.
+	# A round PixelCircleButton matching InspectButton: square bounds of the
+	# fixed diameter, circular hit face, Build accent and bulldozer glyph.
+	assert_true(btn is PixelCircleButton,
+		"The Bulldozer uses the PixelCircleButton medallion style")
+	assert_eq(btn.diameter, InspectButton.BUTTON_DIAMETER,
+		"The Bulldozer matches Inspect's diameter")
 	assert_eq(btn.custom_minimum_size,
 		Vector2(BulldozerButton.BUTTON_DIAMETER, BulldozerButton.BUTTON_DIAMETER))
+	assert_eq(btn.glyph, "bulldozer", "It wears the bulldozer glyph")
+	assert_true(PixelCircleButton.ICONS.has(btn.glyph),
+		"The bulldozer glyph is registered in PixelCircleButton.ICONS")
+	assert_eq(btn.accent, TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD],
+		"The Bulldozer shares the Build section's gold accent with Inspect")
 	assert_true(btn._has_point(btn.size * 0.5), "The circle face is clickable")
 	assert_false(btn._has_point(Vector2(1, 1)),
 		"The bounding box corners fall through to the tiles underneath")
@@ -489,13 +491,19 @@ func test_header_row_controls_keep_clear_of_each_other() -> void:
 	assert_true(dozer.visible, "The Bulldozer shows on Improvements")
 	assert_false(inspect.get_global_rect().intersects(dozer.get_global_rect()),
 		"Inspect and the Bulldozer stay clear of each other in the header row")
-	# The header row itself is at the top-right of the shelf.
+	# The header row itself is at the top-right of the shelf, with the top of
+	# the buttons rising above the shelf border.
 	var row_rect := toolbar._header_row.get_global_rect()
 	var shelf_rect := toolbar.get_global_rect()
 	assert_almost_eq(row_rect.end.x - shelf_rect.end.x,
 		-TerrainToolbar.SHELF_PAD_X, 0.01, "The row's right edge hugs the shelf's right padding")
 	assert_almost_eq(row_rect.position.y - shelf_rect.position.y,
-		TerrainToolbar.SHELF_PAD_Y, 0.01, "The row sits at the top of the shelf")
+		TerrainToolbar.HEADER_ROW_TOP_OFFSET, 0.01,
+		"The row sits at HEADER_ROW_TOP_OFFSET relative to the shelf top")
+	assert_lt(row_rect.position.y, shelf_rect.position.y,
+		"The top of the buttons rises above the shelf border")
+	assert_gt(row_rect.end.y, shelf_rect.position.y,
+		"The buttons straddle the top border of the shelf")
 
 func test_tool_selection_and_signals() -> void:
 	watch_signals(toolbar)
@@ -890,8 +898,15 @@ func test_header_row_brush_carries_the_whole_brush() -> void:
 		func(button): return button in toolbar._brush_shape_buttons)
 	assert_eq(shapes.size(), 1, "One round/square picker")
 	var shape: Button = shapes[0]
+	assert_true(shape is PixelCircleButton,
+		"The terrain brush shape button uses the PixelCircleButton medallion style")
 	assert_true(shape.toggle_mode)
 	assert_eq(shape.custom_minimum_size, cell)
+	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
+	assert_eq((shape as PixelCircleButton).accent,
+		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
+	assert_eq((shape as PixelCircleButton).glyph, "brush_round")
+	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
 
 	var chips := row.find_children("BrushSizeChip", "Label", true, false)
 	assert_eq(chips.size(), 1, "One size readout")
@@ -903,7 +918,13 @@ func test_header_row_brush_carries_the_whole_brush() -> void:
 		func(button): return button in toolbar._brush_buttons)
 	assert_eq(steps.size(), 2, "Smaller and bigger")
 	for step in steps:
+		assert_true(step is PixelCircleButton,
+			"Each brush step button uses the PixelCircleButton medallion style")
 		assert_eq(step.custom_minimum_size, cell)
+		assert_eq((step as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
+		assert_eq((step as PixelCircleButton).accent,
+			TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
+		assert_true(PixelCircleButton.ICONS.has((step as PixelCircleButton).glyph))
 
 	# The brush controls drive the real brush: stepping changes the brush,
 	# and the chip reads back the size the selected tool paints with.
@@ -936,14 +957,19 @@ func test_header_row_rides_inside_the_shelf() -> void:
 	assert_gt(row_rect.size.x, 0.0, "The row is laid out")
 	assert_gt(row_rect.size.y, 0.0, "The row is laid out")
 
-	# The row sits at the top-right of the shelf, hugging the right padding.
+	# The row sits at the top-right of the shelf, hugging the right padding,
+	# with the top of its buttons above the shelf border.
 	var shelf_rect := toolbar.get_global_rect()
 	assert_almost_eq(row_rect.end.x - shelf_rect.end.x,
 		-TerrainToolbar.SHELF_PAD_X, 0.01,
 		"The row's right edge hugs the shelf's right padding")
 	assert_almost_eq(row_rect.position.y - shelf_rect.position.y,
-		TerrainToolbar.SHELF_PAD_Y, 0.01,
-		"The row sits at the top of the shelf")
+		TerrainToolbar.HEADER_ROW_TOP_OFFSET, 0.01,
+		"The row sits at HEADER_ROW_TOP_OFFSET relative to the shelf top")
+	assert_lt(row_rect.position.y, shelf_rect.position.y,
+		"The top of the buttons is above the shelf border")
+	assert_gt(row_rect.end.y, shelf_rect.position.y,
+		"The buttons overlap the top border of the shelf")
 	# The row stays inside the shelf's horizontal bounds.
 	assert_gte(row_rect.position.x, shelf_rect.position.x,
 		"The row starts at or after the shelf's left edge")
@@ -961,11 +987,26 @@ func test_elevation_brush_controls_sit_in_the_header_row() -> void:
 		"The elevation brush size stepper shows on the Elevation shelf")
 	assert_true(toolbar._inspect_button.visible,
 		"Inspect shows on the Elevation shelf")
-	# The elevation brush shape button is wired to the elevation brush state.
+	# The elevation brush shape button is wired to the elevation brush state
+	# and wears the same PixelCircleButton medallion style as InspectButton.
 	var shape: Button = toolbar._header_elevation_shape
+	assert_true(shape is PixelCircleButton,
+		"The elevation brush shape button uses the PixelCircleButton medallion style")
 	assert_true(shape.toggle_mode, "The elevation brush shape is a toggle")
+	assert_eq((shape as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
+	assert_eq((shape as PixelCircleButton).accent,
+		TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
+	assert_eq((shape as PixelCircleButton).glyph, "brush_square")
+	assert_true(PixelCircleButton.ICONS.has((shape as PixelCircleButton).glyph))
 	assert_has(toolbar._elevation_brush_shape_buttons, shape,
 		"The toolbar tracks it in the elevation shape array")
+	for step in toolbar._elevation_brush_buttons:
+		assert_true(step is PixelCircleButton,
+			"Each elevation brush step button uses the PixelCircleButton medallion style")
+		assert_eq((step as PixelCircleButton).diameter, InspectButton.BUTTON_DIAMETER)
+		assert_eq((step as PixelCircleButton).accent,
+			TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.BUILD])
+		assert_true(PixelCircleButton.ICONS.has((step as PixelCircleButton).glyph))
 	# The elevation brush size stepper reads the elevation brush size.
 	var chips := toolbar._header_elevation_size.find_children(
 		"ElevationBrushSizeChip", "Label", true, false)
@@ -2257,142 +2298,94 @@ func test_elevation_brush_controls_stay_enabled_without_a_square_tool() -> void:
 	toolbar.set_elevation_tool("flat")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "flat: size buttons enabled")
-	assert_false(_elevation_shape_notch(toolbar).disabled, "flat: shape enabled")
+	assert_false(toolbar._header_elevation_shape.disabled, "flat: shape enabled")
 	toolbar.set_elevation_tool("vertex")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "vertex: size buttons stay enabled")
-	assert_false(_elevation_shape_notch(toolbar).disabled, "vertex: shape stays enabled")
-	assert_false(toolbar._elevation_brush_size_notches[0].disabled, "vertex: size stepper stays on")
+	assert_false(toolbar._header_elevation_shape.disabled, "vertex: shape stays enabled")
 	toolbar.set_elevation_tool("")
 	for button in toolbar._elevation_brush_buttons:
 		assert_false(button.disabled, "none: size buttons stay enabled")
-	assert_false(_elevation_shape_notch(toolbar).disabled, "none: shape stays enabled")
-	assert_false(toolbar._elevation_brush_size_notches[0].disabled, "none: size stepper stays on")
+	assert_false(toolbar._header_elevation_shape.disabled, "none: shape stays enabled")
 	toolbar._set_elevation_brush_size(2)
 	toolbar._on_elevation_brush_shape_toggled()
 	assert_eq(toolbar.get_elevation_brush_size(), 2, "size can change with no Square tool")
 	assert_false(toolbar.get_elevation_brush_square(), "shape can change with no Square tool")
 
-## The Elevation Brush belongs to the two Square Selectors, so its controls sit
-## in the notch between the Flat Square and Gradual Square tiles instead of in a
-## group of their own beside the row — the same treatment the Open Hole action
-## gets on the Course Terrain tab.
-func test_elevation_brush_nestles_between_the_two_square_selectors() -> void:
+## The Elevation tab's selector honeycomb holds only the three selector tiles
+## (Vertex, Flat Square, Gradual Square) without any Elevation Brush notch
+## buttons between Flat Square and Gradual Square; the brush controls live in
+## the shelf header row instead.
+func test_elevation_selectors_have_no_brush_notches_between_squares() -> void:
 	await _settle_layout()
 	var grid: TileHoneycomb = toolbar._elevation_selectors
 	var vertex: Control = toolbar._tool_buttons["vertex"]
 	var flat: Control = toolbar._tool_buttons["flat"]
 	var gradual: Control = toolbar._tool_buttons["gradual"]
-	var size_notch: ElevationBrushSizeNotch = toolbar._elevation_brush_size_notches[0]
-	var shape_notch: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
 
-	# The selectors share one honeycomb of a single row, and the brush controls
-	# take no slot along it.
 	var tiles: Array[Control] = grid.flow_children()
 	assert_eq(tiles.size(), 3, "The tab is the three selectors, nothing else")
 	assert_eq(tiles[0], vertex, "Vertex opens the row")
 	assert_eq(tiles[1], flat, "Flat Square follows it")
 	assert_eq(tiles[2], gradual, "Gradual Square closes it")
-	for cell in [size_notch, shape_notch]:
-		assert_eq(cell.get_parent(), grid, "%s lives on the selector honeycomb" % cell.name)
-		assert_true(grid.is_notch_child(cell), "%s fills a notch instead of a tile slot" % cell.name)
-		assert_false(grid.flow_children().has(cell), "%s takes no slot along the row" % cell.name)
-	assert_eq(grid.notch_slot(size_notch), toolbar.ELEVATION_BRUSH_NOTCH_SLOT,
-		"The brush sits to the right of the Flat Square tile")
-	assert_eq(grid.notch_slot(shape_notch), toolbar.ELEVATION_BRUSH_NOTCH_SLOT)
+	assert_eq(grid.get_child_count(), 3,
+		"No notch controls are attached to the selector honeycomb")
+	assert_true(grid._notch_children.is_empty(),
+		"No notch children sit between Flat Square and Gradual Square")
+	var elevation_page := toolbar._pages[TerrainToolbar.Tab.ELEVATION]
+	assert_eq(elevation_page.find_children("*", "ElevationBrushSizeNotch", true, false).size(), 0,
+		"No ElevationBrushSizeNotch on the Elevation page")
+	assert_eq(elevation_page.find_children("*", "ElevationBrushNotchButton", true, false).size(), 0,
+		"No ElevationBrushNotchButton on the Elevation page")
 
-	# Where the two Square tiles face each other across the honeycomb's gap.
-	var meet := (flat.position + Vector2(flat.size.x, flat.size.y * 0.5)
-		+ gradual.position + Vector2(0.0, gradual.size.y * 0.5)) * 0.5
-	var half := ElevationSelectorButton.SELECTOR_TILE_SIZE * 0.5
-	for cell in [size_notch, shape_notch]:
-		assert_eq(cell.size, half, "%s is half a selector diamond" % cell.name)
-		assert_almost_eq(cell.size.x, cell.size.y * 2.0, 0.01,
-			"%s is an isometric diamond, like the tiles" % cell.name)
-		var centre: Vector2 = cell.position + cell.size * 0.5
-		assert_almost_eq(centre.x, meet.x, 0.01,
-			"%s is centred between the two Square tiles" % cell.name)
-		assert_almost_eq(
-			(grid.notch_centre(grid.notch_slot(cell), grid.notch_is_above(cell)) - centre).length(),
-			0.0, 0.01, "The honeycomb centres %s in its notch" % cell.name)
-		for tile in [flat, gradual]:
-			for point in _diamond_samples(cell.size):
-				assert_false(TerrainTileButton.point_on_tile(
-					cell.position + point - tile.position, tile.size),
-					"The %s diamond stays clear of the %s tile" % [cell.name, tile.tool_name])
-
-	# The size stepper takes the V above the point where the tiles meet, the
-	# shape toggle the V below it — the two gaps either side of that point.
-	assert_true(grid.notch_is_above(size_notch), "The size stepper sits above the Square tiles")
-	assert_false(grid.notch_is_above(shape_notch), "The shape toggle sits below them")
-	assert_almost_eq(size_notch.position.y + size_notch.size.y, meet.y, 0.01,
-		"The stepper's bottom point sits on the point where the Square tiles meet")
-	assert_almost_eq(shape_notch.position.y, meet.y, 0.01,
-		"The shape toggle's top point sits on the point where the Square tiles meet")
-
-	# Only the diamonds answer to the mouse: a click in the empty corner of
-	# either bounding box falls through to the tile underneath.
-	assert_true(shape_notch._has_point(shape_notch.size * 0.5), "The middle of the shape cell is clickable")
-	assert_false(shape_notch._has_point(Vector2(1, 1)),
-		"The empty corner of the shape cell's box falls through to the tiles")
-
-## The stepper's three cells sit inside the diamond, so the whole stepper reads
-## as one control in the notch rather than three loose buttons.
-func test_elevation_brush_size_stepper_cells_stay_inside_the_diamond() -> void:
-	await _settle_layout()
-	var notch: ElevationBrushSizeNotch = toolbar._elevation_brush_size_notches[0]
-	for cell in [notch.decrease_button, notch.size_label, notch.increase_button]:
-		for corner in [Vector2.ZERO, Vector2(cell.size.x, 0.0), cell.size, Vector2(0.0, cell.size.y)]:
-			assert_true(TerrainTileButton.point_on_tile(cell.position + corner, notch.size),
-				"The %s cell stays inside the notch diamond" % cell.name)
-	assert_lt(notch.decrease_button.position.x, notch.size_label.position.x,
-		"Smaller comes first")
-	assert_lt(notch.size_label.position.x, notch.increase_button.position.x,
-		"The size it paints with sits between the two steps")
-
-## The shape cell carries the brush's state as a glyph over a word naming it,
-## both small enough to stay inside the diamond.
+## The header row's elevation brush shape button carries the brush's state as a
+## pixel glyph and updates the Square selector examples when toggled.
 func test_elevation_brush_shape_cell_shows_the_shape_it_paints_with() -> void:
 	await _settle_layout()
-	var shape: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
+	var shape: PixelCircleButton = toolbar._header_elevation_shape
 	toolbar.set_elevation_tool("flat")
-	assert_eq(shape.caption, "□", "A square brush shows the square glyph")
+	assert_eq(shape.text, "□", "A square brush sets the square text")
+	assert_eq(shape.glyph, "brush_square", "A square brush shows the square glyph")
 	assert_string_contains(shape.tooltip_text, "Square elevation brush",
 		"The hover tooltip still names the control")
 	toolbar._on_elevation_brush_shape_toggled()
-	assert_eq(shape.caption, "○", "A round brush shows the round glyph")
+	assert_eq(shape.text, "○", "A round brush sets the round text")
+	assert_eq(shape.glyph, "brush_round", "A round brush shows the round glyph")
 	assert_false(toolbar._tool_buttons["flat"]._brush_square,
 		"The Flat Square example follows the round brush shape")
 	assert_false(toolbar._tool_buttons["gradual"]._brush_square,
 		"The Gradual Square example follows the round brush shape")
 
-	var font := shape.get_theme_font("font")
-	var word := font.get_string_size(ElevationBrushNotchButton.LABEL_TEXT,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, ElevationBrushNotchButton.LABEL_FONT_SIZE)
-	# The word's far corner must stay inside the diamond: |x|/a + |y|/b <= 1.
-	var corner := Vector2(word.x * 0.5, ElevationBrushNotchButton.LABEL_DROP + word.y * 0.5)
-	assert_lte(corner.x / (shape.size.x * 0.5) + corner.y / (shape.size.y * 0.5), 1.0,
-		"The word under the glyph stays inside the diamond at the height it rides at")
-
-## Moving the controls into the notch leaves the brush itself working exactly as
-## it did in its own group.
-func test_elevation_brush_notch_cells_still_change_the_brush() -> void:
+## The header row's Elevation Brush controls change the brush size and shape.
+func test_elevation_brush_header_controls_change_the_brush() -> void:
 	await _settle_layout()
 	toolbar.set_elevation_tool("flat")
-	var notch: ElevationBrushSizeNotch = toolbar._elevation_brush_size_notches[0]
-	var shape: ElevationBrushNotchButton = _elevation_shape_notch(toolbar)
+	var shape: PixelCircleButton = toolbar._header_elevation_shape
+	var chips := toolbar._header_elevation_size.find_children(
+		"ElevationBrushSizeChip", "Label", true, false)
+	assert_eq(chips.size(), 1)
+	var chip: Label = chips[0]
+	var decrease: Button = null
+	var increase: Button = null
+	for step in toolbar._elevation_brush_buttons:
+		if step.text == "-":
+			decrease = step
+		elif step.text == "+":
+			increase = step
+	assert_not_null(decrease)
+	assert_not_null(increase)
 	watch_signals(toolbar)
 
-	notch.increase_button.pressed.emit()
+	increase.pressed.emit()
 	assert_signal_emitted(toolbar, "elevation_brush_size_changed")
 	assert_eq(toolbar.get_elevation_brush_size(), 4, "Bigger paints one size up")
-	assert_eq(notch.size_label.text, "4x4", "The readout keeps up with the tool")
-	notch.decrease_button.pressed.emit()
+	assert_eq(chip.text, "4x4", "The readout keeps up with the tool")
+	decrease.pressed.emit()
 	assert_eq(toolbar.get_elevation_brush_size(), 3, "Smaller paints one size down")
 
 	shape.pressed.emit()
 	assert_signal_emitted(toolbar, "elevation_brush_shape_changed")
-	assert_false(toolbar.get_elevation_brush_square(), "The shape toggle still flips the brush")
+	assert_false(toolbar.get_elevation_brush_square(), "The shape toggle flips the brush")
 
 ## The selectors' single row of doubled diamonds fills the same page height as
 ## the two interlocking course rows, so the toolbar never changes height with
@@ -2406,7 +2399,7 @@ func test_elevation_selectors_fill_the_same_page_height_as_the_course_tiles() ->
 func test_elevation_tab_is_just_the_selector_honeycomb() -> void:
 	var content: HBoxContainer = toolbar.page_content(TerrainToolbar.Tab.ELEVATION)
 	assert_eq(content.get_child_count(), 2,
-		"The Elevation tab leads with a breathing-space spacer, then the selector honeycomb — the brush rides in its notch")
+		"The Elevation tab leads with a breathing-space spacer, then the selector honeycomb")
 	assert_eq(content.get_child(1).get_child(0), toolbar._elevation_selectors,
 		"The honeycomb is the tab's only group")
 
