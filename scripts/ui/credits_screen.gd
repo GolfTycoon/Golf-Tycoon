@@ -49,7 +49,7 @@ func _build_ui() -> void:
 	vbox.add_child(title)
 
 	# Version
-	var version := Kit.make_label("v0.5.6", 13, Kit.COLOR_TEXT_SECONDARY)
+	var version := Kit.make_label("v0.5.7", 13, Kit.COLOR_TEXT_SECONDARY)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(version)
 	vbox.add_child(HSeparator.new())
