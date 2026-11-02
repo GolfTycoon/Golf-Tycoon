@@ -77,7 +77,10 @@ func _on_minimap_enabled_changed(_enabled: bool) -> void:
 	_sync_visibility()
 
 func _sync_visibility() -> void:
-	visible = hud_visible and GameManager.minimap_enabled
+	if has_node("/root/Screen") and Screen.uses_portrait_hud() and not Screen.portrait_map_open:
+		visible = false
+		return
+	visible = hud_visible and (GameManager.minimap_enabled or (has_node("/root/Screen") and Screen.uses_portrait_hud() and Screen.portrait_map_open))
 
 func _on_visibility_changed() -> void:
 	if not visible:

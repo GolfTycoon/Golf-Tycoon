@@ -6,6 +6,8 @@ class_name TerrainToolbar
 ## rebuilt or interrupted by navigation.
 
 signal section_changed(section: int)
+## The active page changed, including a different tab in the same section.
+signal page_changed(tab: int)
 ## Emitted when the whole section shelf is hidden (false) or shown again (true).
 signal section_visibility_changed(open: bool)
 signal financial_overview_pressed
@@ -101,6 +103,15 @@ const TAB_RAIL_MIN_WIDTH := 58.0
 ## A 52px brush plate plus its 10px corner margin must fit even on a phone.
 const SHELF_BODY_MIN_WIDTH := 62.0
 const TAB_RAIL_GAP := 2.0
+const PORTRAIT_TAB_HEIGHT := 56.0
+const PORTRAIT_CONTROLS_TOP := 58.0
+const PORTRAIT_PAGE_TOP := 100.0
+const PORTRAIT_TAB_CAPTIONS := {
+	Tab.TERRAIN: "Terrain", Tab.IMPROVEMENTS: "Improve", Tab.BUILDINGS: "Buildings",
+	Tab.ELEVATION: "Elevation", Tab.HOLES: "Holes", Tab.GOLFERS: "Golfers",
+	Tab.PLAYER: "Play", Tab.CLUB: "Club", Tab.STAFF: "Staff",
+	Tab.EDIT_PLAYER: "Edit", Tab.PLAYER_SKILLS: "Skills",
+}
 
 const TOOL_TAB_MAP := {
 	TerrainTypes.Type.TEE_BOX: Tab.TERRAIN,
@@ -388,6 +399,20 @@ func _exit_tree() -> void:
 func apply_screen() -> void:
 	if _tab_rail == null:
 		return
+	if Screen.uses_portrait_hud():
+		_apply_portrait()
+		return
+	_backdrop.visible = true
+	_page_title.visible = true
+	_pages_container.offset_top = SHELF_PAD_Y + HEADER_HEIGHT
+	_pages_container.offset_bottom = -SHELF_PAD_Y
+	_fit_page_window_height()
+	for button in _tab_buttons.values():
+		button.caption = ""
+	for page in _pages:
+		var content := (page.get_child(0) as ScrollContainer).get_child(0) as HBoxContainer
+		if content.get_child_count() > 0:
+			(content.get_child(0) as Control).custom_minimum_size.x = SHELF_CONTENT_LEAD
 	var available := Screen.window_size.x
 	var parent := get_parent() as HBoxContainer
 	if parent:
@@ -405,6 +430,7 @@ func apply_screen() -> void:
 	# Reserve enough height for all four tabs, even on a three-tab section.
 	_tab_rail.custom_minimum_size = Vector2(rail_width, 4.0 * diameter + 3.0 * TAB_RAIL_GAP)
 	custom_minimum_size.x = rail_width + 2.0 * SHELF_PAD_X + SHELF_ROW_GAP + SHELF_BODY_MIN_WIDTH
+	custom_minimum_size.y = Screen.bottom_bar_height()
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
 			continue
@@ -412,6 +438,32 @@ func apply_screen() -> void:
 		button.custom_minimum_size = Vector2.ONE * diameter
 		button.size = Vector2.ONE * diameter
 		button.queue_redraw()
+	_sync_pending = true
+
+func _apply_portrait() -> void:
+	var width: float = Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z
+	custom_minimum_size = Vector2(width, Screen.portrait_tray_height())
+	_backdrop.visible = false
+	_tab_rail.custom_minimum_size = Vector2(width - 12.0, PORTRAIT_TAB_HEIGHT)
+	var tabs: Array = SECTION_TABS[current_section]
+	for index in _tab_buttons:
+		var button: PixelCircleButton = _tab_buttons[index]
+		button.diameter = 48.0
+		button.custom_minimum_size = Vector2.ONE * 48.0
+		button.size = Vector2.ONE * 48.0
+		button.caption = PORTRAIT_TAB_CAPTIONS[index] if index in tabs else ""
+		button.tooltip_text = TAB_TITLES[index]
+		button.accessibility_name = TAB_TITLES[index]
+	for page in _pages:
+		var scroll := page.get_child(0) as ScrollContainer
+		var content := scroll.get_child(0) as HBoxContainer
+		if content.get_child_count() > 0:
+			(content.get_child(0) as Control).custom_minimum_size.x = 8.0
+		scroll.get_h_scroll_bar().custom_minimum_size.y = 6.0
+	_page_window.custom_minimum_size.y = Screen.portrait_tray_height()
+	_pages_container.offset_top = PORTRAIT_PAGE_TOP
+	_pages_container.offset_bottom = -6.0
+	_page_window.set_curve(0.0, 0.0)
 	_sync_pending = true
 
 func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
@@ -434,6 +486,14 @@ static func _shelf_seam_inset(width: float, touch_layout: bool) -> float:
 func _layout_tab_rail() -> void:
 	var rail_rect := _tab_rail.get_global_rect()
 	var rail_origin := rail_rect.position - get_global_position()
+	if Screen.uses_portrait_hud():
+		var visible_tabs: Array = SECTION_TABS[current_section]
+		var cell := (size.x - 20.0) / maxi(visible_tabs.size(), 1)
+		for i in visible_tabs.size():
+			var button: PixelCircleButton = _tab_buttons[visible_tabs[i]]
+			button.position = Vector2(4.0 + i * cell + (cell - 48.0) * 0.5, 2.0)
+			button.size = Vector2.ONE * 48.0
+		return
 	var curve_width := rail_origin.x + rail_rect.size.x
 	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
 	var tabs: Array = SECTION_TABS[current_section]
@@ -461,6 +521,9 @@ func _sync_backdrop() -> void:
 	if _backdrop == null or _tab_rail == null:
 		return
 	_layout_tab_rail()
+	if Screen.uses_portrait_hud():
+		_sync_portrait_chrome()
+		return
 	var origin := get_global_position()
 	# Seat the header row at the top-right of the shelf, like the page title
 	# at the top-left. Its width is whatever its visible children need; it
@@ -530,9 +593,32 @@ func _sync_backdrop() -> void:
 	else:
 		_backdrop.set_title_rule(Rect2())
 
+func _sync_portrait_chrome() -> void:
+	var origin := get_global_position()
+	var row_width := 0.0
+	var shown := 0
+	for child in _header_row.get_children():
+		if child.visible:
+			row_width += child.get_combined_minimum_size().x
+			shown += 1
+	if shown > 1:
+		row_width += _header_row.get_theme_constant("separation") * (shown - 1)
+	_header_row.visible = shown > 0
+	if _header_row.visible:
+		_header_row.global_position = origin + Vector2(size.x - row_width - 10.0, PORTRAIT_CONTROLS_TOP)
+		_header_row.size = Vector2(row_width, 46.0)
+	# Tab captions name the page; on narrow screens give the entire utility row
+	# to brush/inspect controls rather than overlap it with a redundant heading.
+	_page_title.visible = not _header_row.visible
+	_page_title.global_position = origin + Vector2(12.0, PORTRAIT_CONTROLS_TOP)
+	_page_title.size = Vector2(size.x - 24.0, 44.0)
+	_page_window.set_curve(0.0, 0.0)
+
 ## Only the painted fairway consumes otherwise empty shelf clicks. Its children
 ## (including the parts of the circular tabs outside the rim) remain clickable.
 func _has_point(point: Vector2) -> bool:
+	if Screen.uses_portrait_hud():
+		return Rect2(Vector2.ZERO, size).has_point(point)
 	if _backdrop == null:
 		return Rect2(Vector2.ZERO, size).has_point(point)
 	return ShelfFanBackdrop.contains_point(point, size, _backdrop.curve_width, _backdrop.seam_inset)
@@ -709,6 +795,8 @@ func _sync_navigation(tab_index: int) -> void:
 		_tab_buttons[index].active = index == tab_index
 		_tab_buttons[index].set_pressed_no_signal(index == tab_index)
 	_page_title.text = "%s  /  %s" % [SECTION_TITLES[current_section].to_upper(), TAB_TITLES[tab_index]]
+	if Screen.uses_portrait_hud():
+		_apply_portrait()
 	_page_title.add_theme_color_override("font_color", SECTION_COLORS[current_section])
 	# The shelf's fairway wears the open section's colour on its accent
 	# details, the way the dock's fan trims its rim, and re-lays its sockets
@@ -1934,6 +2022,7 @@ func select_tab(tab_index: int) -> void:
 		_sync_navigation(tab_index)
 		_sync_header_row_content()
 		_show_page(tab_index)
+		page_changed.emit(tab_index)
 
 func _tab_index_for_tool(tool_type) -> int:
 	return TOOL_TAB_MAP.get(tool_type, -1)

@@ -85,6 +85,11 @@ enum UIScaleMode { AUTO, MANUAL }
 
 var window_size: Vector2 = BASE_SIZE
 var world_scale: float = 1.0
+## Portrait HUD state belongs to the layout adapter so every floating panel,
+## toast and touch surface reserves the same live bottom clearance.
+var portrait_tools_open: bool = false
+var portrait_map_open: bool = false
+var safe_insets := Vector4.ZERO # left, top, right, bottom (logical pixels)
 
 ## Effective UI scale, applied to the root window's content scale.
 var ui_scale: float = 1.0
@@ -110,6 +115,7 @@ func _ready() -> void:
 	_load_ui_scale_preference()
 	window_size = _read_window_size()
 	world_scale = compute_world_scale(window_size)
+	safe_insets = _read_safe_insets()
 	_display_signature = _read_display_signature()
 	# React to window resizes/rotation. Polling every frame is cheap enough
 	# and also catches web canvas resizes that skip the root signal.
@@ -148,10 +154,12 @@ func apply_size(new_size: Vector2) -> void:
 			ui_scale_changed.emit(ui_scale, ui_scale_mode)
 		new_size = _read_window_size()
 	var new_world_scale := compute_world_scale(new_size)
-	if new_size == window_size and new_world_scale == world_scale:
+	var new_safe_insets := _read_safe_insets()
+	if new_size == window_size and new_world_scale == world_scale and new_safe_insets == safe_insets:
 		return
 	window_size = new_size
 	world_scale = new_world_scale
+	safe_insets = new_safe_insets
 	changed.emit(window_size, world_scale)
 
 ## Reference view scale: how big the window is relative to the 1600x1000
@@ -431,6 +439,12 @@ func _poll_display_scale() -> void:
 	# comes back.
 	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_MINIMIZED:
 		return
+	# Web inset changes (browser chrome, rotation, standalone display) can
+	# arrive without a canvas resize. Poll the tiny CSS bridge alongside DPI.
+	var fresh_insets := _read_safe_insets()
+	if fresh_insets != safe_insets:
+		safe_insets = fresh_insets
+		changed.emit(window_size, world_scale)
 	if not _display_signature_changed():
 		return
 	if _refresh_auto_scale() and ui_scale_mode == UIScaleMode.AUTO:
@@ -468,6 +482,71 @@ func is_portrait() -> bool:
 func is_landscape() -> bool:
 	return window_size.x >= window_size.y
 
+## A dedicated composition, not the desktop HUD squeezed into fewer pixels.
+## Wide portrait tablets keep the roomy desktop arrangement.
+func uses_portrait_hud() -> bool:
+	return is_portrait() and window_size.x < 700.0
+
+func portrait_nav_height() -> float:
+	return float(UIConstants.PORTRAIT_NAV_HEIGHT) + safe_insets.w
+
+func portrait_tray_height() -> float:
+	return float(UIConstants.PORTRAIT_TRAY_HEIGHT)
+
+func set_portrait_tools_open(open: bool) -> void:
+	if portrait_tools_open == open:
+		return
+	portrait_tools_open = open
+	changed.emit(window_size, world_scale)
+
+func set_portrait_map_open(open: bool) -> void:
+	if portrait_map_open == open:
+		return
+	portrait_map_open = open
+	changed.emit(window_size, world_scale)
+
+func portrait_header_height() -> float:
+	var gm: Node = get_node_or_null("/root/GameManager") if is_inside_tree() else null
+	var conditions := gm != null and (bool(gm.call("is_feature_enabled", "seasons"))
+		or bool(gm.call("is_feature_enabled", "weather")) or bool(gm.call("is_feature_enabled", "wind")))
+	return safe_insets.y + (UIConstants.PORTRAIT_HEADER_HEIGHT if conditions else UIConstants.PORTRAIT_HEADER_COMPACT_HEIGHT)
+
+func portrait_course_rect() -> Rect2:
+	var top := portrait_header_height() + 8.0
+	return Rect2(Vector2(safe_insets.x + 8.0, top), Vector2(
+		maxf(80.0, window_size.x - safe_insets.x - safe_insets.z - 16.0),
+		maxf(40.0, window_size.y - top - bottom_bar_height() - 8.0)))
+
+## Native cutouts/home indicators are reported in physical screen coordinates.
+## The web shell supplies CSS env(safe-area-inset-*) through the same contract.
+func _read_safe_insets() -> Vector4:
+	var values := Vector4.ZERO
+	if OS.has_feature("web"):
+		var bridge := Engine.get_singleton("JavaScriptBridge")
+		if bridge:
+			var parsed: Variant = JSON.parse_string(str(bridge.eval(
+				"JSON.stringify(window.GolfTycoonSafeArea || [0,0,0,0])")))
+			if parsed is Array and parsed.size() == 4:
+				for i in 4:
+					values[i] = maxf(0.0, float(parsed[i]))
+	elif OS.has_feature("android") or OS.has_feature("ios"):
+		var safe := DisplayServer.get_display_safe_area()
+		var origin := DisplayServer.window_get_position()
+		var physical := Vector2(DisplayServer.window_get_size())
+		if safe.size.x > 0 and safe.size.y > 0:
+			values = Vector4(maxf(0, safe.position.x - origin.x),
+				maxf(0, safe.position.y - origin.y),
+				maxf(0, origin.x + int(physical.x) - safe.end.x),
+				maxf(0, origin.y + int(physical.y) - safe.end.y)) / ui_scale
+	return clamp_safe_insets(values, window_size)
+
+## A malformed platform report must never consume the playable window.
+static func clamp_safe_insets(insets: Vector4, viewport: Vector2) -> Vector4:
+	return Vector4(clampf(insets.x, 0, viewport.x * 0.2),
+		clampf(insets.y, 0, viewport.y * 0.2),
+		clampf(insets.z, 0, viewport.x * 0.2),
+		clampf(insets.w, 0, viewport.y * 0.2))
+
 ## Whether this window should use thumb-friendly control sizing. Compact
 ## layouts are treated as touch surfaces even on a desktop so narrow windows
 ## remain usable; native touch displays get the same layout at larger sizes.
@@ -476,6 +555,8 @@ func uses_touch_layout() -> bool:
 
 ## Bottom control bar height (view/speed controls + tabbed toolbar).
 func bottom_bar_height() -> float:
+	if uses_portrait_hud():
+		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 44.0)
 	return float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if uses_touch_layout() else UIConstants.BOTTOM_BAR_HEIGHT)
 
 ## Vertical space below which popup panels must not sit (the bottom bar

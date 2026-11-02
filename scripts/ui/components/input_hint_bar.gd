@@ -150,5 +150,5 @@ func _layout() -> void:
 
 func _bottom_clearance() -> float:
 	if has_node("/root/Screen"):
-		return Screen.bottom_bar_height()
+		return Screen.bottom_bar_height() + (48.0 if Screen.uses_portrait_hud() else 0.0)
 	return 0.0

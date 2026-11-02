@@ -62,6 +62,17 @@ func setup(toolbar: TerrainToolbar) -> void:
 ## scrolls horizontally, so the dock only changes its own width/height and the
 ## touch targets; it does not squeeze or hide any game action.
 func apply_screen() -> void:
+	if Screen.uses_portrait_hud():
+		_apply_portrait()
+		return
+	if _backdrop:
+		_backdrop.visible = true
+	for button in section_buttons:
+		button.caption = TerrainToolbar.SECTION_TITLES[section_buttons.find(button)]
+	for path in ["MenuBtn", "SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]:
+		var utility := get_node_or_null(path) as PixelCircleButton
+		if utility:
+			utility.caption = ""
 	var touch_layout := Screen.uses_touch_layout()
 	var utility_size := TOUCH_UTILITY_SIZE if touch_layout else DESKTOP_UTILITY_SIZE
 	var bar_height := Screen.bottom_bar_height()
@@ -101,6 +112,41 @@ func apply_screen() -> void:
 		for button in section_buttons:
 			outer_circles.append(_circle_of(button))
 		_backdrop.set_circles(outer_circles, inner_circles)
+
+## Five stable thumb targets: three destinations, then Pause and Speed.
+## Menu lives in the portrait header (PortraitHUD). The same Buttons move here
+## from the fan; no duplicate action wiring or state.
+func _apply_portrait() -> void:
+	var width: float = Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z
+	custom_minimum_size = Vector2(width, Screen.portrait_nav_height())
+	position = Vector2.ZERO
+	size = custom_minimum_size
+	if _backdrop:
+		_backdrop.visible = false
+	var speed := get_node_or_null("SpeedControls") as Control
+	if speed:
+		speed.position = Vector2.ZERO
+		speed.size = custom_minimum_size
+	var buttons: Array[Control] = []
+	for button in section_buttons:
+		buttons.append(button)
+	for path in ["SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]:
+		var button := get_node_or_null(path) as Control
+		if button:
+			buttons.append(button)
+	var gaps := maxi(buttons.size() - 1, 0)
+	var cell := (width - 20.0 - float(gaps) * 4.0) / maxi(buttons.size(), 1)
+	var diameter := floorf(clampf(cell, 44.0, 52.0))
+	for i in buttons.size():
+		var button := buttons[i]
+		if button is PixelCircleButton:
+			button.diameter = diameter
+		button.custom_minimum_size = Vector2.ONE * diameter
+		button.size = Vector2.ONE * diameter
+		button.position = Vector2(10.0 + i * (cell + 4.0) + (cell - diameter) * 0.5, 6.0)
+		if button is PixelCircleButton and i >= 3:
+			button.caption = ["Pause", "Speed"][i - 3]
+		button.queue_redraw()
 
 ## A medallion as the backdrop needs it: centre and radius, packed.
 static func _circle_of(button: Control) -> Vector3:

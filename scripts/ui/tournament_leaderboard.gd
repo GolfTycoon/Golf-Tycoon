@@ -33,6 +33,17 @@ var embedded := false
 func _ready() -> void:
 	_build_ui()
 	hide()
+	if has_node("/root/Screen"):
+		Screen.changed.connect(func(_size: Vector2, _scale: float): _apply_embedded_width())
+		_apply_embedded_width()
+
+func _apply_embedded_width() -> void:
+	if not embedded:
+		return
+	custom_minimum_size.x = minf(PANEL_WIDTH, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0)
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if Screen.uses_portrait_hud() else ScrollContainer.SCROLL_MODE_DISABLED
+	_title_label.clip_text = true
+	_title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 func _build_ui() -> void:
 	custom_minimum_size = Vector2(PANEL_WIDTH, 0)

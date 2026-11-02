@@ -67,7 +67,7 @@ func _build_ui() -> void:
 	_filter_button = Button.new()
 	_filter_button.text = "Filter"
 	_filter_button.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	_filter_button.custom_minimum_size = Vector2(56, 24)
+	_filter_button.custom_minimum_size = Vector2(64, 44) if Screen.uses_portrait_hud() else Vector2(56, 24)
 	_filter_button.pressed.connect(_show_filter_popup)
 	header.add_child(_filter_button)
 
@@ -75,7 +75,7 @@ func _build_ui() -> void:
 	var close_btn = Button.new()
 	close_btn.text = "X"
 	close_btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	close_btn.custom_minimum_size = Vector2(24, 24)
+	close_btn.custom_minimum_size = Vector2(44, 44) if Screen.uses_portrait_hud() else Vector2(24, 24)
 	close_btn.pressed.connect(func(): close_requested.emit())
 	header.add_child(close_btn)
 
@@ -102,11 +102,17 @@ func _build_ui() -> void:
 
 func _position_panel() -> void:
 	var vp_size = get_viewport().get_visible_rect().size
-	var top_margin := UIConstants.get_hud_column_clearance(self)
+	var portrait := Screen.uses_portrait_hud()
+	var top_margin := Screen.portrait_header_height() + 8.0 if portrait else UIConstants.get_hud_column_clearance(self)
 	var bottom_margin := Screen.bottom_bar_height() + 6.0
 	var panel_height = maxf(120.0, vp_size.y - top_margin - bottom_margin)
-	size = Vector2(PANEL_WIDTH, panel_height)
-	position = Vector2(vp_size.x - PANEL_WIDTH - RIGHT_MARGIN, top_margin)
+	_filter_button.custom_minimum_size = Vector2(64, 44) if portrait else Vector2(56, 24)
+	var close_button := _filter_button.get_parent().get_child(2) as Button
+	if close_button:
+		close_button.custom_minimum_size = Vector2(44, 44) if portrait else Vector2(24, 24)
+	var width := minf(PANEL_WIDTH, vp_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0) if portrait else PANEL_WIDTH
+	size = Vector2(width, panel_height)
+	position = Vector2(vp_size.x - Screen.safe_insets.z - width - RIGHT_MARGIN, top_margin)
 
 ## Controller B or Escape leaves the feed. Escape is normally claimed by Main
 ## first (it closes the feed there); this catches the controller's cancel.
@@ -233,7 +239,7 @@ func _add_event_entry(entry: EventFeedManager.EventEntry) -> void:
 	time_label.text = "%s %d" % [GameCalendar.WEEKDAY_NAMES_SHORT[int(weekday)], int(date["day"])]
 	time_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
 	time_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	time_label.custom_minimum_size = Vector2(52, 0)
+	time_label.custom_minimum_size = Vector2(44, 0) if Screen.uses_portrait_hud() else Vector2(52, 0)
 	top_line.add_child(time_label)
 
 	# Category icon
@@ -251,7 +257,7 @@ func _add_event_entry(entry: EventFeedManager.EventEntry) -> void:
 	msg_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	msg_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg_label.custom_minimum_size = Vector2(200, 0)
+	msg_label.custom_minimum_size = Vector2(120, 0) if Screen.uses_portrait_hud() else Vector2(200, 0)
 	top_line.add_child(msg_label)
 
 	# Navigate link (if available)

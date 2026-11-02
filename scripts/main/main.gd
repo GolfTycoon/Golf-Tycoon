@@ -32,6 +32,7 @@ var player_round: PlayerRoundManager
 
 var hud_status_column: HUDStatusColumn = null
 var course_location_banner: CourseLocationBanner = null
+var portrait_hud: PortraitHUD = null
 
 # Legacy references (kept for compatibility, now managed by HUDStatusColumn)
 var money_label: Label = null
@@ -1683,8 +1684,12 @@ func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	for child in hud.get_children():
 		if child == mini_map:
 			mini_map.hud_visible = visible_flag
+		elif child == portrait_hud:
+			portrait_hud.set_hud_visible(visible_flag)
 		elif child.name not in popup_panels:
 			child.visible = visible_flag
+	if bottom_bar:
+		bottom_bar.visible = visible_flag and not Screen.uses_portrait_hud()
 
 ## Scores for the owner's rounds read out in the top-left corner of the screen,
 ## away from the shot controls in the bottom bar: the round card (practice round,
@@ -1751,8 +1756,10 @@ func _fill_view_controls() -> void:
 func _dock_scores_below_banner() -> void:
 	if scores_dock == null or course_location_banner == null:
 		return
-	scores_dock.set_top_clearance(
-		course_location_banner.get_occupied_height() + UIConstants.COURSE_BANNER_GAP)
+	var top := course_location_banner.get_occupied_height() + UIConstants.COURSE_BANNER_GAP
+	if Screen.uses_portrait_hud():
+		top = maxf(top, Screen.portrait_header_height() + 8.0)
+	scores_dock.set_top_clearance(top)
 
 ## Hand the loaded mods their HUD space: each registered widget factory
 ## returns a Control, added to the HUD in load order. The Weather mod's
@@ -4102,6 +4109,11 @@ func _position_mini_map() -> void:
 	if not mini_map:
 		return
 	var map_size := mini_map.get_map_total_size()
+	if Screen.uses_portrait_hud():
+		var course := Screen.portrait_course_rect()
+		mini_map.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		mini_map.position = Vector2(course.end.x - map_size.x, course.position.y + 4)
+		return
 	mini_map.anchor_left = 0
 	mini_map.anchor_top = 1
 	mini_map.anchor_right = 0
@@ -4996,6 +5008,12 @@ func _setup_course_aura() -> void:
 ## Wire the responsive camera scale and the touch gesture translator, and
 ## reflow the anchored HUD pieces whenever the window resizes or rotates.
 func _setup_responsive_ui() -> void:
+	portrait_hud = PortraitHUD.new()
+	$UI/HUD.add_child(portrait_hud)
+	$UI/HUD.move_child(portrait_hud, 0)
+	portrait_hud.setup(self)
+	EventBus.new_game_started.connect(func(): _apply_responsive_layout.call_deferred())
+	EventBus.load_completed.connect(func(_success: bool): _apply_responsive_layout.call_deferred())
 	camera.apply_world_scale(Screen.world_scale)
 	TouchInput.camera = camera
 	TouchInput.paint_mode_provider = _touch_is_paint_mode
@@ -5012,9 +5030,18 @@ func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
 
 ## Re-derive the size-sensitive HUD layout from the current window size.
 func _apply_responsive_layout() -> void:
+	if portrait_hud:
+		portrait_hud.apply_layout()
 	var bar_h := Screen.bottom_bar_height()
 	if bottom_bar:
+		# A hidden HBox must not accumulate offset drift while its children live
+		# in the portrait rail. Re-anchor it on every rotation before restoring.
+		bottom_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		bottom_bar.offset_left = 0.0
+		bottom_bar.offset_right = 0.0
+		bottom_bar.offset_bottom = 0.0
 		bottom_bar.offset_top = -bar_h
+		bottom_bar.custom_minimum_size.y = 0.0 if Screen.uses_portrait_hud() else bar_h
 	if hud_status_column:
 		hud_status_column.apply_screen()
 	if course_location_banner:
@@ -5028,7 +5055,18 @@ func _apply_responsive_layout() -> void:
 		terrain_toolbar.apply_screen()
 	if mini_map:
 		mini_map.apply_screen()
+		mini_map._sync_visibility()
 		_position_mini_map()
+	if input_hint_bar:
+		input_hint_bar._layout()
+	# Reparenting happens before the adapters resize their controls. Reassert
+	# the portrait frames afterwards so a hidden desktop HBox cannot sort the
+	# moved dock back to its old fan height during the same resize.
+	if portrait_hud and Screen.uses_portrait_hud():
+		portrait_hud.apply_layout()
+	elif bottom_bar and left_controls:
+		left_controls.size = left_controls.custom_minimum_size
+		bottom_bar.queue_sort()
 
 # --- Shot Trails ---
 

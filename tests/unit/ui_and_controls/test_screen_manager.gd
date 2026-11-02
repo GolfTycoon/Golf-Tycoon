@@ -167,8 +167,12 @@ func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	var desktop_bar := UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if DisplayServer.is_touchscreen_available() else UIConstants.BOTTOM_BAR_HEIGHT
 	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - desktop_bar - 8))
 	s.window_size = Vector2(390, 844)
-	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 240),
-		"Touch layouts reserve the taller bottom dock plus its popup margin")
+	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 108 - 8),
+		"Portrait popups clear the collapsed thumb rail and context button")
+	s.set_portrait_tools_open(true)
+	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 324 - 8),
+		"An open tray reserves its full height")
+	s.set_portrait_tools_open(false)
 	# Tiny windows get a usable floor, not a negative size.
 	s.window_size = Vector2(64, 64)
 	assert_eq(s.available_panel_size(), Vector2(120, 120))
@@ -181,5 +185,47 @@ func test_touch_layout_uses_a_taller_bar_for_larger_targets() -> void:
 
 	s.window_size = Vector2(390, 844)
 	assert_true(s.uses_touch_layout(), "Compact phone-sized windows use touch sizing")
-	assert_eq(s.bottom_bar_height(), float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT))
-	assert_almost_eq(s.hud_bottom_clearance(), UIConstants.TOUCH_BOTTOM_BAR_HEIGHT + 8.0, 0.001)
+	assert_eq(s.bottom_bar_height(), 108.0)
+	assert_almost_eq(s.hud_bottom_clearance(), 116.0, 0.001)
+	s.window_size = Vector2(844, 390)
+	assert_eq(s.bottom_bar_height(), float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT),
+		"Rotation keeps the existing landscape touch dock")
+
+
+func test_portrait_hud_is_phone_width_only() -> void:
+	var s := _make_screen()
+	for size in [Vector2(320, 568), Vector2(390, 844), Vector2(699, 1000)]:
+		s.window_size = size
+		assert_true(s.uses_portrait_hud(), "%s uses the thumb layout" % size)
+	for size in [Vector2(700, 1000), Vector2(768, 1024), Vector2(844, 390), Vector2(1600, 1000)]:
+		s.window_size = size
+		assert_false(s.uses_portrait_hud(), "%s keeps the wider composition" % size)
+
+func test_portrait_state_emits_and_changes_only_the_affected_clearance() -> void:
+	var s := _make_screen()
+	s.window_size = Vector2(390, 844)
+	var emissions: Array = []
+	s.changed.connect(func(_size: Vector2, _scale: float): emissions.append(true))
+	s.set_portrait_tools_open(false)
+	s.set_portrait_map_open(false)
+	assert_eq(emissions.size(), 0, "Unchanged state is quiet")
+	s.set_portrait_tools_open(true)
+	s.set_portrait_map_open(true)
+	assert_eq(emissions.size(), 2)
+	assert_eq(s.bottom_bar_height(), 324.0)
+	var course: Rect2 = s.portrait_course_rect()
+	assert_gte(course.position.y, s.portrait_header_height())
+	assert_lte(course.end.y, 844.0 - s.bottom_bar_height())
+	assert_gte(course.size.x, 300.0)
+
+func test_safe_insets_are_clamped_to_a_fifth_of_each_axis() -> void:
+	var clamped := ScreenScript.clamp_safe_insets(Vector4(-5, 44, 12, 900), Vector2(390, 844))
+	assert_eq(clamped, Vector4(0, 44, 12, 168.8))
+	var s := _make_screen()
+	s.window_size = Vector2(390, 844)
+	s.safe_insets = Vector4(12, 44, 12, 34)
+	assert_eq(s.portrait_nav_height(), 98.0)
+	var course: Rect2 = s.portrait_course_rect()
+	assert_gte(course.position.x, 20.0)
+	assert_lte(course.end.x, 378.0)
+	assert_gte(course.position.y, s.portrait_header_height())

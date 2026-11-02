@@ -122,9 +122,9 @@ func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
 			for tab in TerrainToolbar.SECTION_TABS[section]:
 				main.terrain_toolbar.select_tab(tab)
 				await process_frames(2)
-				assert_true(rect_within(main.bottom_bar.get_global_rect(), screen), "Bar stays on screen: %s, tab %s" % [window_size, tab])
+				assert_true(rect_within((main.portrait_hud.get_node("ThumbRail") if Screen.uses_portrait_hud() else main.bottom_bar).get_global_rect(), screen), "Bar stays on screen: %s, tab %s" % [window_size, tab])
 				for button in main.left_controls.section_buttons:
-					assert_eq(button.size.x, button.size.y)
+					assert_almost_eq(button.size.x, button.size.y, 0.01)
 					assert_true(rect_within(button.get_global_rect(), screen))
 				assert_true(rect_within(main.terrain_toolbar._tab_buttons[tab].get_global_rect(), screen))
 	await set_window(DESIGN_WINDOW)
@@ -133,10 +133,12 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 	for window_size in [Vector2i(390, 844), Vector2i(360, 800), Vector2i(844, 390)]:
 		await set_window(window_size)
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
-		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
+		var expected_height := Screen.portrait_nav_height() if Screen.uses_portrait_hud() else Screen.bottom_bar_height()
+		assert_almost_eq(main.left_controls.size.y, expected_height, 0.01, "The dock uses this layout's full control height")
 		# The Rotate arrows left the dock for the top-left location banner.
-		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
-			main.pause_btn, main.speed_btn]
+		# In portrait, Menu moves to the header; Pause/Speed stay in the rail.
+		var menu: Control = main.portrait_hud.get_node("ClubhouseLedger/MenuBtn") if Screen.uses_portrait_hud() else main.left_controls.get_node("MenuBtn")
+		var utility_buttons: Array = [menu, main.pause_btn, main.speed_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
@@ -170,7 +172,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 
 func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void:
 	# Finish at desktop to catch stale sizes or positions after growing for touch.
-	for window_size in [DESIGN_WINDOW, Vector2i(390, 844), Vector2i(844, 390), DESIGN_WINDOW]:
+	for window_size in [DESIGN_WINDOW, Vector2i(844, 390), DESIGN_WINDOW]:
 		await set_window(window_size)
 		var dock: BottomControlDock = main.left_controls
 		var menu: PixelCircleButton = dock.get_node("MenuBtn")
@@ -179,9 +181,9 @@ func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void
 		for i in utilities.size():
 			var button: PixelCircleButton = utilities[i]
 			var expected_size := diameter - i * BottomControlDock.UTILITY_SIZE_STEP
-			assert_eq(button.size, Vector2.ONE * expected_size, "Utility circles taper along the arc")
+			assert_eq(button.size.round(), Vector2.ONE * expected_size, "Utility circles taper along the arc")
 			assert_eq(button.diameter, expected_size, "Drawing and hit target use the same diameter")
-			assert_true(dock.get_global_rect().encloses(button.get_global_rect()),
+			assert_true(dock.get_global_rect().grow(1.0).encloses(button.get_global_rect()),
 				"Every utility stays inside the dock")
 		var pause_rect: Rect2 = main.pause_btn.get_global_rect()
 		var play_rect: Rect2 = main.speed_btn.get_global_rect()

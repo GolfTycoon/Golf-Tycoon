@@ -92,6 +92,11 @@ func test_status_column_uses_compact_width_on_narrow_windows() -> void:
 
 	await _set_window(390, 844)
 	column.apply_screen()
+	assert_almost_eq(column.custom_minimum_size.x, 374.0, 0.5)
+	assert_true(column.get_node("PortraitLedger").visible)
+
+	await _set_window(844, 390)
+	column.apply_screen()
 	assert_almost_eq(column.custom_minimum_size.x, 150.0, 0.5)
 	# The column has no collapse state: narrowing it never hides the cards.
 	assert_null(column.get("_collapsed"), "the column keeps no collapsed state")

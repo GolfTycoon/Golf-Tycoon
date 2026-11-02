@@ -124,6 +124,21 @@ func test_the_whole_corner_stays_on_screen_at_every_window_size() -> void:
 			Vector2i(390, 844), Vector2i(360, 800), Vector2i(844, 390)]:
 		await set_window(window_size)
 		var screen := Rect2(Vector2.ZERO, Vector2(window_size))
+		if Screen.uses_portrait_hud():
+			# Portrait moves rotation to the camera rail; the banner's arrows
+			# and facing chip fold away so the ledger owns the top strip.
+			assert_false(main.rotate_ccw_btn.is_visible_in_tree(),
+				"The banner arrows fold away in portrait at %s" % window_size)
+			assert_false(_chip().is_visible_in_tree(),
+				"The facing chip folds away in portrait at %s" % window_size)
+			var rail: Control = main.portrait_hud.get_node("CameraRail")
+			for action_name in ["RotateLeft", "RotateRight"]:
+				var arrow: Control = rail.get_node(action_name)
+				assert_true(rect_within(arrow.get_global_rect(), screen),
+					"%s stays on screen in the portrait camera rail at %s" % [action_name, window_size])
+				assert_gte(arrow.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
+					"The portrait rotate action is touch sized at %s" % window_size)
+			continue
 		for control in [_chip(), main.rotate_ccw_btn, main.rotate_cw_btn]:
 			assert_true(rect_within(control.get_global_rect(), screen),
 				"%s stays on screen at %s" % [control.name, window_size])

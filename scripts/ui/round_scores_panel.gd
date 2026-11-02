@@ -50,6 +50,12 @@ func _build_ui() -> void:
 	style.content_margin_bottom = 6
 	add_theme_stylebox_override("panel", style)
 
+	if has_node("/root/Screen") and Screen.uses_portrait_hud():
+		custom_minimum_size.x = maxf(240.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 24.0)
+	if not has_node("/root/Screen"):
+		return
+	Screen.changed.connect(func(_size: Vector2, _scale: float):
+		custom_minimum_size.x = maxf(240.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 24.0) if Screen.uses_portrait_hud() else PANEL_WIDTH)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
 	add_child(vbox)

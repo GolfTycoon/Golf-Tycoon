@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/autoload/input_manager.gd` (device tracking, focus scopes and navigation), `scripts/autoload/input_bindings.gd` (the rebindable control registry and its saved overrides), `scripts/ui/components/gamepad_cursor.gd` (keyboard/controller pointer), `scripts/ui/components/input_hint_bar.gd` (device prompts), `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key and controller handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/components/course_rating_stars.gd` (status column star strip), `scripts/ui/main_menu.gd`, `scripts/ui/generating_course_screen.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/utils/isometric_camera.gd`, `scripts/systems/player_data_store.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/ui_and_controls/test_input_manager.gd`, `tests/unit/ui_and_controls/test_input_bindings.gd`, `tests/integration/ui_and_controls/test_editable_controls.gd`, `tests/integration/ui_and_controls/test_gamepad_and_keyboard_screens.gd`, `tests/integration/ui_and_controls/test_gamepad_gameplay.gd`, `tests/integration/ui_and_controls/test_gamepad_every_screen.gd`, `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/ui_and_controls/test_pause_menu_touch.gd`, `tests/unit/ui_and_controls/test_game_over_touch.gd`, `tests/integration/ui_and_controls/test_touch_quit_to_menu.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_screen_manager.gd`, `tests/unit/ui_and_controls/test_ui_scale_preferences.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/ui_and_controls/test_course_rating_stars.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/unit/ui_and_controls/test_graphics_quality_settings.gd`, `tests/unit/ui_and_controls/test_camera_edge_panning.gd`, `tests/unit/ui_and_controls/test_player_data_store.gd`, `tests/harness/save_settings_layout_harness.tscn`
+**Source:** `scripts/autoload/input_manager.gd` (device tracking, focus scopes and navigation), `scripts/autoload/input_bindings.gd` (the rebindable control registry and its saved overrides), `scripts/ui/components/gamepad_cursor.gd` (keyboard/controller pointer), `scripts/ui/components/input_hint_bar.gd` (device prompts), `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key and controller handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column / portrait ledger), `scripts/ui/portrait_hud.gd` (portrait HUD coordinator), `scripts/ui/components/course_rating_stars.gd` (status column star strip), `scripts/ui/main_menu.gd`, `scripts/ui/generating_course_screen.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/utils/isometric_camera.gd`, `scripts/systems/player_data_store.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/ui_and_controls/test_input_manager.gd`, `tests/unit/ui_and_controls/test_input_bindings.gd`, `tests/integration/ui_and_controls/test_editable_controls.gd`, `tests/integration/ui_and_controls/test_gamepad_and_keyboard_screens.gd`, `tests/integration/ui_and_controls/test_gamepad_gameplay.gd`, `tests/integration/ui_and_controls/test_gamepad_every_screen.gd`, `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/ui_and_controls/test_pause_menu_touch.gd`, `tests/unit/ui_and_controls/test_game_over_touch.gd`, `tests/integration/ui_and_controls/test_touch_quit_to_menu.gd`, `tests/integration/ui_and_controls/test_portrait_hud.gd`, `tests/integration/ui_and_controls/test_responsive_layout.gd`, `tests/integration/ui_and_controls/test_bottom_dock.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_screen_manager.gd`, `tests/unit/ui_and_controls/test_ui_scale_preferences.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/ui_and_controls/test_course_rating_stars.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/unit/ui_and_controls/test_graphics_quality_settings.gd`, `tests/unit/ui_and_controls/test_camera_edge_panning.gd`, `tests/unit/ui_and_controls/test_player_data_store.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -106,6 +106,41 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 | Achievements screen (fullscreen) | `Shift+T`, Manage → Club → Milestones → Achievements, or the Achievements tile on the main menu |
 | Course scorecard | `K`, or Manage → Holes → Scorecard |
 | Benchmark Results screen (fullscreen) | Settings → Display → Past Results |
+
+### Portrait HUD (phones)
+
+Portrait windows narrower than 700 logical pixels use a dedicated thumb-first
+composition (`PortraitHUD`); wider portrait tablets and every landscape window
+keep the desktop fan/shelf. The coordinator **moves the live controls** into the
+new layout rather than duplicating them, so bindings, signals, badges, focus and
+tool state survive rotation. Rotating back restores the original parents/order.
+
+- **Clubhouse ledger (top).** Menu owns the top-left corner as a 44 px target;
+  the course identity strip sits to its right, above one row of money / rating /
+  reputation cards. When the course uses Seasons,
+  Weather or Wind, a second compact conditions row appears; otherwise the header
+  shrinks to give the course more room. Money and rating remain tappable.
+- **Thumb rail (bottom).** Five stable 44–52 px targets: Build, Manage, Golfers,
+  Pause, Speed. The active section opens a full-width **tool tray**; tapping
+  it again (or the collapsed context button) puts the tray away. The tray keeps
+  all 11 pages, brush size/shape, bulldozer and Inspect, with 48 px page tabs and
+  a horizontally scrollable catalogue that never pans or paints the course.
+- **Course view (middle).** The camera rail exposes Rotate left/right, Zoom
+  out/in and a course Overview toggle as five 44 px actions. Overview can open
+  even when the desktop minimap preference is off, without changing that
+  preference. Score cards, event feed and toasts dock below the ledger and clear
+  the rail/tray.
+- **Safe areas.** `Screen.safe_insets` (left/top/right/bottom, logical px) reads
+  native display safe areas on Android/iOS and `window.GolfTycoonSafeArea` on the
+  web. The web shell publishes CSS `env(safe-area-inset-*)` through a hidden
+  probe and resize/orientation listeners. Header, rail, tray, camera rail and
+  floating panels all reserve these insets; malformed reports are clamped to a
+  fifth of each axis.
+
+Contract: nav 64 px + bottom inset; tray 260 px; collapsed context 44 px; header
+108 px (148 px with conditions) + top inset. `Screen.portrait_course_rect()` is
+the shared playable rectangle. Regression coverage exercises 320×568 through
+540×960, rotation restore, safe-area offsets, shelf dragging and live actions.
 
 ### Bottom dock
 
@@ -316,6 +351,9 @@ Every key in these tables is a default: change any of them in **Settings → Con
 - **Pause menu, game-over card and confirmations on small windows.** The pause menu clamps itself to the window and scrolls (a drag on the panel scrolls it) when its options do not fit, so **Quit to Menu** and **Quit to Desktop** never sit below the bottom edge on a phone held sideways; a short window also tightens the spacing, drops the gesture footnote and gives each option a 40px target. The game-over card and the confirmation dialogue that follows keep their answers pinned to the bottom and only scroll the text above them, so **Quit to Menu**, **Start New Game**, **Load Saved Game**, **Reset World** and Cancel can always be tapped or focused at any window shape.
 
 ## Layout
+
+The portrait composition above is selected by `Screen.uses_portrait_hud()` and
+reflowed from `Screen.changed`; desktop and landscape touch layouts are unchanged.
 
 `Screen` chooses a compact layout on small windows. Panels then take the full width, and the bottom bar grows to fit touch. The main window is 1600 × 1000 on desktop.
 
