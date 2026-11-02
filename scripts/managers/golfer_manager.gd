@@ -328,9 +328,9 @@ func _process(delta: float) -> void:
 
 	# Dynamic spawning: spawn when first tee is clear (with minimum cooldown).
 	# The course never closes, so spawning continues around the clock.
-	# Don't spawn regular golfers during tournaments.
+	# Don't spawn regular golfers during tournaments or standalone Tournament Mode.
 	var tournament_active = GameManager.tournament_manager and GameManager.tournament_manager.is_tournament_in_progress()
-	if not tournament_active and GameManager.get_open_hole_count() > 0:
+	if not tournament_active and not GameManager.is_tournament_mode and GameManager.get_open_hole_count() > 0:
 		var effective_cooldown = get_effective_spawn_cooldown()
 		if time_since_last_spawn >= effective_cooldown:
 			if _is_at_golfer_cap():

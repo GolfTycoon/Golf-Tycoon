@@ -65,9 +65,9 @@ func test_a_phone_gets_the_compact_hud_and_a_reachable_menu() -> void:
 	main._set_gameplay_ui_visible(false)
 	assert_false(main.portrait_hud.visible, "The portrait composition stays hidden behind the title screen")
 	assert_eq(main.terrain_toolbar.get_parent(), main.portrait_hud.get_node("ToolTray"), "The live toolbar moves into the full-width tray")
-	# The main menu fits, scrollable, with its nine actions in reach.
+	# The main menu fits, scrollable, with its ten actions in reach.
 	var buttons := nodes_of_class(main.main_menu, "Button")
-	assert_eq(buttons.size(), 9, "The main menu shows its nine actions on phones")
+	assert_eq(buttons.size(), 10, "The main menu shows its ten actions on phones")
 	for button in buttons:
 		var rect: Rect2 = button.get_global_rect()
 		assert_true(rect.size.x <= 390.0 and rect.size.y >= 30.0, "%s fits the phone and stays tappable" % button.text)

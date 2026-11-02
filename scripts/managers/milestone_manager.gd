@@ -196,7 +196,7 @@ func get_total_count() -> int:
 ## tour playing on its throwaway courses: neither may complete a goal, move
 ## a career counter or unlock an achievement.
 func _progress_suppressed() -> bool:
-	return SaveManager._is_loading or SaveManager.benchmark_suppression
+	return SaveManager._is_loading or SaveManager.benchmark_suppression or GameManager.is_tournament_mode
 
 func _complete_milestone(m: MilestoneSystem.Milestone, location_id: String = "") -> void:
 	if _progress_suppressed():

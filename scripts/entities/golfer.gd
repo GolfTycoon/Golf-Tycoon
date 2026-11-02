@@ -632,12 +632,68 @@ func apply_player_appearance(profile: PlayerGolferProfile) -> void:
 		return
 	for key in PlayerGolferProfile.COLORS:
 		set(key, Color(profile.appearance.get(key, "ffffff")))
-	# The owner is a golfer like any other: the attribute block carries their
-	# name, profession and the same ten Golf Skills as points (+10% each).
+	# Copy the full golfer identity, traits, golfer skills, and 10 Golf Skills.
 	attributes.name = profile.golfer_name
-	attributes.profession = "Course Owner"
+	attributes.profession = profile.profession if not profile.profession.strip_edges().is_empty() else "Course Owner"
+	attributes.age = clampi(profile.age, 18, 100)
+	attributes.gender = GolferAttributes.Gender.FEMALE if profile.gender == GolferAttributes.Gender.FEMALE else GolferAttributes.Gender.MALE
+	attributes.marital_status = clampi(profile.marital_status, 0, 3)
+	for t_key in GolferAttributes.TRAIT_KEYS:
+		attributes.traits[t_key] = bool(profile.traits.get(t_key, false))
+	for gs_key in GolferAttributes.GOLFER_SKILL_KEYS:
+		attributes.golfer_skills[gs_key] = bool(profile.golfer_skills.get(gs_key, false))
 	for i in range(mini(profile.points.size(), attributes.golf_points.size())):
 		attributes.golf_points[i] = profile.points[i]
+	if GameManager != null and GameManager.is_tournament_mode and not GameManager.tournament_player_skin_colors.is_empty():
+		group_color_overrides.clear()
+		for grp_name in GameManager.tournament_player_skin_colors:
+			group_color_overrides[str(grp_name)] = Color.from_string(str(GameManager.tournament_player_skin_colors[grp_name]), Color.WHITE)
+		if not GameManager.player_skin_id.is_empty():
+			skin_id = GameManager.player_skin_id
+	_apply_appearance()
+	refresh_skin_sprites()
+
+## Apply a complete tournament golfer card (Name, Skin, Skin Colours,
+## Profession, Age, Gender, Marital Status, Golfer Traits, Golfer Skills, and
+## all 10 Golf Skills) onto this live Golfer node.
+func apply_golfer_card(card: Dictionary) -> void:
+	if card.is_empty():
+		return
+	var card_name := str(card.get("name", "")).strip_edges()
+	if not card_name.is_empty():
+		golfer_name = card_name
+		attributes.name = card_name
+	var card_prof := str(card.get("profession", "")).strip_edges()
+	if not card_prof.is_empty():
+		attributes.profession = card_prof
+	if card.has("age"):
+		attributes.age = clampi(int(card["age"]), 18, 100)
+	if card.has("gender"):
+		attributes.gender = GolferAttributes.Gender.FEMALE if int(card["gender"]) == GolferAttributes.Gender.FEMALE else GolferAttributes.Gender.MALE
+	if card.has("marital_status"):
+		attributes.marital_status = clampi(int(card["marital_status"]), 0, 3)
+	if card.get("traits") is Dictionary:
+		var trait_map: Dictionary = card["traits"]
+		for t_key in GolferAttributes.TRAIT_KEYS:
+			attributes.traits[t_key] = bool(trait_map.get(t_key, false))
+	if card.get("golfer_skills") is Dictionary:
+		var gs: Dictionary = card["golfer_skills"]
+		for gs_key in GolferAttributes.GOLFER_SKILL_KEYS:
+			attributes.golfer_skills[gs_key] = bool(gs.get(gs_key, false))
+	if card.get("points") is Array:
+		var pts: Array = card["points"]
+		for i in range(mini(pts.size(), attributes.golf_points.size())):
+			attributes.golf_points[i] = clampi(int(pts[i]), 0, GolferAttributes.POINTS_PER_GOLF_SKILL)
+	var app := TournamentLibrary.appearance_from_skin_colors(
+		card.get("skin_colors", {}) if card.get("skin_colors") is Dictionary else {}
+	)
+	for key in PlayerGolferProfile.COLORS:
+		if app.has(key):
+			set(key, Color(app[key]))
+	group_color_overrides = TournamentLibrary.skin_color_overrides_from_entry(card)
+	var chosen_skin := str(card.get("skin_id", "")).strip_edges()
+	if not chosen_skin.is_empty():
+		skin_id = chosen_skin
 	_apply_appearance()
 	refresh_skin_sprites()
 

@@ -517,9 +517,16 @@ func _update_all() -> void:
 func _update_feature_rows() -> void:
 	if _season_row == null or _weather_row == null or _wind_row == null:
 		return
+	var in_tourney := has_node("/root/GameManager") and GameManager.is_tournament_mode
 	var seasons_on := _is_feature_on("seasons")
 	var weather_on := _is_feature_on("weather")
 	var wind_on := _is_feature_on("wind")
+	if _funds_row != null:
+		_funds_row.visible = not in_tourney
+	if _reputation_row != null:
+		_reputation_row.visible = not in_tourney
+	if _rating_row != null:
+		_rating_row.visible = not in_tourney
 	_season_row.visible = seasons_on
 	_weather_row.visible = weather_on
 	_wind_row.visible = wind_on
@@ -527,6 +534,8 @@ func _update_feature_rows() -> void:
 		# The block introduces the weather/wind pair; with both off it goes too.
 		_environment_block.visible = weather_on or wind_on
 	if _portrait_mode:
+		if _portrait_primary:
+			_portrait_primary.visible = not in_tourney
 		_portrait_secondary.visible = seasons_on or weather_on or wind_on
 	_refresh_height()
 

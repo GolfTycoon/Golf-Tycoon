@@ -25,6 +25,17 @@ var course_name: String = "New Course"
 var company_name: String = "My Golf Company"
 var current_theme: int = CourseTheme.Type.PARKLAND
 var current_difficulty: int = DifficultyPresets.Preset.NORMAL
+## True while playing a standalone event launched from Main Menu -> Tournament Mode.
+## Freezes the Career calendar/economy, suppresses visitor spawns & autosaves, and
+## hides Career management HUD panels.
+var is_tournament_mode: bool = false
+var tournament_difficulty: int = 1
+var tournament_difficulty_label: String = ""
+var tournament_mode_options: Dictionary = {}
+var tournament_player_skin_colors: Dictionary = {}
+var _career_player_skin_id: String = ""
+var _has_saved_career_skin: bool = false
+var _custom_feature_flags: Dictionary = {}
 var heightmap_noise_seed: int = 0
 var tee_booking_interval: int = 90
 var colorblind_mode: int = ColorblindMode.Mode.OFF
@@ -283,6 +294,8 @@ func _on_golfer_finished_round_for_stats(_golfer_id: int, total_strokes: int, to
 
 
 func _process(delta: float) -> void:
+	if is_tournament_mode:
+		return
 	if current_mode == GameMode.SIMULATING and not is_paused and current_speed != GameSpeed.PAUSED:
 		_advance_time(delta)
 
@@ -435,6 +448,7 @@ func set_feature_enabled(feature: String, enabled: bool) -> void:
 		"weather": set_weather_enabled(enabled)
 		"wind": set_wind_enabled(enabled)
 		"seasons": set_seasons_enabled(enabled)
+		_: _custom_feature_flags[feature] = enabled
 
 ## Whether the mod that provides a feature is actually loaded. Unknown
 ## features have no provider to be missing.
@@ -443,6 +457,9 @@ func feature_available(feature: String) -> bool:
 		"weather": return ModManager.has_weather_provider()
 		"wind": return ModManager.has_wind_provider()
 		"seasons": return ModManager.has_season_provider()
+	for opt in ModManager.get_feature_options():
+		if opt is Dictionary and str((opt as Dictionary).get("id", "")) == feature:
+			return true
 	return true
 
 func is_feature_enabled(feature: String) -> bool:
@@ -450,7 +467,7 @@ func is_feature_enabled(feature: String) -> bool:
 		"weather": return weather_enabled and feature_available(feature)
 		"wind": return wind_enabled and feature_available(feature)
 		"seasons": return seasons_enabled and feature_available(feature)
-	return true
+	return bool(_custom_feature_flags.get(feature, true))
 
 ## Company name changes are rare enough to notify the HUD directly.
 func apply_company_name(new_name: String) -> void:
@@ -678,11 +695,45 @@ func check_round_record(golfer_name: String, total_strokes: int, holes_played: i
 		return true
 	return false
 
+## Enter standalone Tournament Mode with the player's chosen setup options.
+func enter_tournament_mode(
+	options: Dictionary,
+	diff_label: String,
+	tournament_skin_id: String = "",
+	tournament_skin_colors: Dictionary = {}
+) -> void:
+	if not _has_saved_career_skin:
+		_career_player_skin_id = player_skin_id
+		_has_saved_career_skin = true
+	is_tournament_mode = true
+	tournament_mode_options = options.duplicate(true)
+	tournament_difficulty = int(options.get("difficulty", 1))
+	tournament_difficulty_label = diff_label
+	player_skin_id = tournament_skin_id
+	tournament_player_skin_colors = tournament_skin_colors.duplicate(true)
+	unlimited_money = true
+
+## Leave standalone Tournament Mode and restore global session preferences.
+func exit_tournament_mode() -> void:
+	if not is_tournament_mode and not _has_saved_career_skin:
+		tournament_difficulty_label = ""
+		tournament_player_skin_colors.clear()
+		return
+	is_tournament_mode = false
+	tournament_difficulty_label = ""
+	tournament_player_skin_colors.clear()
+	_custom_feature_flags.clear()
+	unlimited_money = false
+	if _has_saved_career_skin:
+		player_skin_id = _career_player_skin_id
+		_has_saved_career_skin = false
+
 ## Reset course records (for new game)
 func reset_course_records() -> void:
 	course_records = CourseRecords.create_empty_records()
 
 func new_game(course_name_input: String = "New Course", theme: int = CourseTheme.Type.PARKLAND, difficulty: int = DifficultyPresets.Preset.NORMAL, options: Dictionary = {}) -> void:
+	exit_tournament_mode()
 	player_profile = PlayerGolferProfile.new()
 	course_name = course_name_input
 	current_theme = theme
@@ -700,9 +751,14 @@ func new_game(course_name_input: String = "New Course", theme: int = CourseTheme
 	money = UNLIMITED_STARTING_BALANCE if unlimited_money else money_option
 	bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
 	var saved_features: Dictionary = options.get("features", {})
+	_custom_feature_flags.clear()
 	set_weather_enabled(bool(saved_features.get("weather", weather_enabled)))
 	set_wind_enabled(bool(saved_features.get("wind", wind_enabled)))
 	set_seasons_enabled(bool(saved_features.get("seasons", seasons_enabled)))
+	for f_key in saved_features:
+		var k := str(f_key)
+		if k not in ["weather", "wind", "seasons"]:
+			set_feature_enabled(k, bool(saved_features[f_key]))
 
 	reputation = DEFAULT_STARTING_REPUTATION
 	# New games begin on the morning of Saturday, 1 January 2000.

@@ -211,6 +211,53 @@ func _build_work_area_column() -> void:
 
 	_refresh_work_area()
 
+## Career Mode export controls on Golfers -> Play Course: save either the open
+## course or the owner's golfer for standalone Tournament Mode.
+func _build_tournament_play_export_column() -> void:
+	_label("Tournament Mode")
+	var save_course_btn := _button("Save Course for Tournament", _on_save_course_for_tournament)
+	save_course_btn.name = "SaveTournamentCourseButton"
+	save_course_btn.tooltip_text = "Export this course so you can select it on the Start Tournament screen from the Main Menu."
+	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
+	save_golfer_btn.name = "SaveTournamentGolferButton"
+	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance so you can play as them in Tournament Mode."
+
+## Career Mode export control on Golfers -> Edit Player.
+func _build_tournament_golfer_export_column() -> void:
+	_label("Tournament Mode")
+	_label("Export this golfer for Main Menu tournaments.")
+	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
+	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
+	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance for standalone Tournament Mode."
+
+func _on_save_course_for_tournament() -> void:
+	var result := TournamentLibrary.save_career_course()
+	if bool(result.get("ok", false)):
+		EventBus.notify(
+			"Saved '%s' (%d holes, Par %d) for Tournament Mode!" % [
+				str(result.get("name", "Course")),
+				int(result.get("hole_count", 0)),
+				int(result.get("par", 0)),
+			],
+			"success"
+		)
+	else:
+		EventBus.notify(str(result.get("error", "Could not save course for Tournament Mode.")), "warning")
+
+func _on_save_golfer_for_tournament() -> void:
+	_persist_player_profile()
+	var worn_skin := GolferSkins.player_skin() if GolferSkins != null else null
+	var chosen_skin_id := worn_skin.id if worn_skin != null else GameManager.player_skin_id
+	var skin_colors := TournamentLibrary.capture_skin_colors(GameManager.player_profile, chosen_skin_id)
+	var result := TournamentLibrary.save_career_golfer(GameManager.player_profile, chosen_skin_id, skin_colors)
+	if bool(result.get("ok", false)):
+		EventBus.notify(
+			"Saved golfer '%s' for Tournament Mode!" % str(result.get("name", "Golfer")),
+			"success"
+		)
+	else:
+		EventBus.notify(str(result.get("error", "Could not save golfer for Tournament Mode.")), "warning")
+
 ## Where the owner's own golfer works, in words the player can read.
 func _refresh_work_area() -> void:
 	if _work_area_label == null:
@@ -621,6 +668,10 @@ func _build_setup() -> void:
 		# they are not playing gets a column of its own.
 		content = PlayerTab.add_column(edit_page, 220)
 		_build_work_area_column()
+		if not GameManager.is_tournament_mode:
+			content = PlayerTab.add_column(edit_page, 210)
+			content.add_theme_constant_override("separation", 4)
+			_build_tournament_golfer_export_column()
 		var traits_column: VBoxContainer = null
 		for slot in GolferAttributes.TRAIT_KEYS.size():
 			if slot % TOGGLES_PER_COLUMN == 0:
@@ -660,28 +711,34 @@ func _build_setup() -> void:
 		color.color_changed.connect(_on_profile_color_changed.bind(str(key)))
 		row.add_child(color)
 	if is_instance_valid(player_tab):
-		# Short round-choice sections share one horizontally scrolling shelf.
-		# Practice Round leads the first column with Play vs Pro stacked below it.
-		content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY])
-		# The stacked column must stay under the shelf's ~150px height budget
-		# (the tab has no vertical scrollbar), so its rows sit tighter than the
-		# other columns' default spacing.
-		content.add_theme_constant_override("separation", 2)
-		_label("Practice Round")
-		mode_picker = OptionButton.new()
-		for title in ["Practice round", "Play vs a Pro"]:
-			mode_picker.add_item(title)
-		mode_picker.hide()  # Each section starts its own format below.
-		content.add_child(mode_picker)
-		var practice_button := _button("Start practice round", _start_embedded.bind(0))
-		practice_button.set_meta("owner_round_start", true)
-		_label("Play vs Pro")
-		pro_picker = OptionButton.new()
-		for pro in PROS:
-			pro_picker.add_item(pro)
-		content.add_child(pro_picker)
-		var pro_button := _button("Play selected pro", _start_embedded.bind(1))
-		pro_button.set_meta("owner_round_start", true)
+		if not GameManager.is_tournament_mode:
+			# Short round-choice sections share one horizontally scrolling shelf.
+			# Practice Round leads the first column with Play vs Pro stacked below it.
+			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY])
+			# The stacked column must stay under the shelf's ~150px height budget
+			# (the tab has no vertical scrollbar), so its rows sit tighter than the
+			# other columns' default spacing.
+			content.add_theme_constant_override("separation", 2)
+			_label("Practice Round")
+			mode_picker = OptionButton.new()
+			for title in ["Practice round", "Play vs a Pro"]:
+				mode_picker.add_item(title)
+			mode_picker.hide()  # Each section starts its own format below.
+			content.add_child(mode_picker)
+			var practice_button := _button("Start practice round", _start_embedded.bind(0))
+			practice_button.set_meta("owner_round_start", true)
+			_label("Play vs Pro")
+			pro_picker = OptionButton.new()
+			for pro in PROS:
+				pro_picker.add_item(pro)
+			content.add_child(pro_picker)
+			var pro_button := _button("Play selected pro", _start_embedded.bind(1))
+			pro_button.set_meta("owner_round_start", true)
+
+			# Export the Career course or golfer for standalone Tournament Mode.
+			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY], 216)
+			content.add_theme_constant_override("separation", 3)
+			_build_tournament_play_export_column()
 		content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 250)
 	else:
 		_label("Round format")

@@ -29,12 +29,14 @@ const GROUP_IDS: Array[String] = [
 ]
 
 const SAVE_EXTENSION := ".save"
+const TOURNAMENT_COURSES_SUBDIR := "tournament_courses"
+const TOURNAMENT_COURSE_EXTENSION := ".course"
 ## Sections of settings.cfg that hold a preference. The career sections are
 ## separate on purpose: resetting the mixer must never wipe the trophy case.
 const PREFERENCE_SECTIONS: Array[String] = [
 	"audio", "display", "controls", "camera", "gameplay", "graphics",
 ]
-const CAREER_SECTIONS: Array[String] = ["achievements", "tutorial"]
+const CAREER_SECTIONS: Array[String] = ["achievements", "tutorial", "tournament_golfers"]
 ## The shipped audio mix, the same one a first launch starts with.
 const DEFAULT_AUDIO := {
 	"master_volume": 0.8,
@@ -150,12 +152,21 @@ static func usage(id: String) -> Dictionary:
 	match id:
 		SAVED_COURSES:
 			var saves := _save_files()
-			var saves_label := "No saved courses."
+			var t_courses := _tournament_course_files()
+			var total_courses := saves.size() + t_courses.size()
+			var course_parts: Array[String] = []
 			if saves.size() == 1:
-				saves_label = "1 saved course."
+				course_parts.append("1 saved course")
 			elif saves.size() > 1:
-				saves_label = "%d saved courses." % saves.size()
-			return _usage(id, saves.size(), not saves.is_empty(), saves_label)
+				course_parts.append("%d saved courses" % saves.size())
+			if t_courses.size() == 1:
+				course_parts.append("1 tournament course")
+			elif t_courses.size() > 1:
+				course_parts.append("%d tournament courses" % t_courses.size())
+			var saves_label := "No saved courses."
+			if not course_parts.is_empty():
+				saves_label = " · ".join(course_parts) + "."
+			return _usage(id, total_courses, total_courses > 0, saves_label)
 		PREFERENCES:
 			var preferences := _preference_value_count()
 			var preferences_label := "Using the shipped defaults."
@@ -166,7 +177,7 @@ static func usage(id: String) -> Dictionary:
 			return _usage(id, preferences, preferences > 0, preferences_label)
 		CAREER:
 			var state := _career_usage()
-			var count := int(state["achievements"]) + (1 if bool(state["tutorial"]) else 0)
+			var count := int(state["achievements"]) + (1 if bool(state["tutorial"]) else 0) + int(state["tournament_golfers"])
 			var parts: Array[String] = []
 			if int(state["achievements"]) == 1:
 				parts.append("1 achievement")
@@ -174,6 +185,10 @@ static func usage(id: String) -> Dictionary:
 				parts.append("%d achievements" % int(state["achievements"]))
 			if bool(state["tutorial"]):
 				parts.append("tutorial finished")
+			if int(state["tournament_golfers"]) == 1:
+				parts.append("1 tournament golfer")
+			elif int(state["tournament_golfers"]) > 1:
+				parts.append("%d tournament golfers" % int(state["tournament_golfers"]))
 			var career_label := "No career records yet."
 			if not parts.is_empty():
 				career_label = " · ".join(parts) + "."
@@ -258,7 +273,7 @@ static func erase_all() -> Dictionary:
 static func _erase_one(id: String) -> Dictionary:
 	match id:
 		SAVED_COURSES:
-			return _erase_files(_save_files())
+			return _erase_saved_courses()
 		PREFERENCES:
 			return _erase_sections(PREFERENCE_SECTIONS)
 		CAREER:
@@ -268,6 +283,14 @@ static func _erase_one(id: String) -> Dictionary:
 		GOLFER_SKINS:
 			return _erase_skins()
 	return {"ok": false, "removed": 0, "errors": ["Unknown data group: " + id]}
+
+
+static func _erase_saved_courses() -> Dictionary:
+	var result := _erase_files(_save_files() + _tournament_course_files())
+	var t_dir := _join(saves_dir, TOURNAMENT_COURSES_SUBDIR)
+	if DirAccess.dir_exists_absolute(t_dir):
+		_remove_tree(t_dir)
+	return result
 
 
 static func _erase_files(paths: Array[String]) -> Dictionary:
@@ -423,6 +446,18 @@ static func _save_files() -> Array[String]:
 	return paths
 
 
+static func _tournament_course_files() -> Array[String]:
+	var paths: Array[String] = []
+	var t_dir := _join(saves_dir, TOURNAMENT_COURSES_SUBDIR)
+	if not DirAccess.dir_exists_absolute(t_dir):
+		return paths
+	for file_name in DirAccess.get_files_at(t_dir):
+		if str(file_name).ends_with(TOURNAMENT_COURSE_EXTENSION):
+			paths.append(_join(t_dir, str(file_name)))
+	paths.sort()
+	return paths
+
+
 static func _preference_value_count() -> int:
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
@@ -437,14 +472,18 @@ static func _preference_value_count() -> int:
 static func _career_usage() -> Dictionary:
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
-		return {"achievements": 0, "tutorial": false}
+		return {"achievements": 0, "tutorial": false, "tournament_golfers": 0}
 	var unlocked: Variant = config.get_value("achievements", "unlocked", {})
 	var achievements := 0
 	if unlocked is Dictionary:
 		achievements = (unlocked as Dictionary).size()
+	var t_golfers := 0
+	if config.has_section("tournament_golfers"):
+		t_golfers = config.get_section_keys("tournament_golfers").size()
 	return {
 		"achievements": achievements,
 		"tutorial": bool(config.get_value("tutorial", "completed", false)),
+		"tournament_golfers": t_golfers,
 	}
 
 

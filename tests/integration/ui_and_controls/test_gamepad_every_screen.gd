@@ -247,3 +247,13 @@ func test_touch_tap_activates_a_screen_control() -> void:
 	await wait_frames(3)
 	assert_true(resumed[0], "a tap on Resume resumes the game on a touchscreen")
 	get_viewport().size = original_size
+
+
+func test_start_tournament_screen_is_operable_and_b_backs_out() -> void:
+	var screen := await _add(StartTournamentScreen.new()) as StartTournamentScreen
+	_assert_operable("start tournament", screen)
+	var backed := [false]
+	screen.back_requested.connect(func() -> void: backed[0] = true)
+	await _push_joy(BUTTON_B)
+	assert_true(backed[0], "B backs out of Start Tournament to the Main Menu")
+
