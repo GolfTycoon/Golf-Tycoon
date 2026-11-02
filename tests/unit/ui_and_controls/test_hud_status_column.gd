@@ -157,6 +157,38 @@ func test_rows_show_values_before_right_hand_icons_without_titles() -> void:
 	assert_gt(funds.get_node("Trend").get_index(), funds.get_node("Value").get_index(),
 		"the funds trend follows the value")
 
+func test_value_pills_have_horizontal_padding_on_desktop_and_compact() -> void:
+	_set_features(true, true, true)
+	var column := _make_column()
+	for window_size in [Vector2i(1600, 1000), Vector2i(844, 390)]:
+		get_window().size = window_size
+		await process_frames(2)
+		column.apply_screen()
+		await process_frames(2)
+		for field in ROW_FIELDS:
+			var card := _row(column, field)
+			var pill := card.get_node("Content/ValueBackground") as PanelContainer
+			var content := pill.get_node("ValueContent") as Control
+			var icon := card.get_node("Content/IconBackground") as PanelContainer
+			assert_almost_eq(content.position.x, float(HUDStatusColumn.VALUE_HORIZONTAL_PADDING), 0.5,
+				"%s has left padding" % field)
+			assert_almost_eq(pill.position.x + pill.size.x - icon.position.x,
+				float(HUDStatusColumn.VALUE_ICON_OVERLAP), 0.5, "%s overlaps behind the icon" % field)
+			assert_almost_eq(icon.position.x - (pill.position.x + content.position.x + content.size.x),
+				float(HUDStatusColumn.VALUE_HORIZONTAL_PADDING), 0.5, "%s keeps visible right padding" % field)
+			assert_lt(pill.get_index(), icon.get_index(), "%s draws its icon above the pill" % field)
+			assert_lte(card.size.x, column.custom_minimum_size.x, "%s fits the column" % field)
+
+		# Long values still respect the responsive width, even with a trend mark.
+		column._money_trend.text = "^"
+		column._set_value_text(column._money_label, "$ 1,234,567,890")
+		await process_frames(2)
+		assert_lte(_row(column, "_funds_row").size.x, column.custom_minimum_size.x,
+			"long funds values and the trend fit alongside the padding")
+
+	get_window().size = Vector2i(1600, 1000)
+	await process_frames(2)
+
 func test_dynamic_icons_update_their_accented_medallion_and_value_pill() -> void:
 	_set_features(true, true, true)
 	var column := _make_column()
@@ -270,7 +302,8 @@ func test_the_cards_stay_shown_on_a_compact_window() -> void:
 	for field in ROW_FIELDS:
 		assert_true(_row(column, field).is_visible_in_tree(),
 			"%s stays on screen on a compact window" % field)
-	assert_almost_eq(column.custom_minimum_size.x, 150.0, 0.5, "the column is the compact width")
+	assert_almost_eq(column.custom_minimum_size.x, 374.0, 0.5, "the portrait ledger spans the phone")
+	assert_eq(column.get_node("PortraitLedger").visible, true, "the ledger arrangement is active")
 	get_window().size = Vector2i(1600, 1000)
 	await process_frames(2)
 
@@ -341,8 +374,9 @@ func test_rating_row_shows_star_icons_without_text_and_puts_numeric_value_in_too
 	var stars := rating_row.get_node("Content/ValueBackground/ValueContent/Stars") as CourseRatingStars
 
 	assert_not_null(stars, "RatingRow renders CourseRatingStars inside ValueBackground")
-	assert_eq(_nodes_of_class(rating_row, "Label").size(), 0,
-		"RatingRow contains no visible text Label")
+	var visible_labels := _nodes_of_class(rating_row, "Label").filter(func(label: Label): return label.is_visible_in_tree())
+	assert_eq(visible_labels.size(), 0,
+		"Desktop RatingRow contains no visible text Label")
 
 	# Before a rating arrives, all five star sockets are unlit and the tooltip says Unrated.
 	assert_false(stars.rated, "starts unrated until a course pushes a rating")
@@ -390,14 +424,14 @@ func test_rating_row_stars_fit_both_desktop_and_compact_columns() -> void:
 	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
 		"desktop rating row fits inside the 210px column")
 
-	get_window().size = Vector2i(390, 844)
+	get_window().size = Vector2i(844, 390)
 	await process_frames(2)
 	column.apply_screen()
 	await process_frames(2)
 
-	assert_true(stars.compact, "compact window switches to compact 15x15 stars")
+	assert_true(stars.compact, "compact landscape switches to compact 15x15 stars")
 	assert_lt(rating_row.size.x, column.custom_minimum_size.x,
-		"compact rating row fits inside the 150px phone column")
+		"compact rating row fits inside the 150px landscape column")
 	assert_almost_eq(stars.stars, 4.5, 0.001, "resizing preserves the active star rating")
 	assert_true((rating_row.get_node("Action") as Button).tooltip_text.contains("4.5"),
 		"resizing preserves the numeric tooltip")

@@ -133,7 +133,11 @@ func _build_ui() -> void:
 	_details_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_details_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_details_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_details_panel.add_theme_stylebox_override("panel", _card_style())
+	var card_style := _card_style()
+	if _is_portrait():
+		card_style.content_margin_top = 3
+		card_style.content_margin_bottom = 3
+	_details_panel.add_theme_stylebox_override("panel", card_style)
 	columns.add_child(_details_panel)
 
 	var details_row := HBoxContainer.new()
@@ -403,6 +407,9 @@ func _sync_orientation_toggle() -> void:
 # LAYOUT
 # =============================================================================
 
+func _is_portrait() -> bool:
+	return has_node("/root/Screen") and Screen.uses_portrait_hud()
+
 func _is_compact() -> bool:
 	return has_node("/root/Screen") and Screen.is_compact()
 
@@ -415,6 +422,11 @@ func _picture_scale() -> int:
 ## too narrow for both gives up the card's width first, so the corner never
 ## runs off the screen with its arrows: they would be clipped and unreachable.
 func _columns_width() -> float:
+	if _is_portrait():
+		# PortraitHUD pins Menu to the top-left; the identity strip starts one
+		# touch slot plus gap to its right and uses the remaining width.
+		var menu_slot := float(UIConstants.TOUCH_TARGET_SIZE) + 8.0
+		return maxf(180.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0 - menu_slot)
 	var width := WIDTH_COMPACT if _is_compact() else WIDTH_DESKTOP
 	if is_inside_tree():
 		var usable: float = get_viewport_rect().size.x \
@@ -426,7 +438,7 @@ func _columns_width() -> float:
 ## Room the Rotate arrows take beside the card: nothing while they are folded
 ## away, so the whole banner narrows back into the corner.
 func _view_controls_width() -> float:
-	if rotate_controls == null or not rotate_controls.visible:
+	if _is_portrait() or rotate_controls == null or not rotate_controls.visible:
 		return 0.0
 	return rotate_controls.get_combined_minimum_size().x + VIEW_CONTROLS_GAP
 
@@ -441,7 +453,7 @@ func _banner_width() -> float:
 ## when they do the banner grows with them rather than letting them hang over
 ## the course.
 func banner_height() -> float:
-	var base := HEIGHT_COMPACT if _is_compact() else HEIGHT_DESKTOP
+	var base := 40.0 if _is_portrait() else (HEIGHT_COMPACT if _is_compact() else HEIGHT_DESKTOP)
 	var arrows := 0.0
 	if rotate_controls and rotate_controls.visible:
 		arrows = rotate_controls.get_combined_minimum_size().y
@@ -472,6 +484,14 @@ func _apply_layout_sizes() -> void:
 	# Square art: width and height come from the same grid side.
 	var picture_side: int = CourseLocationPicture.GRID_W * picture_scale
 	_picture.custom_minimum_size = Vector2(picture_side, picture_side)
+	var card_style := _card_style()
+	if _is_portrait():
+		card_style.content_margin_top = 3
+		card_style.content_margin_bottom = 3
+	_details_panel.add_theme_stylebox_override("panel", card_style)
+	_picture_frame.visible = not _is_portrait()
+	orientation_toggle.visible = not _is_portrait()
+	rotate_controls.visible = not _is_portrait() and _rotate_controls_shown
 	_name_label.add_theme_font_size_override(
 		"font_size", UIConstants.FONT_SIZE_BASE if _is_compact() else UIConstants.FONT_SIZE_MD)
 	_date_label.add_theme_font_size_override(
@@ -509,10 +529,10 @@ func _apply_anchors() -> void:
 	set_anchor(SIDE_TOP, 0.0)
 	set_anchor(SIDE_RIGHT, 0.0)
 	set_anchor(SIDE_BOTTOM, 0.0)
-	offset_left = margin
-	offset_top = margin
-	offset_right = margin + _banner_width()
-	offset_bottom = margin + banner_height()
+	offset_left = Screen.safe_insets.x + 8.0 + float(UIConstants.TOUCH_TARGET_SIZE) + 8.0 if _is_portrait() else margin
+	offset_top = Screen.safe_insets.y + 8.0 if _is_portrait() else margin
+	offset_right = offset_left + _banner_width()
+	offset_bottom = offset_top + banner_height()
 	grow_horizontal = Control.GROW_DIRECTION_END
 	grow_vertical = Control.GROW_DIRECTION_END
 	var occupied := get_occupied_height()

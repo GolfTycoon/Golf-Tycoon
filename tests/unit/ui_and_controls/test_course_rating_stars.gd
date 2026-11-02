@@ -1,7 +1,8 @@
 extends GameTest
 ## CourseRatingStars: the five faceted pixel-art stars inside HUDStatusColumn's
 ## rating value pill. Verifies grid geometry, mirror symmetry, 3D facet palette,
-## recessed unlit sockets, central-ridge half-star splits and texture caching.
+## recessed unlit sockets, central-ridge half-star splits, compact spacing and
+## texture caching.
 
 const VALID_KEYS := ".XHLGADR"
 
@@ -57,6 +58,33 @@ func test_half_star_splits_cleanly_along_the_central_vertical_ridge() -> void:
 		"central ridge of a 0.5 star stays lit")
 	assert_eq(half_desktop.get_pixel(16, 8), unlit_desktop.get_pixel(16, 8),
 		"right arm of a 0.5 star is the recessed unlit socket")
+
+
+func test_compact_spacing_fits_the_strip_without_cropping_or_overlapping_ink() -> void:
+	var strip := autofree(CourseRatingStars.new(true)) as CourseRatingStars
+	var side := strip.star_side()
+	var pitch := side + strip.star_gap()
+	var rows := CourseRatingStars.grid_for(true)
+	var ink_left := side
+	var ink_right := -1
+	for row in rows:
+		for x in side:
+			if row[x] != ".":
+				ink_left = mini(ink_left, x)
+				ink_right = maxi(ink_right, x)
+
+	var ink_width := ink_right - ink_left + 1
+	var painted_width := float(ink_width + pitch * (CourseRatingStars.STAR_COUNT - 1))
+	assert_eq(side, 15, "compact spacing keeps the original 15x15 star textures")
+	assert_gte(pitch, ink_width, "neighbouring stars do not overlap their visible pixels")
+	assert_lte(painted_width, strip.custom_minimum_size.x,
+		"all five stars fit inside the strip without cropping their ink")
+
+	strip.set_compact(false)
+	assert_eq(strip.custom_minimum_size.x,
+		float(CourseRatingStars.DESKTOP_PAD_X * 2 + CourseRatingStars.DESKTOP_SIDE * CourseRatingStars.STAR_COUNT
+			+ CourseRatingStars.DESKTOP_GAP * (CourseRatingStars.STAR_COUNT - 1)),
+		"returning to desktop restores the original spacious strip")
 
 
 func test_star_textures_are_cached_by_quantized_fill_and_layout() -> void:

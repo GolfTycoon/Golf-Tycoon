@@ -352,7 +352,13 @@ static func _apply_defaults(id: String) -> void:
 static func reset_live_preferences() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree:
-		tree.root.content_scale_factor = 1.0
+		var screen := tree.root.get_node_or_null("Screen")
+		if screen != null:
+			# Back to automatic sizing: the detected default for this device,
+			# not a hard 100% (which would be wrong on a high-DPI display).
+			screen.call("reset_ui_scale", false)
+		else:
+			tree.root.content_scale_factor = 1.0
 	SoundManager.load_settings_data(DEFAULT_AUDIO)
 	PerformanceSettings.load_from_config(ConfigFile.new())
 	InputBindings.reset_all(false)

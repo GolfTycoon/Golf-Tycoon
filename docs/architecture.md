@@ -48,7 +48,7 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 
 | Name | Script | Role |
 | --- | --- | --- |
-| `Screen` | `scripts/autoload/screen_manager.gd` | Responsive layout: window size, panel rectangles, compact mode |
+| `Screen` | `scripts/autoload/screen_manager.gd` | Responsive layout: device-aware UI scale, logical window size, safe insets, panel rectangles, compact mode and portrait HUD state |
 | `InputManager` | `scripts/autoload/input_manager.gd` | Device tracking, focus scopes and keyboard/gamepad navigation |
 | `TouchInput` | `scripts/autoload/touch_input.gd` | Turns touch gestures into clicks, pans and pinch zoom |
 | `GameManager` | `scripts/autoload/game_manager.gd` | Money, reputation, day and time, game mode, speed, economy rules |

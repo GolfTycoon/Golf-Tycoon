@@ -181,20 +181,19 @@ func test_the_bulldozer_demolishes_a_building_from_any_footprint_tile() -> void:
 	assert_eq(GameManager.money, money - 20, "Demolition charges a flat $20, whatever the facility")
 
 
-func test_the_pinned_buttons_follow_bulldozer_mode() -> void:
-	var buttons: Array = main.terrain_toolbar._bulldozer_buttons
+func test_the_header_row_button_follows_bulldozer_mode() -> void:
+	var button: BulldozerButton = main.terrain_toolbar._bulldozer_button
+	assert_not_null(button, "The header row holds the Bulldozer button")
 	main._on_bulldozer_pressed()
 	await process_frames(2)
-	assert_true(buttons.all(func(button): return button.is_active()),
-		"The pinned buttons show bulldozer mode is on")
+	assert_true(button.is_active(), "The Bulldozer button shows bulldozer mode is on")
 	main._cancel_bulldozer_mode()
 	await process_frames(2)
-	assert_true(buttons.all(func(button): return not button.is_active()),
-		"and off again once it ends")
+	assert_true(not button.is_active(), "and off again once it ends")
 
-	# The pinned buttons and the X hotkey share one signal, without switching tabs.
+	# The header button and the X hotkey share one signal, without switching tabs.
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.IMPROVEMENTS)
-	buttons[0].pressed.emit()
-	assert_true(main.bulldozer_mode, "A pinned button activates bulldozer mode")
+	button.pressed.emit()
+	assert_true(main.bulldozer_mode, "The Bulldozer button activates bulldozer mode")
 	assert_eq(main.terrain_toolbar.current_tab, TerrainToolbar.Tab.IMPROVEMENTS,
-		"Pressing the pinned Bulldozer keeps its tab open")
+		"Pressing the Bulldozer keeps its tab open")

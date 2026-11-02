@@ -18,6 +18,10 @@ var leaderboard: TournamentLeaderboard = null
 ## the CourseLocationBanner so the score cards never cover the postcard.
 var _top_clearance: float = -1.0
 
+func _ready() -> void:
+	if has_node("/root/Screen"):
+		Screen.changed.connect(func(_size: Vector2, _scale: float): _dock_top_left())
+
 func _init() -> void:
 	name = "ScoresDock"
 	add_theme_constant_override("separation", UIConstants.SEPARATION_MD)
@@ -47,9 +51,13 @@ func _dock_top_left() -> void:
 	set_anchor(SIDE_TOP, 0.0)
 	set_anchor(SIDE_RIGHT, 0.0)
 	set_anchor(SIDE_BOTTOM, 0.0)
+	var width := WIDTH
+	if is_inside_tree() and has_node("/root/Screen"):
+		width = minf(WIDTH, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0)
+		margin += Screen.safe_insets.x
 	offset_left = margin
 	offset_top = top
-	offset_right = margin + WIDTH
+	offset_right = margin + width
 	offset_bottom = top
 	grow_horizontal = Control.GROW_DIRECTION_END
 	grow_vertical = Control.GROW_DIRECTION_END

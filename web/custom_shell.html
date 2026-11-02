@@ -79,6 +79,16 @@ progress {
 	display: none !important;
 }
 
+#safe-area-probe {
+	position: fixed;
+	visibility: hidden;
+	pointer-events: none;
+	padding-top: env(safe-area-inset-top, 0px);
+	padding-right: env(safe-area-inset-right, 0px);
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+	padding-left: env(safe-area-inset-left, 0px);
+}
+
 #canvas {
 	display: block;
 	background: var(--deep-green);
@@ -713,6 +723,8 @@ progress {
 		$GODOT_HEAD_INCLUDE
 	</head>
 	<body>
+		<!-- Measures CSS cutout insets for Screen's logical-pixel safe area. -->
+		<div id="safe-area-probe" aria-hidden="true"></div>
 		<canvas id="canvas" tabindex="0" aria-label="Golf Tycoon game">
 			Your browser does not support the canvas tag.
 		</canvas>
@@ -888,6 +900,25 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 			bootHinted = true;
 			renderBootDetail();
 		}, 12000);
+	}
+
+	// Godot reads this bridge in CSS pixels, the same units as its logical
+	// viewport. Order matches Screen.safe_insets: left, top, right, bottom.
+	const safeAreaProbe = document.getElementById('safe-area-probe');
+	function publishSafeArea() {
+		const css = getComputedStyle(safeAreaProbe);
+		window.GolfTycoonSafeArea = [
+			parseFloat(css.paddingLeft) || 0,
+			parseFloat(css.paddingTop) || 0,
+			parseFloat(css.paddingRight) || 0,
+			parseFloat(css.paddingBottom) || 0,
+		];
+	}
+	publishSafeArea();
+	window.addEventListener('resize', publishSafeArea);
+	window.addEventListener('orientationchange', publishSafeArea);
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', publishSafeArea);
 	}
 
 	// The engine has started; the title screen has not. On the web the

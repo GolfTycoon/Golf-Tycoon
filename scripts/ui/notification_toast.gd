@@ -8,6 +8,7 @@ class_name NotificationToast
 ## Also listens to EventFeedManager.event_added for priority-aware display.
 
 const MAX_VISIBLE: int = 4
+const PORTRAIT_MAX_VISIBLE: int = 2
 const TOAST_WIDTH: float = 320.0
 const DISPLAY_DURATION: float = 3.5
 const DISPLAY_DURATION_HIGH: float = 5.0
@@ -24,6 +25,7 @@ func _ready() -> void:
 	EventBus.ui_notification.connect(_on_notification)
 	# Listen to event feed for priority-aware toast display
 	EventFeedManager.event_added.connect(_on_feed_event)
+	Screen.changed.connect(func(_size: Vector2, _scale: float): _reposition_toasts.call_deferred())
 
 func _on_notification(message: String, type: String) -> void:
 	# Don't show toasts during main menu
@@ -52,7 +54,7 @@ func _on_feed_event(entry: EventFeedManager.EventEntry) -> void:
 	_process_queue()
 
 func _process_queue() -> void:
-	while not _queue.is_empty() and _active_toasts.size() < MAX_VISIBLE:
+	while not _queue.is_empty() and _active_toasts.size() < (PORTRAIT_MAX_VISIBLE if Screen.uses_portrait_hud() else MAX_VISIBLE):
 		var data = _queue.pop_front()
 		_show_toast(data.message, data.type, data.get("priority", EventFeedManager.Priority.NORMAL))
 
@@ -76,7 +78,8 @@ func _show_toast(message: String, type: String, priority: int = EventFeedManager
 	style.content_margin_top = 6
 	style.content_margin_bottom = 6
 	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(TOAST_WIDTH, 0)
+	var toast_width := minf(TOAST_WIDTH, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 24.0) if Screen.uses_portrait_hud() else TOAST_WIDTH
+	panel.custom_minimum_size = Vector2(toast_width, 0)
 
 	var hbox = HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 8)
@@ -96,7 +99,7 @@ func _show_toast(message: String, type: String, priority: int = EventFeedManager
 	label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	label.custom_minimum_size = Vector2(TOAST_WIDTH - 60, 0)
+	label.custom_minimum_size = Vector2(toast_width - 60, 0)
 	hbox.add_child(label)
 
 	# Critical toasts show a dismiss hint
@@ -161,16 +164,23 @@ func _dismiss_toast(panel: PanelContainer) -> void:
 
 func _reposition_toasts() -> void:
 	var vp_size = get_viewport().get_visible_rect().size
-	var y_offset := Screen.bottom_bar_height() + 6.0  # Clear the responsive BottomBar
+	var portrait := Screen.uses_portrait_hud()
+	var y_offset := Screen.portrait_header_height() + 8.0 if portrait else Screen.bottom_bar_height() + 6.0
 
 	# Stack from bottom up
+	var portrait_width := minf(TOAST_WIDTH, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 24.0)
 	for i in range(_active_toasts.size() - 1, -1, -1):
 		var toast = _active_toasts[i]
 		if not is_instance_valid(toast):
 			continue
+		if portrait:
+			toast.custom_minimum_size.x = portrait_width
+			var message_label := toast.get_child(0).get_child(1) as Label
+			if message_label:
+				message_label.custom_minimum_size.x = portrait_width - 60.0
 		toast.position = Vector2(
-			vp_size.x - toast.size.x - RIGHT_MARGIN,
-			vp_size.y - toast.size.y - y_offset
+			(vp_size.x - toast.size.x) * 0.5 if portrait else vp_size.x - toast.size.x - RIGHT_MARGIN,
+			y_offset if portrait else vp_size.y - toast.size.y - y_offset
 		)
 		y_offset += toast.size.y + TOAST_SPACING
 

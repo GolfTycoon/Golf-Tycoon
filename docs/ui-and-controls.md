@@ -2,8 +2,8 @@
 
 > The screens, panels and keyboard, mouse and touch controls. The keyboard list comes from the in-game hotkey panel, which is the source of truth.
 
-**Source:** `scripts/autoload/input_manager.gd` (device tracking, focus scopes and navigation), `scripts/autoload/input_bindings.gd` (the rebindable control registry and its saved overrides), `scripts/ui/components/gamepad_cursor.gd` (keyboard/controller pointer), `scripts/ui/components/input_hint_bar.gd` (device prompts), `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key and controller handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column), `scripts/ui/components/course_rating_stars.gd` (status column star strip), `scripts/ui/main_menu.gd`, `scripts/ui/generating_course_screen.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/utils/isometric_camera.gd`, `scripts/systems/player_data_store.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
-**Tests:** `tests/unit/ui_and_controls/test_input_manager.gd`, `tests/unit/ui_and_controls/test_input_bindings.gd`, `tests/integration/ui_and_controls/test_editable_controls.gd`, `tests/integration/ui_and_controls/test_gamepad_and_keyboard_screens.gd`, `tests/integration/ui_and_controls/test_gamepad_gameplay.gd`, `tests/integration/ui_and_controls/test_gamepad_every_screen.gd`, `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/ui_and_controls/test_pause_menu_touch.gd`, `tests/unit/ui_and_controls/test_game_over_touch.gd`, `tests/integration/ui_and_controls/test_touch_quit_to_menu.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/ui_and_controls/test_course_rating_stars.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/unit/ui_and_controls/test_graphics_quality_settings.gd`, `tests/unit/ui_and_controls/test_camera_edge_panning.gd`, `tests/unit/ui_and_controls/test_player_data_store.gd`, `tests/harness/save_settings_layout_harness.tscn`
+**Source:** `scripts/autoload/input_manager.gd` (device tracking, focus scopes and navigation), `scripts/autoload/input_bindings.gd` (the rebindable control registry and its saved overrides), `scripts/ui/components/gamepad_cursor.gd` (keyboard/controller pointer), `scripts/ui/components/input_hint_bar.gd` (device prompts), `scripts/ui/hotkey_panel.gd` (in-game shortcut list), `scripts/main/main.gd` (key and controller handling), `scripts/autoload/touch_input.gd`, `scripts/autoload/screen_manager.gd`, `scripts/ui/hud_status_column.gd` (status column / portrait ledger), `scripts/ui/portrait_hud.gd` (portrait HUD coordinator), `scripts/ui/components/course_rating_stars.gd` (status column star strip), `scripts/ui/main_menu.gd`, `scripts/ui/generating_course_screen.gd`, `scripts/ui/components/pixel_button_style.gd`, `scripts/ui/components/pixel_icon.gd`, `scripts/ui/components/setup_glyph.gd`, `scripts/ui/components/course_plan_preview.gd`, `scripts/ui/start_new_game_screen.gd`, `scripts/ui/save_load_panel.gd`, `scripts/ui/settings_menu.gd`, `scripts/utils/isometric_camera.gd`, `scripts/systems/player_data_store.gd`, `scripts/systems/performance_benchmark.gd`, `scripts/systems/benchmark_history.gd`, `scripts/ui/benchmark_results_screen.gd`, `scripts/ui/components/benchmark_visuals.gd`, `project.godot` (input actions)
+**Tests:** `tests/unit/ui_and_controls/test_input_manager.gd`, `tests/unit/ui_and_controls/test_input_bindings.gd`, `tests/integration/ui_and_controls/test_editable_controls.gd`, `tests/integration/ui_and_controls/test_gamepad_and_keyboard_screens.gd`, `tests/integration/ui_and_controls/test_gamepad_gameplay.gd`, `tests/integration/ui_and_controls/test_gamepad_every_screen.gd`, `tests/unit/test_pause_system.gd`, `tests/unit/test_touch_input.gd`, `tests/unit/ui_and_controls/test_pause_menu_touch.gd`, `tests/unit/ui_and_controls/test_game_over_touch.gd`, `tests/integration/ui_and_controls/test_touch_quit_to_menu.gd`, `tests/integration/ui_and_controls/test_portrait_hud.gd`, `tests/integration/ui_and_controls/test_responsive_layout.gd`, `tests/integration/ui_and_controls/test_bottom_dock.gd`, `tests/unit/test_responsive_panels.gd`, `tests/unit/ui_and_controls/test_screen_manager.gd`, `tests/unit/ui_and_controls/test_ui_scale_preferences.gd`, `tests/unit/ui_and_controls/test_hud_status_column.gd`, `tests/unit/ui_and_controls/test_course_rating_stars.gd`, `tests/unit/test_save_load_settings_layout.gd`, `tests/unit/ui_and_controls/test_pixel_button_style.gd`, `tests/unit/ui_and_controls/test_pixel_icon.gd`, `tests/unit/ui_and_controls/test_main_menu_typography.gd`, `tests/unit/ui_and_controls/test_start_new_game_layout.gd`, `tests/unit/ui_and_controls/test_start_new_game_visual_style.gd`, `tests/unit/ui_and_controls/test_performance_benchmark.gd`, `tests/unit/ui_and_controls/test_benchmark_history.gd`, `tests/unit/ui_and_controls/test_benchmark_results_screen.gd`, `tests/integration/ui_and_controls/test_save_and_settings_screens.gd`, `tests/unit/ui_and_controls/test_graphics_quality_settings.gd`, `tests/unit/ui_and_controls/test_camera_edge_panning.gd`, `tests/unit/ui_and_controls/test_player_data_store.gd`, `tests/harness/save_settings_layout_harness.tscn`
 
 ---
 
@@ -27,7 +27,7 @@
 - **Financial Overview.** A fullscreen clubhouse dashboard over the same `MenuBackdrop` as the World Map. Desktop lays out the year-to-date ledger, course controls and status, and marketing campaigns side by side. Tablet and phone layouts use a fixed three-page rail (**Finances**, **Course**, **Marketing**) above a scrollable workspace; phone landscape keeps the same pages in a compact, short-screen composition. It carries forward the balance, revenue and expense breakdown, year-over-year comparison, booking interval, green-fee controls and warning, reputation, golfer count, loans, seasonal forecast and official course ratings, alongside marketing reach, daily spend, campaign history, active campaign timers and all five launch offers. Open it from the money display or **Manage → Club → Review → Financial Overview**; **M** opens it directly on the Marketing page. The World Map's clubhouse artwork, pixel-framed cards and Pixelify Sans styling are shared throughout.
 - **Course Map.** The whole course in one isometric diamond, in the title screen's own dress. Its header is the shared screen header: Back on the left, and the mode tabs, treasury and Details on the right: the `MenuBackdrop` clubhouse artwork behind it, notched `PixelButtonStyle` frames, Pixelify Sans type. Four modes sit across the top on desktop and portrait shapes (a compact rail on landscape ones): **Land** (buy parcels, read the ones you own), **Routing** (reorder the holes, flip them, set par, open or shut them), **Aura** (green, amber and red cells where golfers were happy and unhappy) and **Staff** (each employee's working area, hiring, firing and posting them). One line under the map says what is picked or what the map is waiting for, with the mode's own **Buy** / **Cancel** / **Clear** beside it. Drag to pan, wheel or pinch to zoom, `F` to frame the course. On phones the panel is a bottom sheet that peeks and lifts (portrait) or slides in over the map (landscape); on a landscape tablet it folds away behind a **Hide**/**Show** toggle. The course freezes while the map is up. See [Course Map](systems/course-design/course-map.md).
 - **Pause menu.** Resume, Save Game, Load Game, Settings, Quit to Menu and Quit to Desktop. The camera still moves while paused.
-- **Settings.** Audio, Display, Controls and Data are laid out for each window size. Desktop uses a category rail beside the control cards. Tablets keep the rail beside or above the cards. Phones use equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category is the editor for every course control: click a keycap, press a key or controller button, and the change applies at once. It also carries screen-edge panning (**Edge Panning**: pan the camera by moving the pointer to the edge of the window, or leave the course still until you drag, press the keys or use the stick), the camera zoom inversion, the zoom limits, a reset per action and **Reset All Controls**. Display includes an **FPS Counter** card: the counter is off by default, and can be shown over menus and the course (even while paused) with a choice of position, text size and refresh interval (0.25, 0.5 or 1 second). It averages frames over real elapsed time, ignores mouse and touch input, and is independent of graphics presets. Display also has the **Course HUD** card (with the **Minimap** toggle to enable or disable the corner minimap), window mode, VSync, UI scale, colourblind palettes, the graphics quality preset and its individual controls (see [Graphics quality](#graphics-quality)), and the **Benchmark** card, which runs only when Settings was accessed from the Main Menu (Settings from the pause menu shows the last run and the past results but runs nothing, so a game in progress is never the test scene). The card carries two buttons: **Run Benchmark**, which closes the menus and runs the full course tour - a throwaway benchmark course prepared (preparation included in the measurement), then every fixed test course built and played on it, about 95 seconds - and **Past Results**, which opens the Benchmark Results screen over the menus. Above them the card shows the rating the last run earned - five stars and a segmented score meter. For fair comparisons, run the tour from Main Menu Settings at the same resolution, VSync and power mode. See [Device Benchmark](development/benchmark.md). The Data category is the on-device privacy page: it lists what is stored (saved courses, preferences, career records, benchmark reports and custom golfer skins), gives each group its own **Delete** button and offers one **Delete All Player Data** action at the end. Every deletion asks first on a confirm card whose safe answer has focus, the page is rebuilt afterwards so each line and button tells the truth about what is left, and the title screen's Continue card is refreshed from the save list that remains. Deleting the saved courses during a pause session closes the course and returns to the title screen, because it has nowhere left to autosave. Mods are left to the Mods screen, where they can be uninstalled safely; see [Save & Load](save-and-load.md#deleting-player-data).
+- **Settings.** Audio, Display, Controls and Data are laid out for each window size. Desktop uses a category rail beside the control cards. Tablets keep the rail beside or above the cards. Phones use equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category is the editor for every course control: click a keycap, press a key or controller button, and the change applies at once. It also carries screen-edge panning (**Edge Panning**: pan the camera by moving the pointer to the edge of the window, or leave the course still until you drag, press the keys or use the stick), the camera zoom inversion, the zoom limits, a reset per action and **Reset All Controls**. Display includes an **FPS Counter** card: the counter is off by default, and can be shown over menus and the course (even while paused) with a choice of position, text size and refresh interval (0.25, 0.5 or 1 second). It averages frames over real elapsed time, ignores mouse and touch input, and is independent of graphics presets. Display also has the **Course HUD** card (with the **Minimap** toggle to enable or disable the corner minimap), window mode, VSync, UI scale (automatic by default, following the system display scale; move the slider to pin a manual size), colourblind palettes, the graphics quality preset and its individual controls (see [Graphics quality](#graphics-quality)), and the **Benchmark** card, which runs only when Settings was accessed from the Main Menu (Settings from the pause menu shows the last run and the past results but runs nothing, so a game in progress is never the test scene). The card carries two buttons: **Run Benchmark**, which closes the menus and runs the full course tour - a throwaway benchmark course prepared (preparation included in the measurement), then every fixed test course built and played on it, about 95 seconds - and **Past Results**, which opens the Benchmark Results screen over the menus. Above them the card shows the rating the last run earned - five stars and a segmented score meter. For fair comparisons, run the tour from Main Menu Settings at the same resolution, VSync and power mode. See [Device Benchmark](development/benchmark.md). The Data category is the on-device privacy page: it lists what is stored (saved courses, preferences, career records, benchmark reports and custom golfer skins), gives each group its own **Delete** button and offers one **Delete All Player Data** action at the end. Every deletion asks first on a confirm card whose safe answer has focus, the page is rebuilt afterwards so each line and button tells the truth about what is left, and the title screen's Continue card is refreshed from the save list that remains. Deleting the saved courses during a pause session closes the course and returns to the title screen, because it has nowhere left to autosave. Mods are left to the Mods screen, where they can be uninstalled safely; see [Save & Load](save-and-load.md#deleting-player-data).
 - **Benchmark Results.** A fullscreen device dashboard over the same `MenuBackdrop` as the World Map, opened from the Display card's **Past Results**. Desktop spreads the report across three columns - the rating and the device dossier on the left, a frame-time oscilloscope with the GPU load ladder and the engine and memory read-out in the middle, the metric meters, the golf-style performance scorecard and the shelf of past runs on the right - and a full-height window shows all of it without scrolling. Tablets pair the rating with the meters above the charts; phones fold everything into one scroll, or into two columns when the phone is turned sideways. The charts are drawn in whole pixels (`BenchmarkVisuals`): one chunky column per sampled frame in mint, gold and muted red against the 60 FPS budget and the 33 ms stutter line, the GPU ladder and the run history as bars, and a segmented meter per metric. Reached from Main Menu Settings its **Run Benchmark** starts the tour again (from anywhere else it is read-only: Run stands down, and the report, the shelf and **Copy report** still work), it keeps the last twelve runs on a local shelf to compare against, and **Esc** closes it. Each run on that shelf is a button: press one and the whole screen becomes that run - its report, its oscilloscope, its scorecard, its tour table and its device dossier - with the picked row lit and a **PAST RUN** chip on the rating while an older run is on screen, and **Copy report** copies the run being read. A run recorded before reports were kept keeps its numbers and its bar on the chart but cannot be opened, and says so. See [Device Benchmark](development/benchmark.md).
 - **Save and Load.** One archive with a Save or Load mode. Save names a checkpoint and asks before replacing one. Load shows the selected course's day, balance, holes and last-played time, and asks before replacing the live course. Saving is offered only from the pause menu. The title screen and game-over panel can only load.
 - **Golfer Skins studio.** Paint the golfers' clothing. See [Golfer Skins](golfer-skins.md).
@@ -107,6 +107,41 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 | Course scorecard | `K`, or Manage → Holes → Scorecard |
 | Benchmark Results screen (fullscreen) | Settings → Display → Past Results |
 
+### Portrait HUD (phones)
+
+Portrait windows narrower than 700 logical pixels use a dedicated thumb-first
+composition (`PortraitHUD`); wider portrait tablets and every landscape window
+keep the desktop fan/shelf. The coordinator **moves the live controls** into the
+new layout rather than duplicating them, so bindings, signals, badges, focus and
+tool state survive rotation. Rotating back restores the original parents/order.
+
+- **Clubhouse ledger (top).** Menu owns the top-left corner as a 44 px target;
+  the course identity strip sits to its right, above one row of money / rating /
+  reputation cards. When the course uses Seasons,
+  Weather or Wind, a second compact conditions row appears; otherwise the header
+  shrinks to give the course more room. Money and rating remain tappable.
+- **Thumb rail (bottom).** Five stable 44–52 px targets: Build, Manage, Golfers,
+  Pause, Speed. The active section opens a full-width **tool tray**; tapping
+  it again (or the collapsed context button) puts the tray away. The tray keeps
+  all 11 pages, brush size/shape, bulldozer and Inspect, with 48 px page tabs and
+  a horizontally scrollable catalogue that never pans or paints the course.
+- **Course view (middle).** The camera rail exposes Rotate left/right, Zoom
+  out/in and a course Overview toggle as five 44 px actions. Overview can open
+  even when the desktop minimap preference is off, without changing that
+  preference. Score cards, event feed and toasts dock below the ledger and clear
+  the rail/tray.
+- **Safe areas.** `Screen.safe_insets` (left/top/right/bottom, logical px) reads
+  native display safe areas on Android/iOS and `window.GolfTycoonSafeArea` on the
+  web. The web shell publishes CSS `env(safe-area-inset-*)` through a hidden
+  probe and resize/orientation listeners. Header, rail, tray, camera rail and
+  floating panels all reserve these insets; malformed reports are clamped to a
+  fifth of each axis.
+
+Contract: nav 64 px + bottom inset; tray 260 px; collapsed context 44 px; header
+108 px (148 px with conditions) + top inset. `Screen.portrait_course_rect()` is
+the shared playable rectangle. Regression coverage exercises 320×568 through
+540×960, rotation restore, safe-area offsets, shelf dragging and live actions.
+
 ### Bottom dock
 
 The bottom-left corner uses small pixel-art circle buttons for **Menu**,
@@ -119,11 +154,19 @@ banner](#course-location-banner), beside the course they turn. The **Feed** live
 the Club tab (Manage → Club → Review → Feed, or `N`): its card lights a gold unread
 badge with the count in its tooltip, and the same count rides on the Club tab and
 Manage section buttons so unread events still show from anywhere. **Inspect** also
-left this corner: every Build section tab (Terrain, Improvements, Buildings,
-Elevations) pins an Inspect toggle to its bottom-right corner, beside the tiles it
-reads, mirroring the Bulldozer's pinned corner button. The four toggles share one
-mode — the medallion's ring stays lit while inspecting, and `Esc` or right-click
-leaves it on every tab.
+left this corner for the shelf header: the toolbar carries a single shared
+Inspect toggle in a header row at the top-right of the shelf. One toggle
+serves every Build tab — the medallion's ring stays lit while inspecting,
+and `Esc` or right-click leaves it on every tab. The other header buttons
+follow the shelf: Terrain shows the Terrain Brush Shape and Brush Size
+buttons, Improvements and Buildings show the Bulldozer, and Elevation shows
+its own Brush Shape and Brush Size buttons. Each Brush Size plate reads the
+size in tiles as a plain number — `1`, `5`, `9` — rather than a `1x1` width by
+height pair, since a square brush is the same across and down. Each Brush
+Shape toggle draws the brush itself: a miniature of the exact tile footprint
+it will paint at the current size and shape, which steps with the size plate
+beside it — one chunky tile for a 1-tile brush, a clipped square for a round
+one — instead of a fixed square or circle glyph.
 
 Three larger circles curve around these controls: **Build** (largest), **Manage**,
 and **Golfers**. Each opens a bottom shelf whose small icon tabs follow a mirrored
@@ -149,8 +192,8 @@ its rim joins the dock and sweeps up past the tab medallions, then continues
 along the top of the scrolling pages. It shares the
 dock's mowing rings and section-coloured pixel trim; the course is visible and
 accepts mouse and touch input in the space outside the curve. The rail narrows
-on phones without shrinking its touch targets, and, when space is tight, Inspect
-stacks above the pinned brush or Bulldozer rather than overlapping it.
+on phones without shrinking its touch targets, and, when a shelf is too narrow
+for its own header row, the row hides so the tab rail keeps its room.
 
 Every tab scrolls in a window cut to that same curve (`ShelfPageWindow`): the
 pages start at the shelf's own left padding and their left side is curved, so
@@ -160,9 +203,11 @@ pixel-stepped mask a frame's width inside the rim, so the rim's ink, trim, bevel
 and sheen bands stay whole beside the content and nothing spills over the rim
 onto the course. The same shape gates input: the cut-out above the curve
 stays course for the mouse, touch and hover, while the tiles below it are the
-page. The pinned corner controls — the brush plate, the Bulldozer and Inspect —
-stay a rail's width in from the page edge, in the body's corner where no
-medallion can cover them, and the catalogue scrolls beneath them.
+page. The header row's controls — the Brush Size plate, the Brush Shape button,
+the Bulldozer and Inspect — sit at the top-right of the shelf header, clear of
+the scrolling catalogue below. Each Build shelf shows only the buttons it
+needs: Terrain and Elevation carry their brush shape and size stepper, while
+Improvements and Buildings carry the Bulldozer.
 
 | Section | Tabs and actions |
 | --- | --- |
@@ -221,7 +266,7 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 
 There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Value pills keep 20px of visible padding on each side and extend 20px behind their icon medallion. The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
 
 ### Course location banner
 
@@ -307,7 +352,16 @@ Every key in these tables is a default: change any of them in **Settings → Con
 
 ## Layout
 
+The portrait composition above is selected by `Screen.uses_portrait_hud()` and
+reflowed from `Screen.changed`; desktop and landscape touch layouts are unchanged.
+
 `Screen` chooses a compact layout on small windows. Panels then take the full width, and the bottom bar grows to fit touch. The main window is 1600 × 1000 on desktop.
+
+### UI scale
+
+The game draws at the display's native pixels, so **Settings → Display → UI Scale** starts on **Match this display** and sizes the UI from the device's own system display scale: the Retina backing scale on macOS, the monitor's effective DPI on Windows (125%, 150%, 200%…), the screen density on Android and iOS, `devicePixelRatio` in a browser, and `GDK_SCALE` / `QT_SCALE_FACTOR` on X11 desktops. A 4K or Retina screen therefore gets the same comfortable physical UI size as the rest of the desktop instead of a tiny one, and a phone lays out in density-independent pixels. A windowed desktop window keeps at least a 1180 × 680 logical layout, so shrinking the window on a high-DPI display never leaves a giant, cramped UI; maximised and fullscreen windows use the display's full scale. The automatic scale is re-checked when the window is resized, moved to another monitor or rotated, and when the system scale changes.
+
+Moving the slider pins a manual size (80%–400%). The choice is saved as `ui_scale_mode` and `ui_scale` under `[display]` in `user://settings.cfg`; **Match this display** returns to automatic sizing. The layout is logical, not physical: a 3840 × 2160 window at 200% lays out like a 1920 × 1080 one, and the camera's world scale follows that logical size.
 
 ## Related
 

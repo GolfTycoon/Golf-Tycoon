@@ -32,6 +32,10 @@ const ROW_HEIGHT := 48
 ## Corner radius shared by the cards and their hover / focus rings.
 const CARD_RADIUS := 18
 const ICON_BACKGROUND_SIZE := 40
+## Breathing room on each side of the value inside its pill.
+const VALUE_HORIZONTAL_PADDING := 20
+## Extend the value pill behind the icon without crowding its contents.
+const VALUE_ICON_OVERLAP := 20
 
 # UI References
 var _funds_row: PanelContainer
@@ -45,6 +49,7 @@ var _reputation_icon: TextureRect
 var _reputation_label: Label
 var _rating_row: PanelContainer
 var _rating_stars: CourseRatingStars
+var _portrait_rating_label: Label
 var _weather_row: PanelContainer
 var _weather_icon: TextureRect
 var _weather_label: Label
@@ -53,6 +58,11 @@ var _wind_label: Label
 ## The weather and wind cards travel together: the block is hidden when both
 ## features are off, so neither card nor any leftover spacing stays behind.
 var _environment_block: VBoxContainer
+var _desktop_column: VBoxContainer
+var _portrait_rows: VBoxContainer
+var _portrait_primary: HBoxContainer
+var _portrait_secondary: HBoxContainer
+var _portrait_mode := false
 
 # State
 ## Change in the balance since the last money_changed signal, for the trend mark.
@@ -76,6 +86,8 @@ func _ready() -> void:
 ## browser windows) get a compact column so the course keeps most of the
 ## screen.
 func _column_width() -> float:
+	if has_node("/root/Screen") and Screen.uses_portrait_hud():
+		return maxf(240.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0)
 	if has_node("/root/Screen") and Screen.is_compact():
 		return 150.0
 	return UIConstants.HUD_COLUMN_WIDTH
@@ -93,6 +105,7 @@ func _build_ui() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var column := VBoxContainer.new()
+	_desktop_column = column
 	column.name = "Column"
 	column.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -135,6 +148,10 @@ func _build_ui() -> void:
 	_rating_stars = CourseRatingStars.new(_is_compact())
 	_rating_stars.name = "Stars"
 	_rating_row.get_node("Content/ValueBackground/ValueContent").add_child(_rating_stars)
+	_portrait_rating_label = _create_value_label()
+	_portrait_rating_label.name = "PortraitRating"
+	_portrait_rating_label.visible = false
+	_rating_row.get_node("Content/ValueBackground/ValueContent").add_child(_portrait_rating_label)
 	_refresh_rating_tooltip()
 	column.add_child(_rating_row)
 
@@ -155,6 +172,9 @@ func _build_ui() -> void:
 		UIConstants.COLOR_SUCCESS_MUTED)
 	_wind_label = _wind_row.get_node("Content/ValueBackground/ValueContent/Value") as Label
 	_environment_block.add_child(_wind_row)
+	_build_portrait_layout()
+	if has_node("/root/Screen") and Screen.uses_portrait_hud():
+		apply_screen()
 
 ## Build one status row: a rounded value background and a raised icon circle.
 ## A row with `on_pressed` is clickable and focusable as a whole.
@@ -186,7 +206,9 @@ func _create_row(row_name: String, title: String, icon_kind: int, icon_accent: C
 
 	var content := HBoxContainer.new()
 	content.name = "Content"
-	content.add_theme_constant_override("separation", UIConstants.SEPARATION_SM)
+	# The icon is drawn after the pill, so the negative gap tucks the pill
+	# underneath the raised medallion rather than covering it.
+	content.add_theme_constant_override("separation", -VALUE_ICON_OVERLAP)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(content)
 
@@ -250,8 +272,12 @@ func _set_value_text(label: Label, text: String) -> void:
 	label.text = text
 	var font := label.get_theme_font("font")
 	var font_size := label.get_theme_font_size("font_size")
-	var available := _column_width() - ICON_BACKGROUND_SIZE - 17.0
-	if label == _money_label:
+	var available := _column_width() - ICON_BACKGROUND_SIZE - 2.0 * VALUE_HORIZONTAL_PADDING
+	if _portrait_mode:
+		available = (_column_width() - 12.0) / 3.0 - 30.0
+		if label == _money_label:
+			available += 8.0
+	elif label == _money_label:
 		available -= 30.0
 	label.custom_minimum_size.x = minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT,
 		-1, font_size).x, available)
@@ -266,9 +292,9 @@ func _card_style(accent: Color) -> StyleBoxFlat:
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
 	style.shadow_size = 2
 	style.shadow_offset = Vector2(0, 2)
-	style.content_margin_left = 6
+	style.content_margin_left = VALUE_HORIZONTAL_PADDING
 	style.content_margin_top = 4
-	style.content_margin_right = 7
+	style.content_margin_right = VALUE_HORIZONTAL_PADDING + VALUE_ICON_OVERLAP
 	style.content_margin_bottom = 4
 	return style
 
@@ -332,22 +358,123 @@ func _apply_anchors() -> void:
 	anchor_bottom = 0.0
 	grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	grow_vertical = Control.GROW_DIRECTION_END
-	offset_left = -(width + UIConstants.HUD_COLUMN_MARGIN)
-	offset_right = -UIConstants.HUD_COLUMN_MARGIN
-	offset_top = UIConstants.HUD_COLUMN_MARGIN
+	if _portrait_mode:
+		anchor_left = 0.0
+		anchor_right = 0.0
+		grow_horizontal = Control.GROW_DIRECTION_END
+		offset_left = Screen.safe_insets.x + 8.0
+		offset_right = offset_left + width
+		offset_top = Screen.safe_insets.y + 56.0
+	else:
+		offset_left = -(width + UIConstants.HUD_COLUMN_MARGIN)
+		offset_right = -UIConstants.HUD_COLUMN_MARGIN
+		offset_top = UIConstants.HUD_COLUMN_MARGIN
 	_refresh_height()
 
 ## Re-derive size-sensitive layout after a responsive window change
 ## (rotation, resize across the compact threshold).
 func apply_screen() -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or _funds_row == null:
 		return
+	var portrait := has_node("/root/Screen") and Screen.uses_portrait_hud()
+	var arrangement_changed := portrait != _portrait_mode
+	_portrait_mode = portrait
+	# Move the live cards only when the arrangement actually changes; tray and
+	# map toggles also emit Screen.changed and must not churn focus/ownership.
+	var expected_parent: Container
+	if portrait:
+		expected_parent = _portrait_primary
+	else:
+		expected_parent = _desktop_column
+	if arrangement_changed or _funds_row.get_parent() != expected_parent:
+		_arrange_rows()
+		_update_feature_rows()
 	custom_minimum_size.x = _column_width()
 	# Refit values to the new width, including the season leaf, name and stars.
 	_update_all()
 	if _rating_stars:
 		_rating_stars.set_compact(_is_compact())
 	_apply_anchors()
+
+## The portrait ledger keeps the three actionable stats on one reachable row,
+## with the course conditions below. Reparent the live cards (never duplicate
+## their signals) so money/rating clicks and every live update stay identical.
+func _build_portrait_layout() -> void:
+	_portrait_rows = VBoxContainer.new()
+	_portrait_rows.name = "PortraitLedger"
+	_portrait_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_rows.add_theme_constant_override("separation", 4)
+	add_child(_portrait_rows)
+	_portrait_primary = HBoxContainer.new()
+	_portrait_primary.name = "PrimaryStats"
+	_portrait_primary.add_theme_constant_override("separation", 6)
+	_portrait_rows.add_child(_portrait_primary)
+	_portrait_secondary = HBoxContainer.new()
+	_portrait_secondary.name = "CourseConditions"
+	_portrait_secondary.add_theme_constant_override("separation", 6)
+	_portrait_rows.add_child(_portrait_secondary)
+	_portrait_rows.visible = false
+
+func _arrange_rows() -> void:
+	var rows := [_funds_row, _season_row, _reputation_row, _rating_row, _weather_row, _wind_row]
+	for row in rows:
+		if row.get_parent():
+			row.get_parent().remove_child(row)
+	if _portrait_mode:
+		_desktop_column.visible = false
+		_portrait_rows.visible = true
+		for row in [_funds_row, _rating_row, _reputation_row]:
+			_portrait_primary.add_child(row)
+		for row in [_season_row, _weather_row, _wind_row]:
+			_portrait_secondary.add_child(row)
+	else:
+		_desktop_column.visible = true
+		_portrait_rows.visible = false
+		for row in [_funds_row, _season_row, _reputation_row, _rating_row]:
+			_desktop_column.add_child(row)
+		_environment_block.add_child(_weather_row)
+		_environment_block.add_child(_wind_row)
+	for row in rows:
+		_style_portrait_row(row)
+
+func _style_portrait_row(row: PanelContainer) -> void:
+	var content := row.get_node("Content") as HBoxContainer
+	var value := row.get_node("Content/ValueBackground") as PanelContainer
+	var icon_box := row.get_node("Content/IconBackground") as PanelContainer
+	var icon := icon_box.get_node("Icon") as TextureRect
+	var accent := UIConstants.COLOR_GOLD
+	if row == _reputation_row:
+		accent = UIConstants.COLOR_DANGER_MUTED
+	elif row == _wind_row:
+		accent = UIConstants.COLOR_SUCCESS_MUTED
+	row.custom_minimum_size.y = (44.0 if row in [_funds_row, _rating_row, _reputation_row] else 32.0) if _portrait_mode else float(ROW_HEIGHT)
+	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL if _portrait_mode else Control.SIZE_FILL
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL if _portrait_mode else Control.SIZE_SHRINK_END
+	row.size_flags_stretch_ratio = (1.18 if row == _funds_row else 1.0) if _portrait_mode else 1.0
+	content.add_theme_constant_override("separation", -8 if _portrait_mode else -VALUE_ICON_OVERLAP)
+	var style := _card_style(accent)
+	if _portrait_mode:
+		style.content_margin_left = 6
+		style.content_margin_right = 12
+		style.content_margin_top = 2
+		style.content_margin_bottom = 2
+		style.corner_radius_top_left = 8
+		style.corner_radius_bottom_left = 8
+	value.add_theme_stylebox_override("panel", style)
+	icon_box.custom_minimum_size = Vector2.ONE * (24.0 if _portrait_mode else float(ICON_BACKGROUND_SIZE))
+	icon.custom_minimum_size = Vector2.ONE * (16.0 if _portrait_mode else float(ICON_SIZE))
+	var icon_style := _icon_style(accent)
+	if _portrait_mode:
+		icon_style.set_content_margin_all(4.0)
+	icon_box.add_theme_stylebox_override("panel", icon_style)
+	# Portrait swaps the five-star strip for a number plus the existing medallion.
+	icon_box.visible = true
+	if row == _rating_row:
+		_rating_stars.visible = not _portrait_mode
+		_portrait_rating_label.visible = _portrait_mode
+	for label in row.find_children("Value", "Label", true, false):
+		label.add_theme_font_size_override("font_size", (14 if row.get_parent() == _portrait_primary else 12) if _portrait_mode else VALUE_FONT_SIZE)
+	_money_trend.add_theme_font_size_override("font_size", 12 if _portrait_mode else TREND_FONT_SIZE)
 
 ## Keep the panel exactly as tall as its content (anchored controls need an
 ## explicit bottom offset).
@@ -399,6 +526,8 @@ func _update_feature_rows() -> void:
 	if _environment_block:
 		# The block introduces the weather/wind pair; with both off it goes too.
 		_environment_block.visible = weather_on or wind_on
+	if _portrait_mode:
+		_portrait_secondary.visible = seasons_on or weather_on or wind_on
 	_refresh_height()
 
 ## Whether the course plays with a feature. Without a GameManager — a column
@@ -497,7 +626,11 @@ func _update_weather() -> void:
 	if weather_type == null:
 		weather_type = 0
 
-	_set_value_text(_weather_label, UIConstants.get_weather_name(weather_type))
+	var weather_name: String = UIConstants.get_weather_name(weather_type)
+	_weather_row.tooltip_text = weather_name
+	if _portrait_mode:
+		weather_name = ["Sunny", "Cloudy", "Overcast", "Light rain", "Rain", "Storm"][clampi(weather_type, 0, 5)]
+	_set_value_text(_weather_label, weather_name)
 
 	# The card's sky sprite follows the conditions, painted in the same family
 	# of colours the conditions use elsewhere in the HUD.
@@ -551,7 +684,8 @@ func _update_wind() -> void:
 	# Convert radians to degrees for direction name
 	var degrees = fmod(rad_to_deg(direction) + 360.0, 360.0)
 	var dir_name = _get_direction_name(degrees)
-	_set_value_text(_wind_label, "%s %d mph" % [dir_name, int(speed)])
+	_wind_row.tooltip_text = "%s wind, %d mph" % [dir_name, int(speed)]
+	_set_value_text(_wind_label, ("%s %d" if _portrait_mode else "%s %d mph") % [dir_name, int(speed)])
 
 	# Color based on wind speed
 	if speed < 5:
@@ -600,6 +734,9 @@ func update_rating(stars: float) -> void:
 		_has_rating = true
 		_rating_value = clampf(stars, 0.0, float(CourseRatingStars.STAR_COUNT))
 		_rating_stars.set_rating(_rating_value)
+	if _portrait_rating_label:
+		_portrait_rating_label.text = ("%.1f" % _rating_value) if _has_rating else "—"
+		_portrait_rating_label.custom_minimum_size.x = 30.0
 	_refresh_rating_tooltip()
 
 static func format_rating_tooltip(stars: float, rated: bool = true) -> String:

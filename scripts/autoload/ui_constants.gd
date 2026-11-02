@@ -117,6 +117,10 @@ const COURSE_BANNER_GAP := 6
 # 44px/52px medallions (up from 32px/40px) for a more thumb-friendly target.
 const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
 const TOUCH_BOTTOM_BAR_HEIGHT := 232  # Tall enough for 44px camera / speed targets
+const PORTRAIT_NAV_HEIGHT := 64
+const PORTRAIT_TRAY_HEIGHT := 260
+const PORTRAIT_HEADER_HEIGHT := 148
+const PORTRAIT_HEADER_COMPACT_HEIGHT := 108
 const TOUCH_TARGET_SIZE := 44  # Comfortable minimum for primary touch controls
 const BUILD_TOOLS_WIDTH := 260
 const TOOL_BUTTON_HEIGHT := 32

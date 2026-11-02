@@ -20,6 +20,45 @@ func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 			await click(main.terrain_toolbar._tab_buttons[tab])
 			assert_eq(main.terrain_toolbar.current_tab, tab, "Each icon can be clicked")
 
+## Where the shelf's page heading belongs: at the shelf's top padding, just
+## after the first tab medallion of the open section.
+func _expected_heading_position(toolbar: TerrainToolbar) -> Vector2:
+	var tabs: Array = TerrainToolbar.SECTION_TABS[toolbar.current_section]
+	var first: Control = toolbar._tab_buttons[tabs[0]]
+	return Vector2(first.get_global_rect().end.x + TerrainToolbar.SHELF_ROW_GAP + 30.0,
+			toolbar.get_global_position().y + TerrainToolbar.SHELF_PAD_Y)
+
+func test_the_shelf_heading_stays_put_after_every_section_button() -> void:
+	# Switching between Build and Manage/Golfers shows or hides the header
+	# row, and the shelf re-laid itself out a frame later: that used to drag
+	# the heading from the top of the shelf to a strip across its middle.
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	var buttons: Array = main.left_controls.section_buttons
+	var title: Label = toolbar._page_title
+	for start_hidden in [false, true]:
+		for i in [1, 2, 0, 2, 1, 0]:
+			if start_hidden:
+				toolbar.collapse_section()
+				await process_frames(2)
+			await click(buttons[i])
+			assert_eq(toolbar.current_section, i)
+			for frame in 3:
+				await process_frames(1)
+				var expected := _expected_heading_position(toolbar)
+				var rect := title.get_global_rect()
+				var label := "%s%s, frame %d" % [TerrainToolbar.SECTION_TITLES[i],
+						" from a hidden shelf" if start_hidden else "", frame]
+				assert_almost_eq(rect.position.x, expected.x, 0.01,
+					"the heading starts after the first tab (%s)" % label)
+				assert_almost_eq(rect.position.y, expected.y, 0.01,
+					"the heading sits at the top of the shelf (%s)" % label)
+				assert_almost_eq(rect.size.y, TerrainToolbar.HEADER_HEIGHT, 0.01,
+					"the heading keeps its height (%s)" % label)
+				assert_lt(rect.size.x, toolbar.size.x,
+					"the heading is not stretched across the shelf (%s)" % label)
+				assert_true(title.text.begins_with(TerrainToolbar.SECTION_TITLES[i].to_upper()),
+					"the heading names the section (%s)" % label)
+
 func test_the_rotate_arrows_left_the_dock_for_the_location_banner() -> void:
 	assert_null(main.left_controls.get_node_or_null("RotateViewControls"),
 		"The dock no longer carries a view row")
@@ -83,9 +122,9 @@ func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
 			for tab in TerrainToolbar.SECTION_TABS[section]:
 				main.terrain_toolbar.select_tab(tab)
 				await process_frames(2)
-				assert_true(rect_within(main.bottom_bar.get_global_rect(), screen), "Bar stays on screen: %s, tab %s" % [window_size, tab])
+				assert_true(rect_within((main.portrait_hud.get_node("ThumbRail") if Screen.uses_portrait_hud() else main.bottom_bar).get_global_rect(), screen), "Bar stays on screen: %s, tab %s" % [window_size, tab])
 				for button in main.left_controls.section_buttons:
-					assert_eq(button.size.x, button.size.y)
+					assert_almost_eq(button.size.x, button.size.y, 0.01)
 					assert_true(rect_within(button.get_global_rect(), screen))
 				assert_true(rect_within(main.terrain_toolbar._tab_buttons[tab].get_global_rect(), screen))
 	await set_window(DESIGN_WINDOW)
@@ -94,24 +133,27 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 	for window_size in [Vector2i(390, 844), Vector2i(360, 800), Vector2i(844, 390)]:
 		await set_window(window_size)
 		assert_true(Screen.uses_touch_layout(), "%s gets the touch layout" % window_size)
-		assert_eq(main.left_controls.size.y, Screen.bottom_bar_height(), "The dock uses the expanded touch height")
+		var expected_height := Screen.portrait_nav_height() if Screen.uses_portrait_hud() else Screen.bottom_bar_height()
+		assert_almost_eq(main.left_controls.size.y, expected_height, 0.01, "The dock uses this layout's full control height")
 		# The Rotate arrows left the dock for the top-left location banner.
-		var utility_buttons: Array = [main.left_controls.get_node("MenuBtn"),
-			main.pause_btn, main.speed_btn]
+		# In portrait, Menu moves to the header; Pause/Speed stay in the rail.
+		var menu: Control = main.portrait_hud.get_node("ClubhouseLedger/MenuBtn") if Screen.uses_portrait_hud() else main.left_controls.get_node("MenuBtn")
+		var utility_buttons: Array = [menu, main.pause_btn, main.speed_btn]
 		for button in utility_buttons:
 			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
 				"%s meets the minimum touch target" % button.accessibility_name)
-		# Inspect left the dock for the toolbar's pinned Build-tab toggles; those
-		# keep a fixed footprint that still clears the touch minimum.
+		# Inspect left the dock for the toolbar's header row; the shared toggle
+		# keeps a fixed footprint that still clears the touch minimum.
 		assert_null(main.left_controls.get_node_or_null("InspectBtn"),
 			"Inspect no longer occupies the dock's utility row")
-		for button in main.terrain_toolbar._inspect_buttons:
-			assert_gte(button.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
-				"%s meets the minimum touch target" % button.accessibility_name)
-			if button.is_visible_in_tree():
-				assert_true(rect_within(button.get_global_rect(),
-					Rect2(Vector2.ZERO, Vector2(window_size))),
-					"The pinned Inspect toggle stays on screen")
+		var inspect: InspectButton = main.terrain_toolbar.inspect_button()
+		assert_not_null(inspect, "The header row holds the Inspect toggle")
+		assert_gte(inspect.size.x, float(UIConstants.TOUCH_TARGET_SIZE),
+			"%s meets the minimum touch target" % inspect.accessibility_name)
+		if inspect.is_visible_in_tree():
+			assert_true(rect_within(inspect.get_global_rect(),
+				Rect2(Vector2.ZERO, Vector2(window_size))),
+				"The Inspect toggle stays on screen")
 		for button in main.terrain_toolbar._tab_buttons.values():
 			assert_gte(button.size.x, 40.0, "Toolbar tabs also grow for touch")
 
@@ -130,7 +172,7 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 
 func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void:
 	# Finish at desktop to catch stale sizes or positions after growing for touch.
-	for window_size in [DESIGN_WINDOW, Vector2i(390, 844), Vector2i(844, 390), DESIGN_WINDOW]:
+	for window_size in [DESIGN_WINDOW, Vector2i(844, 390), DESIGN_WINDOW]:
 		await set_window(window_size)
 		var dock: BottomControlDock = main.left_controls
 		var menu: PixelCircleButton = dock.get_node("MenuBtn")
@@ -139,9 +181,9 @@ func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void
 		for i in utilities.size():
 			var button: PixelCircleButton = utilities[i]
 			var expected_size := diameter - i * BottomControlDock.UTILITY_SIZE_STEP
-			assert_eq(button.size, Vector2.ONE * expected_size, "Utility circles taper along the arc")
+			assert_eq(button.size.round(), Vector2.ONE * expected_size, "Utility circles taper along the arc")
 			assert_eq(button.diameter, expected_size, "Drawing and hit target use the same diameter")
-			assert_true(dock.get_global_rect().encloses(button.get_global_rect()),
+			assert_true(dock.get_global_rect().grow(1.0).encloses(button.get_global_rect()),
 				"Every utility stays inside the dock")
 		var pause_rect: Rect2 = main.pause_btn.get_global_rect()
 		var play_rect: Rect2 = main.speed_btn.get_global_rect()
