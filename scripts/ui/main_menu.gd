@@ -50,6 +50,7 @@ class_name MainMenu
 
 signal start_new_game_requested()
 signal quick_start_requested()
+signal tournament_mode_requested()
 signal continue_requested(save_name: String)
 signal load_game_requested()
 signal achievements_requested()
@@ -215,21 +216,23 @@ func _build_wide() -> void:
 	row.add_theme_constant_override("separation", int(clampf(view.x * 0.020, 18.0, 44.0)))
 	_frame(page, view, WIDE_MAX_WIDTH).add_child(row)
 
-	var hero_height := clampf(view.y * 0.150, 114.0, 180.0)
+	var hero_height := clampf(view.y * 0.145, 98.0, 172.0)
+	var tourney_height := clampf(view.y * 0.125, 90.0, 138.0)
 	var hero_font := int(clampf(view.x / 62.0, 22.0, 32.0))
 	var caption_font := int(clampf(view.x / 128.0, 12.0, 15.0))
 
-	# ── Left: the logo, the two ways into the game, the version line.
+	# ── Left: the logo, the ways into the game, the version line.
 	var hero_column := VBoxContainer.new()
 	hero_column.name = "HeroColumn"
 	hero_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hero_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	hero_column.alignment = BoxContainer.ALIGNMENT_CENTER
-	hero_column.add_theme_constant_override("separation", int(clampf(view.y * 0.026, 14.0, 28.0)))
+	hero_column.add_theme_constant_override("separation", int(clampf(view.y * 0.022, 12.0, 24.0)))
 	row.add_child(hero_column)
 
 	hero_column.add_child(_make_title_block())
 	hero_column.add_child(_make_hero_row(hero_height, hero_font, caption_font))
+	hero_column.add_child(_make_tournament_card(tourney_height, hero_font - 2, caption_font))
 	hero_column.add_child(_make_status_line(false, caption_font))
 
 	# ── Right: the rail. Continue is dealt with first, the utilities below it.
@@ -269,17 +272,17 @@ func _build_tablet() -> void:
 	column.name = "Column"
 	column.custom_minimum_size = Vector2(content_width, 0)
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", int(clampf(view.y * 0.024, 12.0, 22.0)))
+	column.add_theme_constant_override("separation", int(clampf(view.y * 0.018, 10.0, 18.0)))
 	page.add_child(_centered(column))
 
-	var hero_height := clampf(view.y * 0.160, 118.0, 170.0)
+	var hero_height := clampf(view.y * 0.140, 102.0, 156.0)
 	var hero_font := int(clampf(view.x / 46.0, 20.0, 28.0))
 	var caption_font := int(clampf(view.x / 92.0, 12.0, 15.0))
 
 	column.add_child(_make_title_block(content_width))
 	column.add_child(_make_hero_row(hero_height, hero_font, caption_font))
-	column.add_child(_make_continue_card(clampf(view.y * 0.150, 104.0, 150.0), hero_font, caption_font))
-	column.add_child(_make_utility_rows(clampf(view.y * 0.085, 58.0, 80.0), hero_font - 4, caption_font, false))
+	column.add_child(_make_play_row(clampf(view.y * 0.130, 96.0, 136.0), hero_font - 1, caption_font))
+	column.add_child(_make_utility_rows(clampf(view.y * 0.080, 56.0, 76.0), hero_font - 4, caption_font, false))
 	column.add_child(_make_status_line(true, caption_font))
 
 ## Wide but short (rotated phone, squat browser window): the title takes the
@@ -287,48 +290,48 @@ func _build_tablet() -> void:
 ## scrolling — where the tall layouts would have to stack and scroll.
 func _build_landscape() -> void:
 	var view := _window_size()
-	var pad := int(clampf(view.y * 0.055, 12.0, 26.0))
+	var pad := int(clampf(view.y * 0.040, 10.0, 24.0))
 	var page := _make_page(pad)
 	var row := HBoxContainer.new()
 	row.name = "Row"
-	row.add_theme_constant_override("separation", int(clampf(view.x * 0.030, 16.0, 34.0)))
+	row.add_theme_constant_override("separation", int(clampf(view.x * 0.025, 14.0, 30.0)))
 	_frame(page, view, LANDSCAPE_MAX_WIDTH).add_child(row)
 
-	var hero_height := clampf(view.y * 0.265, 92.0, 150.0)
-	var hero_font := int(clampf(view.y / 21.0, 18.0, 24.0))
-	var caption_font := int(clampf(view.y / 42.0, 11.0, 14.0))
+	var hero_height := clampf(view.y * 0.215, 82.0, 136.0)
+	var hero_font := int(clampf(view.y / 22.0, 17.0, 23.0))
+	var caption_font := int(clampf(view.y / 42.0, 11.0, 13.0))
 
 	var brand := VBoxContainer.new()
 	brand.name = "Brand"
 	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	brand.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	brand.size_flags_stretch_ratio = 0.85
+	brand.size_flags_stretch_ratio = 0.72
 	brand.alignment = BoxContainer.ALIGNMENT_CENTER
-	brand.add_theme_constant_override("separation", int(clampf(view.y * 0.030, 8.0, 18.0)))
+	brand.add_theme_constant_override("separation", int(clampf(view.y * 0.025, 6.0, 16.0)))
 	row.add_child(brand)
-	brand.add_child(_make_title_block(view.x * 0.36))
+	brand.add_child(_make_title_block(view.x * 0.32))
 	brand.add_child(_make_status_line(true, caption_font))
 
 	var actions := VBoxContainer.new()
 	actions.name = "Actions"
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	actions.size_flags_stretch_ratio = 1.15
+	actions.size_flags_stretch_ratio = 1.28
 	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", int(clampf(view.y * 0.030, 8.0, 16.0)))
+	actions.add_theme_constant_override("separation", int(clampf(view.y * 0.022, 7.0, 14.0)))
 	row.add_child(actions)
 	actions.add_child(_make_hero_row(hero_height, hero_font, caption_font))
-	actions.add_child(_make_continue_card(clampf(view.y * 0.225, 76.0, 116.0), hero_font, caption_font))
+	actions.add_child(_make_play_row(clampf(view.y * 0.205, 80.0, 112.0), hero_font, caption_font))
 	# No captions on the squat tiles: at ~150 px wide a sentence would only be
-	# trimmed to an ellipsis. The eight actions fold into two rows so the
+	# trimmed to an ellipsis. The actions fold into two rows so the
 	# whole menu still fits a rotated phone without scrolling.
-	actions.add_child(_make_utility_rows(clampf(view.y * 0.115, 44.0, 56.0), hero_font - 3, 0, false))
+	actions.add_child(_make_utility_rows(clampf(view.y * 0.110, 42.0, 54.0), hero_font - 3, 0, false))
 
 ## Phone: one column, cards stacked full width, Load and Settings sharing a
 ## row to save vertical space, Quit on its own quiet line at the bottom.
 func _build_phone() -> void:
 	var view := _window_size()
-	var pad := int(clampf(view.x * 0.045, 12.0, 22.0))
+	var pad := int(clampf(view.x * 0.032, 10.0, 20.0))
 	var page := _make_page(pad)
 	var content_width := minf(view.x - float(pad) * 2.0, 460.0)
 
@@ -336,20 +339,21 @@ func _build_phone() -> void:
 	column.name = "Column"
 	column.custom_minimum_size = Vector2(content_width, 0)
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.add_theme_constant_override("separation", int(clampf(view.y * 0.016, 8.0, 16.0)))
+	column.add_theme_constant_override("separation", int(clampf(view.y * 0.009, 7.0, 12.0)))
 	page.add_child(_centered(column))
 
-	var hero_font := int(clampf(view.x / 17.0, 19.0, 26.0))
-	var caption_font := int(clampf(view.x / 34.0, 11.0, 15.0))
-	var hero_height := clampf(view.y * 0.125, 88.0, 118.0)
+	var hero_font := int(clampf(view.x / 19.5, 18.0, 24.0))
+	var caption_font := int(clampf(view.x / 35.0, 11.0, 14.0))
+	var hero_height := clampf(view.y * 0.098, 78.0, 106.0)
 
 	column.add_child(_make_title_block(content_width))
 	column.add_child(_make_start_card(hero_height, hero_font, caption_font))
 	column.add_child(_make_quick_card(hero_height, hero_font, caption_font))
-	column.add_child(_make_continue_card(clampf(view.y * 0.110, 78.0, 104.0), hero_font - 1, caption_font))
-	column.add_child(_make_phone_utility_row(clampf(view.y * 0.085, 54.0, 76.0), hero_font - 2))
-	column.add_child(_make_phone_extra_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
-	column.add_child(_make_phone_quit_row(clampf(view.y * 0.072, 50.0, 68.0), hero_font - 3, 0))
+	column.add_child(_make_tournament_card(hero_height, hero_font, caption_font))
+	column.add_child(_make_continue_card(clampf(view.y * 0.094, 76.0, 98.0), hero_font - 1, caption_font))
+	column.add_child(_make_phone_utility_row(clampf(view.y * 0.058, 46.0, 64.0), hero_font - 3))
+	column.add_child(_make_phone_extra_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
+	column.add_child(_make_phone_quit_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
 	column.add_child(_make_status_line(true, caption_font))
 
 # =============================================================================
@@ -535,6 +539,25 @@ func _make_quick_card(height: float, title_font: int, caption_font: int) -> Butt
 	button.pressed.connect(func(): quick_start_requested.emit())
 	return button
 
+## Tournament Mode and Continue side by side on tablet and short landscape screens.
+func _make_play_row(height: float, title_font: int, caption_font: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "PlayRow"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 12)
+	row.add_child(_make_tournament_card(height, title_font, caption_font))
+	row.add_child(_make_continue_card(height, title_font, caption_font))
+	return row
+
+func _make_tournament_card(height: float, title_font: int, caption_font: int) -> Button:
+	var button := _make_card("Tournament Mode",
+		"Compete on default or Career-saved courses with your chosen golfer.",
+		"Choose a difficulty level, course and golfer and tee off in a standalone tournament",
+		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.TROPHY)
+	button.name = "TournamentModeButton"
+	button.pressed.connect(func(): tournament_mode_requested.emit())
+	return button
+
 ## The newest save as a card. The caption names the course, its day and the
 ## slot it lives in; with no saves the card is disabled and says so.
 func _make_continue_card(height: float, title_font: int, caption_font: int) -> Button:
@@ -706,12 +729,15 @@ func _make_card(text: String, caption: String, tooltip: String, height: float,
 		icon_kind: int = -1, dimmed_icon: bool = false) -> Button:
 	var button := _make_button_shell(text, tooltip, title_font, UIConstants.COLOR_TEXT, TITLE_FONT)
 	var block := _caption_block(caption_font, CAPTION_LINES)
-	button.custom_minimum_size.y = maxf(height, float(title_font) * 1.45 + block + 24.0)
+	var compact := height < 92.0
+	var card_pad := 14 if compact else 20
+	var v_slack := 16.0 if compact else 24.0
+	button.custom_minimum_size.y = maxf(height, float(title_font) * 1.40 + block + v_slack)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_paint_card(button, accent, block, 20, UIConstants.COLOR_TEXT, Color.WHITE)
-	_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 10)
+	_paint_card(button, accent, block, card_pad, UIConstants.COLOR_TEXT, Color.WHITE)
+	_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8 if compact else 10)
 	if not caption.is_empty():
-		button.add_child(_make_caption(caption, caption_font, CAPTION_LINES, UIConstants.COLOR_TEXT_DIM))
+		button.add_child(_make_caption(caption, caption_font, CAPTION_LINES, UIConstants.COLOR_TEXT_DIM, compact))
 	return button
 
 ## A compact tile: same card treatment, smaller type, an optional single-line
@@ -763,7 +789,7 @@ func _make_button_shell(text: String, tooltip: String, title_font: int,
 ## One line (or `lines`) of explanation, anchored to the bottom of its button
 ## so it moves with the card. Longer text is trimmed with an ellipsis rather
 ## than allowed to grow up into the title.
-func _make_caption(text: String, font_size: int, lines: int, color: Color) -> Label:
+func _make_caption(text: String, font_size: int, lines: int, color: Color, compact: bool = false) -> Label:
 	var label := Label.new()
 	label.name = "Caption"
 	label.text = text
@@ -779,10 +805,12 @@ func _make_caption(text: String, font_size: int, lines: int, color: Color) -> La
 	label.anchor_right = 1.0
 	label.anchor_top = 1.0
 	label.anchor_bottom = 1.0
-	label.offset_left = 20.0
-	label.offset_right = -20.0
-	label.offset_top = -(_caption_block(font_size, lines) + 12.0)
-	label.offset_bottom = -12.0
+	var side_pad := 14.0 if compact else 20.0
+	var bottom_pad := 8.0 if compact else 12.0
+	label.offset_left = side_pad
+	label.offset_right = -side_pad
+	label.offset_top = -(_caption_block(font_size, lines) + bottom_pad)
+	label.offset_bottom = -bottom_pad
 	return label
 
 ## How many lines a card caption may take before it is trimmed.

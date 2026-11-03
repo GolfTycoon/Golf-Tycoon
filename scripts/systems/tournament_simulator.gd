@@ -24,6 +24,10 @@ class SimulationGolfer:
 	var miss_tendency: float = 0.0
 	var aggression: float = 0.5
 	var patience: float = 0.5
+	## Optional full tournament golfer record (Name, Skin, Skin Colours,
+	## Profession, Age, Gender, Marital Status, Golfer Traits, Golfer Skills,
+	## and all 10 Golf Skills) used to dress and configure live Golfer nodes.
+	var golfer_card: Dictionary = {}
 
 	## Create a GolferData snapshot for ShotAI compatibility
 	func to_golfer_data(ball_pos: Vector2i, hole_index: int, total_strokes: int, total_par: int) -> ShotAI.GolferData:
@@ -55,6 +59,65 @@ class SimulationGolfer:
 		sg.miss_tendency = skills.get("miss_tendency", 0.0)
 		sg.aggression = personality.get("aggression", 0.5)
 		sg.patience = personality.get("patience", 0.5)
+		return sg
+
+	## Build from a full TournamentLibrary golfer entry (all 10 Golf Skills,
+	## 3 Golfer Skills, and 5 Golfer Traits).
+	static func from_golfer_card(
+		golfer_id: int,
+		card: Dictionary,
+		golfer_tier: int = GolferTier.Tier.SERIOUS
+	) -> SimulationGolfer:
+		var sg := SimulationGolfer.new()
+		sg.id = golfer_id
+		sg.name = str(card.get("name", "Golfer"))
+		sg.tier = golfer_tier
+		sg.golfer_card = card.duplicate(true)
+
+		var attrs := TournamentLibrary.make_golfer_attributes(card, golfer_tier)
+		var drv := attrs.driving_ability()
+		var acc := attrs.accuracy_ability()
+		var put := attrs.putting_ability()
+		var rec := attrs.recovery_ability()
+
+		# Incorporate Golfer Skills (Length, Accuracy, Imagination) and shaping/luck Golf Skills
+		if attrs.skill_on("length"):
+			drv = clampf(drv + 0.05, 0.05, 0.99)
+		if attrs.skill_on("accuracy"):
+			acc = clampf(acc + 0.06, 0.05, 0.99)
+		if attrs.skill_on("imagination"):
+			var shape_bonus := (
+				attrs.golf_bonus(GolferAttributes.GolfSkill.DRAW_SHOT)
+				+ attrs.golf_bonus(GolferAttributes.GolfSkill.FADE_SHOT)
+				+ attrs.golf_bonus(GolferAttributes.GolfSkill.HIGH_BACKSPIN)
+			) / 3.0
+			var shape_edge := minf(0.06, shape_bonus * 0.025)
+			acc = clampf(acc + shape_edge, 0.05, 0.99)
+			rec = clampf(rec + shape_edge, 0.05, 0.99)
+		var luck_edge := minf(0.04, attrs.golf_bonus(GolferAttributes.GolfSkill.LUCK) * 0.02)
+		put = clampf(put + luck_edge * 0.5, 0.05, 0.99)
+		rec = clampf(rec + luck_edge, 0.05, 0.99)
+
+		sg.driving_ability = drv
+		sg.accuracy_ability = acc
+		sg.putting_ability = put
+		sg.recovery_ability = rec
+
+		var draw_pts := attrs.golf_points[GolferAttributes.GolfSkill.DRAW_SHOT]
+		var fade_pts := attrs.golf_points[GolferAttributes.GolfSkill.FADE_SHOT]
+		sg.miss_tendency = clampf(float(fade_pts - draw_pts) * 0.015, -0.25, 0.25)
+		sg.aggression = clampf(
+			0.45 + (0.12 if attrs.trait_on("active") else 0.0)
+			+ (0.10 if attrs.trait_on("playful") else 0.0)
+			- (0.10 if attrs.trait_on("neat") else 0.0),
+			0.15, 0.90
+		)
+		sg.patience = clampf(
+			0.50 + (0.15 if attrs.trait_on("nice") else 0.0)
+			+ (0.12 if attrs.trait_on("neat") else 0.0)
+			- (0.08 if attrs.trait_on("outgoing") else 0.0),
+			0.20, 0.95
+		)
 		return sg
 
 ## Result of simulating one round for one golfer
@@ -208,6 +271,21 @@ static func simulate_remaining(sim_golfer: SimulationGolfer, current_hole: int,
 	result.total_strokes = cumulative_strokes
 	result.total_par = cumulative_par
 	return result
+
+## Simulate a single hole for Sudden-Death Playoff tiebreakers.
+## Returns {strokes: int, par: int, hole_number: int}.
+static func simulate_single_hole(sim_golfer: SimulationGolfer, hole_index: int) -> Dictionary:
+	var course_data = GameManager.course_data
+	if not course_data or hole_index < 0 or hole_index >= course_data.holes.size():
+		return {"strokes": 4, "par": 4, "hole_number": 1}
+	var hole = course_data.holes[hole_index]
+	var par := _tournament_par(hole)
+	var out := _simulate_hole(sim_golfer, hole, hole_index, 0, 0)
+	return {
+		"strokes": int(out.get("strokes", par)),
+		"par": par,
+		"hole_number": int(hole.hole_number),
+	}
 
 # ============================================================================
 # HOLE SIMULATION

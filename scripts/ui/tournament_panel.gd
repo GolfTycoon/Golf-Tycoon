@@ -3,6 +3,9 @@ class_name TournamentPanel
 ## TournamentPanel - UI for viewing and hosting tournaments
 
 signal close_requested
+signal play_again_requested
+signal tournament_setup_requested
+signal main_menu_requested
 
 var embedded := false
 var _tournament_manager: TournamentManager = null
@@ -191,6 +194,10 @@ func _refresh_display() -> void:
 		_status_column.visible = has_status
 
 func _show_available_tournaments() -> void:
+	if GameManager.is_tournament_mode:
+		_show_standalone_post_tournament()
+		return
+
 	var cooldown = _tournament_manager.get_cooldown_remaining()
 	if cooldown > 0:
 		_status_label.text = "Cooldown: %d days until next tournament" % cooldown
@@ -290,16 +297,21 @@ func _show_current_tournament(info: Dictionary) -> void:
 	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 
 	if info.state == TournamentSystem.TournamentState.IN_PROGRESS:
-		info_label.text = "You are in the field: two competitors per hole."
+		var fmt_name := str(info.get("format_name", "Stroke Play"))
+		var field_sz := int(info.get("field_size", 0))
+		info_label.text = "%s · %d golfers in field." % [fmt_name, field_sz] if field_sz > 0 else "You are in the field: two competitors per hole."
 		card.add_child(info_label)
 
 		# The owner is in the field, so the shelf carries their own scoreline.
 		var standing = _tournament_manager.get_player_standing()
 		if not standing.is_empty():
 			var diff: int = standing.score_to_par
+			var fmt_type := int(standing.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
+			var fmt_pts := int(standing.get("format_points", 0))
+			var score_str := TournamentLibrary.format_score_for_format(fmt_type, diff, fmt_pts, true)
 			var you_label = Label.new()
 			you_label.text = "You: %s · rank %d of %d · %d holes in (round %d)" % [
-				"E" if diff == 0 else ("+%d" % diff if diff > 0 else str(diff)),
+				score_str,
 				standing.rank, standing.field_size, standing.holes_completed, standing.round
 			]
 			if standing.missed_cut:
@@ -347,6 +359,59 @@ func _show_current_tournament(info: Dictionary) -> void:
 
 		var score_row = _create_stat_row("Score:", "%d (Par %d)" % [results.get("winning_score", 0), results.get("par", 72)], Color.WHITE)
 		card.add_child(score_row)
+
+## Standalone Tournament Mode shelf after the event finishes: offer Play Again,
+## Tournament Setup, and Main Menu without showing Career hosting costs/gates.
+func _show_standalone_post_tournament() -> void:
+	_status_label.text = "Tournament Complete"
+	_status_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+
+	var card: BoxContainer = _content_vbox
+	if embedded:
+		card = PlayerTab.add_column(_content_vbox as HBoxContainer, 280)
+
+	if not _tournament_manager.tournament_results.is_empty():
+		var results := _tournament_manager.tournament_results
+		var w_name := str(results.get("winner_name", "Unknown"))
+		if bool(results.get("winner_is_player", false)):
+			w_name += " (you)"
+		var fmt_type := int(results.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
+		var fmt_name := str(results.get("format_name", TournamentLibrary.get_format_name(fmt_type)))
+		card.add_child(_create_stat_row("Format:", fmt_name, UIConstants.COLOR_INFO_DIM))
+		card.add_child(_create_stat_row("Champion:", w_name, UIConstants.COLOR_GOLD))
+		var win_str := "%d (Par %d)" % [int(results.get("winning_score", 0)), int(results.get("par", 72))]
+		if TournamentLibrary.higher_points_is_better(fmt_type):
+			win_str = TournamentLibrary.format_score_for_format(
+				fmt_type, 0, int(results.get("winning_points", 0)), true
+			)
+		if int(results.get("playoff_holes", 0)) > 0:
+			win_str += " · Playoff"
+		card.add_child(_create_stat_row("Winning Score:", win_str, Color.WHITE))
+
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 6)
+	card.add_child(btn_row)
+
+	var replay_btn := Button.new()
+	replay_btn.name = "TournamentPlayAgainButton"
+	replay_btn.text = "Play Again"
+	replay_btn.custom_minimum_size = Vector2(0, 26 if embedded else 32)
+	replay_btn.pressed.connect(func() -> void: play_again_requested.emit())
+	btn_row.add_child(replay_btn)
+
+	var setup_btn := Button.new()
+	setup_btn.name = "TournamentSetupButton"
+	setup_btn.text = "Tournament Setup"
+	setup_btn.custom_minimum_size = Vector2(0, 26 if embedded else 32)
+	setup_btn.pressed.connect(func() -> void: tournament_setup_requested.emit())
+	btn_row.add_child(setup_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.name = "TournamentMainMenuButton"
+	menu_btn.text = "Main Menu"
+	menu_btn.custom_minimum_size = Vector2(0, 26 if embedded else 32)
+	menu_btn.pressed.connect(func() -> void: main_menu_requested.emit())
+	btn_row.add_child(menu_btn)
 
 ## Jump to the results: whoever is still on the course has their card completed and
 ## the remaining rounds are scored off the field's skill levels.

@@ -45,9 +45,22 @@ func _exit_tree() -> void:
 func setup(golfers_container: Node2D) -> void:
 	container = golfers_container
 
+## Remove the owner's wandering golfer when entering standalone Tournament Mode.
+func clear_golfer() -> void:
+	if golfer != null and is_instance_valid(golfer):
+		var manager := GameManager.golfer_manager
+		if manager != null:
+			manager.take_off_course(golfer)
+		golfer.queue_free()
+	golfer = null
+	duty = null
+
 ## The owner's golfer, created the first time it is asked for. They wear the
 ## owner's profile: their name, their colours and the skills they allocated.
 func ensure_golfer() -> Golfer:
+	if GameManager.is_tournament_mode:
+		clear_golfer()
+		return null
 	if golfer != null and is_instance_valid(golfer):
 		refresh_profile()
 		_push_area()

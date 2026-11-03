@@ -36,9 +36,18 @@ const TOURNAMENT_COOLDOWN: int = 45
 
 var last_tournament_end_day: int = -100
 
-# Multi-round state
+# Multi-round & format state
 var current_round: int = 0           # 1-based round number (0 = not started)
-var total_rounds: int = 1            # Total rounds for this tier
+var total_rounds: int = 1            # Total rounds for this event
+var current_format_type: int = TournamentLibrary.FormatType.STROKE_PLAY
+var _is_standalone_event: bool = false
+var _standalone_difficulty: int = TournamentLibrary.Difficulty.NORMAL
+var _standalone_field_size: int = 12
+var _standalone_cut_rule: String = "none"
+var _standalone_playoff_enabled: bool = true
+var _format_points: Dictionary = {}  # sim_id -> int (Stableford / Mod. Stableford / Skins)
+var _playoff_winner_id: int = -999999
+var _playoff_holes_played: int = 0
 
 # Tournament field (persistent across rounds)
 var _sim_field: Array = []           # Array of TournamentSimulator.SimulationGolfer
@@ -159,9 +168,13 @@ func _on_golfer_finished_hole(golfer_id: int, hole: int, strokes: int, par: int)
 		var hole_index := _hole_index_for_number(hole)
 		entry.current_hole = hole_index
 		entry.holes_played[hole_index] = true
+		entry.hole_strokes[hole_index] = strokes
+		entry.hole_pars[hole_index] = par
 
+	_recompute_format_points()
 	if _leaderboard:
 		_leaderboard.update_score(golfer_id, hole, strokes, par)
+		_leaderboard.set_format_points(_format_points)
 
 func _on_golfer_finished_round(golfer_id: int, total_strokes: int, _total_par: int) -> void:
 	if not _live_round_active or golfer_id not in _tournament_golfer_ids:
@@ -239,6 +252,8 @@ func host_tournament(tier: int) -> bool:
 	GameManager.daily_stats.tournament_entry_fee += tier_data.entry_cost
 	EventBus.log_transaction("Tournament entry fee (%s)" % tier_data.name, -tier_data.entry_cost)
 
+	_is_standalone_event = false
+	current_format_type = TournamentLibrary.FormatType.STROKE_PLAY
 	current_tournament_tier = tier
 	total_rounds = ROUNDS_PER_TIER.get(tier, 1)
 	current_round = 0
@@ -250,6 +265,85 @@ func host_tournament(tier: int) -> bool:
 	_start_tournament()
 
 	return true
+
+## Launch a standalone Tournament Mode event directly without Career entry fees,
+## course rating gates, or cooldowns. Accepts an options Dictionary (difficulty,
+## format_type, rounds, field_size, cut_rule, playoff) or a legacy tier int.
+func start_standalone_tournament(config: Variant) -> bool:
+	if current_tournament_state != TournamentSystem.TournamentState.NONE:
+		cancel_tournament()
+	if GameManager.get_open_hole_count() <= 0:
+		EventBus.notify("Course has no open holes for tournament play.", "warning")
+		return false
+
+	_is_standalone_event = true
+	if config is Dictionary:
+		var opts: Dictionary = config
+		_standalone_difficulty = int(opts.get("difficulty", TournamentLibrary.Difficulty.NORMAL))
+		var diff_info := TournamentLibrary.get_difficulty(_standalone_difficulty)
+		current_tournament_tier = int(opts.get("tier", diff_info.get("tier", TournamentSystem.TournamentTier.REGIONAL)))
+		current_format_type = int(opts.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
+		total_rounds = clampi(int(opts.get("rounds", TournamentLibrary.DEFAULT_ROUNDS)), 1, 4)
+		var open_holes := GameManager.get_open_hole_count()
+		if bool(opts.get("field_size_auto", false)) or int(opts.get("field_size", 12)) <= TournamentLibrary.FIELD_SIZE_AUTO:
+			_standalone_field_size = TournamentLibrary.auto_field_size_for_holes(open_holes)
+		else:
+			_standalone_field_size = clampi(int(opts.get("field_size", 12)), 2, maxi(72, open_holes * 2))
+		_standalone_cut_rule = str(opts.get("cut_rule", "none"))
+		if total_rounds <= 1:
+			_standalone_cut_rule = "none"
+		_standalone_playoff_enabled = bool(opts.get("playoff", true))
+	else:
+		current_tournament_tier = int(config)
+		_standalone_difficulty = clampi(current_tournament_tier, 0, 3)
+		current_format_type = TournamentLibrary.FormatType.STROKE_PLAY
+		total_rounds = ROUNDS_PER_TIER.get(current_tournament_tier, 1)
+		_standalone_field_size = TournamentSystem.get_field_size(
+			current_tournament_tier, GameManager.get_open_hole_count()
+		)
+		_standalone_cut_rule = str(CUT_RULES.get(current_tournament_tier, {}).get("rule", "none"))
+		_standalone_playoff_enabled = true
+
+	current_round = 0
+	tournament_start_day = GameManager.current_day
+	GameManager.set_speed(GameManager.GameSpeed.NORMAL)
+	tournament_scheduled.emit(current_tournament_tier, tournament_start_day)
+	EventBus.tournament_scheduled.emit(current_tournament_tier, tournament_start_day)
+	_start_tournament()
+	GameManager.set_speed(GameManager.current_speed)
+	return true
+
+## Abort an active tournament cleanly (used when restarting or returning to
+## Tournament Setup from standalone Tournament Mode).
+func cancel_tournament() -> void:
+	_release_aim()
+	if _golfer_manager:
+		_golfer_manager.remove_tournament_golfers()
+	if _leaderboard:
+		_leaderboard.hide()
+	if _pre_tournament_speed >= 0:
+		GameManager.set_speed(_pre_tournament_speed as GameManager.GameSpeed)
+		_pre_tournament_speed = -1
+	_is_standalone_event = false
+	current_format_type = TournamentLibrary.FormatType.STROKE_PLAY
+	current_tournament_tier = -1
+	current_tournament_state = TournamentSystem.TournamentState.NONE
+	current_round = 0
+	total_rounds = 1
+	_live_round_active = false
+	_groups_spawned = 0
+	_first_group_pending = false
+	_tournament_golfer_ids.clear()
+	_tournament_scores.clear()
+	_sim_field.clear()
+	_round_scores.clear()
+	_cumulative_scores.clear()
+	_format_points.clear()
+	_playoff_winner_id = -999999
+	_playoff_holes_played = 0
+	_cut_golfer_ids.clear()
+	_eliminated_ids.clear()
+	_tournament_moments.clear()
 
 # ============================================================================
 # TOURNAMENT START
@@ -275,6 +369,9 @@ func _start_tournament() -> void:
 	_tournament_scores.clear()
 	_round_scores.clear()
 	_cumulative_scores.clear()
+	_format_points.clear()
+	_playoff_winner_id = -999999
+	_playoff_holes_played = 0
 	_cut_golfer_ids.clear()
 	_eliminated_ids.clear()
 	_tournament_moments.clear()
@@ -286,10 +383,8 @@ func _start_tournament() -> void:
 	var tier_data = TournamentSystem.get_tier_data(current_tournament_tier)
 	var open_holes: int = GameManager.get_open_hole_count()
 
-	# Field size: a pairing on every open hole, never fewer than the tier's
-	# nominal entry list. The owner is always one of them — hosting an event
-	# means playing it.
-	_sim_field = _build_field(TournamentSystem.get_field_size(current_tournament_tier, open_holes))
+	var desired_field_size := _standalone_field_size if _is_standalone_event else TournamentSystem.get_field_size(current_tournament_tier, open_holes)
+	_sim_field = _build_field(desired_field_size)
 
 	# How many of them get a body on the course: two per open hole.
 	_live_count = mini(TournamentSystem.get_live_field_size(open_holes), _sim_field.size())
@@ -298,13 +393,18 @@ func _start_tournament() -> void:
 	for sg in _sim_field:
 		_cumulative_scores[sg.id] = {"total_strokes": 0, "total_par": 0}
 		_round_scores[sg.id] = []
+		_format_points[sg.id] = 0
 
 	# Show the whole field on the live board from the first tee shot, so the
 	# owner can find themselves on it. Golfers who get a body on the course are
 	# bound to their node below.
 	if _leaderboard:
+		var event_title := str(tier_data.name)
+		if _is_standalone_event:
+			event_title = TournamentLibrary.get_format_name(current_format_type)
 		var round_text = "Round 1/%d" % total_rounds if total_rounds > 1 else ""
-		_leaderboard.show_for_tournament(tier_data.name, _sim_field.size(), total_rounds, round_text)
+		_leaderboard.set_format_type(current_format_type)
+		_leaderboard.show_for_tournament(event_title, _sim_field.size(), total_rounds, round_text)
 		for sg in _sim_field:
 			_leaderboard.register_golfer(sg.id, sg.name, sg.id, sg.id == PLAYER_SIM_ID)
 
@@ -314,20 +414,60 @@ func _start_tournament() -> void:
 	# Play round 1 — live golfers on the course right now
 	_play_round(1)
 
-## Build the field: the tier's professional entrants plus the owner, who always
-## plays a tournament they host. The owner leads the field so the pairing on
-## hole 1 is them and the first professional.
+## Build the field: in standalone Tournament Mode, competitors come from the
+## selected Difficulty Level's named golfer list (with higher Golf Skills at
+## each higher difficulty). In Career Mode, generates the tier's field.
 func _build_field(participant_count: int) -> Array:
+	var player_sg := _make_player_sim_golfer()
+	if _is_standalone_event:
+		var tier_for_diff := GolferTier.Tier.CASUAL
+		match _standalone_difficulty:
+			TournamentLibrary.Difficulty.EASY:
+				tier_for_diff = GolferTier.Tier.BEGINNER
+			TournamentLibrary.Difficulty.NORMAL:
+				tier_for_diff = GolferTier.Tier.CASUAL
+			TournamentLibrary.Difficulty.HARD:
+				tier_for_diff = GolferTier.Tier.SERIOUS
+			TournamentLibrary.Difficulty.CHAMPIONSHIP:
+				tier_for_diff = GolferTier.Tier.PRO
+		var roster := TournamentLibrary.build_opponent_roster(
+			_standalone_difficulty,
+			maxi(0, participant_count - 1),
+			player_sg.name
+		)
+		var standalone_field: Array = [player_sg]
+		for idx in range(roster.size()):
+			var sim_id := -(idx + 1)
+			standalone_field.append(
+				TournamentSimulator.SimulationGolfer.from_golfer_card(sim_id, roster[idx], tier_for_diff)
+			)
+		return standalone_field
+
 	var field: Array = TournamentSimulator.generate_field(
 		current_tournament_tier, maxi(0, participant_count - 1)
 	)
-	field.push_front(_make_player_sim_golfer())
+	field.push_front(player_sg)
 	return field
 
 ## The owner's entry in the field, built from the persistent player profile so
 ## the skills they allocated carry into tournament play.
 func _make_player_sim_golfer() -> TournamentSimulator.SimulationGolfer:
 	var profile: PlayerGolferProfile = GameManager.player_profile
+	if _is_standalone_event and profile != null:
+		var card := {
+			"name": profile.golfer_name if not profile.golfer_name.is_empty() else "You",
+			"skin_id": GameManager.player_skin_id,
+			"skin_colors": GameManager.tournament_player_skin_colors.duplicate(true),
+			"profession": profile.profession,
+			"age": profile.age,
+			"gender": profile.gender,
+			"marital_status": profile.marital_status,
+			"traits": profile.traits.duplicate(),
+			"golfer_skills": profile.golfer_skills.duplicate(),
+			"points": profile.points.duplicate(),
+		}
+		return TournamentSimulator.SimulationGolfer.from_golfer_card(PLAYER_SIM_ID, card, GolferTier.Tier.SERIOUS)
+
 	var sg := TournamentSimulator.SimulationGolfer.new()
 	sg.id = PLAYER_SIM_ID
 	sg.name = profile.golfer_name if profile and profile.golfer_name != "" else "You"
@@ -479,23 +619,14 @@ func _spawn_next_group() -> void:
 		var golfer = _golfer_manager.spawn_tournament_golfer(tier, group_id)
 		if golfer:
 			_golfer_manager.seat_golfer_at_hole(golfer, tee_hole)
-			# Apply the simulated golfer's playing abilities to the live
-			# golfer as Golf Skill points (the points are the skills)
-			golfer.attributes.apply_abilities(sg.driving_ability, sg.accuracy_ability, sg.putting_ability, sg.recovery_ability)
+			if not sg.golfer_card.is_empty():
+				golfer.apply_golfer_card(sg.golfer_card)
+			else:
+				golfer.attributes.apply_abilities(sg.driving_ability, sg.accuracy_ability, sg.putting_ability, sg.recovery_ability)
+				golfer.golfer_name = sg.name
 			golfer.miss_tendency = sg.miss_tendency
 			golfer.aggression = sg.aggression
 			golfer.patience = sg.patience
-			golfer.golfer_name = sg.name
-			# The owner plays their own tournament: give their golfer the
-			# colours from the player profile so it is recognisable on the
-			# course, and attach the profile itself so the golfer waits for
-			# the player's click instead of swinging automatically (putting
-			# off the player's turn stays automatic). The round is still a
-			# management event, so the TournamentManager keeps owning
-			# spawning, scoring and results — only the shot input is handed
-			# to the PlayerRoundManager. Without an aiming controller (e.g.
-			# headless tests) the owner's shot falls back to the same AI as
-			# everyone else's.
 			if sg.id == PLAYER_SIM_ID and GameManager.player_profile:
 				golfer.apply_player_appearance(GameManager.player_profile)
 				if is_instance_valid(_aim_controller):
@@ -511,10 +642,10 @@ func _spawn_next_group() -> void:
 				"holes_completed": 0,
 				"is_finished": false,
 				"ability": avg_ability,
-				# Index of the hole they are on, plus the holes they have already
-				# carded, so any remaining holes can be filled exactly once.
 				"current_hole": tee_hole,
 				"holes_played": {},
+				"hole_strokes": {},
+				"hole_pars": {},
 			}
 			if _leaderboard:
 				# Point the owner's/pre-pro's existing leaderboard row at the body
@@ -556,6 +687,7 @@ func _record_simulated_round(sg: TournamentSimulator.SimulationGolfer, round_num
 	_cumulative_scores[sg.id].total_strokes += result.total_strokes
 	_cumulative_scores[sg.id].total_par += result.total_par
 	_tournament_moments.append_array(result.moments)
+	_recompute_format_points()
 
 	# Update leaderboard
 	if _leaderboard:
@@ -565,6 +697,7 @@ func _record_simulated_round(sg: TournamentSimulator.SimulationGolfer, round_num
 			result.total_strokes, result.total_par,
 			_cumulative_scores[sg.id].total_strokes,
 			_cumulative_scores[sg.id].total_par)
+		_leaderboard.set_format_points(_format_points)
 
 	return result.moments
 
@@ -621,11 +754,32 @@ func _finish_live_round() -> void:
 			sg.putting_ability = entry_ability
 			sg.recovery_ability = entry_ability
 
-		var holes_left: int = maxi(circuit_holes - (entry.holes_played as Dictionary).size(), 0)
+		var open_indices := _open_hole_indices()
+		var played_map: Dictionary = entry.holes_played as Dictionary
+		var next_slot := 0
+		var cur_hole_idx := _first_open_hole_not_played(played_map)
+		for s in open_indices.size():
+			if int(open_indices[s]) >= cur_hole_idx:
+				next_slot = s
+				break
+			next_slot = s + 1
+		var unplayed_order: Array = []
+		for offset in open_indices.size():
+			var hi := int(open_indices[(next_slot + offset) % open_indices.size()])
+			if not played_map.has(hi):
+				unplayed_order.append(hi)
+
+		var holes_left: int = maxi(circuit_holes - played_map.size(), 0)
 		var result = TournamentSimulator.simulate_remaining(sg,
-			_first_open_hole_not_played(entry.holes_played),
+			cur_hole_idx,
 			int(entry.total_strokes), int(entry.total_par), holes_left,
-			entry.holes_played as Dictionary)
+			played_map)
+
+		for fill_i in range(mini(result.hole_scores.size(), unplayed_order.size())):
+			var fill_hi := int(unplayed_order[fill_i])
+			entry.hole_strokes[fill_hi] = int(result.hole_scores[fill_i])
+			entry.hole_pars[fill_hi] = int(result.hole_pars[fill_i])
+			entry.holes_played[fill_hi] = true
 
 		entry.total_strokes = result.total_strokes
 		entry.total_par = result.total_par
@@ -674,7 +828,12 @@ func _finish_round(round_moments: Array, was_live: bool) -> void:
 	])
 
 	# Apply the cut line once the round it follows has been played
-	if CUT_RULES.has(current_tournament_tier):
+	if _is_standalone_event:
+		var cut_after := maxi(1, int(float(total_rounds) * 0.5))
+		if total_rounds >= 2 and _standalone_cut_rule != "none" and not _standalone_cut_rule.is_empty():
+			if current_round == cut_after and _cut_golfer_ids.is_empty():
+				_apply_cut_line(_standalone_cut_rule)
+	elif CUT_RULES.has(current_tournament_tier):
 		var cut_info = CUT_RULES[current_tournament_tier]
 		if current_round == cut_info.after_round and _cut_golfer_ids.is_empty():
 			_apply_cut_line(cut_info.rule)
@@ -701,19 +860,26 @@ func _check_live_round_completion() -> void:
 
 ## Record live round results into the persistent round_scores/cumulative_scores
 func _record_live_round_results() -> void:
+	var open_indices := _open_hole_indices()
 	for gid in _tournament_golfer_ids:
 		if not _tournament_scores.has(gid):
 			continue
 		var entry = _tournament_scores[gid]
 		var sim_id = entry.get("sim_id", gid)
 
-		# Create a RoundResult from live play data
+		# Create a RoundResult from live play data (preserving per-hole scores in open-hole order)
 		var rr = TournamentSimulator.RoundResult.new()
 		rr.golfer_id = sim_id
 		rr.golfer_name = entry.name
 		rr.round_number = current_round
 		rr.total_strokes = entry.total_strokes
 		rr.total_par = entry.total_par
+		var hs_map: Dictionary = entry.get("hole_strokes", {})
+		var hp_map: Dictionary = entry.get("hole_pars", {})
+		for hi in open_indices:
+			if hs_map.has(hi):
+				rr.hole_scores.append(int(hs_map[hi]))
+				rr.hole_pars.append(int(hp_map.get(hi, 4)))
 
 		if not _round_scores.has(sim_id):
 			_round_scores[sim_id] = []
@@ -736,6 +902,10 @@ func _record_live_round_results() -> void:
 				_cumulative_scores[sim_id].total_strokes,
 				_cumulative_scores[sim_id].total_par)
 
+	_recompute_format_points()
+	if _leaderboard:
+		_leaderboard.set_format_points(_format_points)
+
 # ============================================================================
 # CUT LINE
 # ============================================================================
@@ -746,21 +916,29 @@ func _apply_cut_line(rule: String) -> void:
 
 	if rule == "top_50pct":
 		cut_count = ceili(standings.size() / 2.0)
+	elif rule == "top_10_ties":
+		cut_count = 10
 	elif rule == "top_40_ties":
 		cut_count = 40
 
 	if cut_count <= 0 or cut_count >= standings.size():
 		return
 
-	# Find the score at the cut position
-	var cut_score = standings[mini(cut_count - 1, standings.size() - 1)].score_to_par
+	var target_entry: Dictionary = standings[mini(cut_count - 1, standings.size() - 1)]
+	var use_points := TournamentLibrary.higher_points_is_better(current_format_type)
+	var cut_score := int(target_entry.get("score_to_par", 0))
+	var cut_points := int(target_entry.get("format_points", 0))
 
-	# Include ties: all golfers at or better than cut_score advance
 	_cut_golfer_ids.clear()
 	_eliminated_ids.clear()
 
 	for entry in standings:
-		if entry.score_to_par <= cut_score:
+		var advances := false
+		if use_points:
+			advances = int(entry.get("format_points", 0)) >= cut_points
+		else:
+			advances = int(entry.get("score_to_par", 0)) <= cut_score
+		if advances:
 			_cut_golfer_ids.append(entry.id)
 		else:
 			_eliminated_ids.append(entry.id)
@@ -771,7 +949,9 @@ func _apply_cut_line(rule: String) -> void:
 	if _leaderboard:
 		_leaderboard.apply_cut_line(_cut_golfer_ids, _eliminated_ids)
 
-	var cut_score_text = _format_score_diff(cut_score)
+	var cut_score_text := TournamentLibrary.format_score_for_format(
+		current_format_type, cut_score, cut_points, true
+	)
 	EventBus.notify("Cut line at %s — %d golfers advance, %d eliminated" % [
 		cut_score_text, _cut_golfer_ids.size(), _eliminated_ids.size()
 	], "info")
@@ -791,11 +971,15 @@ func _complete_tournament() -> void:
 	# round was settled by a path that skipped _finish_live_round().
 	_release_aim()
 
-	# Build final standings
+	_recompute_format_points()
 	var standings = _get_standings()
+	if _is_standalone_event and _standalone_playoff_enabled and standings.size() >= 2:
+		_run_sudden_death_playoff(standings)
+		standings = _get_standings()
 
 	var winner_name = standings[0].name if not standings.is_empty() else "Unknown"
 	var winning_score = standings[0].total_strokes if not standings.is_empty() else 0
+	var winning_points := int(standings[0].get("format_points", 0)) if not standings.is_empty() else 0
 	var winner_is_player: bool = not standings.is_empty() and standings[0].id == PLAYER_SIM_ID
 	var course_par = TournamentSystem._get_course_par(GameManager.current_course)
 
@@ -808,17 +992,29 @@ func _complete_tournament() -> void:
 			"total_strokes": s.total_strokes,
 			"total_par": s.total_par,
 			"score_to_par": s.score_to_par,
+			"format_points": int(s.get("format_points", 0)),
+			"won_playoff": s.id == _playoff_winner_id,
 			"missed_cut": s.id in _eliminated_ids,
 			"round_scores": _get_round_score_diffs(s.id),
+			"round_points": _get_round_format_points(s.id),
 		})
 
 	# Calculate drama multiplier for spectator revenue
 	var drama_multiplier = _calculate_drama_multiplier()
 
+	var completed_format := current_format_type
+	var completed_playoff_holes := _playoff_holes_played
+
 	tournament_results = {
 		"winner_name": winner_name,
 		"winner_is_player": winner_is_player,
 		"winning_score": winning_score,
+		"winning_points": winning_points,
+		"format_type": completed_format,
+		"format_name": TournamentLibrary.get_format_name(completed_format),
+		"cut_rule": _standalone_cut_rule if _is_standalone_event else str(CUT_RULES.get(current_tournament_tier, {}).get("rule", "none")),
+		"playoff_enabled": _standalone_playoff_enabled if _is_standalone_event else false,
+		"playoff_holes": completed_playoff_holes,
 		"par": course_par,
 		"scores": standings.map(func(s): return s.total_strokes),
 		"participant_count": _sim_field.size(),
@@ -831,33 +1027,32 @@ func _complete_tournament() -> void:
 		"eliminated_golfers": _eliminated_ids.size(),
 	}
 
-	# Prize pool payout
+	# Prize pool payout & Career economics apply only to hosted Career events
 	var prize_cost = tier_data.prize_pool
-	if prize_cost > 0:
-		GameManager.modify_money(-prize_cost)
-		EventBus.log_transaction("Tournament prize pool payout", -prize_cost)
-
-	# Revenue with drama multiplier
 	var spectator_rev = int(tier_data.get("spectator_revenue", 0) * drama_multiplier)
 	var sponsor_rev = tier_data.get("sponsorship_revenue", 0)
 	var total_revenue = spectator_rev + sponsor_rev
-	if total_revenue > 0:
-		GameManager.modify_money(total_revenue)
-		GameManager.daily_stats.tournament_revenue += total_revenue
-		EventBus.log_transaction("Tournament revenue (spectators + sponsors)", total_revenue)
+	var prestige = SeasonSystem.get_tournament_prestige(GameManager.current_day, GameManager.current_theme)
+	var adjusted_rep = int(float(tier_data.reputation_reward) * prestige)
+
+	if not GameManager.is_tournament_mode:
+		if prize_cost > 0:
+			GameManager.modify_money(-prize_cost)
+			EventBus.log_transaction("Tournament prize pool payout", -prize_cost)
+		if total_revenue > 0:
+			GameManager.modify_money(total_revenue)
+			GameManager.daily_stats.tournament_revenue += total_revenue
+			EventBus.log_transaction("Tournament revenue (spectators + sponsors)", total_revenue)
+		GameManager.modify_reputation(adjusted_rep)
 
 	tournament_results["spectator_revenue"] = spectator_rev
 	tournament_results["sponsorship_revenue"] = sponsor_rev
 	tournament_results["total_revenue"] = total_revenue
 	tournament_results["drama_multiplier"] = drama_multiplier
-
-	# Apply seasonal prestige multiplier to reputation reward
-	var prestige = SeasonSystem.get_tournament_prestige(GameManager.current_day, GameManager.current_theme)
-	var adjusted_rep = int(float(tier_data.reputation_reward) * prestige)
 	tournament_results["prestige_multiplier"] = prestige
-	GameManager.modify_reputation(adjusted_rep)
 
 	if _leaderboard:
+		_leaderboard.set_format_points(_format_points, _playoff_winner_id)
 		_leaderboard.show_final_results()
 
 	last_tournament_end_day = GameManager.current_day
@@ -867,14 +1062,13 @@ func _complete_tournament() -> void:
 		GameManager.current_speed = _pre_tournament_speed as GameManager.GameSpeed
 		_pre_tournament_speed = -1
 
-	# Note: simulated round moments are emitted per-round in _simulate_round_headless().
-	# Live round moments are emitted in _finish_live_round(). No re-emit needed here.
-
 	# The event is over: nobody stays on the course because of it.
 	if _golfer_manager:
 		_golfer_manager.remove_tournament_golfers()
 
 	# Reset state
+	_is_standalone_event = false
+	current_format_type = TournamentLibrary.FormatType.STROKE_PLAY
 	current_tournament_tier = -1
 	current_tournament_state = TournamentSystem.TournamentState.NONE
 	current_round = 0
@@ -884,6 +1078,9 @@ func _complete_tournament() -> void:
 	_sim_field.clear()
 	_round_scores.clear()
 	_cumulative_scores.clear()
+	_format_points.clear()
+	_playoff_winner_id = -999999
+	_playoff_holes_played = 0
 	_cut_golfer_ids.clear()
 	_eliminated_ids.clear()
 	_tournament_moments.clear()
@@ -895,7 +1092,11 @@ func _complete_tournament() -> void:
 	_live_round_active = false
 
 	var score_diff = standings[0].score_to_par if not standings.is_empty() else 0
-	var score_text = _format_score_diff(score_diff)
+	var score_text := TournamentLibrary.format_score_for_format(
+		completed_format, score_diff, winning_points, true
+	)
+	if completed_playoff_holes > 0:
+		score_text += " (Playoff)"
 
 	tournament_completed.emit(completed_tier, tournament_results)
 	EventBus.tournament_completed.emit(completed_tier, tournament_results)
@@ -934,9 +1135,183 @@ func _get_active_field() -> Array:
 		return _sim_field  # No cut yet, everyone plays
 	return _sim_field.filter(func(sg): return sg.id in _cut_golfer_ids)
 
-## Get current standings sorted by cumulative score-to-par
+## Recompute cumulative format points (Stableford / Modified Stableford / Skins)
+## across completed rounds plus any live Round 1 holes currently in progress.
+func _recompute_format_points() -> void:
+	_format_points.clear()
+	for sg in _sim_field:
+		_format_points[sg.id] = 0
+	if current_format_type == TournamentLibrary.FormatType.STROKE_PLAY:
+		return
+
+	if current_format_type in [
+		TournamentLibrary.FormatType.STABLEFORD,
+		TournamentLibrary.FormatType.MODIFIED_STABLEFORD
+	]:
+		for sg in _sim_field:
+			var pts := 0
+			if _round_scores.has(sg.id):
+				for rr in _round_scores[sg.id]:
+					for hi in range(mini(rr.hole_scores.size(), rr.hole_pars.size())):
+						pts += TournamentLibrary.hole_points_for_format(
+							current_format_type, int(rr.hole_scores[hi]), int(rr.hole_pars[hi])
+						)
+			if _live_round_active and (_round_scores.get(sg.id, []) as Array).is_empty():
+				for entry in _tournament_scores.values():
+					if int(entry.get("sim_id", -999999)) == sg.id:
+						var hs: Dictionary = entry.get("hole_strokes", {})
+						var hp: Dictionary = entry.get("hole_pars", {})
+						for h_key in hs:
+							pts += TournamentLibrary.hole_points_for_format(
+								current_format_type, int(hs[h_key]), int(hp.get(h_key, 4))
+							)
+						break
+			_format_points[sg.id] = pts
+		return
+
+	if current_format_type == TournamentLibrary.FormatType.SKINS:
+		var carryover := 0
+		var max_r := current_round
+		for r in range(1, max_r + 1):
+			var hole_cards: Dictionary = {}  # sim_id -> Array[int] (strokes in open-hole order)
+			var hole_count := 0
+			for sg in _sim_field:
+				var rrs: Array = _round_scores.get(sg.id, [])
+				for rr in rrs:
+					if rr.round_number == r and not rr.hole_scores.is_empty():
+						hole_cards[sg.id] = rr.hole_scores
+						hole_count = maxi(hole_count, rr.hole_scores.size())
+						break
+			# Live round partial cards when Round 1 is still active
+			if r == 1 and _live_round_active and hole_cards.is_empty():
+				var open_indices := _open_hole_indices()
+				hole_count = open_indices.size()
+				for h_ord in range(hole_count):
+					var hi := int(open_indices[h_ord])
+					var scores_on_hole: Dictionary = {}
+					var active_total := _tournament_scores.size()
+					for entry in _tournament_scores.values():
+						var hs: Dictionary = entry.get("hole_strokes", {})
+						if hs.has(hi):
+							scores_on_hole[int(entry.get("sim_id", -999999))] = int(hs[hi])
+					if active_total >= 2 and scores_on_hole.size() == active_total:
+						var low := 999999
+						var low_ids: Array[int] = []
+						for sid in scores_on_hole:
+							var sc := int(scores_on_hole[sid])
+							if sc < low:
+								low = sc
+								low_ids = [int(sid)]
+							elif sc == low:
+								low_ids.append(int(sid))
+						if low_ids.size() == 1:
+							_format_points[low_ids[0]] = int(_format_points.get(low_ids[0], 0)) + 1 + carryover
+							carryover = 0
+						else:
+							carryover += 1
+				continue
+
+			for h_ord in range(hole_count):
+				var low := 999999
+				var low_ids: Array[int] = []
+				for sid in hole_cards:
+					var arr: Array = hole_cards[sid]
+					if h_ord >= arr.size():
+						continue
+					var sc := int(arr[h_ord])
+					if sc < low:
+						low = sc
+						low_ids = [int(sid)]
+					elif sc == low:
+						low_ids.append(int(sid))
+				if low_ids.is_empty():
+					continue
+				if low_ids.size() == 1:
+					_format_points[low_ids[0]] = int(_format_points.get(low_ids[0], 0)) + 1 + carryover
+					carryover = 0
+				else:
+					carryover += 1
+
+## Play hole-by-hole Sudden-Death Playoff among competitors tied for 1st place.
+func _run_sudden_death_playoff(standings: Array) -> void:
+	if standings.size() < 2:
+		return
+	var use_points := TournamentLibrary.higher_points_is_better(current_format_type)
+	var lead_stp := int(standings[0].get("score_to_par", 0))
+	var lead_pts := int(standings[0].get("format_points", 0))
+	var contenders: Array = []
+	for s in standings:
+		if int(s.id) in _eliminated_ids:
+			continue
+		var tied := (int(s.get("format_points", 0)) == lead_pts) if use_points else (int(s.get("score_to_par", 0)) == lead_stp)
+		if tied:
+			var sg := _find_sim_golfer(int(s.id))
+			if sg != null:
+				contenders.append(sg)
+	if contenders.size() < 2:
+		return
+
+	var open_indices := _open_hole_indices()
+	if open_indices.is_empty():
+		return
+
+	var holes_played := 0
+	var winning_hole_num := 1
+	var winning_strokes := 4
+	var winning_par := 4
+	while contenders.size() > 1 and holes_played < 18:
+		var hi := int(open_indices[holes_played % open_indices.size()])
+		holes_played += 1
+		var best_val := -999999 if (current_format_type in [TournamentLibrary.FormatType.STABLEFORD, TournamentLibrary.FormatType.MODIFIED_STABLEFORD]) else 999999
+		var survivors: Array = []
+		for sg in contenders:
+			var out := TournamentSimulator.simulate_single_hole(sg, hi)
+			var st := int(out.get("strokes", 4))
+			var pa := int(out.get("par", 4))
+			winning_hole_num = int(out.get("hole_number", hi + 1))
+			winning_par = pa
+			if current_format_type in [TournamentLibrary.FormatType.STABLEFORD, TournamentLibrary.FormatType.MODIFIED_STABLEFORD]:
+				var pts := TournamentLibrary.hole_points_for_format(current_format_type, st, pa)
+				if pts > best_val:
+					best_val = pts
+					winning_strokes = st
+					survivors = [sg]
+				elif pts == best_val:
+					survivors.append(sg)
+			else:
+				if st < best_val:
+					best_val = st
+					winning_strokes = st
+					survivors = [sg]
+				elif st == best_val:
+					survivors.append(sg)
+		if not survivors.is_empty():
+			contenders = survivors
+
+	var champ: TournamentSimulator.SimulationGolfer = contenders[0]
+	_playoff_winner_id = champ.id
+	_playoff_holes_played = holes_played
+	var pm := TournamentSimulator.TournamentMoment.new()
+	pm.type = "playoff"
+	pm.round_number = total_rounds
+	pm.hole = winning_hole_num
+	pm.golfer_name = champ.name
+	pm.detail = "Sudden-Death Playoff (Hole %d, %d extra %s): %s won with %s (%d)!" % [
+		winning_hole_num,
+		holes_played,
+		"hole" if holes_played == 1 else "holes",
+		champ.name,
+		GolfRules.get_score_name(winning_strokes, winning_par),
+		winning_strokes,
+	]
+	pm.importance = 3
+	_tournament_moments.append(pm)
+	_emit_moments([pm])
+
+## Get current standings sorted by the active tournament format's primary metric.
 func _get_standings() -> Array:
 	var standings: Array = []
+	var use_points := TournamentLibrary.higher_points_is_better(current_format_type)
 	for sg in _sim_field:
 		if not _cumulative_scores.has(sg.id):
 			continue
@@ -948,9 +1323,24 @@ func _get_standings() -> Array:
 			"total_strokes": cum.total_strokes,
 			"total_par": cum.total_par,
 			"score_to_par": cum.total_strokes - cum.total_par,
+			"format_points": int(_format_points.get(sg.id, 0)),
+			"won_playoff": sg.id == _playoff_winner_id,
 		})
 
-	standings.sort_custom(func(a, b): return a.score_to_par < b.score_to_par)
+	standings.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_cut := int(a.id) in _eliminated_ids
+		var b_cut := int(b.id) in _eliminated_ids
+		if a_cut != b_cut:
+			return not a_cut
+		if bool(a.get("won_playoff", false)) != bool(b.get("won_playoff", false)):
+			return bool(a.get("won_playoff", false))
+		if use_points:
+			var ap := int(a.get("format_points", 0))
+			var bp := int(b.get("format_points", 0))
+			if ap != bp:
+				return ap > bp
+		return int(a.score_to_par) < int(b.score_to_par)
+	)
 	return standings
 
 ## Get per-round score-to-par diffs for a golfer
@@ -960,6 +1350,24 @@ func _get_round_score_diffs(sim_id: int) -> Array:
 		for rr in _round_scores[sim_id]:
 			diffs.append(rr.total_strokes - rr.total_par)
 	return diffs
+
+## Get per-round format points for Stableford / Modified Stableford
+func _get_round_format_points(sim_id: int) -> Array:
+	var pts_arr: Array = []
+	if current_format_type not in [
+		TournamentLibrary.FormatType.STABLEFORD,
+		TournamentLibrary.FormatType.MODIFIED_STABLEFORD
+	]:
+		return pts_arr
+	if _round_scores.has(sim_id):
+		for rr in _round_scores[sim_id]:
+			var r_pts := 0
+			for hi in range(mini(rr.hole_scores.size(), rr.hole_pars.size())):
+				r_pts += TournamentLibrary.hole_points_for_format(
+					current_format_type, int(rr.hole_scores[hi]), int(rr.hole_pars[hi])
+				)
+			pts_arr.append(r_pts)
+	return pts_arr
 
 ## Find the simulated competitor a live golfer is being modelled on.
 func _find_sim_golfer(sim_id: int) -> TournamentSimulator.SimulationGolfer:
@@ -1006,7 +1414,12 @@ func _format_score_diff(diff: int) -> String:
 
 ## Format a standings entry
 func _format_score(entry: Dictionary) -> String:
-	return _format_score_diff(entry.get("score_to_par", 0))
+	return TournamentLibrary.format_score_for_format(
+		current_format_type,
+		int(entry.get("score_to_par", 0)),
+		int(entry.get("format_points", 0)),
+		true
+	)
 
 # ============================================================================
 # PUBLIC QUERY METHODS
@@ -1017,9 +1430,17 @@ func get_tournament_info() -> Dictionary:
 		return {}
 
 	var tier_data = TournamentSystem.get_tier_data(current_tournament_tier)
+	var event_name := str(tier_data.name)
+	if _is_standalone_event:
+		event_name = TournamentLibrary.get_format_name(current_format_type)
 	return {
 		"tier": current_tournament_tier,
-		"name": tier_data.name,
+		"name": event_name,
+		"format_type": current_format_type,
+		"format_name": TournamentLibrary.get_format_name(current_format_type),
+		"cut_rule": _standalone_cut_rule if _is_standalone_event else str(CUT_RULES.get(current_tournament_tier, {}).get("rule", "none")),
+		"playoff": _standalone_playoff_enabled if _is_standalone_event else false,
+		"field_size": _sim_field.size(),
 		"state": current_tournament_state,
 		"current_round": current_round,
 		"total_rounds": total_rounds,
@@ -1032,14 +1453,14 @@ func get_cooldown_remaining() -> int:
 func is_tournament_in_progress() -> bool:
 	return current_tournament_state == TournamentSystem.TournamentState.IN_PROGRESS
 
-## The owner's own standing in the running event — score to par, position in the
-## field and how many holes they have played. Empty when no tournament is on or
-## the owner is not in it.
+## The owner's own standing in the running event — score to par / format points,
+## position in the field and how many holes they have played.
 func get_player_standing() -> Dictionary:
 	if current_tournament_state == TournamentSystem.TournamentState.NONE:
 		return {}
 
 	var standings = _get_standings()
+	var use_points := TournamentLibrary.higher_points_is_better(current_format_type)
 	for i in range(standings.size()):
 		if standings[i].id != PLAYER_SIM_ID:
 			continue
@@ -1048,18 +1469,20 @@ func get_player_standing() -> Dictionary:
 			if entry.get("sim_id", -1) == PLAYER_SIM_ID:
 				holes = int(entry.holes_completed)
 				break
-		# Ties share a position. Everyone starts a round level, and "rank 24 of
-		# 24" for a golfer on the leader's score reads like a result rather than
-		# a starting grid.
 		var ahead := 0
 		for j in range(standings.size()):
-			if int(standings[j].score_to_par) < int(standings[i].score_to_par):
+			if use_points:
+				if int(standings[j].get("format_points", 0)) > int(standings[i].get("format_points", 0)):
+					ahead += 1
+			elif int(standings[j].score_to_par) < int(standings[i].score_to_par):
 				ahead += 1
 		return {
 			"name": standings[i].name,
 			"rank": ahead + 1,
 			"field_size": standings.size(),
 			"score_to_par": standings[i].score_to_par,
+			"format_points": int(standings[i].get("format_points", 0)),
+			"format_type": current_format_type,
 			"total_strokes": standings[i].total_strokes,
 			"holes_completed": holes,
 			"round": current_round,

@@ -20,6 +20,8 @@ class_name PauseMenu
 signal resume_requested
 signal save_requested
 signal load_requested
+signal restart_tournament_requested
+signal tournament_setup_requested
 signal settings_requested
 signal quit_to_menu_requested
 signal quit_to_desktop_requested
@@ -105,9 +107,11 @@ func _build_ui() -> void:
 	_vbox = vbox
 	scroll.add_child(vbox)
 
+	var in_tourney := GameManager.is_tournament_mode
+
 	# Title
 	var title = Label.new()
-	title.text = "Game Paused"
+	title.text = "Tournament Paused" if in_tourney else "Game Paused"
 	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
 	title.add_theme_color_override("font_color", Color(0.85, 0.95, 0.75))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -119,7 +123,11 @@ func _build_ui() -> void:
 
 	# Course info
 	var info_label = Label.new()
-	info_label.text = "%s - Day %d" % [GameManager.course_name, GameManager.current_day]
+	if in_tourney:
+		var diff_str := GameManager.tournament_difficulty_label if not GameManager.tournament_difficulty_label.is_empty() else "Tournament Mode"
+		info_label.text = "%s — %s" % [GameManager.course_name, diff_str]
+	else:
+		info_label.text = "%s - Day %d" % [GameManager.course_name, GameManager.current_day]
 	info_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
 	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -138,8 +146,12 @@ func _build_ui() -> void:
 	# Menu buttons. Resume is the default focus, so A/Enter continues the game.
 	var resume := _add_menu_button(vbox, "Resume", _on_resume_pressed)
 	resume.set_meta(InputManager.DEFAULT_FOCUS_META, true)
-	_add_menu_button(vbox, "Save Game", _on_save_pressed)
-	_add_menu_button(vbox, "Load Game", _on_load_pressed)
+	if in_tourney:
+		_add_menu_button(vbox, "Restart Tournament", func() -> void: restart_tournament_requested.emit())
+		_add_menu_button(vbox, "Tournament Setup", func() -> void: tournament_setup_requested.emit())
+	else:
+		_add_menu_button(vbox, "Save Game", _on_save_pressed)
+		_add_menu_button(vbox, "Load Game", _on_load_pressed)
 	_add_menu_button(vbox, "Settings", _on_settings_pressed)
 
 	# Separator before destructive actions

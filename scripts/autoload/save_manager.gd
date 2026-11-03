@@ -54,7 +54,7 @@ func _ready() -> void:
 
 ## Snapshot at every year rollover so the year that just ended is preserved.
 func _on_year_ended(_finished_year: int) -> void:
-	if _is_loading or benchmark_suppression:
+	if _is_loading or benchmark_suppression or GameManager.is_tournament_mode:
 		return
 	save_game("autosave")
 
@@ -159,6 +159,33 @@ func switch_to_location(snapshot: Dictionary) -> bool:
 	EventBus.load_completed.emit(true)
 	return true
 
+## Load a Career-exported course snapshot for standalone Tournament Mode,
+## preserving the tournament golfer profile and stripping any Career tournament
+## state or company world bindings.
+func load_tournament_course_snapshot(snapshot: Dictionary, display_name: String = "") -> bool:
+	if snapshot.is_empty():
+		return false
+	var data := snapshot.duplicate(true)
+	data.erase("tournament")
+	var chosen_profile := GameManager.player_profile
+	var state: Dictionary = (data.get("game_state", {}) as Dictionary).duplicate()
+	if not display_name.strip_edges().is_empty():
+		state["course_name"] = display_name.strip_edges()
+	state["money"] = GameManager.UNLIMITED_STARTING_BALANCE
+	state["reputation"] = 100.0
+	state["current_day"] = 120
+	state["loan_balance"] = 0
+	data["game_state"] = state
+	data["player_golfer"] = chosen_profile.serialize() if chosen_profile else {}
+	_apply_save_data(data)
+	if chosen_profile != null:
+		GameManager.player_profile = chosen_profile
+	if not display_name.strip_edges().is_empty():
+		GameManager.course_name = display_name.strip_edges()
+	WorldMap.active_location_id = ""
+	EventBus.load_completed.emit(true)
+	return true
+
 ## ── Benchmark tour: borrow the live course, then give it back ─────────────
 ## The course benchmark tour builds its own courses on the player's course
 ## view so they can be watched. These two calls are how it leaves the real
@@ -181,6 +208,7 @@ func restore_course_snapshot(snapshot: Dictionary) -> bool:
 	return true
 
 func load_game(save_name: String) -> bool:
+	GameManager.exit_tournament_mode()
 	var save_path = SAVE_DIR + save_name + ".save"
 
 	if not FileAccess.file_exists(save_path):
@@ -708,14 +736,14 @@ func _read_save_metadata(path: String) -> Dictionary:
 func _on_day_changed(new_day: int) -> void:
 	# Don't autosave while loading a game (would overwrite with partial state)
 	# or while a benchmark tour plays on a throwaway course.
-	if _is_loading or benchmark_suppression:
+	if _is_loading or benchmark_suppression or GameManager.is_tournament_mode:
 		return
 	if new_day % GameManager.AUTOSAVE_INTERVAL_DAYS != 0:
 		return
 	call_deferred("_save_after_day_change", new_day)
 
 func _save_after_day_change(day: int) -> void:
-	if not _is_loading and not benchmark_suppression and GameManager.current_day == day:
+	if not _is_loading and not benchmark_suppression and not GameManager.is_tournament_mode and GameManager.current_day == day:
 		save_game("autosave")
 
 # ─── User Settings (audio, preferences — not per-save) ────────────

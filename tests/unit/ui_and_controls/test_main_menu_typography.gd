@@ -16,7 +16,7 @@ const SUBTITLE_PATH := "res://assets/fonts/PixelifySans-SemiBold.ttf"
 const BODY_PATH := "res://assets/fonts/PixelifySans-Regular.ttf"
 ## The big cards, which carry the boldest weight; the compact utility tiles
 ## take the semibold one.
-const HERO_CARDS := ["StartNewGameButton", "QuickStartButton", "ContinueButton"]
+const HERO_CARDS := ["StartNewGameButton", "QuickStartButton", "TournamentModeButton", "ContinueButton"]
 
 
 func _menu() -> MainMenu:
@@ -44,7 +44,7 @@ static func _drawn_font(control: Control) -> Font:
 func test_the_action_titles_are_set_in_pixelify_sans_bold() -> void:
 	var menu := _menu()
 	var buttons := _nodes_of_class(menu, "Button")
-	assert_eq(buttons.size(), 9, "the nine actions")
+	assert_eq(buttons.size(), 10, "the ten actions")
 	for button in buttons:
 		var expected := TITLE_PATH if button.name in HERO_CARDS else SUBTITLE_PATH
 		assert_eq(_drawn_font(button).resource_path, expected,

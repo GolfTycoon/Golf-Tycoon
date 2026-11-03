@@ -5,7 +5,7 @@ extends MainSceneTest
 ## image rather than a typed wordmark, with no tagline under it; and a drawn
 ## backdrop covers the window behind the menu.
 
-const ACTIONS := ["Start New Game", "Quick Start", "Continue", "Load Game", "Achievements", "Golfer Skins", "Mods", "Settings", "Quit"]
+const ACTIONS := ["Start New Game", "Quick Start", "Tournament Mode", "Continue", "Load Game", "Achievements", "Golfer Skins", "Mods", "Settings", "Quit"]
 
 
 func _menu() -> Control:
@@ -77,7 +77,7 @@ func _assert_screen(tag: String, size: Vector2i, min_hnine: float) -> void:
 ## their caption - the squat and phone layouts drop captions to save width,
 ## and a tile too narrow for a sentence is too narrow for an emblem.
 func _assert_icons(tag: String, size: Vector2i) -> void:
-	var cards := ["Start New Game", "Quick Start", "Continue"]
+	var cards := ["Start New Game", "Quick Start", "Tournament Mode", "Continue"]
 	var mode := MainMenu.layout_mode_for(Vector2(size))
 	var roomy := mode == MainMenu.Layout.WIDE or mode == MainMenu.Layout.TABLET
 	for button in nodes_of_class(_menu(), "Button"):

@@ -28,7 +28,23 @@ var _current_round: int = 1
 var _is_final: bool = false
 var _cut_advancing: Array = []
 var _cut_eliminated: Array = []
+var _format_type: int = TournamentLibrary.FormatType.STROKE_PLAY
+var _playoff_winner_id: int = -999999
 var embedded := false
+
+## Set the active tournament scoring format.
+func set_format_type(format_type: int) -> void:
+	_format_type = format_type
+	_playoff_winner_id = -999999
+
+## Update format points (Stableford / Mod. Stableford / Skins) by sim_id.
+func set_format_points(points_by_sim_id: Dictionary, playoff_winner_id: int = -999999) -> void:
+	_playoff_winner_id = playoff_winner_id
+	for entry in _entries:
+		var sid := int(entry.get("sim_id", entry.get("golfer_id", -999999)))
+		if points_by_sim_id.has(sid):
+			entry["format_points"] = int(points_by_sim_id[sid])
+	_refresh_display()
 
 func _ready() -> void:
 	_build_ui()
@@ -162,6 +178,7 @@ func register_golfer(golfer_id: int, golfer_name: String, sim_id: int = -1,
 		"round_scores": [],
 		"total_strokes": 0,
 		"total_par": 0,
+		"format_points": 0,
 		"holes_completed": 0,
 		"is_finished": false,
 		"missed_cut": false,
@@ -264,11 +281,25 @@ func _refresh_display() -> void:
 	var header = _create_header_row()
 	_grid.add_child(header)
 
-	# Sort: advancing by score-to-par, then eliminated
+	# Sort: advancing by active format metric, then eliminated
+	var use_points := TournamentLibrary.higher_points_is_better(_format_type)
 	var sorted = _entries.duplicate()
 	sorted.sort_custom(func(a, b):
 		if a.missed_cut != b.missed_cut:
 			return not a.missed_cut
+		var a_po := int(a.get("sim_id", -999999)) == _playoff_winner_id
+		var b_po := int(b.get("sim_id", -999999)) == _playoff_winner_id
+		if a_po != b_po:
+			return a_po
+		var a_played: bool = int(a.total_par) > 0
+		var b_played: bool = int(b.total_par) > 0
+		if a_played != b_played:
+			return a_played
+		if use_points:
+			var ap := int(a.get("format_points", 0))
+			var bp := int(b.get("format_points", 0))
+			if ap != bp:
+				return ap > bp
 		var a_diff = a.total_strokes - a.total_par if a.total_par > 0 else 999
 		var b_diff = b.total_strokes - b.total_par if b.total_par > 0 else 999
 		return a_diff < b_diff
@@ -286,12 +317,16 @@ func _refresh_display() -> void:
 		var rank_text = "%d" % (i + 1)
 		var score_text = _format_total_score(entry)
 		var thru_text = _get_thru_text(entry)
-		var score_color = _get_score_color(entry.total_strokes - entry.total_par, entry.total_par)
+		var score_color = _get_entry_score_color(entry)
 
 		if entry.missed_cut:
 			score_color = UIConstants.COLOR_TEXT_DIM
 
-		var row = _create_entry_row(rank_text, entry.name, entry.round_scores,
+		var disp_name: String = str(entry.name)
+		if int(entry.get("sim_id", -999999)) == _playoff_winner_id:
+			disp_name += " [PO]"
+
+		var row = _create_entry_row(rank_text, disp_name, entry.round_scores,
 			score_text, thru_text, score_color, entry.missed_cut, entry.get("is_player", false))
 		_grid.add_child(row)
 
@@ -322,7 +357,13 @@ func _create_header_row() -> HBoxContainer:
 		for r in range(_total_rounds):
 			row.add_child(_make_label("R%d" % (r + 1), 28, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
 
-	row.add_child(_make_label("Tot", 35, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
+	var tot_header := "Tot"
+	match _format_type:
+		TournamentLibrary.FormatType.STABLEFORD, TournamentLibrary.FormatType.MODIFIED_STABLEFORD:
+			tot_header = "Pts"
+		TournamentLibrary.FormatType.SKINS:
+			tot_header = "Skins"
+	row.add_child(_make_label(tot_header, 38, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
 	row.add_child(_make_label("Thru", 28, UIConstants.COLOR_TEXT_DIM, HORIZONTAL_ALIGNMENT_RIGHT))
 
 	return row
@@ -356,7 +397,7 @@ func _create_entry_row(rank: String, player_name: String, round_scores: Array,
 					r_color = UIConstants.COLOR_TEXT_DIM
 			row.add_child(_make_label(r_text, 28, r_color, HORIZONTAL_ALIGNMENT_RIGHT))
 
-	row.add_child(_make_label(score, 35, color, HORIZONTAL_ALIGNMENT_RIGHT))
+	row.add_child(_make_label(score, 38, color, HORIZONTAL_ALIGNMENT_RIGHT))
 
 	var thru_text = "MC" if missed_cut else thru
 	var thru_color = UIConstants.COLOR_SCORE_OVER if missed_cut else UIConstants.COLOR_TEXT_DIM
@@ -389,7 +430,21 @@ func _make_label(text: String, min_width: int, color: Color,
 func _format_total_score(entry: Dictionary) -> String:
 	if entry.total_par == 0:
 		return "-"
+	if TournamentLibrary.higher_points_is_better(_format_type):
+		return str(int(entry.get("format_points", 0)))
 	return _format_score_diff(entry.total_strokes - entry.total_par)
+
+func _get_entry_score_color(entry: Dictionary) -> Color:
+	if int(entry.total_par) == 0:
+		return UIConstants.COLOR_TEXT_DIM
+	if TournamentLibrary.higher_points_is_better(_format_type):
+		var pts := int(entry.get("format_points", 0))
+		if pts > 0:
+			return UIConstants.COLOR_SCORE_UNDER
+		if pts < 0:
+			return UIConstants.COLOR_SCORE_OVER
+		return UIConstants.COLOR_SCORE_PAR
+	return _get_score_color(entry.total_strokes - entry.total_par, entry.total_par)
 
 func _format_score_diff(diff: int) -> String:
 	if diff == 0:

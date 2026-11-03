@@ -138,6 +138,21 @@ There is no tournament end date or countdown. The live round remains active unti
 every course competitor has finished; the round and event then complete from their
 scorecards rather than from calendar time.
 
+### Standalone Tournament Mode setup
+
+Main Menu → Tournament Mode opens `StartTournamentScreen`
+(`scripts/ui/start_tournament_screen.gd`), which collects the same options and
+hands them to `TournamentManager.start_standalone_tournament()` without the
+Career entry fee, rating gates or cooldown. It opens on a **1-round** event
+(`TournamentLibrary.DEFAULT_ROUNDS`), so the shortest path into a tournament is
+the Start button itself; 2, 3 and 4 are one click away in the Rounds picker.
+
+A single round has no halfway cut, so the screen reports `cut_rule` as `none`
+and greys out the Top 50% / Top 10 chips until a second round is picked — the
+same rule `TournamentManager` applies (`if total_rounds <= 1: cut_rule = none`).
+`configure()` still honours an explicit `rounds` value, so returning to the
+setup from a paused event restores whatever the player last chose.
+
 ---
 
 ## Field Generation
@@ -449,6 +464,7 @@ still announces its future start day.
 | Live seats | `TournamentSystem.get_live_field_size()` | holes × 2 | Golfers that get a body on the course |
 | Field size | `TournamentSystem.get_field_size()` | max(tier, live) | Nominal tier list is a floor |
 | Rounds per tier | `TournamentManager.ROUNDS_PER_TIER` | 1/2/4/4 | Event length |
+| Standalone default rounds | `TournamentLibrary.DEFAULT_ROUNDS` | 1 | What the Start Tournament screen opens on |
 | Live round completion | `TournamentManager._check_live_round_completion()` | all live golfers finish | No calendar deadline |
 | Pairing interval | `TournamentManager.GROUP_SPAWN_INTERVAL` | 0.5 s | Game-seconds between tee times |
 | Cooldown | `TournamentManager.TOURNAMENT_COOLDOWN` | 45 | Days before the next event |

@@ -126,6 +126,8 @@ var world_milestones_screen: WorldMilestonesScreen = null
 var achievements_screen: AchievementsScreen = null
 ## The Mods screen opened from the title screen's Mods tile.
 var mods_screen: ModsScreen = null
+## Standalone Tournament Mode setup screen opened from the title screen.
+var start_tournament_screen: StartTournamentScreen = null
 ## The pause flag from before a goal screen opened. The screens freeze the
 ## day while they are up, so this is what the course resumes to on the way
 ## out.
@@ -383,6 +385,9 @@ func _startup_managers() -> void:
 	# owner's shots are played from the Play Course page.
 	tournament_results_popup = TournamentResultsPopup.new()
 	tournament_results_popup.name = "TournamentResultsPopup"
+	tournament_results_popup.play_again_requested.connect(_on_tournament_play_again)
+	tournament_results_popup.tournament_setup_requested.connect(_on_return_to_tournament_setup)
+	tournament_results_popup.main_menu_requested.connect(_on_quit_to_menu)
 	$UI/HUD.add_child(tournament_results_popup)
 	tournament_manager.tournament_completed.connect(_on_tournament_completed)
 
@@ -692,7 +697,7 @@ func _input(event: InputEvent) -> void:
 		# The World Map and the goal screens are screens of their own: while
 		# one is up, no gameplay hotkey (Escape included) reaches the course
 		# behind it. Their own Back button and Escape close them.
-		if _world_map_is_open() or _course_map_is_open() or _goal_screen_is_open():
+		if _world_map_is_open() or _course_map_is_open() or _goal_screen_is_open() or _start_tournament_is_open():
 			return
 		# Escape key: deselect active tool/panel first, then open pause menu
 		if event.keycode == KEY_ESCAPE:
@@ -770,6 +775,14 @@ func _input(event: InputEvent) -> void:
 		# Letters stay letters in a text field; modified shortcuts (quick save,
 		# undo, redo) still work while typing.
 		if text_input_focused and not (event.ctrl_pressed or event.meta_pressed or event.alt_pressed):
+			return
+
+		# Career management & editing shortcuts stand down in standalone Tournament Mode.
+		if GameManager.is_tournament_mode and action in [
+			"quick_save", "undo", "redo", "financial_overview", "course_map",
+			"marketing", "analytics", "world_milestones", "course_milestones",
+			"calendar"
+		]:
 			return
 
 		match action:
@@ -1121,10 +1134,14 @@ func _show_main_menu() -> void:
 	_close_world_map()
 	_close_course_map()
 	_close_goal_screens()
+	_close_start_tournament_screen()
+	GameManager.exit_tournament_mode()
+	_apply_tournament_mode_hud(false)
 	main_menu = MainMenu.new()
 	main_menu.name = "MainMenu"
 	main_menu.start_new_game_requested.connect(_on_menu_start_new_game)
 	main_menu.quick_start_requested.connect(_on_menu_quick_start)
+	main_menu.tournament_mode_requested.connect(_on_menu_tournament_mode)
 	main_menu.continue_requested.connect(_on_menu_continue)
 	main_menu.load_game_requested.connect(_on_main_menu_load)
 	main_menu.achievements_requested.connect(_on_menu_achievements)
@@ -1203,6 +1220,180 @@ func _on_menu_start_new_game() -> void:
 		_show_world_map_screen(true))
 	$UI/HUD.add_child(screen)
 	_set_gameplay_ui_visible(false)
+
+## Tournament Mode: standalone competition on default or Career-saved courses.
+func _on_menu_tournament_mode() -> void:
+	_open_start_tournament_screen()
+
+func _start_tournament_is_open() -> bool:
+	return is_instance_valid(start_tournament_screen) and start_tournament_screen.visible
+
+func _close_start_tournament_screen() -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.queue_free()
+	start_tournament_screen = null
+
+func _open_start_tournament_screen(initial_options: Dictionary = {}) -> void:
+	_hide_main_menu()
+	_close_start_tournament_screen()
+	start_tournament_screen = StartTournamentScreen.new()
+	start_tournament_screen.name = "StartTournamentScreen"
+	start_tournament_screen.configure(initial_options)
+	start_tournament_screen.back_requested.connect(func() -> void:
+		_close_start_tournament_screen()
+		_show_main_menu())
+	start_tournament_screen.start_requested.connect(func(options: Dictionary) -> void:
+		_close_start_tournament_screen()
+		_start_standalone_tournament(options))
+	$UI/HUD.add_child(start_tournament_screen)
+	_set_course_world_visible(false)
+	_set_gameplay_ui_visible(false)
+
+func _start_standalone_tournament(options: Dictionary) -> void:
+	if player_round:
+		if player_round.busy:
+			player_round.leave_round(false)
+		else:
+			player_round.end_tournament_aim()
+	if tournament_manager:
+		tournament_manager.cancel_tournament()
+	if tournament_results_popup:
+		tournament_results_popup.hide()
+	if player_golfer_manager:
+		player_golfer_manager.clear_golfer()
+	golfer_manager.clear_all_golfers()
+	ball_manager.clear_all_balls()
+	if weed_manager:
+		weed_manager.clear_all()
+	if GameManager.staff_manager:
+		GameManager.staff_manager.clear_all_staff()
+	entity_layer.clear_all()
+	hole_manager.clear_visualizations()
+	hole_tool.current_hole_number = 1
+	terrain_grid.reset_for_new_course()
+
+	var diff_id := int(options.get("difficulty", TournamentLibrary.Difficulty.NORMAL))
+	var golfer_entry := TournamentLibrary.get_golfer(str(options.get("golfer_id", "")))
+	var golfer_skin_colors: Dictionary = golfer_entry.get("skin_colors", {}) if golfer_entry.get("skin_colors") is Dictionary else {}
+	GameManager.player_profile = TournamentLibrary.make_golfer_profile(golfer_entry)
+	GameManager.enter_tournament_mode(
+		options,
+		TournamentLibrary.get_difficulty_label(diff_id),
+		str(golfer_entry.get("skin_id", "")),
+		golfer_skin_colors
+	)
+	WorldMap.active_location_id = ""
+	GameManager.current_day = 120
+	GameManager._day_progress = 0.0
+
+	_suppress_tile_undo = true
+	var course_id := str(options.get("course_id", "default:emerald_pines"))
+	var course_ok := false
+	if course_id.begins_with("saved:"):
+		var payload := TournamentLibrary.load_saved_course_payload(course_id)
+		var snapshot: Dictionary = payload.get("snapshot", {}) if payload.get("snapshot") is Dictionary else {}
+		course_ok = SaveManager.load_tournament_course_snapshot(
+			snapshot,
+			str(payload.get("name", options.get("course_name", "Saved Course")))
+		)
+	else:
+		course_ok = TournamentLibrary.build_default_course(
+			course_id, terrain_grid, entity_layer, hole_tool
+		)
+		_rebuild_hole_list()
+		_center_camera_on_course()
+	_suppress_tile_undo = false
+
+	if not course_ok:
+		GameManager.exit_tournament_mode()
+		_apply_tournament_mode_hud(false)
+		GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
+		EventBus.notify("Could not load the selected tournament course.", "warning")
+		_open_start_tournament_screen(options)
+		return
+
+	# Apply game features registered by enabled community mods (decoupled from Difficulty Level)
+	var chosen_features: Dictionary = options.get("features", {}) if options.get("features") is Dictionary else {}
+	GameManager.set_weather_enabled(bool(chosen_features.get("weather", false)) and ModManager.has_weather_provider())
+	GameManager.set_wind_enabled(bool(chosen_features.get("wind", false)) and ModManager.has_wind_provider())
+	GameManager.set_seasons_enabled(bool(chosen_features.get("seasons", false)) and ModManager.has_season_provider())
+	for f_key in chosen_features:
+		var k := str(f_key)
+		if k not in ["weather", "wind", "seasons"]:
+			GameManager.set_feature_enabled(k, bool(chosen_features[f_key]))
+
+	if GameManager.weather_system:
+		GameManager.weather_system.weather_type = WeatherSystem.WeatherType.PARTLY_CLOUDY if GameManager.is_feature_enabled("weather") else WeatherSystem.WeatherType.SUNNY
+		GameManager.weather_system.intensity = 0.0
+		EventBus.weather_changed.emit(GameManager.weather_system.weather_type, GameManager.weather_system.intensity)
+	if GameManager.wind_system:
+		GameManager.wind_system.wind_direction = PI * 0.35
+		GameManager.wind_system.wind_speed = 9.0 if GameManager.is_feature_enabled("wind") else 0.0
+		EventBus.wind_changed.emit(GameManager.wind_system.wind_direction, GameManager.wind_system.wind_speed)
+
+	_set_course_world_visible(true)
+	_apply_tournament_mode_hud(true)
+	_set_gameplay_ui_visible(true)
+	if hud_status_column:
+		hud_status_column._update_all()
+	if course_location_banner:
+		course_location_banner.refresh()
+	if player_round:
+		player_round.open_setup()
+	if terrain_toolbar:
+		terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
+
+	GameManager.is_paused = false
+	tournament_manager.start_standalone_tournament(options)
+	if tournament_panel:
+		tournament_panel._refresh_display()
+
+func _apply_tournament_mode_hud(in_tourney: bool) -> void:
+	if left_controls and left_controls.section_buttons.size() >= 2:
+		var default_tips := [
+			TerrainToolbar.SECTION_TITLES[TerrainToolbar.Section.BUILD],
+			TerrainToolbar.SECTION_TITLES[TerrainToolbar.Section.MANAGE],
+		]
+		for idx in [0, 1]:
+			var btn: PixelCircleButton = left_controls.section_buttons[idx]
+			btn.disabled = in_tourney
+			btn.focus_mode = Control.FOCUS_NONE if in_tourney else Control.FOCUS_ALL
+			btn.modulate = Color(1.0, 1.0, 1.0, 0.35) if in_tourney else Color.WHITE
+			btn.tooltip_text = "Unavailable in Tournament Mode" if in_tourney else default_tips[idx]
+
+func _on_tournament_play_again() -> void:
+	_close_pause_menu()
+	if GameManager.is_tournament_mode:
+		_start_standalone_tournament(GameManager.tournament_mode_options.duplicate(true))
+
+func _on_return_to_tournament_setup() -> void:
+	var prev_opts := GameManager.tournament_mode_options.duplicate(true)
+	_close_pause_menu()
+	if player_round:
+		if player_round.busy:
+			player_round.leave_round(false)
+		else:
+			player_round.end_tournament_aim()
+	if tournament_results_popup:
+		tournament_results_popup.hide()
+	if tournament_manager:
+		tournament_manager.cancel_tournament()
+	if player_golfer_manager:
+		player_golfer_manager.clear_golfer()
+	golfer_manager.clear_all_golfers()
+	ball_manager.clear_all_balls()
+	entity_layer.clear_all()
+	hole_manager.clear_visualizations()
+	hole_tool.current_hole_number = 1
+	terrain_grid.reset_for_new_course()
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.exit_tournament_mode()
+	_apply_tournament_mode_hud(false)
+	if player_round:
+		player_round.open_setup()
+	GameManager.is_paused = false
+	GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
+	_open_start_tournament_screen(prev_opts)
 
 ## Quick Start: the agreed defaults (random company name, Normal, $100,000,
 ## 3 generated holes, every feature off), then a random location the company can
@@ -1679,7 +1870,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "StartTournamentScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	for child in hud.get_children():
 		if child == mini_map:
@@ -1837,7 +2028,7 @@ func _update_button_states() -> void:
 	speed_btn.active = GameManagerScript.is_running_speed(speed)
 
 func _start_painting() -> void:
-	if inspect_mode:
+	if inspect_mode or GameManager.is_tournament_mode:
 		return
 	# Repositioning a staff member's designated area takes the next click.
 	if _staff_area_mode_index >= 0:
@@ -3458,6 +3649,7 @@ func _on_save_load_panel_closed_from_pause() -> void:
 func _on_quit_to_menu() -> void:
 	# Return to main menu by reloading the scene
 	# This resets all game state cleanly
+	GameManager.exit_tournament_mode()
 	GameManager.set_mode(GameManager.GameMode.MAIN_MENU)
 	get_tree().reload_current_scene()
 
@@ -4199,6 +4391,9 @@ func _setup_tournament_panel() -> void:
 	tournament_panel.embedded = true
 	tournament_panel.name = "TournamentPanel"
 	tournament_panel.close_requested.connect(_on_tournament_panel_closed)
+	tournament_panel.play_again_requested.connect(_on_tournament_play_again)
+	tournament_panel.tournament_setup_requested.connect(_on_return_to_tournament_setup)
+	tournament_panel.main_menu_requested.connect(_on_quit_to_menu)
 	terrain_toolbar.player_tab.add_persistent(tournament_panel)
 	tournament_panel.setup(tournament_manager)
 
@@ -4546,6 +4741,8 @@ func _setup_seasonal_calendar() -> void:
 	EventBus.season_changed.connect(_on_season_changed_notification)
 
 func _toggle_seasonal_calendar() -> void:
+	if GameManager.is_tournament_mode:
+		return
 	_toggle_panel(seasonal_calendar_panel)
 
 # --- Course Scorecard ---
@@ -4768,6 +4965,8 @@ func _show_pause_menu() -> void:
 	pause_menu.resume_requested.connect(_on_pause_resume)
 	pause_menu.save_requested.connect(_on_pause_save)
 	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.restart_tournament_requested.connect(_on_tournament_play_again)
+	pause_menu.tournament_setup_requested.connect(_on_return_to_tournament_setup)
 	pause_menu.settings_requested.connect(_on_pause_settings)
 	pause_menu.quit_to_menu_requested.connect(_on_pause_quit_to_menu)
 	pause_menu.quit_to_desktop_requested.connect(_on_pause_quit_to_desktop)

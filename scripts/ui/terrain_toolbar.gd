@@ -791,7 +791,10 @@ func _sync_navigation(tab_index: int) -> void:
 			break
 	_last_tabs[current_section] = tab_index
 	for index in _tab_buttons:
-		_tab_buttons[index].visible = index in SECTION_TABS[current_section]
+		var tab_visible: bool = index in SECTION_TABS[current_section]
+		if GameManager.is_tournament_mode and index in [Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]:
+			tab_visible = false
+		_tab_buttons[index].visible = tab_visible
 		_tab_buttons[index].active = index == tab_index
 		_tab_buttons[index].set_pressed_no_signal(index == tab_index)
 	_page_title.text = "%s  /  %s" % [SECTION_TITLES[current_section].to_upper(), TAB_TITLES[tab_index]]
@@ -2639,7 +2642,7 @@ func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
 		return
 
-	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU or GameManager.is_tournament_mode:
 		return
 
 	if not (event is InputEventKey and event.pressed and not event.echo):

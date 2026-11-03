@@ -54,6 +54,8 @@ func _on_feed_event(entry: EventFeedManager.EventEntry) -> void:
 	_process_queue()
 
 func _process_queue() -> void:
+	if not is_inside_tree():
+		return
 	while not _queue.is_empty() and _active_toasts.size() < (PORTRAIT_MAX_VISIBLE if Screen.uses_portrait_hud() else MAX_VISIBLE):
 		var data = _queue.pop_front()
 		_show_toast(data.message, data.type, data.get("priority", EventFeedManager.Priority.NORMAL))
@@ -120,9 +122,8 @@ func _show_toast(message: String, type: String, priority: int = EventFeedManager
 	_active_toasts.append(panel)
 	panel.modulate.a = 0.0
 
-	# Position will be set after layout
-	await get_tree().process_frame
-	_reposition_toasts()
+	# Position after container layout settles without suspending a coroutine across scene teardown
+	_reposition_toasts.call_deferred()
 
 	# Fade in
 	var tween = create_tween()
@@ -163,6 +164,8 @@ func _dismiss_toast(panel: PanelContainer) -> void:
 	)
 
 func _reposition_toasts() -> void:
+	if not is_inside_tree():
+		return
 	var vp_size = get_viewport().get_visible_rect().size
 	var portrait := Screen.uses_portrait_hud()
 	var y_offset := Screen.portrait_header_height() + 8.0 if portrait else Screen.bottom_bar_height() + 6.0

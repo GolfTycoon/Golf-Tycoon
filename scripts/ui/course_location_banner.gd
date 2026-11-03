@@ -289,6 +289,20 @@ func _connect_signals() -> void:
 ## Re-read the active location and the calendar. Safe to call any time; the
 ## banner hides itself while no location is active.
 func refresh() -> void:
+	if has_node("/root/GameManager") and GameManager.is_tournament_mode:
+		visible = true
+		_current_location_id = "tournament_mode"
+		_name_label.text = GameManager.course_name
+		_picture.texture = CourseLocationPicture.texture_for_location(
+			"tournament_mode", GameManager.current_theme, _picture_scale())
+		if _date_label != null:
+			_date_label.text = GameManager.tournament_difficulty_label \
+				if not GameManager.tournament_difficulty_label.is_empty() else "Tournament Mode"
+		if _date_icon != null:
+			_date_icon.texture = PixelIcon.texture(
+				PixelIcon.Kind.TROPHY, 14, Color(UIConstants.COLOR_GOLD, 0.90))
+		return
+
 	var location_id := ""
 	if has_node("/root/WorldMap"):
 		location_id = WorldMap.active_location_id
