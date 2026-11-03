@@ -38,7 +38,23 @@ enum FormatType {
 }
 
 const ROUND_OPTIONS: Array[int] = [1, 2, 3, 4]
+## Sentinel representing the Auto field size option (2x the selected course's hole count).
+const FIELD_SIZE_AUTO: int = 0
 const FIELD_SIZE_OPTIONS: Array[int] = [8, 12, 18, 24]
+
+## Compute the Auto field size for a given hole count: double the number of holes
+## on the course (at least 2 golfers so a 1-hole course still forms a pairing).
+static func auto_field_size_for_holes(hole_count: int) -> int:
+	return maxi(2, hole_count * 2)
+
+## Compute the Auto field size for a course catalogue entry (2x hole_count).
+static func auto_field_size_for_course(course_entry: Dictionary) -> int:
+	var holes := int(course_entry.get("hole_count", 0))
+	if holes <= 0 and course_entry.get("preview_holes") is Array:
+		holes = (course_entry["preview_holes"] as Array).size()
+	if holes <= 0:
+		holes = 9
+	return auto_field_size_for_holes(holes)
 
 const GOLF_SKILL_SHORT_NAMES: Array[String] = [
 	"Power Hitter",
@@ -403,13 +419,15 @@ static func build_opponent_roster(
 	for i in range(mini(target, filtered.size())):
 		selected.append(filtered[i])
 	# Deterministic overflow in the same Golf Skill band when field_size > 19
+	var roman_suffixes: Array[String] = ["II", "III", "IV", "V", "VI"]
 	var extra_idx := 0
 	while selected.size() < target and not filtered.is_empty():
 		var template: Dictionary = filtered[extra_idx % filtered.size()].duplicate(true)
+		var cycle := int(float(extra_idx) / float(filtered.size()))
 		extra_idx += 1
-		var suffix_num := int(float(extra_idx) / float(filtered.size())) + 2
+		var suffix: String = roman_suffixes[cycle] if cycle < roman_suffixes.size() else str(cycle + 2)
 		template["id"] = "%s_alt_%d" % [str(template["id"]), extra_idx]
-		template["name"] = "%s %s" % [str(template["name"]), "II" if suffix_num == 2 else str(suffix_num)]
+		template["name"] = "%s %s" % [str(template["name"]), suffix]
 		selected.append(template)
 	return selected
 

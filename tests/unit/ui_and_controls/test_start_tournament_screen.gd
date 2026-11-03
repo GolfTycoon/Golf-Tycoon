@@ -274,3 +274,115 @@ func test_community_mod_features_appear_when_enabled_and_hide_when_disabled() ->
 	assert_false(screen.has_feature_section(), "Game Features section hides when no feature mods are enabled")
 	assert_null(screen.find_child("GameFeaturesSection", true, false))
 	assert_eq((screen.get_options()["features"] as Dictionary).size(), 0)
+
+func test_auto_field_size_option_doubles_selected_course_holes_and_roundtrips() -> void:
+	# Export a 5-hole Career course and a 1-hole Career course to test custom hole counts too
+	GameManager.current_course = GameManager.CourseData.new()
+	for i in range(5):
+		var h := GameManager.HoleData.new()
+		h.hole_number = i + 1
+		h.par = 4
+		h.distance_yards = 350
+		h.is_open = true
+		h.tee_position = Vector2i(46, 46 + i * 4)
+		h.green_position = Vector2i(62, 46 + i * 4)
+		h.hole_position = Vector2i(62, 46 + i * 4)
+		GameManager.current_course.add_hole(h)
+	GameManager.course_name = "Five Pines"
+	assert_true(bool(TournamentLibrary.save_career_course().get("ok", false)))
+
+	GameManager.current_course = GameManager.CourseData.new()
+	var h_one := GameManager.HoleData.new()
+	h_one.hole_number = 1
+	h_one.par = 3
+	h_one.distance_yards = 165
+	h_one.is_open = true
+	h_one.tee_position = Vector2i(50, 50)
+	h_one.green_position = Vector2i(60, 50)
+	h_one.hole_position = Vector2i(60, 50)
+	GameManager.current_course.add_hole(h_one)
+	GameManager.course_name = "Solo Green"
+	assert_true(bool(TournamentLibrary.save_career_course().get("ok", false)))
+
+	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	add_child(screen)
+
+	var auto_btn := screen.find_child("FieldSize_Auto", true, false) as Button
+	var fs12_btn := screen.find_child("FieldSize_12", true, false) as Button
+	var fs18_btn := screen.find_child("FieldSize_18", true, false) as Button
+	assert_not_null(auto_btn, "FieldSize_Auto chip exists on StartTournamentScreen")
+	assert_not_null(fs12_btn)
+	assert_not_null(fs18_btn)
+
+	# Default selection is Auto on Emerald Pines (9 holes -> 18 golfers)
+	assert_true(screen.is_field_size_auto(), "Auto field size is selected by default")
+	assert_true(auto_btn.button_pressed, "Auto button starts pressed")
+	assert_false(fs18_btn.button_pressed, "Fixed 18 button is not simultaneously pressed when Auto=18")
+	assert_eq(auto_btn.text, "Auto (18)")
+	assert_eq(int(screen.get_options()["field_size"]), 18, "9-hole Emerald Pines -> Auto field size 18")
+	assert_true(bool(screen.get_options()["field_size_auto"]))
+	if screen._dossier_diff_label != null:
+		assert_string_contains(screen._dossier_diff_label.text, "18 Golfers (Auto)")
+	if screen._footer_summary_label != null:
+		assert_string_contains(screen._footer_summary_label.text, "Auto 18P")
+
+	# Selecting 18-hole Dunbar Links doubles to 36 golfers
+	screen.select_course("default:dunbar_links")
+	assert_eq(auto_btn.text, "Auto (36)")
+	assert_eq(int(screen.get_options()["field_size"]), 36, "18-hole Dunbar Links -> Auto field size 36")
+	if screen._dossier_diff_label != null:
+		assert_string_contains(screen._dossier_diff_label.text, "36 Golfers (Auto)")
+	if screen._footer_summary_label != null:
+		assert_string_contains(screen._footer_summary_label.text, "Auto 36P")
+
+	# Selecting 6-hole Highland Ridge doubles to 12 golfers (without highlighting fixed 12)
+	screen.select_course("default:highland_ridge")
+	assert_eq(auto_btn.text, "Auto (12)")
+	assert_eq(int(screen.get_options()["field_size"]), 12, "6-hole Highland Ridge -> Auto field size 12")
+	assert_true(auto_btn.button_pressed)
+	assert_false(fs12_btn.button_pressed)
+
+	# Selecting 5-hole and 1-hole saved Career courses doubles to 10 and 2 golfers
+	screen.select_course("saved:five_pines")
+	assert_eq(auto_btn.text, "Auto (10)")
+	assert_eq(int(screen.get_options()["field_size"]), 10, "5-hole saved course -> Auto field size 10")
+
+	screen.select_course("saved:solo_green")
+	assert_eq(auto_btn.text, "Auto (2)")
+	assert_eq(int(screen.get_options()["field_size"]), 2, "1-hole saved course -> Auto field size 2")
+
+	# Toggling a fixed field size disables Auto and keeps the fixed size across course changes
+	fs18_btn.toggled.emit(true)
+	assert_false(screen.is_field_size_auto())
+	assert_false(auto_btn.button_pressed)
+	assert_true(fs18_btn.button_pressed)
+	screen.select_course("default:dunbar_links")
+	assert_eq(int(screen.get_options()["field_size"]), 18, "fixed 18 stays 18 on 18-hole Dunbar Links")
+	assert_false(bool(screen.get_options()["field_size_auto"]))
+	assert_eq(auto_btn.text, "Auto (36)", "Auto chip still previews 2x holes for the selected course")
+
+	# Clicking Auto button re-enables Auto (36 on Dunbar Links), and clicking it again keeps it pressed
+	auto_btn.toggled.emit(true)
+	assert_true(screen.is_field_size_auto())
+	assert_true(auto_btn.button_pressed)
+	assert_false(fs18_btn.button_pressed)
+	assert_eq(int(screen.get_options()["field_size"]), 36)
+	auto_btn.toggled.emit(false)
+	assert_true(auto_btn.button_pressed, "re-clicking active Auto radio chip keeps it pressed")
+
+	# Roundtrip via configure() preserves both Auto and fixed field size choices
+	var auto_opts := screen.get_options()
+	var restored_auto := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	restored_auto.configure(auto_opts)
+	add_child(restored_auto)
+	assert_true(restored_auto.is_field_size_auto(), "configure() preserves field_size_auto=true")
+	assert_eq(int(restored_auto.get_options()["field_size"]), 36)
+
+	restored_auto.select_field_size(24)
+	var fixed_opts := restored_auto.get_options()
+	var restored_fixed := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	restored_fixed.configure(fixed_opts)
+	add_child(restored_fixed)
+	assert_false(restored_fixed.is_field_size_auto(), "configure() preserves field_size_auto=false")
+	assert_eq(int(restored_fixed.get_options()["field_size"]), 24)
+

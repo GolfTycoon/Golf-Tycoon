@@ -198,7 +198,24 @@ func test_format_types_rules_and_hole_scoring_formulas() -> void:
 	var formats := TournamentLibrary.get_format_types()
 	assert_eq(formats.size(), 4, "Stroke Play, Stableford, Modified Stableford, and Skins are offered")
 	assert_eq(TournamentLibrary.ROUND_OPTIONS, [1, 2, 3, 4])
+	assert_eq(TournamentLibrary.FIELD_SIZE_AUTO, 0)
 	assert_eq(TournamentLibrary.FIELD_SIZE_OPTIONS, [8, 12, 18, 24])
+	assert_eq(TournamentLibrary.auto_field_size_for_holes(1), 2)
+	assert_eq(TournamentLibrary.auto_field_size_for_holes(6), 12)
+	assert_eq(TournamentLibrary.auto_field_size_for_holes(9), 18)
+	assert_eq(TournamentLibrary.auto_field_size_for_holes(18), 36)
+	assert_eq(TournamentLibrary.auto_field_size_for_course(TournamentLibrary.get_course("default:emerald_pines")), 18)
+	assert_eq(TournamentLibrary.auto_field_size_for_course(TournamentLibrary.get_course("default:dunbar_links")), 36)
+	assert_eq(TournamentLibrary.auto_field_size_for_course(TournamentLibrary.get_course("default:highland_ridge")), 12)
+
+	# 18-hole Auto field size = 36 golfers (35 opponents): verify overflow naming across cycles
+	var roster_35 := TournamentLibrary.build_opponent_roster(TournamentLibrary.Difficulty.NORMAL, 35, "Liam Henderson")
+	assert_eq(roster_35.size(), 35)
+	var unique_ids: Dictionary = {}
+	for opp_entry in roster_35:
+		var oid := str(opp_entry["id"])
+		assert_false(unique_ids.has(oid), "opponent id %s is unique in 36-golfer Auto field" % oid)
+		unique_ids[oid] = true
 	assert_eq(TournamentLibrary.get_cut_rules().size(), 3)
 
 	# Traditional Stableford: Albatross 5, Eagle 4, Birdie 3, Par 2, Bogey 1, Double+ 0

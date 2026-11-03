@@ -65,6 +65,7 @@ const BUILTIN_FEATURES: Dictionary = {
 var _difficulty: int = TournamentLibrary.Difficulty.NORMAL
 var _format_type: int = TournamentLibrary.FormatType.STROKE_PLAY
 var _rounds: int = 2
+var _field_size_auto: bool = true
 var _field_size: int = 12
 var _cut_rule: String = "top_50pct"
 var _playoff_enabled: bool = true
@@ -135,8 +136,17 @@ func configure(initial_options: Dictionary = {}) -> void:
 		_format_type = clampi(int(initial_options["format_type"]), 0, 3)
 	if initial_options.has("rounds"):
 		_rounds = clampi(int(initial_options["rounds"]), 1, 4)
-	if initial_options.has("field_size"):
-		_field_size = clampi(int(initial_options["field_size"]), 2, 72)
+	if initial_options.has("field_size_auto"):
+		_field_size_auto = bool(initial_options["field_size_auto"])
+		if not _field_size_auto and initial_options.has("field_size"):
+			_field_size = clampi(int(initial_options["field_size"]), 2, 72)
+	elif initial_options.has("field_size"):
+		var raw_fs := int(initial_options["field_size"])
+		if raw_fs <= TournamentLibrary.FIELD_SIZE_AUTO:
+			_field_size_auto = true
+		else:
+			_field_size_auto = false
+			_field_size = clampi(raw_fs, 2, 72)
 	if initial_options.has("cut_rule"):
 		_cut_rule = str(initial_options["cut_rule"])
 	if initial_options.has("playoff"):
@@ -178,7 +188,8 @@ func get_options() -> Dictionary:
 		"format_type": _format_type,
 		"format_name": str(fmt.get("name", "Stroke Play")),
 		"rounds": _rounds,
-		"field_size": _field_size,
+		"field_size": get_effective_field_size(),
+		"field_size_auto": _field_size_auto,
 		"cut_rule": effective_cut,
 		"playoff": _playoff_enabled,
 		"features": active_features,
@@ -214,8 +225,25 @@ func select_rounds(round_count: int) -> void:
 	_rounds = clampi(round_count, 1, 4)
 	_sync_selection_states()
 
+func is_field_size_auto() -> bool:
+	return _field_size_auto
+
+func get_auto_field_size() -> int:
+	return TournamentLibrary.auto_field_size_for_course(_selected_course())
+
+func get_effective_field_size() -> int:
+	return get_auto_field_size() if _field_size_auto else _field_size
+
+func select_auto_field_size() -> void:
+	_field_size_auto = true
+	_sync_selection_states()
+
 func select_field_size(fsize: int) -> void:
-	_field_size = clampi(fsize, 2, 72)
+	if fsize <= TournamentLibrary.FIELD_SIZE_AUTO:
+		_field_size_auto = true
+	else:
+		_field_size_auto = false
+		_field_size = clampi(fsize, 2, 72)
 	_sync_selection_states()
 
 func select_cut_rule(rule_id: String) -> void:
@@ -825,9 +853,21 @@ func _make_format_section(s: float, columns: int, compact: bool) -> Control:
 	var fsize_row := HBoxContainer.new()
 	fsize_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	fsize_row.add_theme_constant_override("separation", 4)
+	var fs_chip_min_w := 32.0 if compact else 38.0
+	var auto_btn := _make_rule_chip(
+		"FieldSize_Auto",
+		"Auto",
+		"Automatically set field size to double the selected course's hole count",
+		chip_h,
+		GOLFER_ACCENT,
+		fs_chip_min_w
+	)
+	auto_btn.toggled.connect(_on_field_size_toggled.bind(TournamentLibrary.FIELD_SIZE_AUTO))
+	fsize_row.add_child(auto_btn)
+	_field_size_buttons[TournamentLibrary.FIELD_SIZE_AUTO] = auto_btn
 	for fs_opt in TournamentLibrary.FIELD_SIZE_OPTIONS:
 		var fs_val := int(fs_opt)
-		var fs_btn := _make_rule_chip("FieldSize_%d" % fs_val, str(fs_val), "%d total golfers in the tournament field" % fs_val, chip_h, GOLFER_ACCENT)
+		var fs_btn := _make_rule_chip("FieldSize_%d" % fs_val, str(fs_val), "%d total golfers in the tournament field" % fs_val, chip_h, GOLFER_ACCENT, fs_chip_min_w)
 		fs_btn.toggled.connect(_on_field_size_toggled.bind(fs_val))
 		fsize_row.add_child(fs_btn)
 		_field_size_buttons[fs_val] = fs_btn
@@ -952,14 +992,14 @@ func _make_features_section(s: float, columns: int, compact: bool) -> Control:
 
 	return box
 
-func _make_rule_chip(btn_name: String, label_text: String, tip: String, min_h: float, accent: Color) -> Button:
+func _make_rule_chip(btn_name: String, label_text: String, tip: String, min_h: float, accent: Color, min_w: float = 44.0) -> Button:
 	var btn := Button.new()
 	btn.name = btn_name
 	btn.text = label_text
 	btn.toggle_mode = true
 	btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(44.0, min_h)
+	btn.custom_minimum_size = Vector2(min_w, min_h)
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	btn.tooltip_text = tip
 	btn.add_theme_font_override("font", SUBTITLE_FONT)
@@ -1548,10 +1588,26 @@ func _sync_selection_states() -> void:
 		if is_instance_valid(btn):
 			btn.set_pressed_no_signal(int(r_val) == _rounds)
 
+	var course := _selected_course()
+	var auto_fs := TournamentLibrary.auto_field_size_for_course(course)
+	var effective_fs := auto_fs if _field_size_auto else _field_size
+	var selected_fs_key := TournamentLibrary.FIELD_SIZE_AUTO if _field_size_auto else _field_size
+	var course_holes := maxi(1, int(course.get("hole_count", 9)))
+
 	for fs_val in _field_size_buttons:
 		var btn: Button = _field_size_buttons[fs_val]
 		if is_instance_valid(btn):
-			btn.set_pressed_no_signal(int(fs_val) == _field_size)
+			var key_int := int(fs_val)
+			btn.set_pressed_no_signal(key_int == selected_fs_key)
+			if key_int == TournamentLibrary.FIELD_SIZE_AUTO:
+				var ultra_narrow := _layout_mode == Layout.LANDSCAPE and _built_size.x < 720.0
+				btn.text = "Auto" if ultra_narrow else ("Auto (%d)" % auto_fs)
+				btn.tooltip_text = "Auto: %d total golfers (double the %d %s on %s)" % [
+					auto_fs,
+					course_holes,
+					"hole" if course_holes == 1 else "holes",
+					str(course.get("name", "the selected course")),
+				]
 
 	var single_round := _rounds <= 1
 	var shown_cut := "none" if single_round else _cut_rule
@@ -1591,7 +1647,6 @@ func _sync_selection_states() -> void:
 
 	var diff := TournamentLibrary.get_difficulty(_difficulty)
 	var fmt := TournamentLibrary.get_format_info(_format_type)
-	var course := _selected_course()
 	var golfer := _selected_golfer()
 
 	if _difficulty_desc_label != null:
@@ -1671,22 +1726,24 @@ func _sync_selection_states() -> void:
 		val_lbl.text = "%d (+%d%%)" % [pts, bonus_pct]
 
 	if _dossier_diff_label != null:
-		_dossier_diff_label.text = "%s · %s · %d %s · %d Golfers · %s%s" % [
+		var golfers_text := "%d Golfers (Auto)" % effective_fs if _field_size_auto else "%d Golfers" % effective_fs
+		_dossier_diff_label.text = "%s · %s · %d %s · %s · %s%s" % [
 			TournamentLibrary.get_difficulty_label(_difficulty),
 			str(fmt.get("name", "Stroke Play")),
 			_rounds,
 			"Round" if _rounds == 1 else "Rounds",
-			_field_size,
+			golfers_text,
 			TournamentLibrary.get_cut_rule_label(shown_cut, _rounds),
 			" · Playoff" if _playoff_enabled else "",
 		]
 
 	if _footer_summary_label != null:
-		_footer_summary_label.text = "%s · %s (%dR, %dP) · %s · %s" % [
+		var fs_short := "Auto %dP" % effective_fs if _field_size_auto else "%dP" % effective_fs
+		_footer_summary_label.text = "%s · %s (%dR, %s) · %s · %s" % [
 			str(diff.get("name", "Normal")),
 			str(fmt.get("short_name", "Stroke Play")),
 			_rounds,
-			_field_size,
+			fs_short,
 			str(course.get("name", "Course")),
 			str(golfer.get("name", "Golfer")),
 		]
@@ -1713,8 +1770,9 @@ func _on_rounds_toggled(pressed: bool, round_count: int) -> void:
 	select_rounds(round_count)
 
 func _on_field_size_toggled(pressed: bool, fsize: int) -> void:
+	var current_key := TournamentLibrary.FIELD_SIZE_AUTO if _field_size_auto else _field_size
 	if not pressed:
-		if fsize == _field_size and _field_size_buttons.has(fsize):
+		if fsize == current_key and _field_size_buttons.has(fsize):
 			(_field_size_buttons[fsize] as Button).set_pressed_no_signal(true)
 		return
 	select_field_size(fsize)

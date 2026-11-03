@@ -69,6 +69,15 @@ func test_main_menu_opens_start_tournament_screen_and_backs_out_cleanly() -> voi
 		assert_not_null(start_btn, "%s: Start Tournament button exists" % size)
 		assert_true(rect_within(back_btn.get_global_rect(), view), "%s: Back button on screen" % size)
 		assert_true(rect_within(start_btn.get_global_rect(), view), "%s: Start Tournament on screen" % size)
+		var prev_right := -1.0
+		for chip_name in ["FieldSize_Auto", "FieldSize_8", "FieldSize_12", "FieldSize_18", "FieldSize_24"]:
+			var chip := cur_screen.find_child(chip_name, true, false) as Button
+			assert_not_null(chip, "%s: %s exists" % [size, chip_name])
+			var r := chip.get_global_rect()
+			assert_gte(r.position.x, 0.0, "%s: %s stays inside left edge" % [size, chip_name])
+			assert_lte(r.end.x, float(size.x), "%s: %s stays inside right edge" % [size, chip_name])
+			assert_gt(r.position.x, prev_right, "%s: %s does not overlap previous chip" % [size, chip_name])
+			prev_right = r.end.x
 
 	await set_window(DESIGN_WINDOW)
 	var back := (main.start_tournament_screen as StartTournamentScreen).find_child("BackButton", true, false) as Button
@@ -320,3 +329,46 @@ func test_career_saved_course_and_golfer_roundtrip_into_tournament_mode() -> voi
 			found_player = true
 			break
 	assert_true(found_player, "Career-saved golfer competed and finished on the final leaderboard")
+
+func test_auto_field_size_scales_with_selected_course_holes_end_to_end() -> void:
+	await set_window(DESIGN_WINDOW)
+	var tourney_btn := main.main_menu.find_child("TournamentModeButton", true, false) as Button
+	await _press_btn(tourney_btn)
+
+	var screen: StartTournamentScreen = main.start_tournament_screen
+	assert_true(screen.is_field_size_auto(), "StartTournamentScreen defaults to Auto field size")
+
+	# Select 18-hole Dunbar Links with Auto field size -> 36 golfers
+	screen.select_rounds(1)
+	screen.select_course("default:dunbar_links")
+	assert_eq(int(screen.get_options()["field_size"]), 36, "18-hole Dunbar Links resolves Auto field size to 36")
+	assert_string_contains(screen._dossier_diff_label.text, "36 Golfers (Auto)")
+
+	await _press_btn(screen.find_child("StartTournamentButton", true, false) as Button)
+	await process_frames(6)
+
+	assert_eq(GameManager.get_open_hole_count(), 18)
+	assert_eq(main.tournament_manager._sim_field.size(), 36, "live tournament field has 36 golfers (2x 18 holes)")
+
+	main.tournament_manager.simulate_remaining_and_complete()
+	await process_frames(4)
+	assert_eq(int(main.tournament_manager.tournament_results.get("participant_count", 0)), 36)
+
+	# Return to Tournament Setup -> Auto remains selected; switch to 6-hole Highland Ridge -> 12 golfers
+	var setup_btn := (main.tournament_results_popup as Control).find_child("TournamentSetupButton", true, false) as Button
+	await _press_btn(setup_btn)
+
+	var screen2: StartTournamentScreen = main.start_tournament_screen
+	assert_true(screen2.is_field_size_auto(), "Auto field size selection persists when returning to Tournament Setup")
+	screen2.select_course("default:highland_ridge")
+	assert_eq(int(screen2.get_options()["field_size"]), 12, "6-hole Highland Ridge resolves Auto field size to 12")
+
+	await _press_btn(screen2.find_child("StartTournamentButton", true, false) as Button)
+	await process_frames(6)
+
+	assert_eq(GameManager.get_open_hole_count(), 6)
+	assert_eq(main.tournament_manager._sim_field.size(), 12, "live tournament field has 12 golfers (2x 6 holes)")
+	main.tournament_manager.simulate_remaining_and_complete()
+	await process_frames(4)
+	assert_eq(int(main.tournament_manager.tournament_results.get("participant_count", 0)), 12)
+
