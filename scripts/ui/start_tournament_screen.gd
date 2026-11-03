@@ -11,9 +11,9 @@ class_name StartTournamentScreen
 ##   3. Game Features from enabled community mods (Weather, Wind, Seasons, plus
 ##      any mod calling ModAPI.register_feature / register_feature_option)
 ##   4. Course (4 built-in Default Courses + Career-saved courses)
-##   5. Golfer (4 built-in Default Golfers + Career-saved golfers, displaying
-##      complete identity, Skin & Skin Colours, Golfer Traits, Golfer Skills,
-##      and all 10 Golf Skills)
+##   5. Golfer (4 built-in Default Golfers + Career-saved golfers, showing the
+##      golfer's own recoloured sprite portrait plus complete identity, Skin &
+##      Skin Colours, Golfer Traits, Golfer Skills, and all 10 Golf Skills)
 
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
@@ -61,47 +61,6 @@ const BUILTIN_FEATURES: Dictionary = {
 	},
 }
 
-## Crisp pixel golfer emblem showing cap, hair, face, shirt, and trousers in the
-## golfer's own Skin Colours palette.
-class GolferSwatch extends Control:
-	var cap_color: Color = Color("f2f0e6")
-	var hair_color: Color = Color("5c3a21")
-	var skin_color: Color = Color("edc4a3")
-	var shirt_color: Color = Color("2e7057")
-	var pants_color: Color = Color("e0dbcc")
-
-	func _init(entry: Dictionary = {}) -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		custom_minimum_size = Vector2(28, 30)
-		if not entry.is_empty():
-			set_from_entry(entry)
-
-	func set_from_entry(entry: Dictionary) -> void:
-		cap_color = entry.get("cap_color", cap_color)
-		hair_color = entry.get("hair_color", hair_color)
-		skin_color = entry.get("skin_color", skin_color)
-		shirt_color = entry.get("shirt_color", shirt_color)
-		pants_color = entry.get("pants_color", pants_color)
-		queue_redraw()
-
-	func _draw() -> void:
-		var s := minf(size.x / 13.0, size.y / 14.0)
-		var ox := floorf((size.x - 13.0 * s) * 0.5)
-		var oy := floorf((size.y - 14.0 * s) * 0.5)
-		draw_rect(Rect2(ox, oy, 13.0 * s, 14.0 * s), Color(0.02, 0.05, 0.04, 0.80))
-		# Cap crown + visor
-		draw_rect(Rect2(ox + 3.0 * s, oy + 1.0 * s, 6.0 * s, 2.0 * s), cap_color)
-		draw_rect(Rect2(ox + 3.0 * s, oy + 2.0 * s, 8.0 * s, 1.0 * s), cap_color.darkened(0.18))
-		# Hair fringe + head
-		draw_rect(Rect2(ox + 3.0 * s, oy + 3.0 * s, 1.5 * s, 2.5 * s), hair_color)
-		draw_rect(Rect2(ox + 4.0 * s, oy + 3.0 * s, 5.0 * s, 3.0 * s), skin_color)
-		# Shirt torso + collar
-		draw_rect(Rect2(ox + 2.0 * s, oy + 6.0 * s, 9.0 * s, 5.0 * s), shirt_color)
-		draw_rect(Rect2(ox + 5.0 * s, oy + 6.0 * s, 3.0 * s, 1.5 * s), cap_color.lightened(0.15))
-		# Trousers
-		draw_rect(Rect2(ox + 3.0 * s, oy + 11.0 * s, 3.0 * s, 2.5 * s), pants_color)
-		draw_rect(Rect2(ox + 7.0 * s, oy + 11.0 * s, 3.0 * s, 2.5 * s), pants_color)
-
 # ── Selection State ─────────────────────────────────────────────────────────
 var _difficulty: int = TournamentLibrary.Difficulty.NORMAL
 var _format_type: int = TournamentLibrary.FormatType.STROKE_PLAY
@@ -142,7 +101,7 @@ var _course_preview: TournamentCoursePreview = null
 var _preview_title_label: Label = null
 var _preview_meta_label: Label = null
 
-var _golfer_summary_swatch: GolferSwatch = null
+var _golfer_summary_portrait: GolferPortrait = null
 var _golfer_summary_name: Label = null
 var _golfer_summary_role: Label = null
 var _golfer_identity_label: Label = null
@@ -381,7 +340,7 @@ func _clear_refs() -> void:
 	_course_preview = null
 	_preview_title_label = null
 	_preview_meta_label = null
-	_golfer_summary_swatch = null
+	_golfer_summary_portrait = null
 	_golfer_summary_name = null
 	_golfer_summary_role = null
 	_golfer_identity_label = null
@@ -1144,7 +1103,8 @@ func _make_golfer_section(s: float, scrollable: bool, compact: bool) -> Control:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 
-	var min_h := 44.0 if compact else maxf(54.0, roundf(58.0 * s))
+	# Tall enough for the portrait to draw the sprite at twice its pixel size.
+	var min_h := 56.0 if compact else 82.0
 	for entry in _golfers:
 		list.add_child(_make_golfer_row(entry, s, min_h, compact))
 
@@ -1201,9 +1161,12 @@ func _make_golfer_row(entry: Dictionary, s: float, min_h: float, compact: bool) 
 	h.add_theme_constant_override("separation", 8)
 	inner.add_child(h)
 
-	var swatch := GolferSwatch.new(entry)
-	swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(swatch)
+	var portrait := GolferPortrait.new(entry)
+	portrait.name = "GolferPortrait_%s" % gid.replace(":", "_")
+	portrait.accent_color = GOLFER_ACCENT if is_default else CAREER_BADGE_COLOR
+	portrait.custom_minimum_size = Vector2(32.0, maxf(min_h - 10.0, 30.0))
+	portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(portrait)
 
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1338,8 +1301,12 @@ func _make_golfer_dossier_content(s: float) -> Control:
 	g_head.add_theme_constant_override("separation", 8)
 	box.add_child(g_head)
 
-	_golfer_summary_swatch = GolferSwatch.new()
-	g_head.add_child(_golfer_summary_swatch)
+	_golfer_summary_portrait = GolferPortrait.new()
+	_golfer_summary_portrait.name = "GolferSummaryPortrait"
+	_golfer_summary_portrait.accent_color = GOLFER_ACCENT
+	_golfer_summary_portrait.custom_minimum_size = Vector2(38.0, 72.0)
+	_golfer_summary_portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	g_head.add_child(_golfer_summary_portrait)
 
 	var g_titles := VBoxContainer.new()
 	g_titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1650,8 +1617,8 @@ func _sync_selection_states() -> void:
 			"Built-in Course" if bool(course.get("is_default", true)) else "Saved Career Course",
 		]
 
-	if _golfer_summary_swatch != null:
-		_golfer_summary_swatch.set_from_entry(golfer)
+	if _golfer_summary_portrait != null:
+		_golfer_summary_portrait.set_from_entry(golfer)
 	if _golfer_summary_name != null:
 		_golfer_summary_name.text = str(golfer.get("name", "Golfer"))
 	if _golfer_summary_role != null:
