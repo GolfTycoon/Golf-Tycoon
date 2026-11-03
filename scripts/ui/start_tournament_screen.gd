@@ -62,9 +62,11 @@ const BUILTIN_FEATURES: Dictionary = {
 }
 
 # ── Selection State ─────────────────────────────────────────────────────────
+## The screen opens on a 1-round event (TournamentLibrary.DEFAULT_ROUNDS): the
+## shortest event, and the one a single-round cut rule keeps clean (no cut line).
 var _difficulty: int = TournamentLibrary.Difficulty.NORMAL
 var _format_type: int = TournamentLibrary.FormatType.STROKE_PLAY
-var _rounds: int = 2
+var _rounds: int = TournamentLibrary.DEFAULT_ROUNDS
 var _field_size_auto: bool = true
 var _field_size: int = 12
 var _cut_rule: String = "top_50pct"

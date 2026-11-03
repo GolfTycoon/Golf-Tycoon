@@ -38,6 +38,9 @@ enum FormatType {
 }
 
 const ROUND_OPTIONS: Array[int] = [1, 2, 3, 4]
+## The number of rounds a standalone Tournament Mode event plays when the player
+## has not picked one: a single round, so the quickest event is one click away.
+const DEFAULT_ROUNDS: int = 1
 ## Sentinel representing the Auto field size option (2x the selected course's hole count).
 const FIELD_SIZE_AUTO: int = 0
 const FIELD_SIZE_OPTIONS: Array[int] = [8, 12, 18, 24]

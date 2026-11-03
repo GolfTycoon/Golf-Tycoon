@@ -85,6 +85,30 @@ func test_main_menu_opens_start_tournament_screen_and_backs_out_cleanly() -> voi
 	assert_null(main.start_tournament_screen, "StartTournamentScreen closed")
 	assert_not_null(main.main_menu, "Back returns to Main Menu")
 
+func test_the_start_button_alone_starts_a_one_round_event() -> void:
+	await set_window(DESIGN_WINDOW)
+	await _press_btn(main.main_menu.find_child("TournamentModeButton", true, false) as Button)
+
+	var screen: StartTournamentScreen = main.start_tournament_screen
+	assert_not_null(screen, "StartTournamentScreen is open")
+	assert_true((screen.find_child("Rounds_1", true, false) as Button).button_pressed,
+		"the Rounds picker opens on 1R")
+	assert_eq(int(screen.get_options()["rounds"]), 1, "and the screen would start a 1-round event")
+
+	# Pressing Start without touching a single option plays the shortest event.
+	await _press_btn(screen.find_child("StartTournamentButton", true, false) as Button)
+	await process_frames(6)
+
+	assert_true(GameManager.is_tournament_mode, "the untouched screen starts Tournament Mode")
+	assert_eq(main.tournament_manager.total_rounds, 1, "an untouched Start button starts 1 round")
+	assert_eq(str(GameManager.tournament_mode_options.get("cut_rule", "")), "none",
+		"a 1-round event has no halfway cut")
+
+	main.tournament_manager.simulate_remaining_and_complete()
+	await process_frames(4)
+	assert_true(main.tournament_results_popup.visible, "and the event completes")
+	assert_eq(int(main.tournament_manager.tournament_results.get("total_rounds", 0)), 1)
+
 func test_difficulty_selects_opponent_roster_and_live_golfers_carry_full_details() -> void:
 	await set_window(DESIGN_WINDOW)
 	var tourney_btn := main.main_menu.find_child("TournamentModeButton", true, false) as Button

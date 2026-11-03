@@ -283,7 +283,7 @@ func start_standalone_tournament(config: Variant) -> bool:
 		var diff_info := TournamentLibrary.get_difficulty(_standalone_difficulty)
 		current_tournament_tier = int(opts.get("tier", diff_info.get("tier", TournamentSystem.TournamentTier.REGIONAL)))
 		current_format_type = int(opts.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
-		total_rounds = clampi(int(opts.get("rounds", 2)), 1, 4)
+		total_rounds = clampi(int(opts.get("rounds", TournamentLibrary.DEFAULT_ROUNDS)), 1, 4)
 		var open_holes := GameManager.get_open_hole_count()
 		if bool(opts.get("field_size_auto", false)) or int(opts.get("field_size", 12)) <= TournamentLibrary.FIELD_SIZE_AUTO:
 			_standalone_field_size = TournamentLibrary.auto_field_size_for_holes(open_holes)

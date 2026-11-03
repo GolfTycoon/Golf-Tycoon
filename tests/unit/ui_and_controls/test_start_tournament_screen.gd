@@ -171,6 +171,66 @@ func test_golfer_portrait_falls_back_to_the_pixel_emblem_when_the_skin_is_gone()
 	portrait.set_from_entry(entry)
 	assert_eq(portrait._entry_key, GolferPortrait.entry_key(entry))
 
+func test_the_screen_opens_on_a_one_round_event() -> void:
+	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	add_child(screen)
+
+	assert_eq(TournamentLibrary.DEFAULT_ROUNDS, 1, "1 round is the shipped default")
+	assert_eq(int(screen.get_options()["rounds"]), 1, "the screen opens ready to play a single round")
+	assert_eq(int(screen._rounds), TournamentLibrary.DEFAULT_ROUNDS)
+
+	var one_btn := screen.find_child("Rounds_1", true, false) as Button
+	var two_btn := screen.find_child("Rounds_2", true, false) as Button
+	assert_not_null(one_btn, "the 1R chip exists")
+	assert_not_null(two_btn, "the 2R chip exists")
+	assert_true(one_btn.button_pressed, "the 1R chip starts pressed")
+	assert_false(two_btn.button_pressed, "no other round chip starts pressed")
+
+	# A single round has no halfway cut, so the cut picker reads No Cut and the
+	# multi-round rules are visibly unavailable until the player asks for more.
+	assert_eq(str(screen.get_options()["cut_rule"]), "none", "1 round reports no cut")
+	var cut_none_btn := screen.find_child("Cut_none", true, false) as Button
+	var cut_50_btn := screen.find_child("Cut_top_50pct", true, false) as Button
+	assert_true(cut_none_btn.button_pressed, "No Cut is the selected cut rule")
+	assert_true(cut_50_btn.disabled, "a 1-round event disables the halfway-cut rules")
+	if screen._dossier_diff_label != null:
+		assert_string_contains(screen._dossier_diff_label.text, "1 Round")
+	if screen._footer_summary_label != null:
+		assert_string_contains(screen._footer_summary_label.text, "1R")
+
+	# The default survives the repopulation the screen does on every resize and
+	# when it is configured again from another screen's options.
+	screen.refresh()
+	assert_eq(int(screen.get_options()["rounds"]), 1, "a rebuild keeps the 1-round default")
+	one_btn = screen.find_child("Rounds_1", true, false) as Button
+	two_btn = screen.find_child("Rounds_2", true, false) as Button
+	cut_50_btn = screen.find_child("Cut_top_50pct", true, false) as Button
+	assert_true(one_btn.button_pressed, "the rebuilt 1R chip is pressed")
+
+	var restored := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	restored.configure(screen.get_options())
+	add_child(restored)
+	assert_eq(int(restored.get_options()["rounds"]), 1, "configure() round-trips the 1-round default")
+	assert_true((restored.find_child("Rounds_1", true, false) as Button).button_pressed)
+
+	# Picking 2 rounds turns the halfway cut back on, and 1 round turns it off again.
+	two_btn.toggled.emit(true)
+	assert_eq(int(screen.get_options()["rounds"]), 2, "2R is still one click away")
+	assert_eq(str(screen.get_options()["cut_rule"]), "top_50pct", "2 rounds brings the halfway cut back")
+	assert_false(cut_50_btn.disabled, "and its chip is selectable again")
+	assert_true(cut_50_btn.button_pressed)
+	one_btn.toggled.emit(true)
+	assert_eq(int(screen.get_options()["rounds"]), 1, "and 1R takes it away again")
+	assert_true(cut_50_btn.disabled)
+
+	# An explicit round choice still wins over the default.
+	var picked := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	picked.configure({"rounds": 3})
+	add_child(picked)
+	assert_eq(int(picked.get_options()["rounds"]), 3, "configure() honours a caller's rounds")
+	assert_true((picked.find_child("Rounds_3", true, false) as Button).button_pressed)
+	assert_false((picked.find_child("Rounds_1", true, false) as Button).button_pressed)
+
 func test_format_type_rules_difficulty_course_and_golfer_emit_start_options() -> void:
 	var custom := PlayerGolferProfile.new()
 	custom.golfer_name = "Career Legend"
