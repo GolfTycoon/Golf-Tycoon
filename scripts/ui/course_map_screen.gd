@@ -105,7 +105,6 @@ var map: CourseMapView = null
 var _backdrop: MenuBackdrop = null
 var _root: MarginContainer = null
 var _title_label: Label = null
-var _subtitle_label: Label = null
 var _money_label: Label = null
 var _rail_stack: VBoxContainer = null
 var _tab_row: HBoxContainer = null
@@ -389,11 +388,9 @@ func _build_header() -> Control:
 		details.pressed.connect(_toggle_sheet)
 		group.add_child(details)
 
-	var header := Kit.make_screen_header(layout, "Course map", "Course planner",
-		_subtitle_text(), func(): back_requested.emit(), group)
+	var header := Kit.make_screen_header(layout, "Course map", func(): back_requested.emit(), group, PixelIcon.Kind.MAP)
 	_title_label = header.find_child("Title", true, false) as Label
 	_title_label.name = "TitleLabel"
-	_subtitle_label = header.find_child("Subtitle", true, false) as Label
 	return header
 
 func _build_money_block() -> Control:
@@ -1030,17 +1027,8 @@ func _refresh_title() -> void:
 		return
 	_title_label.text = "Course map" if layout == Kit.LayoutMode.DESKTOP \
 		else "Course map — %s" % _mode_name()
-	if _subtitle_label:
-		_subtitle_label.text = _subtitle_text()
 	if _money_label:
 		_money_label.text = CourseMapStyle.money(GameManager.money)
-
-func _subtitle_text() -> String:
-	var course = GameManager.current_course
-	var name_text: String = GameManager.course_name if GameManager.course_name != "" else "This course"
-	if course == null or course.holes.is_empty():
-		return "%s — no holes laid out yet" % name_text
-	return "%s — %d holes, par %d" % [name_text, course.holes.size(), int(course.total_par)]
 
 func _refresh_zoom_label() -> void:
 	if _zoom_label == null or map == null:

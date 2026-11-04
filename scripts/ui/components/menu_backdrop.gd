@@ -1,8 +1,8 @@
 extends Control
 class_name MenuBackdrop
-## The shared background of the out-of-game menu screens: the title screen,
-## Start New Game, the World Map and the Golfer Skin studio all sit on the
-## same artwork, `assets/ui/background.jpeg`.
+## The shared background of the fullscreen menu screens: the title screen,
+## Start New Game, the World Map, Save / Load, Settings and the other menus
+## all sit on the same artwork, `assets/ui/background.jpeg`.
 ##
 ## The image is drawn "cover": scaled up just enough that both dimensions of
 ## the window are filled and centred, so a portrait phone and a 2560px desktop

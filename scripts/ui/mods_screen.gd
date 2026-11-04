@@ -200,8 +200,7 @@ func _restore_build_state() -> void:
 		_filter_rows()
 
 func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Mods", "The Mod Shed", "",
-		func(): back_requested.emit())
+	var header := Kit.make_screen_header(mode, "Mods", func(): back_requested.emit(), null, PixelIcon.Kind.PUZZLE)
 	return header
 
 func _build_desktop_body(view: Vector2, _page_scrolled: bool) -> Control:

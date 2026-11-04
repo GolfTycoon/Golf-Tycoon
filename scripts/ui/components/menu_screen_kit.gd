@@ -268,66 +268,50 @@ static func make_back_button(mode: int, on_back: Callable) -> Button:
 		back.pressed.connect(on_back)
 	return back
 
-## The flag mark that stands beside every screen title, sized for the layout.
-static func make_flag_mark(mode: int) -> MenuFlagMark:
-	var mark := MenuFlagMark.new()
-	mark.name = "FlagMark"
-	mark.mark_size = _header_metrics(mode)["mark"]
-	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return mark
-
-## Sizes shared by every header: the bar height, the title and kicker type,
-## and the flag mark. Phone landscape is the tightest, so it drops the
-## subtitle and keeps the kicker.
+## Sizes shared by every header: the bar height, title type and icon.
 static func _header_metrics(mode: int) -> Dictionary:
 	match mode:
 		LayoutMode.DESKTOP:
-			return {"height": 62.0, "title": 26, "kicker": 11, "subtitle": 13, "mark": 29.0, "gap": 10}
+			return {"height": 62.0, "title": 26, "mark": 29.0, "gap": 10}
 		LayoutMode.TABLET_LANDSCAPE, LayoutMode.TABLET_PORTRAIT:
-			return {"height": 56.0, "title": 23, "kicker": 10, "subtitle": 12, "mark": 26.0, "gap": 9}
+			return {"height": 56.0, "title": 23, "mark": 26.0, "gap": 9}
 		LayoutMode.PHONE_LANDSCAPE:
-			return {"height": 42.0, "title": 18, "kicker": 9, "subtitle": 11, "mark": 20.0, "gap": 7}
+			return {"height": 42.0, "title": 18, "mark": 20.0, "gap": 7}
 		_:
-			return {"height": 50.0, "title": 21, "kicker": 10, "subtitle": 11, "mark": 24.0, "gap": 8}
+			return {"height": 50.0, "title": 21, "mark": 24.0, "gap": 8}
 
-## The header bar: Back, the flag mark, a gold kicker over the bold title with
-## an optional quiet subtitle, and an optional `trailing` control pinned to the
-## right (a treasury chip, a switch, a tab row). Node names are fixed so tests
-## and callers can find the parts: "ScreenHeader", "BackButton", "FlagMark",
-## "TitleBlock", "Kicker", "Title", "Subtitle" and "Trailing".
-static func make_screen_header(mode: int, title_text: String, kicker_text: String = "",
-		subtitle_text: String = "", on_back: Callable = Callable(),
-		trailing: Control = null) -> HBoxContainer:
+## The header bar: Back, a screen-specific pixel icon, the bold title and an optional
+## `trailing` control (a treasury chip, a switch, a tab row).
+## Node names are fixed: "ScreenHeader", "BackButton", "ScreenIcon",
+## "TitleBlock", "Title" and "Trailing".
+static func make_screen_header(mode: int, title_text: String, on_back: Callable = Callable(),
+		trailing: Control = null, icon_kind: int = PixelIcon.Kind.FLAG) -> HBoxContainer:
 	var metrics := _header_metrics(mode)
 	var header := HBoxContainer.new()
 	header.name = "ScreenHeader"
 	header.add_theme_constant_override("separation", int(metrics["gap"]))
 	header.custom_minimum_size.y = float(metrics["height"])
 	header.add_child(make_back_button(mode, on_back))
-	header.add_child(make_flag_mark(mode))
+	var icon := make_sprite(icon_kind, int(metrics["mark"]), COLOR_GOLD)
+	icon.name = "ScreenIcon"
+	header.add_child(icon)
 
 	var title_block := VBoxContainer.new()
 	title_block.name = "TitleBlock"
 	title_block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_block.alignment = BoxContainer.ALIGNMENT_CENTER
 	title_block.add_theme_constant_override("separation", 0)
-	if not kicker_text.is_empty():
-		var kicker := make_kicker(kicker_text, int(metrics["kicker"]))
-		kicker.name = "Kicker"
-		kicker.clip_text = true
-		title_block.add_child(kicker)
 	var title := make_title_label(title_text, int(metrics["title"]))
 	title.name = "Title"
+	# The header sits directly over the backdrop: keep pale letters distinct
+	# from both bright skies and busy scenery without adding a bulky panel.
+	title.add_theme_constant_override("outline_size", 3)
+	title.add_theme_color_override("font_outline_color", PixelButtonStyle.INK)
+	title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.6))
+	title.add_theme_constant_override("shadow_offset_y", 2)
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_block.add_child(title)
-	# Phone landscape has no room for the subtitle, so it is only built where
-	# it is shown: a label left out of the tree is never freed.
-	if not subtitle_text.is_empty() and mode != LayoutMode.PHONE_LANDSCAPE:
-		var subtitle := make_label(subtitle_text, int(metrics["subtitle"]), COLOR_TEXT_SECONDARY)
-		subtitle.name = "Subtitle"
-		subtitle.clip_text = true
-		title_block.add_child(subtitle)
 	header.add_child(title_block)
 
 	if trailing != null:

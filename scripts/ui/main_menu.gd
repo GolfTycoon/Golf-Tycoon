@@ -11,13 +11,14 @@ class_name MainMenu
 ## "Design. Build. Manage." tagline under the title. The tagline is gone and
 ## the actions are now laid out by weight instead of being listed:
 ##
-##  * Start New Game and Quick Start are hero cards - big targets, each with
-##    one line saying what it does.
-##  * Continue is a card carrying the newest save (course, day, slot), so a
-##    returning player can see what they are about to resume.
-##  * Load Game, Achievements, Golfer Skins, Settings and Quit are compact
-##    tiles, kept together at the quiet end of the layout so Quit never sits
-##    beside a primary action.
+##  * Start New Game and Quick Start are hero cards - big targets of name and
+##    sprite, with no sub-title under them.
+##  * Continue is the one card that keeps a sub-title: the newest save
+##    (course, day, slot), so a returning player can see what they are about
+##    to resume.
+##  * Load Game, Achievements, Golfer Skins, Mods, Settings and Quit are
+##    compact tiles, kept together at the quiet end of the layout so Quit
+##    never sits beside a primary action.
 ##
 ## The screen rebuilds itself when the window crosses a layout breakpoint
 ## (see layout_mode_for), so the same actions use the space well at every
@@ -121,6 +122,9 @@ var _page: MarginContainer = null
 var _built_size := Vector2.ZERO
 ## Save list snapshot taken once per build (get_save_list() reads the disk).
 var _saves: Array = []
+## Browsers do not need an application-level Quit action; the tab or window
+## already provides one. Kept as a value so the web layout can be tested natively.
+var _is_web := OS.has_feature("web")
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -322,13 +326,14 @@ func _build_landscape() -> void:
 	row.add_child(actions)
 	actions.add_child(_make_hero_row(hero_height, hero_font, caption_font))
 	actions.add_child(_make_play_row(clampf(view.y * 0.205, 80.0, 112.0), hero_font, caption_font))
-	# No captions on the squat tiles: at ~150 px wide a sentence would only be
-	# trimmed to an ellipsis. The actions fold into two rows so the
-	# whole menu still fits a rotated phone without scrolling.
+	# No captions or sprites on the squat tiles: at ~150 px wide a sentence
+	# would only be trimmed to an ellipsis and an emblem would not fit either.
+	# The actions fold into two rows so the whole menu still fits a rotated
+	# phone without scrolling.
 	actions.add_child(_make_utility_rows(clampf(view.y * 0.110, 42.0, 54.0), hero_font - 3, 0, false))
 
-## Phone: one column, cards stacked full width, Load and Settings sharing a
-## row to save vertical space, Quit on its own quiet line at the bottom.
+## Phone: one column, cards stacked full width, utilities sharing rows to save
+## vertical space. Native builds put Quit on its own quiet line at the bottom.
 func _build_phone() -> void:
 	var view := _window_size()
 	var pad := int(clampf(view.x * 0.032, 10.0, 20.0))
@@ -353,7 +358,8 @@ func _build_phone() -> void:
 	column.add_child(_make_continue_card(clampf(view.y * 0.094, 76.0, 98.0), hero_font - 1, caption_font))
 	column.add_child(_make_phone_utility_row(clampf(view.y * 0.058, 46.0, 64.0), hero_font - 3))
 	column.add_child(_make_phone_extra_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
-	column.add_child(_make_phone_quit_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
+	if not _is_web:
+		column.add_child(_make_phone_quit_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
 	column.add_child(_make_status_line(true, caption_font))
 
 # =============================================================================
@@ -520,8 +526,7 @@ func _make_hero_row(height: float, title_font: int, caption_font: int) -> HBoxCo
 	return row
 
 func _make_start_card(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_card("Start New Game",
-		"Set up your game, then choose where to build your first course.",
+	var button := _make_card("Start New Game", "",
 		"Customise your game settings, then buy the location for your first course and start playing",
 		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.FLAG)
 	button.name = "StartNewGameButton"
@@ -531,8 +536,7 @@ func _make_start_card(height: float, title_font: int, caption_font: int) -> Butt
 	return button
 
 func _make_quick_card(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_card("Quick Start",
-		"Normal difficulty, $100,000, a 3-hole course on a random location.",
+	var button := _make_card("Quick Start", "",
 		"Jump straight in: random company name, Normal difficulty, $100,000, all features on, and a random affordable location bought and played with 3 generated holes",
 		height, title_font, caption_font, ACCENT_SECONDARY, PixelIcon.Kind.BOLT)
 	button.name = "QuickStartButton"
@@ -550,8 +554,7 @@ func _make_play_row(height: float, title_font: int, caption_font: int) -> HBoxCo
 	return row
 
 func _make_tournament_card(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_card("Tournament Mode",
-		"Compete on default or Career-saved courses with your chosen golfer.",
+	var button := _make_card("Tournament Mode", "",
 		"Choose a difficulty level, course and golfer and tee off in a standalone tournament",
 		height, title_font, caption_font, ACCENT_PRIMARY, PixelIcon.Kind.TROPHY)
 	button.name = "TournamentModeButton"
@@ -584,10 +587,13 @@ func _make_continue_card(height: float, title_font: int, caption_font: int) -> B
 	button.pressed.connect(func(): continue_requested.emit(slot))
 	return button
 
-## Load Game / Achievements / Golfer Skins / Settings / Quit: stacked down
-## the wide rail, or two tidy rows (three over two) beside the hero cards.
-## `caption_font` 0 leaves the tiles as plain labels (the squat-window
-## layout, where a caption would only be truncated).
+## Load Game / Achievements / Golfer Skins / Mods / Settings, plus Quit on
+## native builds: stacked down the wide rail, or two tidy rows beside the hero
+## cards. Web leaves out Quit, whose browser equivalent is closing the tab.
+## The tiles are name-and-sprite only - no sub-titles. `caption_font`
+## 0 additionally drops the sprite and leaves the tiles as plain labels (the
+## squat-window and phone layouts, where a tile too narrow for a sentence is
+## too narrow for an emblem).
 func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		stacked: bool) -> Control:
 	var tiles: Array[Button] = [
@@ -596,8 +602,9 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		_make_golfer_skins_tile(height, title_font, caption_font),
 		_make_mods_tile(height, title_font, caption_font),
 		_make_settings_tile(height, title_font, caption_font),
-		_make_quit_tile(height, title_font, caption_font),
 	]
+	if not _is_web:
+		tiles.append(_make_quit_tile(height, title_font, caption_font))
 	if stacked:
 		var column := VBoxContainer.new()
 		column.name = "UtilityRows"
@@ -619,9 +626,9 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		rows.add_child(row)
 	return rows
 
-## Phone utility row: Load Game and Achievements share one line. No
-## captions - the column is only ~180 px wide, and the labels say it all at
-## this size.
+## Phone utility row: Load Game and Achievements share one line. Plain
+## labels, no sprite - the column is only ~180 px wide, and the labels say
+## it all at this size.
 func _make_phone_utility_row(height: float, title_font: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "UtilityRows"
@@ -631,8 +638,8 @@ func _make_phone_utility_row(height: float, title_font: int) -> HBoxContainer:
 	row.add_child(_make_achievements_tile(height, title_font, 0))
 	return row
 
-## Phone second utility row: Golfer Skins and Settings share a line, so the
-## quiet end of the menu stays compact.
+## Phone second utility row: Golfer Skins, Mods and Settings share a line, so
+## the quiet end of the menu stays compact.
 func _make_phone_extra_row(height: float, title_font: int, caption_font: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "UtilityRows"
@@ -653,10 +660,7 @@ func _make_phone_quit_row(height: float, title_font: int, caption_font: int) -> 
 	return row
 
 func _make_load_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var caption := "No saved courses yet"
-	if not _saves.is_empty():
-		caption = "%d saved course%s" % [_saves.size(), "" if _saves.size() == 1 else "s"]
-	var button := _make_tile("Load Game", caption, "Choose a saved game", height,
+	var button := _make_tile("Load Game", "", "Choose a saved game", height,
 		title_font, caption_font, ACCENT_UTILITY, UIConstants.COLOR_TEXT,
 		PixelIcon.Kind.FLOPPY, _saves.is_empty())
 	button.name = "LoadGameButton"
@@ -670,7 +674,7 @@ func _make_load_tile(height: float, title_font: int, caption_font: int) -> Butto
 ## Achievements: the career trophy room, where honours stay unlocked
 ## between saves.
 func _make_achievements_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_tile("Achievements", "Career honours that never expire",
+	var button := _make_tile("Achievements", "",
 		"Career achievements that stay unlocked between every save",
 		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
 		PixelIcon.Kind.TROPHY)
@@ -681,7 +685,7 @@ func _make_achievements_tile(height: float, title_font: int, caption_font: int) 
 ## Golfer Skins: the studio where the player paints the golfers' shirts, caps,
 ## hair and everything else a skin re-colours.
 func _make_golfer_skins_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_tile("Golfer Skins", "Paint what the golfers wear",
+	var button := _make_tile("Golfer Skins", "",
 		"Create and edit golfer skins and the Re-color Groups they are painted with",
 		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
 		PixelIcon.Kind.SHIRT)
@@ -692,7 +696,7 @@ func _make_golfer_skins_tile(height: float, title_font: int, caption_font: int) 
 ## Mods: the library of community and bundled mods - what is installed,
 ## what is on, and the order it loads in.
 func _make_mods_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_tile("Mods", "Community & bundled add-ons",
+	var button := _make_tile("Mods", "",
 		"Manage mods: enable, order, install from a zip or the Steam Workshop",
 		height, title_font, caption_font, ACCENT_SECONDARY, UIConstants.COLOR_TEXT,
 		PixelIcon.Kind.CHIP)
@@ -701,7 +705,7 @@ func _make_mods_tile(height: float, title_font: int, caption_font: int) -> Butto
 	return button
 
 func _make_settings_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_tile("Settings", "Audio, display and gameplay",
+	var button := _make_tile("Settings", "",
 		"Audio, display and gameplay options", height, title_font, caption_font,
 		ACCENT_UTILITY, UIConstants.COLOR_TEXT, PixelIcon.Kind.GEAR)
 	button.name = "SettingsButton"
@@ -709,7 +713,7 @@ func _make_settings_tile(height: float, title_font: int, caption_font: int) -> B
 	return button
 
 func _make_quit_tile(height: float, title_font: int, caption_font: int) -> Button:
-	var button := _make_tile("Quit", "Leave the game", "Leave the game", height,
+	var button := _make_tile("Quit", "", "Leave the game", height,
 		title_font, caption_font, ACCENT_QUIT, UIConstants.COLOR_DANGER_MUTED,
 		PixelIcon.Kind.DOOR)
 	button.name = "QuitButton"
@@ -721,14 +725,15 @@ func _make_quit_tile(height: float, title_font: int, caption_font: int) -> Butto
 # =============================================================================
 
 ## A hero or Continue card: the action's name is the button's own label (so
-## tooltips, keyboard focus and tests all read the action), with one line of
-## explanation pinned to the card's lower edge. That caption is a child of the
-## button with mouse_filter IGNORE, so clicking it clicks the card too.
+## tooltips, keyboard focus and tests all read the action), with an optional
+## line of explanation pinned to the card's lower edge - only Continue uses
+## one, so the other cards are name and sprite alone. A caption is a child of
+## the button with mouse_filter IGNORE, so clicking it clicks the card too.
 func _make_card(text: String, caption: String, tooltip: String, height: float,
 		title_font: int, caption_font: int, accent: Color,
 		icon_kind: int = -1, dimmed_icon: bool = false) -> Button:
 	var button := _make_button_shell(text, tooltip, title_font, UIConstants.COLOR_TEXT, TITLE_FONT)
-	var block := _caption_block(caption_font, CAPTION_LINES)
+	var block := _caption_block(caption_font, CAPTION_LINES) if not caption.is_empty() else 0.0
 	var compact := height < 92.0
 	var card_pad := 14 if compact else 20
 	var v_slack := 16.0 if compact else 24.0
@@ -737,11 +742,13 @@ func _make_card(text: String, caption: String, tooltip: String, height: float,
 	_paint_card(button, accent, block, card_pad, UIConstants.COLOR_TEXT, Color.WHITE)
 	_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8 if compact else 10)
 	if not caption.is_empty():
-		button.add_child(_make_caption(caption, caption_font, CAPTION_LINES, UIConstants.COLOR_TEXT_DIM, compact))
+		button.add_child(_make_caption(caption, caption_font, accent, compact))
 	return button
 
-## A compact tile: same card treatment, smaller type, an optional single-line
-## caption.
+## A compact tile: same card treatment, smaller type. The tiles carry no
+## sub-titles - only Continue's card does - so `caption` is normally empty and
+## the tile is just its name and sprite; a caption is still supported for
+## layouts that pass one.
 func _make_tile(text: String, caption: String, tooltip: String, height: float,
 		title_font: int, caption_font: int, accent: Color,
 		text_color: Color = UIConstants.COLOR_TEXT, icon_kind: int = -1,
@@ -753,11 +760,13 @@ func _make_tile(text: String, caption: String, tooltip: String, height: float,
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT if show_caption else HORIZONTAL_ALIGNMENT_CENTER
 	var hover_color := Color.WHITE if text_color == UIConstants.COLOR_TEXT else text_color.lightened(0.25)
 	_paint_card(button, accent, block, 14, text_color, hover_color)
-	# The squat layouts drop captions to save width; the sprite goes with them,
-	# because a tile too narrow for a sentence is too narrow for an emblem.
-	if show_caption:
+	# The squat and phone layouts pass caption_font 0: a tile too narrow for a
+	# sentence is too narrow for an emblem, so those tiles are plain labels
+	# with no sprite. Everywhere else the sprite stays even without a caption.
+	if caption_font > 0:
 		_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8)
-		button.add_child(_make_caption(caption, caption_font, 1, UIConstants.COLOR_TEXT_DIM))
+	if show_caption:
+		button.add_child(_make_caption(caption, caption_font, accent, true, 1))
 	return button
 
 ## Put an action's sprite on its card: whole-multiple scaling keeps the pixels
@@ -770,9 +779,18 @@ func _give_icon(button: Button, icon_kind: int, title_font: int, accent: Color,
 	button.icon = PixelIcon.texture(icon_kind, int(title_font * 1.9), accent, dimmed)
 	button.add_theme_constant_override("h_separation", gap)
 
+## An outlined letter reads on any background, which is what the title screen's
+## cards need: they are glassy enough that the clubhouse scenery shows through
+## their upper half, and the label has to stay legible over land, sea and sky.
+## The ink edge matches the frame's own outline; the offset shadow underneath
+## lifts the word off the glass without blurring the pixel type.
+const LABEL_OUTLINE_SIZE := 4
+const LABEL_SHADOW_OFFSET := Vector2(0.0, 2.0)
+
 ## Shared Button set-up: full-width and pointing-hand, with the label's own
 ## width left in the minimum size - a card may be narrower than its text only
 ## where the layout has room to give it more (never inside a clipped strip).
+## Every label wears the ink outline and the short drop shadow described above.
 func _make_button_shell(text: String, tooltip: String, title_font: int,
 		text_color: Color, font: Font) -> Button:
 	var button := Button.new()
@@ -784,12 +802,26 @@ func _make_button_shell(text: String, tooltip: String, title_font: int,
 	button.add_theme_font_size_override("font_size", title_font)
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
+	_add_label_outline(button, PixelButtonStyle.INK)
 	return button
 
-## One line (or `lines`) of explanation, anchored to the bottom of its button
-## so it moves with the card. Longer text is trimmed with an ellipsis rather
-## than allowed to grow up into the title.
-func _make_caption(text: String, font_size: int, lines: int, color: Color, compact: bool = false) -> Label:
+## Give a button's label the ink outline and drop shadow. Applied per button so
+## a card's own text colour (white on hover, muted while disabled) still shows
+## through the letter, with the outline drawn behind it.
+func _add_label_outline(button: Button, ink: Color) -> void:
+	button.add_theme_constant_override("outline_size", LABEL_OUTLINE_SIZE)
+	button.add_theme_color_override("font_outline_color", ink)
+	button.add_theme_color_override("font_shadow_color", Color(ink.r, ink.g, ink.b, 0.55))
+	button.add_theme_constant_override("shadow_offset_x", int(LABEL_SHADOW_OFFSET.x))
+	button.add_theme_constant_override("shadow_offset_y", int(LABEL_SHADOW_OFFSET.y))
+
+## One line (or `lines`) of explanation, set under the card's label and above
+## its sprite, inset from the rounded frame. The sprite stands at the left and
+## this block fills the width beside it, so a long save name wraps inside the
+## card instead of running under the icon. Longer text is trimmed with an
+## ellipsis rather than allowed to grow up into the title.
+func _make_caption(text: String, font_size: int, accent: Color, compact: bool,
+		lines: int = CAPTION_LINES) -> Label:
 	var label := Label.new()
 	label.name = "Caption"
 	label.text = text
@@ -800,13 +832,16 @@ func _make_caption(text: String, font_size: int, lines: int, color: Color, compa
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
+	# A soft tint of the card's own accent links the note to its action; the
+	# card's label keeps the bright type.
+	label.add_theme_color_override("font_color",
+		UIConstants.COLOR_TEXT_DIM.lerp(accent.lightened(0.35), 0.28))
 	label.anchor_left = 0.0
 	label.anchor_right = 1.0
 	label.anchor_top = 1.0
 	label.anchor_bottom = 1.0
 	var side_pad := 14.0 if compact else 20.0
-	var bottom_pad := 8.0 if compact else 12.0
+	var bottom_pad := 9.0 if compact else 12.0
 	label.offset_left = side_pad
 	label.offset_right = -side_pad
 	label.offset_top = -(_caption_block(font_size, lines) + bottom_pad)

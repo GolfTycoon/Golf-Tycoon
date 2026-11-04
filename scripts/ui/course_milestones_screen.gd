@@ -193,8 +193,7 @@ func _build_header() -> Control:
 		switch.size_flags_horizontal = Control.SIZE_SHRINK_END
 		group.add_child(switch)
 		trailing = group
-	return Kit.make_screen_header(_layout_mode, "Course Milestones", "Milestones",
-		"", func(): back_requested.emit(), trailing)
+	return Kit.make_screen_header(_layout_mode, "Course Milestones", func(): back_requested.emit(), trailing, PixelIcon.Kind.PIN)
 
 ## The selected site's tally beside the title.
 func _build_site_stat_chip() -> PanelContainer:

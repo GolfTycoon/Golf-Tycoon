@@ -772,7 +772,7 @@ func _make_header(m: Metrics, with_tutorial: bool = false) -> Control:
 	# The header is the shared screen header, sized for the window's layout
 	# mode like every other screen's bar; the tutorial switch sits on its right.
 	var header := Kit.make_screen_header(Kit.layout_mode_for(_window_size()), TITLE_TEXT,
-		"Company setup", "", func(): back_requested.emit())
+		func(): back_requested.emit(), null, PixelIcon.Kind.FLAG)
 	_back_button = header.get_node("BackButton") as Button
 	if with_tutorial:
 		_make_tutorial_chip(m, header)

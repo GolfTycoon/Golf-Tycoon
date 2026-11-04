@@ -199,8 +199,8 @@ func test_the_world_map_fits_every_window() -> void:
 	var world_screen: Node = main.get_node("UI/HUD/WorldMapScreen")
 	assert_true(world_screen.get_node_or_null("Backdrop") is MenuBackdrop,
 		"The world map shares the title screen's backdrop")
-	assert_true(world_screen.get_node_or_null("Frame/Page/ScreenHeader/FlagMark") is MenuFlagMark,
-		"and its golf-flag mark")
+	assert_true(world_screen.get_node_or_null("Frame/Page/ScreenHeader/ScreenIcon") is TextureRect,
+		"and its pixel globe icon")
 	var globe: Rect2 = world_screen.globe.get_global_rect()
 	assert_true(_view().encloses(globe), "The desktop globe is wholly on screen")
 	assert_eq(world_screen._rows.size(), WorldLocations.get_all().size(), "Every location has a row")

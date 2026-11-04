@@ -67,7 +67,7 @@ func test_setup_buttons_and_panels_use_shared_pixel_frames() -> void:
 		var normal := button.get_theme_stylebox("normal") as StyleBoxTexture
 		assert_not_null(normal, "%s has the same pixel frame as the title menu" % button.name)
 		if normal:
-			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN),
+			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its frame pixels 1:1" % button.name)
 	var panels := _nodes_of_class(screen, "PanelContainer")
 	assert_gte(panels.size(), 3, "the sheet, plan and company rail are framed panels")
@@ -77,14 +77,16 @@ func test_setup_buttons_and_panels_use_shared_pixel_frames() -> void:
 		assert_not_null(style, "%s uses a pixel panel frame" % panel.name)
 		if style:
 			var edge_margin := style.texture_margin_top if panel.name == "Footer" else style.texture_margin_left
-			assert_eq(edge_margin, float(PixelButtonStyle.MARGIN),
+			assert_eq(edge_margin, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its pixel border crisp" % panel.name)
 
 
 func test_screen_ornaments_are_pixel_sprites_not_smooth_vector_marks() -> void:
 	var screen := _screen()
-	var mark := screen.find_child("FlagMark", true, false)
-	assert_true(mark is MenuFlagMark, "the title lockup has its pixel-grid golf flag")
+	var mark := screen.find_child("ScreenIcon", true, false) as TextureRect
+	assert_not_null(mark, "the title lockup has its pixel-grid golf flag")
+	assert_eq(mark.texture, PixelIcon.texture(PixelIcon.Kind.FLAG,
+		int(MenuScreenKit._header_metrics(MenuScreenKit.layout_mode_for(screen._window_size()))["mark"]), MenuScreenKit.COLOR_GOLD))
 	var glyphs := _setup_glyphs(screen)
 	assert_gt(glyphs.size(), 0, "choice cards carry their own icons")
 	for glyph in glyphs:

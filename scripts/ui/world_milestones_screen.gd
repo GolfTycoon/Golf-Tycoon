@@ -133,8 +133,7 @@ func _build_header() -> Control:
 		switch.size_flags_horizontal = Control.SIZE_SHRINK_END
 		group.add_child(switch)
 		trailing = group
-	return Kit.make_screen_header(_layout_mode, "World Milestones", "Milestones",
-		"", func(): back_requested.emit(), trailing)
+	return Kit.make_screen_header(_layout_mode, "World Milestones", func(): back_requested.emit(), trailing, PixelIcon.Kind.BOOK)
 
 func _build_world_stat_chip() -> PanelContainer:
 	var chip := Kit.make_panel(Kit.COLOR_SURFACE_RAISED, MenuStyle.with_alpha(Kit.COLOR_GOLD, 0.55))

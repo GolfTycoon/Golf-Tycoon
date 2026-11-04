@@ -271,8 +271,7 @@ func _build_header(mode: int) -> Control:
 	money_row.add_child(_money_label)
 	balance_box.add_child(money_row)
 	balance.tooltip_text = "Available company funds"
-	var header := Kit.make_screen_header(mode, "World Map", "Pick your next course",
-		"", func(): back_requested.emit(), balance)
+	var header := Kit.make_screen_header(mode, "World Map", func(): back_requested.emit(), balance, PixelIcon.Kind.GLOBE)
 	_update_header()
 	return header
 
