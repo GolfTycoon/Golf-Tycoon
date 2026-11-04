@@ -41,16 +41,23 @@ func _focus_on_title_screen() -> Control:
 	return focus
 
 
+## A focused pill shows its ring: the cream band drawn by the card's own
+## MenuFocusRing layer (see PixelButtonStyle.paint_focus). The translucent wash
+## stays on the control's "focus" stylebox, under the label.
 func _assert_visible_pixel_focus(control: Control, context: String) -> void:
 	assert_not_null(control, "%s has a focused control" % context)
 	if control == null:
 		return
 	assert_true(control.has_focus(true), "%s shows its focus indicator" % context)
-	var focus := control.get_theme_stylebox("focus") as StyleBoxTexture
-	assert_not_null(focus, "%s uses the shared pixel focus overlay" % context)
-	if focus:
-		assert_eq(focus.get_expand_margin(SIDE_LEFT), PixelButtonStyle.FOCUS_EXPAND,
+	var ring := control.get_node_or_null("FocusRing") as MenuFocusRing
+	assert_not_null(ring, "%s wears the shared focus ring" % context)
+	if ring:
+		assert_true(ring is Node2D,
+			"%s draws its ring outside the input tree" % context)
+		assert_eq(ring.ring_style.get_expand_margin(SIDE_LEFT), PixelButtonStyle.FOCUS_EXPAND,
 			"%s has the prominent outline" % context)
+	assert_not_null(control.get_theme_stylebox("focus"),
+		"%s has the warm focus wash under its label" % context)
 
 
 func test_gamepad_focuses_the_first_title_screen_action() -> void:
@@ -85,8 +92,10 @@ func test_focus_stays_visible_on_all_title_screen_layouts() -> void:
 		if current != null:
 			assert_true(main.main_menu.is_ancestor_of(current), "focus remains on the title screen")
 		for button in find_buttons(main.main_menu):
-			var ring := button.get_theme_stylebox("focus") as StyleBoxTexture
+			var ring := button.get_node_or_null("FocusRing") as MenuFocusRing
 			assert_not_null(ring, "%s has the same focus treatment at %s" % [button.text, window])
+			assert_not_null(button.get_theme_stylebox("focus"),
+				"%s keeps its focus wash at %s" % [button.text, window])
 			if button.disabled:
 				assert_false(InputManager.collect_focusables(main.main_menu).has(button),
 					"disabled %s cannot become the focused action" % button.text)
