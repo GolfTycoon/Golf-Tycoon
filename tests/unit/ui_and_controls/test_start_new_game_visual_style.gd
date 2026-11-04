@@ -67,7 +67,7 @@ func test_setup_buttons_and_panels_use_shared_pixel_frames() -> void:
 		var normal := button.get_theme_stylebox("normal") as StyleBoxTexture
 		assert_not_null(normal, "%s has the same pixel frame as the title menu" % button.name)
 		if normal:
-			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN),
+			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its frame pixels 1:1" % button.name)
 	var panels := _nodes_of_class(screen, "PanelContainer")
 	assert_gte(panels.size(), 3, "the sheet, plan and company rail are framed panels")
@@ -77,7 +77,7 @@ func test_setup_buttons_and_panels_use_shared_pixel_frames() -> void:
 		assert_not_null(style, "%s uses a pixel panel frame" % panel.name)
 		if style:
 			var edge_margin := style.texture_margin_top if panel.name == "Footer" else style.texture_margin_left
-			assert_eq(edge_margin, float(PixelButtonStyle.MARGIN),
+			assert_eq(edge_margin, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its pixel border crisp" % panel.name)
 
 

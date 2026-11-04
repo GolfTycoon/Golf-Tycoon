@@ -736,7 +736,7 @@ func _make_card(text: String, caption: String, tooltip: String, height: float,
 	_paint_card(button, accent, block, card_pad, UIConstants.COLOR_TEXT, Color.WHITE)
 	_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8 if compact else 10)
 	if not caption.is_empty():
-		button.add_child(_make_caption(caption, caption_font, CAPTION_LINES, UIConstants.COLOR_TEXT_DIM, compact))
+		button.add_child(_make_caption(caption, caption_font, accent, compact))
 	return button
 
 ## A compact tile: same card treatment, smaller type. The tiles carry no
@@ -760,7 +760,7 @@ func _make_tile(text: String, caption: String, tooltip: String, height: float,
 	if caption_font > 0:
 		_give_icon(button, icon_kind, title_font, accent, dimmed_icon, 8)
 	if show_caption:
-		button.add_child(_make_caption(caption, caption_font, 1, UIConstants.COLOR_TEXT_DIM))
+		button.add_child(_make_caption(caption, caption_font, accent, true, 1))
 	return button
 
 ## Put an action's sprite on its card: whole-multiple scaling keeps the pixels
@@ -773,9 +773,18 @@ func _give_icon(button: Button, icon_kind: int, title_font: int, accent: Color,
 	button.icon = PixelIcon.texture(icon_kind, int(title_font * 1.9), accent, dimmed)
 	button.add_theme_constant_override("h_separation", gap)
 
+## An outlined letter reads on any background, which is what the title screen's
+## cards need: they are glassy enough that the clubhouse scenery shows through
+## their upper half, and the label has to stay legible over land, sea and sky.
+## The ink edge matches the frame's own outline; the offset shadow underneath
+## lifts the word off the glass without blurring the pixel type.
+const LABEL_OUTLINE_SIZE := 4
+const LABEL_SHADOW_OFFSET := Vector2(0.0, 2.0)
+
 ## Shared Button set-up: full-width and pointing-hand, with the label's own
 ## width left in the minimum size - a card may be narrower than its text only
 ## where the layout has room to give it more (never inside a clipped strip).
+## Every label wears the ink outline and the short drop shadow described above.
 func _make_button_shell(text: String, tooltip: String, title_font: int,
 		text_color: Color, font: Font) -> Button:
 	var button := Button.new()
@@ -787,12 +796,26 @@ func _make_button_shell(text: String, tooltip: String, title_font: int,
 	button.add_theme_font_size_override("font_size", title_font)
 	button.add_theme_color_override("font_color", text_color)
 	button.add_theme_color_override("font_pressed_color", text_color)
+	_add_label_outline(button, PixelButtonStyle.INK)
 	return button
 
-## One line (or `lines`) of explanation, anchored to the bottom of its button
-## so it moves with the card. Longer text is trimmed with an ellipsis rather
-## than allowed to grow up into the title.
-func _make_caption(text: String, font_size: int, lines: int, color: Color, compact: bool = false) -> Label:
+## Give a button's label the ink outline and drop shadow. Applied per button so
+## a card's own text colour (white on hover, muted while disabled) still shows
+## through the letter, with the outline drawn behind it.
+func _add_label_outline(button: Button, ink: Color) -> void:
+	button.add_theme_constant_override("outline_size", LABEL_OUTLINE_SIZE)
+	button.add_theme_color_override("font_outline_color", ink)
+	button.add_theme_color_override("font_shadow_color", Color(ink.r, ink.g, ink.b, 0.55))
+	button.add_theme_constant_override("shadow_offset_x", int(LABEL_SHADOW_OFFSET.x))
+	button.add_theme_constant_override("shadow_offset_y", int(LABEL_SHADOW_OFFSET.y))
+
+## One line (or `lines`) of explanation, set under the card's label and above
+## its sprite, inset from the rounded frame. The sprite stands at the left and
+## this block fills the width beside it, so a long save name wraps inside the
+## card instead of running under the icon. Longer text is trimmed with an
+## ellipsis rather than allowed to grow up into the title.
+func _make_caption(text: String, font_size: int, accent: Color, compact: bool,
+		lines: int = CAPTION_LINES) -> Label:
 	var label := Label.new()
 	label.name = "Caption"
 	label.text = text
@@ -803,13 +826,16 @@ func _make_caption(text: String, font_size: int, lines: int, color: Color, compa
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	label.add_theme_font_override("font", BODY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
+	# A soft tint of the card's own accent links the note to its action; the
+	# card's label keeps the bright type.
+	label.add_theme_color_override("font_color",
+		UIConstants.COLOR_TEXT_DIM.lerp(accent.lightened(0.35), 0.28))
 	label.anchor_left = 0.0
 	label.anchor_right = 1.0
 	label.anchor_top = 1.0
 	label.anchor_bottom = 1.0
 	var side_pad := 14.0 if compact else 20.0
-	var bottom_pad := 8.0 if compact else 12.0
+	var bottom_pad := 9.0 if compact else 12.0
 	label.offset_left = side_pad
 	label.offset_right = -side_pad
 	label.offset_top = -(_caption_block(font_size, lines) + bottom_pad)

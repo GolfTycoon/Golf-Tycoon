@@ -87,7 +87,7 @@ func test_atlas_buttons_and_panels_use_shared_pixel_frames() -> void:
 		var normal := button.get_theme_stylebox("normal") as StyleBoxTexture
 		assert_not_null(normal, "%s has the same pixel frame as the title menu" % button.name)
 		if normal:
-			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN),
+			assert_eq(normal.texture_margin_left, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its frame pixels 1:1" % button.name)
 	var panels := _nodes_of_class(screen, "PanelContainer")
 	assert_gte(panels.size(), 4, "globe, dossier, directory and treasury are framed panels")
@@ -96,7 +96,7 @@ func test_atlas_buttons_and_panels_use_shared_pixel_frames() -> void:
 		var style := panel.get_theme_stylebox("panel") as StyleBoxTexture
 		assert_not_null(style, "%s uses a pixel panel frame" % panel.name)
 		if style:
-			assert_eq(style.texture_margin_left, float(PixelButtonStyle.MARGIN),
+			assert_eq(style.texture_margin_left, float(PixelButtonStyle.MARGIN_LEFT),
 				"%s keeps its pixel border crisp" % panel.name)
 
 func test_the_globe_is_the_pixel_art_planet() -> void:
