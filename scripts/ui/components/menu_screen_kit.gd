@@ -303,6 +303,12 @@ static func make_screen_header(mode: int, title_text: String, on_back: Callable 
 	title_block.add_theme_constant_override("separation", 0)
 	var title := make_title_label(title_text, int(metrics["title"]))
 	title.name = "Title"
+	# The header sits directly over the backdrop: keep pale letters distinct
+	# from both bright skies and busy scenery without adding a bulky panel.
+	title.add_theme_constant_override("outline_size", 3)
+	title.add_theme_color_override("font_outline_color", PixelButtonStyle.INK)
+	title.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.6))
+	title.add_theme_constant_override("shadow_offset_y", 2)
 	title.clip_text = true
 	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	title_block.add_child(title)
