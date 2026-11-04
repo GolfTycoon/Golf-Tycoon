@@ -122,6 +122,9 @@ var _page: MarginContainer = null
 var _built_size := Vector2.ZERO
 ## Save list snapshot taken once per build (get_save_list() reads the disk).
 var _saves: Array = []
+## Browsers do not need an application-level Quit action; the tab or window
+## already provides one. Kept as a value so the web layout can be tested natively.
+var _is_web := OS.has_feature("web")
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -329,8 +332,8 @@ func _build_landscape() -> void:
 	# phone without scrolling.
 	actions.add_child(_make_utility_rows(clampf(view.y * 0.110, 42.0, 54.0), hero_font - 3, 0, false))
 
-## Phone: one column, cards stacked full width, Load and Settings sharing a
-## row to save vertical space, Quit on its own quiet line at the bottom.
+## Phone: one column, cards stacked full width, utilities sharing rows to save
+## vertical space. Native builds put Quit on its own quiet line at the bottom.
 func _build_phone() -> void:
 	var view := _window_size()
 	var pad := int(clampf(view.x * 0.032, 10.0, 20.0))
@@ -355,7 +358,8 @@ func _build_phone() -> void:
 	column.add_child(_make_continue_card(clampf(view.y * 0.094, 76.0, 98.0), hero_font - 1, caption_font))
 	column.add_child(_make_phone_utility_row(clampf(view.y * 0.058, 46.0, 64.0), hero_font - 3))
 	column.add_child(_make_phone_extra_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
-	column.add_child(_make_phone_quit_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
+	if not _is_web:
+		column.add_child(_make_phone_quit_row(clampf(view.y * 0.056, 46.0, 60.0), hero_font - 3, 0))
 	column.add_child(_make_status_line(true, caption_font))
 
 # =============================================================================
@@ -583,9 +587,10 @@ func _make_continue_card(height: float, title_font: int, caption_font: int) -> B
 	button.pressed.connect(func(): continue_requested.emit(slot))
 	return button
 
-## Load Game / Achievements / Golfer Skins / Mods / Settings / Quit: stacked
-## down the wide rail, or two tidy rows (three over two) beside the hero
-## cards. The tiles are name-and-sprite only - no sub-titles. `caption_font`
+## Load Game / Achievements / Golfer Skins / Mods / Settings, plus Quit on
+## native builds: stacked down the wide rail, or two tidy rows beside the hero
+## cards. Web leaves out Quit, whose browser equivalent is closing the tab.
+## The tiles are name-and-sprite only - no sub-titles. `caption_font`
 ## 0 additionally drops the sprite and leaves the tiles as plain labels (the
 ## squat-window and phone layouts, where a tile too narrow for a sentence is
 ## too narrow for an emblem).
@@ -597,8 +602,9 @@ func _make_utility_rows(height: float, title_font: int, caption_font: int,
 		_make_golfer_skins_tile(height, title_font, caption_font),
 		_make_mods_tile(height, title_font, caption_font),
 		_make_settings_tile(height, title_font, caption_font),
-		_make_quit_tile(height, title_font, caption_font),
 	]
+	if not _is_web:
+		tiles.append(_make_quit_tile(height, title_font, caption_font))
 	if stacked:
 		var column := VBoxContainer.new()
 		column.name = "UtilityRows"

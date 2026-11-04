@@ -2,8 +2,8 @@ extends Control
 class_name PauseMenu
 ## PauseMenu - Full-screen pause overlay with game options
 ##
-## Triggered by Escape key. Provides Resume, Save, Load, Settings, Quit to Menu,
-## and Quit to Desktop options. Dims the game behind it.
+## Triggered by Escape key. Provides Resume, Save, Load, Settings and Quit to
+## Menu, plus Quit to Desktop on native builds. Dims the game behind it.
 ##
 ## The World Map is not here: it lives on the Club tab, where the company's
 ## sites are managed.
@@ -40,6 +40,9 @@ var _title: Label = null
 var _spacer: Control = null
 var _buttons: Array[Button] = []
 var _compact := false
+## Quit to Desktop is native-only: closing the browser tab is the equivalent
+## action on web. Kept as a value so the web menu can be tested natively.
+var _is_web := OS.has_feature("web")
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -158,7 +161,8 @@ func _build_ui() -> void:
 	vbox.add_child(HSeparator.new())
 
 	_add_menu_button(vbox, "Quit to Menu", _on_quit_to_menu_pressed, UIConstants.COLOR_WARNING)
-	_add_menu_button(vbox, "Quit to Desktop", _on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER)
+	if not _is_web:
+		_add_menu_button(vbox, "Quit to Desktop", _on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER)
 
 	# Hint at bottom (touch-specific gesture help on touch screens)
 	var hint = Label.new()
