@@ -24,8 +24,8 @@ func _assert_screen(tag: String, size: Vector2i, min_hnine: float) -> void:
 		assert_has(labels, expected, "%s: has a %s action" % [tag, expected])
 
 	# Every word on the screen is set in Pixelify Sans, at every window size:
-	# the action titles in the bold wnine, the captions, kicker and version
-	# line in the regular one (see test_main_menu_typography.gd).
+	# the action titles in the bold wnine, the Continue sub-title, kicker and
+	# version line in the regular one (see test_main_menu_typography.gd).
 	for button in buttons:
 		var title_path := str((button as Button).get_theme_font("font").resource_path)
 		assert_true(title_path.ends_with("PixelifySans-Bold.ttf")
@@ -55,6 +55,15 @@ func _assert_screen(tag: String, size: Vector2i, min_hnine: float) -> void:
 	assert_eq(off_screen, [], "%s: every action is on screen" % tag)
 	assert_eq(overlaps, [], "%s: no two actions overlap" % tag)
 
+	# Only the Continue card carries a sub-title (the newest save); every
+	# other action is just its name and sprite.
+	for button in buttons:
+		var sub: Node = button.find_child("Caption", true, false)
+		if button.name == "ContinueButton":
+			assert_not_null(sub, "%s: Continue keeps its sub-title" % tag)
+		else:
+			assert_null(sub, "%s: %s has no sub-title" % [tag, button.text])
+
 	# The game's name is the logo, on screen, not a typed "Golf Tycoon" heading.
 	var title := menu.find_child("Title", true, false) as TextureRect
 	assert_not_null(title, "%s: the title is an image" % tag)
@@ -72,10 +81,10 @@ func _assert_screen(tag: String, size: Vector2i, min_hnine: float) -> void:
 		assert_eq(backdrop.get_global_rect().size, Vector2(size), "%s: the backdrop covers the window" % tag)
 
 
-## Every action wears its pixel sprite where the layout has room: the three
-## way-into-the-game cards always, and the utility tiles wherever they keep
-## their caption - the squat and phone layouts drop captions to save width,
-## and a tile too narrow for a sentence is too narrow for an emblem.
+## Every action wears its pixel sprite where the layout has room: the big
+## cards always, and the utility tiles in the wide and tablet layouts - the
+## squat and phone layouts drop the emblem, because a tile too narrow for a
+## sentence is too narrow for one.
 func _assert_icons(tag: String, size: Vector2i) -> void:
 	var cards := ["Start New Game", "Quick Start", "Tournament Mode", "Continue"]
 	var mode := MainMenu.layout_mode_for(Vector2(size))
@@ -84,7 +93,7 @@ func _assert_icons(tag: String, size: Vector2i) -> void:
 		var expected := cards.has(button.text) or roomy
 		assert_eq(button.icon != null, expected,
 			"%s: the %s card %s" % [tag, button.text,
-			"carries its sprite" if expected else "drops its sprite with its caption"])
+			"carries its sprite" if expected else "is a plain label"])
 
 
 ## Continue carries the newest save's course name when there is one; with no
@@ -98,6 +107,9 @@ func _assert_continue(tag: String) -> void:
 	if saves.is_empty():
 		assert_true(button.disabled, "%s: Continue is disabled with no saves" % tag)
 		assert_string_contains(button.tooltip_text, "No saved", "%s: and explains why" % tag)
+		var empty_caption := button.find_child("Caption", true, false) as Label
+		assert_true(empty_caption != null and "No saved" in empty_caption.text,
+			"%s: and its sub-title says so too" % tag)
 	else:
 		assert_false(button.disabled, "%s: Continue is live with a save on file" % tag)
 		var caption := button.find_child("Caption", true, false) as Label

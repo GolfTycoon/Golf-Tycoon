@@ -3,8 +3,9 @@ extends GameTest
 ## (assets/fonts/, SIL Open Font License 1.1) so the type matches the
 ## pixel-art cards, sprites and logo - the hero and Continue card titles in
 ## the bold weight, the compact utility tiles in the semibold one, and the
-## captions, the rail kicker and the version line in the regular one. The
-## heading itself is the logo image and carries no type (see
+## Continue card's sub-title, the rail kicker and the version line in the
+## regular one (the other cards carry no sub-title at all). The heading
+## itself is the logo image and carries no type (see
 ## tests/unit/ui_and_controls/test_main_menu_layout.gd).
 ##
 ## The screen is built from code, so a new builder could quietly leave a label
@@ -51,10 +52,12 @@ func test_the_action_titles_are_set_in_pixelify_sans_bold() -> void:
 			"the %s title carries its Pixelify Sans weight" % button.name)
 
 
-func test_the_captions_and_quiet_lines_are_set_in_pixelify_sans_regular() -> void:
+func test_the_sub_title_and_quiet_lines_are_set_in_pixelify_sans_regular() -> void:
 	var menu := _menu()
 	var labels := _nodes_of_class(menu, "Label")
-	assert_gte(labels.size(), 3, "captions, the kicker and the version line exist")
+	# Continue's sub-title and the version line are always there; the rail
+	# kicker joins them on the wide layout.
+	assert_gte(labels.size(), 2, "Continue's sub-title and the version line exist")
 	for label in labels:
 		# The kicker is the shared gold section caption (uppercase, semibold);
 		# every other line is regular.
