@@ -339,6 +339,25 @@ func test_rotating_the_view_changes_the_texture_a_tree_is_drawn_with() -> void:
 	assert_eq(worn.size(), 4, "a full turn of the course walks the palm through all four angles")
 
 
+func test_repainting_a_tree_species_redraws_its_existing_sprite() -> void:
+	var grid := make_grid(8, 8)
+	var tile := Vector2i(3, 3)
+	grid.set_tile(tile, TerrainTypes.Type.OAK)
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	trees._sync_visuals()
+	var visual := trees._visuals[tile] as Node2D
+	await process_frames(2)  # Let the oak's first cached draw finish.
+
+	var sprite_redrawn := [false]
+	visual.draw.connect(func(): sprite_redrawn[0] = true)
+	grid.set_tile(tile, TerrainTypes.Type.PINE)
+	await process_frames(2)
+
+	assert_eq(trees._tree_tiles[tile], "pine", "the terrain index has the replacement species")
+	assert_same(trees._visuals[tile], visual, "the renderer still reuses the visible tree node")
+	assert_true(sprite_redrawn[0], "and that node paints the pine instead of keeping the cached oak")
+
+
 # ---------------------------------------------------------------------------
 # Every tree stands at its own angle
 # ---------------------------------------------------------------------------

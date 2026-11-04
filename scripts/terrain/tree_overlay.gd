@@ -678,6 +678,13 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 		_tree_tiles.erase(tile_pos)
 	else:
 		return # Something else was painted here; the wood is unchanged.
+	# A species change reuses the tile's CanvasItem, whose cached draw commands
+	# still contain the old sprite. Invalidate just that visual; the membership
+	# sync below only creates/removes nodes and does not redraw an existing one.
+	if TerrainTypes.is_tree(new_type):
+		var visual := _visuals.get(tile_pos) as Node2D
+		if visual:
+			visual.queue_redraw()
 	# Tile generation may change thousands of tiles in one frame. Defer the
 	# visible-node diff so those edits coalesce into one bounded sync.
 	_visual_sync_pending = true
