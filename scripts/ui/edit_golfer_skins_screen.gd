@@ -322,8 +322,8 @@ func _make_header() -> Control:
 
 	if compact:
 		# A phone has no room beside the title: the status line sits under the bar.
-		var bar := Kit.make_screen_header(header_mode, TITLE_TEXT, "Golfer studio", "",
-			func(): back_requested.emit(), null)
+		var bar := Kit.make_screen_header(header_mode, TITLE_TEXT,
+			func(): back_requested.emit(), null, PixelIcon.Kind.SHIRT)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -343,8 +343,8 @@ func _make_header() -> Control:
 	group.size_flags_horizontal = Control.SIZE_SHRINK_END
 	group.add_child(_status_label)
 	group.add_child(_save_button)
-	return Kit.make_screen_header(header_mode, TITLE_TEXT, "Golfer studio", "",
-		func(): back_requested.emit(), group)
+	return Kit.make_screen_header(header_mode, TITLE_TEXT,
+		func(): back_requested.emit(), group, PixelIcon.Kind.SHIRT)
 
 
 # =============================================================================

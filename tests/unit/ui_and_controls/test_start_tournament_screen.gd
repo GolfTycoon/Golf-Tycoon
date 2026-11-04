@@ -60,6 +60,25 @@ func test_layout_breakpoints_cover_phone_landscape_tablet_and_desktop() -> void:
 	assert_eq(StartTournamentScreen.layout_mode_for(Vector2(768, 1024)), StartTournamentScreen.Layout.TABLET)
 	assert_eq(StartTournamentScreen.layout_mode_for(Vector2(1600, 1000)), StartTournamentScreen.Layout.WIDE)
 
+func test_tournament_uses_the_shared_header_with_trophy_and_compact_action() -> void:
+	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
+	add_child(screen)
+	for include_cta in [false, true]:
+		var header := autofree(screen._make_header(include_cta)) as HBoxContainer
+		assert_eq(header.name, "ScreenHeader")
+		var title_box := header.get_node("TitleBlock") as VBoxContainer
+		assert_eq(title_box.get_child_count(), 1, "the tournament header has no supporting subtitle")
+		assert_eq((title_box.get_node("Title") as Label).text, "Start Tournament")
+		var icon := header.get_node("ScreenIcon") as TextureRect
+		var header_mode := MenuScreenKit.layout_mode_for(screen._window_size())
+		assert_eq(icon.texture, PixelIcon.texture(PixelIcon.Kind.TROPHY,
+			int(MenuScreenKit._header_metrics(header_mode)["mark"]), MenuScreenKit.COLOR_GOLD))
+		assert_eq(header.get_node("BackButton"), screen._back_button)
+		if include_cta:
+			assert_eq(header.get_node("Trailing"), screen._start_button)
+		else:
+			assert_null(header.get_node_or_null("Trailing"))
+
 func test_every_label_and_button_uses_pixelify_sans() -> void:
 	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
 	add_child(screen)

@@ -268,8 +268,7 @@ func _build_header() -> Control:
 	var trailing: Control = null
 	if not _is_phone():
 		trailing = _make_treasury_chip()
-	return Kit.make_screen_header(_layout_mode, "Financial Overview", "Company ledger",
-		GameCalendar.format_date(GameManager.current_day), _close_pressed, trailing)
+	return Kit.make_screen_header(_layout_mode, "Financial Overview", _close_pressed, trailing, PixelIcon.Kind.COIN)
 
 func _make_treasury_chip() -> PanelContainer:
 	var panel := PanelContainer.new()

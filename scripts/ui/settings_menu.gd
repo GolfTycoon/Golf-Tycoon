@@ -291,8 +291,7 @@ func _build_header(mode: int) -> Control:
 	if mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode):
 		trailing = Kit.make_chip("SAVED AUTOMATICALLY", COLOR_GOLD, COLOR_GOLD, 10)
 		trailing.custom_minimum_size = Vector2(0.0, 26.0)
-	var header := Kit.make_screen_header(mode, "Settings", "The clubhouse office",
-		"Make the course yours. Changes take effect immediately.", _on_close, trailing)
+	var header := Kit.make_screen_header(mode, "Settings", _on_close, trailing, PixelIcon.Kind.GEAR)
 	return header
 
 func _build_workspace(mode: int, view: Vector2) -> Control:

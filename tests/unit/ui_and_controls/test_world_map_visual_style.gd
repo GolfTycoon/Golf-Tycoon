@@ -67,8 +67,8 @@ func test_world_map_title_contains_only_the_icon_and_text() -> void:
 	if title_block == null:
 		return
 
-	var flag := screen.find_child("FlagMark", true, false)
-	assert_true(flag is MenuFlagMark, "the golf icon sits beside the title block in the shared header")
+	var icon := screen.find_child("ScreenIcon", true, false) as TextureRect
+	assert_not_null(icon, "the globe icon sits beside the title block in the shared header")
 	var title := screen.find_child("Title", true, false) as Label
 	assert_not_null(title, "the title block holds the title text")
 	if title:
@@ -129,8 +129,10 @@ func test_screen_ornaments_are_pixel_sprites() -> void:
 		assert_not_null(legend, "the map footer keeps its pin legend")
 		if legend:
 			assert_gte(_texture_rects(legend).size(), 3, "the legend explains the pin colours")
-	var mark := screen.find_child("FlagMark", true, false)
-	assert_true(mark is MenuFlagMark, "the title lockup keeps its golf-flag mark")
+	var mark := screen.find_child("ScreenIcon", true, false) as TextureRect
+	assert_not_null(mark, "the title lockup has a pixel globe icon")
+	assert_eq(mark.texture, PixelIcon.texture(PixelIcon.Kind.GLOBE,
+		int(MenuScreenKit._header_metrics(screen._layout_mode)["mark"]), MenuScreenKit.COLOR_GOLD))
 
 func test_the_flag_mark_is_drawn_from_a_pixel_grid() -> void:
 	assert_eq(MenuFlagMark.ART.size(), MenuFlagMark.GRID, "the mark has a full grid of rows")

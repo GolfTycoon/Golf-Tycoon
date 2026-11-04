@@ -252,8 +252,7 @@ func _build_header() -> Control:
 		group.add_child(tier)
 		trailing = group
 	var header := Kit.make_screen_header(_layout_mode, "Benchmark Results",
-		"Device scorecard  ·  %s" % _benchmark_version(), "",
-		func(): back_requested.emit(), trailing)
+		func(): back_requested.emit(), trailing, PixelIcon.Kind.PULSE)
 	if compact:
 		_live_fps_label = null
 	return header

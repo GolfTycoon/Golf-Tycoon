@@ -15,7 +15,8 @@ const KINDS := [
 	PixelIcon.Kind.CALENDAR, PixelIcon.Kind.LEAF, PixelIcon.Kind.HEART,
 	PixelIcon.Kind.WIND, PixelIcon.Kind.SUN, PixelIcon.Kind.PARTLY_CLOUDY,
 	PixelIcon.Kind.OVERCAST, PixelIcon.Kind.LIGHT_RAIN, PixelIcon.Kind.RAIN,
-	PixelIcon.Kind.HEAVY_RAIN,
+	PixelIcon.Kind.HEAVY_RAIN, PixelIcon.Kind.GLOBE, PixelIcon.Kind.MAP,
+	PixelIcon.Kind.BOOK, PixelIcon.Kind.PUZZLE,
 ]
 
 const PALETTE_KEYS := ".XALDCMWGg"

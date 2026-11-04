@@ -171,9 +171,7 @@ func _page_gap(mode: int) -> int:
 		_: return 8
 
 func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Load a course", "The clubhouse archive",
-		"A little care now makes it easy to pick up the perfect round later.",
-		_on_back_pressed)
+	var header := Kit.make_screen_header(mode, "Load a course", _on_back_pressed, null, PixelIcon.Kind.FLOPPY)
 	_header_title = header.find_child("Title", true, false) as Label
 	_update_header_copy()
 	return header

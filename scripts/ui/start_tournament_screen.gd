@@ -425,7 +425,7 @@ func _build_wide() -> void:
 	outer.add_theme_constant_override("separation", gap)
 	margin.add_child(outer)
 
-	outer.add_child(_make_header(s, false))
+	outer.add_child(_make_header(false))
 
 	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -505,7 +505,7 @@ func _build_landscape() -> void:
 	outer.add_theme_constant_override("separation", 6)
 	margin.add_child(outer)
 
-	outer.add_child(_make_header(s, true))
+	outer.add_child(_make_header(true))
 
 	var cols := HBoxContainer.new()
 	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -558,7 +558,7 @@ func _build_stacked(is_tablet: bool) -> void:
 	top_pad.add_theme_constant_override("margin_top", 12)
 	top_pad.add_theme_constant_override("margin_bottom", 8)
 	root_col.add_child(top_pad)
-	top_pad.add_child(_make_header(s, false))
+	top_pad.add_child(_make_header(false))
 
 	var scroll := ScrollContainer.new()
 	scroll.name = "SetupScroll"
@@ -616,59 +616,17 @@ func _build_stacked(is_tablet: bool) -> void:
 
 # ── Section Builders ────────────────────────────────────────────────────────
 
-func _make_header(s: float, include_cta: bool) -> Control:
-	var row := HBoxContainer.new()
-	row.name = "HeaderBar"
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", roundi(12.0 * s))
-
-	var kit_mode := Kit.LayoutMode.DESKTOP
-	if include_cta:
-		kit_mode = Kit.LayoutMode.PHONE_LANDSCAPE
-	elif _layout_mode == Layout.PHONE:
-		kit_mode = Kit.LayoutMode.PHONE_PORTRAIT
-	_back_button = Kit.make_back_button(kit_mode, func() -> void: back_requested.emit())
-	_back_button.tooltip_text = "Return to the Main Menu (Esc)"
-	row.add_child(_back_button)
-
-	var trophy := Kit.make_sprite(
-		PixelIcon.Kind.TROPHY,
-		22 if (include_cta or _layout_mode == Layout.PHONE) else maxi(26, roundi(30.0 * s)),
-		MenuStyle.ACCENT_PRIMARY
-	)
-	row.add_child(trophy)
-
-	var title_box := VBoxContainer.new()
-	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	title_box.add_theme_constant_override("separation", 1)
-	row.add_child(title_box)
-
-	var title_lbl := _make_label(
-		"Start Tournament",
-		TITLE_FONT,
-		18 if (include_cta or _layout_mode == Layout.PHONE) else maxi(22, roundi(28.0 * s)),
-		MenuStyle.TITLE_COLOR
-	)
-	title_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title_box.add_child(title_lbl)
-
-	if not include_cta and _layout_mode != Layout.PHONE:
-		var sub_lbl := _make_label(
-			"Configure your opponent roster, tournament format, rules, course, and golfer.",
-			BODY_FONT,
-			maxi(12, roundi(13.0 * s)),
-			UIConstants.COLOR_TEXT_DIM
-		)
-		sub_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		title_box.add_child(sub_lbl)
-
+func _make_header(include_cta: bool) -> Control:
+	var trailing: Control = null
 	if include_cta:
 		_start_button = _make_start_button(40.0, 15)
 		_start_button.custom_minimum_size.x = 168.0
-		row.add_child(_start_button)
-
-	return row
+		trailing = _start_button
+	var header := Kit.make_screen_header(Kit.layout_mode_for(_window_size()), "Start Tournament",
+		func(): back_requested.emit(), trailing, PixelIcon.Kind.TROPHY)
+	_back_button = header.get_node("BackButton") as Button
+	_back_button.tooltip_text = "Return to the Main Menu (Esc)"
+	return header
 
 func _make_difficulty_section(s: float, columns: int, compact: bool) -> Control:
 	var box := VBoxContainer.new()

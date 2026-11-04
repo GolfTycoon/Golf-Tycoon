@@ -140,8 +140,7 @@ func _build_header() -> Control:
 			switch.size_flags_horizontal = Control.SIZE_SHRINK_END
 			group.add_child(switch)
 		trailing = group
-	var header := Kit.make_screen_header(_layout_mode, "Achievements", "Milestones",
-		"", func(): back_requested.emit(), trailing)
+	var header := Kit.make_screen_header(_layout_mode, "Achievements", func(): back_requested.emit(), trailing, PixelIcon.Kind.STAR)
 	back_button = header.get_node("BackButton") as Button
 	return header
 

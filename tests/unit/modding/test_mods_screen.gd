@@ -102,8 +102,8 @@ func test_the_header_carries_the_mods_title() -> void:
 	assert_true(back.text.contains("Back"), "Back leads home to the menu")
 	var title := header.get_node("TitleBlock/Title") as Label
 	assert_eq(title.text, "Mods")
-	var kicker := header.get_node("TitleBlock/Kicker") as Label
-	assert_eq(kicker.text, "The Mod Shed")
+	assert_eq(header.get_node("TitleBlock").get_child_count(), 1,
+		"the header contains only the screen title")
 
 
 func test_the_screen_renders_the_live_library() -> void:
