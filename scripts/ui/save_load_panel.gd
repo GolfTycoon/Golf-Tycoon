@@ -3,10 +3,12 @@ class_name SaveLoadPanel
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## Responsive save desk and course archive.
 ##
-## The Save and Load flows share the same archive, but each has its own clear
-## primary action and selected-slot dossier. Desktop uses a two-column desk;
-## tablets and phones reflow the checkpoint / dossier above a touch-friendly
-## save shelf, and a rotated phone keeps the two panes side by side.
+## The Save and Load flows share the same archive, sitting on the shared
+## MenuBackdrop artwork alongside the Main Menu and the other fullscreen
+## screens, while each keeps its own clear primary action and selected-slot
+## dossier. Desktop uses a two-column desk; tablets and phones reflow the
+## checkpoint / dossier above a touch-friendly save shelf, and a rotated phone
+## keeps the two panes side by side.
 
 signal panel_closed
 signal quit_to_menu_requested
@@ -112,6 +114,7 @@ func _capture_build_state() -> void:
 		_draft_name = _save_name_input.text
 
 func _build() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
@@ -120,16 +123,15 @@ func _build() -> void:
 	_save_list_container = null
 	_save_count_label = null
 	_load_detail_host = null
+	_confirmation_overlay = null
 	_header_title = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
-	var scrim := ColorRect.new()
-	scrim.name = "ArchiveScrim"
-	scrim.color = Color(0.006, 0.022, 0.016, 0.78)
-	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(scrim)
+	var backdrop := MenuBackdrop.new()
+	backdrop.name = "Backdrop"
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(backdrop)
 
 	var frame := MarginContainer.new()
 	frame.name = "ArchiveFrame"

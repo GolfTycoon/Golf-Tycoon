@@ -223,6 +223,8 @@ func _assert_archive_fits_every_window(mode: SaveLoadPanel.ScreenMode) -> void:
 		var panel: SaveLoadPanel = await _open_archive(mode)
 		var layout := SaveLoadPanel.layout_mode_for(Vector2(size))
 		assert_eq(panel._layout_mode, layout, "%s: the arrangement for %s" % [tag, size])
+		assert_true(panel.get_node_or_null("Backdrop") is MenuBackdrop,
+			"%s: sits on the shared MenuBackdrop" % tag)
 		_assert_targets(tag, panel, size)
 		_assert_fits(tag, panel.get_node_or_null("ArchiveFrame"), size,
 			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
@@ -253,6 +255,8 @@ func test_the_settings_office_fits_every_window() -> void:
 		await process_frames(6)
 		var layout := SettingsMenu.layout_mode_for(Vector2(size))
 		assert_eq(menu._layout_mode, layout, "%s: the arrangement for %s" % [tag, size])
+		assert_true(menu.get_node_or_null("Backdrop") is MenuBackdrop,
+			"%s: sits on the shared MenuBackdrop" % tag)
 		assert_null(menu.find_child("CourseContextCard", true, false), "%s: the at-a-glance section is removed" % tag)
 		var categories := 0
 		for category in SettingsMenu.Category.values():
@@ -667,6 +671,8 @@ func test_the_game_opens_the_archive_in_the_right_mode() -> void:
 	if from_title:
 		assert_false(from_title.allow_save, "for loading only")
 		assert_eq(from_title._mode, SaveLoadPanel.ScreenMode.LOAD, "on the load page")
+		assert_true(from_title.get_node_or_null("Backdrop") is MenuBackdrop,
+			"with the shared MenuBackdrop from the title screen")
 		from_title.free()
 
 	main._show_save_load_panel(true, SaveLoadPanel.ScreenMode.SAVE)
@@ -677,6 +683,8 @@ func test_the_game_opens_the_archive_in_the_right_mode() -> void:
 		assert_true(from_pause.allow_save, "with saving allowed")
 		assert_eq(from_pause._mode, SaveLoadPanel.ScreenMode.SAVE, "on the save page")
 		assert_eq(from_pause.camera, main.camera, "and the course camera to look around with")
+		assert_true(from_pause.get_node_or_null("Backdrop") is MenuBackdrop,
+			"with the shared MenuBackdrop from the pause menu")
 		from_pause.free()
 
 

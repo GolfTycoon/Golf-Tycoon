@@ -197,3 +197,56 @@ func test_save_name_is_rejected_when_nothing_is_left() -> void:
 func test_save_name_is_capped_in_length() -> void:
 	var long_name := "x".repeat(200)
 	assert_eq(SaveLoadPanel.sanitize_save_name(long_name).length(), SaveLoadPanel.MAX_SAVE_NAME_LENGTH)
+
+
+# ---------------------------------------------------------------------------
+# Shared menu backdrop
+# ---------------------------------------------------------------------------
+
+func test_save_load_screen_uses_shared_menu_backdrop_in_save_and_load_modes() -> void:
+	var panel := SaveLoadPanel.new()
+	panel.allow_save = true
+	panel.open_mode = SaveLoadPanel.ScreenMode.SAVE
+	add_child_autofree(panel)
+	await process_frames(2)
+
+	var save_backdrop := panel.get_node_or_null("Backdrop")
+	assert_not_null(save_backdrop, "Save mode builds the shared backdrop")
+	assert_true(save_backdrop is MenuBackdrop, "Save mode uses MenuBackdrop like MainMenu")
+	assert_eq(panel.get_child(0), save_backdrop, "Backdrop sits behind the archive frame")
+	assert_null(panel.find_child("ArchiveScrim", true, false), "Legacy scrim is gone")
+	if save_backdrop is Control:
+		var ctrl := save_backdrop as Control
+		assert_eq(ctrl.anchor_left, 0.0)
+		assert_eq(ctrl.anchor_top, 0.0)
+		assert_eq(ctrl.anchor_right, 1.0)
+		assert_eq(ctrl.anchor_bottom, 1.0)
+
+	panel._set_mode(SaveLoadPanel.ScreenMode.LOAD)
+	await process_frames(2)
+
+	var load_backdrop := panel.get_node_or_null("Backdrop")
+	assert_not_null(load_backdrop, "Load mode rebuilds the shared backdrop")
+	assert_true(load_backdrop is MenuBackdrop, "Load mode uses MenuBackdrop like MainMenu")
+	assert_eq(panel.get_child(0), load_backdrop, "Backdrop stays behind the archive frame")
+	assert_null(panel.find_child("ArchiveScrim", true, false), "Legacy scrim remains absent")
+
+func test_settings_screen_uses_shared_menu_backdrop_across_categories() -> void:
+	var menu := SettingsMenu.new()
+	add_child_autofree(menu)
+	await process_frames(2)
+
+	for category in SettingsMenu.Category.values():
+		menu._select_category(category)
+		await process_frames(2)
+		var backdrop := menu.get_node_or_null("Backdrop")
+		assert_not_null(backdrop, "%s builds the shared backdrop" % menu._category_name(category))
+		assert_true(backdrop is MenuBackdrop, "%s uses MenuBackdrop like MainMenu" % menu._category_name(category))
+		assert_eq(menu.get_child(0), backdrop, "Backdrop sits behind SettingsFrame")
+		assert_null(menu.find_child("SettingsScrim", true, false), "Legacy scrim is gone")
+		if backdrop is Control:
+			var ctrl := backdrop as Control
+			assert_eq(ctrl.anchor_left, 0.0)
+			assert_eq(ctrl.anchor_top, 0.0)
+			assert_eq(ctrl.anchor_right, 1.0)
+			assert_eq(ctrl.anchor_bottom, 1.0)

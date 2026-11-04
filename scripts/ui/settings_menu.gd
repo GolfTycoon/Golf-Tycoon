@@ -4,11 +4,12 @@ const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
 ## Preferences are grouped into Audio, Display and Controls, and Data holds the
-## buttons that delete what this device keeps (see PlayerDataStore). Wide
-## desktop windows use a navigation rail beside the control cards; tablets
-## keep the cards roomy, while phones use a swipeable category strip and one
-## scrollable settings column. Every control keeps its original live behavior
-## and saves changes to user://settings.cfg.
+## buttons that delete what this device keeps (see PlayerDataStore). Like the
+## Main Menu and the other fullscreen screens, it sits on the shared
+## MenuBackdrop artwork. Wide desktop windows use a navigation rail beside the
+## control cards; tablets keep the cards roomy, while phones use a swipeable
+## category strip and one scrollable settings column. Every control keeps its
+## original live behavior and saves changes to user://settings.cfg.
 
 signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
@@ -87,7 +88,6 @@ func benchmarks_allowed() -> bool:
 var _category: int = Category.AUDIO
 var _layout_mode: int = Kit.LayoutMode.PHONE_PORTRAIT
 var _built_size := Vector2.ZERO
-var _bg: ColorRect
 var _panel: Control
 var _benchmark_run_button: Button
 var _benchmark_status_label: Label
@@ -211,10 +211,10 @@ func _process(_delta: float) -> void:
 		_on_screen_changed(_window_size(), Screen.world_scale)
 
 func _build() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	_bg = null
 	_panel = null
 	_benchmark_run_button = null
 	_benchmark_status_label = null
@@ -246,12 +246,10 @@ func _build() -> void:
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
 
-	_bg = ColorRect.new()
-	_bg.name = "SettingsScrim"
-	_bg.color = Color(0.006, 0.022, 0.016, 0.78)
-	_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_bg)
+	var backdrop := MenuBackdrop.new()
+	backdrop.name = "Backdrop"
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(backdrop)
 
 	var frame := MarginContainer.new()
 	frame.name = "SettingsFrame"
