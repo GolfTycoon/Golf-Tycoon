@@ -260,8 +260,10 @@ static func bar_image(accent: Color, fill: Color) -> Image:
 	if _image_cache.has(key):
 		return _image_cache[key]
 	var palette := _palette(accent, State.NORMAL, fill)
+	var gloss_color: Color = (palette["body_top"] as Color).lerp(
+		Color(1.0, 0.995, 0.95), clampf(float(palette["gloss"]), 0.0, 0.5))
 	var bands: Array[Color] = [
-		palette["ink"], palette["rim"], palette["rim_light"], palette["gloss"],
+		palette["ink"], palette["rim"], palette["rim_light"], gloss_color,
 		palette["body_top"], palette["body_top"], palette["body_bottom"], fill,
 	]
 	var image := Image.create_empty(BAR_WIDTH, BAR_BAND + BAR_STRETCH, false, Image.FORMAT_RGBA8)
