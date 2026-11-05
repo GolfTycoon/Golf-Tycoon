@@ -199,7 +199,7 @@ const ACTIONS: Array[Dictionary] = [
 	},
 	{
 		"action": "course_scorecard", "group": "panels",
-		"label": "Course scorecard", "hint": "",
+		"label": "Holes Map scorecard", "hint": "Open the scorecard and course records on the Holes Map.",
 		"defaults": [{"type": "key", "keycode": KEY_K}],
 	},
 	{

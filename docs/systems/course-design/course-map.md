@@ -1,9 +1,9 @@
 # Course Map
 
-> One isometric view of the whole course in four modes: buy the land around it, reorder its holes, read where golfers are happy and unhappy, and post the crew. Opens with **Shift+M**, with **Manage → Club → Maps → Land Parcels**, with the Holes tab's **Holes Map** card (straight into Routing Holes), or with the Staff tab's **Staff Map** card (straight into Staff).
+> One isometric view of the whole course in four modes: buy the land around it, reorder its holes, read where golfers are happy and unhappy, and post the crew. Opens with **Shift+M**, with **Manage → Club → Maps → Land Parcels**, with the Holes tab's **Holes Map** card (straight into Routing Holes), or with the Staff tab's **Staff Map** card (straight into Staff). **K** opens the scorecard directly in Routing.
 
-**Source:** `scripts/ui/course_map_screen.gd` (composition, modes, strip, keys), `scripts/ui/components/course_map_view.gd` (the drawn map, its picking and its legend), `scripts/ui/components/course_map_style.gd` (frames, type and money), `scripts/ui/components/course_map_land_panel.gd`, `scripts/ui/components/course_map_routing_panel.gd`, `scripts/ui/components/course_map_aura_panel.gd`, `scripts/ui/components/course_map_staff_panel.gd`, `scripts/main/main.gd` (`_open_course_map()`, `Shift+M`), `scripts/ui/terrain_toolbar.gd` (the Land Parcels button, and the Holes and Staff tabs' map cards)
-**Tests:** `tests/unit/ui_and_controls/test_course_map_layout.gd`, `tests/unit/ui_and_controls/test_course_map_terrain.gd`, `tests/integration/ui_and_controls/test_course_map_screen.gd`
+**Source:** `scripts/ui/course_map_screen.gd` (composition, modes, strip, keys), `scripts/ui/components/course_map_view.gd` (the drawn map, its picking and its legend), `scripts/ui/components/course_map_style.gd` (frames, type and money), `scripts/ui/components/course_map_land_panel.gd`, `scripts/ui/components/course_map_routing_panel.gd`, `scripts/ui/components/course_scorecard_view.gd` (the scorecard and records), `scripts/ui/components/course_map_aura_panel.gd`, `scripts/ui/components/course_map_staff_panel.gd`, `scripts/main/main.gd` (`_open_course_map()`, `Shift+M`), `scripts/ui/terrain_toolbar.gd` (the Land Parcels button, and the Holes and Staff tabs' map cards)
+**Tests:** `tests/unit/ui_and_controls/test_course_scorecard_view.gd`, `tests/unit/ui_and_controls/test_course_map_layout.gd`, `tests/unit/ui_and_controls/test_course_map_terrain.gd`, `tests/integration/ui_and_controls/test_course_map_screen.gd`
 
 ---
 
@@ -25,6 +25,9 @@ Open it from **Manage → Club → Maps → Land Parcels**, or with **Shift+M** 
 game. The Holes tab's **Holes Map** card opens it straight into Routing
 Holes, the mode that is the round itself, and the Staff tab's **Staff Map**
 card opens it straight into Staff, the mode that is the crew's ground.
+**K** opens the map directly on the scorecard, lifts the phone sheet if needed,
+and closes the map when pressed again. While the map is already open, it brings
+the scorecard forward from any mode. The shortcut can be rebound in Settings.
 **M** on its own is still Marketing.
 
 ### The four modes
@@ -32,7 +35,7 @@ card opens it straight into Staff, the mode that is the crew's ground.
 | Key | Mode | The map shows | The panel does |
 | --- | --- | --- | --- |
 | `1` | **Land** | Every parcel: yours (gold outline), for sale (amber, with its price and tier on it), and out of reach | The parcels you own, the parcel picked with its tier and cost, **Buy**, and the whole for-sale list |
-| `2` | **Routing** | The route: a line from each green to the next tee, coloured by walk length, with a tee square, a green ring and a number badge per hole | The holes in play order with move-up, move-down, flip, par and open/shut buttons, **Play the round the other way round**, and the route report |
+| `2` | **Routing** | The route: a line from each green to the next tee, coloured by walk length, with a tee square, a green ring and a number badge per hole | The holes in play order with move-up, move-down, flip, par and open/shut buttons, **Play the round the other way round**, the route report and a **Scorecard** page |
 | `3` | **Aura** | The mood of the course, cell by cell: green where golfers were happy, amber where it is mixed, red where they were not | The happiest spots, the trouble spots and a per-hole breakdown of what golfers said |
 | `4` | **Staff** | A ring for every employee's working area, coloured by job, plus the ground your own golfer works | The crew with **Move** and **Fire**, and the hire list you pick a job from |
 
@@ -63,6 +66,28 @@ it that way:
   price label and the panel rather than by a colour field — a 20 x 20 tile
   parcel covered by an even wash reads as one flat rectangle and takes the whole
   tile mosaic with it.
+
+### The scorecard
+
+The Routing panel has **Routing** and **Scorecard** choices. The scorecard is
+part of the Holes Map, not a separate Holes shelf view. It shows the course name,
+theme, rating, slope, stars, total par and yardage, followed by the OUT and IN
+nines and the course records. Each nine has a row per hole (Hole, Yards, Par,
+Hcp and Avg) and a nine-total row, so the whole table fits the narrow tablet and
+phone panels without sideways scrolling. Closed holes remain on the card and in
+the totals. An asterisk marks a manually set par; Hcp is the derived
+[stroke index](stroke-index.md), and an unplayed hole has `-` for its average.
+Average scores are coloured against par; the nine average sums only holes with
+recorded scores. Records list the lowest round, holes-in-one and best score per
+hole. The nines and records use the dossier's single vertical scroll, and live
+updates keep the reader's position.
+
+Selecting a hole on the scorecard highlights and centres it on the same map as
+the Routing list; selecting one on the map highlights its scorecard row. The
+choice is kept when switching between the two pages. **Back to routing** at the
+end of the card returns to the route controls. In standalone Tournament Mode,
+`K` still opens this scorecard, but the route-editing page and other map modes
+are unavailable so the tournament course cannot be edited.
 
 ### The strip
 

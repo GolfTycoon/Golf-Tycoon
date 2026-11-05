@@ -1,6 +1,6 @@
 extends VBoxContainer
 class_name CourseMapRoutingPanel
-## CourseMapRoutingPanel - Routing Holes: the order of play, and how it walks.
+## CourseMapRoutingPanel - the route and scorecard together on the Holes Map.
 ##
 ## Every hole gets a row, in the order it is played. The arrows move a hole up
 ## or down the round (HoleManager.move_hole, which renumbers the holes, keeps
@@ -12,8 +12,10 @@ class_name CourseMapRoutingPanel
 ## Above the rows the panel judges the route: the average walk from green to next
 ## tee, the worst leg, and how many legs are long enough to cost the course its
 ## pace rating (HoleRouting, the same numbers RoutingOverlay paints on the
-## course).
+## course). The Scorecard page puts the course identity, nines and records
+## alongside the same map; picking a hole on either page highlights it there.
 
+signal page_changed(page: int)
 signal hole_selected(hole_number: int)
 signal move_requested(from_index: int, to_index: int)
 signal flip_requested(hole_number: int)
@@ -21,17 +23,34 @@ signal par_requested(hole_number: int, new_par: int)
 signal toggle_requested(hole_number: int)
 signal reverse_requested()
 
+enum Page { ROUTING, SCORECARD }
+
 var compact: bool = false
+var page: int = Page.ROUTING
+var read_only := false
 var _selected: int = -1
+var _route_buttons: Dictionary = {}
+var _heading: Label = null
+var _routing_button: Button = null
+var _scorecard_button: Button = null
+var _routing_content: VBoxContainer = null
+var _scorecard: CourseScorecardView = null
+var _scorecard_back: Button = null
 
 func _ready() -> void:
 	refresh()
 
 func set_selected(hole_number: int) -> void:
-	if hole_number == _selected:
-		return
 	_selected = hole_number
-	refresh()
+	_sync_route_buttons()
+	if _scorecard:
+		_scorecard.set_selected(hole_number)
+
+func _sync_route_buttons() -> void:
+	for number in _route_buttons:
+		var button := _route_buttons[number] as Button
+		if is_instance_valid(button):
+			button.set_pressed_no_signal(int(number) == _selected)
 
 func set_compact(value: bool) -> void:
 	if compact == value:
@@ -39,24 +58,97 @@ func set_compact(value: bool) -> void:
 	compact = value
 	refresh()
 
-func refresh() -> void:
-	for child in get_children():
-		remove_child(child)
-		child.queue_free()
-	add_theme_constant_override("separation", 8 if not compact else 6)
-	add_child(CourseMapStyle.kicker("Routing holes", 10))
-	add_child(CourseMapStyle.title("The round", 19 if not compact else 17))
+## Standalone tournaments may read the card but cannot edit the course.
+func set_read_only(value: bool) -> void:
+	read_only = value
+	if read_only:
+		page = Page.SCORECARD
+	refresh()
 
+func set_page(next: int) -> void:
+	_ensure_ui()
+	if next not in [Page.ROUTING, Page.SCORECARD] or (read_only and next == Page.ROUTING):
+		return
+	if next == page:
+		# A toggle button has already flipped itself before pressed fires.
+		_routing_button.set_pressed_no_signal(page == Page.ROUTING)
+		_scorecard_button.set_pressed_no_signal(page == Page.SCORECARD)
+		return
+	page = next
+	refresh()
+	page_changed.emit(page)
+
+## The heading and page choices survive a refresh. In particular, pressing a
+## choice with a keyboard or controller must not destroy the focused button.
+func _ensure_ui() -> void:
+	if _heading != null:
+		return
+	add_child(CourseMapStyle.kicker("Routing holes", 10))
+	_heading = CourseMapStyle.title("The round", 19)
+	add_child(_heading)
+
+	var choices := HBoxContainer.new()
+	choices.name = "RoutingPages"
+	choices.add_theme_constant_override("separation", 4)
+	_routing_button = CourseMapStyle.choice("Routing", 11)
+	_routing_button.name = "RoutingPage"
+	_routing_button.tooltip_text = "Edit the play order and review the walks"
+	_routing_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_routing_button.pressed.connect(func(): set_page(Page.ROUTING))
+	choices.add_child(_routing_button)
+	_scorecard_button = CourseMapStyle.choice("Scorecard", 11)
+	_scorecard_button.name = "ScorecardPage"
+	_scorecard_button.tooltip_text = "Read the course scorecard and records (%s)" % InputBindings.binding_text("course_scorecard")
+	_scorecard_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scorecard_button.pressed.connect(func(): set_page(Page.SCORECARD))
+	choices.add_child(_scorecard_button)
+	add_child(choices)
+
+	_routing_content = VBoxContainer.new()
+	_routing_content.name = "RoutingContent"
+	_routing_content.add_theme_constant_override("separation", 8)
+	add_child(_routing_content)
+	_scorecard = CourseScorecardView.new()
+	_scorecard.hole_selected.connect(func(number): hole_selected.emit(number))
+	add_child(_scorecard)
+	_scorecard_back = CourseMapStyle.button("Back to routing", false, 11)
+	_scorecard_back.name = "BackToRouting"
+	_scorecard_back.pressed.connect(func(): set_page(Page.ROUTING))
+	add_child(_scorecard_back)
+
+func refresh() -> void:
+	_ensure_ui()
+	add_theme_constant_override("separation", 8 if not compact else 6)
+	_heading.add_theme_font_size_override("font_size", 19 if not compact else 17)
+	for button in [_routing_button, _scorecard_button, _scorecard_back]:
+		button.custom_minimum_size.y = 44.0 if compact else 30.0
+	_routing_button.disabled = read_only
+	_routing_button.set_pressed_no_signal(page == Page.ROUTING)
+	_scorecard_button.set_pressed_no_signal(page == Page.SCORECARD)
+	_routing_content.visible = page == Page.ROUTING
+	_scorecard.visible = page == Page.SCORECARD
+	_scorecard_back.visible = page == Page.SCORECARD and not read_only
+	_scorecard.set_compact(compact)
+	_scorecard.set_selected(_selected)
+
+	if page == Page.SCORECARD:
+		_scorecard.refresh()
+		return
+
+	_route_buttons.clear()
+	for child in _routing_content.get_children():
+		_routing_content.remove_child(child)
+		child.queue_free()
 	var course = GameManager.current_course
 	if course == null or course.holes.is_empty():
-		add_child(CourseMapStyle.hint(
+		_routing_content.add_child(CourseMapStyle.hint(
 			"No holes yet. Paint a tee box and a green on the course, then press H to open the first hole."))
 		return
 
 	var holes: Array = course.holes
-	add_child(_report_card(holes))
-	add_child(_holes_list(holes))
-	add_child(_order_actions(holes))
+	_routing_content.add_child(_report_card(holes))
+	_routing_content.add_child(_holes_list(holes))
+	_routing_content.add_child(_order_actions(holes))
 
 # --- Cards -------------------------------------------------------------------
 
@@ -117,7 +209,11 @@ func _hole_row(holes: Array, index: int) -> Control:
 	pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pick.button_pressed = picked
 	pick.tooltip_text = "Hole %d — tap to show it on the map" % int(hole.hole_number)
-	pick.pressed.connect(func(): hole_selected.emit(int(hole.hole_number)))
+	var number := int(hole.hole_number)
+	_route_buttons[number] = pick
+	pick.pressed.connect(func():
+		hole_selected.emit(number)
+		_sync_route_buttons())
 	row.add_child(pick)
 
 	# Par, the way the hole menu cycles it: one shot either side of the hole's

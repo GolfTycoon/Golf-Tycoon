@@ -674,6 +674,12 @@ func _input(event: InputEvent) -> void:
 		_focus_gameplay_hud()
 		get_viewport().set_input_as_handled()
 		return
+	# Controller bindings can open the scorecard just like its keyboard shortcut.
+	if event is InputEventJoypadButton and _gameplay_input_active() \
+			and InputBindings.matches(event, "course_scorecard"):
+		_toggle_course_scorecard()
+		get_viewport().set_input_as_handled()
+		return
 	# Controller X/Y (or whatever they are rebound to) rotate the course view
 	# whenever the course owns input.
 	if _gameplay_input_active():
@@ -4746,14 +4752,15 @@ func _toggle_seasonal_calendar() -> void:
 	_toggle_panel(seasonal_calendar_panel)
 
 # --- Course Scorecard ---
-# The scorecard lives on the Holes tab now. K opens it there, or puts the hole
-# register back up if the scorecard is already showing.
+# K opens the Holes Map directly on its scorecard, or closes the map if that
+# page is already showing. The map owns the same shortcut while it is open.
 
 func _toggle_course_scorecard() -> void:
-	if terrain_toolbar.is_course_scorecard_showing():
-		terrain_toolbar.close_course_scorecard()
-	else:
-		terrain_toolbar.show_course_scorecard()
+	if _course_map_is_open():
+		course_map_screen.toggle_scorecard()
+		return
+	_open_course_map(CourseMapView.Mode.ROUTING)
+	course_map_screen.show_scorecard()
 
 func _on_day_changed_for_events(_new_day: int) -> void:
 	# Check if there's a seasonal event starting today

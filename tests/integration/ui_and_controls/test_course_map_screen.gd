@@ -479,3 +479,366 @@ func test_a_hire_the_company_cannot_afford_is_refused_before_the_map_is_armed() 
 	await process_frames(1)
 	assert_true(screen.pending.is_empty(), "nothing is armed for a hire that cannot be paid for")
 	assert_eq(GameManager.staff_manager.hired_staff.size(), 0)
+
+
+# ---------------------------------------------------------------------------
+# Scorecard on the Holes Map
+# ---------------------------------------------------------------------------
+
+func test_the_holes_map_scorecard_and_map_share_a_hole_selection() -> void:
+	var card := await dock_row(TerrainToolbar.Tab.HOLES, "holes_map")
+	await click(card)
+	await process_frames(2)
+	var screen: CourseMapScreen = main.course_map_screen
+	var panel := screen._routing_panel
+	assert_eq(panel.page, CourseMapRoutingPanel.Page.ROUTING, "The Holes Map still opens on the routing controls")
+	var choice := panel.find_child("ScorecardPage", true, false) as Button
+	assert_not_null(choice, "The map has a discoverable Scorecard page")
+	await click(choice)
+	await process_frames(3)
+	assert_eq(panel.page, CourseMapRoutingPanel.Page.SCORECARD)
+	assert_true(panel._scorecard.visible)
+	assert_false(panel._routing_content.visible)
+	assert_string_contains(panel_words(panel._scorecard), GameManager.course_name.to_upper())
+	assert_not_null(panel._scorecard.find_child("CourseRecords", true, false))
+
+	# Pick from the card, then from the map: both the map highlight and the
+	# card's selected button follow the same selection in both directions.
+	var first := panel._scorecard.find_child("Hole1", true, false) as Button
+	screen._panel_scroll.ensure_control_visible(first)
+	await process_frames(2)
+	await click(first)
+	assert_eq(screen.selection, {"kind": "hole", "value": 1})
+	assert_eq(screen.map.selection, screen.selection)
+	assert_true(first.button_pressed)
+	assert_string_contains(screen._strip_label.text, "Hole 1")
+
+	screen.map.map_pressed.emit(course().holes[1].tee_position, {"kind": "hole", "value": 2})
+	await process_frames(1)
+	var second := panel._scorecard.find_child("Hole2", true, false) as Button
+	assert_false(first.button_pressed)
+	assert_true(second.button_pressed)
+	assert_eq(int(screen.selection["value"]), 2)
+	assert_string_contains(screen._strip_label.text, "Hole 2")
+
+	panel._routing_button.pressed.emit()
+	await process_frames(2)
+	assert_eq(panel.page, CourseMapRoutingPanel.Page.ROUTING)
+	assert_true(panel._routing_content.visible, "The route and edit controls are still available")
+	assert_eq(int(screen.selection["value"]), 2, "Switching pages keeps the map selection")
+	assert_eq(routing_rows("Play this hole earlier").size(), 9)
+
+
+func test_the_scorecard_hotkey_opens_switches_and_closes_the_map() -> void:
+	var was_paused: bool = GameManager.is_paused
+	GameManager.is_paused = false
+	press_key(KEY_K)
+	await process_frames(3)
+	assert_true(main._course_map_is_open())
+	var screen: CourseMapScreen = main.course_map_screen
+	assert_eq(screen.mode, MODE_ROUTING)
+	assert_true(screen.is_scorecard_showing(), "K opens the scorecard, not the old shelf")
+	assert_true(GameManager.is_paused)
+	press_key(KEY_K)
+	await process_frames(3)
+	assert_false(main._course_map_is_open(), "K again closes the map")
+	assert_false(GameManager.is_paused, "The day resumes")
+
+	GameManager.is_paused = true
+	screen = await open_map(MODE_AURA)
+	press_key(KEY_K)
+	await process_frames(3)
+	assert_eq(screen.mode, MODE_ROUTING, "K switches from another map mode")
+	assert_true(screen.is_scorecard_showing())
+	press_key(KEY_K)
+	await process_frames(3)
+	assert_false(main._course_map_is_open())
+	assert_true(GameManager.is_paused, "A course already paused stays paused")
+	GameManager.is_paused = was_paused
+
+
+func test_a_rebound_scorecard_shortcut_works_on_the_course_and_on_the_map() -> void:
+	var saved := InputBindings.capture_state()
+	const TEMP_PATH := "user://test_scorecard_binding.cfg"
+	InputBindings.settings_path = TEMP_PATH
+	var key := InputEventKey.new()
+	key.keycode = KEY_J
+	key.physical_keycode = KEY_J
+	key.ctrl_pressed = true
+	key.pressed = true
+	assert_true(bool(InputBindings.assign_binding("course_scorecard", key).get("ok", false)))
+
+	press_key(KEY_K)
+	await process_frames(2)
+	assert_false(main._course_map_is_open(), "The old K no longer opens it")
+	get_viewport().push_input(key)
+	await process_frames(3)
+	assert_true(main._course_map_is_open(), "The rebound key opens the scorecard")
+	var screen: CourseMapScreen = main.course_map_screen
+	assert_true(screen.is_scorecard_showing())
+	screen.set_mode(MODE_LAND)
+	get_viewport().push_input(key)
+	await process_frames(3)
+	assert_true(screen.is_scorecard_showing(), "The same binding works inside the map")
+	get_viewport().push_input(key)
+	await process_frames(3)
+	assert_false(main._course_map_is_open())
+	InputBindings.restore_state(saved)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
+
+
+func test_scorecard_updates_with_par_reordering_scores_and_records() -> void:
+	var old_stats: Dictionary = GameManager.hole_statistics.duplicate(true)
+	var old_records: Dictionary = GameManager.course_records.duplicate(true)
+	GameManager.hole_statistics = {}
+	GameManager.course_records = CourseRecords.create_empty_records()
+	var screen := await open_map(MODE_ROUTING)
+	screen.show_scorecard()
+	await process_frames(2)
+	var hole = course().holes[0]
+	var old_par: int = hole.par
+	var old_override: int = hole.par_override
+	var auto_par := GolfRules.calculate_par(hole.distance_yards)
+	var new_par := auto_par + 1 if auto_par < 6 else auto_par - 1
+	screen._on_hole_par(1, new_par)
+	await process_frames(2)
+	var view := screen._routing_panel._scorecard
+	var row := view.find_child("HoleRow1", true, false)
+	assert_eq((row.get_node("Par") as Label).text, "%d*" % new_par, "A par edit reaches the card")
+	assert_string_contains((view.find_child("ScorecardTotal", true, false) as Label).text,
+		"Par %d" % course().total_par)
+
+	# A hole-in-one announcement fires before its per-hole best is stored. The
+	# deferred refresh must pick up both, plus the final scoring statistics.
+	GameManager.check_hole_records("Ada", 1, 1)
+	GameManager.check_round_record("Ada", course().total_par - 2, course().holes.size())
+	EventBus.golfer_finished_hole.emit(12345, 1, 1, new_par)
+	await process_frames(4)
+	row = view.find_child("HoleRow1", true, false)
+	assert_eq((row.get_node("Average") as Label).text, "1.0")
+	var words := panel_words(view)
+	assert_string_contains(words, "Holes-in-One: 1")
+	assert_string_contains(words, "Lowest Round: %d (-2) by Ada" % (course().total_par - 2))
+	assert_string_contains(words, "#1: 1 (")
+
+	var next_hole = course().holes[1]
+	var next_yards: int = next_hole.distance_yards
+	screen._on_hole_move(1, 0)
+	await process_frames(3)
+	row = view.find_child("HoleRow1", true, false)
+	assert_eq((row.get_node("Yards") as Label).text, str(next_yards), "The card follows the new order")
+	assert_eq((view.find_child("HoleRow2", true, false).get_node("Average") as Label).text, "1.0",
+		"The played hole carries its scoring average when renumbered")
+
+	# Leave the shared Quick Start course as it was for the other tests.
+	screen._on_hole_move(0, 1)
+	hole.par = old_par
+	hole.par_override = old_override
+	course()._recalculate_par()
+	StrokeIndexCalculator.recalculate_for_course()
+	GameManager.hole_statistics = old_stats
+	GameManager.course_records = old_records
+
+
+func test_scorecard_refresh_keeps_the_reader_s_place_in_the_panel() -> void:
+	var old_records: Dictionary = GameManager.course_records.duplicate(true)
+	GameManager.course_records = CourseRecords.create_empty_records()
+	for n in range(1, 19):
+		GameManager.course_records["best_per_hole"][n] = CourseRecords.RecordEntry.new("Visitor %d" % n, 4, 1, n)
+	await set_window(Vector2i(640, 360))
+	var screen := await open_map(MODE_ROUTING)
+	screen.show_scorecard()
+	await process_frames(5)
+	var scroll := screen._panel_scroll
+	assert_true(screen.sheet_open, "Opening the shortcut reveals the phone sheet")
+	scroll.scroll_vertical = 240
+	await process_frames(3)
+	var before := scroll.scroll_vertical
+	assert_gt(before, 0, "The reader is part-way down the card")
+	# Two structural changes and a scoring notification can arrive in one frame.
+	EventBus.hole_updated.emit(1)
+	EventBus.course_rating_changed.emit(GameManager.course_rating)
+	EventBus.record_broken.emit("hole_record", "Visitor", 4, 1)
+	await process_frames(5)
+	assert_eq(scroll.scroll_vertical, before, "Refreshing the card and records keeps the same scroll")
+	GameManager.course_records = old_records
+	await set_window(DESIGN_WINDOW)
+
+
+func test_a_phone_can_tap_from_holes_map_to_scorecard_and_pick_a_hole() -> void:
+	await set_window(Vector2i(320, 568))
+	var screen := await open_map(MODE_ROUTING)
+	screen._set_sheet_open(true)
+	await process_frames(4)
+	var tab := screen._routing_panel._scorecard_button
+	assert_gte(tab.size.y, 44.0, "The page choice is a touch-sized target")
+	await touch_tap(tab.get_global_rect().get_center())
+	await process_frames(3)
+	assert_eq(screen._routing_panel.page, CourseMapRoutingPanel.Page.SCORECARD)
+	var hole := screen._routing_panel._scorecard.find_child("Hole1", true, false) as Button
+	assert_gte(hole.size.x, 44.0)
+	assert_gte(hole.size.y, 44.0)
+	screen._panel_scroll.ensure_control_visible(hole)
+	await process_frames(3)
+	await touch_tap(hole.get_global_rect().get_center())
+	await process_frames(2)
+	assert_eq(screen.selection, {"kind": "hole", "value": 1}, "A finger selects the map hole")
+	assert_true(hole.button_pressed)
+	await set_window(DESIGN_WINDOW)
+
+
+func test_controller_can_choose_scorecard_without_losing_focus() -> void:
+	InputManager.device = InputManager.Device.GAMEPAD
+	var screen := await open_map(MODE_ROUTING)
+	var choice := screen._routing_panel._scorecard_button
+	choice.grab_focus()
+	await process_frames(1)
+	for down in [true, false]:
+		var event := InputEventJoypadButton.new()
+		event.button_index = JOY_BUTTON_A
+		event.pressed = down
+		get_viewport().push_input(event)
+		await process_frames(1)
+	await process_frames(2)
+	assert_eq(screen._routing_panel.page, CourseMapRoutingPanel.Page.SCORECARD)
+	assert_eq(get_viewport().gui_get_focus_owner(), choice, "Changing pages preserves controller focus")
+	var hole := screen._routing_panel._scorecard.find_child("Hole1", true, false) as Button
+	hole.grab_focus()
+	for down in [true, false]:
+		var event := InputEventJoypadButton.new()
+		event.button_index = JOY_BUTTON_A
+		event.pressed = down
+		get_viewport().push_input(event)
+		await process_frames(1)
+	assert_eq(screen.selection, {"kind": "hole", "value": 1})
+	assert_eq(get_viewport().gui_get_focus_owner(), hole, "Selecting a hole does not rebuild the focused row")
+	InputManager.device = InputManager.Device.MOUSE
+
+
+func test_rebound_controller_scorecard_shortcut_opens_and_closes() -> void:
+	var saved := InputBindings.capture_state()
+	const TEMP_PATH := "user://test_scorecard_gamepad_binding.cfg"
+	InputBindings.settings_path = TEMP_PATH
+	var event := InputEventJoypadButton.new()
+	event.button_index = JOY_BUTTON_X
+	event.pressed = true
+	assert_true(bool(InputBindings.assign_binding("course_scorecard", event).get("ok", false)))
+	get_viewport().push_input(event)
+	await process_frames(3)
+	assert_true(main._course_map_is_open(), "The rebound controller button opens it")
+	assert_true(main.course_map_screen.is_scorecard_showing())
+	get_viewport().push_input(event)
+	await process_frames(3)
+	assert_false(main._course_map_is_open(), "The same button closes it from the map")
+	InputBindings.restore_state(saved)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
+
+
+func test_scorecard_shortcut_stands_down_for_a_confirmation() -> void:
+	var screen := await open_map(MODE_ROUTING)
+	var dialog := ConfirmDialog.new("Continue?", "Yes", "No")
+	screen.add_child(dialog)
+	await process_frames(2)
+	press_key(KEY_K)
+	await process_frames(2)
+	assert_eq(screen._routing_panel.page, CourseMapRoutingPanel.Page.ROUTING,
+		"A confirmation above the map owns its input")
+	assert_true(main._course_map_is_open())
+	dialog.queue_free()
+	await process_frames(2)
+	press_key(KEY_K)
+	await process_frames(2)
+	assert_true(screen.is_scorecard_showing(), "The shortcut works once the confirmation is gone")
+
+
+func test_scorecard_shortcut_bound_to_space_works_with_a_focused_button() -> void:
+	var saved := InputBindings.capture_state()
+	const TEMP_PATH := "user://test_scorecard_space_binding.cfg"
+	InputBindings.settings_path = TEMP_PATH
+	var key := InputEventKey.new()
+	key.keycode = KEY_SPACE
+	key.physical_keycode = KEY_SPACE
+	key.pressed = true
+	assert_true(bool(InputBindings.assign_binding("course_scorecard", key).get("ok", false)))
+	get_viewport().push_input(key)
+	await process_frames(1)
+	key.pressed = false
+	get_viewport().push_input(key)
+	await process_frames(3)
+	assert_true(main._course_map_is_open(), "Space opens the scorecard from the course")
+	if main._course_map_is_open():
+		var screen: CourseMapScreen = main.course_map_screen
+		screen._routing_panel._scorecard_button.grab_focus()
+		await process_frames(1)
+		key.pressed = true
+		get_viewport().push_input(key)
+		await process_frames(1)
+		key.pressed = false
+		get_viewport().push_input(key)
+		await process_frames(3)
+		assert_false(main._course_map_is_open(), "The bound key closes the map, even when a button has focus")
+	InputBindings.restore_state(saved)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
+
+
+func test_a_live_scorecard_refresh_keeps_the_focused_hole() -> void:
+	InputManager.device = InputManager.Device.GAMEPAD
+	var screen := await open_map(MODE_ROUTING)
+	screen.show_scorecard()
+	await process_frames(2)
+	var hole := screen._routing_panel._scorecard.find_child("Hole3", true, false) as Button
+	hole.grab_focus()
+	await process_frames(2)
+	assert_eq(get_viewport().gui_get_focus_owner(), hole)
+	EventBus.record_broken.emit("hole_record", "Visitor", 3, 3)
+	await process_frames(4)
+	var focused := get_viewport().gui_get_focus_owner()
+	var refreshed := screen._routing_panel._scorecard.find_child("Hole3", true, false) as Button
+	assert_eq(focused, refreshed, "Live updates keep the gamepad on the same hole")
+	InputManager.device = InputManager.Device.MOUSE
+
+
+func test_tournament_scorecard_hotkey_stays_read_only_and_restores_the_hud() -> void:
+	GameManager.is_tournament_mode = true
+	main._apply_tournament_mode_hud(true)
+	var was_paused: bool = GameManager.is_paused
+	press_key(KEY_K)
+	await process_frames(3)
+	assert_true(main._course_map_is_open(), "Tournament players can still read the scorecard")
+	if main._course_map_is_open():
+		var screen: CourseMapScreen = main.course_map_screen
+		assert_true(screen.is_scorecard_showing())
+		assert_true(screen._routing_panel.read_only)
+		assert_true(screen._routing_panel._routing_button.disabled)
+		for button in screen._tab_buttons:
+			if button.name != "Mode_Routing":
+				assert_true(button.disabled, "Tournament cannot open a career management mode")
+		press_key(KEY_K)
+		await process_frames(3)
+		assert_false(main._course_map_is_open())
+		assert_eq(GameManager.is_paused, was_paused)
+		for index in [0, 1]:
+			assert_true(main.left_controls.section_buttons[index].disabled,
+				"Closing the map does not enable tournament course editing")
+	GameManager.is_tournament_mode = false
+	main._apply_tournament_mode_hud(false)
+
+
+func test_rotating_an_open_scorecard_keeps_the_readers_scroll_position() -> void:
+	await set_window(Vector2i(640, 360))
+	var screen := await open_map(MODE_ROUTING)
+	screen.show_scorecard()
+	await process_frames(4)
+	screen._panel_scroll.scroll_vertical = 350
+	await process_frames(2)
+	var before := screen._panel_scroll.scroll_vertical
+	assert_gt(before, 0, "The scorecard is scrolled before rotation")
+	await set_window(Vector2i(390, 844))
+	await process_frames(4)
+	assert_true(screen.is_scorecard_showing())
+	assert_eq(screen._panel_scroll.scroll_vertical, before, "Rotation keeps the reader's place")
+	await set_window(Vector2i(640, 360))
+	await process_frames(4)
+	assert_true(screen.is_scorecard_showing())
+	assert_eq(screen._panel_scroll.scroll_vertical, before, "Rotating back keeps the same place")
+	await set_window(DESIGN_WINDOW)

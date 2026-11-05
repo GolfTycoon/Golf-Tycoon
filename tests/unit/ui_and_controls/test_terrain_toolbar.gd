@@ -1105,25 +1105,22 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 4,
-		"The Holes tab leads with a breathing-space spacer, then the hole register, the hole detail view and the course scorecard")
+	assert_eq(page_content.get_child_count(), 3,
+		"The Holes tab leads with a spacer, the hole register and the hole detail view")
 	assert_same(page_content.get_child(1), toolbar._hole_register,
 		"The hole register leads the tab after the leading spacer")
 	assert_same(page_content.get_child(2), toolbar._hole_detail,
 		"with the hole detail view beside it")
-	assert_same(page_content.get_child(3), toolbar._hole_scorecard,
-		"and the course scorecard after it")
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
-	assert_false(toolbar._hole_scorecard.visible, "and so does the scorecard")
 	assert_eq(toolbar._hole_register.get_child_count(), 2,
-		"The register holds the stacked actions and the hole grid")
+		"The register holds the map action and the hole grid")
 	var actions := toolbar._hole_register.get_child(0) as VBoxContainer
-	assert_not_null(actions, "The map and scorecard share a two-high column")
+	assert_not_null(actions, "The Holes Map leads the register")
+	assert_eq(actions.get_child_count(), 1, "The scorecard is in the map, not on the shelf")
 	assert_same(actions.get_child(0), _holes_map_card(), "Holes Map leads")
-	assert_same(actions.get_child(1), _scorecard_card(), "Scorecard sits beneath it")
 	assert_same(toolbar._hole_register.get_child(1), toolbar.hole_grid,
-		"The hole buttons follow the action column")
+		"The hole buttons follow the map action")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -1211,92 +1208,16 @@ func test_the_staff_map_card_leads_the_shelf_on_the_left() -> void:
 	assert_lt(card.get_index(), panel.get_index(),
 		"so the card sits left of the roster")
 
-## The Holes tab's Scorecard card, the way the tab builds it.
-func _scorecard_card() -> DockActionButton:
-	for child in toolbar._hole_register.get_node("HoleActions").get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "scorecard":
-			return child
-	return null
-
-## The course scorecard used to be a Club tab popup. It is the Holes tab's now,
-## opened by a card beside the Holes Map card, and the K shortcut still reaches it.
-func test_the_scorecard_moved_from_the_club_tab_to_the_holes_tab() -> void:
-	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("scorecard"), TerrainToolbar.Tab.HOLES,
-		"The scorecard belongs to the Holes tab")
+## The scorecard is a page of the Holes Map, not a second shelf action or an
+## extra shelf view. The map ticket makes that destination discoverable.
+func test_the_scorecard_lives_in_the_holes_map_not_the_shelf() -> void:
+	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("scorecard"))
+	var page := toolbar.page_content(TerrainToolbar.Tab.HOLES)
+	assert_null(page.find_child("ScorecardCard", true, false))
+	assert_eq(page.find_children("*", "CourseScorecardView", true, false).size(), 0)
+	assert_string_contains(_holes_map_card().tool_description, "scorecard")
 	for card in _club_cards():
-		assert_ne(card.tool_type, "scorecard", "The Club tab no longer carries a Scorecard card")
-	var card := _scorecard_card()
-	assert_not_null(card, "The Holes tab carries a Scorecard card")
-	assert_eq(str(card.tool_name), "Scorecard", "and says what it is")
-	assert_eq(str(card.hotkey), "K", "The K shortcut remains available")
-	assert_string_contains(card.tool_description, "stroke index",
-		"and its tooltip says what the scorecard shows")
-
-## Pressing the Scorecard card swaps the hole register for the scorecard on the
-## Holes tab, and its back button puts the register back up.
-func test_the_scorecard_card_opens_the_scorecard_over_the_register() -> void:
-	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
-	_scorecard_card().pressed.emit()
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "The card opens the Holes tab")
-	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE, "in the Manage section")
-	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard is up")
-	assert_true(toolbar._hole_scorecard.visible, "and takes the shelf")
-	assert_false(toolbar._hole_register.visible, "in place of the hole register")
-	assert_false(toolbar._hole_detail.visible, "and the hole detail stays shut")
-
-	var back := toolbar._hole_scorecard.find_child("BackButton", false, false) as Button
-	assert_not_null(back, "The scorecard has a way back to the holes")
-	back.pressed.emit()
-	assert_false(toolbar.is_course_scorecard_showing(), "Back closes the scorecard")
-	assert_true(toolbar._hole_register.visible, "and the hole register is up again")
-	assert_false(toolbar._hole_scorecard.visible, "with the scorecard put away")
-
-## K opens the scorecard, or puts the register back when it is already up, the
-## same toggle the popup had. Picking a hole takes the scorecard away for it.
-func test_the_scorecard_toggles_and_a_hole_pick_replaces_it() -> void:
-	toolbar.show_course_scorecard()
-	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard opens")
-	toolbar.close_course_scorecard()
-	assert_false(toolbar.is_course_scorecard_showing(), "and closes again")
-
-	_add_hole_button(1)
-	toolbar.show_course_scorecard()
-	toolbar.show_hole_detail(1)
-	assert_false(toolbar.is_course_scorecard_showing(), "Picking a hole replaces the scorecard")
-	assert_false(toolbar._hole_scorecard.visible, "The scorecard steps aside")
-	assert_true(toolbar._hole_detail.visible, "and the hole's detail takes the shelf")
-
-## Leaving for another tab and coming back keeps the scorecard where it was, as
-## a hole's detail view is kept.
-func test_the_scorecard_stays_open_across_tabs() -> void:
-	toolbar.show_course_scorecard()
-	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
-	assert_false(toolbar.is_course_scorecard_showing(), "Off the Holes tab it is not on screen")
-	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
-	assert_true(toolbar.is_course_scorecard_showing(), "and it is still open when the tab returns")
-
-## A full course of holes, with a record on every hole, still fits inside the
-## bottom bar with the scorecard open: the records scroll rather than grow it.
-func test_a_full_course_scorecard_stays_inside_the_bottom_bar() -> void:
-	GameManager.current_course = GameManager.CourseData.new()
-	for hole_number in range(1, 19):
-		var hole := GameManager.HoleData.new()
-		hole.hole_number = hole_number
-		hole.par = 4
-		hole.distance_yards = 350
-		hole.stroke_index = hole_number
-		GameManager.current_course.add_hole(hole)
-		GameManager.course_records["best_per_hole"][hole_number] = CourseRecords.RecordEntry.new(
-			"Visitor %d" % hole_number, 4, 1, hole_number)
-
-	toolbar.show_course_scorecard()
-	await _settle_layout()
-	assert_true(toolbar._hole_scorecard.visible, "The scorecard is up")
-	var content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT
-	assert_gt(content.get_combined_minimum_size().y, 0.0, "The scorecard is measured")
-	assert_lte(content.get_combined_minimum_size().y, available,
-		"The nines and the records fit under the tab bar")
+		assert_ne(card.tool_type, "scorecard")
 
 ## Holes stack three deep and the columns run off to the right, so a course
 ## grows along the axis the page already scrolls on.
@@ -2712,4 +2633,4 @@ func test_manage_action_tickets_are_two_high_and_have_no_shortcut_labels() -> vo
 	var maps := _group_cards(_club_groups()[0])
 	assert_eq(maps[0].get_parent(), maps[1].get_parent(), "The two maps are stacked")
 	var holes := toolbar._hole_register.get_node("HoleActions")
-	assert_eq(holes.get_child_count(), 2, "Holes Map and Scorecard are stacked")
+	assert_eq(holes.get_child_count(), 1, "Holes Map is the only action beside the hole register")
