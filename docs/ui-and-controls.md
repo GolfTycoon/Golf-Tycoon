@@ -217,10 +217,12 @@ Improvements and Buildings carry the Bulldozer.
 | Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview, Feed; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
-The **Club** tab folds what were four separate Manage tabs — Maps, Review,
-and Milestone — into one shelf. Each keeps a labelled column of its
-own, so the company's maps, the course's review and records, its milestones and
-its marketing campaigns still read as the groups they were. The Milestones
+The **Club** tab folds the former Maps, Review and Milestone tabs into one
+shelf. Each keeps a labelled group of its own. The management actions are
+compact tickets with their icons to the left of their labels, arranged up to
+two high; the Holes Map and Scorecard are stacked in the same way, and Staff
+Map uses the same design. They do not show shortcut text, but their keyboard
+shortcuts still work. The Milestones
 column carries three screens: **Course Milestones** (`G`, per-location goals
 for this save), **World Milestones** (`Shift+G`, company goals across every
 course location) and **Achievements** (`Shift+T`, career honours that stay

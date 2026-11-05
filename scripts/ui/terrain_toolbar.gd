@@ -1359,6 +1359,11 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	# the tab carries a card that opens the map straight onto it. It is an
 	# action rather than a hole, so it stands beside the grid, not in it —
 	# and it leads the register on the left, before the hole buttons.
+	var actions := VBoxContainer.new()
+	actions.name = "HoleActions"
+	actions.add_theme_constant_override("separation", 6)
+	actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_hole_register.add_child(actions)
 	var map_card := DockActionButton.new()
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
@@ -1368,7 +1373,7 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	map_card.accent_section = Section.MANAGE
 	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
-	_hole_register.add_child(map_card)
+	actions.add_child(map_card)
 
 	# The course scorecard — every hole's par, yardage, stroke index and average,
 	# with the course records — used to be a popup of its own. It is the Holes
@@ -1383,7 +1388,7 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	scorecard_card.hotkey = "K"
 	scorecard_card.tool_description = "The course scorecard: every hole's par, yardage, stroke index and average score, with the course records"
 	scorecard_card.tool_pressed.connect(_on_tool_button_pressed)
-	_hole_register.add_child(scorecard_card)
+	actions.add_child(scorecard_card)
 
 	hole_grid = GridContainer.new()
 	hole_grid.name = "HoleGrid"
@@ -1493,7 +1498,13 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 	for group in groups:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
-		for action in group[1]:
+		var column: VBoxContainer
+		for i in group[1].size():
+			if i % 2 == 0:
+				column = VBoxContainer.new()
+				column.add_theme_constant_override("separation", 6)
+				row.add_child(column)
+			var action: Array = group[1][i]
 			var button := DockActionButton.new()
 			button.tool_type = action[0]
 			button.tool_name = action[1]
@@ -1503,9 +1514,9 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			button.tool_pressed.connect(_on_tool_button_pressed)
 			if action[0] == "feed":
 				button.name = "FeedBtn"
-				button.tooltip_text = "Course event feed (N)"
+				button.tooltip_text = "Course event feed"
 				feed_button = button
-			row.add_child(button)
+			column.add_child(button)
 		hbox.add_child(_make_tab_group(group[0].to_upper(), row, true))
 	set_feed_unread_count(feed_unread_count)
 
@@ -1517,8 +1528,8 @@ func set_feed_unread_count(count: int) -> void:
 	feed_unread_count = count
 	if is_instance_valid(feed_button):
 		feed_button.notification_count = count
-		feed_button.tooltip_text = "Course event feed (N)" if count <= 0 \
-			else "Course event feed (N) — %d unread" % count
+		feed_button.tooltip_text = "Course event feed" if count <= 0 \
+			else "Course event feed — %d unread" % count
 	var club_tab := _tab_buttons.get(Tab.CLUB) as PixelCircleButton
 	if club_tab:
 		club_tab.notification_count = count

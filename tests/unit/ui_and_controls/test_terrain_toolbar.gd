@@ -1116,16 +1116,14 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
 	assert_false(toolbar._hole_scorecard.visible, "and so does the scorecard")
-	assert_eq(toolbar._hole_register.get_child_count(), 3,
-		"The hole register holds the Holes Map card, the Scorecard card and the hole grid")
-	var map_card := _holes_map_card()
-	assert_not_null(map_card, "The Holes Map card is the register's other content")
-	assert_same(toolbar._hole_register.get_child(0), map_card,
-		"The Holes Map card leads the register on the left")
-	assert_same(toolbar._hole_register.get_child(1), _scorecard_card(),
-		"the Scorecard card follows it")
-	assert_same(toolbar._hole_register.get_child(2), toolbar.hole_grid,
-		"and the hole buttons come after both cards")
+	assert_eq(toolbar._hole_register.get_child_count(), 2,
+		"The register holds the stacked actions and the hole grid")
+	var actions := toolbar._hole_register.get_child(0) as VBoxContainer
+	assert_not_null(actions, "The map and scorecard share a two-high column")
+	assert_same(actions.get_child(0), _holes_map_card(), "Holes Map leads")
+	assert_same(actions.get_child(1), _scorecard_card(), "Scorecard sits beneath it")
+	assert_same(toolbar._hole_register.get_child(1), toolbar.hole_grid,
+		"The hole buttons follow the action column")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -1154,7 +1152,7 @@ func _add_hole_button(hole_number: int) -> Button:
 
 ## The Holes tab's map card, the way the tab builds it.
 func _holes_map_card() -> DockActionButton:
-	for child in toolbar._hole_register.get_children():
+	for child in toolbar._hole_register.get_node("HoleActions").get_children():
 		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
 			return child
 	return null
@@ -1215,7 +1213,7 @@ func test_the_staff_map_card_leads_the_shelf_on_the_left() -> void:
 
 ## The Holes tab's Scorecard card, the way the tab builds it.
 func _scorecard_card() -> DockActionButton:
-	for child in toolbar._hole_register.get_children():
+	for child in toolbar._hole_register.get_node("HoleActions").get_children():
 		if child is DockActionButton and str(child.get("tool_type")) == "scorecard":
 			return child
 	return null
@@ -1230,7 +1228,7 @@ func test_the_scorecard_moved_from_the_club_tab_to_the_holes_tab() -> void:
 	var card := _scorecard_card()
 	assert_not_null(card, "The Holes tab carries a Scorecard card")
 	assert_eq(str(card.tool_name), "Scorecard", "and says what it is")
-	assert_eq(str(card.hotkey), "K", "The card shows the K shortcut that still opens it")
+	assert_eq(str(card.hotkey), "K", "The K shortcut remains available")
 	assert_string_contains(card.tool_description, "stroke index",
 		"and its tooltip says what the scorecard shows")
 
@@ -1736,7 +1734,7 @@ func test_feed_button_lives_on_the_club_tab() -> void:
 	assert_eq(feed.name, "FeedBtn", "keeping the name it had in the left stack")
 	assert_string_contains(feed.text, "Feed", "The card reads Feed")
 	assert_eq(feed.glyph, "feed", "and draws the feed icon")
-	assert_eq(feed.hotkey, "N", "and says which key opens it")
+	assert_eq(feed.hotkey, "N", "and retains its shortcut binding")
 	assert_string_contains(feed.tool_description, "event feed")
 
 	watch_signals(toolbar)
@@ -1776,7 +1774,7 @@ func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 
 	var course_map: ToolButton = cards[0]
 	assert_string_contains(course_map.text, "Land Parcels", "The button reads Land Parcels")
-	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
+	assert_eq(course_map.hotkey, "Shift+M", "and retains its shortcut binding")
 	assert_string_contains(course_map.tool_description, "isometric")
 	var world_map: ToolButton = cards[1]
 	assert_eq(world_map.text, "World Maps", "The button reads World Maps")
@@ -2641,7 +2639,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 		assert_not_null(group, "The folded tab is a labelled column")
 		assert_eq((group.get_child(0) as Label).text, expected[i][0],
 			"The column keeps the name of the tab it folded")
-		var buttons := group.get_child(1).get_children()
+		var buttons := _group_cards(group)
 		assert_eq(buttons.map(func(button): return button.tool_type), expected[i][1],
 			"%s holds the actions of the tab it folded" % expected[i][0])
 		for button in buttons:
@@ -2682,10 +2680,36 @@ func _club_groups() -> Array[VBoxContainer]:
 			groups.append(child)
 	return groups
 
-func _club_cards() -> Array[DockActionButton]:
+func _group_cards(group: VBoxContainer) -> Array[DockActionButton]:
 	var cards: Array[DockActionButton] = []
-	for group in _club_groups():
-		for child in group.get_child(1).get_children():
+	for column in group.get_child(1).get_children():
+		for child in column.get_children():
 			if child is DockActionButton:
 				cards.append(child)
 	return cards
+
+func _club_cards() -> Array[DockActionButton]:
+	var cards: Array[DockActionButton] = []
+	for group in _club_groups():
+		cards.append_array(_group_cards(group))
+	return cards
+
+func test_manage_action_tickets_are_two_high_and_have_no_shortcut_labels() -> void:
+	for tab in [TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.STAFF]:
+		toolbar.select_tab(tab)
+		await _settle_layout()
+		var cards := toolbar.page_content(tab).find_children("*", "DockActionButton", true, false)
+		assert_gt(cards.size(), 0)
+		for card: DockActionButton in cards:
+			assert_eq(card.text, card.tool_name, "Native label contains no shortcut")
+			assert_eq(card.custom_minimum_size, Vector2(216, 54))
+			assert_lte(PixelCircleButton.FONT.get_string_size(card.tool_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x,
+				card.size.x - 62, "%s fits beside its icon" % card.tool_name)
+			assert_false(card.tooltip_text.contains("(N)"), "Feed tooltip omits shortcut text")
+	for group in _club_groups():
+		for column in group.get_child(1).get_children():
+			assert_lte(column.get_child_count(), 2, "No action column exceeds two rows")
+	var maps := _group_cards(_club_groups()[0])
+	assert_eq(maps[0].get_parent(), maps[1].get_parent(), "The two maps are stacked")
+	var holes := toolbar._hole_register.get_node("HoleActions")
+	assert_eq(holes.get_child_count(), 2, "Holes Map and Scorecard are stacked")
