@@ -187,15 +187,16 @@ the pixel frames, with the trim in the open section's own colour — sage while
 the shelf is hidden. The medallions sit astride the rim and poke out past it
 over the course, which shows through above the arc where the bar used to be
 dead space. The fan is regenerated from the circles' live geometry whenever
-the dock reflows, so the touch layout's taller arc gets the same treatment.
+the dock reflows, so a resized window re-cuts the arc around the medallions as
+they now stand.
 
 The shelf's own backdrop (`ShelfFanBackdrop`) mirrors that quarter-ellipse:
 its rim joins the dock and sweeps up past the tab medallions, then continues
 along the top of the scrolling pages. It shares the
 dock's mowing rings and section-coloured pixel trim; the course is visible and
 accepts mouse and touch input in the space outside the curve. The rail narrows
-on phones without shrinking its touch targets, and, when a shelf is too narrow
-for its own header row, the row hides so the tab rail keeps its room.
+on phones while its 44px tab medallions stay whole, and, when a shelf is too
+narrow for its own header row, the row hides so the tab rail keeps its room.
 
 Every tab scrolls in a window cut to that same curve (`ShelfPageWindow`): the
 pages start at the shelf's own left padding and their left side is curved, so
@@ -350,16 +351,22 @@ Every key in these tables is a default: change any of them in **Settings → Con
 ## Mouse and Touch
 
 - **Mouse.** Left click places or selects. Right click cancels or opens a context menu. The wheel zooms. Every button, card, tile and slider is a normal control, so the pointer hovers, presses and drags exactly as it does on the desktop.
-- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom — opening the fingers zooms in, closing them zooms out — on the course, the World Map globe and the Course Map alike; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. Dragging a slider sets its value directly, without needing mouse emulation. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get 44px utility controls, larger toolbar tabs, and a taller dock so the controls are easier to reach. Every fullscreen screen keeps its content in a scroll region on phone-sized windows, so no action is out of reach.
+- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom — opening the fingers zooms in, closing them zooms out — on the course, the World Map globe and the Course Map alike; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. Dragging a slider sets its value directly, without needing mouse emulation. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get thumb-sized controls and full-width panels so the controls are easier to reach, while the bottom dock keeps its one desktop height in every landscape layout. Every fullscreen screen keeps its content in a scroll region on phone-sized windows, so no action is out of reach.
 - **Touch surfaces and what is on top of them.** The globe, the minimap and the Course Map read raw touches themselves, so they see a finger before the shared gesture adapter does. They only claim a touch that actually lands on them: anything drawn above them — a confirmation dialogue, a floating panel — gets the tap, so answers such as **Reset World**/Keep World on the World Map or **Quit to Menu**/Cancel stay tappable even when the dialogue opens over the globe.
 - **Pause menu, game-over card and confirmations on small windows.** The pause menu clamps itself to the window and scrolls (a drag on the panel scrolls it) when its options do not fit, so **Quit to Menu** and **Quit to Desktop** never sit below the bottom edge on a phone held sideways; a short window also tightens the spacing, drops the gesture footnote and gives each option a 40px target. The game-over card and the confirmation dialogue that follows keep their answers pinned to the bottom and only scroll the text above them, so **Quit to Menu**, **Start New Game**, **Load Saved Game**, **Reset World** and Cancel can always be tapped or focused at any window shape.
 
 ## Layout
 
 The portrait composition above is selected by `Screen.uses_portrait_hud()` and
-reflowed from `Screen.changed`; desktop and landscape touch layouts are unchanged.
+reflowed from `Screen.changed`; desktop and landscape windows keep the same
+composition.
 
-`Screen` chooses a compact layout on small windows. Panels then take the full width, and the bottom bar grows to fit touch. The main window is 1600 × 1000 on desktop.
+`Screen` chooses a compact layout on small windows. Panels then take the full
+width and their controls grow for touch, but the bottom dock keeps one height:
+the desktop one. Narrowing a window narrows the shelf beside the dock (which
+scrolls) instead of making the bar taller, so the dock only leaves the desktop
+footprint when the portrait composition replaces it with its thumb rail. The
+main window is 1600 × 1000 on desktop.
 
 ### UI scale
 

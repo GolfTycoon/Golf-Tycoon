@@ -113,10 +113,11 @@ const COURSE_BANNER_GROUP := "course_location_banner"
 const COURSE_BANNER_GAP := 6
 
 # Bottom bar height: view/speed controls on the left + tabbed toolbar on the right.
-# Keep in sync with main.tscn BottomBar offset_top. The tab rail now carries
-# 44px/52px medallions (up from 32px/40px) for a more thumb-friendly target.
+# Keep in sync with main.tscn BottomBar offset_top. One height serves every
+# landscape layout: the dock keeps this desktop footprint on a thin window too
+# instead of growing taller as the screen narrows. Only the portrait HUD swaps
+# in its own thumb rail. The tab rail carries 44px medallions.
 const BOTTOM_BAR_HEIGHT := 190  # Fits two rows of big Course Terrain / Building tiles
-const TOUCH_BOTTOM_BAR_HEIGHT := 232  # Tall enough for 44px camera / speed targets
 const PORTRAIT_NAV_HEIGHT := 64
 const PORTRAIT_TRAY_HEIGHT := 260
 const PORTRAIT_HEADER_HEIGHT := 148

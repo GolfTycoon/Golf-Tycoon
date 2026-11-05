@@ -103,6 +103,12 @@ const TAB_RAIL_MIN_WIDTH := 58.0
 ## A 52px brush plate plus its 10px corner margin must fit even on a phone.
 const SHELF_BODY_MIN_WIDTH := 62.0
 const TAB_RAIL_GAP := 2.0
+## Tab medallions wear one diameter in every landscape layout, sized so all four
+## of a section's tabs plus their gaps fit the shelf inside the dock's one
+## height (4 × 44 + 3 × 2 = 182 ≤ the 186px row of a 190px bar). A larger touch
+## medallion would overlap its neighbours in that height instead of just
+## growing, so the tab rail relies on the page content for thumb-sized targets.
+const TAB_DIAMETER := 44.0
 const PORTRAIT_TAB_HEIGHT := 56.0
 const PORTRAIT_CONTROLS_TOP := 58.0
 const PORTRAIT_PAGE_TOP := 100.0
@@ -426,7 +432,7 @@ func apply_screen() -> void:
 				available -= parent.get_theme_constant("separation")
 	var rail_width := clampf(available - 2.0 * SHELF_PAD_X - SHELF_ROW_GAP
 			- SHELF_BODY_MIN_WIDTH, TAB_RAIL_MIN_WIDTH, TAB_RAIL_WIDTH)
-	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
+	var diameter := TAB_DIAMETER
 	# Reserve enough height for all four tabs, even on a three-tab section.
 	_tab_rail.custom_minimum_size = Vector2(rail_width, 4.0 * diameter + 3.0 * TAB_RAIL_GAP)
 	custom_minimum_size.x = rail_width + 2.0 * SHELF_PAD_X + SHELF_ROW_GAP + SHELF_BODY_MIN_WIDTH
@@ -472,14 +478,13 @@ func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
 ## The left fan's theoretical ellipse extends slightly past its canvas. Mirror
 ## the visible portion, scaled to this rail, so the two coloured rims meet at
 ## the dock/shelf seam instead of ending at different heights.
-static func _shelf_seam_inset(width: float, touch_layout: bool) -> float:
+static func _shelf_seam_inset(width: float) -> float:
 	var dock_radius := 0.0
 	for i in BottomControlDock.SECTION_POSITIONS.size():
 		dock_radius = maxf(dock_radius, BottomControlDock.SECTION_POSITIONS[i].x
 				+ BottomControlDock.SECTION_SIZES[i])
 	dock_radius += DockArcBackdrop.RIM_SIDE_MARGIN
-	var dock_width := BottomControlDock.TOUCH_WIDTH if touch_layout else BottomControlDock.WIDTH
-	return width * maxf(0.0, (dock_radius - dock_width) / dock_radius)
+	return width * maxf(0.0, (dock_radius - BottomControlDock.WIDTH) / dock_radius)
 
 ## Seat the visible tabs on the same mirrored ellipse as the backdrop. A plain
 ## Control lets them move horizontally instead of forcing a vertical column.
@@ -495,7 +500,7 @@ func _layout_tab_rail() -> void:
 			button.size = Vector2.ONE * 48.0
 		return
 	var curve_width := rail_origin.x + rail_rect.size.x
-	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
+	var inset := _shelf_seam_inset(curve_width)
 	var tabs: Array = SECTION_TABS[current_section]
 	var count := tabs.size()
 	if count == 0:
@@ -571,7 +576,7 @@ func _sync_backdrop() -> void:
 			_page_title.size = Vector2(title_width, HEADER_HEIGHT)
 	var rail_rect := _tab_rail.get_global_rect()
 	var curve_width := rail_rect.end.x - origin.x
-	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
+	var inset := _shelf_seam_inset(curve_width)
 	_backdrop.set_curve(curve_width, inset)
 	# The pages are cut to the same curve, so a page reaches under the tab rail
 	# exactly as far as the fairway does and never over its rim.

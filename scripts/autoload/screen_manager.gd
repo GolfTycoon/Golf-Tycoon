@@ -26,7 +26,9 @@ extends Node
 ##  * compact / portrait flags - narrow or tall windows get a compact HUD
 ##    (narrower status column, smaller minimap) so everything fits.
 ##  * touch layout - compact windows and touch-enabled displays get larger
-##    controls and a taller bottom dock for comfortable thumb targets.
+##    controls for comfortable thumb targets. The bottom dock itself keeps its
+##    one desktop height in every landscape layout; only the portrait HUD
+##    replaces it with its own thumb rail.
 ##  * available_panel_size() - the rect popup panels may occupy, keeping
 ##    clear of the bottom control bar.
 ##  * modal_panel_rect() - the rect a modal overlay (the pause menu, a
@@ -550,14 +552,19 @@ static func clamp_safe_insets(insets: Vector4, viewport: Vector2) -> Vector4:
 ## Whether this window should use thumb-friendly control sizing. Compact
 ## layouts are treated as touch surfaces even on a desktop so narrow windows
 ## remain usable; native touch displays get the same layout at larger sizes.
+## It sizes controls, not the bottom dock: the dock keeps one height everywhere
+## (see bottom_bar_height).
 func uses_touch_layout() -> bool:
 	return is_compact() or DisplayServer.is_touchscreen_available()
 
-## Bottom control bar height (view/speed controls + tabbed toolbar).
+## Bottom control bar height (view/speed controls + tabbed toolbar). Every
+## landscape layout wears the same desktop-height dock, so narrowing the window
+## narrows the shelf beside it and never makes the bar grow taller. The portrait
+## HUD is a separate composition with its own thumb rail.
 func bottom_bar_height() -> float:
 	if uses_portrait_hud():
 		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 44.0)
-	return float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if uses_touch_layout() else UIConstants.BOTTOM_BAR_HEIGHT)
+	return float(UIConstants.BOTTOM_BAR_HEIGHT)
 
 ## Vertical space below which popup panels must not sit (the bottom bar
 ## plus a little breathing room).

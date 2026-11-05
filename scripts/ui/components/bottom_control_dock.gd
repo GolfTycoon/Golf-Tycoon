@@ -2,21 +2,22 @@ extends Control
 class_name BottomControlDock
 ## Fixed-footprint quarter wheel. Plain Control children keep circles round;
 ## the toolbar takes the remaining width and scrolls its content, not the HUD.
-## The utility circles fill the space below Build and beside Golfers, growing
-## with the taller dock on compact/touch layouts. Behind them all,
-## DockArcBackdrop paints a mown quarter-green fan cut to the arc the circles
-## describe, its rim trim in the open section's colour. The shelf to its right
-## has its own mirrored curve and matching trim (see ShelfFanBackdrop).
+## The dock wears one footprint in every landscape layout: the desktop size,
+## on a wide monitor and on a thin phone-sized window alike (the portrait HUD
+## swaps in its own thumb rail instead). A narrow window narrows the shelf
+## beside the dock; it never makes the dock itself taller.
+## The utility circles fill the space below Build and beside Golfers. Behind
+## them all, DockArcBackdrop paints a mown quarter-green fan cut to the arc the
+## circles describe, its rim trim in the open section's colour. The shelf to
+## its right has its own mirrored curve and matching trim (see
+## ShelfFanBackdrop).
 
 const WIDTH := 218.0
-const TOUCH_WIDTH := 220.0
 const SECTION_SIZES := [84.0, 74.0, 64.0]
 const SECTION_POSITIONS := [Vector2(8, 0), Vector2(99, 18), Vector2(144, 104)]
-const DESKTOP_UTILITY_SIZE := 52.0
-const TOUCH_UTILITY_SIZE := 64.0
+const UTILITY_SIZE := 52.0
 const UTILITY_SIZE_STEP := 4.0
-const DESKTOP_UTILITY_POSITIONS := [Vector2(8, 88), Vector2(70, 96), Vector2(92, 144)]
-const TOUCH_UTILITY_POSITIONS := [Vector2(8, 92), Vector2(80, 106), Vector2(104, 174)]
+const UTILITY_POSITIONS := [Vector2(8, 88), Vector2(70, 96), Vector2(92, 144)]
 const UTILITY_BOTTOM := 2.0
 var section_buttons: Array[PixelCircleButton] = []
 var _current_section: int = 0
@@ -58,9 +59,11 @@ func setup(toolbar: TerrainToolbar) -> void:
 	_sync_feed_unread(toolbar.feed_unread_count)
 	apply_screen()
 
-## Reflow the fixed controls for the current viewport. The terrain shelf already
-## scrolls horizontally, so the dock only changes its own width/height and the
-## touch targets; it does not squeeze or hide any game action.
+## Reflow the fixed controls for the current viewport. A landscape layout always
+## gets the same desktop-sized dock, whatever the window's width or touch
+## support: the terrain shelf beside it gives up width (and scrolls) rather than
+## the bar giving up height. Only the portrait HUD re-composes these controls
+## into its thumb rail. Nothing is squeezed or hidden.
 func apply_screen() -> void:
 	if Screen.uses_portrait_hud():
 		_apply_portrait()
@@ -73,10 +76,7 @@ func apply_screen() -> void:
 		var utility := get_node_or_null(path) as PixelCircleButton
 		if utility:
 			utility.caption = ""
-	var touch_layout := Screen.uses_touch_layout()
-	var utility_size := TOUCH_UTILITY_SIZE if touch_layout else DESKTOP_UTILITY_SIZE
-	var bar_height := Screen.bottom_bar_height()
-	custom_minimum_size = Vector2(TOUCH_WIDTH if touch_layout else WIDTH, bar_height)
+	custom_minimum_size = Vector2(WIDTH, Screen.bottom_bar_height())
 
 	for i in section_buttons.size():
 		var button := section_buttons[i]
@@ -89,7 +89,6 @@ func apply_screen() -> void:
 	# Echo the section buttons' left-to-right descending arc, including their
 	# gently decreasing diameters. A plain Control keeps Pause and Play free
 	# to follow the curve instead of forcing them onto a horizontal row.
-	var positions := TOUCH_UTILITY_POSITIONS if touch_layout else DESKTOP_UTILITY_POSITIONS
 	var utility_paths := ["MenuBtn", "SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]
 	var speed := get_node_or_null("SpeedControls") as Control
 	if speed:
@@ -99,8 +98,8 @@ func apply_screen() -> void:
 	for i in utility_paths.size():
 		var button := get_node_or_null(utility_paths[i]) as PixelCircleButton
 		if button:
-			_size_utility_button(button, utility_size - i * UTILITY_SIZE_STEP)
-			button.position = positions[i]
+			_size_utility_button(button, UTILITY_SIZE - i * UTILITY_SIZE_STEP)
+			button.position = UTILITY_POSITIONS[i]
 			inner_circles.append(_circle_of(button))
 
 	# Shape the backdrop's fan around the circles as they now stand: the

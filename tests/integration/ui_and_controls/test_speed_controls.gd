@@ -31,7 +31,7 @@ func test_pause_and_one_speed_button_fill_the_stack() -> void:
 	assert_almost_eq(dock.size.y, main.bottom_bar.size.y, 0.5)
 	for i in 2:
 		var button: PixelCircleButton = [main.pause_btn, speed][i]
-		var diameter := BottomControlDock.DESKTOP_UTILITY_SIZE - (i + 1) * BottomControlDock.UTILITY_SIZE_STEP
+		var diameter := BottomControlDock.UTILITY_SIZE - (i + 1) * BottomControlDock.UTILITY_SIZE_STEP
 		assert_eq(button.size, Vector2.ONE * diameter, "Arc controls stay square")
 		assert_true(dock.get_global_rect().encloses(button.get_global_rect()))
 	assert_almost_eq(speed.position.y + speed.size.y, dock.size.y - 2, 0.5)

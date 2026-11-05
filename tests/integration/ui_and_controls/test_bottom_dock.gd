@@ -129,6 +129,72 @@ func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
 				assert_true(rect_within(main.terrain_toolbar._tab_buttons[tab].get_global_rect(), screen))
 	await set_window(DESIGN_WINDOW)
 
+## The dock used to grow a taller variant on compact/touch layouts, so the bar
+## crept up the screen as the window narrowed. Every landscape window now keeps
+## the desktop footprint; only the portrait HUD swaps in its thumb rail.
+func test_the_dock_height_never_grows_as_the_window_narrows() -> void:
+	var desktop_height := float(UIConstants.BOTTOM_BAR_HEIGHT)
+	for window_size in [Vector2i(1600, 1000), Vector2i(1280, 800), Vector2i(1024, 768),
+			Vector2i(900, 700), Vector2i(899, 700), Vector2i(844, 390), Vector2i(700, 1000)]:
+		await set_window(window_size)
+		assert_false(Screen.uses_portrait_hud(), "%s is still the landscape dock" % window_size)
+		assert_almost_eq(main.left_controls.size.y, desktop_height, 0.01,
+			"%s keeps the desktop dock height" % window_size)
+		assert_almost_eq(main.terrain_toolbar.size.y, desktop_height, 0.01,
+			"and the shelf beside it matches")
+		assert_almost_eq(main.bottom_bar.offset_top, -desktop_height, 0.01,
+			"the bar is anchored to the same height")
+		assert_eq(main.left_controls.custom_minimum_size,
+			Vector2(BottomControlDock.WIDTH, desktop_height),
+			"the dock asks for the one fixed footprint")
+	# Rotating a phone onto its side is still the landscape dock, not a taller one.
+	await set_window(Vector2i(844, 390))
+	assert_true(Screen.uses_touch_layout(), "The phone keeps thumb-sized controls")
+	assert_almost_eq(main.left_controls.size.y, desktop_height, 0.01)
+	# Portrait is the only composition with its own rail.
+	await set_window(Vector2i(390, 844))
+	assert_true(Screen.uses_portrait_hud())
+	assert_almost_eq(main.left_controls.size.y, Screen.portrait_nav_height(), 0.01,
+		"the portrait rail keeps its own height")
+	await set_window(DESIGN_WINDOW)
+
+## All four tabs of a section have to fit the shelf that rides inside the one
+## dock height. The touch rail used to grow its medallions to 52px, which no
+## longer fits (or would fit only by overlapping) now that the bar stops
+## growing for it, so every landscape layout wears the same 44px medallions.
+func test_every_sections_tab_rail_fits_the_one_dock_height() -> void:
+	for window_size in [Vector2i(1600, 1000), Vector2i(1024, 768),
+			Vector2i(844, 390), Vector2i(700, 1000)]:
+		await set_window(window_size)
+		var toolbar: TerrainToolbar = main.terrain_toolbar
+		for section in TerrainToolbar.SECTION_TABS:
+			toolbar.select_section(section)
+			for tab in TerrainToolbar.SECTION_TABS[section]:
+				toolbar.select_tab(tab)
+				await process_frames(2)
+				# A page whose medallions or content needed more room would push
+				# the whole bar back up, which is exactly what must not happen.
+				assert_almost_eq(toolbar.size.y, float(UIConstants.BOTTOM_BAR_HEIGHT), 0.01,
+					"%s: %s keeps the shelf inside the one dock height" % [window_size,
+						TerrainToolbar.TAB_TITLES[tab]])
+				var tabs: Array = []
+				for shown_tab in TerrainToolbar.SECTION_TABS[section]:
+					tabs.append(toolbar._tab_buttons[shown_tab])
+				for i in tabs.size():
+					var button: Control = tabs[i]
+					assert_almost_eq(button.size.x, TerrainToolbar.TAB_DIAMETER, 0.01,
+						"%s: %s tabs keep their one diameter" % [window_size,
+							TerrainToolbar.TAB_TITLES[tab]])
+					assert_true(toolbar.get_global_rect().grow(1.0).encloses(button.get_global_rect()),
+						"%s: every tab medallion stays inside the shelf" % window_size)
+					for j in range(i + 1, tabs.size()):
+						var other: Control = tabs[j]
+						assert_gte(button.get_global_rect().get_center().distance_to(
+							other.get_global_rect().get_center()),
+							(button.size.x + other.size.x) * 0.5 - 1.0,
+							"%s: stacked tab medallions never overlap" % window_size)
+	await set_window(DESIGN_WINDOW)
+
 func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 	for window_size in [Vector2i(390, 844), Vector2i(360, 800), Vector2i(844, 390)]:
 		await set_window(window_size)
@@ -170,13 +236,14 @@ func test_touch_layout_enlarges_targets_and_keeps_the_dock_on_screen() -> void:
 					"Touch targets %s and %s do not overlap" % [all_circles[i].accessibility_name, all_circles[j].accessibility_name])
 	await set_window(DESIGN_WINDOW)
 
-func test_utility_cluster_fills_the_pocket_and_reflows_back_to_desktop() -> void:
-	# Finish at desktop to catch stale sizes or positions after growing for touch.
+func test_utility_cluster_fills_the_pocket_and_keeps_its_size_on_every_window() -> void:
+	# One dock geometry everywhere: a phone on its side gets exactly the circles
+	# a desktop shows, so nothing can grow stale after a resize.
 	for window_size in [DESIGN_WINDOW, Vector2i(844, 390), DESIGN_WINDOW]:
 		await set_window(window_size)
 		var dock: BottomControlDock = main.left_controls
 		var menu: PixelCircleButton = dock.get_node("MenuBtn")
-		var diameter := BottomControlDock.TOUCH_UTILITY_SIZE if Screen.uses_touch_layout() else BottomControlDock.DESKTOP_UTILITY_SIZE
+		var diameter := BottomControlDock.UTILITY_SIZE
 		var utilities: Array = [menu, main.pause_btn, main.speed_btn]
 		for i in utilities.size():
 			var button: PixelCircleButton = utilities[i]
