@@ -44,42 +44,41 @@ func test_the_shelf_rim_is_the_left_dock_curve_reflected() -> void:
 		outer.append(Vector3(pos.x + radius, pos.y + radius, radius))
 	var width := BottomControlDock.SECTION_POSITIONS[-1].x \
 			+ BottomControlDock.SECTION_SIZES[-1] + DockArcBackdrop.RIM_SIDE_MARGIN
-	for height in [UIConstants.BOTTOM_BAR_HEIGHT, UIConstants.TOUCH_BOTTOM_BAR_HEIGHT]:
-		var canvas := Vector2(400, height)
-		var left := DockArcBackdrop.rim_curve(outer, Vector2(0.0, height))
-		for point in left:
-			var reflected_x: float = width - point.x
-			assert_almost_eq(ShelfFanBackdrop.rim_top_at(reflected_x, canvas, width),
-					point.y, 0.01, "the shelf is the dock's reflected ellipse")
-			if point.y >= 0.0:
-				assert_almost_eq(ShelfFanBackdrop.rim_x_at(point.y, canvas, width),
-						reflected_x, 0.01, "tab placement and painted rim use the same arc")
+	var height := float(UIConstants.BOTTOM_BAR_HEIGHT)
+	var canvas := Vector2(400, height)
+	var left := DockArcBackdrop.rim_curve(outer, Vector2(0.0, height))
+	for point in left:
+		var reflected_x: float = width - point.x
+		assert_almost_eq(ShelfFanBackdrop.rim_top_at(reflected_x, canvas, width),
+				point.y, 0.01, "the shelf is the dock's reflected ellipse")
+		if point.y >= 0.0:
+			assert_almost_eq(ShelfFanBackdrop.rim_x_at(point.y, canvas, width),
+					reflected_x, 0.01, "tab placement and painted rim use the same arc")
 
 func test_the_reflected_rim_meets_the_dock_at_every_rail_width() -> void:
 	var dock_radius := BottomControlDock.SECTION_POSITIONS[-1].x \
 			+ BottomControlDock.SECTION_SIZES[-1] + DockArcBackdrop.RIM_SIDE_MARGIN
-	for touch in [false, true]:
-		var height := float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if touch else UIConstants.BOTTOM_BAR_HEIGHT)
-		var dock_width := BottomControlDock.TOUCH_WIDTH if touch else BottomControlDock.WIDTH
-		var normalized := dock_width / dock_radius
-		var dock_seam_y := height - (height + DockArcBackdrop.RIM_TOP_LIFT) \
-				* sqrt(1.0 - normalized * normalized)
-		for width in [224.0, 134.0, 66.0]:
-			var inset := TerrainToolbar._shelf_seam_inset(width, touch)
-			var canvas := Vector2(400, height)
-			assert_almost_eq(ShelfFanBackdrop.rim_top_at(0.0, canvas, width, inset),
-					dock_seam_y, 0.01, "the rims join at the same height")
-			assert_almost_eq(ShelfFanBackdrop.rim_x_at(dock_seam_y, canvas, width, inset),
-					0.0, 0.01, "the tab curve shares that join")
-			var image := ShelfFanBackdrop.shelf_image(canvas, Vector2(-dock_width, height),
-					[], Color.WHITE, Rect2(), width, inset)
-			# On a narrow rail the curve is steep, so sample above the nearby
-			# columns (and their 3px shadow), not just above x=0.
-			var above := ShelfFanBackdrop.rim_top_at(4.0, canvas, width, inset) - 8.0
-			assert_eq(_at(image, Vector2(1, above)).a, 0.0,
-					"course remains visible above the join")
-			assert_eq(_at(image, Vector2(1, dock_seam_y + 12)).a, 1.0,
-					"the turf continues below it")
+	var height := float(UIConstants.BOTTOM_BAR_HEIGHT)
+	var dock_width := BottomControlDock.WIDTH
+	var normalized := dock_width / dock_radius
+	var dock_seam_y := height - (height + DockArcBackdrop.RIM_TOP_LIFT) \
+			* sqrt(1.0 - normalized * normalized)
+	for width in [224.0, 134.0, 66.0]:
+		var inset := TerrainToolbar._shelf_seam_inset(width)
+		var canvas := Vector2(400, height)
+		assert_almost_eq(ShelfFanBackdrop.rim_top_at(0.0, canvas, width, inset),
+				dock_seam_y, 0.01, "the rims join at the same height")
+		assert_almost_eq(ShelfFanBackdrop.rim_x_at(dock_seam_y, canvas, width, inset),
+				0.0, 0.01, "the tab curve shares that join")
+		var image := ShelfFanBackdrop.shelf_image(canvas, Vector2(-dock_width, height),
+				[], Color.WHITE, Rect2(), width, inset)
+		# On a narrow rail the curve is steep, so sample above the nearby
+		# columns (and their 3px shadow), not just above x=0.
+		var above := ShelfFanBackdrop.rim_top_at(4.0, canvas, width, inset) - 8.0
+		assert_eq(_at(image, Vector2(1, above)).a, 0.0,
+				"course remains visible above the join")
+		assert_eq(_at(image, Vector2(1, dock_seam_y + 12)).a, 1.0,
+				"the turf continues below it")
 
 func test_the_curve_reveals_the_course_and_anchors_the_shelf() -> void:
 	var canvas := Vector2(400, 190)
