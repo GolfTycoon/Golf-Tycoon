@@ -238,7 +238,7 @@ leaving the list. Clicking a hole button opens that hole's actions (move/place t
 and green, cycle par, open/close, locate, delete) and statistics (rating,
 difficulty, revenue, stroke index, scoring averages and score distribution) in
 place of the hole list — the same way clicking a golfer on the Visiting Golfers
-tab opens their profile. The Staff tab carries a **Staff Map** card beside the roster.
+tab opens their profile. The Staff tab leads with a **Staff Map** card on the left, before the roster.
 The **Scorecard** card (also `K`) takes the shelf in place of the hole list: every
 hole on its OUT and IN nines with par, yardage, stroke index and average score,
 the course's name, rating and totals, and the course records beside them. Its
