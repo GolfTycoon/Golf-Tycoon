@@ -1525,6 +1525,19 @@ func set_feed_unread_count(count: int) -> void:
 	feed_unread_count_changed.emit(count)
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
+	# The crew's ground is the Course Map's Staff mode, so the tab
+	# carries a card that opens the map straight onto it. It is an
+	# action rather than a roster row, so it stands beside the panel,
+	# not inside it — and it leads the shelf on the left, before the
+	# roster, the way the Holes Map card leads the hole register.
+	var map_card := DockActionButton.new()
+	map_card.tool_type = "staff_map"
+	map_card.tool_name = "Staff Map"
+	map_card.glyph = "staff"
+	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
+	map_card.tool_pressed.connect(_on_tool_button_pressed)
+	hbox.add_child(map_card)
+
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
 	_staff_panel = StaffPanel.new()
 	_staff_panel.name = "StaffPanel"
@@ -1533,17 +1546,6 @@ func _build_staff_tab(hbox: HBoxContainer) -> void:
 	_staff_panel.area_move_requested.connect(func(index: int):
 		staff_area_move_requested.emit(index))
 	hbox.add_child(_staff_panel)
-	# The crew's ground is the Course Map's Staff mode, so the tab
-	# carries a card that opens the map straight onto it. It is an
-	# action rather than a roster row, so it stands beside the panel,
-	# not inside it.
-	var map_card := DockActionButton.new()
-	map_card.tool_type = "staff_map"
-	map_card.tool_name = "Staff Map"
-	map_card.glyph = "staff"
-	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
-	map_card.tool_pressed.connect(_on_tool_button_pressed)
-	hbox.add_child(map_card)
 
 ## Reflect the active area-repositioning mode back into the roster buttons.
 func set_staff_area_mode_index(index: int) -> void:

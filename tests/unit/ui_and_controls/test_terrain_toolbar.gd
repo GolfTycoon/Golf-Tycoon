@@ -1198,6 +1198,21 @@ func test_the_staff_map_card_asks_for_the_course_map_on_staff() -> void:
 	assert_signal_emitted(toolbar, "staff_map_pressed",
 		"Pressing the card emits staff_map_pressed")
 
+## The Staff Map card leads the Staff shelf on the left, before the roster
+## panel, the way the Holes Map card leads the hole register.
+func test_the_staff_map_card_leads_the_shelf_on_the_left() -> void:
+	var shelf := toolbar.page_content(TerrainToolbar.Tab.STAFF)
+	var card := _staff_map_card()
+	var panel := toolbar._staff_panel
+	assert_not_null(card, "The Staff tab carries a Staff Map card")
+	assert_not_null(panel, "The Staff tab carries the roster panel")
+	assert_same(shelf.get_child(1), card,
+		"The Staff Map card leads the shelf after the leading spacer")
+	assert_same(shelf.get_child(2), panel,
+		"and the roster panel follows it on the right")
+	assert_lt(card.get_index(), panel.get_index(),
+		"so the card sits left of the roster")
+
 ## The Holes tab's Scorecard card, the way the tab builds it.
 func _scorecard_card() -> DockActionButton:
 	for child in toolbar._hole_register.get_children():
