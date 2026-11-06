@@ -22,12 +22,13 @@ class_name MenuBackdropOverlay
 ##   scanlines - thin horizontal lines
 ##   dots      - a coarse halftone dot screen
 ##   sparkle   - scattered deterministic glints
+##   edges     - dark bands along the top and bottom edge
 
 ## Patterns a catalogue entry may name. Anything else draws nothing (and the
 ## registry says so), so a mod that misses the list still fails softly.
 const PATTERNS: Array[String] = [
 	"none", "wash", "vignette", "glow", "split",
-	"stripes", "grid", "scanlines", "dots", "sparkle",
+	"stripes", "grid", "scanlines", "dots", "sparkle", "edges",
 ]
 
 ## Steps used to build the soft falloffs (vignette, glow): enough to read as a
@@ -81,6 +82,8 @@ static func draw(canvas: CanvasItem, pattern: String, rect: Rect2, ink: Color,
 			_draw_dots(canvas, rect, ink, feature)
 		"sparkle":
 			_draw_sparkle(canvas, rect, ink, int(settings.get("density", 1)))
+		"edges":
+			_draw_edges(canvas, rect, ink)
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +115,40 @@ static func _draw_glow(canvas: CanvasItem, rect: Rect2, ink: Color) -> void:
 			Rect2(rect.position.x, rect.end.y - slice_h * float(step + 1),
 				rect.size.x, slice_h + 1.0),
 			Color(ink.r, ink.g, ink.b, ink.a * t * t))
+
+
+## Dark bands along the top and bottom edge: the same stacked slices the
+## backdrop always drew, so the heading and the version line have something to
+## sit on wherever the picture is bright. Shipped as an overlay rather than
+## baked into every picture, so a player who prefers the bare art can pick
+## None and see it.
+static func _draw_edges(canvas: CanvasItem, rect: Rect2, ink: Color) -> void:
+	for band in edge_bands(rect, ink.a):
+		var opacity: float = float(band["alpha"])
+		canvas.draw_rect(band["rect"] as Rect2, Color(ink.r, ink.g, ink.b, opacity))
+
+
+## The slices `edges` draws: 14 across the top, 14 across the bottom, the top
+## and bottom pairs mirrored, each one weaker than the one nearer the edge.
+## Returned rather than drawn straight away so the shape can be checked without
+## a rendering context (`draw_*` is not virtual, so it cannot be stubbed).
+static func edge_bands(rect: Rect2, strength: float) -> Array[Dictionary]:
+	var bands: Array[Dictionary] = []
+	var band_h := rect.size.y * 0.12 / float(FALLOFF_STEPS)
+	for step in range(FALLOFF_STEPS):
+		var t := 1.0 - float(step) / float(FALLOFF_STEPS)
+		var alpha := strength * t * t
+		bands.append({
+			"rect": Rect2(rect.position.x, rect.position.y + band_h * float(step),
+				rect.size.x, band_h + 1.0),
+			"alpha": alpha,
+		})
+		bands.append({
+			"rect": Rect2(rect.position.x, rect.end.y - band_h * float(step + 1),
+				rect.size.x, band_h + 1.0),
+			"alpha": alpha,
+		})
+	return bands
 
 
 ## One half of the picture in shade, split on a line at `angle` degrees.

@@ -34,9 +34,11 @@ const CORE_SOURCE := "core"
 
 ## The picture Auto falls back to when nothing seasonal or theme-tagged applies.
 const DEFAULT_BACKDROP_ID := "clubhouse"
-## The overlay Auto falls back to: the plain picture. The edge scrim that keeps
-## the headings readable is part of MenuBackdrop itself, not an overlay.
-const DEFAULT_OVERLAY_ID := "none"
+## The overlay Auto falls back to. The Edge Scrim is what used to be painted
+## under every picture whether the player asked for it or not; it is an overlay
+## now, and this is the default so the out-of-the-box menus still shade their
+## headings. Picking None in Settings gives the bare picture.
+const DEFAULT_OVERLAY_ID := "edge_scrim"
 
 ## The image formats a backdrop may use: the ones this game decodes from raw
 ## bytes, so mod art needs no import pipeline.
@@ -275,8 +277,11 @@ static func normalise_backdrop(entry: Dictionary, folder: String = "") -> String
 		entry["name"] = _display_name_for(id) if not id.is_empty() else "Backdrop"
 	entry["description"] = str(entry.get("description", ""))
 	entry["tint"] = colour_value(entry.get("tint", "ffffff"))
-	var scrim: Variant = entry.get("scrim", 0.45)
-	entry["scrim"] = clampf(float(scrim) if scrim is int or scrim is float else 0.45, 0.0, 0.9)
+	# `scrim` named how dark the picture's own edge bands were, back when they
+	# were painted for every picture. The bands are the Edge Scrim overlay now,
+	# so the field no longer does anything: drop it rather than let a mod think
+	# it is still in charge of the shading.
+	entry.erase("scrim")
 	entry["tags"] = string_list(entry.get("tags", []))
 	entry["seasons"] = lower_list(entry.get("seasons", []))
 	entry["themes"] = lower_list(entry.get("themes", []))

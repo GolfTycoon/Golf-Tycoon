@@ -34,7 +34,7 @@ Both use a wrapper key (`backdrops` / `overlays`) around `{id: entry}`.
 | `name`, `description` | What the picker and its tooltip say. |
 | `image` | The picture, **relative to the JSON file's own folder** (or a full `res://` / `user://` path). PNG, JPG, WEBP and BMP all decode. 1280×720 or wider is the size the menus are designed for; any shape is cover-cropped, never stretched. |
 | `tint` | Optional hex colour multiplied over the picture - restyle a shipped image without repainting it. `ffffff` leaves it alone. |
-| `scrim` | 0–0.9; how dark the bands at the top and bottom go, so cream headings stay readable on a bright picture. |
+| `tint` | A colour multiplied over the picture; `ffffff` leaves it alone |
 | `seasons`, `themes` | What **Auto** looks at. As soon as a picture is tagged for the season or the course theme being played, Auto prefers it. Leave both empty to stay out of Auto's way. |
 
 ### An overlay entry

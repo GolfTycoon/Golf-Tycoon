@@ -78,14 +78,16 @@ func test_a_mod_adds_menu_pictures_and_overlays_from_its_own_folder() -> void:
 
 func test_a_mod_patches_a_shipped_picture_by_naming_its_id() -> void:
 	_write("mod_a", "backdrops.json",
-		'{"backdrops": {"clubhouse": {"tint": "ffcc88", "scrim": 0.6}}}')
+		'{"backdrops": {"clubhouse": {"tint": "ffcc88", "seasons": ["summer"]}}}')
 	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"),
 		{"menu_backdrops": "backdrops.json"})
 
 	var clubhouse := MenuBackdropCatalog.backdrop("clubhouse")
 	assert_eq(str(clubhouse["name"]), "Clubhouse", "the shipped name survives a patch")
 	assert_eq(clubhouse["tint"], Color.html("ffcc88"), "the patch's tint lands")
-	assert_almost_eq(float(clubhouse["scrim"]), 0.6, 0.001)
+	assert_eq(clubhouse["seasons"], ["summer"], "so does the season it adds")
+	assert_true(str(clubhouse["image"]).ends_with("background.jpeg"),
+		"and the shipped picture is still the one it draws")
 	assert_eq(str(MenuBackdropCatalog.backdrop_source("clubhouse")), "tester.a")
 
 

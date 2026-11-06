@@ -12,8 +12,9 @@ const Overlay := preload("res://scripts/ui/components/menu_backdrop_overlay.gd")
 
 const SHIPPED_BACKDROPS := ["clubhouse", "golden_hour", "winter", "desert"]
 const SHIPPED_OVERLAYS := [
-	"none", "vignette", "evening_wash", "sand_haze", "fairway_stripes",
+	"vignette", "edge_scrim", "evening_wash", "sand_haze", "fairway_stripes",
 	"lattice", "scanlines", "pixel_halftone", "dew_sparkle", "flag_glow", "split_light",
+	"none",
 ]
 
 var _saved_background: String = ""
@@ -60,8 +61,8 @@ func test_every_shipped_picture_names_a_file_that_actually_ships() -> void:
 		assert_true(path.begins_with("res://"), "%s names a res:// picture" % entry["id"])
 		assert_true(ResourceLoader.exists(path) or FileAccess.file_exists(path),
 			"%s: %s is on disk" % [entry["id"], path])
-		assert_true(float(entry.get("scrim", 0.0)) > 0.0,
-			"%s keeps a scrim so the headings stay readable" % entry["id"])
+		assert_false(entry.has("scrim"),
+			"%s carries no scrim: the edge shading is an overlay, not the picture's job" % entry["id"])
 
 
 func test_every_shipped_overlay_names_a_pattern_the_painter_knows() -> void:
@@ -78,9 +79,15 @@ func test_only_the_automatic_look_is_untagged_so_auto_has_a_plain_fallback() -> 
 	var clubhouse := MenuBackdropCatalog.backdrop("clubhouse")
 	assert_true((clubhouse.get("seasons", []) as Array).is_empty(), "the clubhouse is not season-tagged")
 	assert_true((clubhouse.get("themes", []) as Array).is_empty(), "the clubhouse is not theme-tagged")
+	# The overlay Auto falls back to is the plain shading - Edge Scrim - so the
+	# headings keep their bands out of the box, and it too is untagged.
+	var auto_overlay := MenuBackdropCatalog.overlay(MenuBackdropCatalog.DEFAULT_OVERLAY_ID)
+	assert_eq(MenuBackdropCatalog.DEFAULT_OVERLAY_ID, "edge_scrim")
+	assert_true((auto_overlay.get("themes", []) as Array).is_empty())
+	assert_true((auto_overlay.get("seasons", []) as Array).is_empty())
+	# None is the bare picture the player can choose instead.
 	var none := MenuBackdropCatalog.overlay("none")
-	assert_true((none.get("themes", []) as Array).is_empty())
-	assert_true((none.get("seasons", []) as Array).is_empty())
+	assert_eq(str(none.get("pattern", "")), "none", "None draws nothing at all")
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +178,8 @@ func test_a_choice_whose_mod_is_gone_falls_back_to_auto() -> void:
 	var resolved := Backdrops.resolve_background()
 	assert_eq(str(resolved["id"]), "clubhouse", "a missing style resolves through Auto")
 	assert_true(bool(resolved["automatic"]))
-	assert_eq(str(Backdrops.resolve_overlay()["id"]), "none")
+	assert_eq(str(Backdrops.resolve_overlay()["id"]), "edge_scrim",
+		"a missing overlay resolves through Auto to the default shading")
 
 
 func test_picking_an_unknown_style_is_refused_rather_than_stored() -> void:
@@ -231,7 +239,7 @@ func test_an_overlay_without_settings_resolves_an_empty_dictionary() -> void:
 func test_a_mod_can_add_a_picture_and_an_overlay() -> void:
 	var backdrops := {"example.backgrounds:harbour_dusk": {
 		"name": "Harbour Dusk", "image": "res://assets/ui/backdrop_test.png",
-		"tint": Color.WHITE, "scrim": 0.5, "seasons": ["fall"], "themes": [],
+		"tint": Color.WHITE, "seasons": ["fall"], "themes": [],
 	}}
 	var overlays := {"example.backgrounds:starfield": {
 		"name": "Starfield", "pattern": "sparkle", "color": Color.WHITE,
@@ -289,7 +297,7 @@ func test_a_sparse_mod_picture_is_filled_in() -> void:
 	MenuBackdropCatalog.normalise_backdrop(entry, "res://mods/m")
 	assert_eq(str(entry["image"]), "res://mods/m/art/pic.png",
 		"the picture is resolved against the catalogue's own folder")
-	assert_true(float(entry["scrim"]) > 0.0, "a scrim is filled in")
+	assert_false(entry.has("scrim"), "and no scrim: that is an overlay's job")
 	assert_eq(str(entry["name"]), "Backdrop", "and a name, so the picker is never blank")
 
 
@@ -345,6 +353,42 @@ func _paint(pattern: String, ink: Color = Color(0, 0, 0, 0.5)) -> _PainterCanvas
 	return canvas
 
 
+func test_the_edge_shading_is_an_overlay_and_none_draws_no_bands() -> void:
+	# The bands along the top and bottom used to be painted by MenuBackdrop for
+	# every picture, under whichever overlay was active - a layer the player
+	# could not turn off. They are the Edge Scrim overlay now, so this pins both
+	# halves: None really draws nothing, and the shading is on the list.
+	assert_true(MenuBackdropOverlay.is_pattern("edges"), "edges is a real painter")
+	assert_eq(str(MenuBackdropCatalog.overlay("edge_scrim").get("pattern", "")), "edges",
+		"the Edge Scrim overlay is the one that draws them")
+	assert_eq(str(MenuBackdropCatalog.overlay("none").get("pattern", "")), "none",
+		"and None is the bare picture")
+	# The band geometry is returned rather than drawn, so it can be checked
+	# exactly - and so the picture itself stays the only thing under the menu.
+	var area := Rect2(0.0, 0.0, 640.0, 360.0)
+	var bands := MenuBackdropOverlay.edge_bands(area, 0.45)
+	assert_eq(bands.size(), 28, "Edge Scrim is 14 slices top and 14 bottom")
+	var tops := bands.filter(func(b): return (b["rect"] as Rect2).position.y < 180.0)
+	var bottoms := bands.filter(func(b): return (b["rect"] as Rect2).position.y >= 180.0)
+	assert_eq(tops.size(), 14, "half the bands at the top")
+	assert_eq(bottoms.size(), 14, "and half at the bottom")
+	for band in bands:
+		var rect: Rect2 = band["rect"]
+		# Each slice overlaps the next by a pixel so no seam shows between them;
+		# the overlap is clipped at the picture's own edge when it is drawn.
+		assert_true(rect.position.y >= -0.01 and rect.end.y <= 361.01,
+			"every band stays inside the picture")
+		assert_almost_eq(rect.size.x, 640.0, 0.01, "each spans the full width")
+	# Each slice is weaker than the one nearer its edge, so it reads as a
+	# gradient rather than a hard bar - the complaint that started this.
+	assert_true(float(tops[0]["alpha"]) > float(tops[13]["alpha"]),
+		"the top band fades downward")
+	assert_true(float(bottoms[0]["alpha"]) > float(bottoms[13]["alpha"]),
+		"and the bottom band fades upward")
+	assert_almost_eq(float(tops[0]["alpha"]), 0.45, 0.001,
+		"the very edge is the full strength the entry asks for")
+
+
 func test_every_pattern_can_paint_without_error() -> void:
 	for pattern in MenuBackdropOverlay.PATTERNS:
 		var canvas := _paint(pattern)
@@ -386,7 +430,7 @@ func test_a_backdrop_resolves_a_picture_and_an_overlay_together() -> void:
 func test_a_missing_picture_reports_itself_and_falls_back() -> void:
 	MenuBackdropCatalog.set_mod_catalogues({"broken": {
 		"name": "Broken", "image": "res://does/not/exist.png",
-		"tint": Color.WHITE, "scrim": 0.4, "seasons": [], "themes": [],
+		"tint": Color.WHITE, "seasons": [], "themes": [],
 	}}, {}, {}, {"broken": "a_mod"}, {})
 	Backdrops.background_choice = "broken"
 	var resolved := Backdrops.resolve_background()
