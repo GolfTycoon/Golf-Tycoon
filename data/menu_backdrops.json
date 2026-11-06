@@ -1,13 +1,15 @@
 {
-	"_comment": "The background pictures that ship with Golf Tycoon. MenuBackdrop paints one of these behind every out-of-game screen. A mod adds its own by declaring content.menu_backdrops in its mod.json; an id that already exists here is patched, a new id is namespaced to the mod. `image` is relative to the catalogue file's folder unless it starts with res:// or user://. `tint` is multiplied over the picture (ffffff leaves it untouched). `scrim` sets how dark the top and bottom bands are, so headings stay readable on a bright picture. `seasons` and `themes` are what Auto looks at: a picture tagged for the current season, or for the theme of the course being played, is preferred. Leave a picture's themes empty when the season should decide instead.",
+	"_comment": "The background pictures that ship with Golf Tycoon. MenuBackdrop paints one of these behind every out-of-game screen. A mod adds its own by declaring content.menu_backdrops in its mod.json; an id that already exists here is patched, a new id is namespaced to the mod. `image` is relative to the catalogue file's folder unless it starts with res:// or user://. `tint` is multiplied over the picture (ffffff leaves it untouched). Anything drawn over the picture - shading, scrims, patterns - is an overlay, chosen separately and listed in menu_overlays.json. `seasons` and `themes` are what Auto looks at: a picture tagged for the current season, or for the theme of the course being played, is preferred. Leave a picture's themes empty when the season should decide instead.",
 	"backdrops": {
 		"clubhouse": {
 			"name": "Clubhouse",
 			"description": "The classic view: a modern clubhouse above the water, the city on the horizon and a bright daylight sky.",
 			"image": "res://assets/ui/background.jpeg",
 			"tint": "ffffff",
-			"scrim": 0.45,
-			"tags": ["classic", "bright"],
+			"tags": [
+				"classic",
+				"bright"
+			],
 			"seasons": [],
 			"themes": []
 		},
@@ -16,30 +18,51 @@
 			"description": "The same clubhouse at sunset - a warm sky, long shadows and every window lit.",
 			"image": "res://assets/ui/backdrops/clubhouse_sunset.png",
 			"tint": "ffffff",
-			"scrim": 0.50,
-			"tags": ["warm", "evening"],
-			"seasons": ["fall"],
-			"themes": ["resort", "tropical", "links"]
+			"tags": [
+				"warm",
+				"evening"
+			],
+			"seasons": [
+				"fall"
+			],
+			"themes": [
+				"resort",
+				"tropical",
+				"links"
+			]
 		},
 		"winter": {
 			"name": "Winter Course",
 			"description": "Snow on the fairway, pines in white and a lodge with the fire lit.",
 			"image": "res://assets/ui/backdrops/winter_course.png",
 			"tint": "ffffff",
-			"scrim": 0.42,
-			"tags": ["cold", "snow"],
-			"seasons": ["winter"],
-			"themes": ["mountain", "woodland", "heathland"]
+			"tags": [
+				"cold",
+				"snow"
+			],
+			"seasons": [
+				"winter"
+			],
+			"themes": [
+				"mountain",
+				"woodland",
+				"heathland"
+			]
 		},
 		"desert": {
 			"name": "Desert Links",
 			"description": "Cacti, red mesas and a green cut into the hardpan under a wide turquoise sky.",
 			"image": "res://assets/ui/backdrops/desert_links.png",
 			"tint": "ffffff",
-			"scrim": 0.45,
-			"tags": ["dry", "sunny"],
+			"tags": [
+				"dry",
+				"sunny"
+			],
 			"seasons": [],
-			"themes": ["desert", "marshland"]
+			"themes": [
+				"desert",
+				"marshland"
+			]
 		}
 	}
 }

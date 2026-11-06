@@ -93,7 +93,11 @@ func test_both_pickers_list_every_shipped_style_after_auto() -> void:
 	assert_string_contains(backgrounds.get_item_text(0), "Auto")
 	var overlays := _picker(menu, "OverlayPicker")
 	assert_eq(overlays.item_count, MenuBackdropCatalog.overlays().size() + 1)
-	assert_eq(str(overlays.get_item_metadata(1)), "none", "None is the plain picture")
+	var listed: Array = []
+	for index in range(1, overlays.item_count):
+		listed.append(str(overlays.get_item_metadata(index)))
+	assert_true("none" in listed, "None is on the list, for the bare picture")
+	assert_true("edge_scrim" in listed, "and so is the Edge Scrim that shades the edges")
 
 
 func test_a_fresh_install_opens_on_auto_and_says_what_auto_picked() -> void:
@@ -238,7 +242,7 @@ func test_the_backdrop_survives_a_missing_picture() -> void:
 	await set_window(DESIGN_WINDOW)
 	MenuBackdropCatalog.set_mod_catalogues({"gone": {
 		"name": "Gone", "image": "res://no/such/picture.png",
-		"tint": Color.WHITE, "scrim": 0.4, "seasons": [], "themes": [],
+		"tint": Color.WHITE, "seasons": [], "themes": [],
 	}}, {}, {}, {"gone": "a_mod"}, {})
 	Backdrops.background_choice = "gone"
 	Backdrops.backdrop_changed.emit()

@@ -212,7 +212,6 @@ be plain arrays, wrapped as shown or not.
       "description": "The city lights coming on across the water.",
       "image": "art/harbour_dusk.png",
       "tint": "ffe0c0",
-      "scrim": 0.5,
       "seasons": ["fall", "winter"],
       "themes": ["city", "links"]
     }
@@ -226,7 +225,6 @@ be plain arrays, wrapped as shown or not.
 | `name` | string | Shown in the picker. Defaults to the id, title-cased. |
 | `description` | string | One line in the picker's card. |
 | `tint` | hex string, `[r, g, b, a]` array or a colour name | Multiplied over the picture. `ffffff` (the default) leaves it alone. |
-| `scrim` | number 0–0.9 | A dark wash over the picture, so menu cards stay readable on a bright one. |
 | `tags` | string[] | Free-form; for your own use or for other mods to look for. |
 | `seasons` | string[] | Season names (`spring`, `summer`, `fall`, `winter`). Auto prefers a picture tagged with the current season. |
 | `themes` | string[] | Course theme names (`parkland`, `links`, `desert`, `mountain`, `woodland`, `heathland`, `tropical`, `resort`, `city`, `marshland`). Auto prefers one tagged with the open course's theme. |
@@ -255,7 +253,7 @@ be plain arrays, wrapped as shown or not.
 
 | Overlay field | Type | Notes |
 | --- | --- | --- |
-| `pattern` | string | One of the shipped painters: `wash` (a flat film), `vignette` (edges darkened), `glow` (a warm bloom from one corner), `split` (two-tone beams), `stripes` (mown-fairway bands), `grid` (a square lattice), `scanlines` (thin horizontal lines), `dots` (a coarse halftone screen) or `sparkle` (scattered glints). `none` draws nothing. An unknown name warns and draws nothing, so a typo fails softly. |
+| `pattern` | string | One of the shipped painters: `wash` (a flat film), `vignette` (edges darkened), `glow` (a warm bloom from one corner), `split` (two-tone beams), `stripes` (mown-fairway bands), `grid` (a square lattice), `scanlines` (thin horizontal lines), `dots` (a coarse halftone screen), `sparkle` (scattered glints) or `edges` (dark bands along the top and bottom, so a bright picture does not wash out the heading). `none` draws nothing. An unknown name warns and draws nothing, so a typo fails softly. |
 | `color` | colour | The ink. Its alpha is the whole overlay's opacity; a transparent colour paints nothing. |
 | `strength` | number 0–1 | An extra multiplier on the ink's alpha, so one pattern can be reused at several weights. |
 | `scale` | number | Feature size in pixels at the design resolution (band pitch, dot spacing). Whole pixels keep the pattern crisp. |

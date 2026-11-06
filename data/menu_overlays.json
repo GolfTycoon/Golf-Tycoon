@@ -1,14 +1,6 @@
 {
-	"_comment": "The background overlays that ship with Golf Tycoon, painted over whichever picture is showing - so the two settings combine. `pattern` names one of MenuBackdropOverlay's painters: none, wash, vignette, glow, split, stripes, grid, scanlines, dots, sparkle. `color` is the ink, `strength` its opacity (0-1), `scale` the pattern's feature size in logical pixels. `setting_ids` lists the extra choices the overlay exposes; each one is declared in the `settings` block below (a mod may declare its own alongside these). `seasons` and `themes` are what Auto looks at, exactly like a picture's. A mod adds overlays with content.menu_overlays in its mod.json.",
+	"_comment": "The background overlays that ship with Golf Tycoon, painted over whichever picture is showing - so the two settings combine. `pattern` names one of MenuBackdropOverlay's painters: none, wash, vignette, glow, split, stripes, grid, scanlines, dots, sparkle, edges. `color` is the ink, `strength` its opacity (0-1), `scale` the pattern's feature size in logical pixels. `setting_ids` lists the extra choices the overlay exposes; each one is declared in the `settings` block below (a mod may declare its own alongside these). `seasons` and `themes` are what Auto looks at, exactly like a picture's. A mod adds overlays with content.menu_overlays in its mod.json.",
 	"overlays": {
-		"none": {
-			"name": "None",
-			"description": "The plain picture, with only the shading that keeps the headings readable.",
-			"pattern": "none",
-			"setting_ids": [],
-			"seasons": [],
-			"themes": []
-		},
 		"vignette": {
 			"name": "Vignette",
 			"description": "A soft darkening toward the corners that draws the eye to the cards in the middle.",
@@ -20,6 +12,16 @@
 			"seasons": [],
 			"themes": []
 		},
+		"edge_scrim": {
+			"name": "Edge Scrim",
+			"description": "Dark bands along the top and bottom, so the heading and the version line stay readable on a bright picture.",
+			"pattern": "edges",
+			"color": "000504",
+			"strength": 0.45,
+			"setting_ids": [],
+			"seasons": [],
+			"themes": []
+		},
 		"evening_wash": {
 			"name": "Evening Wash",
 			"description": "A warm gold wash over the whole picture, like a lamp-lit clubhouse at dusk.",
@@ -27,7 +29,10 @@
 			"color": "f5cb45",
 			"strength": 0.16,
 			"setting_ids": [],
-			"seasons": ["fall", "winter"],
+			"seasons": [
+				"fall",
+				"winter"
+			],
 			"themes": []
 		},
 		"sand_haze": {
@@ -35,10 +40,12 @@
 			"description": "A pale bunker-sand haze that pushes the picture back behind the cards.",
 			"pattern": "wash",
 			"color": "e8d9b0",
-			"strength": 0.20,
+			"strength": 0.2,
 			"setting_ids": [],
 			"seasons": [],
-			"themes": ["desert"]
+			"themes": [
+				"desert"
+			]
 		},
 		"fairway_stripes": {
 			"name": "Fairway Stripes",
@@ -47,9 +54,13 @@
 			"color": "020a07",
 			"strength": 0.14,
 			"scale": 54.0,
-			"setting_ids": ["angle"],
+			"setting_ids": [
+				"angle"
+			],
 			"seasons": [],
-			"themes": ["parkland"]
+			"themes": [
+				"parkland"
+			]
 		},
 		"lattice": {
 			"name": "Clubhouse Lattice",
@@ -58,9 +69,13 @@
 			"color": "06110c",
 			"strength": 0.18,
 			"scale": 34.0,
-			"setting_ids": ["angle"],
+			"setting_ids": [
+				"angle"
+			],
 			"seasons": [],
-			"themes": ["city"]
+			"themes": [
+				"city"
+			]
 		},
 		"scanlines": {
 			"name": "CRT Scanlines",
@@ -89,9 +104,13 @@
 			"description": "Scattered glints of morning dew catching the light across the grass.",
 			"pattern": "sparkle",
 			"color": "fff8df",
-			"strength": 0.50,
-			"setting_ids": ["density"],
-			"seasons": ["spring"],
+			"strength": 0.5,
+			"setting_ids": [
+				"density"
+			],
+			"seasons": [
+				"spring"
+			],
 			"themes": []
 		},
 		"flag_glow": {
@@ -101,7 +120,9 @@
 			"color": "f5cb45",
 			"strength": 0.22,
 			"setting_ids": [],
-			"seasons": ["summer"],
+			"seasons": [
+				"summer"
+			],
 			"themes": []
 		},
 		"split_light": {
@@ -110,7 +131,17 @@
 			"pattern": "split",
 			"color": "04170f",
 			"strength": 0.42,
-			"setting_ids": ["angle"],
+			"setting_ids": [
+				"angle"
+			],
+			"seasons": [],
+			"themes": []
+		},
+		"none": {
+			"name": "None",
+			"description": "The bare picture, cropped to fit. Clean, but a bright one can wash out the heading.",
+			"pattern": "none",
+			"setting_ids": [],
 			"seasons": [],
 			"themes": []
 		}
@@ -121,16 +152,50 @@
 			"description": "Which way the pattern runs, in degrees.",
 			"kind": "choice",
 			"default": 0,
-			"choices": ["0°", "15°", "30°", "45°", "60°", "75°", "90°", "105°", "120°", "135°", "150°", "165°"],
-			"values": [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]
+			"choices": [
+				"0\u00b0",
+				"15\u00b0",
+				"30\u00b0",
+				"45\u00b0",
+				"60\u00b0",
+				"75\u00b0",
+				"90\u00b0",
+				"105\u00b0",
+				"120\u00b0",
+				"135\u00b0",
+				"150\u00b0",
+				"165\u00b0"
+			],
+			"values": [
+				0,
+				15,
+				30,
+				45,
+				60,
+				75,
+				90,
+				105,
+				120,
+				135,
+				150,
+				165
+			]
 		},
 		"density": {
 			"name": "Density",
 			"description": "How many glints are scattered across the picture.",
 			"kind": "choice",
 			"default": 1,
-			"choices": ["Light", "Medium", "Heavy"],
-			"values": [0, 1, 2]
+			"choices": [
+				"Light",
+				"Medium",
+				"Heavy"
+			],
+			"values": [
+				0,
+				1,
+				2
+			]
 		}
 	}
 }

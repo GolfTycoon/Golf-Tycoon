@@ -15,8 +15,8 @@
 | `data/decorations.json` | 5, keyed by id | Yes | Improvements: category, size, cost, upkeep, aesthetic value, allowed terrain, theme bonuses |
 | `data/terrain_types.json` | 33 | No | Mirror of terrain ids, names, `playable`, `placement_cost` and `blocks_shots`, for tools |
 | `data/golfer_traits.json` | Two sections | No | `golfer_archetypes` and `mood_states`. No runtime code reads them. |
-| `data/menu_backdrops.json` | 4, keyed by id | Yes | Menu background pictures: image, tint, scrim and the season/theme tags Auto reads |
-| `data/menu_overlays.json` | 11, keyed by id + a `settings` block | Yes | Menu overlay patterns, the ink and feature size each one draws with, and the settings the Display card offers |
+| `data/menu_backdrops.json` | 4, keyed by id | Yes | Menu background pictures: image, tint and the season/theme tags Auto reads |
+| `data/menu_overlays.json` | 12, keyed by id + a `settings` block | Yes | Menu overlay patterns, the ink and feature size each one draws with, and the settings the Display card offers |
 | `data/visiting_golfers/<location>.json` | 27 files | Yes | Visiting golfers for each World Map location |
 | `data/golfer_skins/beginner/` and `casual/` | Skin folders | Yes | Built-in golfer skins |
 
@@ -112,7 +112,6 @@ the player's choice, or Auto's - and `MenuBackdrop` draws it. The art lives in
 | `name`, `description` | What the picker in **Settings → Display → Background** shows |
 | `image` | `res://` path to the picture. Drawn 16:9 and cropped cover-fit, so no window shape letterboxes it |
 | `tint` | Colour multiplied over the picture (hex, `[r, g, b, a]` or a name); `ffffff` leaves it alone |
-| `scrim` | 0–0.9 dark wash over the picture, to keep menu cards readable on a bright one |
 | `tags` | Free-form words, not read by the game |
 | `seasons`, `themes` | Which season and course theme the picture suits. **Auto** prefers a match, then falls back to `clubhouse` |
 
@@ -120,13 +119,18 @@ The shipped four: `clubhouse` (no tags — the fallback), `golden_hour` (fall;
 resort, tropical and links courses), `winter` (winter; mountain, woodland and
 heathland) and `desert` (desert and marshland).
 
+A picture is only the picture. Anything drawn over it - shading, a wash, a
+pattern - is an overlay entry, chosen separately. That includes the dark bands
+the headings sit on, which are the `edge_scrim` overlay; `MenuBackdrop` draws
+no layer of its own.
+
 `menu_overlays.json` holds the patterns laid over that picture plus the
 `settings` block their controls read.
 
 | Overlay field | Meaning |
 | --- | --- |
 | `name`, `description` | What the overlay picker shows |
-| `pattern` | Which painter `MenuBackdropOverlay` runs: `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots` or `sparkle` |
+| `pattern` | Which painter `MenuBackdropOverlay` runs: `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots`, `sparkle` or `edges` |
 | `color` | The ink; its alpha is the overlay's whole opacity, so `strength` multiplies it further |
 | `strength` | 0–1 multiplier on the ink's alpha, so one pattern can be shipped at several weights |
 | `scale` | Feature size in whole pixels at the design resolution (band pitch, dot spacing) |
@@ -137,6 +141,11 @@ The `settings` block is the same schema mods use: `{key: {name, description,
 kind, default, choices, values}}` where `kind` is `choice` (a picker) or
 `toggle`. `angle` (0–165° in 15° steps) turns `split`, `stripes` and `grid`;
 `density` (Light/Medium/Heavy) sets how many glints `sparkle` scatters.
+
+`edge_scrim` is the default Auto falls back to: the 28 slices (`edges`) that
+shade the top and bottom edges, so cream headings stay readable on a bright
+picture. It was painted under every picture before overlays existed, so it
+ships as an overlay to keep that look while making it a choice.
 
 ## Visiting Golfers
 
