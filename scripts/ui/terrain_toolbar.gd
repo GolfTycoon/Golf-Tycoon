@@ -2169,7 +2169,7 @@ func _show_hole(hole_number: int) -> void:
 	if tee_orphaned or green_orphaned:
 		var missing := "tee & green" if tee_orphaned and green_orphaned else ("tee" if tee_orphaned else "green")
 		identity.add_child(_visitor_label("Warning: Missing %s" % missing, UIConstants.COLOR_WARNING))
-	var locate := _visitor_button("Locate hole", Color("87b9cf"))
+	var locate := _locate_button()
 	locate.name = "LocateHoleButton"
 	locate.tooltip_text = "Center the camera on Hole %d" % hole_data.hole_number
 	locate.pressed.connect(func(): hole_locate_requested.emit(hole_data.hole_number))
@@ -2412,6 +2412,15 @@ func _visitor_button(text: String, accent: Color) -> Button:
 	PixelButtonStyle.paint_card(button, accent, 0, 6, Color("e4e7d5"), Color.WHITE)
 	return button
 
+## Shared camera-focus action for the golfer and hole shelves.
+func _locate_button() -> Button:
+	var button := _visitor_button("", Color("87b9cf"))
+	button.icon = preload("res://assets/ui/icons/locate.svg")
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.custom_minimum_size = Vector2(36, 36)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return button
+
 func _make_golfer_row(row_data: Dictionary) -> Control:
 	return _make_visitor_card(row_data, true)
 
@@ -2436,7 +2445,7 @@ func _make_visitor_card(data: Dictionary, active: bool) -> Control:
 		_refresh_golfer_lists())
 	row.add_child(button)
 	if active:
-		var locate := _visitor_button("Locate", Color("87b9cf"))
+		var locate := _locate_button()
 		locate.custom_minimum_size.y = 44
 		locate.tooltip_text = "Center the camera on " + name_text
 		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
@@ -2462,7 +2471,8 @@ func _show_visitor(visitor_name: String, active: bool) -> void:
 	identity.add_child(_visitor_label("Strokes: %d" % data.get("strokes", 0)))
 	if active:
 		identity.add_child(_visitor_label("Hole: %d  /  Attitude: %d%%" % [data.get("hole", 1), int(float(data.get("attitude", 0.5)) * 100)]))
-		var locate := _visitor_button("Locate golfer", Color("87b9cf"))
+		var locate := _locate_button()
+		locate.tooltip_text = "Center the camera on " + visitor_name
 		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
 		identity.add_child(locate)
 	elif data.has("day"):

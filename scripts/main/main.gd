@@ -2751,7 +2751,7 @@ func _on_hole_created(hole_number: int, _par: int, _distance_yards: int) -> void
 	row.set_meta("hole_number", hole_number)
 	row.add_theme_constant_override("separation", 4)
 	row.add_child(hole_btn)
-	var locate := terrain_toolbar._visitor_button("Locate", Color("87b9cf"))
+	var locate := terrain_toolbar._locate_button()
 	locate.name = "LocateHoleButton%d" % hole_number
 	locate.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	locate.tooltip_text = "Center the camera on hole %d" % hole_number

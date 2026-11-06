@@ -76,7 +76,9 @@ func test_locate_buttons_focus_each_hole_without_opening_details() -> void:
 	for hole in GameManager.current_course.holes:
 		var hole_button: Button = main._find_hole_button(hole.hole_number)
 		var locate := hole_button.get_parent().get_node("LocateHoleButton%d" % hole.hole_number) as Button
-		assert_eq(locate.text, "Locate", "Locate sits beside each hole button")
+		assert_eq(locate.text, "", "Locate is icon-only")
+		assert_not_null(locate.icon, "Locate has an icon beside each hole button")
+		assert_ne(locate.tooltip_text, "", "Locate describes its action on hover")
 		main.camera.focus_on(Vector2(-10000, -10000), true)
 		locate.pressed.emit()
 		var center: Vector2 = (main.terrain_grid.grid_to_screen_center(hole.tee_position) 			+ main.terrain_grid.grid_to_screen_center(hole.green_position)) / 2

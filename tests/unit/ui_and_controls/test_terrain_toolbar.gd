@@ -1359,6 +1359,8 @@ func test_hole_detail_shows_actions_info_and_statistics_and_emits_signals() -> v
 	var toggle_btn := toolbar._hole_detail.find_child("ToggleHoleButton", true, false) as Button
 	var delete_btn := toolbar._hole_detail.find_child("DeleteHoleButton", true, false) as Button
 	assert_not_null(locate_btn)
+	assert_eq(locate_btn.text, "")
+	assert_not_null(locate_btn.icon)
 	assert_not_null(tee_btn)
 	assert_eq(tee_btn.text, "Place Tee", "An orphaned tee asks to Place Tee")
 	assert_not_null(green_btn)
@@ -1432,6 +1434,10 @@ func test_the_guest_register_is_a_shelf_of_columns_and_populates() -> void:
 	_assert_column_holds(column, ["Alice Green", "Bob Fairway", "Cara Bunker"])
 	assert_eq(column.get_child(0).get_child_count(), 3,
 		"A golfer on the course carries a portrait, a profile button and Locate")
+	var locate := column.get_child(0).get_child(2) as Button
+	assert_eq(locate.text, "")
+	assert_not_null(locate.icon)
+	assert_ne(locate.tooltip_text, "")
 	assert_eq(column.get_child(2).get_child_count(), 2,
 		"A past visitor has no Locate button: there is nobody left to centre on")
 
