@@ -798,6 +798,12 @@ func _apply_display_settings(config: ConfigFile) -> void:
 	# Restore minimap preference
 	GameManager.set_minimap_enabled(bool(config.get_value("display", "minimap_enabled", true)))
 
+	# Restore the menu background and overlay choices. A settings file from
+	# before these existed names neither, so both stay on Auto - and Auto is a
+	# real decision, not a placeholder: it follows the calendar and the course.
+	if has_node("/root/Backdrops"):
+		Backdrops.load_from_config(config)
+
 func _apply_controls_settings(config: ConfigFile) -> void:
 	GameManager.invert_zoom_scroll = config.get_value("controls", "invert_zoom_scroll", false)
 

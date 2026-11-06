@@ -35,7 +35,7 @@ func _manifest_of(folder: String) -> ModManifest:
 
 func test_every_bundled_manifest_validates_and_references_real_files() -> void:
 	var folders := _bundled_folders()
-	assert_eq(folders.size(), 13, "three official mods and ten examples ship with the game")
+	assert_eq(folders.size(), 14, "three official mods and eleven examples ship with the game")
 	for folder in folders:
 		var root := BUNDLED_ROOT.path_join(folder)
 		var manifest := _manifest_of(folder)
@@ -114,3 +114,34 @@ func test_more_seasons_is_a_true_add_on() -> void:
 	assert_true("golf_tycoon.seasons" in deps, "it hard-depends on the Seasons mod")
 	var hard: Array = manifest.dependencies.filter(func(d): return str(d.get("id", "")) == "golf_tycoon.seasons")
 	assert_false(bool(hard[0].get("optional", true)), "and the dependency is not optional")
+
+
+func test_the_example_backgrounds_mod_ships_pictures_and_overlays() -> void:
+	ContentRegistry.apply_mod_content("example.backgrounds",
+		BUNDLED_ROOT.path_join("example.backgrounds"),
+		{"menu_backdrops": "data/backdrops.json", "menu_overlays": "data/overlays.json"})
+	assert_eq(ContentRegistry.get_warnings().size(), 0,
+		"the example loads without a single warning")
+	for id in ["example.backgrounds:harbour_dusk", "example.backgrounds:moonlit_frost"]:
+		assert_true(MenuBackdropCatalog.has_backdrop(id), "%s is on offer" % id)
+		var entry := MenuBackdropCatalog.backdrop(id)
+		var art: String = str(entry.get("image", ""))
+		assert_true(art.begins_with("res://mods/example.backgrounds/"),
+			"its picture is shipped inside the mod (%s)" % art)
+		assert_not_null(load(art), "and the picture loads")
+		assert_eq(str(entry.get("source", "")), "example.backgrounds",
+			"and is credited to the mod")
+	for id in ["example.backgrounds:starfield", "example.backgrounds:club_crest",
+			"example.backgrounds:green_keeper_bands"]:
+		assert_true(MenuBackdropCatalog.has_overlay(id), "%s is on offer" % id)
+	# Each overlay gets a row for every setting it names, drawn from the shipped
+	# catalogue or from the mod's own `settings` block.
+	var density := MenuBackdropCatalog.settings_for("example.backgrounds:starfield")
+	assert_eq(density.size(), 1, "Starfield offers its one setting")
+	assert_eq(str(density[0].get("key", "")), "density", "the shipped Density")
+	var angle := MenuBackdropCatalog.settings_for("example.backgrounds:club_crest")
+	assert_eq(angle.size(), 1)
+	assert_eq(str(angle[0].get("key", "")), "angle", "and the shipped Angle")
+	var summary: Dictionary = ContentRegistry.get_content_summary().get("example.backgrounds", {})
+	assert_eq(int(summary.get("backdrops", 0)), 2, "two pictures are counted for the mod")
+	assert_eq(int(summary.get("overlays", 0)), 3, "and three overlays")

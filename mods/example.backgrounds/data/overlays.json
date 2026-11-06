@@ -1,0 +1,46 @@
+{
+	"overlays": {
+		"starfield": {
+			"name": "Starfield",
+			"description": "A scatter of stars over the picture, denser the bigger you set it.",
+			"pattern": "sparkle",
+			"color": "fff8df",
+			"strength": 0.62,
+			"setting_ids": ["density"],
+			"seasons": ["winter"],
+			"themes": []
+		},
+		"club_crest": {
+			"name": "Club Crest Lattice",
+			"description": "The club's own lattice, at whatever angle you like - a second overlay on top of the shipped one.",
+			"pattern": "grid",
+			"color": "f5cb45",
+			"strength": 0.10,
+			"scale": 78.0,
+			"setting_ids": ["angle"],
+			"seasons": [],
+			"themes": []
+		},
+		"green_keeper_bands": {
+			"name": "Greenkeeper's Bands",
+			"description": "Wide mowing bands, so the whole menu looks like the first fairway.",
+			"pattern": "stripes",
+			"color": "020a07",
+			"strength": 0.10,
+			"scale": 120.0,
+			"setting_ids": ["angle"],
+			"seasons": [],
+			"themes": ["parkland", "links"]
+		}
+	},
+	"settings": {
+		"hue": {
+			"name": "Hue",
+			"description": "A mod-declared setting of its own, ready for a pattern that reads it.",
+			"kind": "choice",
+			"default": 0,
+			"choices": ["Green", "Gold", "Ice"],
+			"values": [0, 1, 2]
+		}
+	}
+}

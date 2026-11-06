@@ -123,6 +123,17 @@ var _ui_scale_rebuild_pending: bool = false
 ## Live controls for each independent part of the graphics configuration.
 var _graphics_preset_options: OptionButton = null
 var _graphics_setting_options: Dictionary = {}
+## The Background card on Display: the picture and overlay pickers, their
+## Auto rows and the per-overlay settings (the stripe angle, the sparkle
+## density). Rebuilt with the page; the handlers refresh in place so a choice
+## does not throw the player's scroll position away.
+var _background_options: OptionButton = null
+var _overlay_options: OptionButton = null
+var _background_auto_toggle: CheckButton = null
+var _overlay_auto_toggle: CheckButton = null
+var _background_auto_hint: Label = null
+var _overlay_setting_rows: VBoxContainer = null
+var _background_preview: MenuBackdrop = null
 ## The Controls page's editable keycaps and their reset buttons, keyed by
 ## InputBindings action. They are rebuilt with the page; the signal handlers
 ## refresh their captions in place instead of rebuilding the page, so focus
@@ -242,6 +253,13 @@ func _build() -> void:
 	set_process(false)
 	_graphics_preset_options = null
 	_graphics_setting_options.clear()
+	_background_options = null
+	_overlay_options = null
+	_background_auto_toggle = null
+	_overlay_auto_toggle = null
+	_background_auto_hint = null
+	_overlay_setting_rows = null
+	_background_preview = null
 	_data_confirmation = null
 	_layout_mode = layout_mode_for(_window_size())
 	_built_size = _window_size()
@@ -504,6 +522,9 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	mode_options.item_selected.connect(_on_window_mode_selected)
 	window_body.add_child(mode_options)
 	cards.append(window["panel"])
+	# The background sits next to the window controls: both are about what the
+	# screen looks like, and it is the first thing a new player wants to try.
+	cards.append(_build_background_card(mode))
 	# Keep the counter near the top of Display, ahead of the longer quality
 	# controls, so it is easy to find on a phone as well as on desktop.
 	cards.append(_build_fps_counter_card(mode))
@@ -622,6 +643,188 @@ func _build_display_cards(mode: int) -> Array[Control]:
 	cards.append(benchmark)
 	return cards
 
+## The Background card: which picture the menus sit on, and which overlay is
+## painted over it. Both offer Auto - the default - and both say what Auto is
+## currently picking, because "follow the calendar" is only a good default if
+## the player can see what it did. Every style the game ships and every style a
+## mod adds is in the same list, marked with the mod that contributed it.
+##
+## The card carries its own live preview: a MenuBackdrop strip that repaints as
+## the player changes either picker, so a choice can be judged before the
+## menus behind the settings screen are rebuilt.
+func _build_background_card(mode: int) -> PanelContainer:
+	var card := _make_group("BACKGROUND",
+		"Pick the picture behind the menus and an overlay to paint over it. Auto follows the season and your course - mods can add to both lists.",
+		mode)
+	var body: VBoxContainer = card["body"]
+
+	# The preview: the shared backdrop in a framed strip, so it crops and tints
+	# exactly as the menus will.
+	var frame := PanelContainer.new()
+	frame.name = "BackgroundPreviewFrame"
+	frame.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_INSET,
+		MenuStyle.with_alpha(COLOR_BORDER, 0.5), 8, 0, 0, 1))
+	frame.clip_contents = true
+	frame.custom_minimum_size = Vector2(0.0, 92.0 if mode != Kit.LayoutMode.DESKTOP else 112.0)
+	var preview := MenuBackdrop.new()
+	preview.name = "BackgroundPreview"
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(preview)
+	_background_preview = preview
+	body.add_child(frame)
+	body.add_child(_make_separator())
+
+	# Background picture.
+	var background_header := _add_picker_auto_row(body, "Background picture",
+		"Auto follows the season, then your course's theme.",
+		true, _on_background_auto_toggled)
+	_background_auto_toggle = background_header["toggle"]
+	var background_lists := _add_style_picker(body, "Background", _background_labels(),
+		_current_background_id(), _on_background_selected)
+	_background_options = background_lists
+	_background_auto_hint = _add_auto_hint(body)
+	body.add_child(_make_separator())
+
+	# Overlay.
+	var overlay_header := _add_picker_auto_row(body, "Background overlay",
+		"Auto follows the season, then your course's theme.",
+		false, _on_overlay_auto_toggled)
+	_overlay_auto_toggle = overlay_header["toggle"]
+	_overlay_options = _add_style_picker(body, "Overlay", _overlay_labels(),
+		_current_overlay_id(), _on_overlay_selected)
+	_overlay_setting_rows = VBoxContainer.new()
+	_overlay_setting_rows.name = "OverlaySettingRows"
+	_overlay_setting_rows.add_theme_constant_override("separation", 8)
+	body.add_child(_overlay_setting_rows)
+	body.add_child(_make_separator())
+
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	var note := Kit.make_label(
+		"Community mods appear here automatically once they are enabled in Mods.",
+		9 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 10, COLOR_QUIET)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(note)
+	var reset := Button.new()
+	reset.name = "BackgroundReset"
+	reset.text = "Reset"
+	reset.tooltip_text = "Back to Auto for both the picture and the overlay."
+	reset.custom_minimum_size = Vector2(84.0, 40.0)
+	reset.add_theme_font_size_override("font_size", 11)
+	Kit.paint_utility_button(reset, false)
+	reset.pressed.connect(_on_background_reset)
+	footer.add_child(reset)
+	body.add_child(footer)
+
+	_sync_background_controls()
+	return card["panel"]
+
+
+## A title, a one-line explanation and the Auto switch, used for both pickers.
+func _add_picker_auto_row(parent: VBoxContainer, title: String, hint: String,
+		background: bool, on_toggle: Callable) -> Dictionary:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var copy := VBoxContainer.new()
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.add_theme_constant_override("separation", 1)
+	copy.add_child(Kit.make_label(title, 12, COLOR_TEXT))
+	var detail := Kit.make_label(hint, 9, COLOR_QUIET)
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.add_child(detail)
+	row.add_child(copy)
+	var auto_label := Kit.make_label("AUTO", 10, COLOR_GOLD)
+	auto_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(auto_label)
+	var toggle := CheckButton.new()
+	toggle.name = "BackgroundAuto" if background else "OverlayAuto"
+	toggle.accessibility_name = title + " automatic"
+	toggle.tooltip_text = hint
+	toggle.custom_minimum_size = Vector2(54.0, 36.0)
+	toggle.button_pressed = _is_auto(background)
+	toggle.toggled.connect(func(value: bool): on_toggle.call(value))
+	row.add_child(toggle)
+	parent.add_child(row)
+	return {"toggle": toggle}
+
+
+## The OptionButton listing every style on offer. Items carry the catalogue id,
+## never the index, so installing a mod cannot move a saved choice; the ones a
+## mod added are marked with the mod's id.
+func _add_style_picker(parent: VBoxContainer, label_text: String, labels: Array,
+		selected_id: String, on_select: Callable) -> OptionButton:
+	parent.add_child(Kit.make_label(label_text, 12, COLOR_TEXT))
+	var picker := OptionButton.new()
+	picker.name = "BackgroundPicker" if label_text == "Background" else "OverlayPicker"
+	picker.accessibility_name = label_text
+	picker.custom_minimum_size.y = 40
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	picker.add_theme_font_size_override("font_size", 12)
+	for entry in labels:
+		var index := picker.item_count
+		picker.add_item(str(entry["label"]), index)
+		picker.set_item_metadata(index, str(entry["id"]))
+	var index_of := -1
+	for i in range(picker.item_count):
+		if str(picker.get_item_metadata(i)) == selected_id:
+			index_of = i
+			break
+	picker.select(maxi(index_of, 0))
+	picker.item_selected.connect(func(index: int):
+		on_select.call(str(picker.get_item_metadata(index))))
+	parent.add_child(picker)
+	return picker
+
+
+## The line under each picker saying what Auto is choosing right now.
+func _add_auto_hint(parent: VBoxContainer) -> Label:
+	var hint := Kit.make_label("", 9, COLOR_MUTED)
+	hint.name = "BackgroundAutoHint"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(hint)
+	return hint
+
+
+## Every background style on offer, Auto first. Mod-contributed styles say
+## whose they are, so a player can tell the shipped four from the library.
+func _background_labels() -> Array:
+	var labels: Array = [{"id": Backdrops.AUTO, "label": "Auto (recommended)"}]
+	for entry in MenuBackdropCatalog.backdrops():
+		labels.append({"id": str(entry.get("id", "")), "label": _style_label(entry)})
+	return labels
+
+
+func _overlay_labels() -> Array:
+	var labels: Array = [{"id": Backdrops.AUTO, "label": "Auto (recommended)"}]
+	for entry in MenuBackdropCatalog.overlays():
+		labels.append({"id": str(entry.get("id", "")), "label": _style_label(entry)})
+	return labels
+
+
+func _style_label(entry: Dictionary) -> String:
+	var label: String = str(entry.get("name", entry.get("id", "")))
+	if not bool(_is_shipped_style(entry)):
+		label += "  ·  %s" % str(entry.get("source", "mod"))
+	return label
+
+
+func _is_shipped_style(entry: Dictionary) -> bool:
+	return str(entry.get("source", "core")) == "core"
+
+
+func _is_auto(background: bool) -> bool:
+	return (Backdrops.background_choice if background else Backdrops.overlay_choice) == Backdrops.AUTO
+
+
+func _current_background_id() -> String:
+	return Backdrops.background_choice
+
+
+func _current_overlay_id() -> String:
+	return Backdrops.overlay_choice
+
+
 func _build_fps_counter_card(mode: int) -> PanelContainer:
 	var card := _make_group("FPS COUNTER",
 		"See the live frame rate over menus and the course. Changes apply immediately.", mode)
@@ -704,6 +907,148 @@ func _sync_graphics_controls() -> void:
 		var selected_index := selector.get_item_index(PerformanceSettings.get_graphics_setting(setting))
 		if selected_index >= 0:
 			selector.select(selected_index)
+
+## Background card handlers. A choice applies at once - the preview strip and
+## the menus behind this screen repaint from Backdrops.backdrop_changed - and
+## the whole Display section is written to settings.cfg once at the end, the
+## same way the window and graphics controls save.
+func _on_background_auto_toggled(enabled: bool) -> void:
+	Backdrops.set_background_choice_quietly(
+		Backdrops.AUTO if enabled else _fallback_choice(true))
+	_save_display_settings()
+	_sync_background_controls()
+
+
+func _on_overlay_auto_toggled(enabled: bool) -> void:
+	Backdrops.set_overlay_choice_quietly(
+		Backdrops.AUTO if enabled else _fallback_choice(false))
+	_save_display_settings()
+	_sync_background_controls()
+
+
+## Where a picker lands when Auto is switched off: whatever Auto is showing
+## right now, so turning Auto off does not change the picture on the very frame
+## the player wanted to keep it.
+func _fallback_choice(background: bool) -> String:
+	if background:
+		return Backdrops.auto_background_id()
+	return Backdrops.auto_overlay_id()
+
+
+func _on_background_selected(id: String) -> void:
+	Backdrops.set_background_choice_quietly(id)
+	_save_display_settings()
+	_sync_background_controls()
+
+
+func _on_overlay_selected(id: String) -> void:
+	Backdrops.set_overlay_choice_quietly(id)
+	_save_display_settings()
+	_sync_background_controls()
+
+
+func _on_background_reset() -> void:
+	Backdrops.reset_choices()
+	_save_display_settings()
+	_sync_background_controls()
+
+
+## One of the chosen overlay's own settings (the stripe angle, the sparkle
+## density). The value is stored per overlay id, so switching away and back
+## keeps it.
+func _on_overlay_setting_selected(overlay_id: String, key: String, value: Variant) -> void:
+	Backdrops.set_overlay_setting(overlay_id, key, value)
+	_save_display_settings()
+	_sync_background_controls()
+
+
+## Keep the whole card showing Backdrops' current decision: the switches, the
+## two pickers (a picker never offers a style that is not installed), the
+## sentence saying what Auto picked, and the settings rows for the overlay in
+## force. Selecting through `set_item_index` is silent, so syncing never
+## re-enters the handlers.
+func _sync_background_controls() -> void:
+	var background_auto := Backdrops.background_choice == Backdrops.AUTO
+	var overlay_auto := Backdrops.overlay_choice == Backdrops.AUTO
+	if is_instance_valid(_background_auto_toggle):
+		_background_auto_toggle.set_pressed_no_signal(background_auto)
+	if is_instance_valid(_overlay_auto_toggle):
+		_overlay_auto_toggle.set_pressed_no_signal(overlay_auto)
+	_select_picker(_background_options,
+		Backdrops.background_choice if not background_auto else Backdrops.AUTO)
+	_select_picker(_overlay_options,
+		Backdrops.overlay_choice if not overlay_auto else Backdrops.AUTO)
+	if is_instance_valid(_background_auto_hint):
+		_background_auto_hint.text = Backdrops.auto_explanation()
+	_rebuild_overlay_settings()
+	if is_instance_valid(_background_preview):
+		_background_preview.refresh_style()
+
+
+## Point a picker at `id` without emitting. A style that vanished (its mod was
+## switched off) falls back to the first row rather than leaving the picker on
+## a stale index.
+func _select_picker(picker: OptionButton, id: String) -> void:
+	if not is_instance_valid(picker):
+		return
+	for index in range(picker.item_count):
+		if str(picker.get_item_metadata(index)) == id:
+			picker.select(index)
+			return
+	picker.select(0)
+
+
+## The settings the overlay in force exposes (none for most): a row of choices
+## per setting, laid out like the graphics controls above them. Rebuilt when
+## the overlay changes so the card never shows a knob the picture ignores.
+func _rebuild_overlay_settings() -> void:
+	if not is_instance_valid(_overlay_setting_rows):
+		return
+	for child in _overlay_setting_rows.get_children():
+		_overlay_setting_rows.remove_child(child)
+		child.queue_free()
+	var overlay_id := _overlay_in_force()
+	var schemas := MenuBackdropCatalog.settings_for(overlay_id)
+	if schemas.is_empty():
+		return
+	_overlay_setting_rows.add_child(_make_separator())
+	for schema in schemas:
+		_overlay_setting_rows.add_child(Kit.make_label(str(schema["name"]), 12, COLOR_TEXT))
+		var description := str(schema.get("description", ""))
+		if not description.is_empty():
+			var hint := Kit.make_label(description, 9, COLOR_QUIET)
+			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_overlay_setting_rows.add_child(hint)
+		var picker := OptionButton.new()
+		picker.name = "OverlaySetting_%s" % str(schema["key"])
+		picker.accessibility_name = str(schema["name"])
+		picker.custom_minimum_size.y = 38
+		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		picker.add_theme_font_size_override("font_size", 12)
+		var values: Array = schema["values"]
+		var labels: Array = schema["choices"]
+		for index in range(values.size()):
+			picker.add_item(str(labels[index]) if index < labels.size() else str(values[index]), index)
+			picker.set_item_metadata(index, values[index])
+		var current: Variant = Backdrops.overlay_settings.get(overlay_id, {}).get(
+			str(schema["key"]), schema["default"])
+		for index in range(values.size()):
+			if values[index] == current:
+				picker.select(index)
+				break
+		var key: String = str(schema["key"])
+		picker.item_selected.connect(func(index: int):
+			_on_overlay_setting_selected(overlay_id, key, picker.get_item_metadata(index)))
+		_overlay_setting_rows.add_child(picker)
+
+
+## The overlay id whose picture is on screen: the player's pick, or the one
+## Auto resolved to.
+func _overlay_in_force() -> String:
+	if Backdrops.overlay_choice != Backdrops.AUTO:
+		return Backdrops.overlay_choice
+	return Backdrops.auto_overlay_id()
+
 
 ## The one card the game's only benchmark gets: what the tour does, the
 ## rating the last run earned, and two buttons - Run Benchmark, which hands
@@ -1779,6 +2124,10 @@ func _save_display_settings() -> void:
 	config.set_value("display", "colorblind_mode", ColorblindMode.to_string_name(GameManager.colorblind_mode))
 	config.set_value("display", "minimap_enabled", GameManager.minimap_enabled)
 	PerformanceSettings.save_to_config(config)
+	# The menu background and overlay choices live in the Display section too,
+	# so they ride along with the rest of this page's settings.
+	if is_instance_valid(Backdrops):
+		Backdrops.save_to_config(config)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:

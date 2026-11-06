@@ -393,6 +393,7 @@ static func reset_live_preferences() -> void:
 	GameManager.set_camera_zoom_limits(
 		GameManager.CAMERA_MIN_ZOOM_DEFAULT, GameManager.CAMERA_MAX_ZOOM_DEFAULT)
 	GameManager.player_skin_id = ""
+	Backdrops.reset_choices()
 
 
 ## Empty the running game's career shelf to match the deleted sections.

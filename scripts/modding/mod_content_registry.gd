@@ -49,6 +49,14 @@ var _skin_roots: Array[String] = []
 var _tuning: Dictionary = {}  # dotted key -> float
 var _tuning_provenance: Dictionary = {}
 var _terrain_name_to_id: Dictionary = {}
+## Menu background styles and overlays a mod declared (`menu_backdrops` and
+## `menu_overlays` in its manifest), merged in load order, plus the setting
+## schemas they declare. They are pushed into MenuBackdropCatalog.
+var _menu_backdrops: Dictionary = {}  # id -> entry
+var _menu_overlays: Dictionary = {}  # id -> entry
+var _menu_overlay_settings: Dictionary = {}  # setting key -> schema
+var _menu_backdrop_sources: Dictionary = {}  # id -> mod id
+var _menu_overlay_sources: Dictionary = {}  # id -> mod id
 
 
 func _init() -> void:
@@ -93,6 +101,11 @@ func reset_mod_content() -> void:
 	_skin_roots.clear()
 	_tuning.clear()
 	_tuning_provenance.clear()
+	_menu_backdrops.clear()
+	_menu_overlays.clear()
+	_menu_overlay_settings.clear()
+	_menu_backdrop_sources.clear()
+	_menu_overlay_sources.clear()
 	SeasonalEvents.clear_registered_events()
 	BuildingSprites.clear_mod_sprites()
 	TreeOverlay.clear_mod_art()
@@ -195,6 +208,14 @@ func get_content_summary() -> Dictionary:
 		if not summary.has(source_mod):
 			summary[source_mod] = {}
 		summary[source_mod]["tuning"] = int(summary[source_mod].get("tuning", 0)) + 1
+	for source_mod in _menu_backdrop_sources.values():
+		if not summary.has(source_mod):
+			summary[source_mod] = {}
+		summary[source_mod]["backdrops"] = int(summary[source_mod].get("backdrops", 0)) + 1
+	for source_mod in _menu_overlay_sources.values():
+		if not summary.has(source_mod):
+			summary[source_mod] = {}
+		summary[source_mod]["overlays"] = int(summary[source_mod].get("overlays", 0)) + 1
 	return summary
 
 
@@ -249,6 +270,10 @@ func apply_mod_content(mod_id: String, mod_root: String, content: Dictionary) ->
 			_warn(mod_id, "tree_art_root '%s' holds no <species>[_n/_e/_s/_w].png or seasonal tree art." % art_root)
 	if content.has("tuning"):
 		_apply_tuning(mod_id, mod_root.path_join(str(content["tuning"])))
+	if content.has("menu_backdrops"):
+		_apply_menu_backdrops(mod_id, mod_root.path_join(str(content["menu_backdrops"])))
+	if content.has("menu_overlays"):
+		_apply_menu_overlays(mod_id, mod_root.path_join(str(content["menu_overlays"])))
 	_push_statics()
 	content_changed.emit()
 
@@ -270,6 +295,8 @@ func _push_statics() -> void:
 	WorldLocations.set_mod_visitors(_visitors)
 	GolferAttributes.set_mod_name_extras(_name_extras)
 	GolferSkinLibrary.set_extra_roots(_skin_roots)
+	MenuBackdropCatalog.set_mod_catalogues(_menu_backdrops, _menu_overlays,
+		_menu_overlay_settings, _menu_backdrop_sources, _menu_overlay_sources)
 	var colors: Dictionary = {}
 	for entry_id in _buildings:
 		var color_value: Variant = _buildings[entry_id].get("color", null) if _buildings[entry_id] is Dictionary else null
@@ -537,6 +564,116 @@ func _apply_tuning(mod_id: String, path: String) -> void:
 			_tuning_provenance[str(key)] = mod_id
 		else:
 			_warn(mod_id, "Tuning value '%s' is not a number; skipped." % key)
+
+
+## `menu_backdrops`: {backdrops: {id: entry}} in MenuBackdropCatalog's shape.
+## A backdrop's `image` is relative to the file's own folder unless it names a
+## full res:// or user:// path, so a mod ships art beside its JSON.
+func _apply_menu_backdrops(mod_id: String, path: String) -> void:
+	var entries: Variant = _read_wrapped(path, "backdrops", mod_id)
+	if not (entries is Dictionary):
+		return
+	var folder := path.get_base_dir()
+	for raw_id in entries:
+		var patch: Variant = entries[raw_id]
+		if not (patch is Dictionary):
+			_warn(mod_id, "Backdrop '%s' is not an object; skipped." % str(raw_id))
+			continue
+		var entry_id: String = _menu_entry_id(mod_id, str(raw_id), _menu_backdrops, false)
+		if entry_id.is_empty():
+			continue
+		var entry: Dictionary = (patch as Dictionary).duplicate(true)
+		entry.erase("__replace__")
+		entry["id"] = entry_id
+		# A patch is merged over the entry it patches - the shipped picture when
+		# the id names one, else what an earlier mod already wrote - so a sparse
+		# patch ("just change the tint") needs no image of its own.
+		var base: Dictionary = _menu_backdrops.get(entry_id, {})
+		if base.is_empty():
+			base = MenuBackdropCatalog.shipped_backdrop(entry_id)
+		var merged: Dictionary = MenuBackdropCatalog.deep_merge(base, entry) if not base.is_empty() else entry
+		var warning := MenuBackdropCatalog.normalise_backdrop(merged, folder)
+		if not warning.is_empty():
+			_warn(mod_id, warning)
+		if bool(merged.get("_invalid", false)):
+			continue
+		merged.erase("_invalid")
+		_menu_backdrops[entry_id] = merged
+		_menu_backdrop_sources[entry_id] = mod_id
+
+
+## `menu_overlays`: {overlays: {id: entry}, settings: {key: schema}}. The
+## settings block lets a mod add a choice (an angle, a density) that its own
+## patterns read; the shipped `angle` and `density` can be re-declared too.
+func _apply_menu_overlays(mod_id: String, path: String) -> void:
+	var parsed: Variant = _read_json_file(path)
+	if not (parsed is Dictionary):
+		_warn(mod_id, "menu_overlays '%s' could not be read." % path)
+		return
+	var settings: Variant = parsed.get("settings", {})
+	if settings is Dictionary:
+		for key in settings:
+			var schema: Variant = settings[key]
+			if not (schema is Dictionary) or not (schema.get("values", []) is Array):
+				_warn(mod_id, "Overlay setting '%s' needs a list of values; skipped." % str(key))
+				continue
+			_menu_overlay_settings[str(key)] = (schema as Dictionary).duplicate(true)
+	var entries: Variant = parsed.get("overlays", parsed)
+	if not (entries is Dictionary):
+		_warn(mod_id, "menu_overlays '%s' must hold an object of overlays." % path)
+		return
+	for raw_id in entries:
+		if str(raw_id) == "settings":
+			continue
+		var patch: Variant = entries[raw_id]
+		if not (patch is Dictionary):
+			_warn(mod_id, "Overlay '%s' is not an object; skipped." % str(raw_id))
+			continue
+		var entry_id: String = _menu_entry_id(mod_id, str(raw_id), _menu_overlays, true)
+		if entry_id.is_empty():
+			continue
+		var entry: Dictionary = (patch as Dictionary).duplicate(true)
+		entry.erase("__replace__")
+		entry["id"] = entry_id
+		var base: Dictionary = _menu_overlays.get(entry_id, {})
+		if base.is_empty():
+			base = MenuBackdropCatalog.shipped_overlay(entry_id)
+		var merged: Dictionary = MenuBackdropCatalog.deep_merge(base, entry) if not base.is_empty() else entry
+		var warning := MenuBackdropCatalog.normalise_overlay(merged)
+		if not warning.is_empty():
+			_warn(mod_id, warning)
+		_menu_overlays[entry_id] = merged
+		_menu_overlay_sources[entry_id] = mod_id
+
+
+## The wrapper key's contents: `{wrapper: {id: entry}}`, or the file itself
+## when it holds the entries bare.
+func _read_wrapped(path: String, wrapper: String, mod_id: String) -> Variant:
+	var parsed: Variant = _read_json_file(path)
+	if not (parsed is Dictionary):
+		_warn(mod_id, "'%s' could not be read." % path)
+		return null
+	var entries: Variant = parsed.get(wrapper, parsed)
+	return entries if entries is Dictionary else null
+
+
+## The id a menu style entry applies to: an existing id keeps its name (a
+## patch), anything new is namespaced to the mod, the rule every content kind
+## follows.
+func _menu_entry_id(mod_id: String, raw_id: String, catalog: Dictionary, overlay: bool) -> String:
+	var cleaned: String = raw_id.strip_edges()
+	if cleaned.is_empty():
+		_warn(mod_id, "A menu background entry with an empty id was skipped.")
+		return ""
+	if cleaned.contains(":"):
+		var claimed_by: String = cleaned.get_slice(":", 0)
+		if claimed_by != mod_id and not catalog.has(cleaned):
+			_warn(mod_id, "Entry '%s' claims another mod's namespace; skipped." % cleaned)
+			return ""
+		return cleaned
+	if catalog.has(cleaned) or MenuBackdropCatalog.has_shipped_entry(cleaned, overlay):
+		return cleaned
+	return resolve_new_id(mod_id, cleaned)
 
 
 func _warn(mod_id: String, message: String) -> void:
