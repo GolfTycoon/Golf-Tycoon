@@ -103,6 +103,12 @@ const TAB_RAIL_MIN_WIDTH := 58.0
 ## A 52px brush plate plus its 10px corner margin must fit even on a phone.
 const SHELF_BODY_MIN_WIDTH := 62.0
 const TAB_RAIL_GAP := 2.0
+## Tab medallions wear one diameter in every landscape layout, sized so all four
+## of a section's tabs plus their gaps fit the shelf inside the dock's one
+## height (4 × 44 + 3 × 2 = 182 ≤ the 186px row of a 190px bar). A larger touch
+## medallion would overlap its neighbours in that height instead of just
+## growing, so the tab rail relies on the page content for thumb-sized targets.
+const TAB_DIAMETER := 44.0
 const PORTRAIT_TAB_HEIGHT := 56.0
 const PORTRAIT_CONTROLS_TOP := 58.0
 const PORTRAIT_PAGE_TOP := 100.0
@@ -161,7 +167,6 @@ const TOOL_TAB_MAP := {
 	"course_milestones": Tab.CLUB,
 	"world_milestones": Tab.CLUB,
 	"achievements": Tab.CLUB,
-	"scorecard": Tab.HOLES,
 	"review": Tab.CLUB,
 	"finance": Tab.CLUB,
 	"feed": Tab.CLUB,
@@ -227,6 +232,9 @@ const HOLE_COLUMN_HEIGHT := 3
 const GOLFER_COLUMN_HEIGHT := 3
 const GOLFER_COLUMN_GAP := 10  # Between two columns of golfers
 const GOLFER_ROW_GAP := 4  # Between two golfers in the same column
+## Air under the page heading before the register starts, so the plates never
+## sit flush against the shelf's header row.
+const GOLFER_PAGE_TOP_GAP := 12.0
 const OPEN_HOLE_TOOLTIP := "Pair the waiting tee box with the waiting green with a hole"
 const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unused green with a hole"
 ## What the Bulldozer removes — improvements and buildings only. Course
@@ -241,8 +249,6 @@ var hole_grid: GridContainer = null  # Course holes buttons, three to a column (
 var terrain_grid: TerrainGrid = null  # Course terrain grid, for checking orphaned tee/green tiles
 var _hole_register: HBoxContainer = null
 var _hole_detail: HBoxContainer = null
-var _hole_scorecard: CourseScorecardView = null  # Shown in place of the register
-var _scorecard_open := false
 var _selected_hole: int = 0
 var golfer_data_provider: Callable = Callable()  # -> Array of golfer row dicts
 
@@ -305,11 +311,15 @@ var _tee_tile_button: TerrainTileButton = null
 var _green_places_cup := true
 var _tee_box_can_place: bool = true
 var _tee_box_blocker: String = ""
-var _visitor_shelf: HBoxContainer = null  # Active golfers first, followed by past visitors
+var _visitor_shelf: HBoxContainer = null  # Most recently started round first, on the course and in the archive
 var _visitor_archive: Dictionary = {}
 var _visitor_register: HBoxContainer
 var _visitor_detail: HBoxContainer
 var _selected_visitor := ""
+## Fingerprint of what the register last drew, so the one-second refresh can
+## leave a shelf alone when nothing about it changed. Freeing and rebuilding
+## the plates every second is what pulled the keyboard/gamepad focus off them.
+var _visitor_shelf_signature := "<unset>"
 var player_tab: PlayerTab
 var _building_registry: Dictionary = {}
 var _building_shelf: TileHoneycomb = null
@@ -339,8 +349,6 @@ func _ready() -> void:
 	EventBus.holes_reordered.connect(_on_holes_event_reordered)
 	EventBus.hole_difficulty_changed.connect(_on_hole_event_difficulty_changed)
 	EventBus.golfer_finished_hole.connect(_on_golfer_finished_hole_event)
-	EventBus.hole_created.connect(_on_hole_event_created)
-	EventBus.record_broken.connect(_on_record_broken_event)
 	EventBus.new_game_started.connect(_on_new_game_reset_holes_tab)
 	EventBus.load_completed.connect(_on_load_completed_reset_holes_tab)
 	if has_node("/root/Screen") and not Screen.changed.is_connected(_on_screen_changed):
@@ -383,10 +391,6 @@ func _exit_tree() -> void:
 		EventBus.hole_difficulty_changed.disconnect(_on_hole_event_difficulty_changed)
 	if EventBus.golfer_finished_hole.is_connected(_on_golfer_finished_hole_event):
 		EventBus.golfer_finished_hole.disconnect(_on_golfer_finished_hole_event)
-	if EventBus.hole_created.is_connected(_on_hole_event_created):
-		EventBus.hole_created.disconnect(_on_hole_event_created)
-	if EventBus.record_broken.is_connected(_on_record_broken_event):
-		EventBus.record_broken.disconnect(_on_record_broken_event)
 	if EventBus.new_game_started.is_connected(_on_new_game_reset_holes_tab):
 		EventBus.new_game_started.disconnect(_on_new_game_reset_holes_tab)
 	if EventBus.load_completed.is_connected(_on_load_completed_reset_holes_tab):
@@ -426,7 +430,7 @@ func apply_screen() -> void:
 				available -= parent.get_theme_constant("separation")
 	var rail_width := clampf(available - 2.0 * SHELF_PAD_X - SHELF_ROW_GAP
 			- SHELF_BODY_MIN_WIDTH, TAB_RAIL_MIN_WIDTH, TAB_RAIL_WIDTH)
-	var diameter := 52.0 if Screen.uses_touch_layout() else 44.0
+	var diameter := TAB_DIAMETER
 	# Reserve enough height for all four tabs, even on a three-tab section.
 	_tab_rail.custom_minimum_size = Vector2(rail_width, 4.0 * diameter + 3.0 * TAB_RAIL_GAP)
 	custom_minimum_size.x = rail_width + 2.0 * SHELF_PAD_X + SHELF_ROW_GAP + SHELF_BODY_MIN_WIDTH
@@ -472,14 +476,13 @@ func _on_screen_changed(_size: Vector2, _world_scale: float) -> void:
 ## The left fan's theoretical ellipse extends slightly past its canvas. Mirror
 ## the visible portion, scaled to this rail, so the two coloured rims meet at
 ## the dock/shelf seam instead of ending at different heights.
-static func _shelf_seam_inset(width: float, touch_layout: bool) -> float:
+static func _shelf_seam_inset(width: float) -> float:
 	var dock_radius := 0.0
 	for i in BottomControlDock.SECTION_POSITIONS.size():
 		dock_radius = maxf(dock_radius, BottomControlDock.SECTION_POSITIONS[i].x
 				+ BottomControlDock.SECTION_SIZES[i])
 	dock_radius += DockArcBackdrop.RIM_SIDE_MARGIN
-	var dock_width := BottomControlDock.TOUCH_WIDTH if touch_layout else BottomControlDock.WIDTH
-	return width * maxf(0.0, (dock_radius - dock_width) / dock_radius)
+	return width * maxf(0.0, (dock_radius - BottomControlDock.WIDTH) / dock_radius)
 
 ## Seat the visible tabs on the same mirrored ellipse as the backdrop. A plain
 ## Control lets them move horizontally instead of forcing a vertical column.
@@ -495,7 +498,7 @@ func _layout_tab_rail() -> void:
 			button.size = Vector2.ONE * 48.0
 		return
 	var curve_width := rail_origin.x + rail_rect.size.x
-	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
+	var inset := _shelf_seam_inset(curve_width)
 	var tabs: Array = SECTION_TABS[current_section]
 	var count := tabs.size()
 	if count == 0:
@@ -571,7 +574,7 @@ func _sync_backdrop() -> void:
 			_page_title.size = Vector2(title_width, HEADER_HEIGHT)
 	var rail_rect := _tab_rail.get_global_rect()
 	var curve_width := rail_rect.end.x - origin.x
-	var inset := _shelf_seam_inset(curve_width, Screen.uses_touch_layout())
+	var inset := _shelf_seam_inset(curve_width)
 	_backdrop.set_curve(curve_width, inset)
 	# The pages are cut to the same curve, so a page reaches under the tab rail
 	# exactly as far as the fairway does and never over its rim.
@@ -1359,31 +1362,28 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	# the tab carries a card that opens the map straight onto it. It is an
 	# action rather than a hole, so it stands beside the grid, not in it —
 	# and it leads the register on the left, before the hole buttons.
-	var map_card := DockActionButton.new()
+	var actions := VBoxContainer.new()
+	actions.name = "HoleActions"
+	actions.add_theme_constant_override("separation", 6)
+	actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	_hole_register.add_child(actions)
+	# Spacer pushes the larger circular button visibly lower in the shelf,
+	# away from the header title and toward the hole register's baseline.
+	var holes_spacer := Control.new()
+	holes_spacer.name = "HolesMapSpacer"
+	holes_spacer.custom_minimum_size = Vector2(0, 22)
+	holes_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	actions.add_child(holes_spacer)
+	var map_card := MapCircleButton.new()
+	map_card.name = "HolesMapButton"
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
 	map_card.glyph = "holes"
-	# The Holes tab lives in the Manage section now, so its card wears that
-	# section's colour rather than Build's.
-	map_card.accent_section = Section.MANAGE
-	map_card.tool_description = "The whole course on one map, on Routing Holes: reorder the round, turn a hole, set its par, open or shut it"
+	map_card.accent = SECTION_COLORS[Section.MANAGE]
+	map_card.tool_description = "The whole course on one map in Routing Holes: reorder the round, set par, and read the scorecard and course records"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
-	_hole_register.add_child(map_card)
-
-	# The course scorecard — every hole's par, yardage, stroke index and average,
-	# with the course records — used to be a popup of its own. It is the Holes
-	# tab's card now, the way the map card opens the Course Map: pressing it
-	# swaps the register for the scorecard view, and its back button returns.
-	var scorecard_card := DockActionButton.new()
-	scorecard_card.name = "ScorecardCard"
-	scorecard_card.tool_type = "scorecard"
-	scorecard_card.tool_name = "Scorecard"
-	scorecard_card.glyph = "holes"
-	scorecard_card.accent_section = Section.MANAGE
-	scorecard_card.hotkey = "K"
-	scorecard_card.tool_description = "The course scorecard: every hole's par, yardage, stroke index and average score, with the course records"
-	scorecard_card.tool_pressed.connect(_on_tool_button_pressed)
-	_hole_register.add_child(scorecard_card)
+	actions.add_child(map_card)
 
 	hole_grid = GridContainer.new()
 	hole_grid.name = "HoleGrid"
@@ -1399,12 +1399,6 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	_hole_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_hole_detail.visible = false
 	hbox.add_child(_hole_detail)
-
-	_hole_scorecard = CourseScorecardView.new()
-	_hole_scorecard.name = "CourseScorecard"
-	_hole_scorecard.visible = false
-	_hole_scorecard.back_requested.connect(close_course_scorecard)
-	hbox.add_child(_hole_scorecard)
 
 ## Re-seat the hole buttons so they read three deep down each column before the
 ## next column starts. main.gd adds and removes one button per hole, but the
@@ -1444,6 +1438,13 @@ func _build_golfers_tab(hbox: HBoxContainer) -> void:
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 6)
 	hbox.add_child(page)
+	# Breathing room between the shelf's page heading and the register, so
+	# the plates never sit flush under the header.
+	var heading_spacing := Control.new()
+	heading_spacing.name = "GolfersPageHeadingSpacing"
+	heading_spacing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heading_spacing.custom_minimum_size = Vector2(0, GOLFER_PAGE_TOP_GAP)
+	page.add_child(heading_spacing)
 	_visitor_register = HBoxContainer.new()
 	_visitor_register.add_theme_constant_override("separation", 16)
 	page.add_child(_visitor_register)
@@ -1493,7 +1494,13 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 	for group in groups:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
-		for action in group[1]:
+		var column: VBoxContainer
+		for i in group[1].size():
+			if i % 2 == 0:
+				column = VBoxContainer.new()
+				column.add_theme_constant_override("separation", 6)
+				row.add_child(column)
+			var action: Array = group[1][i]
 			var button := DockActionButton.new()
 			button.tool_type = action[0]
 			button.tool_name = action[1]
@@ -1503,9 +1510,9 @@ func _build_club_tab(hbox: HBoxContainer) -> void:
 			button.tool_pressed.connect(_on_tool_button_pressed)
 			if action[0] == "feed":
 				button.name = "FeedBtn"
-				button.tooltip_text = "Course event feed (N)"
+				button.tooltip_text = "Course event feed"
 				feed_button = button
-			row.add_child(button)
+			column.add_child(button)
 		hbox.add_child(_make_tab_group(group[0].to_upper(), row, true))
 	set_feed_unread_count(feed_unread_count)
 
@@ -1517,14 +1524,40 @@ func set_feed_unread_count(count: int) -> void:
 	feed_unread_count = count
 	if is_instance_valid(feed_button):
 		feed_button.notification_count = count
-		feed_button.tooltip_text = "Course event feed (N)" if count <= 0 \
-			else "Course event feed (N) — %d unread" % count
+		feed_button.tooltip_text = "Course event feed" if count <= 0 \
+			else "Course event feed — %d unread" % count
 	var club_tab := _tab_buttons.get(Tab.CLUB) as PixelCircleButton
 	if club_tab:
 		club_tab.notification_count = count
 	feed_unread_count_changed.emit(count)
 
 func _build_staff_tab(hbox: HBoxContainer) -> void:
+	# The crew's ground is the Course Map's Staff mode, so the tab
+	# carries a card that opens the map straight onto it. It is an
+	# action rather than a roster row, so it stands beside the panel,
+	# not inside it — and it leads the shelf on the left, before the
+	# roster, the way the Holes Map card leads the hole register.
+	var staff_actions := VBoxContainer.new()
+	staff_actions.name = "StaffMapActions"
+	staff_actions.add_theme_constant_override("separation", 6)
+	staff_actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	staff_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_child(staff_actions)
+	var staff_spacer := Control.new()
+	staff_spacer.name = "StaffMapSpacer"
+	staff_spacer.custom_minimum_size = Vector2(0, 22)
+	staff_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	staff_actions.add_child(staff_spacer)
+	var map_card := MapCircleButton.new()
+	map_card.name = "StaffMapButton"
+	map_card.tool_type = "staff_map"
+	map_card.tool_name = "Staff Map"
+	map_card.glyph = "staff"
+	map_card.accent = SECTION_COLORS[Section.MANAGE]
+	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
+	map_card.tool_pressed.connect(_on_tool_button_pressed)
+	staff_actions.add_child(map_card)
+
 	# Staff management lives in the tab itself — condition, hire/fire, roster, effects.
 	_staff_panel = StaffPanel.new()
 	_staff_panel.name = "StaffPanel"
@@ -1533,17 +1566,6 @@ func _build_staff_tab(hbox: HBoxContainer) -> void:
 	_staff_panel.area_move_requested.connect(func(index: int):
 		staff_area_move_requested.emit(index))
 	hbox.add_child(_staff_panel)
-	# The crew's ground is the Course Map's Staff mode, so the tab
-	# carries a card that opens the map straight onto it. It is an
-	# action rather than a roster row, so it stands beside the panel,
-	# not inside it.
-	var map_card := DockActionButton.new()
-	map_card.tool_type = "staff_map"
-	map_card.tool_name = "Staff Map"
-	map_card.glyph = "staff"
-	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
-	map_card.tool_pressed.connect(_on_tool_button_pressed)
-	hbox.add_child(map_card)
 
 ## Reflect the active area-repositioning mode back into the roster buttons.
 func set_staff_area_mode_index(index: int) -> void:
@@ -1656,7 +1678,7 @@ func _add_tool_button(parent: Control, tool_def: Dictionary) -> ToolButton:
 	return btn
 
 func _is_menu_action(tool_type: String) -> bool:
-	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "scorecard", "review", "finance", "feed", "tournaments", "play_course"]
+	return tool_type in ["course_map", "holes_map", "staff_map", "aura_map", "world_map", "marketing", "course_milestones", "world_milestones", "achievements", "review", "finance", "feed", "tournaments", "play_course"]
 
 func _make_small_group_label(text: String) -> Label:
 	var lbl = Label.new()
@@ -2054,7 +2076,6 @@ func _on_refresh_tick() -> void:
 # =============================================================================
 
 func show_hole_detail(hole_number: int) -> void:
-	_scorecard_open = false
 	_selected_hole = hole_number
 	select_tab(Tab.HOLES)
 
@@ -2062,43 +2083,13 @@ func close_hole_detail() -> void:
 	_selected_hole = 0
 	_refresh_holes_tab()
 
-## The Holes tab's Scorecard card and the K shortcut both open the course
-## scorecard here. It replaces the hole register, the way a hole's detail does.
-func show_course_scorecard() -> void:
-	_selected_hole = 0
-	_scorecard_open = true
-	select_tab(Tab.HOLES)
-
-## Back to the hole register from the scorecard.
-func close_course_scorecard() -> void:
-	_scorecard_open = false
-	_refresh_holes_tab()
-
-## True while the Holes tab is up with the course scorecard showing.
-func is_course_scorecard_showing() -> bool:
-	return _scorecard_open and current_tab == Tab.HOLES
-
-func _scorecard_showing() -> bool:
-	return _scorecard_open and _selected_hole == 0 and current_tab == Tab.HOLES and is_visible_in_tree()
-
-## The scorecard reads the course's holes, scores and records, so any change to
-## them rebuilds it while it is on screen. Nothing is rebuilt otherwise.
-func _refresh_scorecard_if_showing() -> void:
-	if _scorecard_showing():
-		_hole_scorecard.refresh()
-
 func _on_hole_event_updated(hole_number: int) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
-	_refresh_scorecard_if_showing()
 
 func _on_hole_event_toggled(hole_number: int, _is_open: bool) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
-	_refresh_scorecard_if_showing()
-
-func _on_hole_event_created(_hole_number: int, _par: int, _distance_yards: int) -> void:
-	_refresh_scorecard_if_showing()
 
 func _on_hole_event_deleted(_hole_number: int) -> void:
 	_selected_hole = 0
@@ -2111,24 +2102,17 @@ func _on_holes_event_reordered(_order: Array) -> void:
 func _on_hole_event_difficulty_changed(hole_number: int, _difficulty: float) -> void:
 	if _selected_hole == hole_number:
 		_refresh_holes_tab()
-	_refresh_scorecard_if_showing()
 
 func _on_golfer_finished_hole_event(_golfer_id: int, hole_number: int, _strokes: int, _par: int) -> void:
 	if _selected_hole == hole_number and is_visible_in_tree() and current_tab == Tab.HOLES:
 		_refresh_holes_tab()
-	_refresh_scorecard_if_showing()
-
-func _on_record_broken_event(_record_type: String, _golfer_name: String, _value: int, _hole_number: int) -> void:
-	_refresh_scorecard_if_showing()
 
 func _on_new_game_reset_holes_tab() -> void:
 	_selected_hole = 0
-	_scorecard_open = false
 	_refresh_holes_tab()
 
 func _on_load_completed_reset_holes_tab(_success: bool) -> void:
 	_selected_hole = 0
-	_scorecard_open = false
 	_refresh_holes_tab()
 
 func _has_hole(hole_number: int) -> bool:
@@ -2157,23 +2141,18 @@ func _find_hole_data(hole_number: int) -> GameManager.HoleData:
 	return fallback
 
 func _refresh_holes_tab() -> void:
-	if _hole_register == null or _hole_detail == null or _hole_scorecard == null:
+	if _hole_register == null or _hole_detail == null:
 		return
 	if _selected_hole > 0 and not _has_hole(_selected_hole):
 		_selected_hole = 0
-	# The hole detail and the scorecard each take the shelf in place of the
-	# register; a picked hole wins if both were ever left open.
+	# A picked hole takes the shelf in place of the register.
 	var showing_detail := _selected_hole > 0
-	var showing_scorecard := _scorecard_open and not showing_detail
-	_hole_register.visible = not showing_detail and not showing_scorecard
+	_hole_register.visible = not showing_detail
 	_hole_detail.visible = showing_detail
-	_hole_scorecard.visible = showing_scorecard
 	if showing_detail:
 		_show_hole(_selected_hole)
 	else:
 		_clear_shelf(_hole_detail)
-	if showing_scorecard and current_tab == Tab.HOLES:
-		_hole_scorecard.refresh()
 	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES else 0)
 
 func _show_hole(hole_number: int) -> void:
@@ -2204,7 +2183,7 @@ func _show_hole(hole_number: int) -> void:
 	if tee_orphaned or green_orphaned:
 		var missing := "tee & green" if tee_orphaned and green_orphaned else ("tee" if tee_orphaned else "green")
 		identity.add_child(_visitor_label("Warning: Missing %s" % missing, UIConstants.COLOR_WARNING))
-	var locate := _visitor_button("Locate hole", Color("87b9cf"))
+	var locate := _locate_button()
 	locate.name = "LocateHoleButton"
 	locate.tooltip_text = "Center the camera on Hole %d" % hole_data.hole_number
 	locate.pressed.connect(func(): hole_locate_requested.emit(hole_data.hole_number))
@@ -2371,10 +2350,9 @@ func _refresh_golfer_lists() -> void:
 	if _visitor_shelf == null:
 		return
 
-	# The old columns leave their shelves straight away. A child waiting on
-	# queue_free() is still in the tree, so it would still take up shelf space
-	# and sit beside the fresh columns until the end of the frame.
-	_clear_shelf(_visitor_shelf)
+	# Where the keyboard/gamepad focus sits, captured before anything is torn
+	# down, so the refresh can put it back on the same visitor afterwards.
+	var focus_saved := _remember_visitor_focus()
 
 	var rows: Array = []
 	if golfer_data_provider.is_valid():
@@ -2391,15 +2369,158 @@ func _refresh_golfer_lists() -> void:
 	_visitor_detail.visible = not _selected_visitor.is_empty()
 	if not _selected_visitor.is_empty():
 		_show_visitor(_selected_visitor, active_names.has(_selected_visitor))
+
+	# The register reads most recently started round first, on the course and
+	# in the archive alike: golfer ids are allocated in spawn order, so the
+	# newest round leads the shelf. Entries without one (recorded before ids
+	# were kept) trail oldest first, keeping their original relative order.
+	var entries := _visitor_shelf_entries(rows, active_names)
+
+	# The one-second refresh leaves a register alone when it would draw the
+	# same plates in the same order: the focusable buttons are not freed out
+	# from under the keyboard or the gamepad, and hover survives too.
+	var signature := _visitor_shelf_signature_for(entries)
+	if signature == _visitor_shelf_signature:
+		_restore_visitor_focus(focus_saved)
+		return
+
+	# The old columns leave their shelves straight away. A child waiting on
+	# queue_free() is still in the tree, so it would still take up shelf space
+	# and sit beside the fresh columns until the end of the frame.
+	_clear_shelf(_visitor_shelf)
+	_visitor_shelf_signature = signature
 	var golfer_rows: Array[Control] = []
-	for row_data in rows:
-		golfer_rows.append(_make_golfer_row(row_data))
-	for visitor_name in _visitor_archive:
-		if not active_names.has(visitor_name):
-			golfer_rows.append(_make_visitor_card(_visitor_archive[visitor_name], false))
+	for entry in entries:
+		golfer_rows.append(_make_visitor_card(entry["data"], entry["active"]))
 	if golfer_rows.is_empty():
 		golfer_rows.append(_make_empty_label("Your next regular starts here.\nGolfers will appear when they visit your course."))
 	_stack_in_columns(_visitor_shelf, golfer_rows, GOLFER_COLUMN_HEIGHT, GOLFER_ROW_GAP)
+	_restore_visitor_focus(focus_saved)
+
+## The cards the register would draw, most recently started round first.
+## Golfer ids are allocated in spawn order, so a higher id means a later
+## round start. Entries without an id - recorded before ids were kept -
+## sort oldest, and equal keys keep their original relative order.
+func _visitor_shelf_entries(rows: Array, active_names: Dictionary) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var slot := 0
+	for row_data in rows:
+		entries.append({"data": row_data, "active": true,
+			"key": int(row_data.get("id", -1)), "order": slot})
+		slot += 1
+	for visitor_name in _visitor_archive:
+		if not active_names.has(visitor_name):
+			var entry: Dictionary = _visitor_archive[visitor_name]
+			entries.append({"data": entry, "active": false,
+				"key": int(entry.get("id", -1)), "order": slot})
+			slot += 1
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["key"]) != int(b["key"]):
+			return int(a["key"]) > int(b["key"])
+		return int(a["order"]) < int(b["order"]))
+	return entries
+
+## A fingerprint of what the register would draw - one part per card, in the
+## order the cards would be laid - so the one-second refresh can tell whether
+## rebuilding changes anything at all. The portrait's instance id stands in
+## for the art: skins rebuilt for a changed library get fresh textures, so a
+## recolour shows up here too.
+func _visitor_shelf_signature_for(entries: Array[Dictionary]) -> String:
+	var parts: Array[String] = []
+	for entry in entries:
+		var data: Dictionary = entry["data"]
+		var prefix := "A" if entry["active"] else "P"
+		parts.append("%s:%s:%d" % [prefix, str(data.get("name", "Golfer")),
+			_portrait_fingerprint(data.get("portrait"))])
+	if parts.is_empty():
+		return "empty"
+	return "|".join(parts)
+
+func _portrait_fingerprint(portrait: Variant) -> int:
+	return portrait.get_instance_id() if portrait is Texture2D else 0
+
+## Where the keyboard/gamepad focus sits inside the Golfers tab, so a refresh
+## can put it back on the same visitor after the buttons are rebuilt. Both
+## the register and an open profile rebuild wholesale while the tab is open;
+## without this the focused control is freed and focus falls back to the
+## dock's starting button. Returns an empty dictionary when the focus is
+## elsewhere (or nothing holds it).
+func _remember_visitor_focus() -> Dictionary:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return {}
+	if _visitor_shelf != null and _visitor_shelf.is_ancestor_of(focused):
+		var visitor := _visitor_name_in_shelf(focused)
+		if visitor.is_empty():
+			return {}
+		return {"where": "shelf", "visitor": visitor,
+			"role": "card" if focused is VisitorCardButton else "locate"}
+	if _visitor_detail != null and _visitor_detail.is_ancestor_of(focused):
+		if _visitor_detail.get_child_count() > 0 and focused == _visitor_detail.get_child(0):
+			return {"where": "detail", "role": "back"}
+		if focused is Button and (focused as Button).tooltip_text.begins_with("Center the camera on "):
+			return {"where": "detail", "role": "locate"}
+	return {}
+
+## The name on the plate of the row `control` stands in, walking up from the
+## control to the column that holds it.
+func _visitor_name_in_shelf(control: Control) -> String:
+	var node: Node = control
+	while node != null:
+		var parent := node.get_parent()
+		if parent is VBoxContainer and parent.get_parent() == _visitor_shelf:
+			for child in node.get_children():
+				if child is VisitorCardButton:
+					return (child as VisitorCardButton).text
+			return ""
+		node = parent
+	return ""
+
+## Give the focus back after a rebuild: the same visitor's plate, or the
+## Locate button beside it. Falls back silently when that visitor is gone -
+## the register no longer holds them, so there is nothing to focus.
+func _restore_visitor_focus(saved: Dictionary) -> void:
+	if saved.is_empty():
+		return
+	match str(saved.get("where", "")):
+		"shelf":
+			var row := _find_visitor_row(str(saved.get("visitor", "")))
+			if row == null:
+				return
+			if str(saved.get("role", "card")) == "locate":
+				for child in row.get_children():
+					if child is Button and not (child is VisitorCardButton):
+						(child as Button).grab_focus()
+						return
+			(row.get_child(0) as Control).grab_focus()
+		"detail":
+			if str(saved.get("role", "")) == "back":
+				if _visitor_detail.get_child_count() > 0:
+					var back := _visitor_detail.get_child(0) as Button
+					if back != null:
+						back.grab_focus()
+			else:
+				var locate := _find_locate_button(_visitor_detail)
+				if locate != null:
+					locate.grab_focus()
+
+func _find_visitor_row(visitor: String) -> HBoxContainer:
+	for column in _visitor_shelf.get_children():
+		for row in column.get_children():
+			for child in row.get_children():
+				if child is VisitorCardButton and (child as VisitorCardButton).text == visitor:
+					return row as HBoxContainer
+	return null
+
+func _find_locate_button(root: Node) -> Button:
+	for child in root.get_children():
+		if child is Button and not (child is VisitorCardButton) \
+				and (child as Button).tooltip_text.begins_with("Center the camera on "):
+			return child as Button
+		var found := _find_locate_button(child)
+		if found != null:
+			return found
+	return null
 
 ## Take every column off a shelf. The columns are only removed here and freed at
 ## the end of the frame, so a refresh can never free a row out from under a
@@ -2447,31 +2568,34 @@ func _visitor_button(text: String, accent: Color) -> Button:
 	PixelButtonStyle.paint_card(button, accent, 0, 6, Color("e4e7d5"), Color.WHITE)
 	return button
 
-func _make_golfer_row(row_data: Dictionary) -> Control:
-	return _make_visitor_card(row_data, true)
-
-func _make_round_row(round_data: Dictionary) -> Control:
-	return _make_visitor_card(round_data, false)
+## Shared camera-focus action for the golfer and hole shelves.
+func _locate_button() -> Button:
+	var button := _visitor_button("", Color("87b9cf"))
+	button.icon = preload("res://assets/ui/icons/locate.svg")
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.custom_minimum_size = Vector2(36, 36)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return button
 
 func _make_visitor_card(data: Dictionary, active: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	var accent := Color("83c9a4") if active else Color("b5a477")
-	var portrait := VisitorPortrait.new()
-	portrait.texture = data.get("portrait")
-	row.add_child(portrait)
 	var name_text := str(data.get("name", "Golfer"))
-	var subtitle := "PLAYING  /  H%02d  /  %d strokes" % [data.get("hole", 1), data.get("strokes", 0)] if active else "PAST VISITOR  /  %d strokes" % data.get("strokes", 0)
-	var button := _visitor_button(name_text + "\n" + subtitle, accent)
-	button.custom_minimum_size = Vector2(260, 44)
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.tooltip_text = "View %s's profile" % name_text
-	button.pressed.connect(func():
+	# A plate carrying exactly the golfer's skin sprite and name; the round's
+	# details live in the profile it opens.
+	var card := VisitorCardButton.new()
+	card.portrait = data.get("portrait")
+	card.accent = accent
+	card.active = active
+	card.text = name_text
+	card.tooltip_text = "View %s's profile" % name_text
+	card.pressed.connect(func():
 		_selected_visitor = name_text
 		_refresh_golfer_lists())
-	row.add_child(button)
+	row.add_child(card)
 	if active:
-		var locate := _visitor_button("Locate", Color("87b9cf"))
+		var locate := _locate_button()
 		locate.custom_minimum_size.y = 44
 		locate.tooltip_text = "Center the camera on " + name_text
 		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
@@ -2497,7 +2621,8 @@ func _show_visitor(visitor_name: String, active: bool) -> void:
 	identity.add_child(_visitor_label("Strokes: %d" % data.get("strokes", 0)))
 	if active:
 		identity.add_child(_visitor_label("Hole: %d  /  Attitude: %d%%" % [data.get("hole", 1), int(float(data.get("attitude", 0.5)) * 100)]))
-		var locate := _visitor_button("Locate golfer", Color("87b9cf"))
+		var locate := _locate_button()
+		locate.tooltip_text = "Center the camera on " + visitor_name
 		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
 		identity.add_child(locate)
 	elif data.has("day"):
@@ -2616,8 +2741,6 @@ func _on_tool_button_pressed(tool_type) -> void:
 				world_milestones_pressed.emit()
 			"achievements":
 				achievements_pressed.emit()
-			"scorecard":
-				show_course_scorecard()
 			"review":
 				# Legacy Review button now opens Aura mode (full review lives there)
 				course_review_pressed.emit()

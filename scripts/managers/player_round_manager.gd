@@ -11,7 +11,13 @@ const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
 ## them out in gold, so the pages name their columns from one place.
 const DETAILS_TITLE := "Golfer Details"
 const TRAITS_TITLE := "Golfer Traits"
-const SKILLS_TITLE := "Golfer Skills"
+## The same visiting green used by the on-course golfer cards.
+const GOLFER_SKILL_ACCENT := Color("83c9a4")
+## A narrower version of the visitor name plate, retaining its height.
+const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
+## Marks buttons whose shared visitor-card styling must not be replaced by the
+## owner's ordinary pixel controls during the final styling pass.
+const GOLFER_SKILL_CARD_META := "golfer_skill_card"
 ## The heading of the column that holds the ground the owner's own golfer
 ## works when they are not playing.
 const WORK_AREA_TITLE := "On the course"
@@ -53,6 +59,15 @@ var _skin_preview: Golfer = null
 var _skin_preview_box: Control = null
 var mode_picker: OptionButton
 var pro_picker: OptionButton
+## Pros added to the next owner round from the Play Course roster.
+var _selected_pros: Array[String] = []
+var _add_golfer_button: Button = null
+var _pro_roster: HBoxContainer = null
+var _round_players_row: HBoxContainer = null
+var _pro_menu: PopupMenu = null
+var _pro_preview_nodes: Dictionary = {}
+var _round_player_preview: Golfer = null
+var _round_player_preview_box: Control = null
 var skill_labels: Array[Label] = []
 var points_label: Label
 var start_button: Button
@@ -369,6 +384,7 @@ func _build_skin_preview(edit_page: HBoxContainer) -> void:
 
 
 func _refresh_skin_preview() -> void:
+	_refresh_round_player_preview()
 	if _skin_preview == null or _skin_preview_box == null:
 		return
 	_skin_preview.player_profile = draft
@@ -406,6 +422,160 @@ func _layout_skin_preview() -> void:
 	# Golfer sprites sit eight source pixels above the golfer's origin.
 	_skin_preview.position = Vector2(_skin_preview_box.size.x * 0.5,
 		_skin_preview_box.size.y * 0.5 + 8.0 * scale_factor)
+
+
+func _refresh_round_player_preview() -> void:
+	if not is_instance_valid(_round_player_preview) or draft == null:
+		return
+	_round_player_preview.player_profile = draft
+	if _round_player_preview.use_skin_sprites():
+		_round_player_preview.refresh_skin_sprites()
+		var sprite := _round_player_preview.sprite_node()
+		if sprite != null and sprite.sprite_frames != null \
+				and sprite.sprite_frames.has_animation("idle_south"):
+			sprite.play("idle_south")
+	else:
+		_round_player_preview._update_visual()
+	_layout_round_player_preview()
+
+
+func _layout_round_player_preview() -> void:
+	_layout_golfer_portrait(_round_player_preview, _round_player_preview_box)
+
+
+func _layout_golfer_portrait(golfer: Golfer, box: Control) -> void:
+	if not is_instance_valid(golfer) or not is_instance_valid(box):
+		return
+	var available := box.size - Vector2(6, 6)
+	if available.x <= 0.0 or available.y <= 0.0:
+		return
+	var sprite := golfer.sprite_node()
+	var sprite_size := Vector2(48, 48)
+	if sprite != null and sprite.sprite_frames != null:
+		var animation: StringName = sprite.animation
+		if sprite.sprite_frames.has_animation("idle_south"):
+			animation = &"idle_south"
+		if sprite.sprite_frames.has_animation(animation) and sprite.sprite_frames.get_frame_count(animation) > 0:
+			var texture: Texture2D = sprite.sprite_frames.get_frame_texture(animation, 0)
+			if texture != null:
+				sprite_size = texture.get_size()
+	if sprite_size.x <= 0.0 or sprite_size.y <= 0.0:
+		return
+	var scale_factor := minf(available.x / sprite_size.x, available.y / sprite_size.y)
+	golfer.scale = Vector2.ONE * scale_factor
+	golfer.position = Vector2(box.size.x * 0.5, box.size.y * 0.5 + 8.0 * scale_factor)
+
+
+func _create_add_golfer_icon() -> Texture2D:
+	var image := Image.create(20, 20, false, Image.FORMAT_RGBA8)
+	image.fill(Color.TRANSPARENT)
+	var icon_color := Color("f0bf59")
+	image.fill_rect(Rect2i(8, 3, 4, 14), icon_color)
+	image.fill_rect(Rect2i(3, 8, 14, 4), icon_color)
+	return ImageTexture.create_from_image(image)
+
+
+func _create_add_golfer_button() -> void:
+	if not is_instance_valid(_round_players_row) or is_instance_valid(_add_golfer_button):
+		return
+	_add_golfer_button = Button.new()
+	_add_golfer_button.name = "AddGolferButton"
+	_add_golfer_button.tooltip_text = "Add a pro golfer to this round (up to three)."
+	_add_golfer_button.custom_minimum_size = Vector2(52, 36)
+	_add_golfer_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_add_golfer_button.icon = _create_add_golfer_icon()
+	_add_golfer_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_add_golfer_button.pressed.connect(_open_add_golfer_menu)
+	_round_players_row.add_child(_add_golfer_button)
+	_pro_menu = PopupMenu.new()
+	_pro_menu.id_pressed.connect(_on_add_golfer_selected)
+	_add_golfer_button.add_child(_pro_menu)
+
+
+func _make_pro_portrait(pro_name: String) -> void:
+	var card := VBoxContainer.new()
+	card.custom_minimum_size.x = 52
+	card.add_theme_constant_override("separation", 0)
+	var box := Control.new()
+	box.name = "ProPreview"
+	box.custom_minimum_size = Vector2(52, 66)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.clip_contents = true
+	card.add_child(box)
+	var preview := Golfer.new()
+	preview.name = pro_name.replace(" ", "") + "Preview"
+	preview.golfer_tier = GolferTier.Tier.PRO
+	preview.golfer_name = pro_name
+	preview.defer_skin_setup = true
+	preview.set_physics_process(false)
+	preview.set_process(false)
+	box.add_child(preview)
+	preview.input_pickable = false
+	if not preview.use_skin_sprites():
+		preview._update_visual()
+	_pro_preview_nodes[pro_name] = preview
+	box.resized.connect(_layout_golfer_portrait.bind(preview, box))
+	var remove_row := HBoxContainer.new()
+	remove_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var remove := Button.new()
+	remove.name = "RemoveProButton"
+	remove.text = "×"
+	remove.tooltip_text = "Remove %s from this round" % pro_name
+	remove.custom_minimum_size = Vector2(24, 20)
+	remove.add_theme_font_size_override("font_size", 9)
+	remove.pressed.connect(_remove_round_pro.bind(pro_name))
+	remove_row.add_child(remove)
+	card.add_child(remove_row)
+	card.tooltip_text = pro_name
+	_pro_roster.add_child(card)
+
+
+func _open_add_golfer_menu() -> void:
+	if not is_instance_valid(_pro_menu) or not is_instance_valid(_add_golfer_button):
+		return
+	_pro_menu.clear()
+	for index in PROS.size():
+		if not _selected_pros.has(PROS[index]):
+			_pro_menu.add_item(PROS[index], index)
+	if _pro_menu.item_count == 0:
+		return
+	var menu_position := _add_golfer_button.global_position + Vector2(0, _add_golfer_button.size.y)
+	_pro_menu.popup(Rect2i(Vector2i(menu_position), Vector2i(maxi(160, int(_add_golfer_button.size.x)), 0)))
+
+
+func _on_add_golfer_selected(pro_index: int) -> void:
+	if pro_index < 0 or pro_index >= PROS.size() or _selected_pros.size() >= 3:
+		return
+	var pro_name: String = PROS[pro_index]
+	if not _selected_pros.has(pro_name):
+		_selected_pros.append(pro_name)
+	_refresh_pro_roster()
+
+
+func _remove_round_pro(pro_name: String) -> void:
+	_selected_pros.erase(pro_name)
+	_refresh_pro_roster()
+
+
+func _refresh_pro_roster() -> void:
+	if not is_instance_valid(_pro_roster):
+		return
+	for child in _pro_roster.get_children():
+		_pro_roster.remove_child(child)
+		child.queue_free()
+	_pro_preview_nodes.clear()
+	for pro_name in _selected_pros:
+		_make_pro_portrait(pro_name)
+	if _selected_pros.size() >= 3:
+		if is_instance_valid(_add_golfer_button):
+			_round_players_row.remove_child(_add_golfer_button)
+			_add_golfer_button.queue_free()
+			_add_golfer_button = null
+			_pro_menu = null
+	else:
+		_create_add_golfer_button()
+		if is_instance_valid(_add_golfer_button):
+			_add_golfer_button.tooltip_text = "Add a pro golfer to this round (%d of 3 added)." % _selected_pros.size()
 
 
 ## Wear one of the Golfer Skins: it belongs to the player rather than to the
@@ -476,6 +646,7 @@ func _persist_player_profile() -> void:
 	var owner_manager := GameManager.player_golfer_manager
 	if owner_manager != null:
 		owner_manager.refresh_profile()
+	_refresh_round_player_preview()
 
 
 ## The PlayerGolferProfile colour keys the Golfer Skin the owner wears does not
@@ -562,6 +733,43 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
+## A Golfer Skill as a selectable name plate in the Visiting Golfers visual
+## language: the same pixel font and card frame on a narrower footprint. Off is
+## a quiet outlined card; On uses a solid green fill and dark caption so the
+## enabled state stands out without a separate checkbox.
+func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
+	var button := Button.new()
+	button.text = skill_name
+	button.toggle_mode = true
+	button.button_pressed = is_on
+	button.custom_minimum_size = GOLFER_SKILL_BUTTON_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.focus_mode = Control.FOCUS_ALL
+	button.accessibility_description = "%s golfer skill. Toggle on or off." % skill_name
+	button.set_meta(GOLFER_SKILL_CARD_META, true)
+	button.add_theme_font_override("font", VisitorCardButton.FONT)
+	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+	PixelButtonStyle.paint_choice(button, GOLFER_SKILL_ACCENT)
+	# Strengthen the selected half of the shared choice style: a solid visiting
+	# green body makes an enabled skill unmistakable beside the quiet Off cards.
+	button.add_theme_stylebox_override("pressed", PixelButtonStyle.card_style(
+		GOLFER_SKILL_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
+		GOLFER_SKILL_ACCENT, 0, 0, 0))
+	button.add_theme_stylebox_override("hover_pressed", PixelButtonStyle.card_style(
+		GOLFER_SKILL_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
+		GOLFER_SKILL_ACCENT.lightened(0.12), 0, 0, 0))
+	button.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+	for state in ["hover", "focus"]:
+		button.add_theme_color_override("font_%s_color" % state, VisitorCardButton.NAME_LIT)
+	for state in ["pressed", "hover_pressed"]:
+		button.add_theme_color_override("font_%s_color" % state, PixelButtonStyle.INK)
+	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
+	return button
+
+
 func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
 	# Chunky, square-corner pixel UI: dark enamel surfaces, hard outlines and
 	# high-contrast mint/gold accents instead of the default rounded widgets.
@@ -583,6 +791,14 @@ func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0
 			control.add_theme_stylebox_override(state, box)
 
 func _build_setup() -> void:
+	_selected_pros.clear()
+	_add_golfer_button = null
+	_pro_roster = null
+	_round_players_row = null
+	_pro_menu = null
+	_pro_preview_nodes.clear()
+	_round_player_preview = null
+	_round_player_preview_box = null
 	draft = PlayerGolferProfile.from_data(GameManager.player_profile.serialize())
 	# A rebuilt page means no round is showing: drop whatever scores the last
 	# one left on the card.
@@ -712,34 +928,71 @@ func _build_setup() -> void:
 		row.add_child(color)
 	if is_instance_valid(player_tab):
 		if not GameManager.is_tournament_mode:
-			# Short round-choice sections share one horizontally scrolling shelf.
-			# Practice Round leads the first column with Play vs Pro stacked below it.
-			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY])
-			# The stacked column must stay under the shelf's ~150px height budget
-			# (the tab has no vertical scrollbar), so its rows sit tighter than the
-			# other columns' default spacing.
-			content.add_theme_constant_override("separation", 2)
-			_label("Practice Round")
+			# One round setup: the owner's golfer sits beside a roster of up to
+			# three pros, with one start button for either practice or a group.
+			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY], 220)
+			content.add_theme_constant_override("separation", 4)
 			mode_picker = OptionButton.new()
 			for title in ["Practice round", "Play vs a Pro"]:
 				mode_picker.add_item(title)
-			mode_picker.hide()  # Each section starts its own format below.
+			mode_picker.hide() # Retained for standalone setup and legacy callers.
 			content.add_child(mode_picker)
-			var practice_button := _button("Start practice round", _start_embedded.bind(0))
-			practice_button.set_meta("owner_round_start", true)
-			_label("Play vs Pro")
 			pro_picker = OptionButton.new()
 			for pro in PROS:
 				pro_picker.add_item(pro)
+			pro_picker.hide()
 			content.add_child(pro_picker)
-			var pro_button := _button("Play selected pro", _start_embedded.bind(1))
-			pro_button.set_meta("owner_round_start", true)
+
+			var players_row := HBoxContainer.new()
+			_round_players_row = players_row
+			players_row.add_theme_constant_override("separation", 4)
+			players_row.custom_minimum_size.y = 88
+			content.add_child(players_row)
+			var owner_card := VBoxContainer.new()
+			owner_card.add_theme_constant_override("separation", 0)
+			players_row.add_child(owner_card)
+			_round_player_preview_box = Control.new()
+			_round_player_preview_box.name = "RoundPlayerPreview"
+			_round_player_preview_box.custom_minimum_size = Vector2(52, 66)
+			_round_player_preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_round_player_preview_box.clip_contents = true
+			owner_card.add_child(_round_player_preview_box)
+			_round_player_preview = Golfer.new()
+			_round_player_preview.name = "RoundPlayerGolferPreview"
+			_round_player_preview.set_physics_process(false)
+			_round_player_preview_box.add_child(_round_player_preview)
+			_round_player_preview.input_pickable = false
+			_round_player_preview_box.resized.connect(_layout_round_player_preview)
+			_refresh_round_player_preview()
+
+			_pro_roster = HBoxContainer.new()
+			_pro_roster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_pro_roster.add_theme_constant_override("separation", 4)
+			players_row.add_child(_pro_roster)
+			_refresh_pro_roster()
+
+			var round_button := _button("Start Round", _start_embedded.bind(0))
+			round_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			round_button.set_meta("owner_round_start", true)
 
 			# Export the Career course or golfer for standalone Tournament Mode.
 			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY], 216)
 			content.add_theme_constant_override("separation", 3)
 			_build_tournament_play_export_column()
-		content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 250)
+		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
+		# Three untitled visitor-style name plates lead the shelf, ahead of the
+		# points-based Golf Skills.
+		var golfer_skills_column := PlayerTab.add_column(skills_page, GOLFER_SKILL_BUTTON_SIZE.x)
+		golfer_skills_column.add_theme_constant_override("separation", 2)
+		for key in GolferAttributes.GOLFER_SKILL_KEYS:
+			var skill_name: String = GolferAttributes.GOLFER_SKILL_NAMES[key]
+			var skill_toggle := _golfer_skill_button(skill_name, bool(draft.golfer_skills[key]))
+			skill_toggle.name = "GolferSkill%s" % key.capitalize()
+			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
+				draft.golfer_skills[skill_key] = on
+				_persist_player_profile())
+			golfer_skills_column.add_child(skill_toggle)
+		content = PlayerTab.add_column(skills_page, 250)
 	else:
 		_label("Round format")
 		mode_picker = OptionButton.new()
@@ -752,20 +1005,6 @@ func _build_setup() -> void:
 		pro_picker.disabled = true
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
-	if is_instance_valid(player_tab):
-		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
-		var golfer_skills_column: VBoxContainer = null
-		for slot in GolferAttributes.GOLFER_SKILL_KEYS.size():
-			if slot % TOGGLES_PER_COLUMN == 0:
-				golfer_skills_column = _toggle_column(skills_page, SKILLS_TITLE, slot, 220)
-			var key: String = GolferAttributes.GOLFER_SKILL_KEYS[slot]
-			var skill_toggle := CheckButton.new()
-			skill_toggle.text = GolferAttributes.GOLFER_SKILL_NAMES[key]
-			skill_toggle.button_pressed = draft.golfer_skills[key]
-			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
-				draft.golfer_skills[skill_key] = on
-				_persist_player_profile())
-			golfer_skills_column.add_child(skill_toggle)
 	points_label = _label("")
 	_label("Each point adds 10% bonus. Maximum per skill: 990%.")
 	skill_labels.clear()
@@ -789,9 +1028,10 @@ func _build_setup() -> void:
 		# Apply one consistent pixel-art visual language to both owner tabs.
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
-				_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
+				if not widget.has_meta(GOLFER_SKILL_CARD_META):
+					_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
 				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
-						in [DETAILS_TITLE, TRAITS_TITLE, SKILLS_TITLE] or widget == points_label):
+						in [DETAILS_TITLE, TRAITS_TITLE] or widget == points_label):
 					widget.add_theme_color_override("font_color", Color("f0bf59"))
 					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()
@@ -847,6 +1087,10 @@ func _start_embedded(kind: int) -> void:
 	previous_speed = GameManager.current_speed
 	previous_camera = camera.global_position if is_instance_valid(camera) else Vector2.ZERO
 	mode_picker.select(clampi(kind, 0, maxi(0, mode_picker.item_count - 1)))
+	# Preserve the old Play-vs-Pro entry point for callers outside the new
+	# roster UI; the embedded Start Round button uses the selected roster.
+	if kind == 1 and _selected_pros.is_empty() and pro_picker.item_count > 0:
+		_selected_pros.append(PROS[clampi(pro_picker.selected, 0, PROS.size() - 1)])
 	session_opened.emit()
 	start_round()
 
@@ -858,8 +1102,14 @@ func start_round() -> void:
 		draft.golfer_name = "Course Owner"
 	draft.initialized = true
 	GameManager.player_profile = draft
-	round_kind = mode_picker.selected
-	var opponent := pro_picker.selected
+	if is_instance_valid(player_tab):
+		if _selected_pros.is_empty() and mode_picker.selected == 1:
+			_selected_pros.append(PROS[clampi(pro_picker.selected, 0, PROS.size() - 1)])
+		round_kind = 0 if _selected_pros.is_empty() else 1
+	else:
+		round_kind = mode_picker.selected
+		if round_kind == 1 and _selected_pros.is_empty():
+			_selected_pros.append(PROS[clampi(pro_picker.selected, 0, PROS.size() - 1)])
 	active = true
 	if is_instance_valid(player_tab):
 		# Lock the Edit Player page while the round runs - except the Golfer
@@ -904,7 +1154,8 @@ func start_round() -> void:
 		player.apply_player_appearance(draft)
 
 	if round_kind == 1:
-		_spawn(PROS[opponent], GolferTier.Tier.PRO, group_id)
+		for pro_name in _selected_pros:
+			_spawn(pro_name, GolferTier.Tier.PRO, group_id)
 
 	# Position all participants at the tee of the first open hole
 	if tee_pos.x >= 0:
@@ -927,12 +1178,12 @@ func start_round() -> void:
 		manager._update_golfers(0.0)
 
 	_make_panel(false)
-	_label("PLAY THE COURSE · " + ["Practice", "Vs Pro"][round_kind])
+	_label("PLAY THE COURSE · " + ("Practice" if round_kind == 0 else "Vs Pro"))
 	status = _label("")
 	if is_instance_valid(scores):
-		# The scores read out in the top-left corner of the screen: the round
-		# title, then a row per player (Practice Round / Vs Pro · Pro Alex).
-		scores.begin(["Practice Round", "Vs Pro · " + PROS[opponent]][round_kind])
+		# The score card names every pro in the group, if more than one was added.
+		var score_title := "Practice Round" if round_kind == 0 else "Vs Pro · " + ", ".join(PackedStringArray(_selected_pros))
+		scores.begin(score_title)
 	if is_instance_valid(player_tab):
 		status.add_theme_font_size_override("font_size", 12)
 		status.autowrap_mode = TextServer.AUTOWRAP_OFF

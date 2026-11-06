@@ -27,7 +27,7 @@
 - **Quick Start.** Uses the defaults (random company name, Normal, $100,000, all features off, 3 generated holes), buys a random location the company can afford and starts playing it straight away. The Generating Course screen appears first with **Finding a location**, before the world and course are prepared; it then names the chosen course and follows the same job through generation. Repeated activation and gameplay shortcuts are ignored while it is loading. If no location is affordable, the loader closes and the World Map opens instead.
 - **World Map.** A spinning globe with a pin for each destination, a list of locations each with a **Buy & Play** button (or **Play** once owned), a selected-site dossier with **Buy** beside **Buy & Play**, and Reset World — dressed in the same pixel-art language as the title screen and Start New Game: rounded `PixelButtonStyle` frames on every card, button and field, Pixelify Sans throughout (bold for the heading, treasury and call to action, semibold for names, kickers and buttons, regular for captions), `PixelIcon` sprites for the treasury coin, the per-location pennants and the map legend, and the golf-flag `MenuFlagMark` itself drawn as a 16x16 sprite. The globe is the planet shader run in `GlobeMap.LandStyle.PIXEL`: every fragment resolves into a chunky hard-edged cell in the menu palette (deep ink-teal sea, golf-green land, sandy tropics), using detailed Natural Earth 1:50m coastlines with islands and lake rings; destinations are sprite pins (gold-bracketed when selected) whose hover tags are little rounded pixel frames. It opens from the **World Maps** button under **Manage → Club → Maps**, from Start New Game, and from Quick Start if no location is affordable. The course behind it freezes while the globe is up, so switching sites never loses a day's work. On a touchscreen, one finger spins the globe and two fingers pinch open or closed to zoom, moving together to spin it as well; letting go of a pinch never selects the pin under a finger. See [World Map](systems/economy-and-land/world-map.md).
 - **Financial Overview.** A fullscreen clubhouse dashboard over the same `MenuBackdrop` as the World Map. Desktop lays out the year-to-date ledger, course controls and status, and marketing campaigns side by side. Tablet and phone layouts use a fixed three-page rail (**Finances**, **Course**, **Marketing**) above a scrollable workspace; phone landscape keeps the same pages in a compact, short-screen composition. It carries forward the balance, revenue and expense breakdown, year-over-year comparison, booking interval, green-fee controls and warning, reputation, golfer count, loans, seasonal forecast and official course ratings, alongside marketing reach, daily spend, campaign history, active campaign timers and all five launch offers. Open it from the money display or **Manage → Club → Review → Financial Overview**; **M** opens it directly on the Marketing page. The World Map's clubhouse artwork, pixel-framed cards and Pixelify Sans styling are shared throughout.
-- **Course Map.** The whole course in one isometric diamond, in the title screen's own dress. Its header is the shared screen header: Back on the left, and the mode tabs, treasury and Details on the right: the `MenuBackdrop` clubhouse artwork behind it, rounded `PixelButtonStyle` frames, Pixelify Sans type. Four modes sit across the top on desktop and portrait shapes (a compact rail on landscape ones): **Land** (buy parcels, read the ones you own), **Routing** (reorder the holes, flip them, set par, open or shut them), **Aura** (green, amber and red cells where golfers were happy and unhappy) and **Staff** (each employee's working area, hiring, firing and posting them). One line under the map says what is picked or what the map is waiting for, with the mode's own **Buy** / **Cancel** / **Clear** beside it. Drag to pan, wheel or pinch to zoom, `F` to frame the course. On phones the panel is a bottom sheet that peeks and lifts (portrait) or slides in over the map (landscape); on a landscape tablet it folds away behind a **Hide**/**Show** toggle. The course freezes while the map is up. See [Course Map](systems/course-design/course-map.md).
+- **Course Map.** The whole course in one isometric diamond, in the title screen's own dress. Its header is the shared screen header: Back on the left, and the mode tabs, treasury and Details on the right: the `MenuBackdrop` clubhouse artwork behind it, rounded `PixelButtonStyle` frames, Pixelify Sans type. Four modes sit across the top on desktop and portrait shapes (a compact rail on landscape ones): **Land** (buy parcels, read the ones you own), **Routing** (reorder the holes, flip them, set par, open or shut them, and read the scorecard and records), **Aura** (green, amber and red cells where golfers were happy and unhappy) and **Staff** (each employee's working area, hiring, firing and posting them). One line under the map says what is picked or what the map is waiting for, with the mode's own **Buy** / **Cancel** / **Clear** beside it. Drag to pan, wheel or pinch to zoom, `F` to frame the course. On phones the panel is a bottom sheet that peeks and lifts (portrait) or slides in over the map (landscape); on a landscape tablet it folds away behind a **Hide**/**Show** toggle. The course freezes while the map is up. See [Course Map](systems/course-design/course-map.md).
 - **Pause menu.** Resume, Save Game, Load Game, Settings, Quit to Menu and, on native builds, Quit to Desktop. The web build omits application-exit actions (here and on the main menu) because the browser tab or window already provides them. The camera still moves while paused.
 - **Settings.** Audio, Display, Controls and Data are laid out for each window size. Desktop uses a category rail beside the control cards. Tablets keep the rail beside or above the cards. Phones use equal category tiles and one scrolling column. Changes apply immediately and save to `user://settings.cfg`. The Controls category is the editor for every course control: click a keycap, press a key or controller button, and the change applies at once. It also carries screen-edge panning (**Edge Panning**: pan the camera by moving the pointer to the edge of the window, or leave the course still until you drag, press the keys or use the stick), the camera zoom inversion, the zoom limits, a reset per action and **Reset All Controls**. Display includes an **FPS Counter** card: the counter is off by default, and can be shown over menus and the course (even while paused) with a choice of position, text size and refresh interval (0.25, 0.5 or 1 second). It averages frames over real elapsed time, ignores mouse and touch input, and is independent of graphics presets. Display also has the **Course HUD** card (with the **Minimap** toggle to enable or disable the corner minimap), window mode, VSync, UI scale (automatic by default, following the system display scale; move the slider to pin a manual size), colourblind palettes, the graphics quality preset and its individual controls (see [Graphics quality](#graphics-quality)), and the **Benchmark** card, which runs only when Settings was accessed from the Main Menu (Settings from the pause menu shows the last run and the past results but runs nothing, so a game in progress is never the test scene). The card carries two buttons: **Run Benchmark**, which closes the menus and runs the full course tour - a throwaway benchmark course prepared (preparation included in the measurement), then every fixed test course built and played on it, about 95 seconds - and **Past Results**, which opens the Benchmark Results screen over the menus. Above them the card shows the rating the last run earned - five stars and a segmented score meter. For fair comparisons, run the tour from Main Menu Settings at the same resolution, VSync and power mode. See [Device Benchmark](development/benchmark.md). The Data category is the on-device privacy page: it lists what is stored (saved courses, preferences, career records, benchmark reports and custom golfer skins), gives each group its own **Delete** button and offers one **Delete All Player Data** action at the end. Every deletion asks first on a confirm card whose safe answer has focus, the page is rebuilt afterwards so each line and button tells the truth about what is left, and the title screen's Continue card is refreshed from the save list that remains. Deleting the saved courses during a pause session closes the course and returns to the title screen, because it has nowhere left to autosave. Mods are left to the Mods screen, where they can be uninstalled safely; see [Save & Load](save-and-load.md#deleting-player-data).
 - **Benchmark Results.** A fullscreen device dashboard over the same `MenuBackdrop` as the World Map, opened from the Display card's **Past Results**. Desktop spreads the report across three columns - the rating and the device dossier on the left, a frame-time oscilloscope with the GPU load ladder and the engine and memory read-out in the middle, the metric meters, the golf-style performance scorecard and the shelf of past runs on the right - and a full-height window shows all of it without scrolling. Tablets pair the rating with the meters above the charts; phones fold everything into one scroll, or into two columns when the phone is turned sideways. The charts are drawn in whole pixels (`BenchmarkVisuals`): one chunky column per sampled frame in mint, gold and muted red against the 60 FPS budget and the 33 ms stutter line, the GPU ladder and the run history as bars, and a segmented meter per metric. Reached from Main Menu Settings its **Run Benchmark** starts the tour again (from anywhere else it is read-only: Run stands down, and the report, the shelf and **Copy report** still work), it keeps the last twelve runs on a local shelf to compare against, and **Esc** closes it. Each run on that shelf is a button: press one and the whole screen becomes that run - its report, its oscilloscope, its scorecard, its tour table and its device dossier - with the picked row lit and a **PAST RUN** chip on the rating while an older run is on screen, and **Copy report** copies the run being read. A run recorded before reports were kept keeps its numbers and its bar on the chart but cannot be opened, and says so. See [Device Benchmark](development/benchmark.md).
@@ -106,7 +106,7 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 | Course Milestones screen (fullscreen) | `G`, or Manage → Club → Milestones → Course Milestones |
 | World Milestones screen (fullscreen) | `Shift+G`, or Manage → Club → Milestones → World Milestones |
 | Achievements screen (fullscreen) | `Shift+T`, Manage → Club → Milestones → Achievements, or the Achievements tile on the main menu |
-| Course scorecard | `K`, or Manage → Holes → Scorecard |
+| Course scorecard | `K`, or Manage → Holes → Holes Map → Scorecard |
 | Benchmark Results screen (fullscreen) | Settings → Display → Past Results |
 
 ### Portrait HUD (phones)
@@ -187,15 +187,16 @@ the pixel frames, with the trim in the open section's own colour — sage while
 the shelf is hidden. The medallions sit astride the rim and poke out past it
 over the course, which shows through above the arc where the bar used to be
 dead space. The fan is regenerated from the circles' live geometry whenever
-the dock reflows, so the touch layout's taller arc gets the same treatment.
+the dock reflows, so a resized window re-cuts the arc around the medallions as
+they now stand.
 
 The shelf's own backdrop (`ShelfFanBackdrop`) mirrors that quarter-ellipse:
 its rim joins the dock and sweeps up past the tab medallions, then continues
 along the top of the scrolling pages. It shares the
 dock's mowing rings and section-coloured pixel trim; the course is visible and
 accepts mouse and touch input in the space outside the curve. The rail narrows
-on phones without shrinking its touch targets, and, when a shelf is too narrow
-for its own header row, the row hides so the tab rail keeps its room.
+on phones while its 44px tab medallions stay whole, and, when a shelf is too
+narrow for its own header row, the row hides so the tab rail keeps its room.
 
 Every tab scrolls in a window cut to that same curve (`ShelfPageWindow`): the
 pages start at the shelf's own left padding and their left side is curved, so
@@ -214,13 +215,15 @@ Improvements and Buildings carry the Bulldozer.
 | Section | Tabs and actions |
 | --- | --- |
 | Build | Terrain, Improvements, Buildings, Elevations |
-| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview, Feed; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map, Scorecard, the hole buttons); Staff |
+| Manage | Club (Maps: Land Parcels, World Maps; Review: Review, Financial Overview, Feed; Milestones: Course Milestones, World Milestones, Achievements); Holes (Holes Map and the hole buttons); Staff |
 | Golfers | Visiting Golfers, Play Course, Edit Player Golfer, Player Golfer Skills |
 
-The **Club** tab folds what were four separate Manage tabs — Maps, Review,
-and Milestone — into one shelf. Each keeps a labelled column of its
-own, so the company's maps, the course's review and records, its milestones and
-its marketing campaigns still read as the groups they were. The Milestones
+The **Club** tab folds the former Maps, Review and Milestone tabs into one
+shelf. Each keeps a labelled group of its own. The management actions are
+compact tickets with their icons to the left of their labels, arranged up to
+two high; the Holes Map and Staff Map use the same design. They do not show
+shortcut text, but their keyboard
+shortcuts still work. The Milestones
 column carries three screens: **Course Milestones** (`G`, per-location goals
 for this save), **World Milestones** (`Shift+G`, company goals across every
 course location) and **Achievements** (`Shift+T`, career honours that stay
@@ -232,19 +235,20 @@ tile on the main menu opens the same trophy room over the title screen.
 The player pages share the existing live round and retain their state when tabs
 change. Unspent skill points appear on the skills tab. Keyboard shortcuts still
 work; selecting a build tool reveals its section automatically. The Holes tab,
-now in Manage, leads with a **Holes Map** card and a **Scorecard** card on the left,
-followed by the hole buttons, each with a **Locate** button that centers the camera on that hole without
+now in Manage, leads with a **Holes Map** card on the left, followed by the hole
+buttons, each with a **Locate** button that centers the camera on that hole without
 leaving the list. Clicking a hole button opens that hole's actions (move/place tee
 and green, cycle par, open/close, locate, delete) and statistics (rating,
 difficulty, revenue, stroke index, scoring averages and score distribution) in
 place of the hole list — the same way clicking a golfer on the Visiting Golfers
-tab opens their profile. The Staff tab carries a **Staff Map** card beside the roster.
-The **Scorecard** card (also `K`) takes the shelf in place of the hole list: every
-hole on its OUT and IN nines with par, yardage, stroke index and average score,
-the course's name, rating and totals, and the course records beside them. Its
-**< Holes** button returns to the hole list.
-Both map cards open the Course Map straight into its Routing Holes and Staff
-modes. Shelves scroll horizontally while the circle controls remain fixed.
+tab opens their profile. The Staff tab leads with a **Staff Map** card on the left, before the roster.
+The **Scorecard** page inside the Holes Map shows every hole on its OUT and IN
+nines with par, yardage, stroke index and average score, together with the
+course's name, rating, totals and records. Select a hole on the card to find it
+on the map; **Routing** returns to the route controls. `K` opens the map directly
+on its scorecard (and reveals the phone sheet); pressing it again closes the map.
+The shortcut remains rebindable. Both map cards open the Course Map straight into
+its Routing Holes and Staff modes. Shelves scroll horizontally while the circle controls remain fixed.
 Hover/focus states, tooltips and accessible names identify every icon; Tab and
 Enter can navigate the dock.
 
@@ -348,16 +352,22 @@ Every key in these tables is a default: change any of them in **Settings → Con
 ## Mouse and Touch
 
 - **Mouse.** Left click places or selects. Right click cancels or opens a context menu. The wheel zooms. Every button, card, tile and slider is a normal control, so the pointer hovers, presses and drags exactly as it does on the desktop.
-- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom — opening the fingers zooms in, closing them zooms out — on the course, the World Map globe and the Course Map alike; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. Dragging a slider sets its value directly, without needing mouse emulation. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get 44px utility controls, larger toolbar tabs, and a taller dock so the controls are easier to reach. Every fullscreen screen keeps its content in a scroll region on phone-sized windows, so no action is out of reach.
+- **Touch.** A tap is a click. One-finger drag pans, or paints terrain while a tool is active. Two-finger drag pans and pinches to zoom — opening the fingers zooms in, closing them zooms out — on the course, the World Map globe and the Course Map alike; a two-finger tap cancels or closes menus. Dragging a scrollable shelf or panel scrolls it instead of moving or painting the course, and dragging off a button cancels its tap. Dragging a slider sets its value directly, without needing mouse emulation. The minimap can be scrubbed with a finger, and the paused game's dimmed backdrop still supports pan and pinch. Compact windows and touchscreen devices get thumb-sized controls and full-width panels so the controls are easier to reach, while the bottom dock keeps its one desktop height in every landscape layout. Every fullscreen screen keeps its content in a scroll region on phone-sized windows, so no action is out of reach.
 - **Touch surfaces and what is on top of them.** The globe, the minimap and the Course Map read raw touches themselves, so they see a finger before the shared gesture adapter does. They only claim a touch that actually lands on them: anything drawn above them — a confirmation dialogue, a floating panel — gets the tap, so answers such as **Reset World**/Keep World on the World Map or **Quit to Menu**/Cancel stay tappable even when the dialogue opens over the globe.
 - **Pause menu, game-over card and confirmations on small windows.** The pause menu clamps itself to the window and scrolls (a drag on the panel scrolls it) when its options do not fit, so **Quit to Menu** and **Quit to Desktop** never sit below the bottom edge on a phone held sideways; a short window also tightens the spacing, drops the gesture footnote and gives each option a 40px target. The game-over card and the confirmation dialogue that follows keep their answers pinned to the bottom and only scroll the text above them, so **Quit to Menu**, **Start New Game**, **Load Saved Game**, **Reset World** and Cancel can always be tapped or focused at any window shape.
 
 ## Layout
 
 The portrait composition above is selected by `Screen.uses_portrait_hud()` and
-reflowed from `Screen.changed`; desktop and landscape touch layouts are unchanged.
+reflowed from `Screen.changed`; desktop and landscape windows keep the same
+composition.
 
-`Screen` chooses a compact layout on small windows. Panels then take the full width, and the bottom bar grows to fit touch. The main window is 1600 × 1000 on desktop.
+`Screen` chooses a compact layout on small windows. Panels then take the full
+width and their controls grow for touch, but the bottom dock keeps one height:
+the desktop one. Narrowing a window narrows the shelf beside the dock (which
+scrolls) instead of making the bar taller, so the dock only leaves the desktop
+footprint when the portrait composition replaces it with its thumb rail. The
+main window is 1600 × 1000 on desktop.
 
 ### UI scale
 

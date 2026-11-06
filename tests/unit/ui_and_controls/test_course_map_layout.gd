@@ -295,3 +295,109 @@ func test_an_aura_colour_runs_from_happy_through_mixed_to_unhappy() -> void:
 	assert_eq(CourseMapView.aura_color(0.0), CourseMapView.AURA_MIXED)
 	var warm := CourseMapView.aura_color(0.5)
 	assert_gt(warm.g, warm.r, "half-way happy is still greener than it is red")
+
+
+## The scorecard must fit the narrowest map dossier without a horizontal
+## scrollbar, even for 18 holes and long course/record names. Exercise the actual
+## composition rather than just the breakpoint helper, including rotation while
+## the scorecard and a map selection are already open.
+func test_the_scorecard_fits_and_remains_reachable_in_every_composition() -> void:
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.course_name = "The Remarkably Long Sandbelt Championship Golf Course"
+	GameManager.course_records = CourseRecords.create_empty_records()
+	GameManager.hole_statistics.clear()
+	for number in range(1, 19):
+		var hole := make_hole(number, Vector2i(number, 0), Vector2i(number, 5), 4)
+		hole.distance_yards = 350 + number
+		hole.stroke_index = number
+		GameManager.current_course.add_hole(hole)
+		GameManager.course_records["best_per_hole"][number] = CourseRecords.RecordEntry.new(
+			"Alexandria Longgolfername Visitor %d" % number, 3, 1, number)
+
+	var screen := await _screen_at(Vector2(1600, 1000))
+	var holder := screen.get_parent() as Control
+	screen.show_scorecard()
+	screen._select("hole", 1)
+	await process_frames(3)
+	for dimensions in [Vector2(1600, 1000), Vector2(1024, 768), Vector2(768, 1024),
+			Vector2(640, 360), Vector2(320, 568)]:
+		await _resize(holder, dimensions)
+		screen.show_scorecard()
+		await process_frames(6)
+		var scroll := screen._panel_scroll
+		var card := screen._routing_panel._scorecard
+		var row := card.find_child("HoleRow1", true, false) as HBoxContainer
+		assert_true(screen.is_scorecard_showing(), "%s: scorecard is visible" % dimensions)
+		assert_eq(screen.mode, MODE_ROUTING)
+		assert_eq(int(screen.selection.get("value", -1)), 1, "The selected hole survives rotation")
+		assert_true((row.get_child(0) as Button).button_pressed)
+		assert_eq(scroll.horizontal_scroll_mode, ScrollContainer.SCROLL_MODE_DISABLED)
+		assert_lte(card.get_combined_minimum_size().x, scroll.size.x,
+			"%s: even long names do not force a wider dossier" % dimensions)
+		var right := scroll.get_global_rect().end.x
+		if scroll.get_v_scroll_bar().visible:
+			right = scroll.get_v_scroll_bar().get_global_rect().position.x
+		assert_lte(row.get_global_rect().end.x, right + 1.0,
+			"%s: all five columns fit inside the visible panel" % dimensions)
+		for i in range(1, row.get_child_count()):
+			var previous := row.get_child(i - 1) as Control
+			var current := row.get_child(i) as Control
+			assert_lte(previous.get_global_rect().end.x, current.get_global_rect().position.x + 1.0,
+				"%s: scorecard columns do not overlap" % dimensions)
+		assert_gt(scroll.get_v_scroll_bar().max_value, scroll.get_v_scroll_bar().page,
+			"%s: the long card and records scroll together" % dimensions)
+		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+		await process_frames(3)
+		var last_record: Label = null
+		for label in card.find_child("RecordLines", true, false).find_children("*", "Label", true, false):
+			if (label as Label).text.contains("Visitor 18"):
+				last_record = label
+		assert_not_null(last_record, "The last record is present")
+		if last_record != null:
+			assert_lte(last_record.get_global_rect().end.y, scroll.get_global_rect().end.y + 1.0,
+				"%s: the last record can be scrolled into view" % dimensions)
+
+
+func test_tournament_scorecard_is_read_only() -> void:
+	GameManager.is_tournament_mode = true
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.current_course.add_hole(make_hole(1, Vector2i.ZERO, Vector2i(0, 5), 4))
+	var screen := await _screen_at(Vector2(1600, 1000))
+	screen.show_scorecard()
+	assert_eq(screen.mode, MODE_ROUTING)
+	assert_true(screen._routing_panel.read_only)
+	assert_eq(screen._routing_panel.page, CourseMapRoutingPanel.Page.SCORECARD)
+	assert_true(screen._routing_panel._routing_button.disabled, "Tournament cannot expose course edits")
+	assert_false(screen._routing_panel._scorecard_back.visible)
+	for button in screen._tab_buttons:
+		assert_eq(button.disabled, button.name != "Mode_Routing", "Only the scorecard's map mode is available")
+	screen.set_mode(MODE_LAND)
+	screen._routing_panel.set_page(CourseMapRoutingPanel.Page.ROUTING)
+	assert_eq(screen.mode, MODE_ROUTING)
+	assert_eq(screen._routing_panel.page, CourseMapRoutingPanel.Page.SCORECARD)
+
+
+func test_scorecard_shortcut_reveals_a_folded_dossier_and_survives_rotation() -> void:
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.current_course.add_hole(make_hole(1, Vector2i.ZERO, Vector2i(0, 5), 4))
+	var screen := await _screen_at(Vector2(1024, 768))
+	var holder := screen.get_parent() as Control
+	screen._toggle_fold()
+	assert_true(screen.panel_hidden)
+	assert_false(screen._panel_column.visible)
+	screen.show_scorecard()
+	assert_false(screen.panel_hidden, "The shortcut unfolds a hidden tablet dossier")
+	assert_true(screen._panel_column.visible)
+	assert_true(screen.is_scorecard_showing())
+
+	screen._toggle_fold()
+	await _resize(holder, Vector2(320, 568))
+	assert_false(screen.panel_hidden, "The tablet fold does not hide the phone sheet")
+	screen.show_scorecard()
+	await process_frames(3)
+	assert_true(screen.sheet_open)
+	assert_true(screen.is_scorecard_showing())
+	assert_string_contains(screen._sheet_title.text, "Scorecard")
+	await _resize(holder, Vector2(1600, 1000))
+	assert_null(screen._sheet, "The old phone sheet is no longer a live frame")
+	assert_true(screen.is_scorecard_showing(), "The scorecard stays open on desktop")

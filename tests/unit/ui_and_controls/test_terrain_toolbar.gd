@@ -1105,27 +1105,25 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 	assert_not_null(toolbar._hole_detail, "and a hole detail view beside it")
 
 	var page_content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	assert_eq(page_content.get_child_count(), 4,
-		"The Holes tab leads with a breathing-space spacer, then the hole register, the hole detail view and the course scorecard")
+	assert_eq(page_content.get_child_count(), 3,
+		"The Holes tab leads with a spacer, the hole register and the hole detail view")
 	assert_same(page_content.get_child(1), toolbar._hole_register,
 		"The hole register leads the tab after the leading spacer")
 	assert_same(page_content.get_child(2), toolbar._hole_detail,
 		"with the hole detail view beside it")
-	assert_same(page_content.get_child(3), toolbar._hole_scorecard,
-		"and the course scorecard after it")
 	assert_true(toolbar._hole_register.visible, "The register is up while no hole is picked")
 	assert_false(toolbar._hole_detail.visible, "and the detail view steps aside")
-	assert_false(toolbar._hole_scorecard.visible, "and so does the scorecard")
-	assert_eq(toolbar._hole_register.get_child_count(), 3,
-		"The hole register holds the Holes Map card, the Scorecard card and the hole grid")
-	var map_card := _holes_map_card()
-	assert_not_null(map_card, "The Holes Map card is the register's other content")
-	assert_same(toolbar._hole_register.get_child(0), map_card,
-		"The Holes Map card leads the register on the left")
-	assert_same(toolbar._hole_register.get_child(1), _scorecard_card(),
-		"the Scorecard card follows it")
-	assert_same(toolbar._hole_register.get_child(2), toolbar.hole_grid,
-		"and the hole buttons come after both cards")
+	assert_eq(toolbar._hole_register.get_child_count(), 2,
+		"The register holds the map action and the hole grid")
+	var actions := toolbar._hole_register.get_child(0) as VBoxContainer
+	assert_not_null(actions, "The Holes Map leads the register")
+	# HoleActions now holds the larger circular button plus a top spacer that pushes it lower
+	var holes_map_buttons := actions.find_children("*", "MapCircleButton", true, false).filter(func(c): return str(c.get("tool_type")) == "holes_map")
+	assert_eq(holes_map_buttons.size(), 1, "The scorecard is in the map, not on the shelf — Holes Map is the only map action")
+	assert_true(holes_map_buttons.has(_holes_map_card()), "Holes Map leads")
+	assert_not_null(actions.get_node_or_null("HolesMapSpacer"), "Spacer pushes the larger button further down")
+	assert_same(toolbar._hole_register.get_child(1), toolbar.hole_grid,
+		"The hole buttons follow the map action")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
 	var open_hole_cards := page.find_children("*", "ToolButton", true, false)\
 		.filter(func(button): return (button as ToolButton).get("tool_type") == "open_hole")
@@ -1153,9 +1151,9 @@ func _add_hole_button(hole_number: int) -> Button:
 	return hole_btn
 
 ## The Holes tab's map card, the way the tab builds it.
-func _holes_map_card() -> DockActionButton:
-	for child in toolbar._hole_register.get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
+func _holes_map_card() -> Button:
+	for child in toolbar._hole_register.get_node("HoleActions").get_children():
+		if str(child.get("tool_type")) == "holes_map":
 			return child
 	return null
 
@@ -1177,9 +1175,11 @@ func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
 		"The Holes tab answers from the Manage section now")
 
 ## The Staff tab's map card, the way the tab builds it.
-func _staff_map_card() -> DockActionButton:
-	for child in toolbar.page_content(TerrainToolbar.Tab.STAFF).get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "staff_map":
+func _staff_map_card() -> Button:
+	var shelf := toolbar.page_content(TerrainToolbar.Tab.STAFF)
+	# Card is nested inside the StaffMapActions wrapper that also holds its top spacer
+	for child in shelf.find_children("*", "Button", true, false):
+		if str(child.get("tool_type")) == "staff_map":
 			return child
 	return null
 
@@ -1198,92 +1198,33 @@ func test_the_staff_map_card_asks_for_the_course_map_on_staff() -> void:
 	assert_signal_emitted(toolbar, "staff_map_pressed",
 		"Pressing the card emits staff_map_pressed")
 
-## The Holes tab's Scorecard card, the way the tab builds it.
-func _scorecard_card() -> DockActionButton:
-	for child in toolbar._hole_register.get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "scorecard":
-			return child
-	return null
+## The Staff Map card leads the Staff shelf on the left, before the roster
+## panel, the way the Holes Map card leads the hole register.
+func test_the_staff_map_card_leads_the_shelf_on_the_left() -> void:
+	var shelf := toolbar.page_content(TerrainToolbar.Tab.STAFF)
+	var card := _staff_map_card()
+	var panel := toolbar._staff_panel
+	assert_not_null(card, "The Staff tab carries a Staff Map card")
+	assert_not_null(panel, "The Staff tab carries the roster panel")
+	var wrapper := card.get_parent()
+	assert_same(shelf.get_child(1), wrapper,
+		"The Staff Map wrapper leads the shelf after the leading spacer")
+	assert_same(shelf.get_child(2), panel,
+		"and the roster panel follows it on the right")
+	assert_true(wrapper.has_node("StaffMapSpacer"), "Spacer pushes the larger button further down")
+	assert_lt(wrapper.get_index(), panel.get_index(),
+		"so the card sits left of the roster")
 
-## The course scorecard used to be a Club tab popup. It is the Holes tab's now,
-## opened by a card beside the Holes Map card, and the K shortcut still reaches it.
-func test_the_scorecard_moved_from_the_club_tab_to_the_holes_tab() -> void:
-	assert_eq(TerrainToolbar.TOOL_TAB_MAP.get("scorecard"), TerrainToolbar.Tab.HOLES,
-		"The scorecard belongs to the Holes tab")
+## The scorecard is a page of the Holes Map, not a second shelf action or an
+## extra shelf view. The map ticket makes that destination discoverable.
+func test_the_scorecard_lives_in_the_holes_map_not_the_shelf() -> void:
+	assert_false(TerrainToolbar.TOOL_TAB_MAP.has("scorecard"))
+	var page := toolbar.page_content(TerrainToolbar.Tab.HOLES)
+	assert_null(page.find_child("ScorecardCard", true, false))
+	assert_eq(page.find_children("*", "CourseScorecardView", true, false).size(), 0)
+	assert_string_contains(_holes_map_card().tool_description, "scorecard")
 	for card in _club_cards():
-		assert_ne(card.tool_type, "scorecard", "The Club tab no longer carries a Scorecard card")
-	var card := _scorecard_card()
-	assert_not_null(card, "The Holes tab carries a Scorecard card")
-	assert_eq(str(card.tool_name), "Scorecard", "and says what it is")
-	assert_eq(str(card.hotkey), "K", "The card shows the K shortcut that still opens it")
-	assert_string_contains(card.tool_description, "stroke index",
-		"and its tooltip says what the scorecard shows")
-
-## Pressing the Scorecard card swaps the hole register for the scorecard on the
-## Holes tab, and its back button puts the register back up.
-func test_the_scorecard_card_opens_the_scorecard_over_the_register() -> void:
-	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
-	_scorecard_card().pressed.emit()
-	assert_eq(toolbar.current_tab, TerrainToolbar.Tab.HOLES, "The card opens the Holes tab")
-	assert_eq(toolbar.current_section, TerrainToolbar.Section.MANAGE, "in the Manage section")
-	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard is up")
-	assert_true(toolbar._hole_scorecard.visible, "and takes the shelf")
-	assert_false(toolbar._hole_register.visible, "in place of the hole register")
-	assert_false(toolbar._hole_detail.visible, "and the hole detail stays shut")
-
-	var back := toolbar._hole_scorecard.find_child("BackButton", false, false) as Button
-	assert_not_null(back, "The scorecard has a way back to the holes")
-	back.pressed.emit()
-	assert_false(toolbar.is_course_scorecard_showing(), "Back closes the scorecard")
-	assert_true(toolbar._hole_register.visible, "and the hole register is up again")
-	assert_false(toolbar._hole_scorecard.visible, "with the scorecard put away")
-
-## K opens the scorecard, or puts the register back when it is already up, the
-## same toggle the popup had. Picking a hole takes the scorecard away for it.
-func test_the_scorecard_toggles_and_a_hole_pick_replaces_it() -> void:
-	toolbar.show_course_scorecard()
-	assert_true(toolbar.is_course_scorecard_showing(), "The scorecard opens")
-	toolbar.close_course_scorecard()
-	assert_false(toolbar.is_course_scorecard_showing(), "and closes again")
-
-	_add_hole_button(1)
-	toolbar.show_course_scorecard()
-	toolbar.show_hole_detail(1)
-	assert_false(toolbar.is_course_scorecard_showing(), "Picking a hole replaces the scorecard")
-	assert_false(toolbar._hole_scorecard.visible, "The scorecard steps aside")
-	assert_true(toolbar._hole_detail.visible, "and the hole's detail takes the shelf")
-
-## Leaving for another tab and coming back keeps the scorecard where it was, as
-## a hole's detail view is kept.
-func test_the_scorecard_stays_open_across_tabs() -> void:
-	toolbar.show_course_scorecard()
-	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
-	assert_false(toolbar.is_course_scorecard_showing(), "Off the Holes tab it is not on screen")
-	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
-	assert_true(toolbar.is_course_scorecard_showing(), "and it is still open when the tab returns")
-
-## A full course of holes, with a record on every hole, still fits inside the
-## bottom bar with the scorecard open: the records scroll rather than grow it.
-func test_a_full_course_scorecard_stays_inside_the_bottom_bar() -> void:
-	GameManager.current_course = GameManager.CourseData.new()
-	for hole_number in range(1, 19):
-		var hole := GameManager.HoleData.new()
-		hole.hole_number = hole_number
-		hole.par = 4
-		hole.distance_yards = 350
-		hole.stroke_index = hole_number
-		GameManager.current_course.add_hole(hole)
-		GameManager.course_records["best_per_hole"][hole_number] = CourseRecords.RecordEntry.new(
-			"Visitor %d" % hole_number, 4, 1, hole_number)
-
-	toolbar.show_course_scorecard()
-	await _settle_layout()
-	assert_true(toolbar._hole_scorecard.visible, "The scorecard is up")
-	var content := toolbar.page_content(TerrainToolbar.Tab.HOLES)
-	var available := float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT
-	assert_gt(content.get_combined_minimum_size().y, 0.0, "The scorecard is measured")
-	assert_lte(content.get_combined_minimum_size().y, available,
-		"The nines and the records fit under the tab bar")
+		assert_ne(card.tool_type, "scorecard")
 
 ## Holes stack three deep and the columns run off to the right, so a course
 ## grows along the axis the page already scrolls on.
@@ -1418,6 +1359,8 @@ func test_hole_detail_shows_actions_info_and_statistics_and_emits_signals() -> v
 	var toggle_btn := toolbar._hole_detail.find_child("ToggleHoleButton", true, false) as Button
 	var delete_btn := toolbar._hole_detail.find_child("DeleteHoleButton", true, false) as Button
 	assert_not_null(locate_btn)
+	assert_eq(locate_btn.text, "")
+	assert_not_null(locate_btn.icon)
 	assert_not_null(tee_btn)
 	assert_eq(tee_btn.text, "Place Tee", "An orphaned tee asks to Place Tee")
 	assert_not_null(green_btn)
@@ -1488,10 +1431,19 @@ func test_the_guest_register_is_a_shelf_of_columns_and_populates() -> void:
 		"Two golfers and one past visitor fill a single column of three")
 	var column := shelf.get_child(0) as VBoxContainer
 	assert_not_null(column, "A column stacks its cards vertically")
-	_assert_column_holds(column, ["Alice Green", "Bob Fairway", "Cara Bunker"])
-	assert_eq(column.get_child(0).get_child_count(), 3,
-		"A golfer on the course carries a portrait, a profile button and Locate")
-	assert_eq(column.get_child(2).get_child_count(), 2,
+	_assert_column_holds(column, ["Bob Fairway", "Alice Green", "Cara Bunker"])
+	assert_eq(column.get_child(0).get_child_count(), 2,
+		"A golfer on the course carries a profile plate and Locate")
+	var plate := column.get_child(0).get_child(0) as VisitorCardButton
+	assert_eq(plate.text, "Bob Fairway",
+		"The plate reads the golfer's name")
+	assert_true(plate.active,
+		"A golfer on the course wears the on-course flag")
+	var locate := column.get_child(0).get_child(1) as Button
+	assert_eq(locate.text, "")
+	assert_not_null(locate.icon)
+	assert_ne(locate.tooltip_text, "")
+	assert_eq(column.get_child(2).get_child_count(), 1,
 		"A past visitor has no Locate button: there is nobody left to centre on")
 
 ## Visitors named Golfer1, Golfer2 ... are on the course, so the column layout
@@ -1504,14 +1456,14 @@ func _provide_golfers(count: int) -> void:
 				"hole": number + 1, "strokes": number, "attitude": 0.5})
 		return rows
 
-## The visitors in one column, top to bottom. A card reads its name on the
-## first line of its profile button, with the status line under it.
+## The visitors in one column, top to bottom. A card reads its golfer's name
+## on its profile plate.
 func _visitors_in_column(column: Control) -> Array[String]:
 	var names: Array[String] = []
 	for card in column.get_children():
-		var profile_button := card.get_child(1) as Button
-		if profile_button != null:
-			names.append(profile_button.text.get_slice("\n", 0))
+		var plate := card.get_child(0) as Button
+		if plate != null:
+			names.append(plate.text)
 	return names
 
 func _assert_column_holds(column: Control, expected: Array[String]) -> void:
@@ -1532,8 +1484,8 @@ func test_visitors_stack_three_to_a_column() -> void:
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2,
 		"Five visitors fill one column of three and spill into a second")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer5", "Golfer4", "Golfer3"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer2", "Golfer1"])
 
 	await _settle_layout()
 	var first := shelf.get_child(0) as Control
@@ -1561,17 +1513,18 @@ func test_a_busy_course_fills_one_column_of_three_after_another() -> void:
 
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 3, "Seven visitors fill two columns and start a third")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
-	_assert_column_holds(shelf.get_child(2), ["Golfer7"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer7", "Golfer6", "Golfer5"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer3", "Golfer2"])
+	_assert_column_holds(shelf.get_child(2), ["Golfer1"])
 
-## One register holds both kinds of visitor: whoever is on the course reads
-## first, the rounds already played follow, and a golfer who finished a round
-## while still out there is listed once — as a golfer on the course.
-func test_golfers_on_the_course_lead_the_past_visitors() -> void:
+## One register holds both kinds of visitor, newest round first: golfer ids
+## are allocated in spawn order, so the golfers on the course out-rank the
+## rounds recorded without one. A golfer who finished a round while still
+## out there is listed once — as a golfer on the course.
+func test_golfers_and_past_visitors_read_most_recently_started_first() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
 	_provide_golfers(2)
-	# Recorded oldest first, so the register reads R1 then R2 after the golfers.
+	# No round id, so the recorded rounds trail every identified visitor.
 	for round_name in ["R1", "R2"]:
 		toolbar.record_completed_round({
 			"name": round_name, "strokes": 71, "par": 72, "day": 1, "tier": 1, "owner": false,
@@ -1585,11 +1538,34 @@ func test_golfers_on_the_course_lead_the_past_visitors() -> void:
 
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2, "Four visitors fill a column of three and a second")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "R1"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer2", "Golfer1", "R1"])
 	_assert_column_holds(shelf.get_child(1), ["R2"])
-	var playing := (shelf.get_child(0).get_child(1).get_child(1) as Button).text
-	assert_string_contains(playing, "PLAYING",
-		"A golfer still on the course keeps their on-course card")
+	var playing := shelf.get_child(0).get_child(0).get_child(0) as VisitorCardButton
+	assert_true(playing.active,
+		"A golfer still on the course keeps their on-course plate")
+
+## Round bookmarks ride along with the archive entries, so a finished visitor
+## reads by the id of the round they started: a recently started round leads
+## the register ahead of the slow ones still out there, and an older one that
+## finished late does not leapfrog the newer round around it.
+func test_past_visitors_read_by_the_round_they_started() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	_provide_golfers(2)
+	# Recorded out of order, so only the id decides who leads.
+	toolbar.record_completed_round({
+		"id": 10, "name": "Rook", "strokes": 71, "par": 72, "day": 1, "tier": 1,
+		"owner": false,
+	})
+	toolbar.record_completed_round({
+		"id": 3, "name": "Bram", "strokes": 73, "par": 73, "day": 2, "tier": 1,
+		"owner": false,
+	})
+	toolbar._refresh_golfer_lists()
+
+	var shelf := toolbar._visitor_shelf
+	assert_eq(shelf.get_child_count(), 2, "Four visitors fill a column of three and a second")
+	_assert_column_holds(shelf.get_child(0), ["Rook", "Bram", "Golfer2"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer1"])
 
 ## The Golfers tab has no vertical scroll, so a full column of cards — and the
 ## profile a card opens — has to fit under the tab bar inside the bottom bar.
@@ -1632,8 +1608,8 @@ func test_a_card_opens_the_visitor_profile_over_the_register() -> void:
 
 	watch_signals(toolbar)
 	var card := toolbar._visitor_shelf.get_child(0).get_child(0) as HBoxContainer
-	(card.get_child(1) as Button).pressed.emit()
-	assert_eq(toolbar._selected_visitor, "Golfer1", "The card names the visitor it opens")
+	(card.get_child(0) as Button).pressed.emit()
+	assert_eq(toolbar._selected_visitor, "Golfer1", "The plate names the visitor it opens")
 	assert_true(toolbar._visitor_detail.visible, "The profile takes the page")
 	assert_false(toolbar._visitor_register.visible, "and the register steps aside")
 	assert_signal_not_emitted(toolbar, "golfer_row_clicked",
@@ -1644,7 +1620,7 @@ func test_a_card_opens_the_visitor_profile_over_the_register() -> void:
 	assert_true(toolbar._visitor_register.visible, "and the register is up again")
 
 	card = toolbar._visitor_shelf.get_child(0).get_child(0) as HBoxContainer
-	(card.get_child(2) as Button).pressed.emit()
+	(card.get_child(1) as Button).pressed.emit()
 	assert_signal_emitted_with_parameters(toolbar, "golfer_row_clicked", [1])
 	assert_true(toolbar._visitor_register.visible,
 		"Locate centres the camera and leaves the register up")
@@ -1662,22 +1638,22 @@ func test_golfer_refresh_replaces_the_columns_it_drew_last_time() -> void:
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2,
 		"Six golfers still take two columns after a second refresh")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer6", "Golfer5", "Golfer4"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer3", "Golfer2", "Golfer1"])
 
 	_provide_golfers(2)
 	toolbar._refresh_golfer_lists()
 	assert_eq(shelf.get_child_count(), 2,
 		"The columns are redrawn in place, not added to")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
-	var still_playing := shelf.get_child(0).get_child(0).get_child(1) as Button
-	assert_string_contains(still_playing.text, "PLAYING",
-		"The two still out there keep their on-course cards")
-	var gone_home := shelf.get_child(1).get_child(2) as HBoxContainer
-	assert_eq(gone_home.get_child_count(), 2,
+	_assert_column_holds(shelf.get_child(0), ["Golfer6", "Golfer5", "Golfer4"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer3", "Golfer2", "Golfer1"])
+	var still_playing := shelf.get_child(1).get_child(1).get_child(0) as VisitorCardButton
+	assert_true(still_playing.active,
+		"The two still out there keep their on-course plates")
+	var gone_home := shelf.get_child(0).get_child(0) as HBoxContainer
+	assert_eq(gone_home.get_child_count(), 1,
 		"The four who left lose their Locate button")
-	assert_string_contains((gone_home.get_child(1) as Button).text, "PAST VISITOR",
+	assert_false((gone_home.get_child(0) as VisitorCardButton).active,
 		"and read as past visitors instead")
 
 ## With nobody on the course and no rounds played, the register keeps its
@@ -1721,7 +1697,7 @@ func test_feed_button_lives_on_the_club_tab() -> void:
 	assert_eq(feed.name, "FeedBtn", "keeping the name it had in the left stack")
 	assert_string_contains(feed.text, "Feed", "The card reads Feed")
 	assert_eq(feed.glyph, "feed", "and draws the feed icon")
-	assert_eq(feed.hotkey, "N", "and says which key opens it")
+	assert_eq(feed.hotkey, "N", "and retains its shortcut binding")
 	assert_string_contains(feed.tool_description, "event feed")
 
 	watch_signals(toolbar)
@@ -1761,7 +1737,7 @@ func test_the_club_tab_opens_the_course_map_and_the_world_map() -> void:
 
 	var course_map: ToolButton = cards[0]
 	assert_string_contains(course_map.text, "Land Parcels", "The button reads Land Parcels")
-	assert_eq(course_map.hotkey, "Shift+M", "and says which key opens it")
+	assert_eq(course_map.hotkey, "Shift+M", "and retains its shortcut binding")
 	assert_string_contains(course_map.tool_description, "isometric")
 	var world_map: ToolButton = cards[1]
 	assert_eq(world_map.text, "World Maps", "The button reads World Maps")
@@ -2626,7 +2602,7 @@ func test_the_club_tab_gathers_the_former_manage_tabs_in_labelled_groups() -> vo
 		assert_not_null(group, "The folded tab is a labelled column")
 		assert_eq((group.get_child(0) as Label).text, expected[i][0],
 			"The column keeps the name of the tab it folded")
-		var buttons := group.get_child(1).get_children()
+		var buttons := _group_cards(group)
 		assert_eq(buttons.map(func(button): return button.tool_type), expected[i][1],
 			"%s holds the actions of the tab it folded" % expected[i][0])
 		for button in buttons:
@@ -2667,10 +2643,49 @@ func _club_groups() -> Array[VBoxContainer]:
 			groups.append(child)
 	return groups
 
-func _club_cards() -> Array[DockActionButton]:
+func _group_cards(group: VBoxContainer) -> Array[DockActionButton]:
 	var cards: Array[DockActionButton] = []
-	for group in _club_groups():
-		for child in group.get_child(1).get_children():
+	for column in group.get_child(1).get_children():
+		for child in column.get_children():
 			if child is DockActionButton:
 				cards.append(child)
 	return cards
+
+func _club_cards() -> Array[DockActionButton]:
+	var cards: Array[DockActionButton] = []
+	for group in _club_groups():
+		cards.append_array(_group_cards(group))
+	return cards
+
+func test_manage_action_tickets_are_two_high_and_have_no_shortcut_labels() -> void:
+	for tab in [TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.STAFF]:
+		toolbar.select_tab(tab)
+		await _settle_layout()
+		if tab == TerrainToolbar.Tab.CLUB:
+			var cards := toolbar.page_content(tab).find_children("*", "DockActionButton", true, false)
+			assert_gt(cards.size(), 0)
+			for card: DockActionButton in cards:
+				assert_eq(card.text, card.tool_name, "Native label contains no shortcut")
+				assert_eq(card.custom_minimum_size, Vector2(216, 54))
+				assert_lte(PixelCircleButton.FONT.get_string_size(card.tool_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x,
+					card.size.x - 62, "%s fits beside its icon" % card.tool_name)
+				assert_false(card.tooltip_text.contains("(N)"), "Feed tooltip omits shortcut text")
+		else:
+			var circles := toolbar.page_content(tab).find_children("*", "MapCircleButton", true, false)
+			assert_gt(circles.size(), 0, "The %s tab carries a circular map button" % TerrainToolbar.TAB_TITLES[tab])
+			for card in circles:
+				assert_true(card is PixelCircleButton, "Holes/Staff Map wears the circular PixelCircleButton design")
+				assert_eq(card.text, "", "Circular button carries no text label")
+				assert_eq(card.get("caption"), "", "and no caption — the glyph alone names it")
+				assert_eq(int(card.diameter), int(MapCircleButton.BUTTON_DIAMETER), "Diameter matches the other circular game buttons")
+				assert_true(PixelCircleButton.ICONS.has(card.glyph), "%s draws a registered icon" % card.tool_name)
+				assert_false(str(card.get("tooltip_text")).contains("(N)"), "Tooltip omits shortcut text")
+	for group in _club_groups():
+		for column in group.get_child(1).get_children():
+			assert_lte(column.get_child_count(), 2, "No action column exceeds two rows")
+	var maps := _group_cards(_club_groups()[0])
+	assert_eq(maps[0].get_parent(), maps[1].get_parent(), "The two maps are stacked")
+	var holes := toolbar._hole_register.get_node("HoleActions")
+	var holes_map_count := holes.find_children("*", "MapCircleButton", true, false).filter(func(c): return str(c.get("tool_type")) == "holes_map").size()
+	assert_eq(holes_map_count, 1, "Holes Map is the only action beside the hole register")
+	assert_not_null(holes.get_node_or_null("HolesMapSpacer"), "Spacer keeps the larger button lower")

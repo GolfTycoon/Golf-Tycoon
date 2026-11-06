@@ -13,7 +13,8 @@ const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ##   LAND     owned land, land for sale and its price; buy from the strip under
 ##            the map or from the panel (LandManager, the Land panel's rules).
 ##   ROUTING  the round in play order: move a hole up or down the card, cycle its
-##            par, turn it round, close it, or play the course backwards
+##            par, turn it round, close it, or play the course backwards;
+##            the Scorecard page reads every hole and the course records
 ##            (HoleManager, with HoleRouting judging the walks in between).
 ##   AURA     where golfers left happy and unhappy comments (CourseAura).
 ##   STAFF    the ground each employee covers; hire, fire and re-post them
@@ -69,7 +70,7 @@ const MODES: Array = [
 	{
 		"mode": CourseMapView.Mode.ROUTING,
 		"name": "Routing",
-		"blurb": "Reorder the holes and shorten the walks between them",
+		"blurb": "Reorder the holes, read the scorecard and shorten the walks between them",
 	},
 	{
 		"mode": CourseMapView.Mode.AURA,
@@ -130,6 +131,12 @@ var _aura_panel: CourseMapAuraPanel = null
 var _staff_panel: CourseMapStaffPanel = null
 var _built_size := Vector2.ZERO
 var _building: bool = false
+## Rebuilds of the active dossier keep the reader's place. An epoch makes a
+## deferred restore harmless if the player changes page or rotates the device.
+var _scroll_epoch := 0
+var _scroll_restore_pending := false
+var _scroll_restore_epoch := -1
+var _scorecard_refresh_pending := false
 
 # =============================================================================
 # LIFECYCLE
@@ -140,11 +147,21 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_panels()
+	if GameManager.is_tournament_mode:
+		# K still reads the scorecard in a tournament, without exposing the
+		# career map's land, staffing or course-editing actions.
+		mode = CourseMapView.Mode.ROUTING
+		_routing_panel.set_read_only(true)
 	_build_map()
 	Screen.changed.connect(_on_screen_changed)
 	EventBus.holes_reordered.connect(_on_course_changed)
 	EventBus.hole_updated.connect(_on_hole_changed)
-	EventBus.hole_deleted.connect(_on_hole_changed)
+	EventBus.hole_deleted.connect(_on_hole_deleted)
+	EventBus.hole_created.connect(_on_hole_created)
+	EventBus.hole_toggled.connect(_on_hole_toggled)
+	EventBus.hole_difficulty_changed.connect(_on_hole_difficulty_changed)
+	EventBus.golfer_finished_hole.connect(_on_scorecard_hole_finished)
+	EventBus.record_broken.connect(_on_scorecard_record_broken)
 	EventBus.course_rating_changed.connect(_on_course_changed_rating)
 	_build_structure()
 	refresh()
@@ -159,9 +176,20 @@ func _exit_tree() -> void:
 		Screen.changed.disconnect(_on_screen_changed)
 	if EventBus.holes_reordered.is_connected(_on_course_changed):
 		EventBus.holes_reordered.disconnect(_on_course_changed)
-	for signal_name in ["hole_updated", "hole_deleted"]:
-		if EventBus.is_connected(signal_name, _on_hole_changed):
-			EventBus.disconnect(signal_name, _on_hole_changed)
+	if EventBus.hole_updated.is_connected(_on_hole_changed):
+		EventBus.hole_updated.disconnect(_on_hole_changed)
+	if EventBus.hole_deleted.is_connected(_on_hole_deleted):
+		EventBus.hole_deleted.disconnect(_on_hole_deleted)
+	if EventBus.hole_created.is_connected(_on_hole_created):
+		EventBus.hole_created.disconnect(_on_hole_created)
+	if EventBus.hole_toggled.is_connected(_on_hole_toggled):
+		EventBus.hole_toggled.disconnect(_on_hole_toggled)
+	if EventBus.hole_difficulty_changed.is_connected(_on_hole_difficulty_changed):
+		EventBus.hole_difficulty_changed.disconnect(_on_hole_difficulty_changed)
+	if EventBus.golfer_finished_hole.is_connected(_on_scorecard_hole_finished):
+		EventBus.golfer_finished_hole.disconnect(_on_scorecard_hole_finished)
+	if EventBus.record_broken.is_connected(_on_scorecard_record_broken):
+		EventBus.record_broken.disconnect(_on_scorecard_record_broken)
 	if EventBus.course_rating_changed.is_connected(_on_course_changed_rating):
 		EventBus.course_rating_changed.disconnect(_on_course_changed_rating)
 
@@ -177,6 +205,7 @@ func _build_panels() -> void:
 	_land_panel.parcel_selected.connect(func(parcel): _select("parcel", parcel))
 	_land_panel.buy_requested.connect(_on_buy_requested)
 
+	_routing_panel.page_changed.connect(_on_routing_page_changed)
 	_routing_panel.hole_selected.connect(func(number): _select("hole", number))
 	_routing_panel.move_requested.connect(_on_hole_move)
 	_routing_panel.flip_requested.connect(_on_hole_flip)
@@ -229,8 +258,11 @@ func refresh() -> void:
 
 ## Switch mode: what the map is about, and which panel it is shown with.
 func set_mode(new_mode: int) -> void:
+	if GameManager.is_tournament_mode and new_mode != CourseMapView.Mode.ROUTING:
+		return
 	if new_mode == mode:
 		return
+	_scroll_epoch += 1
 	mode = new_mode
 	selection = {}
 	offer = {}
@@ -244,6 +276,32 @@ func set_mode(new_mode: int) -> void:
 	_refresh_tabs()
 	_refresh_title()
 	_refresh_strip()
+
+
+## The rebindable scorecard shortcut opens this page from the course or another
+## map mode. On a phone it also lifts/slides in the sheet; on a folded tablet it
+## reveals the dossier, rather than opening a scorecard the player cannot see.
+func show_scorecard() -> void:
+	set_mode(CourseMapView.Mode.ROUTING)
+	_routing_panel.set_page(CourseMapRoutingPanel.Page.SCORECARD)
+	if panel_hidden:
+		_toggle_fold()
+	if _uses_sheet():
+		_set_sheet_open(true)
+	_refresh_sheet_title()
+
+func is_scorecard_showing() -> bool:
+	return visible and mode == CourseMapView.Mode.ROUTING \
+		and _routing_panel.page == CourseMapRoutingPanel.Page.SCORECARD \
+		and not panel_hidden and (not _uses_sheet() or sheet_open)
+
+## When the card is already showing, the shortcut puts the map away; otherwise
+## it brings the card forward without discarding a hole picked in Routing.
+func toggle_scorecard() -> void:
+	if is_scorecard_showing():
+		back_requested.emit()
+	else:
+		show_scorecard()
 
 # =============================================================================
 # STRUCTURE
@@ -285,17 +343,25 @@ func _relayout_for(view: Vector2) -> void:
 		if _sheet != null:
 			_layout_sheet()
 		return
-	_build_structure()
+	var old_scroll := _panel_scroll.scroll_vertical if _panel_scroll != null else 0
+	_build_structure(view)
 	refresh()
+	_queue_scroll_restore(old_scroll)
 
 ## Tear the composition down and put it back together for the current shape. The
 ## map control itself survives - it is re-parented rather than rebuilt - so the
 ## view the player had (the zoom, the pan, the picked spot) is the view they keep.
-func _build_structure() -> void:
+## A screen change can arrive before the control itself has resized, so use the
+## reported dimensions instead of building twice against the outgoing size.
+func _build_structure(view: Vector2 = Vector2.ZERO) -> void:
+	_scroll_epoch += 1
 	_building = true
-	var view := _view_size()
+	if view == Vector2.ZERO:
+		view = _view_size()
 	layout = layout_mode_for(view)
 	_built_size = view
+	if layout != Kit.LayoutMode.TABLET_LANDSCAPE:
+		panel_hidden = false
 
 	# The map and the four panels outlive the composition: they are pulled out of
 	# the frames being thrown away so the view the player had (the zoom, the pan,
@@ -314,6 +380,21 @@ func _build_structure() -> void:
 	_detach(map)
 	for panel in _mode_panels():
 		_detach(panel)
+
+	# Some shapes do not have a sheet, rail or side panel. Drop the outgoing
+	# frame references before building the new shape so a later shortcut or
+	# resize never tries to use a freed phone/tablet control.
+	_money_label = null
+	_rail_stack = null
+	_tab_row = null
+	_panel_column = null
+	_panel_toggle = null
+	_panel_scroll = null
+	_sheet_layer = null
+	_sheet = null
+	_sheet_scrim = null
+	_sheet_title = null
+	_sheet_chevron = null
 
 	_backdrop = MenuBackdrop.new()
 	_backdrop.name = "Backdrop"
@@ -421,6 +502,7 @@ func _build_tabs() -> HBoxContainer:
 			control.custom_minimum_size.x = 104.0
 		control.tooltip_text = str(entry["blurb"])
 		var target := int(entry["mode"])
+		control.disabled = GameManager.is_tournament_mode and target != CourseMapView.Mode.ROUTING
 		control.pressed.connect(func(): set_mode(target))
 		row.add_child(control)
 		_tab_buttons.append(control)
@@ -483,6 +565,7 @@ func _build_rail() -> Control:
 		control.custom_minimum_size.y = 54.0 if layout == Kit.LayoutMode.TABLET_LANDSCAPE else 46.0
 		control.tooltip_text = str(entry["blurb"])
 		var target := int(entry["mode"])
+		control.disabled = GameManager.is_tournament_mode and target != CourseMapView.Mode.ROUTING
 		control.pressed.connect(func(): set_mode(target))
 		_rail_stack.add_child(control)
 		_tab_buttons.append(control)
@@ -509,6 +592,9 @@ func _build_panel_column() -> PanelContainer:
 	if layout == Kit.LayoutMode.TABLET_LANDSCAPE:
 		stack.add_child(_build_panel_bar())
 	stack.add_child(_build_panel_scroll())
+	if layout == Kit.LayoutMode.TABLET_LANDSCAPE and panel_hidden:
+		frame.visible = false
+		_panel_toggle.text = "Show"
 	return frame
 
 ## The bar above the tablet landscape's panel: what it is, and the fold-away
@@ -760,20 +846,54 @@ func _refresh_panel() -> void:
 	if _panel_scroll == null:
 		return
 	var active := _panel_for_mode()
+	var already_shown := active.get_parent() == _panel_scroll
+	var old_scroll := _panel_scroll.scroll_vertical if already_shown else 0
 	for panel in _mode_panels():
+		if panel == active and already_shown:
+			continue
 		panel.visible = false
 		if panel.get_parent() != null:
 			panel.get_parent().remove_child(panel)
-		# A panel that is out of the frame rides along with the screen rather
-		# than sitting parentless: only the mode's own panel is in the frame, and
-		# the screen owns the other three.
+		# Panels out of the frame ride along with the screen rather than being
+		# left parentless, so the screen owns them across layout changes.
 		if panel != active:
 			add_child(panel)
 	active.visible = true
 	active.set_compact(_map_is_small())
 	_sync_panel_selection()
-	_panel_scroll.add_child(active)
+	if not already_shown:
+		_panel_scroll.add_child(active)
 	active.refresh()
+	if already_shown:
+		_queue_scroll_restore(old_scroll)
+	else:
+		_panel_scroll.scroll_vertical = 0
+	_refresh_sheet_title()
+
+## Rebuilding a long scorecard briefly empties the list. Restore its outer scroll
+## after layout, coalescing multiple changes in a frame and ignoring stale work
+## after a page/mode change or a new sheet has replaced this scroll container.
+func _queue_scroll_restore(scroll_position: int) -> void:
+	if _panel_scroll == null:
+		return
+	if _scroll_restore_pending and _scroll_restore_epoch == _scroll_epoch:
+		return
+	_scroll_restore_pending = true
+	_scroll_restore_epoch = _scroll_epoch
+	call_deferred("_restore_panel_scroll", _panel_scroll.get_instance_id(), scroll_position, _scroll_epoch)
+
+func _restore_panel_scroll(scroll_id: int, scroll_position: int, epoch: int) -> void:
+	if _scroll_restore_epoch == epoch:
+		_scroll_restore_pending = false
+	if epoch != _scroll_epoch or not is_instance_valid(_panel_scroll) \
+			or _panel_scroll.get_instance_id() != scroll_id:
+		return
+	_panel_scroll.scroll_vertical = scroll_position
+
+func _on_routing_page_changed(_page: int) -> void:
+	_scroll_epoch += 1
+	if mode == CourseMapView.Mode.ROUTING and _panel_scroll != null:
+		_panel_scroll.scroll_vertical = 0
 	_refresh_sheet_title()
 
 func _panel_for_mode() -> VBoxContainer:
@@ -790,7 +910,9 @@ func _panel_for_mode() -> VBoxContainer:
 func _refresh_sheet_title() -> void:
 	if _sheet_title == null:
 		return
-	_sheet_title.text = "%s — %s" % [_mode_name(), _panel_summary()]
+	var caption := "Scorecard" if mode == CourseMapView.Mode.ROUTING \
+		and _routing_panel.page == CourseMapRoutingPanel.Page.SCORECARD else _mode_name()
+	_sheet_title.text = "%s — %s" % [caption, _panel_summary()]
 
 ## One line for the sheet's handle: what the panel is about to say.
 func _panel_summary() -> String:
@@ -1288,6 +1410,45 @@ func _on_course_changed(_order: Array) -> void:
 func _on_hole_changed(_hole_number: int) -> void:
 	_refresh_after_course()
 
+func _on_hole_deleted(hole_number: int) -> void:
+	if str(selection.get("kind", "")) == "hole" and int(selection.get("value", -1)) == hole_number:
+		_clear_selection()
+	_refresh_after_course()
+
+func _on_hole_created(_hole_number: int, _par: int, _yards: int) -> void:
+	_refresh_after_course()
+
+func _on_hole_toggled(_hole_number: int, _is_open: bool) -> void:
+	_refresh_after_course()
+
+func _on_hole_difficulty_changed(_hole_number: int, _difficulty: float) -> void:
+	_refresh_after_course()
+
+## Records can be announced before the rest of a hole's bookkeeping has
+## finished. Defer and coalesce scoring events so the card reads the final stats
+## and records, without rebuilding the map or jumping away from the reader.
+func _on_scorecard_hole_finished(_golfer_id: int, _number: int, _strokes: int, _par: int) -> void:
+	_queue_scorecard_refresh()
+
+func _on_scorecard_record_broken(_kind: String, _golfer: String, _value: int, _number: int) -> void:
+	_queue_scorecard_refresh()
+
+func _queue_scorecard_refresh() -> void:
+	if _scorecard_refresh_pending or not visible or mode != CourseMapView.Mode.ROUTING \
+			or _routing_panel.page != CourseMapRoutingPanel.Page.SCORECARD:
+		return
+	_scorecard_refresh_pending = true
+	call_deferred("_refresh_scorecard_data")
+
+func _refresh_scorecard_data() -> void:
+	_scorecard_refresh_pending = false
+	if not visible or not is_inside_tree() or mode != CourseMapView.Mode.ROUTING \
+			or _routing_panel.page != CourseMapRoutingPanel.Page.SCORECARD or _panel_scroll == null:
+		return
+	var old_scroll := _panel_scroll.scroll_vertical
+	_routing_panel._scorecard.refresh()
+	_queue_scroll_restore(old_scroll)
+
 # =============================================================================
 # INPUT
 # =============================================================================
@@ -1297,6 +1458,19 @@ func _on_hole_changed(_hole_number: int) -> void:
 ## Escape backs out one step at a time.
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
+		return
+	# A confirmation or another screen above the map owns the keyboard.
+	if has_node("/root/InputManager"):
+		var scope := InputManager.active_scope()
+		if scope != null and scope != self:
+			return
+	if (event is InputEventKey or event is InputEventJoypadButton) \
+			and InputBindings.matches(event, "course_scorecard"):
+		var focused := get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit:
+			return
+		toggle_scorecard()
+		get_viewport().set_input_as_handled()
 		return
 	# Controller B steps back exactly like Escape: armed action, then pick,
 	# then the screen itself.

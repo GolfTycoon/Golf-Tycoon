@@ -164,7 +164,7 @@ func test_apply_size_emits_changed_only_when_values_move() -> void:
 func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	var s := _make_screen()
 	s.window_size = Vector2(1600, 1000)
-	var desktop_bar := UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if DisplayServer.is_touchscreen_available() else UIConstants.BOTTOM_BAR_HEIGHT
+	var desktop_bar := UIConstants.BOTTOM_BAR_HEIGHT
 	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - desktop_bar - 8))
 	s.window_size = Vector2(390, 844)
 	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 108 - 8),
@@ -177,19 +177,27 @@ func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	s.window_size = Vector2(64, 64)
 	assert_eq(s.available_panel_size(), Vector2(120, 120))
 
-func test_touch_layout_uses_a_taller_bar_for_larger_targets() -> void:
+func test_every_landscape_layout_keeps_the_one_desktop_dock_height() -> void:
+	# The dock used to grow a taller touch variant once a window turned compact,
+	# so the bar crept up the screen as it narrowed. One height now serves every
+	# landscape layout; only the portrait HUD composes a different rail.
 	var s := _make_screen()
-	s.window_size = Vector2(1600, 1000)
-	var desktop_height: int = UIConstants.TOUCH_BOTTOM_BAR_HEIGHT if DisplayServer.is_touchscreen_available() else UIConstants.BOTTOM_BAR_HEIGHT
-	assert_eq(s.bottom_bar_height(), float(desktop_height))
-
-	s.window_size = Vector2(390, 844)
-	assert_true(s.uses_touch_layout(), "Compact phone-sized windows use touch sizing")
-	assert_eq(s.bottom_bar_height(), 108.0)
-	assert_almost_eq(s.hud_bottom_clearance(), 116.0, 0.001)
+	for size in [Vector2(1600, 1000), Vector2(1024, 768), Vector2(900, 1000),
+			Vector2(899, 700), Vector2(844, 390), Vector2(700, 1000),
+			Vector2(390, 844), Vector2(360, 800)]:
+		s.window_size = size
+		if s.uses_portrait_hud():
+			assert_eq(s.bottom_bar_height(), 108.0, "%s wears the portrait thumb rail" % size)
+			continue
+		assert_eq(s.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
+			"%s keeps the desktop dock height%s" % [size,
+				" (compact, touch sizing)" if s.uses_touch_layout() else ""])
+		assert_almost_eq(s.hud_bottom_clearance(),
+			float(UIConstants.BOTTOM_BAR_HEIGHT) + 8.0, 0.001)
 	s.window_size = Vector2(844, 390)
-	assert_eq(s.bottom_bar_height(), float(UIConstants.TOUCH_BOTTOM_BAR_HEIGHT),
-		"Rotation keeps the existing landscape touch dock")
+	assert_true(s.uses_touch_layout(), "A phone on its side still gets thumb-sized controls")
+	assert_eq(s.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
+		"but the dock keeps the one desktop height")
 
 
 func test_portrait_hud_is_phone_width_only() -> void:
