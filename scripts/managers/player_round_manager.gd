@@ -11,7 +11,13 @@ const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
 ## them out in gold, so the pages name their columns from one place.
 const DETAILS_TITLE := "Golfer Details"
 const TRAITS_TITLE := "Golfer Traits"
-const SKILLS_TITLE := "Golfer Skills"
+## The same visiting green used by the on-course golfer cards.
+const GOLFER_SKILL_ACCENT := Color("83c9a4")
+## A narrower version of the visitor name plate, retaining its height.
+const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
+## Marks buttons whose shared visitor-card styling must not be replaced by the
+## owner's ordinary pixel controls during the final styling pass.
+const GOLFER_SKILL_CARD_META := "golfer_skill_card"
 ## The heading of the column that holds the ground the owner's own golfer
 ## works when they are not playing.
 const WORK_AREA_TITLE := "On the course"
@@ -727,6 +733,43 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
+## A Golfer Skill as a selectable name plate in the Visiting Golfers visual
+## language: the same pixel font and card frame on a narrower footprint. Off is
+## a quiet outlined card; On uses a solid green fill and dark caption so the
+## enabled state stands out without a separate checkbox.
+func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
+	var button := Button.new()
+	button.text = skill_name
+	button.toggle_mode = true
+	button.button_pressed = is_on
+	button.custom_minimum_size = GOLFER_SKILL_BUTTON_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.focus_mode = Control.FOCUS_ALL
+	button.accessibility_description = "%s golfer skill. Toggle on or off." % skill_name
+	button.set_meta(GOLFER_SKILL_CARD_META, true)
+	button.add_theme_font_override("font", VisitorCardButton.FONT)
+	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+	PixelButtonStyle.paint_choice(button, GOLFER_SKILL_ACCENT)
+	# Strengthen the selected half of the shared choice style: a solid visiting
+	# green body makes an enabled skill unmistakable beside the quiet Off cards.
+	button.add_theme_stylebox_override("pressed", PixelButtonStyle.card_style(
+		GOLFER_SKILL_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
+		GOLFER_SKILL_ACCENT, 0, 0, 0))
+	button.add_theme_stylebox_override("hover_pressed", PixelButtonStyle.card_style(
+		GOLFER_SKILL_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
+		GOLFER_SKILL_ACCENT.lightened(0.12), 0, 0, 0))
+	button.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+	for state in ["hover", "focus"]:
+		button.add_theme_color_override("font_%s_color" % state, VisitorCardButton.NAME_LIT)
+	for state in ["pressed", "hover_pressed"]:
+		button.add_theme_color_override("font_%s_color" % state, PixelButtonStyle.INK)
+	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
+	return button
+
+
 func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
 	# Chunky, square-corner pixel UI: dark enamel surfaces, hard outlines and
 	# high-contrast mint/gold accents instead of the default rounded widgets.
@@ -936,7 +979,20 @@ func _build_setup() -> void:
 			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY], 216)
 			content.add_theme_constant_override("separation", 3)
 			_build_tournament_play_export_column()
-		content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 250)
+		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
+		# Three untitled visitor-style name plates lead the shelf, ahead of the
+		# points-based Golf Skills.
+		var golfer_skills_column := PlayerTab.add_column(skills_page, GOLFER_SKILL_BUTTON_SIZE.x)
+		golfer_skills_column.add_theme_constant_override("separation", 2)
+		for key in GolferAttributes.GOLFER_SKILL_KEYS:
+			var skill_name: String = GolferAttributes.GOLFER_SKILL_NAMES[key]
+			var skill_toggle := _golfer_skill_button(skill_name, bool(draft.golfer_skills[key]))
+			skill_toggle.name = "GolferSkill%s" % key.capitalize()
+			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
+				draft.golfer_skills[skill_key] = on
+				_persist_player_profile())
+			golfer_skills_column.add_child(skill_toggle)
+		content = PlayerTab.add_column(skills_page, 250)
 	else:
 		_label("Round format")
 		mode_picker = OptionButton.new()
@@ -949,20 +1005,6 @@ func _build_setup() -> void:
 		pro_picker.disabled = true
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
-	if is_instance_valid(player_tab):
-		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
-		var golfer_skills_column: VBoxContainer = null
-		for slot in GolferAttributes.GOLFER_SKILL_KEYS.size():
-			if slot % TOGGLES_PER_COLUMN == 0:
-				golfer_skills_column = _toggle_column(skills_page, SKILLS_TITLE, slot, 220)
-			var key: String = GolferAttributes.GOLFER_SKILL_KEYS[slot]
-			var skill_toggle := CheckButton.new()
-			skill_toggle.text = GolferAttributes.GOLFER_SKILL_NAMES[key]
-			skill_toggle.button_pressed = draft.golfer_skills[key]
-			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
-				draft.golfer_skills[skill_key] = on
-				_persist_player_profile())
-			golfer_skills_column.add_child(skill_toggle)
 	points_label = _label("")
 	_label("Each point adds 10% bonus. Maximum per skill: 990%.")
 	skill_labels.clear()
@@ -986,9 +1028,10 @@ func _build_setup() -> void:
 		# Apply one consistent pixel-art visual language to both owner tabs.
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
-				_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
+				if not widget.has_meta(GOLFER_SKILL_CARD_META):
+					_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
 				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
-						in [DETAILS_TITLE, TRAITS_TITLE, SKILLS_TITLE] or widget == points_label):
+						in [DETAILS_TITLE, TRAITS_TITLE] or widget == points_label):
 					widget.add_theme_color_override("font_color", Color("f0bf59"))
 					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()

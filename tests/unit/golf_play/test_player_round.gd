@@ -458,6 +458,53 @@ func test_embedded_player_navigation_and_setup() -> void:
 			assert_eq(tab.pages[page].get_parent().visible, page == index)
 		assert_false(tab.aim_scroll.visible, "The aiming view stays hidden outside a round")
 
+func test_golfer_skills_lead_player_skills_shelf_as_untitled_visitor_cards() -> void:
+	var tab := PlayerTab.new()
+	fixture.add_child(tab)
+	rounds.attach_player_tab(tab)
+	var skill_page := tab.pages[PlayerTab.PAGE_SKILLS]
+	var skill_scroll := skill_page.get_parent() as ScrollContainer
+	assert_eq(skill_scroll.offset_top, PlayerTab.SKILLS_PAGE_TOP_GAP,
+		"The Player Golfer Skills title has breathing room below it")
+	var first_column := skill_page.get_child(0)
+	assert_eq(first_column.get_child_count(), 3,
+		"The Golfer Skills column contains only its three buttons, with no title")
+	var toggle_names: Array[String] = []
+	var buttons: Array[Button] = []
+	for control in first_column.get_children():
+		assert_false(control is Label, "The Golfer Skills title is removed")
+		if control is Button:
+			buttons.append(control)
+			toggle_names.append(control.text)
+	assert_eq(toggle_names, ["Length", "Accuracy", "Imagination"],
+		"Length, Accuracy and Imagination lead the shelf in that order")
+	for button in buttons:
+		assert_true(button.toggle_mode, "%s remains an On/Off toggle" % button.text)
+		assert_eq(button.custom_minimum_size, PlayerRoundManager.GOLFER_SKILL_BUTTON_SIZE,
+			"%s uses the narrower Golfer Skill card footprint" % button.text)
+		assert_lt(button.custom_minimum_size.x, VisitorCardButton.BUTTON_SIZE.x,
+			"%s is narrower than a Visiting Golfer card" % button.text)
+		assert_eq(button.get_theme_font("font"), VisitorCardButton.FONT,
+			"%s uses the Visiting Golfer pixel font" % button.text)
+		assert_eq(button.get_theme_color("font_color"), VisitorCardButton.CREAM)
+		assert_true(button.get_theme_stylebox("normal") is StyleBoxTexture,
+			"The ordinary owner-button styling does not replace the shared card frame")
+		assert_true(button.get_theme_stylebox("pressed") is StyleBoxTexture,
+			"The selected state uses the shared card frame")
+		assert_eq(button.get_theme_color("font_pressed_color"), PixelButtonStyle.INK,
+			"The enabled caption contrasts with its solid green fill")
+		var off_style := button.get_theme_stylebox("normal") as StyleBoxTexture
+		var on_style := button.get_theme_stylebox("pressed") as StyleBoxTexture
+		var off_pixel := off_style.texture.get_image().get_pixel(30, 30)
+		var on_pixel := on_style.texture.get_image().get_pixel(30, 30)
+		assert_gt(on_pixel.get_luminance(), off_pixel.get_luminance() + 0.2,
+			"The enabled card is substantially brighter than the Off card")
+
+	buttons[0].button_pressed = true
+	buttons[0].toggled.emit(true)
+	assert_true(bool(GameManager.player_profile.golfer_skills["length"]),
+		"The restyled skill buttons still save their On/Off state")
+
 ## The Player Skills navigation button wears the number of points still to spend;
 ## zero points means no badge.
 func test_player_skills_button_badges_unspent_points() -> void:
