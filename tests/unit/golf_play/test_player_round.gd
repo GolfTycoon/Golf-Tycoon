@@ -451,7 +451,7 @@ func test_embedded_player_navigation_and_setup() -> void:
 	for child in tab.pages[PlayerTab.PAGE_PLAY].find_children("*", "Button", true, false):
 		if child.has_meta("owner_round_start"):
 			starters += 1
-	assert_eq(starters, 2, "Play Course combines the practice and vs pro starters")
+	assert_eq(starters, 1, "Play Course has one combined Start Round button")
 	for index in 3:
 		tab.buttons[index].pressed.emit()
 		for page in 3:
@@ -547,7 +547,7 @@ func test_embedded_round_uses_aim_page_and_returns_to_setup() -> void:
 	for child in tab.pages[PlayerTab.PAGE_PLAY].find_children("*", "Button", true, false):
 		if child.has_meta("owner_round_start"):
 			starters += 1
-	assert_eq(starters, 2, "Rebuilding does not duplicate round-start buttons")
+	assert_eq(starters, 1, "The combined round setup has one Start Round button")
 
 ## Unspent skill points are a nudge, not a gate: the round starts, and the play
 ## page (not Player Skills) is what comes up.
@@ -562,6 +562,48 @@ func test_embedded_round_starts_with_unspent_skill_points() -> void:
 	assert_eq(tab.selected, PlayerTab.PAGE_PLAY, "The round does not divert to the Player Skills page")
 	rounds.leave_round()
 	assert_false(rounds.busy)
+
+func test_round_roster_adds_up_to_three_pros_and_starts_one_group() -> void:
+	var tab := PlayerTab.new()
+	fixture.add_child(tab)
+	rounds.attach_player_tab(tab)
+	assert_true(is_instance_valid(rounds._round_player_preview), "The player's golfer sprite is shown")
+	assert_eq(rounds._add_golfer_button.text, "", "The add control is an icon button, not a text button")
+	assert_not_null(rounds._add_golfer_button.icon)
+	var round_section: VBoxContainer = rounds._round_players_row.get_parent()
+	assert_eq(round_section.custom_minimum_size.x, 220.0,
+		"The round setup reserves four larger golfer-sprite slots")
+	assert_eq(rounds._round_player_preview_box.custom_minimum_size, Vector2(52, 66),
+		"The player's golfer sprite has a larger portrait area")
+	assert_eq(round_section.find_children("*", "Label", true, false).size(), 0,
+		"The setup has no title or visible golfer-name labels")
+	assert_eq(rounds._selected_pros.size(), 0, "A new round starts as practice")
+	for index in PlayerRoundManager.PROS.size():
+		rounds._on_add_golfer_selected(index)
+	assert_eq(rounds._selected_pros.size(), 3)
+	assert_eq(rounds._pro_roster.get_child_count(), 3, "Each added pro gets a portrait beside the owner")
+	for index in PlayerRoundManager.PROS.size():
+		var pro_name: String = PlayerRoundManager.PROS[index]
+		assert_true(rounds._pro_preview_nodes.has(pro_name))
+		assert_true(rounds._pro_preview_nodes[pro_name] is Golfer)
+		var remove := rounds._pro_roster.get_child(index).find_child("RemoveProButton", true, false)
+		assert_not_null(remove, "Every pro portrait has a remove button")
+		assert_false(remove.get_parent().clip_contents,
+			"Remove controls sit outside the sprite's clipping rectangle")
+	assert_null(rounds._add_golfer_button, "The add icon disappears when the four-person group is full")
+	rounds._remove_round_pro(PlayerRoundManager.PROS[2])
+	assert_true(is_instance_valid(rounds._add_golfer_button), "Removing a pro restores the add icon")
+	rounds._on_add_golfer_selected(2)
+	assert_null(rounds._add_golfer_button, "The add icon disappears again at capacity")
+	rounds._on_add_golfer_selected(0)
+	assert_eq(rounds._selected_pros.size(), 3, "Duplicate pros are ignored")
+	rounds._start_embedded(0)
+	assert_eq(rounds.participants.size(), 4, "The owner and all three pros play in one group")
+	for index in 3:
+		assert_eq(rounds.participants[index + 1].golfer_name, PlayerRoundManager.PROS[index])
+		assert_eq(rounds.participants[index + 1].group_id, rounds.player.group_id,
+			"Every selected pro joins the owner's playing group")
+	rounds.leave_round()
 
 ## The shot-type buttons are separate buttons running along the top of the Play
 ## Course page, one per shot type, above the aiming columns — no drop-down.
