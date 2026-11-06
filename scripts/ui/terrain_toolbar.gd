@@ -1360,13 +1360,12 @@ func _build_holes_tab(hbox: HBoxContainer) -> void:
 	actions.add_theme_constant_override("separation", 6)
 	actions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_hole_register.add_child(actions)
-	var map_card := DockActionButton.new()
+	var map_card := MapCircleButton.new()
+	map_card.name = "HolesMapButton"
 	map_card.tool_type = "holes_map"
 	map_card.tool_name = "Holes Map"
 	map_card.glyph = "holes"
-	# The Holes tab lives in the Manage section now, so its card wears that
-	# section's colour rather than Build's.
-	map_card.accent_section = Section.MANAGE
+	map_card.accent = SECTION_COLORS[Section.MANAGE]
 	map_card.tool_description = "The whole course on one map in Routing Holes: reorder the round, set par, and read the scorecard and course records"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	actions.add_child(map_card)
@@ -1516,10 +1515,12 @@ func _build_staff_tab(hbox: HBoxContainer) -> void:
 	# action rather than a roster row, so it stands beside the panel,
 	# not inside it — and it leads the shelf on the left, before the
 	# roster, the way the Holes Map card leads the hole register.
-	var map_card := DockActionButton.new()
+	var map_card := MapCircleButton.new()
+	map_card.name = "StaffMapButton"
 	map_card.tool_type = "staff_map"
 	map_card.tool_name = "Staff Map"
 	map_card.glyph = "staff"
+	map_card.accent = SECTION_COLORS[Section.MANAGE]
 	map_card.tool_description = "The whole course on one map, on Staff: each employee's ground, and where to hire, post or let them go"
 	map_card.tool_pressed.connect(_on_tool_button_pressed)
 	hbox.add_child(map_card)

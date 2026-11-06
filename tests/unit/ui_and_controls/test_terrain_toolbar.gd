@@ -1148,9 +1148,9 @@ func _add_hole_button(hole_number: int) -> Button:
 	return hole_btn
 
 ## The Holes tab's map card, the way the tab builds it.
-func _holes_map_card() -> DockActionButton:
+func _holes_map_card() -> Button:
 	for child in toolbar._hole_register.get_node("HoleActions").get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "holes_map":
+		if str(child.get("tool_type")) == "holes_map":
 			return child
 	return null
 
@@ -1172,9 +1172,9 @@ func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
 		"The Holes tab answers from the Manage section now")
 
 ## The Staff tab's map card, the way the tab builds it.
-func _staff_map_card() -> DockActionButton:
+func _staff_map_card() -> Button:
 	for child in toolbar.page_content(TerrainToolbar.Tab.STAFF).get_children():
-		if child is DockActionButton and str(child.get("tool_type")) == "staff_map":
+		if str(child.get("tool_type")) == "staff_map":
 			return child
 	return null
 
@@ -2619,14 +2619,25 @@ func test_manage_action_tickets_are_two_high_and_have_no_shortcut_labels() -> vo
 	for tab in [TerrainToolbar.Tab.CLUB, TerrainToolbar.Tab.HOLES, TerrainToolbar.Tab.STAFF]:
 		toolbar.select_tab(tab)
 		await _settle_layout()
-		var cards := toolbar.page_content(tab).find_children("*", "DockActionButton", true, false)
-		assert_gt(cards.size(), 0)
-		for card: DockActionButton in cards:
-			assert_eq(card.text, card.tool_name, "Native label contains no shortcut")
-			assert_eq(card.custom_minimum_size, Vector2(216, 54))
-			assert_lte(PixelCircleButton.FONT.get_string_size(card.tool_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x,
-				card.size.x - 62, "%s fits beside its icon" % card.tool_name)
-			assert_false(card.tooltip_text.contains("(N)"), "Feed tooltip omits shortcut text")
+		if tab == TerrainToolbar.Tab.CLUB:
+			var cards := toolbar.page_content(tab).find_children("*", "DockActionButton", true, false)
+			assert_gt(cards.size(), 0)
+			for card: DockActionButton in cards:
+				assert_eq(card.text, card.tool_name, "Native label contains no shortcut")
+				assert_eq(card.custom_minimum_size, Vector2(216, 54))
+				assert_lte(PixelCircleButton.FONT.get_string_size(card.tool_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x,
+					card.size.x - 62, "%s fits beside its icon" % card.tool_name)
+				assert_false(card.tooltip_text.contains("(N)"), "Feed tooltip omits shortcut text")
+		else:
+			var circles := toolbar.page_content(tab).find_children("*", "MapCircleButton", true, false)
+			assert_gt(circles.size(), 0, "The %s tab carries a circular map button" % TerrainToolbar.TAB_TITLES[tab])
+			for card in circles:
+				assert_true(card is PixelCircleButton, "Holes/Staff Map wears the circular PixelCircleButton design")
+				assert_eq(card.text, "", "Circular button carries no text label")
+				assert_eq(card.get("caption"), "", "and no caption — the glyph alone names it")
+				assert_eq(int(card.diameter), int(MapCircleButton.BUTTON_DIAMETER), "Diameter matches the other circular game buttons")
+				assert_true(PixelCircleButton.ICONS.has(card.glyph), "%s draws a registered icon" % card.tool_name)
+				assert_false(str(card.get("tooltip_text")).contains("(N)"), "Tooltip omits shortcut text")
 	for group in _club_groups():
 		for column in group.get_child(1).get_children():
 			assert_lte(column.get_child_count(), 2, "No action column exceeds two rows")
