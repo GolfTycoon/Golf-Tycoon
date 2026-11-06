@@ -1,8 +1,8 @@
 # Data Reference
 
-> The JSON data behind buildings, decorations, terrain, golfer skins and visiting golfers, and which of those files the game reads at runtime.
+> The JSON data behind buildings, decorations, terrain, menu backdrops, menu overlays, golfer skins and visiting golfers, and which of those files the game reads at runtime.
 
-**Source:** `data/` (all files), `scripts/systems/golfer_tier.gd`, `scripts/terrain/terrain_types.gd`, `scripts/systems/world_locations.gd` (`get_visiting_golfers()`), `scripts/systems/prebuilt_course_generator.gd`
+**Source:** `data/` (all files), `scripts/systems/golfer_tier.gd`, `scripts/terrain/terrain_types.gd`, `scripts/systems/world_locations.gd` (`get_visiting_golfers()`), `scripts/systems/prebuilt_course_generator.gd`, `scripts/systems/menu_backdrop_catalog.gd`
 **Tests:** `tests/unit/test_new_terrain_types.gd`
 
 ---
@@ -15,6 +15,8 @@
 | `data/decorations.json` | 5, keyed by id | Yes | Improvements: category, size, cost, upkeep, aesthetic value, allowed terrain, theme bonuses |
 | `data/terrain_types.json` | 33 | No | Mirror of terrain ids, names, `playable`, `placement_cost` and `blocks_shots`, for tools |
 | `data/golfer_traits.json` | Two sections | No | `golfer_archetypes` and `mood_states`. No runtime code reads them. |
+| `data/menu_backdrops.json` | 4, keyed by id | Yes | Menu background pictures: image, tint, scrim and the season/theme tags Auto reads |
+| `data/menu_overlays.json` | 11, keyed by id + a `settings` block | Yes | Menu overlay patterns, the ink and feature size each one draws with, and the settings the Display card offers |
 | `data/visiting_golfers/<location>.json` | 27 files | Yes | Visiting golfers for each World Map location |
 | `data/golfer_skins/beginner/` and `casual/` | Skin folders | Yes | Built-in golfer skins |
 
@@ -97,6 +99,45 @@ See [Improvement Catalog](systems/course-design/garden-catalog.md).
 
 Terrain behaviour is defined in `scripts/terrain/terrain_types.gd`. `terrain_types.json` is a mirror for tools. Changing the JSON does not change the game. See [Terrain Types](systems/course-design/terrain-types.md).
 
+## Menu Backdrops
+
+`menu_backdrops.json` is an object keyed by backdrop id, each entry naming the
+picture the menus can sit on. `MenuBackdropCatalog` reads it once at startup and
+merges every loaded mod's entries over it; `Backdrops` (the autoload) picks one -
+the player's choice, or Auto's - and `MenuBackdrop` draws it. The art lives in
+`assets/ui/backdrops/`; a mod can point at art of its own instead.
+
+| Field | Meaning |
+| --- | --- |
+| `name`, `description` | What the picker in **Settings → Display → Background** shows |
+| `image` | `res://` path to the picture. Drawn 16:9 and cropped cover-fit, so no window shape letterboxes it |
+| `tint` | Colour multiplied over the picture (hex, `[r, g, b, a]` or a name); `ffffff` leaves it alone |
+| `scrim` | 0–0.9 dark wash over the picture, to keep menu cards readable on a bright one |
+| `tags` | Free-form words, not read by the game |
+| `seasons`, `themes` | Which season and course theme the picture suits. **Auto** prefers a match, then falls back to `clubhouse` |
+
+The shipped four: `clubhouse` (no tags — the fallback), `golden_hour` (fall;
+resort, tropical and links courses), `winter` (winter; mountain, woodland and
+heathland) and `desert` (desert and marshland).
+
+`menu_overlays.json` holds the patterns laid over that picture plus the
+`settings` block their controls read.
+
+| Overlay field | Meaning |
+| --- | --- |
+| `name`, `description` | What the overlay picker shows |
+| `pattern` | Which painter `MenuBackdropOverlay` runs: `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots` or `sparkle` |
+| `color` | The ink; its alpha is the overlay's whole opacity, so `strength` multiplies it further |
+| `strength` | 0–1 multiplier on the ink's alpha, so one pattern can be shipped at several weights |
+| `scale` | Feature size in whole pixels at the design resolution (band pitch, dot spacing) |
+| `setting_ids` | Which keys of the `settings` block this overlay reacts to; each becomes a row under the picker and is remembered per overlay |
+| `seasons`, `themes` | As for pictures. Auto prefers a match and otherwise draws `none` |
+
+The `settings` block is the same schema mods use: `{key: {name, description,
+kind, default, choices, values}}` where `kind` is `choice` (a picker) or
+`toggle`. `angle` (0–165° in 15° steps) turns `split`, `stripes` and `grid`;
+`density` (Light/Medium/Heavy) sets how many glints `sparkle` scatters.
+
 ## Visiting Golfers
 
 `data/visiting_golfers/` has one file for each of the 27 World Map locations, named after the location in lower case, for example `japan.json`, `new_york.json` or `san_diego.json`. Each file lists the 50 visitors for that location, and every visitor has a unique name within it (and across the whole game).
@@ -124,5 +165,6 @@ Built-in skins are folders in `data/golfer_skins/`. The format and the studio ar
 
 ## Related
 
+- [UI & Controls](ui-and-controls.md#menu-background) covers the Background card that sets these.
 - [Architecture](architecture.md) shows which systems read this data.
 - [Save & Load](save-and-load.md) covers what is saved, which is not this static data.
