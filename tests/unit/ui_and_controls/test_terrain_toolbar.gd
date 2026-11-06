@@ -1117,8 +1117,11 @@ func test_holes_tab_has_hole_grid_without_duplicate_action_or_heading() -> void:
 		"The register holds the map action and the hole grid")
 	var actions := toolbar._hole_register.get_child(0) as VBoxContainer
 	assert_not_null(actions, "The Holes Map leads the register")
-	assert_eq(actions.get_child_count(), 1, "The scorecard is in the map, not on the shelf")
-	assert_same(actions.get_child(0), _holes_map_card(), "Holes Map leads")
+	# HoleActions now holds the larger circular button plus a top spacer that pushes it lower
+	var holes_map_buttons := actions.find_children("*", "MapCircleButton", true, false).filter(func(c): return str(c.get("tool_type")) == "holes_map")
+	assert_eq(holes_map_buttons.size(), 1, "The scorecard is in the map, not on the shelf — Holes Map is the only map action")
+	assert_true(holes_map_buttons.has(_holes_map_card()), "Holes Map leads")
+	assert_not_null(actions.get_node_or_null("HolesMapSpacer"), "Spacer pushes the larger button further down")
 	assert_same(toolbar._hole_register.get_child(1), toolbar.hole_grid,
 		"The hole buttons follow the map action")
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.HOLES]
@@ -1173,7 +1176,9 @@ func test_the_holes_map_card_asks_for_the_course_map_on_routing() -> void:
 
 ## The Staff tab's map card, the way the tab builds it.
 func _staff_map_card() -> Button:
-	for child in toolbar.page_content(TerrainToolbar.Tab.STAFF).get_children():
+	var shelf := toolbar.page_content(TerrainToolbar.Tab.STAFF)
+	# Card is nested inside the StaffMapActions wrapper that also holds its top spacer
+	for child in shelf.find_children("*", "Button", true, false):
 		if str(child.get("tool_type")) == "staff_map":
 			return child
 	return null
@@ -1201,11 +1206,13 @@ func test_the_staff_map_card_leads_the_shelf_on_the_left() -> void:
 	var panel := toolbar._staff_panel
 	assert_not_null(card, "The Staff tab carries a Staff Map card")
 	assert_not_null(panel, "The Staff tab carries the roster panel")
-	assert_same(shelf.get_child(1), card,
-		"The Staff Map card leads the shelf after the leading spacer")
+	var wrapper := card.get_parent()
+	assert_same(shelf.get_child(1), wrapper,
+		"The Staff Map wrapper leads the shelf after the leading spacer")
 	assert_same(shelf.get_child(2), panel,
 		"and the roster panel follows it on the right")
-	assert_lt(card.get_index(), panel.get_index(),
+	assert_true(wrapper.has_node("StaffMapSpacer"), "Spacer pushes the larger button further down")
+	assert_lt(wrapper.get_index(), panel.get_index(),
 		"so the card sits left of the roster")
 
 ## The scorecard is a page of the Holes Map, not a second shelf action or an
@@ -2644,4 +2651,6 @@ func test_manage_action_tickets_are_two_high_and_have_no_shortcut_labels() -> vo
 	var maps := _group_cards(_club_groups()[0])
 	assert_eq(maps[0].get_parent(), maps[1].get_parent(), "The two maps are stacked")
 	var holes := toolbar._hole_register.get_node("HoleActions")
-	assert_eq(holes.get_child_count(), 1, "Holes Map is the only action beside the hole register")
+	var holes_map_count := holes.find_children("*", "MapCircleButton", true, false).filter(func(c): return str(c.get("tool_type")) == "holes_map").size()
+	assert_eq(holes_map_count, 1, "Holes Map is the only action beside the hole register")
+	assert_not_null(holes.get_node_or_null("HolesMapSpacer"), "Spacer keeps the larger button lower")

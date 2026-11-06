@@ -19,11 +19,13 @@ signal tool_pressed(tool_type)
 @export var cost: int = 0
 @export var maintenance: int = 0
 
-const BUTTON_DIAMETER := 46.0
+const BUTTON_DIAMETER := 64.0
 
 func _init() -> void:
 	diameter = BUTTON_DIAMETER
-	accent = TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.MANAGE]
+	# Manage green — same as the tab rail's MANAGE section — as a literal
+	# so the class has no hard load-order dependency on TerrainToolbar.
+	accent = Color("8dba9b")
 	focus_mode = Control.FOCUS_ALL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
