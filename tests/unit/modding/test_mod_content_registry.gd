@@ -50,6 +50,119 @@ func _write_png(mod_folder: String, relative: String) -> String:
 
 
 # ---------------------------------------------------------------------------
+# Menu backgrounds and overlays (content.menu_backdrops / menu_overlays)
+# ---------------------------------------------------------------------------
+
+func test_a_mod_adds_menu_pictures_and_overlays_from_its_own_folder() -> void:
+	_write_png("mod_a", "art/aurora.png")
+	_write("mod_a", "backdrops.json",
+		'{"backdrops": {"aurora": {"name": "Aurora", "image": "art/aurora.png", "seasons": ["winter"]}}}')
+	_write("mod_a", "overlays.json",
+		'{"overlays": {"stars": {"name": "Stars", "pattern": "sparkle", "strength": 0.5}},'
+		+ ' "settings": {"twinkle": {"name": "Twinkle", "default": 0, "choices": ["Off", "On"], "values": [0, 1]}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"),
+		{"menu_backdrops": "backdrops.json", "menu_overlays": "overlays.json"})
+
+	assert_true(MenuBackdropCatalog.has_backdrop("tester.a:aurora"),
+		"a new picture is namespaced under its mod")
+	assert_eq(MenuBackdropCatalog.backdrop("tester.a:aurora")["image"],
+		ROOT.path_join("mod_a").path_join("art/aurora.png"),
+		"and its picture resolves against the mod's own folder")
+	assert_true(MenuBackdropCatalog.has_overlay("tester.a:stars"))
+	assert_eq(MenuBackdropCatalog.overlay("tester.a:stars")["pattern"], "sparkle")
+	assert_eq(MenuBackdropCatalog.settings_for("tester.a:stars").size(), 0,
+		"an overlay only exposes the settings it lists")
+	assert_eq(str(MenuBackdropCatalog.backdrop_source("tester.a:aurora")), "tester.a",
+		"the registry credits the mod that added it")
+
+
+func test_a_mod_patches_a_shipped_picture_by_naming_its_id() -> void:
+	_write("mod_a", "backdrops.json",
+		'{"backdrops": {"clubhouse": {"tint": "ffcc88", "seasons": ["summer"]}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"),
+		{"menu_backdrops": "backdrops.json"})
+
+	var clubhouse := MenuBackdropCatalog.backdrop("clubhouse")
+	assert_eq(str(clubhouse["name"]), "Clubhouse", "the shipped name survives a patch")
+	assert_eq(clubhouse["tint"], Color.html("ffcc88"), "the patch's tint lands")
+	assert_eq(clubhouse["seasons"], ["summer"], "so does the season it adds")
+	assert_true(str(clubhouse["image"]).ends_with("background.jpeg"),
+		"and the shipped picture is still the one it draws")
+	assert_eq(str(MenuBackdropCatalog.backdrop_source("clubhouse")), "tester.a")
+
+
+func test_each_mod_gets_its_own_namespace_and_a_later_mod_can_repaint_one() -> void:
+	_write("mod_a", "backdrops.json", '{"backdrops": {"aurora": {"name": "Aurora A", "image": "a.png"}}}')
+	_write("mod_b", "backdrops.json", '{"backdrops": {"aurora": {"name": "Aurora B", "image": "b.png"}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"menu_backdrops": "backdrops.json"})
+	registry.apply_mod_content("tester.b", ROOT.path_join("mod_b"), {"menu_backdrops": "backdrops.json"})
+	# A bare id is new to each mod, so each gets its own namespaced entry - the
+	# two mods' Auroras cannot collide, and both stay on offer.
+	assert_true(MenuBackdropCatalog.has_backdrop("tester.a:aurora"))
+	assert_true(MenuBackdropCatalog.has_backdrop("tester.b:aurora"))
+	assert_eq(str(MenuBackdropCatalog.backdrop("tester.a:aurora")["name"]), "Aurora A")
+	assert_eq(str(MenuBackdropCatalog.backdrop("tester.b:aurora")["name"]), "Aurora B")
+
+	# Naming an id that already exists is a patch: later in the load order wins,
+	# and the entry keeps the id (and the picture) it already had.
+	_write("mod_b", "backdrops.json", '{"backdrops": {"tester.a:aurora": {"tint": "ffcc88"}}}')
+	registry.apply_mod_content("tester.b", ROOT.path_join("mod_b"), {"menu_backdrops": "backdrops.json"})
+	var patched := MenuBackdropCatalog.backdrop("tester.a:aurora")
+	assert_eq(str(patched["name"]), "Aurora A", "the name a patch did not mention survives")
+	assert_eq(patched["tint"], Color.html("ffcc88"), "the tint it did mention lands")
+	assert_eq(str(MenuBackdropCatalog.backdrop_source("tester.a:aurora")), "tester.b",
+		"and the later mod is credited")
+
+
+func test_a_picture_with_no_image_is_reported_and_left_out() -> void:
+	_write("mod_a", "backdrops.json", '{"backdrops": {"empty": {"name": "Empty"}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"menu_backdrops": "backdrops.json"})
+	assert_false(MenuBackdropCatalog.has_backdrop("tester.a:empty"),
+		"a picture with no file would paint nothing, so it is dropped")
+	var warnings: Array = registry.get_warnings()
+	var found := false
+	for warning in warnings:
+		if str(warning).contains("empty") and str(warning).contains("image"):
+			found = true
+	assert_true(found, "and the player hears about it: %s" % str(warnings))
+
+
+func test_resetting_the_registry_drops_every_menu_style() -> void:
+	_write_png("mod_a", "art/aurora.png")
+	_write("mod_a", "backdrops.json", '{"backdrops": {"aurora": {"image": "art/aurora.png"}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"menu_backdrops": "backdrops.json"})
+	assert_true(MenuBackdropCatalog.has_backdrop("tester.a:aurora"))
+	registry.reset_mod_content()
+	assert_false(MenuBackdropCatalog.has_backdrop("tester.a:aurora"),
+		"switching the mod off takes its pictures with it")
+	assert_true(MenuBackdropCatalog.has_backdrop("clubhouse"), "the shipped ones stay")
+
+
+func test_the_content_summary_counts_menu_styles() -> void:
+	_write_png("mod_a", "art/aurora.png")
+	_write("mod_a", "backdrops.json", '{"backdrops": {"aurora": {"image": "art/aurora.png"}}}')
+	_write("mod_a", "overlays.json", '{"overlays": {"stars": {"pattern": "sparkle"}}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"),
+		{"menu_backdrops": "backdrops.json", "menu_overlays": "overlays.json"})
+	var summary: Dictionary = registry.get_content_summary()
+	assert_eq(int((summary["tester.a"] as Dictionary).get("backdrops", 0)), 1)
+	assert_eq(int((summary["tester.a"] as Dictionary).get("overlays", 0)), 1)
+
+
+func test_the_manifest_knows_the_menu_content_keys() -> void:
+	assert_true("menu_backdrops" in ModManifest.KNOWN_CONTENT_KEYS)
+	assert_true("menu_overlays" in ModManifest.KNOWN_CONTENT_KEYS)
+	var manifest := ModManifest.from_json_text(JSON.stringify({
+		"format_version": 1, "id": "tester.menu", "name": "Menu", "version": "1.0.0",
+		"api_version": 1, "description": "d",
+		"content": {"menu_backdrops": "b.json", "menu_overlays": "o.json"},
+	}))
+	assert_true(manifest.is_valid(), "a menu-background mod validates: %s" % str(manifest.errors))
+	for warning in manifest.warnings:
+		assert_false(str(warning).contains("menu_backdrops"), "the key is not reported as unknown")
+
+
+# ---------------------------------------------------------------------------
 # Catalogs: add, patch, replace, remove
 # ---------------------------------------------------------------------------
 

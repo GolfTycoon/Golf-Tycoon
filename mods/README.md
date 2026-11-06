@@ -17,6 +17,7 @@ content beyond being enabled by default where it says so.
 | `example.golfers/` | Golfer content: name pools and a golfer skin. |
 | `example.tree_sprites/` | Visual mod: user-created, all-season replacements for every shipped tree sprite. |
 | `example.more_seasons/` | Add-on mod: extra events for the Seasons mod, via a hard dependency. |
+| `example.backgrounds/` | Visual mod: two menu background pictures, three overlay patterns and an overlay setting of its own. |
 | `example.jackpot/` | Script mod: events, hooks, config and save data. |
 | `example.hud_clock/` | UI mod: a HUD widget. |
 | `_template/` | The starter folder for a new mod (never loaded). |

@@ -1,0 +1,20 @@
+{
+	"format_version": 1,
+	"id": "example.backgrounds",
+	"name": "Example: Harbour Dusk & Starfield",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A menu-background mod: two new pictures for Settings > Display > Background (Harbour Dusk and Moonlit Frost), two new overlays (Starfield and a gold club lattice), and a mod-declared overlay setting of its own. Everything is data - no script runs - and because the new pictures are tagged with a season and a course theme, Auto picks them by itself in the right place.",
+	"homepage": "",
+	"types": ["data", "visual", "theme"],
+	"dependencies": [],
+	"content": {
+		"menu_backdrops": "data/backdrops.json",
+		"menu_overlays": "data/overlays.json"
+	},
+	"workshop": {
+		"published_file_id": 0,
+		"tags": ["Visuals", "Menus"]
+	}
+}

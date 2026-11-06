@@ -30,7 +30,7 @@ game already writes, so nothing is guessed at:
 | Group | Removes | Leaves alone |
 | --- | --- | --- |
 | Saved courses | Every `*.save` file in `user://saves/` - the autosave and all checkpoints | Preferences, career records, reports, custom skins |
-| Preferences | The `audio`, `display`, `controls`, `camera`, `gameplay` and `graphics` sections of `user://settings.cfg` | Saved courses, achievements, the tutorial flag |
+| Preferences | The `audio`, `display`, `controls`, `camera`, `gameplay` and `graphics` sections of `user://settings.cfg` - including the menu background and overlay choices in `display/menu_background`, `display/menu_overlay` and `display/menu_overlay_settings` | Saved courses, achievements, the tutorial flag |
 | Career records | The `achievements` and `tutorial` sections of `user://settings.cfg` | Saved courses, preferences |
 | Benchmark reports | `user://benchmark_history.json` and the diagnostic snapshot | Everything else |
 | Custom golfer skins | The `user://golfer_skins/` folder | Shipped skins, saved courses |
