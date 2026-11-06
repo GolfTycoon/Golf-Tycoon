@@ -232,6 +232,9 @@ const HOLE_COLUMN_HEIGHT := 3
 const GOLFER_COLUMN_HEIGHT := 3
 const GOLFER_COLUMN_GAP := 10  # Between two columns of golfers
 const GOLFER_ROW_GAP := 4  # Between two golfers in the same column
+## Air under the page heading before the register starts, so the plates never
+## sit flush against the shelf's header row.
+const GOLFER_PAGE_TOP_GAP := 12.0
 const OPEN_HOLE_TOOLTIP := "Pair the waiting tee box with the waiting green with a hole"
 const OPEN_HOLE_BLOCKED_TOOLTIP := "Needs exactly one unused tee box and one unused green with a hole"
 ## What the Bulldozer removes — improvements and buildings only. Course
@@ -308,11 +311,15 @@ var _tee_tile_button: TerrainTileButton = null
 var _green_places_cup := true
 var _tee_box_can_place: bool = true
 var _tee_box_blocker: String = ""
-var _visitor_shelf: HBoxContainer = null  # Active golfers first, followed by past visitors
+var _visitor_shelf: HBoxContainer = null  # Most recently started round first, on the course and in the archive
 var _visitor_archive: Dictionary = {}
 var _visitor_register: HBoxContainer
 var _visitor_detail: HBoxContainer
 var _selected_visitor := ""
+## Fingerprint of what the register last drew, so the one-second refresh can
+## leave a shelf alone when nothing about it changed. Freeing and rebuilding
+## the plates every second is what pulled the keyboard/gamepad focus off them.
+var _visitor_shelf_signature := "<unset>"
 var player_tab: PlayerTab
 var _building_registry: Dictionary = {}
 var _building_shelf: TileHoneycomb = null
@@ -1431,6 +1438,13 @@ func _build_golfers_tab(hbox: HBoxContainer) -> void:
 	var page := VBoxContainer.new()
 	page.add_theme_constant_override("separation", 6)
 	hbox.add_child(page)
+	# Breathing room between the shelf's page heading and the register, so
+	# the plates never sit flush under the header.
+	var heading_spacing := Control.new()
+	heading_spacing.name = "GolfersPageHeadingSpacing"
+	heading_spacing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heading_spacing.custom_minimum_size = Vector2(0, GOLFER_PAGE_TOP_GAP)
+	page.add_child(heading_spacing)
 	_visitor_register = HBoxContainer.new()
 	_visitor_register.add_theme_constant_override("separation", 16)
 	page.add_child(_visitor_register)
@@ -2336,10 +2350,9 @@ func _refresh_golfer_lists() -> void:
 	if _visitor_shelf == null:
 		return
 
-	# The old columns leave their shelves straight away. A child waiting on
-	# queue_free() is still in the tree, so it would still take up shelf space
-	# and sit beside the fresh columns until the end of the frame.
-	_clear_shelf(_visitor_shelf)
+	# Where the keyboard/gamepad focus sits, captured before anything is torn
+	# down, so the refresh can put it back on the same visitor afterwards.
+	var focus_saved := _remember_visitor_focus()
 
 	var rows: Array = []
 	if golfer_data_provider.is_valid():
@@ -2356,15 +2369,158 @@ func _refresh_golfer_lists() -> void:
 	_visitor_detail.visible = not _selected_visitor.is_empty()
 	if not _selected_visitor.is_empty():
 		_show_visitor(_selected_visitor, active_names.has(_selected_visitor))
+
+	# The register reads most recently started round first, on the course and
+	# in the archive alike: golfer ids are allocated in spawn order, so the
+	# newest round leads the shelf. Entries without one (recorded before ids
+	# were kept) trail oldest first, keeping their original relative order.
+	var entries := _visitor_shelf_entries(rows, active_names)
+
+	# The one-second refresh leaves a register alone when it would draw the
+	# same plates in the same order: the focusable buttons are not freed out
+	# from under the keyboard or the gamepad, and hover survives too.
+	var signature := _visitor_shelf_signature_for(entries)
+	if signature == _visitor_shelf_signature:
+		_restore_visitor_focus(focus_saved)
+		return
+
+	# The old columns leave their shelves straight away. A child waiting on
+	# queue_free() is still in the tree, so it would still take up shelf space
+	# and sit beside the fresh columns until the end of the frame.
+	_clear_shelf(_visitor_shelf)
+	_visitor_shelf_signature = signature
 	var golfer_rows: Array[Control] = []
-	for row_data in rows:
-		golfer_rows.append(_make_golfer_row(row_data))
-	for visitor_name in _visitor_archive:
-		if not active_names.has(visitor_name):
-			golfer_rows.append(_make_visitor_card(_visitor_archive[visitor_name], false))
+	for entry in entries:
+		golfer_rows.append(_make_visitor_card(entry["data"], entry["active"]))
 	if golfer_rows.is_empty():
 		golfer_rows.append(_make_empty_label("Your next regular starts here.\nGolfers will appear when they visit your course."))
 	_stack_in_columns(_visitor_shelf, golfer_rows, GOLFER_COLUMN_HEIGHT, GOLFER_ROW_GAP)
+	_restore_visitor_focus(focus_saved)
+
+## The cards the register would draw, most recently started round first.
+## Golfer ids are allocated in spawn order, so a higher id means a later
+## round start. Entries without an id - recorded before ids were kept -
+## sort oldest, and equal keys keep their original relative order.
+func _visitor_shelf_entries(rows: Array, active_names: Dictionary) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var slot := 0
+	for row_data in rows:
+		entries.append({"data": row_data, "active": true,
+			"key": int(row_data.get("id", -1)), "order": slot})
+		slot += 1
+	for visitor_name in _visitor_archive:
+		if not active_names.has(visitor_name):
+			var entry: Dictionary = _visitor_archive[visitor_name]
+			entries.append({"data": entry, "active": false,
+				"key": int(entry.get("id", -1)), "order": slot})
+			slot += 1
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["key"]) != int(b["key"]):
+			return int(a["key"]) > int(b["key"])
+		return int(a["order"]) < int(b["order"]))
+	return entries
+
+## A fingerprint of what the register would draw - one part per card, in the
+## order the cards would be laid - so the one-second refresh can tell whether
+## rebuilding changes anything at all. The portrait's instance id stands in
+## for the art: skins rebuilt for a changed library get fresh textures, so a
+## recolour shows up here too.
+func _visitor_shelf_signature_for(entries: Array[Dictionary]) -> String:
+	var parts: Array[String] = []
+	for entry in entries:
+		var data: Dictionary = entry["data"]
+		var prefix := "A" if entry["active"] else "P"
+		parts.append("%s:%s:%d" % [prefix, str(data.get("name", "Golfer")),
+			_portrait_fingerprint(data.get("portrait"))])
+	if parts.is_empty():
+		return "empty"
+	return "|".join(parts)
+
+func _portrait_fingerprint(portrait: Variant) -> int:
+	return portrait.get_instance_id() if portrait is Texture2D else 0
+
+## Where the keyboard/gamepad focus sits inside the Golfers tab, so a refresh
+## can put it back on the same visitor after the buttons are rebuilt. Both
+## the register and an open profile rebuild wholesale while the tab is open;
+## without this the focused control is freed and focus falls back to the
+## dock's starting button. Returns an empty dictionary when the focus is
+## elsewhere (or nothing holds it).
+func _remember_visitor_focus() -> Dictionary:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return {}
+	if _visitor_shelf != null and _visitor_shelf.is_ancestor_of(focused):
+		var visitor := _visitor_name_in_shelf(focused)
+		if visitor.is_empty():
+			return {}
+		return {"where": "shelf", "visitor": visitor,
+			"role": "card" if focused is VisitorCardButton else "locate"}
+	if _visitor_detail != null and _visitor_detail.is_ancestor_of(focused):
+		if _visitor_detail.get_child_count() > 0 and focused == _visitor_detail.get_child(0):
+			return {"where": "detail", "role": "back"}
+		if focused is Button and (focused as Button).tooltip_text.begins_with("Center the camera on "):
+			return {"where": "detail", "role": "locate"}
+	return {}
+
+## The name on the plate of the row `control` stands in, walking up from the
+## control to the column that holds it.
+func _visitor_name_in_shelf(control: Control) -> String:
+	var node: Node = control
+	while node != null:
+		var parent := node.get_parent()
+		if parent is VBoxContainer and parent.get_parent() == _visitor_shelf:
+			for child in node.get_children():
+				if child is VisitorCardButton:
+					return (child as VisitorCardButton).text
+			return ""
+		node = parent
+	return ""
+
+## Give the focus back after a rebuild: the same visitor's plate, or the
+## Locate button beside it. Falls back silently when that visitor is gone -
+## the register no longer holds them, so there is nothing to focus.
+func _restore_visitor_focus(saved: Dictionary) -> void:
+	if saved.is_empty():
+		return
+	match str(saved.get("where", "")):
+		"shelf":
+			var row := _find_visitor_row(str(saved.get("visitor", "")))
+			if row == null:
+				return
+			if str(saved.get("role", "card")) == "locate":
+				for child in row.get_children():
+					if child is Button and not (child is VisitorCardButton):
+						(child as Button).grab_focus()
+						return
+			(row.get_child(0) as Control).grab_focus()
+		"detail":
+			if str(saved.get("role", "")) == "back":
+				if _visitor_detail.get_child_count() > 0:
+					var back := _visitor_detail.get_child(0) as Button
+					if back != null:
+						back.grab_focus()
+			else:
+				var locate := _find_locate_button(_visitor_detail)
+				if locate != null:
+					locate.grab_focus()
+
+func _find_visitor_row(visitor: String) -> HBoxContainer:
+	for column in _visitor_shelf.get_children():
+		for row in column.get_children():
+			for child in row.get_children():
+				if child is VisitorCardButton and (child as VisitorCardButton).text == visitor:
+					return row as HBoxContainer
+	return null
+
+func _find_locate_button(root: Node) -> Button:
+	for child in root.get_children():
+		if child is Button and not (child is VisitorCardButton) \
+				and (child as Button).tooltip_text.begins_with("Center the camera on "):
+			return child as Button
+		var found := _find_locate_button(child)
+		if found != null:
+			return found
+	return null
 
 ## Take every column off a shelf. The columns are only removed here and freed at
 ## the end of the frame, so a refresh can never free a row out from under a
@@ -2421,29 +2577,23 @@ func _locate_button() -> Button:
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return button
 
-func _make_golfer_row(row_data: Dictionary) -> Control:
-	return _make_visitor_card(row_data, true)
-
-func _make_round_row(round_data: Dictionary) -> Control:
-	return _make_visitor_card(round_data, false)
-
 func _make_visitor_card(data: Dictionary, active: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
 	var accent := Color("83c9a4") if active else Color("b5a477")
-	var portrait := VisitorPortrait.new()
-	portrait.texture = data.get("portrait")
-	row.add_child(portrait)
 	var name_text := str(data.get("name", "Golfer"))
-	var subtitle := "PLAYING  /  H%02d  /  %d strokes" % [data.get("hole", 1), data.get("strokes", 0)] if active else "PAST VISITOR  /  %d strokes" % data.get("strokes", 0)
-	var button := _visitor_button(name_text + "\n" + subtitle, accent)
-	button.custom_minimum_size = Vector2(260, 44)
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.tooltip_text = "View %s's profile" % name_text
-	button.pressed.connect(func():
+	# A plate carrying exactly the golfer's skin sprite and name; the round's
+	# details live in the profile it opens.
+	var card := VisitorCardButton.new()
+	card.portrait = data.get("portrait")
+	card.accent = accent
+	card.active = active
+	card.text = name_text
+	card.tooltip_text = "View %s's profile" % name_text
+	card.pressed.connect(func():
 		_selected_visitor = name_text
 		_refresh_golfer_lists())
-	row.add_child(button)
+	row.add_child(card)
 	if active:
 		var locate := _locate_button()
 		locate.custom_minimum_size.y = 44

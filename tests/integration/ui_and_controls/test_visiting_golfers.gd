@@ -6,7 +6,7 @@ func test_visitor_profile_and_locate_are_separate_actions() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
 	watch_signals(toolbar)
 	var card: HBoxContainer = toolbar._visitor_shelf.get_child(0).get_child(0)
-	card.get_child(1).pressed.emit()
+	card.get_child(0).pressed.emit()
 	assert_eq(toolbar._selected_visitor, "Ada Green")
 	assert_true(toolbar._visitor_detail.visible)
 	assert_false(toolbar._visitor_register.visible)
@@ -14,7 +14,7 @@ func test_visitor_profile_and_locate_are_separate_actions() -> void:
 	toolbar._visitor_detail.get_child(0).pressed.emit()
 	assert_true(toolbar._visitor_register.visible)
 	card = toolbar._visitor_shelf.get_child(0).get_child(0)
-	card.get_child(2).pressed.emit()
+	card.get_child(1).pressed.emit()
 	assert_signal_emitted_with_parameters(toolbar, "golfer_row_clicked", [7])
 	assert_eq(toolbar._selected_visitor, "")
 
@@ -30,8 +30,8 @@ func test_history_is_clickable_deduplicated_and_not_capped_at_thirty() -> void:
 	assert_eq(toolbar._visitor_archive.size(), 35)
 	assert_eq(toolbar._visitor_archive["Visitor 0"].strokes, 70)
 	var card: HBoxContainer = toolbar._visitor_shelf.get_child(0).get_child(0)
-	assert_eq(card.get_child_count(), 2, "Past visitors have no locate button")
-	card.get_child(1).pressed.emit()
+	assert_eq(card.get_child_count(), 1, "Past visitors have no locate button")
+	card.get_child(0).pressed.emit()
 	assert_eq(toolbar._selected_visitor, "Visitor 0")
 	assert_true(toolbar._visitor_detail.visible)
 
@@ -48,11 +48,11 @@ func test_combined_list_places_active_golfers_before_history_and_keeps_skin() ->
 	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
 	var column: VBoxContainer = toolbar._visitor_shelf.get_child(0)
 	assert_eq(column.get_child_count(), 2, "Active and past visitors share the same column")
-	assert_true(column.get_child(0).get_child(1).text.begins_with("Current Visitor"))
-	assert_true(column.get_child(1).get_child(1).text.begins_with("Previous Visitor"))
-	assert_eq(column.get_child(0).get_child(0).texture, portrait)
-	assert_eq(column.get_child(1).get_child(0).texture, portrait)
-	column.get_child(1).get_child(1).pressed.emit()
+	assert_true(column.get_child(0).get_child(0).text.begins_with("Current Visitor"))
+	assert_true(column.get_child(1).get_child(0).text.begins_with("Previous Visitor"))
+	assert_eq(column.get_child(0).get_child(0).portrait, portrait)
+	assert_eq(column.get_child(1).get_child(0).portrait, portrait)
+	column.get_child(1).get_child(0).pressed.emit()
 	assert_eq(toolbar._visitor_detail.get_child(1).texture, portrait, "Profile uses the same skin snapshot")
 
 func test_course_click_opens_full_profile_without_popup() -> void:
@@ -86,3 +86,48 @@ func test_course_click_opens_full_profile_without_popup() -> void:
 	golfer.free()
 	toolbar._refresh_golfer_lists()
 	assert_eq(toolbar._visitor_archive["Full Profile Visitor"].profile[4].meters.Energy, 0.25)
+
+func test_refresh_keeps_focus_on_the_focused_visitor() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar._visitor_archive.clear()
+	toolbar._selected_visitor = ""
+	toolbar.golfer_data_provider = func(): return [{"id": 7, "name": "Ada Green", "tier": 1, "hole": 2, "strokes": 5}]
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	var card: HBoxContainer = toolbar._visitor_shelf.get_child(0).get_child(0)
+	var plate := card.get_child(0) as VisitorCardButton
+	plate.grab_focus()
+	assert_eq(get_viewport().gui_get_focus_owner(), plate,
+		"The keyboard/gamepad focus sits on the plate")
+	# The one-second refresh leaves a register that would draw the same
+	# plates alone, so the selector is never pulled off the button.
+	toolbar._refresh_golfer_lists()
+	toolbar._refresh_golfer_lists()
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	assert_eq(focus_owner, plate, "The refresh keeps the same plate focused")
+	# A refresh that must rebuild the register (a past visitor joined the
+	# archive) puts the focus back on the same visitor's new plate.
+	toolbar.record_completed_round({"name": "Someone Else", "strokes": 72, "par": 72, "day": 1})
+	focus_owner = get_viewport().gui_get_focus_owner()
+	assert_not_null(focus_owner, "The rebuild restores the focus")
+	if focus_owner is VisitorCardButton:
+		assert_eq((focus_owner as VisitorCardButton).text, "Ada Green",
+			"and it lands on the same visitor's plate")
+
+func test_refresh_keeps_focus_inside_the_open_profile() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar._visitor_archive.clear()
+	toolbar._selected_visitor = ""
+	toolbar.golfer_data_provider = func(): return [{"id": 8, "name": "Bea Bunker", "tier": 1, "hole": 1, "strokes": 2}]
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	var card: HBoxContainer = toolbar._visitor_shelf.get_child(0).get_child(0)
+	(card.get_child(0) as Button).pressed.emit()
+	assert_true(toolbar._visitor_detail.visible)
+	# The back button is the profile's way out; the one-second refresh rebuilds
+	# the profile too, so it must hand the focus back to the rebuilt button.
+	var back := toolbar._visitor_detail.get_child(0) as Button
+	back.grab_focus()
+	toolbar._refresh_golfer_lists()
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	assert_not_null(focus_owner, "The refresh restores the dropped focus")
+	assert_true(focus_owner == toolbar._visitor_detail.get_child(0),
+		"and it sits on the rebuilt way-back button")

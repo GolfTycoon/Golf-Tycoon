@@ -1431,14 +1431,19 @@ func test_the_guest_register_is_a_shelf_of_columns_and_populates() -> void:
 		"Two golfers and one past visitor fill a single column of three")
 	var column := shelf.get_child(0) as VBoxContainer
 	assert_not_null(column, "A column stacks its cards vertically")
-	_assert_column_holds(column, ["Alice Green", "Bob Fairway", "Cara Bunker"])
-	assert_eq(column.get_child(0).get_child_count(), 3,
-		"A golfer on the course carries a portrait, a profile button and Locate")
-	var locate := column.get_child(0).get_child(2) as Button
+	_assert_column_holds(column, ["Bob Fairway", "Alice Green", "Cara Bunker"])
+	assert_eq(column.get_child(0).get_child_count(), 2,
+		"A golfer on the course carries a profile plate and Locate")
+	var plate := column.get_child(0).get_child(0) as VisitorCardButton
+	assert_eq(plate.text, "Bob Fairway",
+		"The plate reads the golfer's name")
+	assert_true(plate.active,
+		"A golfer on the course wears the on-course flag")
+	var locate := column.get_child(0).get_child(1) as Button
 	assert_eq(locate.text, "")
 	assert_not_null(locate.icon)
 	assert_ne(locate.tooltip_text, "")
-	assert_eq(column.get_child(2).get_child_count(), 2,
+	assert_eq(column.get_child(2).get_child_count(), 1,
 		"A past visitor has no Locate button: there is nobody left to centre on")
 
 ## Visitors named Golfer1, Golfer2 ... are on the course, so the column layout
@@ -1451,14 +1456,14 @@ func _provide_golfers(count: int) -> void:
 				"hole": number + 1, "strokes": number, "attitude": 0.5})
 		return rows
 
-## The visitors in one column, top to bottom. A card reads its name on the
-## first line of its profile button, with the status line under it.
+## The visitors in one column, top to bottom. A card reads its golfer's name
+## on its profile plate.
 func _visitors_in_column(column: Control) -> Array[String]:
 	var names: Array[String] = []
 	for card in column.get_children():
-		var profile_button := card.get_child(1) as Button
-		if profile_button != null:
-			names.append(profile_button.text.get_slice("\n", 0))
+		var plate := card.get_child(0) as Button
+		if plate != null:
+			names.append(plate.text)
 	return names
 
 func _assert_column_holds(column: Control, expected: Array[String]) -> void:
@@ -1479,8 +1484,8 @@ func test_visitors_stack_three_to_a_column() -> void:
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2,
 		"Five visitors fill one column of three and spill into a second")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer5", "Golfer4", "Golfer3"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer2", "Golfer1"])
 
 	await _settle_layout()
 	var first := shelf.get_child(0) as Control
@@ -1508,17 +1513,18 @@ func test_a_busy_course_fills_one_column_of_three_after_another() -> void:
 
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 3, "Seven visitors fill two columns and start a third")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
-	_assert_column_holds(shelf.get_child(2), ["Golfer7"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer7", "Golfer6", "Golfer5"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer3", "Golfer2"])
+	_assert_column_holds(shelf.get_child(2), ["Golfer1"])
 
-## One register holds both kinds of visitor: whoever is on the course reads
-## first, the rounds already played follow, and a golfer who finished a round
-## while still out there is listed once — as a golfer on the course.
-func test_golfers_on_the_course_lead_the_past_visitors() -> void:
+## One register holds both kinds of visitor, newest round first: golfer ids
+## are allocated in spawn order, so the golfers on the course out-rank the
+## rounds recorded without one. A golfer who finished a round while still
+## out there is listed once — as a golfer on the course.
+func test_golfers_and_past_visitors_read_most_recently_started_first() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
 	_provide_golfers(2)
-	# Recorded oldest first, so the register reads R1 then R2 after the golfers.
+	# No round id, so the recorded rounds trail every identified visitor.
 	for round_name in ["R1", "R2"]:
 		toolbar.record_completed_round({
 			"name": round_name, "strokes": 71, "par": 72, "day": 1, "tier": 1, "owner": false,
@@ -1532,11 +1538,34 @@ func test_golfers_on_the_course_lead_the_past_visitors() -> void:
 
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2, "Four visitors fill a column of three and a second")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "R1"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer2", "Golfer1", "R1"])
 	_assert_column_holds(shelf.get_child(1), ["R2"])
-	var playing := (shelf.get_child(0).get_child(1).get_child(1) as Button).text
-	assert_string_contains(playing, "PLAYING",
-		"A golfer still on the course keeps their on-course card")
+	var playing := shelf.get_child(0).get_child(0).get_child(0) as VisitorCardButton
+	assert_true(playing.active,
+		"A golfer still on the course keeps their on-course plate")
+
+## Round bookmarks ride along with the archive entries, so a finished visitor
+## reads by the id of the round they started: a recently started round leads
+## the register ahead of the slow ones still out there, and an older one that
+## finished late does not leapfrog the newer round around it.
+func test_past_visitors_read_by_the_round_they_started() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	_provide_golfers(2)
+	# Recorded out of order, so only the id decides who leads.
+	toolbar.record_completed_round({
+		"id": 10, "name": "Rook", "strokes": 71, "par": 72, "day": 1, "tier": 1,
+		"owner": false,
+	})
+	toolbar.record_completed_round({
+		"id": 3, "name": "Bram", "strokes": 73, "par": 73, "day": 2, "tier": 1,
+		"owner": false,
+	})
+	toolbar._refresh_golfer_lists()
+
+	var shelf := toolbar._visitor_shelf
+	assert_eq(shelf.get_child_count(), 2, "Four visitors fill a column of three and a second")
+	_assert_column_holds(shelf.get_child(0), ["Rook", "Bram", "Golfer2"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer1"])
 
 ## The Golfers tab has no vertical scroll, so a full column of cards — and the
 ## profile a card opens — has to fit under the tab bar inside the bottom bar.
@@ -1579,8 +1608,8 @@ func test_a_card_opens_the_visitor_profile_over_the_register() -> void:
 
 	watch_signals(toolbar)
 	var card := toolbar._visitor_shelf.get_child(0).get_child(0) as HBoxContainer
-	(card.get_child(1) as Button).pressed.emit()
-	assert_eq(toolbar._selected_visitor, "Golfer1", "The card names the visitor it opens")
+	(card.get_child(0) as Button).pressed.emit()
+	assert_eq(toolbar._selected_visitor, "Golfer1", "The plate names the visitor it opens")
 	assert_true(toolbar._visitor_detail.visible, "The profile takes the page")
 	assert_false(toolbar._visitor_register.visible, "and the register steps aside")
 	assert_signal_not_emitted(toolbar, "golfer_row_clicked",
@@ -1591,7 +1620,7 @@ func test_a_card_opens_the_visitor_profile_over_the_register() -> void:
 	assert_true(toolbar._visitor_register.visible, "and the register is up again")
 
 	card = toolbar._visitor_shelf.get_child(0).get_child(0) as HBoxContainer
-	(card.get_child(2) as Button).pressed.emit()
+	(card.get_child(1) as Button).pressed.emit()
 	assert_signal_emitted_with_parameters(toolbar, "golfer_row_clicked", [1])
 	assert_true(toolbar._visitor_register.visible,
 		"Locate centres the camera and leaves the register up")
@@ -1609,22 +1638,22 @@ func test_golfer_refresh_replaces_the_columns_it_drew_last_time() -> void:
 	var shelf := toolbar._visitor_shelf
 	assert_eq(shelf.get_child_count(), 2,
 		"Six golfers still take two columns after a second refresh")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
+	_assert_column_holds(shelf.get_child(0), ["Golfer6", "Golfer5", "Golfer4"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer3", "Golfer2", "Golfer1"])
 
 	_provide_golfers(2)
 	toolbar._refresh_golfer_lists()
 	assert_eq(shelf.get_child_count(), 2,
 		"The columns are redrawn in place, not added to")
-	_assert_column_holds(shelf.get_child(0), ["Golfer1", "Golfer2", "Golfer3"])
-	_assert_column_holds(shelf.get_child(1), ["Golfer4", "Golfer5", "Golfer6"])
-	var still_playing := shelf.get_child(0).get_child(0).get_child(1) as Button
-	assert_string_contains(still_playing.text, "PLAYING",
-		"The two still out there keep their on-course cards")
-	var gone_home := shelf.get_child(1).get_child(2) as HBoxContainer
-	assert_eq(gone_home.get_child_count(), 2,
+	_assert_column_holds(shelf.get_child(0), ["Golfer6", "Golfer5", "Golfer4"])
+	_assert_column_holds(shelf.get_child(1), ["Golfer3", "Golfer2", "Golfer1"])
+	var still_playing := shelf.get_child(1).get_child(1).get_child(0) as VisitorCardButton
+	assert_true(still_playing.active,
+		"The two still out there keep their on-course plates")
+	var gone_home := shelf.get_child(0).get_child(0) as HBoxContainer
+	assert_eq(gone_home.get_child_count(), 1,
 		"The four who left lose their Locate button")
-	assert_string_contains((gone_home.get_child(1) as Button).text, "PAST VISITOR",
+	assert_false((gone_home.get_child(0) as VisitorCardButton).active,
 		"and read as past visitors instead")
 
 ## With nobody on the course and no rounds played, the register keeps its

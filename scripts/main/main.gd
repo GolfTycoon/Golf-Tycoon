@@ -4574,6 +4574,7 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 	# Every completed round (owner included) feeds the toolbar's Golfers tab history
 	if terrain_toolbar:
 		terrain_toolbar.record_completed_round({
+			"id": golfer.golfer_id,
 			"name": golfer.golfer_name,
 			"strokes": total_strokes,
 			"par": golfer.total_par,
