@@ -660,6 +660,7 @@ func _on_skin_group_color_changed(color: Color, group_id: int) -> void:
 		draft.appearance[key] = color.to_html(false)
 	_persist_player_profile()
 	_refresh_skin_preview()
+	_refresh_skin_controls()
 
 
 ## With the Save player button removed, player details and fallback appearance
