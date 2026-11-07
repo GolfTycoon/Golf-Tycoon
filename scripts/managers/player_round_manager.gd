@@ -7,22 +7,30 @@ signal session_opened
 signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
-## The same visiting green used by the on-course golfer cards.
-const GOLFER_SKILL_ACCENT := Color("83c9a4")
-## A narrower version of the visitor name plate, retaining its height.
-const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
+## The same visiting green used by the on-course golfer cards, and by every
+## On/Off name plate on the owner's shelves: the Golfer Skills, the golfer's
+## Gender and Marital Status, and the Golfer Traits.
+const SHELF_TOGGLE_ACCENT := Color("83c9a4")
+## A narrower version of the visitor name plate, retaining its height. One
+## footprint is shared by every On/Off plate on the owner's shelves.
+const SHELF_TOGGLE_BUTTON_SIZE := Vector2(184, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
-## owner's ordinary pixel controls during the final styling pass: the Golfer
-## Skill toggles and the Edit Player page's Group Colour plates.
+## owner's ordinary pixel controls during the final styling pass: the On/Off
+## shelf plates and the Edit Player page's Group Colour plates.
 const VISITOR_CARD_META := "golfer_skill_card"
 ## Group Colour plates stacked down one column beside the sprite. Five plates
 ## and their gaps (5 x 26 + 4 x 3 = 142) fit the room the bottom bar leaves, so
 ## the shipped skins' Shirt/Pants/Cap/Hair/Skin set reads as a single column.
 const GROUP_COLORS_PER_COLUMN := 5
-## Toggles to a column on the owner's pages. The pages are horizontal shelves
-## with no vertical scroll, so a section that runs longer than this carries on
-## in the next column instead of growing past the bottom bar.
-const TOGGLES_PER_COLUMN := 4
+## On/Off plates to a column on the owner's pages. The pages are horizontal
+## shelves with no vertical scroll, so a section that runs longer than this
+## carries on in the next column instead of growing past the bottom bar. Three
+## 44px plates and their 2px gaps need 136px, which is the tallest stack the
+## shelf's room between the header and the bottom bar holds.
+const TOGGLES_PER_COLUMN := 3
+## Marital Status is a choice of four plates. Two per column lays them out as a
+## balanced 2 x 2 block: one column of four would stand taller than the shelf.
+const MARITAL_STATUS_PER_COLUMN := 2
 var player_tab: PlayerTab
 ## Top-left score card owned by the game HUD (null in isolated tools and tests,
 ## which fall back to putting the scorecards on the round page).
@@ -716,34 +724,36 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
-## A Golfer Skill as a selectable name plate in the Visiting Golfers visual
-## language: the same pixel font and card frame on a narrower footprint. Off is
-## a quiet outlined card; On uses a solid green fill and dark caption so the
-## enabled state stands out without a separate checkbox.
-func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
+## One On/Off name plate in the Visiting Golfers visual language: the same pixel
+## font and card frame on a narrower footprint. Off is a quiet outlined card; On
+## uses a solid green fill and dark caption so the enabled state stands out
+## without a separate checkbox. The Golfer Skills, the golfer's Gender and
+## Marital Status, and the Golfer Traits all wear this plate.
+func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> Button:
 	var button := Button.new()
-	button.text = skill_name
+	button.text = caption
 	button.toggle_mode = true
 	button.button_pressed = is_on
-	button.custom_minimum_size = GOLFER_SKILL_BUTTON_SIZE
+	button.custom_minimum_size = SHELF_TOGGLE_BUTTON_SIZE
 	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.focus_mode = Control.FOCUS_ALL
-	button.accessibility_description = "%s golfer skill. Toggle on or off." % skill_name
+	button.accessibility_description = description
+	button.tooltip_text = description
 	button.set_meta(VISITOR_CARD_META, true)
 	button.add_theme_font_override("font", VisitorCardButton.FONT)
 	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
-	PixelButtonStyle.paint_choice(button, GOLFER_SKILL_ACCENT)
+	PixelButtonStyle.paint_choice(button, SHELF_TOGGLE_ACCENT)
 	# Strengthen the selected half of the shared choice style: a solid visiting
-	# green body makes an enabled skill unmistakable beside the quiet Off cards.
+	# green body makes an enabled plate unmistakable beside the quiet Off cards.
 	button.add_theme_stylebox_override("pressed", PixelButtonStyle.card_style(
-		GOLFER_SKILL_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
-		GOLFER_SKILL_ACCENT, 0, 0, 0))
+		SHELF_TOGGLE_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
+		SHELF_TOGGLE_ACCENT, 0, 0, 0))
 	button.add_theme_stylebox_override("hover_pressed", PixelButtonStyle.card_style(
-		GOLFER_SKILL_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
-		GOLFER_SKILL_ACCENT.lightened(0.12), 0, 0, 0))
+		SHELF_TOGGLE_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
+		SHELF_TOGGLE_ACCENT.lightened(0.12), 0, 0, 0))
 	button.add_theme_color_override("font_color", VisitorCardButton.CREAM)
 	for state in ["hover", "focus"]:
 		button.add_theme_color_override("font_%s_color" % state, VisitorCardButton.NAME_LIT)
@@ -751,6 +761,40 @@ func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
 		button.add_theme_color_override("font_%s_color" % state, PixelButtonStyle.INK)
 	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
 	return button
+
+
+## A set of On/Off name plates laid out down the shelf, `per_column` at a time,
+## in the Golfer Skills card language. `chosen` is called with the index of the
+## plate that changed and its new state, so the caller can write the profile.
+## `exclusive` shares one ButtonGroup across the whole set - Gender and Marital
+## Status are choices of exactly one plate - while the independent sets (the
+## Golfer Traits) leave every plate free to be On or Off on its own.
+func _build_toggle_plates(parent: HBoxContainer, captions: Array[String],
+		on_flags: Array[bool], per_column: int, chosen: Callable,
+		node_prefix: String, description_format: String,
+		exclusive: bool = false) -> Array[VBoxContainer]:
+	var group: ButtonGroup = ButtonGroup.new() if exclusive else null
+	if group != null:
+		# One plate of the set is always On: clicking the chosen plate again
+		# keeps it, the way a radio button does.
+		group.allow_unpress = false
+	var columns: Array[VBoxContainer] = []
+	var column: VBoxContainer = null
+	for index in captions.size():
+		if index % per_column == 0:
+			column = PlayerTab.add_column(parent, SHELF_TOGGLE_BUTTON_SIZE.x)
+			column.add_theme_constant_override("separation", 2)
+			columns.append(column)
+		var caption := captions[index]
+		var plate := _shelf_toggle_button(caption, on_flags[index],
+			description_format % caption)
+		plate.name = "%s%s" % [node_prefix, caption.replace(" ", "")]
+		if group != null:
+			plate.button_group = group
+		plate.toggled.connect(func(on: bool, value: int = index):
+			chosen.call(value, on))
+		column.add_child(plate)
+	return columns
 
 
 func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
@@ -846,26 +890,36 @@ func _build_setup() -> void:
 			draft.age = int(value)
 			_persist_player_profile())
 		content.add_child(age_spin)
-		var gender_picker := OptionButton.new()
-		gender_picker.name = "PlayerGender"
-		gender_picker.tooltip_text = "Your golfer's gender"
-		gender_picker.add_item("Male")
-		gender_picker.add_item("Female")
-		gender_picker.select(draft.gender)
-		gender_picker.item_selected.connect(func(value: int):
-			draft.gender = value
-			_persist_player_profile())
-		content.add_child(gender_picker)
-		var marital_picker := OptionButton.new()
-		marital_picker.name = "PlayerMaritalStatus"
-		marital_picker.tooltip_text = "Your golfer's marital status"
-		for value in ["Single", "Married", "Divorced", "Widowed"]:
-			marital_picker.add_item(value)
-		marital_picker.select(draft.marital_status)
-		marital_picker.item_selected.connect(func(value: int):
-			draft.marital_status = value
-			_persist_player_profile())
-		content.add_child(marital_picker)
+		# Gender and Marital Status are choices of one plate out of a set, so
+		# they wear the same On/Off cards as the Golfer Skills rather than a
+		# drop-down that hides the alternatives until it is opened. Gender is a
+		# column of two plates; Marital Status is a balanced 2 x 2 block.
+		var gender_values: Array = GolferAttributes.GENDER_NAMES.keys()
+		var gender_captions: Array[String] = []
+		var gender_flags: Array[bool] = []
+		for value in gender_values:
+			gender_captions.append(str(GolferAttributes.GENDER_NAMES[value]))
+			gender_flags.append(int(draft.gender) == int(value))
+		var set_gender := func(index: int, on: bool) -> void:
+			if on:
+				draft.gender = int(gender_values[index])
+				_persist_player_profile()
+		_build_toggle_plates(edit_page, gender_captions, gender_flags,
+			gender_captions.size(), set_gender, "PlayerGender",
+			"Golfer gender: %s.", true)
+		var marital_values: Array = GolferAttributes.MARITAL_STATUS_NAMES.keys()
+		var marital_captions: Array[String] = []
+		var marital_flags: Array[bool] = []
+		for value in marital_values:
+			marital_captions.append(str(GolferAttributes.MARITAL_STATUS_NAMES[value]))
+			marital_flags.append(int(draft.marital_status) == int(value))
+		var set_marital_status := func(index: int, on: bool) -> void:
+			if on:
+				draft.marital_status = int(marital_values[index])
+				_persist_player_profile()
+		_build_toggle_plates(edit_page, marital_captions, marital_flags,
+			MARITAL_STATUS_PER_COLUMN, set_marital_status, "PlayerMaritalStatus",
+			"Marital status: %s.", true)
 		# The owner's own golfer is on the course: the ground they work when
 		# they are not playing gets a column of its own.
 		content = PlayerTab.add_column(edit_page, 220)
@@ -874,19 +928,19 @@ func _build_setup() -> void:
 			content = PlayerTab.add_column(edit_page, 210)
 			content.add_theme_constant_override("separation", 4)
 			_build_tournament_golfer_export_column()
-		var traits_column: VBoxContainer = null
-		for slot in GolferAttributes.TRAIT_KEYS.size():
-			if slot % TOGGLES_PER_COLUMN == 0:
-				traits_column = PlayerTab.add_column(edit_page, 210)
-				traits_column.add_theme_constant_override("separation", 2)
-			var key: String = GolferAttributes.TRAIT_KEYS[slot]
-			var trait_toggle := CheckButton.new()
-			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
-			trait_toggle.button_pressed = draft.traits[key]
-			trait_toggle.toggled.connect(func(on: bool, trait_key: String = key):
-				draft.traits[trait_key] = on
-				_persist_player_profile())
-			traits_column.add_child(trait_toggle)
+		# The Golfer Traits are independent On/Off plates, so every trait keeps
+		# its own switch instead of one being chosen from the set.
+		var trait_captions: Array[String] = []
+		var trait_flags: Array[bool] = []
+		for key in GolferAttributes.TRAIT_KEYS:
+			trait_captions.append(str(GolferAttributes.TRAIT_NAMES[key]))
+			trait_flags.append(bool(draft.traits[key]))
+		var set_trait := func(index: int, on: bool) -> void:
+			draft.traits[GolferAttributes.TRAIT_KEYS[index]] = on
+			_persist_player_profile()
+		_build_toggle_plates(edit_page, trait_captions, trait_flags,
+			TOGGLES_PER_COLUMN, set_trait, "GolferTrait",
+			"Golfer trait: %s. Toggle on or off.")
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
 	# edited beside the sprite above (they follow into these fields); what is
@@ -967,11 +1021,13 @@ func _build_setup() -> void:
 		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
 		# Three untitled visitor-style name plates lead the shelf, ahead of the
 		# points-based Golf Skills.
-		var golfer_skills_column := PlayerTab.add_column(skills_page, GOLFER_SKILL_BUTTON_SIZE.x)
+		var golfer_skills_column := PlayerTab.add_column(skills_page, SHELF_TOGGLE_BUTTON_SIZE.x)
 		golfer_skills_column.add_theme_constant_override("separation", 2)
 		for key in GolferAttributes.GOLFER_SKILL_KEYS:
 			var skill_name: String = GolferAttributes.GOLFER_SKILL_NAMES[key]
-			var skill_toggle := _golfer_skill_button(skill_name, bool(draft.golfer_skills[key]))
+			var skill_toggle := _shelf_toggle_button(skill_name,
+				bool(draft.golfer_skills[key]),
+				"Golfer skill: %s. Toggle on or off." % skill_name)
 			skill_toggle.name = "GolferSkill%s" % key.capitalize()
 			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
 				draft.golfer_skills[skill_key] = on
