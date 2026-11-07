@@ -310,6 +310,14 @@ skin carrying more groups than the column is tall continues in a second column t
 the right, where the shelf already scrolls. Like the skin picker, the plates stay
 reachable during a round: they only change how a golfer is drawn.
 
+**Gender**, **Marital Status** and the five **Golfer Traits** wear the same card
+plates as the Golfer Skills. Gender and Marital Status each take a single plate
+that always reads the value the golfer has; pressing it steps to the next value
+(Male/Female, or Single → Married → Divorced → Widowed → Single), so a whole
+choice costs one card instead of a drop-down or a plate per option. Each Golfer
+Trait is an independent On/Off plate. Every plate saves as soon as it is pressed,
+the same way the name, profession and age fields do.
+
 The page also carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**
 button turns the next click on the course into the new ground. See [The Owner's

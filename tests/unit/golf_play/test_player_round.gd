@@ -492,7 +492,7 @@ func test_golfer_skills_lead_player_skills_shelf_as_untitled_visitor_cards() -> 
 		"Length, Accuracy and Imagination lead the shelf in that order")
 	for button in buttons:
 		assert_true(button.toggle_mode, "%s remains an On/Off toggle" % button.text)
-		assert_eq(button.custom_minimum_size, PlayerRoundManager.GOLFER_SKILL_BUTTON_SIZE,
+		assert_eq(button.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
 			"%s uses the narrower Golfer Skill card footprint" % button.text)
 		assert_lt(button.custom_minimum_size.x, VisitorCardButton.BUTTON_SIZE.x,
 			"%s is narrower than a Visiting Golfer card" % button.text)
@@ -1033,14 +1033,117 @@ func test_edit_player_shelf_has_no_section_titles() -> void:
 	assert_not_null(_find_node(page, "MoveWorkArea"), "Work-area controls remain")
 	assert_not_null(_find_node(page, "SaveEditGolferForTournamentButton"),
 		"Tournament export remains")
-	assert_eq(page.find_children("*", "CheckButton", true, false).size(),
-		GolferAttributes.TRAIT_KEYS.size(), "Every trait toggle remains")
+	for key in GolferAttributes.TRAIT_KEYS:
+		assert_not_null(_find_node(page, "GolferTrait%s" % key.capitalize()),
+			"Every trait toggle remains: %s" % key)
+	assert_eq(page.find_children("*", "CheckButton", true, false).size(), 0,
+		"The traits are name plates, not checkbox rows")
 	assert_not_null(_find_node(page, "SkinGroupColumns"), "Group colour controls remain")
 	var play_page := toolbar.player_tab.pages[PlayerTab.PAGE_PLAY]
 	var play_titles: Array[String] = []
 	for label in play_page.find_children("*", "Label", true, false):
 		play_titles.append(label.text)
 	assert_has(play_titles, "Tournament Mode", "The Play Course heading is unchanged")
+
+## Gender and Marital Status each take one of the Golfer Skills' card plates:
+## the caption reads the value the golfer has and a press steps to the next
+## value, so neither setting needs a drop-down or a plate per option. The
+## Golfer Traits remain one On/Off plate each, with no checkbox rows.
+func test_edit_player_identity_and_traits_wear_skill_toggle_plates() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+
+	# One plate each for Gender and Marital Status, plus one per trait.
+	var gender := _find_node(page, "PlayerGenderToggle") as Button
+	var marital := _find_node(page, "PlayerMaritalStatusToggle") as Button
+	assert_not_null(gender, "Gender is one plate")
+	assert_not_null(marital, "Marital Status is one plate")
+	assert_null(_find_node(page, "PlayerGenderMale"), "No plate per gender")
+	assert_null(_find_node(page, "PlayerMaritalStatusSingle"), "No plate per status")
+	assert_null(_find_node(page, "PlayerGender"), "The gender drop-down is gone")
+	assert_null(_find_node(page, "PlayerMaritalStatus"), "The marital drop-down is gone")
+	assert_eq(page.find_children("*", "CheckButton", true, false).size(), 0,
+		"The trait checkboxes are gone")
+
+	var traits: Array[Button] = []
+	for key in GolferAttributes.TRAIT_KEYS:
+		var plate := _find_node(page, "GolferTrait%s" % key.capitalize()) as Button
+		assert_not_null(plate, "Trait %s has a plate" % key)
+		if plate != null:
+			traits.append(plate)
+	assert_eq(traits.size(), GolferAttributes.TRAIT_KEYS.size())
+
+	# They wear the Golfer Skills footprint rather than the owner page's own
+	# pixel buttons, which the final styling pass would otherwise repaint.
+	var all_plates: Array[Button] = [gender, marital]
+	all_plates.append_array(traits)
+	for plate in all_plates:
+		assert_true(plate.toggle_mode, "%s is a card plate" % plate.name)
+		assert_eq(plate.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
+			"%s uses the Golfer Skills footprint" % plate.name)
+		assert_eq(plate.get_theme_font("font"), VisitorCardButton.FONT,
+			"%s uses the Visiting Golfer pixel font" % plate.name)
+		assert_true(plate.get_theme_stylebox("normal") is StyleBoxTexture,
+			"%s keeps the shared card frame" % plate.name)
+		assert_true(plate.has_meta(PlayerRoundManager.VISITOR_CARD_META),
+			"%s is exempt from the owner page's button restyling" % plate.name)
+
+	# The Gender plate reads the value the golfer has, stays lit, and steps
+	# through the pair each time it is pressed, wrapping back round.
+	assert_eq(gender.text, "Male", "The plate reads the golfer's gender")
+	assert_true(gender.button_pressed, "A value plate is always lit")
+	assert_not_null(gender.button_group, "Its lone group keeps it from switching off")
+	assert_false(gender.button_group.allow_unpress)
+	gender.pressed.emit()
+	assert_eq(gender.text, "Female", "A press steps to the next gender")
+	assert_eq(rounds.draft.gender, GolferAttributes.Gender.FEMALE)
+	assert_eq(GameManager.player_profile.gender, GolferAttributes.Gender.FEMALE,
+		"The gender choice saves at once")
+	assert_true(gender.button_pressed, "The plate stays lit after a press")
+	gender.pressed.emit()
+	assert_eq(gender.text, "Male", "The pair wraps back round")
+	assert_eq(GameManager.player_profile.gender, GolferAttributes.Gender.MALE,
+		"and saves the wrap the same way")
+
+	# Marital Status is the same one-plate choice over its four values.
+	var status_order: Array[String] = []
+	for value in GolferAttributes.MARITAL_STATUS_NAMES:
+		status_order.append(str(GolferAttributes.MARITAL_STATUS_NAMES[value]))
+	assert_eq(marital.text, "Single", "The plate reads the golfer's marital status")
+	assert_true(marital.button_pressed, "It is lit like the gender plate")
+	for step in status_order.size():
+		var expected_name := status_order[(step + 1) % status_order.size()]
+		marital.pressed.emit()
+		assert_eq(marital.text, expected_name, "A press steps to the next marital status")
+		assert_eq(GameManager.player_profile.marital_status,
+			GolferAttributes.marital_status_from_name(expected_name),
+			"and saves it at once")
+		assert_true(marital.button_pressed, "The plate stays lit through the cycle")
+	assert_eq(marital.text, "Single", "The four statuses wrap back round")
+
+	# Traits are independent switches: turning one off leaves the rest alone.
+	assert_null(traits[0].button_group, "A trait is not part of a single choice")
+	assert_eq(traits[0].get_parent().get_child_count(), PlayerRoundManager.TOGGLES_PER_COLUMN,
+		"A trait column holds as many plates as the shelf is tall")
+	assert_eq(traits[3].get_parent(), traits[4].get_parent(),
+		"The last traits continue in the next column")
+	assert_ne(traits[0].get_parent(), traits[3].get_parent())
+	var neat := traits[GolferAttributes.TRAIT_KEYS.find("neat")]
+	neat.button_pressed = true
+	neat.toggled.emit(true)
+	assert_true(GameManager.player_profile.traits["neat"], "A trait saves when switched On")
+	neat.button_pressed = false
+	neat.toggled.emit(false)
+	assert_false(GameManager.player_profile.traits["neat"], "and when switched Off")
+	assert_false(traits[GolferAttributes.TRAIT_KEYS.find("outgoing")].button_pressed,
+		"Toggling one trait leaves its neighbours alone")
+
+	# The extra columns still fit the shelf: no vertical scrolling grew.
+	await process_frames(3)
+	_assert_shelf_fits(page)
 
 ## The Edit Player page edits the Golfer Skin the owner wears and the colour of
 ## each Re-color Group it carries - including while the round is running, since
