@@ -41,10 +41,12 @@ var shot_bar: ShotTypeBar
 var draft: PlayerGolferProfile
 var name_edit: LineEdit
 ## The Edit Player page's Re-color Group section. Its column contains a
-## row of one tall, named color selector per group; the row is rebuilt when the
-## owner chooses another skin.
+## vertical scrollable list of one Visiting-Golfer-styled button per group;
+## the column sits directly to the right of the sprite preview and is rebuilt
+## when the owner chooses another skin.
 var _skin_controls: VBoxContainer = null
-var _skin_group_columns: HBoxContainer = null
+var _skin_group_columns: VBoxContainer = null
+var _skin_group_scroll: ScrollContainer = null
 var _skin_picker: OptionButton = null
 var _skin_preview: Golfer = null
 var _skin_preview_box: Control = null
@@ -162,22 +164,48 @@ func _build_skin_picker(column: VBoxContainer) -> void:
 	column.add_child(_skin_picker)
 
 
-## The Re-color Group section: one full-height, named color selector per group
-## of the skin the owner wears, in a column of its own on the Edit Player shelf.
+## The Re-color Group section: a vertical scrollable column of
+## Visiting-Golfer-styled colour buttons for each Re-color Group of the skin
+## the owner wears. The column sits directly to the right of the sprite preview
+## so the golfer and their palette read as one unit.
 func _build_skin_group_controls() -> void:
 	_skin_controls = VBoxContainer.new()
 	_skin_controls.name = "SkinGroupControls"
 	_skin_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_controls.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	# Wide enough for a Visiting Golfer card plus a little breathing room for the scrollbar.
+	_skin_controls.custom_minimum_size.x = VisitorCardButton.BUTTON_SIZE.x + 16
 	_skin_controls.add_theme_constant_override("separation", 4)
-	player_tab.pages[PlayerTab.PAGE_EDIT].add_child(_skin_controls)
+	var edit_page := player_tab.pages[PlayerTab.PAGE_EDIT]
+	# Place immediately to the right of the sprite preview so the palette
+	# reads as the golfer's own colours.
+	var preview_idx := -1
+	if is_instance_valid(_skin_preview_box):
+		var preview_col := _skin_preview_box.get_parent()
+		if preview_col != null and preview_col.get_parent() == edit_page:
+			preview_idx = preview_col.get_index()
+	if preview_idx >= 0:
+		edit_page.add_child(_skin_controls)
+		edit_page.move_child(_skin_controls, preview_idx + 1)
+	else:
+		edit_page.add_child(_skin_controls)
 
-	_skin_group_columns = HBoxContainer.new()
+	var scroll := ScrollContainer.new()
+	scroll.name = "SkinGroupScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.follow_focus = true
+	_skin_controls.add_child(scroll)
+	_skin_group_scroll = scroll
+
+	_skin_group_columns = VBoxContainer.new()
 	_skin_group_columns.name = "SkinGroupColumns"
 	_skin_group_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_skin_group_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_skin_group_columns.add_theme_constant_override("separation", 6)
-	_skin_controls.add_child(_skin_group_columns)
+	_skin_group_columns.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_skin_group_columns.add_theme_constant_override("separation", 4)
+	scroll.add_child(_skin_group_columns)
 	_refresh_skin_controls()
 
 
@@ -273,9 +301,9 @@ func set_owner_area_mode(choosing: bool) -> void:
 	_refresh_work_area()
 
 
-## Fill the picker and rebuild the named columns for the skin the owner wears.
-## Every group gets a tall color button beside its name; the page scrolls
-## horizontally if a skin has more groups than fit in the toolbar.
+## Fill the picker and rebuild the vertical list for the skin the owner wears.
+## Every group gets a Visiting-Golfer-styled colour button; the column scrolls
+## vertically when there are more groups than fit the shelf height.
 func _refresh_skin_controls() -> void:
 	if _skin_picker == null or _skin_controls == null or _skin_group_columns == null:
 		return
@@ -297,42 +325,66 @@ func _refresh_skin_controls() -> void:
 	for group in worn.group_list():
 		var group_id := int(group.get("id", 0))
 		var group_name := str(group.get("name", "Group"))
+		var group_color: Color = group.get("color", Color.WHITE)
 		var group_column := VBoxContainer.new()
 		group_column.name = "SkinGroupColumn%d" % group_id
-		group_column.custom_minimum_size.x = 116
-		group_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		group_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		group_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		group_column.set_meta("skin_group_column", true)
 		_skin_group_columns.add_child(group_column)
 
 		var color_row := HBoxContainer.new()
 		color_row.name = "SkinGroupRow%d" % group_id
-		color_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		color_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		color_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		color_row.add_theme_constant_override("separation", 4)
 		group_column.add_child(color_row)
 
 		var name_label := Label.new()
 		name_label.name = "SkinGroupName%d" % group_id
 		name_label.text = group_name
-		name_label.custom_minimum_size.x = 52
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Keep for backward-compat tests; the visible name is drawn on the button itself.
+		name_label.visible = false
 		color_row.add_child(name_label)
 
 		var swatch := ColorPickerButton.new()
 		swatch.name = "SkinGroupColor%d" % group_id
-		swatch.text = str(group.get("symbol", ""))
-		swatch.color = group.get("color", Color.WHITE)
+		swatch.text = group_name
+		swatch.color = group_color
 		swatch.edit_alpha = false
-		swatch.custom_minimum_size = Vector2(44, 72)
-		swatch.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		swatch.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
+		swatch.custom_minimum_size = VisitorCardButton.BUTTON_SIZE
+		swatch.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		swatch.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		swatch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		swatch.focus_mode = Control.FOCUS_ALL
 		swatch.tooltip_text = "The colour %s is drawn in on this skin" % group_name
 		swatch.set_meta("editable_while_playing", true)
+		swatch.set_meta(GOLFER_SKILL_CARD_META, true)
+		# ColorPickerButton hides its native text behind the color preview in some themes;
+		# ensure the name is always readable by drawing it explicitly and keeping the native text for accessibility/tests.
+		swatch.add_theme_font_override("font", VisitorCardButton.FONT)
+		swatch.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+		swatch.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+		swatch.add_theme_color_override("font_hover_color", VisitorCardButton.NAME_LIT)
+		swatch.add_theme_color_override("font_pressed_color", PixelButtonStyle.INK)
+		swatch.add_theme_color_override("font_focus_color", VisitorCardButton.NAME_LIT)
+		PixelButtonStyle.paint_card(swatch, group_color, 0, 6, VisitorCardButton.CREAM, VisitorCardButton.NAME_LIT)
 		swatch.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
 		color_row.add_child(swatch)
+		# Overlay label guarantees the group name is visible on top of the ColorPickerButton's swatch
+		var name_overlay := Label.new()
+		name_overlay.name = "SkinGroupLabel%d" % group_id
+		name_overlay.text = group_name
+		name_overlay.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_overlay.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_overlay.add_theme_font_override("font", VisitorCardButton.FONT)
+		name_overlay.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+		name_overlay.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+		name_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		swatch.add_child(name_overlay)
 	_refresh_skin_preview()
 
 
@@ -797,6 +849,9 @@ func _build_setup() -> void:
 		# editable during a round - dressing the owner is not part of the play
 		# loop being protected (see start_round).
 		_build_skin_picker(preview_column)
+		# Group colours sit directly to the right of the sprite in a vertical
+		# scrollable column styled like the Visiting Golfer cards.
+		_build_skin_group_controls()
 		content = PlayerTab.add_column(edit_page, 200)
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	else:
@@ -877,9 +932,6 @@ func _build_setup() -> void:
 				draft.traits[trait_key] = on
 				_persist_player_profile())
 			traits_column.add_child(trait_toggle)
-		# The colours of the skin's Re-color Groups, after the golfer they
-		# dress and the traits they carry.
-		_build_skin_group_controls()
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
 	# edited above (they follow into these fields); what is left here is the
