@@ -7,10 +7,6 @@ signal session_opened
 signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
-## Section headings on the owner's own pages. The pixel-art styling pass picks
-## them out in gold, so the pages name their columns from one place.
-const DETAILS_TITLE := "Golfer Details"
-const TRAITS_TITLE := "Golfer Traits"
 ## The same visiting green used by the on-course golfer cards.
 const GOLFER_SKILL_ACCENT := Color("83c9a4")
 ## A narrower version of the visitor name plate, retaining its height.
@@ -18,11 +14,6 @@ const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
 ## owner's ordinary pixel controls during the final styling pass.
 const GOLFER_SKILL_CARD_META := "golfer_skill_card"
-## The heading of the column that holds the ground the owner's own golfer
-## works when they are not playing.
-const WORK_AREA_TITLE := "On the course"
-## What a section's second and later columns add to their heading.
-const CONTINUED_SUFFIX := " (continued)"
 ## Toggles to a column on the owner's pages. The pages are horizontal shelves
 ## with no vertical scroll, so a section that runs longer than this carries on
 ## in the next column instead of growing past the bottom bar.
@@ -49,7 +40,7 @@ var status: Label
 var shot_bar: ShotTypeBar
 var draft: PlayerGolferProfile
 var name_edit: LineEdit
-## The Edit Player page's Re-color Group section. Its titled column contains a
+## The Edit Player page's Re-color Group section. Its column contains a
 ## row of one tall, named color selector per group; the row is rebuilt when the
 ## owner chooses another skin.
 var _skin_controls: VBoxContainer = null
@@ -171,23 +162,6 @@ func _build_skin_picker(column: VBoxContainer) -> void:
 	column.add_child(_skin_picker)
 
 
-## A headed column of On/Off toggles on one of the owner's shelves. The toggles
-## of a section run TOGGLES_PER_COLUMN deep and then carry on in a column
-## beside it — the shelf scrolls sideways, so growing right keeps the page
-## inside the bottom bar's height — and the follow-on columns say so in their
-## heading. `slot` is the index of the first toggle the column takes.
-func _toggle_column(page: HBoxContainer, title: String, slot: int,
-		width: float = 210) -> VBoxContainer:
-	var column := PlayerTab.add_column(page, width)
-	# A heading and four toggles only clear the bottom bar at the tighter row
-	# spacing the stacked round sections use.
-	column.add_theme_constant_override("separation", 2)
-	var heading := Label.new()
-	heading.text = title if slot == 0 else title + CONTINUED_SUFFIX
-	column.add_child(heading)
-	return column
-
-
 ## The Re-color Group section: one full-height, named color selector per group
 ## of the skin the owner wears, in a column of its own on the Edit Player shelf.
 func _build_skin_group_controls() -> void:
@@ -197,11 +171,6 @@ func _build_skin_group_controls() -> void:
 	_skin_controls.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skin_controls.add_theme_constant_override("separation", 4)
 	player_tab.pages[PlayerTab.PAGE_EDIT].add_child(_skin_controls)
-
-	var heading := Label.new()
-	heading.text = "Group colours"
-	heading.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	_skin_controls.add_child(heading)
 
 	_skin_group_columns = HBoxContainer.new()
 	_skin_group_columns.name = "SkinGroupColumns"
@@ -219,10 +188,6 @@ func _build_skin_group_controls() -> void:
 ## The button asks main.gd for a click on the course, the same way a staff
 ## member's designated area is moved.
 func _build_work_area_column() -> void:
-	var title := Label.new()
-	title.text = WORK_AREA_TITLE
-	content.add_child(title)
-
 	_work_area_label = Label.new()
 	_work_area_label.name = "OwnerWorkArea"
 	_work_area_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -250,7 +215,6 @@ func _build_tournament_play_export_column() -> void:
 
 ## Career Mode export control on Golfers -> Edit Player.
 func _build_tournament_golfer_export_column() -> void:
-	_label("Tournament Mode")
 	_label("Export this golfer for Main Menu tournaments.")
 	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
 	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
@@ -838,9 +802,10 @@ func _build_setup() -> void:
 	else:
 		_make_panel(true)
 
-	_label("Player Name")
 	name_edit = LineEdit.new()
 	name_edit.name = "PlayerName"
+	name_edit.placeholder_text = "Player name"
+	name_edit.accessibility_name = "Player name"
 	name_edit.max_length = 32
 	name_edit.text = draft.golfer_name
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -848,12 +813,9 @@ func _build_setup() -> void:
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
 		# The rest of who the golfer is takes the next column. The shelf has no
-		# vertical scroll, so a column of this page holds a heading and about
+		# vertical scroll, so a column of this page holds about
 		# four controls before it would grow past the bottom bar.
 		content = PlayerTab.add_column(edit_page, 200)
-		var details_title := Label.new()
-		details_title.text = DETAILS_TITLE
-		content.add_child(details_title)
 		var profession_edit := LineEdit.new()
 		profession_edit.name = "PlayerProfession"
 		profession_edit.placeholder_text = "Profession"
@@ -905,7 +867,8 @@ func _build_setup() -> void:
 		var traits_column: VBoxContainer = null
 		for slot in GolferAttributes.TRAIT_KEYS.size():
 			if slot % TOGGLES_PER_COLUMN == 0:
-				traits_column = _toggle_column(edit_page, TRAITS_TITLE, slot)
+				traits_column = PlayerTab.add_column(edit_page, 210)
+				traits_column.add_theme_constant_override("separation", 2)
 			var key: String = GolferAttributes.TRAIT_KEYS[slot]
 			var trait_toggle := CheckButton.new()
 			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
@@ -1044,8 +1007,7 @@ func _build_setup() -> void:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
 				if not widget.has_meta(GOLFER_SKILL_CARD_META):
 					_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
-				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
-						in [DETAILS_TITLE, TRAITS_TITLE] or widget == points_label):
+				if widget == points_label:
 					widget.add_theme_color_override("font_color", Color("f0bf59"))
 					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()

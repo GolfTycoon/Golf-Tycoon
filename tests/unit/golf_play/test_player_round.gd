@@ -811,6 +811,31 @@ func test_the_golfer_preview_leads_with_the_skin_button_beneath_it() -> void:
 	assert_lte(rounds._skin_picker.size.x, preview_column.size.x,
 		"The trimmed picker stays inside the column")
 
+## Edit Player keeps its controls without redundant section titles.
+func test_edit_player_shelf_has_no_section_titles() -> void:
+	var toolbar := _embedded_toolbar()
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var removed_titles := ["Player Name", "Golfer Details", "On the course",
+		"Tournament Mode", "Golfer Traits", "Golfer Traits (continued)",
+		"Golfer colours", "Group colours"]
+	for label in page.find_children("*", "Label", true, false):
+		assert_false(label.text in removed_titles,
+			"Edit Player does not show the section title: %s" % label.text)
+	assert_not_null(_find_node(page, "PlayerName"), "The name field remains")
+	assert_eq(rounds.name_edit.accessibility_name, "Player name")
+	assert_not_null(_find_node(page, "PlayerProfession"), "Golfer details remain")
+	assert_not_null(_find_node(page, "MoveWorkArea"), "Work-area controls remain")
+	assert_not_null(_find_node(page, "SaveEditGolferForTournamentButton"),
+		"Tournament export remains")
+	assert_eq(page.find_children("*", "CheckButton", true, false).size(),
+		GolferAttributes.TRAIT_KEYS.size(), "Every trait toggle remains")
+	assert_not_null(_find_node(page, "SkinGroupColumns"), "Group colour controls remain")
+	var play_page := toolbar.player_tab.pages[PlayerTab.PAGE_PLAY]
+	var play_titles: Array[String] = []
+	for label in play_page.find_children("*", "Label", true, false):
+		play_titles.append(label.text)
+	assert_has(play_titles, "Tournament Mode", "The Play Course heading is unchanged")
+
 ## The Edit Player page edits the Golfer Skin the owner wears and the colour of
 ## each Re-color Group it carries - including while the round is running, since
 ## it only ever changes how a golfer is drawn.
