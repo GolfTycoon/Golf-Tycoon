@@ -425,23 +425,35 @@ func test_embedded_player_navigation_and_setup() -> void:
 	var edit_page := tab.pages[PlayerTab.PAGE_EDIT]
 	assert_true(edit_page.is_ancestor_of(rounds.name_edit))
 	assert_true(edit_page.is_ancestor_of(rounds._skin_picker))
-	assert_eq(rounds.name_edit.get_parent(), rounds._skin_picker.get_parent(),
-		"The player name and Golfer Skin selector share one column")
 	var preview_column := edit_page.get_child(0) as VBoxContainer
 	assert_true(preview_column.is_ancestor_of(rounds._skin_preview_box),
 		"The animated golfer preview leads the Edit Player columns")
+	assert_eq(rounds._skin_picker.get_parent(), preview_column,
+		"The Golfer Skin selector sits in the golfer preview's own column")
+	assert_eq(preview_column.get_child(preview_column.get_child_count() - 1), rounds._skin_picker,
+		"The selector sits below the sprite it dresses, closing the column")
+	assert_eq(rounds._skin_picker.get_index(), rounds._skin_preview_box.get_index() + 1,
+		"and directly beneath it")
+	assert_false(rounds.name_edit.get_parent() == preview_column,
+		"The player name keeps a column of its own")
+	for child in preview_column.get_children():
+		if child is Label:
+			assert_ne((child as Label).text, "Golfer skin",
+				"The removed Golfer skin title does not come back above the picker")
 	assert_eq(rounds._skin_preview_box.size_flags_vertical, Control.SIZE_EXPAND_FILL,
-		"The preview fills the height of its first column")
+		"The preview fills the height the selector leaves in its column")
 	assert_true(tab.pages[PlayerTab.PAGE_SKILLS].is_ancestor_of(rounds.points_label))
 	for label in edit_page.find_children("*", "Label", true, false):
 		assert_ne(label.text, "PLAY YOUR COURSE", "The old Edit Player heading is gone")
 	for button in edit_page.find_children("*", "Button", true, false):
 		assert_ne(button.text, "Save player", "Player edits save without a button")
-	assert_eq(rounds._skin_controls.find_children("SkinGroupName*", "Label", true, false).size(),
-		GolferSkins.player_skin().group_count(), "Every color column displays its group name")
-	for group_column in rounds._skin_group_columns.get_children():
-		assert_eq(group_column.size_flags_vertical, Control.SIZE_EXPAND_FILL,
-			"Every group color column fills the available height")
+	var plates := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)
+	assert_eq(plates.size(), GolferSkins.player_skin().group_count(),
+		"One Group Colour plate per Re-color Group, each naming its group")
+	for plate in plates:
+		assert_ne((plate as SkinGroupColorButton).text, "", "Every plate carries its group's name")
+	assert_eq(edit_page.get_child(1), rounds._skin_controls,
+		"The Group Colour column stands directly to the right of the sprite")
 	assert_true(tab.pages[PlayerTab.PAGE_PLAY].is_ancestor_of(rounds.pro_picker))
 	rounds.name_edit.text = "Auto-saved Owner"
 	rounds.name_edit.text_changed.emit(rounds.name_edit.text)
@@ -480,7 +492,7 @@ func test_golfer_skills_lead_player_skills_shelf_as_untitled_visitor_cards() -> 
 		"Length, Accuracy and Imagination lead the shelf in that order")
 	for button in buttons:
 		assert_true(button.toggle_mode, "%s remains an On/Off toggle" % button.text)
-		assert_eq(button.custom_minimum_size, PlayerRoundManager.GOLFER_SKILL_BUTTON_SIZE,
+		assert_eq(button.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
 			"%s uses the narrower Golfer Skill card footprint" % button.text)
 		assert_lt(button.custom_minimum_size.x, VisitorCardButton.BUTTON_SIZE.x,
 			"%s is narrower than a Visiting Golfer card" % button.text)
@@ -769,6 +781,370 @@ func _assert_shelf_fits(shelf: HBoxContainer) -> void:
 			assert_lte(control.get_global_rect().end.y, scroll.get_global_rect().position.y + available + 1,
 				"%s stays inside the shelf" % control.get_class())
 
+## The Group Colour plates stand in a column directly to the right of the sprite
+## they dress, ahead of the owner's own details.
+func test_the_group_colours_stand_in_a_column_beside_the_sprite() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var preview_column := page.get_child(0) as VBoxContainer
+	assert_true(preview_column.is_ancestor_of(rounds._skin_preview_box),
+		"The sprite still leads the shelf")
+	assert_eq(page.get_child(1), rounds._skin_controls,
+		"The Group Colour column comes next, directly right of the sprite")
+	assert_gt(rounds._skin_controls.global_position.x,
+		preview_column.get_global_rect().end.x - 1.0,
+		"It starts at or after the sprite column's right edge")
+	assert_eq(rounds._skin_controls.global_position.y,
+		preview_column.global_position.y, "and lines up with its top")
+	# The plates are one column: same left edge, each below the one before it.
+	var plates := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)
+	assert_eq(plates.size(), GolferSkins.player_skin().group_count(),
+		"One plate per Re-color Group of the worn skin")
+	assert_gt(plates.size(), 1, "The shipped skins carry more than one group")
+	var column := plates[0].get_parent()
+	var previous_end := -1.0
+	for plate in plates:
+		assert_eq(plate.get_parent(), column, "Every plate shares the one column")
+		assert_eq(plate.position.x, 0.0, "They line up on the column's left edge")
+		assert_gt(plate.position.y, previous_end, "Each plate sits below the one before")
+		previous_end = plate.position.y + plate.size.y
+	# A long group name is fitted to the plate, never allowed to widen the
+	# column past the sprite it stands beside.
+	var first := plates[0] as SkinGroupColorButton
+	var worn_name := first.text
+	first.text = "A Group Name Far Too Long To Fit"
+	await process_frames(3)
+	assert_eq(first.size, SkinGroupColorButton.BUTTON_SIZE,
+		"A long group name does not stretch the plate")
+	assert_lte(first.get_combined_minimum_size().x, SkinGroupColorButton.BUTTON_SIZE.x,
+		"nor drives its minimum width past the column")
+	first.text = worn_name
+	# The old arrangement - a tall swatch and a separate name label per group,
+	# parked after the traits - is gone.
+	assert_eq(rounds._skin_controls.find_children("SkinGroupName*", "Label", true, false).size(),
+		0, "The plate carries its own name instead of a separate label")
+	assert_eq(rounds._skin_controls.find_children("*", "ColorPickerButton", true, false).size(),
+		0, "The tall native colour selectors are replaced by the plates")
+
+## The Group Colour column also fits the portrait tray, the shortest shelf in the
+## game: the plates must never force a vertical scrollbar onto the Edit Player
+## page there. Screen is pinned for the test and put back by after_each.
+func test_the_group_colour_column_fits_the_portrait_tray() -> void:
+	Screen.set_process(false)
+	Screen.apply_size(Vector2(500, 900))
+	assert_true(Screen.uses_portrait_hud(), "The window is a phone portrait")
+	var toolbar := TerrainToolbar.new()
+	fixture.add_child(toolbar)
+	rounds.attach_player_tab(toolbar.player_tab)
+	toolbar.select_tab(TerrainToolbar.Tab.EDIT_PLAYER)
+	await process_frames(10)
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var scroll := page.get_parent() as ScrollContainer
+	var bar := scroll.get_h_scroll_bar()
+	var available := scroll.size.y - (bar.size.y if bar.visible else 0.0)
+	assert_false(scroll.get_v_scroll_bar().visible, "The portrait page never scrolls vertically")
+	assert_lte(page.get_combined_minimum_size().y, available,
+		"The Group Colour column fits the room the portrait tray leaves")
+	assert_lte(rounds._skin_group_columns.get_combined_minimum_size().y, available,
+		"The plates themselves fit that room")
+	for control in page.find_children("*", "Control", true, false):
+		if control.is_visible_in_tree() and not control is Popup:
+			assert_lte(control.get_global_rect().end.y,
+				scroll.get_global_rect().position.y + available + 1,
+				"%s stays inside the portrait shelf" % control.get_class())
+	# The plates are still one column beside the sprite on a phone.
+	assert_eq(page.get_child(1), rounds._skin_controls,
+		"The colours still stand directly right of the sprite")
+	assert_eq(rounds._skin_group_columns.get_child_count(), 1,
+		"The shipped skin's colours stay in a single column")
+
+## A skin with more groups than one column holds carries on in the next column
+## to the right, so a custom skin never pushes the page past the bottom bar.
+func test_a_skin_with_many_groups_continues_in_the_next_column() -> void:
+	# Extra groups are added to the worn skin, so work on a library of the test's
+	# own: the shipped skins and the player's own are left alone.
+	var previous_library := GolferSkins.library
+	var previous_skin_id := GameManager.player_skin_id
+	_remove_tree(TEST_SKIN_ROOT)
+	GolferSkins.library = GolferSkinLibrary.new(GolferSkinLibrary.BUILT_IN_ROOT, TEST_SKIN_ROOT)
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var worn := GolferSkins.player_skin()
+	var original := worn.group_count()
+	# Push the worn skin past one column's worth of groups, then rebuild.
+	var added: Array[int] = []
+	while worn.group_count() < PlayerRoundManager.GROUP_COLORS_PER_COLUMN + 2:
+		var id := worn.create_group("Extra")
+		assert_gt(id, 0, "The test skin can carry another group")
+		added.append(id)
+	rounds._refresh_skin_controls()
+	await process_frames(5)
+
+	var columns := rounds._skin_group_columns.get_children()
+	assert_eq(columns.size(), 2, "The overflow groups open a second column")
+	assert_eq(columns[0].get_child_count(), PlayerRoundManager.GROUP_COLORS_PER_COLUMN,
+		"The first column holds as many plates as the shelf is tall")
+	assert_eq(columns[1].get_child_count(), worn.group_count() - PlayerRoundManager.GROUP_COLORS_PER_COLUMN,
+		"and the rest carry on beside it")
+	assert_gt(columns[1].global_position.x, columns[0].get_global_rect().end.x - 1.0,
+		"The second column stands to the right of the first")
+	var plates := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)
+	assert_eq(plates.size(), worn.group_count(), "Every group still gets exactly one plate")
+	# The page still fits the shelf: the overflow went sideways, not downwards.
+	_assert_shelf_fits(tab.pages[PlayerTab.PAGE_EDIT])
+
+	for id in added:
+		worn.delete_group(id)
+	assert_eq(worn.group_count(), original)
+	rounds._refresh_skin_controls()
+	await process_frames(3)
+	assert_eq(rounds._skin_group_columns.get_child_count(), 1,
+		"Going back under the limit returns the plates to a single column")
+
+	GameManager.player_skin_id = previous_skin_id
+	GolferSkins.set_player_skin(previous_library.player_skin(previous_skin_id))
+	GolferSkins.library = previous_library
+	_remove_tree(TEST_SKIN_ROOT)
+
+## The Group Colour plates wear the Visiting Golfers' card design: the same
+## pixel font, the same shared glass frame, and the sprite-and-caption layout.
+func test_the_group_colour_plates_wear_the_visiting_golfer_design() -> void:
+	_embedded_toolbar()
+	var plates := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)
+	assert_false(plates.is_empty())
+	var visitor := autofree(VisitorCardButton.new()) as VisitorCardButton
+	for plate in plates:
+		var card := plate as SkinGroupColorButton
+		assert_eq(SkinGroupColorButton.FONT, VisitorCardButton.FONT,
+			"The plate captions in the visiting golfers' pixel font")
+		assert_eq(SkinGroupColorButton.NAME_FONT_SIZE, VisitorCardButton.NAME_FONT_SIZE,
+			"at the same caption size")
+		assert_eq(SkinGroupColorButton.CREAM, VisitorCardButton.CREAM,
+			"The caption wears the same cream")
+		# The shared card frame, not the owner's square pixel fields.
+		for state in ["normal", "hover", "pressed"]:
+			assert_true(card.get_theme_stylebox(state) is StyleBoxTexture,
+				"The %s state wears the shared visitor card frame" % state)
+		var wash := card.get_theme_stylebox("focus") as StyleBoxFlat
+		assert_not_null(wash, "Focus carries the shared warm wash")
+		if wash:
+			assert_gt(wash.bg_color.a, 0.0, "which is drawn")
+			assert_lt(wash.bg_color.a, 0.4, "and stays translucent over the card")
+		assert_true(card.has_meta(PlayerRoundManager.VISITOR_CARD_META),
+			"and the page's styling pass leaves that frame alone")
+		assert_eq(card.get_theme_color("font_color"), Color.TRANSPARENT,
+			"The plate paints its own caption rather than the native label")
+		assert_eq(card.focus_mode, Control.FOCUS_ALL, "The plate is keyboard reachable")
+		assert_eq(card.mouse_default_cursor_shape, Control.CURSOR_POINTING_HAND)
+		assert_false(card.accessibility_name.is_empty(), "and names itself for screen readers")
+	# Same accent as the on-course visiting plates.
+	assert_eq(SkinGroupColorButton.ACCENT, Color("83c9a4"))
+	assert_eq(SkinGroupColorButton.ACCENT, visitor.accent,
+		"The plates share the visiting green")
+
+## Pressing a Group Colour plate opens a real colour picker, and the colour it
+## hands back is written to that group of the worn skin.
+func test_a_group_colour_plate_opens_a_picker_and_writes_its_group() -> void:
+	var previous_library := GolferSkins.library
+	var previous_skin_id := GameManager.player_skin_id
+	_remove_tree(TEST_SKIN_ROOT)
+	GolferSkins.library = GolferSkinLibrary.new(GolferSkinLibrary.BUILT_IN_ROOT, TEST_SKIN_ROOT)
+	var toolbar := _embedded_toolbar()
+	toolbar.player_tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+
+	var worn := GolferSkins.player_skin()
+	var group_id := int(worn.group_list()[0].get("id", 0))
+	var plate := rounds._skin_controls.find_child("SkinGroupColor%d" % group_id, true, false) as SkinGroupColorButton
+	assert_not_null(plate)
+	plate.pressed.emit()
+	await process_frames(2)
+	var popup := plate.get_node_or_null("ColorPopup") as PopupPanel
+	assert_not_null(popup, "Pressing the plate builds its picker popup")
+	assert_true(popup.visible, "and opens it")
+	var picker := plate.get_node_or_null("ColorPopup/ColorPicker") as ColorPicker
+	assert_not_null(picker, "The popup carries the engine's own colour picker")
+	assert_false(picker.edit_alpha, "A golfer's colours are opaque")
+
+	# Moving the picker writes the group, exactly as the old swatch did.
+	picker.color_changed.emit(Color("3070c0"))
+	await process_frames(2)
+	assert_eq(plate.color, Color("3070c0"), "The plate's swatch follows the pick")
+	assert_eq(worn.group_by_id(group_id).get("color"), Color("3070c0"),
+		"and the group is re-coloured on the skin")
+	popup.hide()
+	await process_frames(2)
+
+	GameManager.player_skin_id = previous_skin_id
+	GolferSkins.set_player_skin(previous_library.player_skin(previous_skin_id))
+	GolferSkins.library = previous_library
+	_remove_tree(TEST_SKIN_ROOT)
+
+## The Golfer Skin button belongs to the golfer it dresses: the Edit Player page
+## opens on the animated sprite with the picker under its feet, untitled.
+func test_the_golfer_preview_leads_with_the_skin_button_beneath_it() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var preview_column := tab.pages[PlayerTab.PAGE_EDIT].get_child(0) as VBoxContainer
+	assert_true(preview_column.is_ancestor_of(rounds._skin_preview_box))
+	assert_eq(rounds._skin_picker.get_parent(), preview_column,
+		"The picker is in the column of the golfer it dresses")
+	assert_gt(rounds._skin_picker.get_index(), rounds._skin_preview_box.get_index(),
+		"The picker is written below the sprite")
+	assert_lte(rounds._skin_preview_box.get_global_rect().end.y,
+		rounds._skin_picker.get_global_rect().position.y + 1,
+		"and not beside or behind it")
+	for child in preview_column.get_children():
+		if child is Label:
+			assert_ne((child as Label).text, "Golfer skin",
+				"No title labels the picker")
+	assert_eq(rounds._skin_picker.accessibility_name, "Golfer skin",
+		"The picker names itself for screen readers without a visible title")
+	# A skin name longer than the narrow column trims instead of widening it.
+	var column_width := preview_column.size.x
+	rounds._skin_picker.add_item("A Championship Skin With A Name Too Long To Fit")
+	rounds._skin_picker.select(rounds._skin_picker.item_count - 1)
+	await process_frames(5)
+	assert_eq(preview_column.size.x, column_width,
+		"A long skin name does not stretch the golfer's column")
+	assert_lte(rounds._skin_picker.size.x, preview_column.size.x,
+		"The trimmed picker stays inside the column")
+
+## Edit Player keeps its controls without redundant section titles.
+func test_edit_player_shelf_has_no_section_titles() -> void:
+	var toolbar := _embedded_toolbar()
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var removed_titles := ["Player Name", "Golfer Details", "On the course",
+		"Tournament Mode", "Golfer Traits", "Golfer Traits (continued)",
+		"Golfer colours", "Group colours"]
+	for label in page.find_children("*", "Label", true, false):
+		assert_false(label.text in removed_titles,
+			"Edit Player does not show the section title: %s" % label.text)
+	assert_not_null(_find_node(page, "PlayerName"), "The name field remains")
+	assert_eq(rounds.name_edit.accessibility_name, "Player name")
+	assert_not_null(_find_node(page, "PlayerProfession"), "Golfer details remain")
+	assert_not_null(_find_node(page, "MoveWorkArea"), "Work-area controls remain")
+	assert_not_null(_find_node(page, "SaveEditGolferForTournamentButton"),
+		"Tournament export remains")
+	for key in GolferAttributes.TRAIT_KEYS:
+		assert_not_null(_find_node(page, "GolferTrait%s" % key.capitalize()),
+			"Every trait toggle remains: %s" % key)
+	assert_eq(page.find_children("*", "CheckButton", true, false).size(), 0,
+		"The traits are name plates, not checkbox rows")
+	assert_not_null(_find_node(page, "SkinGroupColumns"), "Group colour controls remain")
+	var play_page := toolbar.player_tab.pages[PlayerTab.PAGE_PLAY]
+	var play_titles: Array[String] = []
+	for label in play_page.find_children("*", "Label", true, false):
+		play_titles.append(label.text)
+	assert_has(play_titles, "Tournament Mode", "The Play Course heading is unchanged")
+
+## Gender and Marital Status each take one of the Golfer Skills' card plates:
+## the caption reads the value the golfer has and a press steps to the next
+## value, so neither setting needs a drop-down or a plate per option. The
+## Golfer Traits remain one On/Off plate each, with no checkbox rows.
+func test_edit_player_identity_and_traits_wear_skill_toggle_plates() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+
+	# One plate each for Gender and Marital Status, plus one per trait.
+	var gender := _find_node(page, "PlayerGenderToggle") as Button
+	var marital := _find_node(page, "PlayerMaritalStatusToggle") as Button
+	assert_not_null(gender, "Gender is one plate")
+	assert_not_null(marital, "Marital Status is one plate")
+	assert_null(_find_node(page, "PlayerGenderMale"), "No plate per gender")
+	assert_null(_find_node(page, "PlayerMaritalStatusSingle"), "No plate per status")
+	assert_null(_find_node(page, "PlayerGender"), "The gender drop-down is gone")
+	assert_null(_find_node(page, "PlayerMaritalStatus"), "The marital drop-down is gone")
+	assert_eq(page.find_children("*", "CheckButton", true, false).size(), 0,
+		"The trait checkboxes are gone")
+
+	var traits: Array[Button] = []
+	for key in GolferAttributes.TRAIT_KEYS:
+		var plate := _find_node(page, "GolferTrait%s" % key.capitalize()) as Button
+		assert_not_null(plate, "Trait %s has a plate" % key)
+		if plate != null:
+			traits.append(plate)
+	assert_eq(traits.size(), GolferAttributes.TRAIT_KEYS.size())
+
+	# They wear the Golfer Skills footprint rather than the owner page's own
+	# pixel buttons, which the final styling pass would otherwise repaint.
+	var all_plates: Array[Button] = [gender, marital]
+	all_plates.append_array(traits)
+	for plate in all_plates:
+		assert_true(plate.toggle_mode, "%s is a card plate" % plate.name)
+		assert_eq(plate.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
+			"%s uses the Golfer Skills footprint" % plate.name)
+		assert_eq(plate.get_theme_font("font"), VisitorCardButton.FONT,
+			"%s uses the Visiting Golfer pixel font" % plate.name)
+		assert_true(plate.get_theme_stylebox("normal") is StyleBoxTexture,
+			"%s keeps the shared card frame" % plate.name)
+		assert_true(plate.has_meta(PlayerRoundManager.VISITOR_CARD_META),
+			"%s is exempt from the owner page's button restyling" % plate.name)
+
+	# The Gender plate reads the value the golfer has, stays lit, and steps
+	# through the pair each time it is pressed, wrapping back round.
+	assert_eq(gender.text, "Male", "The plate reads the golfer's gender")
+	assert_true(gender.button_pressed, "A value plate is always lit")
+	assert_not_null(gender.button_group, "Its lone group keeps it from switching off")
+	assert_false(gender.button_group.allow_unpress)
+	gender.pressed.emit()
+	assert_eq(gender.text, "Female", "A press steps to the next gender")
+	assert_eq(rounds.draft.gender, GolferAttributes.Gender.FEMALE)
+	assert_eq(GameManager.player_profile.gender, GolferAttributes.Gender.FEMALE,
+		"The gender choice saves at once")
+	assert_true(gender.button_pressed, "The plate stays lit after a press")
+	gender.pressed.emit()
+	assert_eq(gender.text, "Male", "The pair wraps back round")
+	assert_eq(GameManager.player_profile.gender, GolferAttributes.Gender.MALE,
+		"and saves the wrap the same way")
+
+	# Marital Status is the same one-plate choice over its four values.
+	var status_order: Array[String] = []
+	for value in GolferAttributes.MARITAL_STATUS_NAMES:
+		status_order.append(str(GolferAttributes.MARITAL_STATUS_NAMES[value]))
+	assert_eq(marital.text, "Single", "The plate reads the golfer's marital status")
+	assert_true(marital.button_pressed, "It is lit like the gender plate")
+	for step in status_order.size():
+		var expected_name := status_order[(step + 1) % status_order.size()]
+		marital.pressed.emit()
+		assert_eq(marital.text, expected_name, "A press steps to the next marital status")
+		assert_eq(GameManager.player_profile.marital_status,
+			GolferAttributes.marital_status_from_name(expected_name),
+			"and saves it at once")
+		assert_true(marital.button_pressed, "The plate stays lit through the cycle")
+	assert_eq(marital.text, "Single", "The four statuses wrap back round")
+
+	# Traits are independent switches: turning one off leaves the rest alone.
+	assert_null(traits[0].button_group, "A trait is not part of a single choice")
+	assert_eq(traits[0].get_parent().get_child_count(), PlayerRoundManager.TOGGLES_PER_COLUMN,
+		"A trait column holds as many plates as the shelf is tall")
+	assert_eq(traits[3].get_parent(), traits[4].get_parent(),
+		"The last traits continue in the next column")
+	assert_ne(traits[0].get_parent(), traits[3].get_parent())
+	var neat := traits[GolferAttributes.TRAIT_KEYS.find("neat")]
+	neat.button_pressed = true
+	neat.toggled.emit(true)
+	assert_true(GameManager.player_profile.traits["neat"], "A trait saves when switched On")
+	neat.button_pressed = false
+	neat.toggled.emit(false)
+	assert_false(GameManager.player_profile.traits["neat"], "and when switched Off")
+	assert_false(traits[GolferAttributes.TRAIT_KEYS.find("outgoing")].button_pressed,
+		"Toggling one trait leaves its neighbours alone")
+
+	# The extra columns still fit the shelf: no vertical scrolling grew.
+	await process_frames(3)
+	_assert_shelf_fits(page)
+
 ## The Edit Player page edits the Golfer Skin the owner wears and the colour of
 ## each Re-color Group it carries - including while the round is running, since
 ## it only ever changes how a golfer is drawn.
@@ -808,19 +1184,24 @@ func test_edit_player_page_changes_the_golfer_skin_and_its_group_colours() -> vo
 	assert_eq(GameManager.player_skin_id, wanted, "the picker sets the skin the owner wears")
 	assert_eq(rounds._skin_preview.skin().id, wanted, "the preview follows")
 
-	# One colour button per Re-color Group of that skin, each writing the skin.
-	var swatches := rounds._skin_controls.find_children("SkinGroupColor*", "ColorPickerButton", true, false)
+	# One Group Colour plate per Re-color Group of that skin, each writing the skin.
+	var swatches := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)
 	var worn := GolferSkins.player_skin()
 	assert_eq(swatches.size(), worn.group_count(),
-		"a colour button per Re-color Group of the chosen skin")
+		"a colour plate per Re-color Group of the chosen skin")
 	for group in worn.group_list():
 		var id := int(group.get("id", 0))
-		var labels := rounds._skin_controls.find_children("SkinGroupName%d" % id, "Label", true, false)
-		var color_buttons := rounds._skin_controls.find_children("SkinGroupColor%d" % id, "ColorPickerButton", true, false)
-		assert_eq(labels.size(), 1, "Each selector has a visible group name")
-		assert_eq(color_buttons.size(), 1, "Each group name has its own color selector")
-		assert_eq(labels[0].get_parent(), color_buttons[0].get_parent(),
-			"The group name sits next to its color selector")
+		var color_plates := rounds._skin_controls.find_children("SkinGroupColor%d" % id, "SkinGroupColorButton", true, false)
+		assert_eq(color_plates.size(), 1, "Each group has its own colour plate")
+		if color_plates.is_empty():
+			continue
+		var plate := color_plates[0] as SkinGroupColorButton
+		assert_eq(plate.text, str(group.get("name", "")),
+			"The plate names the group it colours")
+		assert_eq(plate.color, group.get("color", Color.WHITE),
+			"and shows that group's colour as its swatch")
+		assert_eq(int(plate.get_meta("skin_group_id")), id,
+			"The plate writes the group it stands for")
 	var group_id := int(worn.group_list()[0].get("id", 0))
 	var before := GolferSkins.skins_changed.get_connections().size()
 	rounds._on_skin_group_color_changed(Color("00ff00"), group_id)
@@ -853,8 +1234,21 @@ func test_the_round_locks_the_page_but_not_the_skin_controls() -> void:
 	assert_true(rounds.active, "the round is running")
 	assert_true(rounds.name_edit.editable == false, "the name field is locked while playing")
 	assert_false(rounds._skin_picker.disabled, "the Golfer Skin picker stays live")
-	for swatch in rounds._skin_controls.find_children("SkinGroupColor*", "ColorPickerButton", true, false):
-		assert_false((swatch as ColorPickerButton).disabled, "and so do the group colours")
+	for swatch in rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false):
+		assert_false((swatch as SkinGroupColorButton).disabled, "and so do the group colours")
+	# A plate's picker is part of those skin controls: a round starting while one
+	# is open must not disable the picker the player is using.
+	var plate := rounds._skin_controls.find_children("SkinGroupColor*", "SkinGroupColorButton", true, false)[0] as SkinGroupColorButton
+	plate.pressed.emit()
+	await process_frames(2)
+	var popup := plate.get_node_or_null("ColorPopup") as PopupPanel
+	assert_not_null(popup, "The plate opened its picker")
+	if popup != null:
+		for control in popup.find_children("*", "BaseButton", true, false):
+			assert_false((control as BaseButton).disabled,
+				"The picker's own controls stay live during the round")
+		popup.hide()
+		await process_frames(1)
 	rounds.leave_round()
 
 func test_embedded_pages_fit_toolbar_and_overflow_horizontally() -> void:
@@ -871,13 +1265,23 @@ func test_embedded_pages_fit_toolbar_and_overflow_horizontally() -> void:
 			if index == PlayerTab.PAGE_EDIT:
 				assert_gt(rounds._skin_preview_box.size.y, 72.0,
 					"The animated preview uses most of the Edit Player page height")
-				for group_column in rounds._skin_group_columns.get_children():
-					assert_gt(group_column.size.y, 72.0,
-						"Each group color column uses most of the page height")
-					var swatch := group_column.find_child("SkinGroupColor*", true, false) as ColorPickerButton
-					assert_not_null(swatch)
-					assert_gt(swatch.size.y, 72.0,
-						"The color selector stretches with its column")
+				# The Group Colour plates stack down a column beside the sprite
+				# instead of stretching one tall swatch per group.
+				var plate_column := rounds._skin_group_columns.get_child(0) as VBoxContainer
+				assert_not_null(plate_column)
+				assert_gt(plate_column.get_child_count(), 1,
+					"The Group Colour plates stack down their column")
+				var previous_end := -1.0
+				for plate in plate_column.get_children():
+					assert_eq(plate.size, SkinGroupColorButton.BUTTON_SIZE,
+						"Each Group Colour plate keeps the visitor-card footprint")
+					assert_gt(plate.position.y, previous_end,
+						"and sits below the plate before it, in one column")
+					assert_eq(plate.position.x, 0.0, "The plates share one left edge")
+					previous_end = plate.position.y + plate.size.y
+				assert_gt(rounds._skin_controls.global_position.x,
+					rounds._skin_preview_box.get_global_rect().end.x,
+					"The column stands to the right of the sprite, never over it")
 			if width == 600:
 				var scroll := tab.pages[index].get_parent() as ScrollContainer
 				assert_true(scroll.get_h_scroll_bar().visible, "Narrow pages scroll sideways")

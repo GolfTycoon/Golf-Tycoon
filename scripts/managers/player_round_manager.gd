@@ -7,26 +7,27 @@ signal session_opened
 signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
-## Section headings on the owner's own pages. The pixel-art styling pass picks
-## them out in gold, so the pages name their columns from one place.
-const DETAILS_TITLE := "Golfer Details"
-const TRAITS_TITLE := "Golfer Traits"
-## The same visiting green used by the on-course golfer cards.
-const GOLFER_SKILL_ACCENT := Color("83c9a4")
-## A narrower version of the visitor name plate, retaining its height.
-const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
+## The same visiting green used by the on-course golfer cards, and by every
+## name plate on the owner's shelves: the Golfer Skills and Golfer Traits, and
+## the single plate each of Gender and Marital Status is chosen with.
+const SHELF_TOGGLE_ACCENT := Color("83c9a4")
+## A narrower version of the visitor name plate, retaining its height. One
+## footprint is shared by every plate on the owner's shelves.
+const SHELF_TOGGLE_BUTTON_SIZE := Vector2(184, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
-## owner's ordinary pixel controls during the final styling pass.
-const GOLFER_SKILL_CARD_META := "golfer_skill_card"
-## The heading of the column that holds the ground the owner's own golfer
-## works when they are not playing.
-const WORK_AREA_TITLE := "On the course"
-## What a section's second and later columns add to their heading.
-const CONTINUED_SUFFIX := " (continued)"
-## Toggles to a column on the owner's pages. The pages are horizontal shelves
-## with no vertical scroll, so a section that runs longer than this carries on
-## in the next column instead of growing past the bottom bar.
-const TOGGLES_PER_COLUMN := 4
+## owner's ordinary pixel controls during the final styling pass: the On/Off
+## shelf plates and the Edit Player page's Group Colour plates.
+const VISITOR_CARD_META := "golfer_skill_card"
+## Group Colour plates stacked down one column beside the sprite. Five plates
+## and their gaps (5 x 26 + 4 x 3 = 142) fit the room the bottom bar leaves, so
+## the shipped skins' Shirt/Pants/Cap/Hair/Skin set reads as a single column.
+const GROUP_COLORS_PER_COLUMN := 5
+## On/Off plates to a column on the owner's pages. The pages are horizontal
+## shelves with no vertical scroll, so a section that runs longer than this
+## carries on in the next column instead of growing past the bottom bar. Three
+## 44px plates and their 2px gaps need 136px, which is the tallest stack the
+## shelf's room between the header and the bottom bar holds.
+const TOGGLES_PER_COLUMN := 3
 var player_tab: PlayerTab
 ## Top-left score card owned by the game HUD (null in isolated tools and tests,
 ## which fall back to putting the scorecards on the round page).
@@ -49,10 +50,13 @@ var status: Label
 var shot_bar: ShotTypeBar
 var draft: PlayerGolferProfile
 var name_edit: LineEdit
-## The Edit Player page's Re-color Group section. Its titled column contains a
-## row of one tall, named color selector per group; the row is rebuilt when the
-## owner chooses another skin.
+## The Edit Player page's Re-color Group section: the column of Group Colour
+## plates standing directly to the right of the animated sprite they dress. It
+## is rebuilt when the owner chooses another skin.
 var _skin_controls: VBoxContainer = null
+## Holds the columns of Group Colour plates inside `_skin_controls`. A skin with
+## more groups than one column is tall carries on in the next column to the
+## right, so a custom skin never pushes the page past the bottom bar.
 var _skin_group_columns: HBoxContainer = null
 var _skin_picker: OptionButton = null
 var _skin_preview: Golfer = null
@@ -144,57 +148,50 @@ func _make_panel(full_screen: bool) -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 
-## The skin selector, written into the column the page is building — the one
-## that carries the player's name, so who the golfer is and what they wear read
-## together. Their Re-color Groups are a column of their own further along the
-## shelf (see _build_skin_group_controls).
-func _build_skin_picker() -> void:
-	_label("Golfer skin")
+## The skin selector, written into the first column of the shelf, directly under
+## the animated golfer wearing it, so what the golfer wears is chosen on the
+## golfer itself. It carries no heading of its own: the sprite above it, the
+## picker's own entries and its tooltip already say what it chooses. Their
+## Re-color Groups are a column of their own further along the shelf (see
+## _build_skin_group_controls).
+func _build_skin_picker(column: VBoxContainer) -> void:
 	_skin_picker = OptionButton.new()
 	_skin_picker.name = "GolferSkinPicker"
 	_skin_picker.tooltip_text = "Which Golfer Skin your golfer wears. The Edit Golfer Skins screen paints them."
-	_skin_picker.custom_minimum_size = Vector2(180, 28)
+	# No title sits above the picker, so its accessible name is what carries the
+	# label: its own text is only the skin it currently shows.
+	_skin_picker.accessibility_name = "Golfer skin"
+	_skin_picker.custom_minimum_size = Vector2(0, 28)
 	_skin_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The first column is one sprite wide, and a skin name can be longer than
+	# that. Without these the picker widens the column to its longest entry and
+	# the golfer beside it stops leading the shelf; trimmed to an ellipsis
+	# instead, the menu still lists every name in full.
+	_skin_picker.fit_to_longest_item = false
+	_skin_picker.clip_text = true
+	_skin_picker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_skin_picker.set_meta("editable_while_playing", true)
 	_skin_picker.item_selected.connect(_on_golfer_skin_selected)
-	content.add_child(_skin_picker)
+	column.add_child(_skin_picker)
 
 
-## A headed column of On/Off toggles on one of the owner's shelves. The toggles
-## of a section run TOGGLES_PER_COLUMN deep and then carry on in a column
-## beside it — the shelf scrolls sideways, so growing right keeps the page
-## inside the bottom bar's height — and the follow-on columns say so in their
-## heading. `slot` is the index of the first toggle the column takes.
-func _toggle_column(page: HBoxContainer, title: String, slot: int,
-		width: float = 210) -> VBoxContainer:
-	var column := PlayerTab.add_column(page, width)
-	# A heading and four toggles only clear the bottom bar at the tighter row
-	# spacing the stacked round sections use.
-	column.add_theme_constant_override("separation", 2)
-	var heading := Label.new()
-	heading.text = title if slot == 0 else title + CONTINUED_SUFFIX
-	column.add_child(heading)
-	return column
-
-
-## The Re-color Group section: one full-height, named color selector per group
-## of the skin the owner wears, in a column of its own on the Edit Player shelf.
+## The Re-color Group section: one Group Colour plate per group of the skin the
+## owner wears, stacked down a column that stands directly to the right of the
+## animated sprite it dresses - the colours sit beside the golfer they change,
+## rather than further along the shelf behind the traits.
+##
+## The caller adds this to the shelf itself (see _build_setup), so the column
+## lands between the sprite and the player's name.
 func _build_skin_group_controls() -> void:
 	_skin_controls = VBoxContainer.new()
 	_skin_controls.name = "SkinGroupControls"
 	_skin_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_controls.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skin_controls.add_theme_constant_override("separation", 4)
-	player_tab.pages[PlayerTab.PAGE_EDIT].add_child(_skin_controls)
-
-	var heading := Label.new()
-	heading.text = "Group colours"
-	heading.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	_skin_controls.add_child(heading)
 
 	_skin_group_columns = HBoxContainer.new()
 	_skin_group_columns.name = "SkinGroupColumns"
-	_skin_group_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_skin_group_columns.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skin_group_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_group_columns.add_theme_constant_override("separation", 6)
 	_skin_controls.add_child(_skin_group_columns)
@@ -208,10 +205,6 @@ func _build_skin_group_controls() -> void:
 ## The button asks main.gd for a click on the course, the same way a staff
 ## member's designated area is moved.
 func _build_work_area_column() -> void:
-	var title := Label.new()
-	title.text = WORK_AREA_TITLE
-	content.add_child(title)
-
 	_work_area_label = Label.new()
 	_work_area_label.name = "OwnerWorkArea"
 	_work_area_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -239,7 +232,6 @@ func _build_tournament_play_export_column() -> void:
 
 ## Career Mode export control on Golfers -> Edit Player.
 func _build_tournament_golfer_export_column() -> void:
-	_label("Tournament Mode")
 	_label("Export this golfer for Main Menu tournaments.")
 	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
 	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
@@ -298,9 +290,11 @@ func set_owner_area_mode(choosing: bool) -> void:
 	_refresh_work_area()
 
 
-## Fill the picker and rebuild the named columns for the skin the owner wears.
-## Every group gets a tall color button beside its name; the page scrolls
-## horizontally if a skin has more groups than fit in the toolbar.
+## Fill the picker and rebuild the Group Colour plates for the skin the owner
+## wears. Every group gets one visitor-style plate - its colour as a swatch, its
+## name beside it - stacked down the column beside the sprite. A skin carrying
+## more groups than one column holds continues in the next column to the right,
+## where the shelf already scrolls, so the page never grows past the bottom bar.
 func _refresh_skin_controls() -> void:
 	if _skin_picker == null or _skin_controls == null or _skin_group_columns == null:
 		return
@@ -319,57 +313,50 @@ func _refresh_skin_controls() -> void:
 	if worn == null:
 		return
 
-	for group in worn.group_list():
+	var group_column: VBoxContainer = null
+	var column_number := 0
+	for index in worn.group_count():
+		var group: Dictionary = worn.group_list()[index]
 		var group_id := int(group.get("id", 0))
 		var group_name := str(group.get("name", "Group"))
-		var group_column := VBoxContainer.new()
-		group_column.name = "SkinGroupColumn%d" % group_id
-		group_column.custom_minimum_size.x = 116
-		group_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		group_column.set_meta("skin_group_column", true)
-		_skin_group_columns.add_child(group_column)
+		if index % GROUP_COLORS_PER_COLUMN == 0:
+			column_number += 1
+			group_column = VBoxContainer.new()
+			group_column.name = "SkinGroupColumn%d" % column_number
+			group_column.custom_minimum_size.x = SkinGroupColorButton.BUTTON_SIZE.x
+			group_column.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			group_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			group_column.add_theme_constant_override("separation", 3)
+			group_column.set_meta("skin_group_column", true)
+			_skin_group_columns.add_child(group_column)
 
-		var color_row := HBoxContainer.new()
-		color_row.name = "SkinGroupRow%d" % group_id
-		color_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		color_row.add_theme_constant_override("separation", 4)
-		group_column.add_child(color_row)
-
-		var name_label := Label.new()
-		name_label.name = "SkinGroupName%d" % group_id
-		name_label.text = group_name
-		name_label.custom_minimum_size.x = 52
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-		color_row.add_child(name_label)
-
-		var swatch := ColorPickerButton.new()
-		swatch.name = "SkinGroupColor%d" % group_id
-		swatch.text = str(group.get("symbol", ""))
-		swatch.color = group.get("color", Color.WHITE)
-		swatch.edit_alpha = false
-		swatch.custom_minimum_size = Vector2(44, 72)
-		swatch.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		swatch.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-		swatch.tooltip_text = "The colour %s is drawn in on this skin" % group_name
-		swatch.set_meta("editable_while_playing", true)
-		swatch.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
-		color_row.add_child(swatch)
+		var plate := SkinGroupColorButton.new()
+		plate.name = "SkinGroupColor%d" % group_id
+		plate.text = group_name
+		plate.color = group.get("color", Color.WHITE)
+		plate.tooltip_text = "The colour %s is drawn in on this skin" % group_name
+		plate.accessibility_name = "%s colour" % group_name
+		plate.set_meta("editable_while_playing", true)
+		# Keep the shared visitor-card frame through the page's final styling
+		# pass, which would otherwise square it off like the owner's own fields.
+		plate.set_meta(VISITOR_CARD_META, true)
+		plate.set_meta("skin_group_id", group_id)
+		plate.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
+		group_column.add_child(plate)
 	_refresh_skin_preview()
 
 
-## The first column is a scaled pixel-art golfer rather than a tiny picker icon.
-## Its Control provides the available rectangle; the Node2D preview is centered
-## and scaled to use most of that height without cropping the sprite.
-func _build_skin_preview(edit_page: HBoxContainer) -> void:
+## The first column is a scaled pixel-art golfer rather than a tiny picker icon,
+## with the skin they wear picked directly beneath the sprite (see
+## _build_skin_picker). Its Control provides the available rectangle; the Node2D
+## preview is centered and scaled to use most of that height without cropping
+## the sprite. Returns the column so the picker can join it.
+func _build_skin_preview(edit_page: HBoxContainer) -> VBoxContainer:
 	content = PlayerTab.add_column(edit_page, 116)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_preview_box = Control.new()
 	_skin_preview_box.name = "SkinPreview"
-	_skin_preview_box.custom_minimum_size = Vector2(100, 108)
+	_skin_preview_box.custom_minimum_size = Vector2(100, 60)
 	_skin_preview_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_skin_preview_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -381,6 +368,7 @@ func _build_skin_preview(edit_page: HBoxContainer) -> void:
 	_skin_preview.set_physics_process(false)
 	_skin_preview_box.add_child(_skin_preview)
 	_skin_preview_box.resized.connect(_layout_skin_preview)
+	return content
 
 
 func _refresh_skin_preview() -> void:
@@ -733,40 +721,99 @@ func open_setup() -> void:
 	session_opened.emit()
 	_build_setup()
 
-## A Golfer Skill as a selectable name plate in the Visiting Golfers visual
-## language: the same pixel font and card frame on a narrower footprint. Off is
-## a quiet outlined card; On uses a solid green fill and dark caption so the
-## enabled state stands out without a separate checkbox.
-func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
+## One On/Off name plate in the Visiting Golfers visual language: the same pixel
+## font and card frame on a narrower footprint. Off is a quiet outlined card; On
+## uses a solid green fill and dark caption so the enabled state stands out
+## without a separate checkbox. The Golfer Skills, the golfer's Gender and
+## Marital Status, and the Golfer Traits all wear this plate.
+func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> Button:
 	var button := Button.new()
-	button.text = skill_name
+	button.text = caption
 	button.toggle_mode = true
 	button.button_pressed = is_on
-	button.custom_minimum_size = GOLFER_SKILL_BUTTON_SIZE
+	button.custom_minimum_size = SHELF_TOGGLE_BUTTON_SIZE
 	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.focus_mode = Control.FOCUS_ALL
-	button.accessibility_description = "%s golfer skill. Toggle on or off." % skill_name
-	button.set_meta(GOLFER_SKILL_CARD_META, true)
+	button.accessibility_description = description
+	button.tooltip_text = description
+	button.set_meta(VISITOR_CARD_META, true)
 	button.add_theme_font_override("font", VisitorCardButton.FONT)
 	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
-	PixelButtonStyle.paint_choice(button, GOLFER_SKILL_ACCENT)
+	PixelButtonStyle.paint_choice(button, SHELF_TOGGLE_ACCENT)
 	# Strengthen the selected half of the shared choice style: a solid visiting
-	# green body makes an enabled skill unmistakable beside the quiet Off cards.
+	# green body makes an enabled plate unmistakable beside the quiet Off cards.
 	button.add_theme_stylebox_override("pressed", PixelButtonStyle.card_style(
-		GOLFER_SKILL_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
-		GOLFER_SKILL_ACCENT, 0, 0, 0))
+		SHELF_TOGGLE_ACCENT.lightened(0.18), PixelButtonStyle.State.PRESSED,
+		SHELF_TOGGLE_ACCENT, 0, 0, 0))
 	button.add_theme_stylebox_override("hover_pressed", PixelButtonStyle.card_style(
-		GOLFER_SKILL_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
-		GOLFER_SKILL_ACCENT.lightened(0.12), 0, 0, 0))
+		SHELF_TOGGLE_ACCENT.lightened(0.28), PixelButtonStyle.State.HOVER,
+		SHELF_TOGGLE_ACCENT.lightened(0.12), 0, 0, 0))
 	button.add_theme_color_override("font_color", VisitorCardButton.CREAM)
 	for state in ["hover", "focus"]:
 		button.add_theme_color_override("font_%s_color" % state, VisitorCardButton.NAME_LIT)
 	for state in ["pressed", "hover_pressed"]:
 		button.add_theme_color_override("font_%s_color" % state, PixelButtonStyle.INK)
 	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
+	return button
+
+
+## A set of independent On/Off name plates laid out down the shelf, `per_column`
+## at a time, in the Golfer Skills card language. `chosen` is called with the
+## index of the plate that changed and its new state, so the caller can write
+## the profile. The Golfer Traits use it: every plate is free to be On or Off on
+## its own.
+func _build_toggle_plates(parent: HBoxContainer, captions: Array[String],
+		on_flags: Array[bool], per_column: int, chosen: Callable,
+		node_prefix: String, description_format: String) -> Array[VBoxContainer]:
+	var columns: Array[VBoxContainer] = []
+	var column: VBoxContainer = null
+	for index in captions.size():
+		if index % per_column == 0:
+			column = PlayerTab.add_column(parent, SHELF_TOGGLE_BUTTON_SIZE.x)
+			column.add_theme_constant_override("separation", 2)
+			columns.append(column)
+		var caption := captions[index]
+		var plate := _shelf_toggle_button(caption, on_flags[index],
+			description_format % caption)
+		plate.name = "%s%s" % [node_prefix, caption.replace(" ", "")]
+		plate.toggled.connect(func(on: bool, value: int = index):
+			chosen.call(value, on))
+		column.add_child(plate)
+	return columns
+
+
+## One plate carrying a setting that has several values - Gender or Marital
+## Status - instead of one plate per value. Its caption always reads the value
+## the golfer has; a press steps to the next one and wraps round the set, so a
+## whole choice takes a single card on the shelf. The plate stays lit the way a
+## chosen Golfer Skill card does, because the golfer always has one of them.
+func _shelf_cycle_button(captions: Array[String], selected: int,
+		description_format: String, on_chosen: Callable) -> Button:
+	assert(not captions.is_empty(), "A cycle plate needs at least one value")
+	var start := clampi(selected, 0, captions.size() - 1)
+	var button := _shelf_toggle_button(captions[start], true,
+		description_format % captions[start])
+	button.set_meta("cycle_captions", captions)
+	button.set_meta("cycle_index", start)
+	button.set_meta("cycle_description", description_format)
+	# A lone toggle in a group that cannot be unpressed stays lit for good:
+	# every press advances the value instead of switching the plate off.
+	var group := ButtonGroup.new()
+	group.allow_unpress = false
+	button.button_group = group
+	button.pressed.connect(func():
+		var values: Array = button.get_meta("cycle_captions")
+		var next := (int(button.get_meta("cycle_index")) + 1) % values.size()
+		var caption := str(values[next])
+		var format_text := str(button.get_meta("cycle_description"))
+		button.set_meta("cycle_index", next)
+		button.text = caption
+		button.tooltip_text = format_text % caption
+		button.accessibility_description = format_text % caption
+		on_chosen.call(next))
 	return button
 
 
@@ -813,33 +860,36 @@ func _build_setup() -> void:
 		# The management tournament panel survives on the Play Course page.
 		player_tab.clear_play_page()
 		edit_page = player_tab.pages[PlayerTab.PAGE_EDIT]
-		_build_skin_preview(edit_page)
+		var preview_column := _build_skin_preview(edit_page)
+		# The skin the owner wears is chosen under the sprite that wears it, so
+		# the golfer leads the shelf with the picker on its feet. It stays
+		# editable during a round - dressing the owner is not part of the play
+		# loop being protected (see start_round).
+		_build_skin_picker(preview_column)
+		# The colours of the skin's Re-color Groups stand directly to the right
+		# of the sprite they dress, so the golfer and its palette read together
+		# before any of the owner's details.
+		_build_skin_group_controls()
+		edit_page.add_child(_skin_controls)
 		content = PlayerTab.add_column(edit_page, 200)
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	else:
 		_make_panel(true)
 
-	_label("Player Name")
 	name_edit = LineEdit.new()
 	name_edit.name = "PlayerName"
+	name_edit.placeholder_text = "Player name"
+	name_edit.accessibility_name = "Player name"
 	name_edit.max_length = 32
 	name_edit.text = draft.golfer_name
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
-		# The skin the owner wears closes the first column: the name and the
-		# golfer wearing it read together, under the animated preview beside
-		# them. It stays editable during a round - dressing the owner is not
-		# part of the play loop being protected (see start_round).
-		_build_skin_picker()
 		# The rest of who the golfer is takes the next column. The shelf has no
-		# vertical scroll, so a column of this page holds a heading and about
+		# vertical scroll, so a column of this page holds about
 		# four controls before it would grow past the bottom bar.
 		content = PlayerTab.add_column(edit_page, 200)
-		var details_title := Label.new()
-		details_title.text = DETAILS_TITLE
-		content.add_child(details_title)
 		var profession_edit := LineEdit.new()
 		profession_edit.name = "PlayerProfession"
 		profession_edit.placeholder_text = "Profession"
@@ -860,26 +910,37 @@ func _build_setup() -> void:
 			draft.age = int(value)
 			_persist_player_profile())
 		content.add_child(age_spin)
-		var gender_picker := OptionButton.new()
-		gender_picker.name = "PlayerGender"
-		gender_picker.tooltip_text = "Your golfer's gender"
-		gender_picker.add_item("Male")
-		gender_picker.add_item("Female")
-		gender_picker.select(draft.gender)
-		gender_picker.item_selected.connect(func(value: int):
-			draft.gender = value
-			_persist_player_profile())
-		content.add_child(gender_picker)
-		var marital_picker := OptionButton.new()
-		marital_picker.name = "PlayerMaritalStatus"
-		marital_picker.tooltip_text = "Your golfer's marital status"
-		for value in ["Single", "Married", "Divorced", "Widowed"]:
-			marital_picker.add_item(value)
-		marital_picker.select(draft.marital_status)
-		marital_picker.item_selected.connect(func(value: int):
-			draft.marital_status = value
-			_persist_player_profile())
-		content.add_child(marital_picker)
+		# Gender and Marital Status wear the Golfer Skills card too, but each
+		# takes a single plate: its caption reads the value the golfer has and
+		# a press steps to the next choice. A whole setting therefore costs one
+		# card on the shelf rather than one card per option.
+		var gender_values: Array = GolferAttributes.GENDER_NAMES.keys()
+		var gender_captions: Array[String] = []
+		for value in gender_values:
+			gender_captions.append(str(GolferAttributes.GENDER_NAMES[value]))
+		var set_gender := func(index: int) -> void:
+			draft.gender = int(gender_values[index])
+			_persist_player_profile()
+		var gender_plate := _shelf_cycle_button(gender_captions, int(draft.gender),
+			"Golfer gender: %s. Press to choose the next gender.", set_gender)
+		gender_plate.name = "PlayerGenderToggle"
+		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
+		content.add_theme_constant_override("separation", 2)
+		content.add_child(gender_plate)
+		var marital_values: Array = GolferAttributes.MARITAL_STATUS_NAMES.keys()
+		var marital_captions: Array[String] = []
+		for value in marital_values:
+			marital_captions.append(str(GolferAttributes.MARITAL_STATUS_NAMES[value]))
+		var set_marital_status := func(index: int) -> void:
+			draft.marital_status = int(marital_values[index])
+			_persist_player_profile()
+		var marital_plate := _shelf_cycle_button(marital_captions,
+			int(draft.marital_status),
+			"Marital status: %s. Press to choose the next status.", set_marital_status)
+		marital_plate.name = "PlayerMaritalStatusToggle"
+		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
+		content.add_theme_constant_override("separation", 2)
+		content.add_child(marital_plate)
 		# The owner's own golfer is on the course: the ground they work when
 		# they are not playing gets a column of its own.
 		content = PlayerTab.add_column(edit_page, 220)
@@ -888,25 +949,24 @@ func _build_setup() -> void:
 			content = PlayerTab.add_column(edit_page, 210)
 			content.add_theme_constant_override("separation", 4)
 			_build_tournament_golfer_export_column()
-		var traits_column: VBoxContainer = null
-		for slot in GolferAttributes.TRAIT_KEYS.size():
-			if slot % TOGGLES_PER_COLUMN == 0:
-				traits_column = _toggle_column(edit_page, TRAITS_TITLE, slot)
-			var key: String = GolferAttributes.TRAIT_KEYS[slot]
-			var trait_toggle := CheckButton.new()
-			trait_toggle.text = GolferAttributes.TRAIT_NAMES[key]
-			trait_toggle.button_pressed = draft.traits[key]
-			trait_toggle.toggled.connect(func(on: bool, trait_key: String = key):
-				draft.traits[trait_key] = on
-				_persist_player_profile())
-			traits_column.add_child(trait_toggle)
-		# The colours of the skin's Re-color Groups, after the golfer they
-		# dress and the traits they carry.
-		_build_skin_group_controls()
+		# The Golfer Traits are independent On/Off plates, so every trait keeps
+		# its own switch instead of one being chosen from the set.
+		var trait_captions: Array[String] = []
+		var trait_flags: Array[bool] = []
+		for key in GolferAttributes.TRAIT_KEYS:
+			trait_captions.append(str(GolferAttributes.TRAIT_NAMES[key]))
+			trait_flags.append(bool(draft.traits[key]))
+		var set_trait := func(index: int, on: bool) -> void:
+			draft.traits[GolferAttributes.TRAIT_KEYS[index]] = on
+			_persist_player_profile()
+		_build_toggle_plates(edit_page, trait_captions, trait_flags,
+			TOGGLES_PER_COLUMN, set_trait, "GolferTrait",
+			"Golfer trait: %s. Toggle on or off.")
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
-	# edited above (they follow into these fields); what is left here is the
-	# appearance the polygon golfer falls back on when a skin has no sprites.
+	# edited beside the sprite above (they follow into these fields); what is
+	# left here is the appearance the polygon golfer falls back on when a skin
+	# has no sprites.
 	var standalone := _standalone_profile_colors()
 	var color_index := 0
 	for key in standalone:
@@ -982,11 +1042,13 @@ func _build_setup() -> void:
 		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
 		# Three untitled visitor-style name plates lead the shelf, ahead of the
 		# points-based Golf Skills.
-		var golfer_skills_column := PlayerTab.add_column(skills_page, GOLFER_SKILL_BUTTON_SIZE.x)
+		var golfer_skills_column := PlayerTab.add_column(skills_page, SHELF_TOGGLE_BUTTON_SIZE.x)
 		golfer_skills_column.add_theme_constant_override("separation", 2)
 		for key in GolferAttributes.GOLFER_SKILL_KEYS:
 			var skill_name: String = GolferAttributes.GOLFER_SKILL_NAMES[key]
-			var skill_toggle := _golfer_skill_button(skill_name, bool(draft.golfer_skills[key]))
+			var skill_toggle := _shelf_toggle_button(skill_name,
+				bool(draft.golfer_skills[key]),
+				"Golfer skill: %s. Toggle on or off." % skill_name)
 			skill_toggle.name = "GolferSkill%s" % key.capitalize()
 			skill_toggle.toggled.connect(func(on: bool, skill_key: String = key):
 				draft.golfer_skills[skill_key] = on
@@ -1028,10 +1090,9 @@ func _build_setup() -> void:
 		# Apply one consistent pixel-art visual language to both owner tabs.
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
-				if not widget.has_meta(GOLFER_SKILL_CARD_META):
+				if not widget.has_meta(VISITOR_CARD_META):
 					_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
-				if widget is Label and (widget.text.trim_suffix(CONTINUED_SUFFIX) \
-						in [DETAILS_TITLE, TRAITS_TITLE] or widget == points_label):
+				if widget == points_label:
 					widget.add_theme_color_override("font_color", Color("f0bf59"))
 					widget.add_theme_font_size_override("font_size", 14)
 		player_tab.restage_persistent()

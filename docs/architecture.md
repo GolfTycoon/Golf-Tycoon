@@ -63,6 +63,7 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 | `SoundManager` | `scripts/autoload/sound_manager.gd` | Sound effects |
 | `EventFeedManager` | `scripts/managers/event_feed_manager.gd` | Event feed log (see [Event Feed](systems/events/event-feed.md)) |
 | `GolferSkins` | `scripts/autoload/golfer_skins.gd` | Loads and saves golfer skins (see [Golfer Skins](golfer-skins.md)) |
+| `Backdrops` | `scripts/autoload/backdrops.gd` | The player's menu background picture and overlay choice, what Auto resolves them to, and the decoded textures (see [Menu background](ui-and-controls.md#menu-background)) |
 
 ---
 
@@ -71,7 +72,7 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 - **Signals over references.** Systems talk through `EventBus`. Past-tense names describe things that happened, such as `golfer_finished_hole`. Present-tense names describe state, such as `money_changed`.
 - **Manager per entity group.** `GolferManager`, `BallManager` and `HoleManager` create, track and remove their objects. Managers are nodes in `main.tscn`.
 - **Stateless systems.** `WindSystem`, `WeatherSystem` and `CourseRatingSystem` hold little or no state and expose calculations as static functions. This makes them easy to test.
-- **Data-driven content.** Buildings, decorations, terrain and visiting golfers are loaded from JSON in `data/`. Terrain properties are the exception. They live in `terrain_types.gd`, and `terrain_types.json` only mirrors them.
+- **Data-driven content.** Buildings, decorations, terrain, menu backdrops and overlays, and visiting golfers are loaded from JSON in `data/`. Terrain properties are the exception. They live in `terrain_types.gd`, and `terrain_types.json` only mirrors them.
 - **Overlay per visual effect.** Each terrain effect (water, bunkers, fairways, trees) is its own overlay class, managed by `TerrainGrid`.
 - **State machines.** Golfers move between `IDLE`, `WALKING`, `PREPARING_SHOT`, `SWINGING`, `WATCHING`, `LEAVING` and `FINISHED`, as defined in `golfer.gd`. Balls have their own states, such as in flight and rolling.
 

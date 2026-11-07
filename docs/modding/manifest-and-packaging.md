@@ -109,6 +109,8 @@ screen reports every cross-mod overwrite by name.
 | `golfer_skins_root` | a **directory** of skin folders | Merged into `GolferSkinLibrary` - see [../golfer-skins.md](../golfer-skins.md) for the `skin.txt` format. A skin may ship no painted layers and just re-color a shipped sprite set's groups (see `example.golfers`). |
 | `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders and `layout.json` | A root-level `<species>[_n/_e/_s/_w].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/view, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_n/_e/_s/_w].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. Missing angles fall back to an unsuffixed drawing, then the north view. `layout.json` can scale or re-anchor differently-sized art at draw time. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
 | `seasonal_events` | `{"events": [{id, name, season, …}]}` | Registered whole into `SeasonalEvents` (full records only - no field-level merge). See namespacing below; painting-by-id is how `example.more_seasons` re-opens the Seasons mod's Spring event. |
+| `menu_backdrops` | `{"backdrops": {id: entry}}` - see [Menu backgrounds](#menu-backgrounds) | The pictures offered in **Settings → Display → Background**. An existing id (a shipped one such as `clubhouse`, or an earlier mod's) is patched; a new id is namespaced. Sparse entries are fine - the shipped picture fills every field you leave out. |
+| `menu_overlays` | `{"overlays": {id: entry}, "settings": {key: schema}}` | The overlay patterns drawn over those pictures, plus any per-overlay settings you want the Display card to offer. Same patch/namespace rules. |
 | `tuning` | `{"tuning": {"dotted.key": number}}` | Flat numeric levers read by the game and by mods via `get_tuning`. Non-numbers are skipped with a warning. The game's own keys are listed in [mod-api.md](mod-api.md). |
 
 ### Tree sprite layout (`tree_art_root/layout.json`)
@@ -192,6 +194,84 @@ like `green_fee_bonus`, `food_service`, `skill_training` and the optional
 `availability` block - missing availability means "available everywhere")
 are the same ones `data/buildings.json` uses; see that file and
 [../data-reference.md](../data-reference.md).
+
+### Menu backgrounds
+
+Two content keys dress the menus. `menu_backdrops` adds pictures to the
+**Background picture** picker and `menu_overlays` adds patterns to the
+**Background overlay** picker; both are ordinary catalogs, so the
+namespacing and patching rules above apply unchanged. Both files may also
+be plain arrays, wrapped as shown or not.
+
+```json
+// backdrops.json
+{
+  "backdrops": {
+    "harbour_dusk": {
+      "name": "Harbour Dusk",
+      "description": "The city lights coming on across the water.",
+      "image": "art/harbour_dusk.png",
+      "tint": "ffe0c0",
+      "seasons": ["fall", "winter"],
+      "themes": ["city", "links"]
+    }
+  }
+}
+```
+
+| Backdrop field | Type | Notes |
+| --- | --- | --- |
+| `image` | string | Required. Relative to the JSON file's own folder (`art/harbour_dusk.png`), or an explicit `res://` / `user://` path. PNG, JPG, WebP or SVG. Missing or unreadable → the entry is dropped with a warning. Draw it 16:9 (1280×720 is the shipped size); the menu crops it cover-fit, so nothing is letterboxed and the centre of the picture is always visible. |
+| `name` | string | Shown in the picker. Defaults to the id, title-cased. |
+| `description` | string | One line in the picker's card. |
+| `tint` | hex string, `[r, g, b, a]` array or a colour name | Multiplied over the picture. `ffffff` (the default) leaves it alone. |
+| `tags` | string[] | Free-form; for your own use or for other mods to look for. |
+| `seasons` | string[] | Season names (`spring`, `summer`, `fall`, `winter`). Auto prefers a picture tagged with the current season. |
+| `themes` | string[] | Course theme names (`parkland`, `links`, `desert`, `mountain`, `woodland`, `heathland`, `tropical`, `resort`, `city`, `marshland`). Auto prefers one tagged with the open course's theme. |
+
+```json
+// overlays.json
+{
+  "overlays": {
+    "starfield": {
+      "name": "Starfield",
+      "description": "Scattered pinpricks of light.",
+      "pattern": "dots",
+      "color": "ffe9b0",
+      "strength": 0.5,
+      "scale": 26,
+      "setting_ids": ["density"],
+      "seasons": ["winter"]
+    }
+  },
+  "settings": {
+    "density": { "name": "Density", "choices": ["Light", "Medium", "Heavy"],
+                 "values": [0, 1, 2], "default": 1 }
+  }
+}
+```
+
+| Overlay field | Type | Notes |
+| --- | --- | --- |
+| `pattern` | string | One of the shipped painters: `wash` (a flat film), `vignette` (edges darkened), `glow` (a warm bloom from one corner), `split` (two-tone beams), `stripes` (mown-fairway bands), `grid` (a square lattice), `scanlines` (thin horizontal lines), `dots` (a coarse halftone screen), `sparkle` (scattered glints), `edges` (dark bands along the top and bottom), `aurora` (layered light ribbons), `sunburst` (fading radial shafts), `contours` (topographic rings), `deco` (gilded corner fans), `argyle` (a diamond knit) or `bokeh` (soft light orbs). `none` draws nothing. An unknown name warns and draws nothing, so a typo fails softly. |
+| `color` | colour | The ink. Its alpha is the whole overlay's opacity; a transparent colour paints nothing. |
+| `strength` | number 0–1 | An extra multiplier on the ink's alpha, so one pattern can be reused at several weights. |
+| `scale` | number | Feature size in pixels at the design resolution (band pitch, dot spacing). Whole pixels keep the pattern crisp. |
+| `setting_ids` | string[] | Keys from your `settings` block that this overlay reacts to. Each becomes a row under the picker while the overlay is chosen, and each overlay remembers its own values. |
+| `seasons` / `themes` | string[] | As for pictures; Auto prefers a matching overlay, and falls back to `edge_scrim`. |
+
+`settings` entries are `{name, description, kind, default, choices, values}`. `kind` is `"choice"` (a picker: `choices` are the labels, `values` are what the pattern reads) or `"toggle"`. The shipped painters read two keys, and an overlay only gets rows for the ones it lists in `setting_ids`:
+
+| Key | Read by | Effect |
+| --- | --- | --- |
+| `angle` | `split`, `stripes`, `grid`, `aurora`, `sunburst`, `contours`, `argyle` | Turns the pattern, in degrees. |
+| `density` | `sparkle`, `aurora`, `sunburst`, `contours`, `bokeh` | How much layered detail is scattered or drawn. |
+
+A setting of your own is offered and remembered like any other, even if no shipped painter reads it - useful when a script mod paints its own overlay, which can read the values back with `MenuBackdropCatalog.resolved_settings(id, saved)`.
+
+**What the two pickers read.** `MenuBackdropCatalog` merges the shipped catalogs (`data/menu_backdrops.json`, `data/menu_overlays.json`) with every loaded mod's tables in load order, then resolves each entry once - normalised, numbered, and given its `id` and `source`. `Backdrops` holds the player's choice and does the Auto resolution; `MenuBackdrop` is the one node that draws. A picture a mod adds is offered in every menu (title screen, pause menu, the World Map, the Benchmark Results and so on) with no further work, because they all share that node.
+
+The worked example is `mods/example.backgrounds/`: two pictures, three overlays and one overlay setting of its own, in about a screen of JSON. Copy it as a starting point.
 
 ## Load order: how a list becomes a set
 

@@ -1,0 +1,38 @@
+{
+	"backdrops": {
+		"harbour_dusk": {
+			"name": "Harbour Dusk",
+			"description": "The clubhouse after sundown, with the harbour lights coming on.",
+			"image": "art/harbour_dusk.png",
+			"tint": "ffffff",
+			"tags": [
+				"evening",
+				"warm"
+			],
+			"seasons": [
+				"fall"
+			],
+			"themes": [
+				"resort",
+				"tropical"
+			]
+		},
+		"moonlit_frost": {
+			"name": "Moonlit Frost",
+			"description": "A blue winter night over the snow, with every window of the lodge awake.",
+			"image": "art/moonlit_frost.png",
+			"tint": "ffffff",
+			"tags": [
+				"night",
+				"cold"
+			],
+			"seasons": [
+				"winter"
+			],
+			"themes": [
+				"mountain",
+				"woodland"
+			]
+		}
+	}
+}
