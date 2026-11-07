@@ -373,7 +373,19 @@ func _refresh_skin_controls() -> void:
 		swatch.add_theme_color_override("font_focus_color", readable)
 		swatch.add_theme_color_override("font_hover_pressed_color", readable)
 		swatch.add_theme_color_override("font_disabled_color", readable)
-		PixelButtonStyle.paint_card(swatch, group_color, 0, 6, readable, readable)
+		# Use a solid fill of the group's own colour so the button visually is that colour
+		# and the black/white text contrast is meaningful; keep the Visiting-Golfer card frame.
+		var states := {
+			"normal": PixelButtonStyle.State.NORMAL,
+			"hover": PixelButtonStyle.State.HOVER,
+			"pressed": PixelButtonStyle.State.PRESSED,
+			"focus": PixelButtonStyle.State.FOCUS,
+			"disabled": PixelButtonStyle.State.DISABLED,
+		}
+		for style_name in states:
+			var state: int = states[style_name]
+			var style := PixelButtonStyle.card_style(group_color, state, group_color, 6, 6, 6)
+			swatch.add_theme_stylebox_override(style_name, style)
 		swatch.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
 		color_row.add_child(swatch)
 		# Overlay label guarantees the group name is visible on top of the ColorPickerButton's swatch
