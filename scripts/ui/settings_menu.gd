@@ -765,13 +765,16 @@ func _add_style_picker(parent: VBoxContainer, label_text: String, labels: Array,
 		var index := picker.item_count
 		picker.add_item(str(entry["label"]), index)
 		picker.set_item_metadata(index, str(entry["id"]))
+		picker.set_item_tooltip(index, str(entry.get("description", "")))
 	var index_of := -1
 	for i in range(picker.item_count):
 		if str(picker.get_item_metadata(i)) == selected_id:
 			index_of = i
+			picker.tooltip_text = str(labels[i].get("description", ""))
 			break
 	picker.select(maxi(index_of, 0))
 	picker.item_selected.connect(func(index: int):
+		picker.tooltip_text = str(labels[index].get("description", ""))
 		on_select.call(str(picker.get_item_metadata(index))))
 	parent.add_child(picker)
 	return picker
@@ -789,16 +792,28 @@ func _add_auto_hint(parent: VBoxContainer) -> Label:
 ## Every background style on offer, Auto first. Mod-contributed styles say
 ## whose they are, so a player can tell the shipped four from the library.
 func _background_labels() -> Array:
-	var labels: Array = [{"id": Backdrops.AUTO, "label": "Auto (recommended)"}]
+	var labels: Array = [{
+		"id": Backdrops.AUTO, "label": "Auto (recommended)",
+		"description": "Let the season and the open course choose the menu picture.",
+	}]
 	for entry in MenuBackdropCatalog.backdrops():
-		labels.append({"id": str(entry.get("id", "")), "label": _style_label(entry)})
+		labels.append({
+			"id": str(entry.get("id", "")), "label": _style_label(entry),
+			"description": str(entry.get("description", "")),
+		})
 	return labels
 
 
 func _overlay_labels() -> Array:
-	var labels: Array = [{"id": Backdrops.AUTO, "label": "Auto (recommended)"}]
+	var labels: Array = [{
+		"id": Backdrops.AUTO, "label": "Auto (recommended)",
+		"description": "Let the season and the open course choose the painted overlay.",
+	}]
 	for entry in MenuBackdropCatalog.overlays():
-		labels.append({"id": str(entry.get("id", "")), "label": _style_label(entry)})
+		labels.append({
+			"id": str(entry.get("id", "")), "label": _style_label(entry),
+			"description": str(entry.get("description", "")),
+		})
 	return labels
 
 

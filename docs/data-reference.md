@@ -16,7 +16,7 @@
 | `data/terrain_types.json` | 33 | No | Mirror of terrain ids, names, `playable`, `placement_cost` and `blocks_shots`, for tools |
 | `data/golfer_traits.json` | Two sections | No | `golfer_archetypes` and `mood_states`. No runtime code reads them. |
 | `data/menu_backdrops.json` | 4, keyed by id | Yes | Menu background pictures: image, tint and the season/theme tags Auto reads |
-| `data/menu_overlays.json` | 12, keyed by id + a `settings` block | Yes | Menu overlay patterns, the ink and feature size each one draws with, and the settings the Display card offers |
+| `data/menu_overlays.json` | 18, keyed by id + a `settings` block | Yes | Menu overlay patterns, the ink and feature size each one draws with, and the settings the Display card offers |
 | `data/visiting_golfers/<location>.json` | 27 files | Yes | Visiting golfers for each World Map location |
 | `data/golfer_skins/beginner/` and `casual/` | Skin folders | Yes | Built-in golfer skins |
 
@@ -130,17 +130,21 @@ no layer of its own.
 | Overlay field | Meaning |
 | --- | --- |
 | `name`, `description` | What the overlay picker shows |
-| `pattern` | Which painter `MenuBackdropOverlay` runs: `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots`, `sparkle` or `edges` |
+| `pattern` | Which painter `MenuBackdropOverlay` runs: `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots`, `sparkle`, `edges`, `aurora`, `sunburst`, `contours`, `deco`, `argyle` or `bokeh` |
 | `color` | The ink; its alpha is the overlay's whole opacity, so `strength` multiplies it further |
 | `strength` | 0–1 multiplier on the ink's alpha, so one pattern can be shipped at several weights |
 | `scale` | Feature size in whole pixels at the design resolution (band pitch, dot spacing) |
 | `setting_ids` | Which keys of the `settings` block this overlay reacts to; each becomes a row under the picker and is remembered per overlay |
-| `seasons`, `themes` | As for pictures. Auto prefers a match and otherwise draws `none` |
+| `seasons`, `themes` | As for pictures. Auto prefers a match and otherwise falls back to `edge_scrim` |
 
 The `settings` block is the same schema mods use: `{key: {name, description,
 kind, default, choices, values}}` where `kind` is `choice` (a picker) or
-`toggle`. `angle` (0–165° in 15° steps) turns `split`, `stripes` and `grid`;
-`density` (Light/Medium/Heavy) sets how many glints `sparkle` scatters.
+`toggle`. `angle` (0–165° in 15° steps) turns `split`, `stripes`, `grid`,
+`aurora`, `sunburst`, `contours` and `argyle`; `density` (Light/Medium/Heavy)
+sets the detail in `sparkle`, `aurora`, `sunburst`, `contours` and `bokeh`.
+The six signature painters are procedural: flowing aurora bands, fading radial
+sun shafts, nested topographic contours, gilded corner fans, an argyle knit and
+soft photographic light orbs. They need no imported textures.
 
 `edge_scrim` is the default Auto falls back to: the 28 slices (`edges`) that
 shade the top and bottom edges, so cream headings stay readable on a bright

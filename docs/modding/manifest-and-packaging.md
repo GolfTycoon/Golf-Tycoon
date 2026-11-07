@@ -253,19 +253,19 @@ be plain arrays, wrapped as shown or not.
 
 | Overlay field | Type | Notes |
 | --- | --- | --- |
-| `pattern` | string | One of the shipped painters: `wash` (a flat film), `vignette` (edges darkened), `glow` (a warm bloom from one corner), `split` (two-tone beams), `stripes` (mown-fairway bands), `grid` (a square lattice), `scanlines` (thin horizontal lines), `dots` (a coarse halftone screen), `sparkle` (scattered glints) or `edges` (dark bands along the top and bottom, so a bright picture does not wash out the heading). `none` draws nothing. An unknown name warns and draws nothing, so a typo fails softly. |
+| `pattern` | string | One of the shipped painters: `wash` (a flat film), `vignette` (edges darkened), `glow` (a warm bloom from one corner), `split` (two-tone beams), `stripes` (mown-fairway bands), `grid` (a square lattice), `scanlines` (thin horizontal lines), `dots` (a coarse halftone screen), `sparkle` (scattered glints), `edges` (dark bands along the top and bottom), `aurora` (layered light ribbons), `sunburst` (fading radial shafts), `contours` (topographic rings), `deco` (gilded corner fans), `argyle` (a diamond knit) or `bokeh` (soft light orbs). `none` draws nothing. An unknown name warns and draws nothing, so a typo fails softly. |
 | `color` | colour | The ink. Its alpha is the whole overlay's opacity; a transparent colour paints nothing. |
 | `strength` | number 0–1 | An extra multiplier on the ink's alpha, so one pattern can be reused at several weights. |
 | `scale` | number | Feature size in pixels at the design resolution (band pitch, dot spacing). Whole pixels keep the pattern crisp. |
 | `setting_ids` | string[] | Keys from your `settings` block that this overlay reacts to. Each becomes a row under the picker while the overlay is chosen, and each overlay remembers its own values. |
-| `seasons` / `themes` | string[] | As for pictures; Auto prefers a matching overlay, and falls back to `none`. |
+| `seasons` / `themes` | string[] | As for pictures; Auto prefers a matching overlay, and falls back to `edge_scrim`. |
 
 `settings` entries are `{name, description, kind, default, choices, values}`. `kind` is `"choice"` (a picker: `choices` are the labels, `values` are what the pattern reads) or `"toggle"`. The shipped painters read two keys, and an overlay only gets rows for the ones it lists in `setting_ids`:
 
 | Key | Read by | Effect |
 | --- | --- | --- |
-| `angle` | `split`, `stripes`, `grid` | Turns the pattern, in degrees. |
-| `density` | `sparkle` | How many glints are scattered. |
+| `angle` | `split`, `stripes`, `grid`, `aurora`, `sunburst`, `contours`, `argyle` | Turns the pattern, in degrees. |
+| `density` | `sparkle`, `aurora`, `sunburst`, `contours`, `bokeh` | How much layered detail is scattered or drawn. |
 
 A setting of your own is offered and remembered like any other, even if no shipped painter reads it - useful when a script mod paints its own overlay, which can read the values back with `MenuBackdropCatalog.resolved_settings(id, saved)`.
 

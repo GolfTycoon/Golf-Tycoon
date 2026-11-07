@@ -1,5 +1,5 @@
 {
-	"_comment": "The background overlays that ship with Golf Tycoon, painted over whichever picture is showing - so the two settings combine. `pattern` names one of MenuBackdropOverlay's painters: none, wash, vignette, glow, split, stripes, grid, scanlines, dots, sparkle, edges. `color` is the ink, `strength` its opacity (0-1), `scale` the pattern's feature size in logical pixels. `setting_ids` lists the extra choices the overlay exposes; each one is declared in the `settings` block below (a mod may declare its own alongside these). `seasons` and `themes` are what Auto looks at, exactly like a picture's. A mod adds overlays with content.menu_overlays in its mod.json.",
+	"_comment": "The background overlays that ship with Golf Tycoon, painted over whichever picture is showing - so the two settings combine. `pattern` names one of MenuBackdropOverlay's painters: none, wash, vignette, glow, split, stripes, grid, scanlines, dots, sparkle, edges, aurora, sunburst, contours, deco, argyle, bokeh. `color` is the ink, `strength` its opacity (0-1), `scale` the pattern's feature size in logical pixels. `setting_ids` lists the extra choices the overlay exposes; each one is declared in the `settings` block below (a mod may declare its own alongside these). `seasons` and `themes` are what Auto looks at, exactly like a picture's. A mod adds overlays with content.menu_overlays in its mod.json.",
 	"overlays": {
 		"vignette": {
 			"name": "Vignette",
@@ -137,6 +137,96 @@
 			"seasons": [],
 			"themes": []
 		},
+		"aurora": {
+			"name": "Aurora Ribbons",
+			"description": "Flowing mint-green ribbons with luminous crests and a dusting of stars, like northern lights over the eighteenth green.",
+			"pattern": "aurora",
+			"color": "83f2c2",
+			"strength": 0.58,
+			"scale": 72.0,
+			"setting_ids": [
+				"angle",
+				"density"
+			],
+			"seasons": [],
+			"themes": [
+				"mountain"
+			]
+		},
+		"sunburst": {
+			"name": "Championship Rays",
+			"description": "Golden shafts of light fan out from a soft sunrise and fade into the course - a little final-round ceremony for any menu.",
+			"pattern": "sunburst",
+			"color": "f8d680",
+			"strength": 0.44,
+			"scale": 64.0,
+			"setting_ids": [
+				"angle",
+				"density"
+			],
+			"seasons": [],
+			"themes": [
+				"resort"
+			]
+		},
+		"contours": {
+			"name": "Course Contours",
+			"description": "An elegant topographic survey in fine cream linework, with bold index contours and a tiny summit marker.",
+			"pattern": "contours",
+			"color": "e7f2d5",
+			"strength": 0.44,
+			"scale": 34.0,
+			"setting_ids": [
+				"angle",
+				"density"
+			],
+			"seasons": [],
+			"themes": [
+				"woodland",
+				"heathland"
+			]
+		},
+		"deco": {
+			"name": "Gilded Deco",
+			"description": "Roaring-twenties corner fans, jewel details and a fine double-rule frame fit for the grandest old clubhouse.",
+			"pattern": "deco",
+			"color": "f5d789",
+			"strength": 0.48,
+			"scale": 64.0,
+			"setting_ids": [],
+			"seasons": [],
+			"themes": []
+		},
+		"argyle": {
+			"name": "Heritage Argyle",
+			"description": "A tailored diamond knit with alternating sheer panels and tiny stitched lozenges - the clubhouse dress code, perfected.",
+			"pattern": "argyle",
+			"color": "f6e8c8",
+			"strength": 0.28,
+			"scale": 92.0,
+			"setting_ids": [
+				"angle"
+			],
+			"seasons": [],
+			"themes": [
+				"links"
+			]
+		},
+		"bokeh": {
+			"name": "Clubhouse Bokeh",
+			"description": "Soft golden orbs and delicate highlights drift around the edges, like evening lights beyond a clubhouse window.",
+			"pattern": "bokeh",
+			"color": "ffdf9b",
+			"strength": 0.62,
+			"scale": 42.0,
+			"setting_ids": [
+				"density"
+			],
+			"seasons": [],
+			"themes": [
+				"tropical"
+			]
+		},
 		"none": {
 			"name": "None",
 			"description": "The bare picture, cropped to fit. Clean, but a bright one can wash out the heading.",
@@ -183,7 +273,7 @@
 		},
 		"density": {
 			"name": "Density",
-			"description": "How many glints are scattered across the picture.",
+			"description": "How much layered detail the design adds across the picture.",
 			"kind": "choice",
 			"default": 1,
 			"choices": [

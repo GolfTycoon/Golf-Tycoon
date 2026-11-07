@@ -41,7 +41,7 @@ Both use a wrapper key (`backdrops` / `overlays`) around `{id: entry}`.
 
 | Field | Meaning |
 | --- | --- |
-| `pattern` | One of `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots`, `sparkle` (see `MenuBackdropOverlay`). |
+| `pattern` | One of `none`, `wash`, `vignette`, `glow`, `split`, `stripes`, `grid`, `scanlines`, `dots`, `sparkle`, `edges`, `aurora`, `sunburst`, `contours`, `deco`, `argyle`, `bokeh` (see `MenuBackdropOverlay`). |
 | `color`, `strength` | The ink and its opacity. |
 | `scale` | The pattern's feature size in logical pixels - band width, grid spacing, dot pitch. |
 | `setting_ids` | The extra choices the overlay offers, each declared in the file's `settings` block. |

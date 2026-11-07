@@ -63,7 +63,7 @@ The decoration controls reach the running course as soon as they change, with no
 | Control | Choices | Default |
 | --- | --- | --- |
 | **Background picture** | Auto, the shipped pictures (Clubhouse, Golden Hour, Winter Course, Desert Links) and every picture a mod adds | Auto |
-| **Background overlay** | Auto, None and every overlay (Vignette, Edge Scrim, Evening Wash, Sand Haze, Fairway Stripes, Clubhouse Lattice, Scanlines, Pixel Halftone, Dew Sparkle, Flag Glow, Split Light) plus any a mod adds | Auto (Edge Scrim) |
+| **Background overlay** | Auto, None and every overlay (Vignette, Edge Scrim, Evening Wash, Sand Haze, Fairway Stripes, Clubhouse Lattice, Scanlines, Pixel Halftone, Dew Sparkle, Flag Glow, Split Light, Aurora Ribbons, Championship Rays, Course Contours, Gilded Deco, Heritage Argyle, Clubhouse Bokeh) plus any a mod adds | Auto (Edge Scrim) |
 | **Auto** switches | One beside each picker | On |
 | **Reset to Auto** | Puts both choices back on Auto | - |
 
@@ -75,10 +75,23 @@ A picture and an overlay are independent: any picture can wear any overlay. Over
 
 | Overlay setting | Chooses | Offered by |
 | --- | --- | --- |
-| **Angle** | The direction the pattern runs, 0° to 165° in 15° steps | Fairway Stripes, Clubhouse Lattice, Split Light |
-| **Density** | Light, Medium or Heavy glints across the picture | Dew Sparkle |
+| **Angle** | The direction the pattern runs, 0° to 165° in 15° steps | Fairway Stripes, Clubhouse Lattice, Split Light, Aurora Ribbons, Championship Rays, Course Contours, Heritage Argyle |
+| **Density** | Light, Medium or Heavy layered detail across the picture | Dew Sparkle, Aurora Ribbons, Championship Rays, Course Contours, Clubhouse Bokeh |
 
-**What ships.** Four pictures (`assets/ui/backdrops/`) and eleven overlays. **Edge Scrim** is the shading the menus used to draw under every picture whether the player chose it or not: the dark bands along the top and bottom that the heading and the version line sit on. It is an ordinary overlay now, and Auto's default, so the out-of-the-box look is unchanged - but it can be swapped for Vignette, Wash or **None**, and a bare picture really is bare. `data/menu_backdrops.json` and `data/menu_overlays.json` hold the catalogue: the file to draw, a name and description for the picker, the tint the screen multiplies over it, and optional `seasons` and `themes` tags that Auto reads. A mod adds entries to the same catalogues by declaring `menu_backdrops` and `menu_overlays` in its manifest's `content` block; a mod entry with a shipped id patches that style (change the clubhouse's tint, say), and a new id is namespaced under the mod's own id (`example.backgrounds:harbour_dusk`). Overlays are drawn by `MenuBackdropOverlay`, which paints each pattern with the drawing primitives in whole pixels so the art keeps the game's pixel-art look at any window size. `mods/example.backgrounds/` is a worked example: two pictures, three overlays and an overlay setting of its own. See [Modding](modding/manifest-and-packaging.md#menu-backgrounds) for the file format.
+The six signature designs are drawn procedurally over any picture, including
+modded ones. Hover a picker row for its description; the preview updates as
+soon as its Angle or Density changes.
+
+| Signature overlay | Look | Auto theme |
+| --- | --- | --- |
+| **Aurora Ribbons** | Layered mint light, luminous crests and tiny stars | Mountain |
+| **Championship Rays** | Golden radial shafts fading from a soft sunrise | Resort |
+| **Course Contours** | Fine topographic rings, index lines and a summit mark | Woodland, Heathland |
+| **Gilded Deco** | Gold corner fans, jewel details and a double-rule frame | Manual choice |
+| **Heritage Argyle** | Sheer diamond panels, fine outlines and stitched lozenges | Links |
+| **Clubhouse Bokeh** | Soft golden light orbs with photographic rims | Tropical |
+
+**What ships.** Four pictures (`assets/ui/backdrops/`) and eighteen overlays. **Edge Scrim** is the shading the menus used to draw under every picture whether the player chose it or not: the dark bands along the top and bottom that the heading and the version line sit on. It is an ordinary overlay now, and Auto's default, so the out-of-the-box look is unchanged - but it can be swapped for Vignette, Wash or **None**, and a bare picture really is bare. `data/menu_backdrops.json` and `data/menu_overlays.json` hold the catalogue: the file to draw, a name and description for the picker, the tint the screen multiplies over it, and optional `seasons` and `themes` tags that Auto reads. A mod adds entries to the same catalogues by declaring `menu_backdrops` and `menu_overlays` in its manifest's `content` block; a mod entry with a shipped id patches that style (change the clubhouse's tint, say), and a new id is namespaced under the mod's own id (`example.backgrounds:harbour_dusk`). Overlays are drawn by `MenuBackdropOverlay`, which paints each pattern with lightweight drawing primitives - crisp line work and antialiased curves, with no imported overlay textures - so the designs scale to any window size. `mods/example.backgrounds/` is a worked example: two pictures, three overlays and an overlay setting of its own. See [Modding](modding/manifest-and-packaging.md#menu-backgrounds) for the file format.
 
 A picture whose file is missing or unreadable is dropped from the picker with a warning in the log rather than breaking a menu: if the player had chosen it, the menus fall back to the clubhouse and the card says the picture is gone.
 

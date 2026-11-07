@@ -14,7 +14,7 @@ const SHIPPED_BACKDROPS := ["clubhouse", "golden_hour", "winter", "desert"]
 const SHIPPED_OVERLAYS := [
 	"vignette", "edge_scrim", "evening_wash", "sand_haze", "fairway_stripes",
 	"lattice", "scanlines", "pixel_halftone", "dew_sparkle", "flag_glow", "split_light",
-	"none",
+	"aurora", "sunburst", "contours", "deco", "argyle", "bokeh", "none",
 ]
 
 var _saved_background: String = ""
@@ -44,7 +44,7 @@ func after_each() -> void:
 # The shipped catalogue
 # ---------------------------------------------------------------------------
 
-func test_the_game_ships_four_pictures_and_eleven_overlays() -> void:
+func test_the_game_ships_four_pictures_and_eighteen_overlays() -> void:
 	var backdrop_ids: Array[String] = []
 	for entry in MenuBackdropCatalog.backdrops():
 		backdrop_ids.append(str(entry["id"]))
@@ -120,6 +120,23 @@ func test_auto_prefers_a_course_theme_over_a_season() -> void:
 		"a desert course picks the desert picture")
 	var overlay_id := Backdrops.auto_overlay_id()
 	assert_eq(overlay_id, "sand_haze", "and the overlay tagged for desert comes with it")
+	GameManager.current_course = null
+
+
+func test_auto_can_dress_a_course_in_its_signature_overlay() -> void:
+	GameManager.current_mode = GameManager.GameMode.BUILDING
+	GameManager.current_course = GameManager.CourseData.new()
+	var expected := {
+		CourseTheme.Type.MOUNTAIN: "aurora",
+		CourseTheme.Type.RESORT: "sunburst",
+		CourseTheme.Type.WOODLAND: "contours",
+		CourseTheme.Type.LINKS: "argyle",
+		CourseTheme.Type.TROPICAL: "bokeh",
+	}
+	for theme in expected:
+		GameManager.current_theme = int(theme)
+		assert_eq(Backdrops.auto_overlay_id(), expected[theme],
+			"%s gets its own procedural look" % CourseTheme.get_theme_name(int(theme)))
 	GameManager.current_course = null
 
 
@@ -230,6 +247,28 @@ func test_an_overlay_without_settings_resolves_an_empty_dictionary() -> void:
 	Backdrops.overlay_choice = "vignette"
 	assert_eq(MenuBackdropCatalog.settings_for("vignette").size(), 0)
 	assert_true((Backdrops.resolve_overlay()["settings"] as Dictionary).is_empty())
+
+
+func test_the_signature_designs_expose_and_resolve_their_controls() -> void:
+	var expected := {
+		"aurora": ["angle", "density"],
+		"sunburst": ["angle", "density"],
+		"contours": ["angle", "density"],
+		"deco": [],
+		"argyle": ["angle"],
+		"bokeh": ["density"],
+	}
+	for overlay_id in expected:
+		var keys: Array[String] = []
+		for schema in MenuBackdropCatalog.settings_for(str(overlay_id)):
+			keys.append(str(schema["key"]))
+		assert_eq(keys, expected[overlay_id], "%s exposes only the controls it paints with" % overlay_id)
+
+	Backdrops.overlay_choice = "aurora"
+	Backdrops.overlay_settings = {"aurora": {"angle": 135, "density": 2}}
+	var resolved := Backdrops.resolve_overlay()
+	assert_eq(resolved["settings"]["angle"], 135)
+	assert_eq(resolved["settings"]["density"], 2, "the aurora's heaviest ribbon setting reaches the painter")
 
 
 # ---------------------------------------------------------------------------
