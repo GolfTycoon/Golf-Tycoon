@@ -24,7 +24,7 @@ Visiting golfers wear skins too. Each visiting golfer's JSON file names the skin
 - **Pixels** edits the sprite's artwork with a colour picker and a brush. Right-click erases, and Alt-click picks up a colour.
 - **Groups** assigns the pixels under the brush to a group. A click on the sprite selects the group that pixel belongs to. You can rename, re-colour or delete groups, or add your own.
 - **Save** copies a built-in skin into your own folder. **Revert** restores the shipped version. **New Skin** starts a skin from scratch. **Duplicate** copies groups and layers together.
-- **Wear This** puts a skin on your own golfer. The tiers of visiting golfers that wear it can be chosen too.
+- **Wear This** puts a skin on your own golfer. The tiers of visiting golfers that wear it can be chosen too. Your golfer's skin is also chosen on the **Edit Player Golfer** page, from the picker under the animated sprite that wears it.
 
 ## File Format
 

@@ -144,20 +144,31 @@ func _make_panel(full_screen: bool) -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 
-## The skin selector, written into the column the page is building — the one
-## that carries the player's name, so who the golfer is and what they wear read
-## together. Their Re-color Groups are a column of their own further along the
-## shelf (see _build_skin_group_controls).
-func _build_skin_picker() -> void:
-	_label("Golfer skin")
+## The skin selector, written into the first column of the shelf, directly under
+## the animated golfer wearing it, so what the golfer wears is chosen on the
+## golfer itself. It carries no heading of its own: the sprite above it, the
+## picker's own entries and its tooltip already say what it chooses. Their
+## Re-color Groups are a column of their own further along the shelf (see
+## _build_skin_group_controls).
+func _build_skin_picker(column: VBoxContainer) -> void:
 	_skin_picker = OptionButton.new()
 	_skin_picker.name = "GolferSkinPicker"
 	_skin_picker.tooltip_text = "Which Golfer Skin your golfer wears. The Edit Golfer Skins screen paints them."
-	_skin_picker.custom_minimum_size = Vector2(180, 28)
+	# No title sits above the picker, so its accessible name is what carries the
+	# label: its own text is only the skin it currently shows.
+	_skin_picker.accessibility_name = "Golfer skin"
+	_skin_picker.custom_minimum_size = Vector2(0, 28)
 	_skin_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The first column is one sprite wide, and a skin name can be longer than
+	# that. Without these the picker widens the column to its longest entry and
+	# the golfer beside it stops leading the shelf; trimmed to an ellipsis
+	# instead, the menu still lists every name in full.
+	_skin_picker.fit_to_longest_item = false
+	_skin_picker.clip_text = true
+	_skin_picker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_skin_picker.set_meta("editable_while_playing", true)
 	_skin_picker.item_selected.connect(_on_golfer_skin_selected)
-	content.add_child(_skin_picker)
+	column.add_child(_skin_picker)
 
 
 ## A headed column of On/Off toggles on one of the owner's shelves. The toggles
@@ -361,15 +372,17 @@ func _refresh_skin_controls() -> void:
 	_refresh_skin_preview()
 
 
-## The first column is a scaled pixel-art golfer rather than a tiny picker icon.
-## Its Control provides the available rectangle; the Node2D preview is centered
-## and scaled to use most of that height without cropping the sprite.
-func _build_skin_preview(edit_page: HBoxContainer) -> void:
+## The first column is a scaled pixel-art golfer rather than a tiny picker icon,
+## with the skin they wear picked directly beneath the sprite (see
+## _build_skin_picker). Its Control provides the available rectangle; the Node2D
+## preview is centered and scaled to use most of that height without cropping
+## the sprite. Returns the column so the picker can join it.
+func _build_skin_preview(edit_page: HBoxContainer) -> VBoxContainer:
 	content = PlayerTab.add_column(edit_page, 116)
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_preview_box = Control.new()
 	_skin_preview_box.name = "SkinPreview"
-	_skin_preview_box.custom_minimum_size = Vector2(100, 108)
+	_skin_preview_box.custom_minimum_size = Vector2(100, 60)
 	_skin_preview_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_skin_preview_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -381,6 +394,7 @@ func _build_skin_preview(edit_page: HBoxContainer) -> void:
 	_skin_preview.set_physics_process(false)
 	_skin_preview_box.add_child(_skin_preview)
 	_skin_preview_box.resized.connect(_layout_skin_preview)
+	return content
 
 
 func _refresh_skin_preview() -> void:
@@ -813,7 +827,12 @@ func _build_setup() -> void:
 		# The management tournament panel survives on the Play Course page.
 		player_tab.clear_play_page()
 		edit_page = player_tab.pages[PlayerTab.PAGE_EDIT]
-		_build_skin_preview(edit_page)
+		var preview_column := _build_skin_preview(edit_page)
+		# The skin the owner wears is chosen under the sprite that wears it, so
+		# the golfer leads the shelf with the picker on its feet. It stays
+		# editable during a round - dressing the owner is not part of the play
+		# loop being protected (see start_round).
+		_build_skin_picker(preview_column)
 		content = PlayerTab.add_column(edit_page, 200)
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	else:
@@ -828,11 +847,6 @@ func _build_setup() -> void:
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
-		# The skin the owner wears closes the first column: the name and the
-		# golfer wearing it read together, under the animated preview beside
-		# them. It stays editable during a round - dressing the owner is not
-		# part of the play loop being protected (see start_round).
-		_build_skin_picker()
 		# The rest of who the golfer is takes the next column. The shelf has no
 		# vertical scroll, so a column of this page holds a heading and about
 		# four controls before it would grow past the bottom bar.

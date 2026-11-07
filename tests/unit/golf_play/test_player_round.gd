@@ -425,13 +425,23 @@ func test_embedded_player_navigation_and_setup() -> void:
 	var edit_page := tab.pages[PlayerTab.PAGE_EDIT]
 	assert_true(edit_page.is_ancestor_of(rounds.name_edit))
 	assert_true(edit_page.is_ancestor_of(rounds._skin_picker))
-	assert_eq(rounds.name_edit.get_parent(), rounds._skin_picker.get_parent(),
-		"The player name and Golfer Skin selector share one column")
 	var preview_column := edit_page.get_child(0) as VBoxContainer
 	assert_true(preview_column.is_ancestor_of(rounds._skin_preview_box),
 		"The animated golfer preview leads the Edit Player columns")
+	assert_eq(rounds._skin_picker.get_parent(), preview_column,
+		"The Golfer Skin selector sits in the golfer preview's own column")
+	assert_eq(preview_column.get_child(preview_column.get_child_count() - 1), rounds._skin_picker,
+		"The selector sits below the sprite it dresses, closing the column")
+	assert_eq(rounds._skin_picker.get_index(), rounds._skin_preview_box.get_index() + 1,
+		"and directly beneath it")
+	assert_false(rounds.name_edit.get_parent() == preview_column,
+		"The player name keeps a column of its own")
+	for child in preview_column.get_children():
+		if child is Label:
+			assert_ne((child as Label).text, "Golfer skin",
+				"The removed Golfer skin title does not come back above the picker")
 	assert_eq(rounds._skin_preview_box.size_flags_vertical, Control.SIZE_EXPAND_FILL,
-		"The preview fills the height of its first column")
+		"The preview fills the height the selector leaves in its column")
 	assert_true(tab.pages[PlayerTab.PAGE_SKILLS].is_ancestor_of(rounds.points_label))
 	for label in edit_page.find_children("*", "Label", true, false):
 		assert_ne(label.text, "PLAY YOUR COURSE", "The old Edit Player heading is gone")
@@ -768,6 +778,38 @@ func _assert_shelf_fits(shelf: HBoxContainer) -> void:
 		if control.is_visible_in_tree() and not control is Popup:
 			assert_lte(control.get_global_rect().end.y, scroll.get_global_rect().position.y + available + 1,
 				"%s stays inside the shelf" % control.get_class())
+
+## The Golfer Skin button belongs to the golfer it dresses: the Edit Player page
+## opens on the animated sprite with the picker under its feet, untitled.
+func test_the_golfer_preview_leads_with_the_skin_button_beneath_it() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var preview_column := tab.pages[PlayerTab.PAGE_EDIT].get_child(0) as VBoxContainer
+	assert_true(preview_column.is_ancestor_of(rounds._skin_preview_box))
+	assert_eq(rounds._skin_picker.get_parent(), preview_column,
+		"The picker is in the column of the golfer it dresses")
+	assert_gt(rounds._skin_picker.get_index(), rounds._skin_preview_box.get_index(),
+		"The picker is written below the sprite")
+	assert_lte(rounds._skin_preview_box.get_global_rect().end.y,
+		rounds._skin_picker.get_global_rect().position.y + 1,
+		"and not beside or behind it")
+	for child in preview_column.get_children():
+		if child is Label:
+			assert_ne((child as Label).text, "Golfer skin",
+				"No title labels the picker")
+	assert_eq(rounds._skin_picker.accessibility_name, "Golfer skin",
+		"The picker names itself for screen readers without a visible title")
+	# A skin name longer than the narrow column trims instead of widening it.
+	var column_width := preview_column.size.x
+	rounds._skin_picker.add_item("A Championship Skin With A Name Too Long To Fit")
+	rounds._skin_picker.select(rounds._skin_picker.item_count - 1)
+	await process_frames(5)
+	assert_eq(preview_column.size.x, column_width,
+		"A long skin name does not stretch the golfer's column")
+	assert_lte(rounds._skin_picker.size.x, preview_column.size.x,
+		"The trimmed picker stays inside the column")
 
 ## The Edit Player page edits the Golfer Skin the owner wears and the colour of
 ## each Re-color Group it carries - including while the round is running, since

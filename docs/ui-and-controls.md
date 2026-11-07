@@ -291,7 +291,12 @@ its Routing Holes and Staff modes. Shelves scroll horizontally while the circle 
 Hover/focus states, tooltips and accessible names identify every icon; Tab and
 Enter can navigate the dock.
 
-The **Edit Player Golfer** page carries an **On the course** column. It names the
+The **Edit Player Golfer** page leads with your own golfer: an animated sprite
+standing in the first column, with the skin they wear chosen directly beneath it.
+The picker has no title of its own — the golfer above it says what it dresses, its
+entries name the skins and its tooltip explains them. A name too long for the
+column is trimmed to an ellipsis in the button, while the opened menu lists every
+skin in full. The page also carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**
 button turns the next click on the course into the new ground. See [The Owner's
 Golfer on the Course](systems/golf-play/owner-on-the-course.md).
