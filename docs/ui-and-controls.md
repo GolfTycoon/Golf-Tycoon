@@ -296,7 +296,21 @@ standing in the first column, with the skin they wear chosen directly beneath it
 The picker has no title of its own — the golfer above it says what it dresses, its
 entries name the skins and its tooltip explains them. A name too long for the
 column is trimmed to an ellipsis in the button, while the opened menu lists every
-skin in full. The page also carries an **On the course** column. It names the
+skin in full.
+
+Directly to the right of the sprite stands the **Group Colour** column: one plate
+per Re-color Group of the skin being worn (Shirt, Pants, Cap, Hair, Skin, and any
+groups the skin adds), stacked down the column so the palette reads beside the
+golfer it dresses. The plates wear the **Visiting Golfers** design — the same pixel
+font, cream caption and shared glass card, with the group's colour as a swatch on
+the left and its name beside it. Pressing a plate opens the colour picker, and the
+colour chosen re-colours that group and follows into the matching profile colour.
+A long group name is fitted to the plate rather than widening the column, and a
+skin carrying more groups than the column is tall continues in a second column to
+the right, where the shelf already scrolls. Like the skin picker, the plates stay
+reachable during a round: they only change how a golfer is drawn.
+
+The page also carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**
 button turns the next click on the course into the new ground. See [The Owner's
 Golfer on the Course](systems/golf-play/owner-on-the-course.md).

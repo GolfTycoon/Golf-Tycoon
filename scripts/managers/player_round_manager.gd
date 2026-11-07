@@ -12,8 +12,13 @@ const GOLFER_SKILL_ACCENT := Color("83c9a4")
 ## A narrower version of the visitor name plate, retaining its height.
 const GOLFER_SKILL_BUTTON_SIZE := Vector2(184, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
-## owner's ordinary pixel controls during the final styling pass.
-const GOLFER_SKILL_CARD_META := "golfer_skill_card"
+## owner's ordinary pixel controls during the final styling pass: the Golfer
+## Skill toggles and the Edit Player page's Group Colour plates.
+const VISITOR_CARD_META := "golfer_skill_card"
+## Group Colour plates stacked down one column beside the sprite. Five plates
+## and their gaps (5 x 26 + 4 x 3 = 142) fit the room the bottom bar leaves, so
+## the shipped skins' Shirt/Pants/Cap/Hair/Skin set reads as a single column.
+const GROUP_COLORS_PER_COLUMN := 5
 ## Toggles to a column on the owner's pages. The pages are horizontal shelves
 ## with no vertical scroll, so a section that runs longer than this carries on
 ## in the next column instead of growing past the bottom bar.
@@ -40,10 +45,13 @@ var status: Label
 var shot_bar: ShotTypeBar
 var draft: PlayerGolferProfile
 var name_edit: LineEdit
-## The Edit Player page's Re-color Group section. Its column contains a
-## row of one tall, named color selector per group; the row is rebuilt when the
-## owner chooses another skin.
+## The Edit Player page's Re-color Group section: the column of Group Colour
+## plates standing directly to the right of the animated sprite they dress. It
+## is rebuilt when the owner chooses another skin.
 var _skin_controls: VBoxContainer = null
+## Holds the columns of Group Colour plates inside `_skin_controls`. A skin with
+## more groups than one column is tall carries on in the next column to the
+## right, so a custom skin never pushes the page past the bottom bar.
 var _skin_group_columns: HBoxContainer = null
 var _skin_picker: OptionButton = null
 var _skin_preview: Golfer = null
@@ -162,19 +170,23 @@ func _build_skin_picker(column: VBoxContainer) -> void:
 	column.add_child(_skin_picker)
 
 
-## The Re-color Group section: one full-height, named color selector per group
-## of the skin the owner wears, in a column of its own on the Edit Player shelf.
+## The Re-color Group section: one Group Colour plate per group of the skin the
+## owner wears, stacked down a column that stands directly to the right of the
+## animated sprite it dresses - the colours sit beside the golfer they change,
+## rather than further along the shelf behind the traits.
+##
+## The caller adds this to the shelf itself (see _build_setup), so the column
+## lands between the sprite and the player's name.
 func _build_skin_group_controls() -> void:
 	_skin_controls = VBoxContainer.new()
 	_skin_controls.name = "SkinGroupControls"
 	_skin_controls.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_controls.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skin_controls.add_theme_constant_override("separation", 4)
-	player_tab.pages[PlayerTab.PAGE_EDIT].add_child(_skin_controls)
 
 	_skin_group_columns = HBoxContainer.new()
 	_skin_group_columns.name = "SkinGroupColumns"
-	_skin_group_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_skin_group_columns.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_skin_group_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_skin_group_columns.add_theme_constant_override("separation", 6)
 	_skin_controls.add_child(_skin_group_columns)
@@ -273,9 +285,11 @@ func set_owner_area_mode(choosing: bool) -> void:
 	_refresh_work_area()
 
 
-## Fill the picker and rebuild the named columns for the skin the owner wears.
-## Every group gets a tall color button beside its name; the page scrolls
-## horizontally if a skin has more groups than fit in the toolbar.
+## Fill the picker and rebuild the Group Colour plates for the skin the owner
+## wears. Every group gets one visitor-style plate - its colour as a swatch, its
+## name beside it - stacked down the column beside the sprite. A skin carrying
+## more groups than one column holds continues in the next column to the right,
+## where the shelf already scrolls, so the page never grows past the bottom bar.
 func _refresh_skin_controls() -> void:
 	if _skin_picker == null or _skin_controls == null or _skin_group_columns == null:
 		return
@@ -294,45 +308,36 @@ func _refresh_skin_controls() -> void:
 	if worn == null:
 		return
 
-	for group in worn.group_list():
+	var group_column: VBoxContainer = null
+	var column_number := 0
+	for index in worn.group_count():
+		var group: Dictionary = worn.group_list()[index]
 		var group_id := int(group.get("id", 0))
 		var group_name := str(group.get("name", "Group"))
-		var group_column := VBoxContainer.new()
-		group_column.name = "SkinGroupColumn%d" % group_id
-		group_column.custom_minimum_size.x = 116
-		group_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		group_column.set_meta("skin_group_column", true)
-		_skin_group_columns.add_child(group_column)
+		if index % GROUP_COLORS_PER_COLUMN == 0:
+			column_number += 1
+			group_column = VBoxContainer.new()
+			group_column.name = "SkinGroupColumn%d" % column_number
+			group_column.custom_minimum_size.x = SkinGroupColorButton.BUTTON_SIZE.x
+			group_column.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			group_column.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			group_column.add_theme_constant_override("separation", 3)
+			group_column.set_meta("skin_group_column", true)
+			_skin_group_columns.add_child(group_column)
 
-		var color_row := HBoxContainer.new()
-		color_row.name = "SkinGroupRow%d" % group_id
-		color_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		color_row.add_theme_constant_override("separation", 4)
-		group_column.add_child(color_row)
-
-		var name_label := Label.new()
-		name_label.name = "SkinGroupName%d" % group_id
-		name_label.text = group_name
-		name_label.custom_minimum_size.x = 52
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		name_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-		color_row.add_child(name_label)
-
-		var swatch := ColorPickerButton.new()
-		swatch.name = "SkinGroupColor%d" % group_id
-		swatch.text = str(group.get("symbol", ""))
-		swatch.color = group.get("color", Color.WHITE)
-		swatch.edit_alpha = false
-		swatch.custom_minimum_size = Vector2(44, 72)
-		swatch.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		swatch.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-		swatch.tooltip_text = "The colour %s is drawn in on this skin" % group_name
-		swatch.set_meta("editable_while_playing", true)
-		swatch.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
-		color_row.add_child(swatch)
+		var plate := SkinGroupColorButton.new()
+		plate.name = "SkinGroupColor%d" % group_id
+		plate.text = group_name
+		plate.color = group.get("color", Color.WHITE)
+		plate.tooltip_text = "The colour %s is drawn in on this skin" % group_name
+		plate.accessibility_name = "%s colour" % group_name
+		plate.set_meta("editable_while_playing", true)
+		# Keep the shared visitor-card frame through the page's final styling
+		# pass, which would otherwise square it off like the owner's own fields.
+		plate.set_meta(VISITOR_CARD_META, true)
+		plate.set_meta("skin_group_id", group_id)
+		plate.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
+		group_column.add_child(plate)
 	_refresh_skin_preview()
 
 
@@ -727,7 +732,7 @@ func _golfer_skill_button(skill_name: String, is_on: bool) -> Button:
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.focus_mode = Control.FOCUS_ALL
 	button.accessibility_description = "%s golfer skill. Toggle on or off." % skill_name
-	button.set_meta(GOLFER_SKILL_CARD_META, true)
+	button.set_meta(VISITOR_CARD_META, true)
 	button.add_theme_font_override("font", VisitorCardButton.FONT)
 	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
 	PixelButtonStyle.paint_choice(button, GOLFER_SKILL_ACCENT)
@@ -797,6 +802,11 @@ func _build_setup() -> void:
 		# editable during a round - dressing the owner is not part of the play
 		# loop being protected (see start_round).
 		_build_skin_picker(preview_column)
+		# The colours of the skin's Re-color Groups stand directly to the right
+		# of the sprite they dress, so the golfer and its palette read together
+		# before any of the owner's details.
+		_build_skin_group_controls()
+		edit_page.add_child(_skin_controls)
 		content = PlayerTab.add_column(edit_page, 200)
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	else:
@@ -877,13 +887,11 @@ func _build_setup() -> void:
 				draft.traits[trait_key] = on
 				_persist_player_profile())
 			traits_column.add_child(trait_toggle)
-		# The colours of the skin's Re-color Groups, after the golfer they
-		# dress and the traits they carry.
-		_build_skin_group_controls()
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
-	# edited above (they follow into these fields); what is left here is the
-	# appearance the polygon golfer falls back on when a skin has no sprites.
+	# edited beside the sprite above (they follow into these fields); what is
+	# left here is the appearance the polygon golfer falls back on when a skin
+	# has no sprites.
 	var standalone := _standalone_profile_colors()
 	var color_index := 0
 	for key in standalone:
@@ -1005,7 +1013,7 @@ func _build_setup() -> void:
 		# Apply one consistent pixel-art visual language to both owner tabs.
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
-				if not widget.has_meta(GOLFER_SKILL_CARD_META):
+				if not widget.has_meta(VISITOR_CARD_META):
 					_style_player_control(widget, Color("f0bf59") if page_index == PlayerTab.PAGE_SKILLS else Color("76d6a2"))
 				if widget == points_label:
 					widget.add_theme_color_override("font_color", Color("f0bf59"))

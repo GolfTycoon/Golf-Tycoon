@@ -26,6 +26,8 @@ Visiting golfers wear skins too. Each visiting golfer's JSON file names the skin
 - **Save** copies a built-in skin into your own folder. **Revert** restores the shipped version. **New Skin** starts a skin from scratch. **Duplicate** copies groups and layers together.
 - **Wear This** puts a skin on your own golfer. The tiers of visiting golfers that wear it can be chosen too. Your golfer's skin is also chosen on the **Edit Player Golfer** page, from the picker under the animated sprite that wears it.
 
+The **Edit Player Golfer** page also re-colours the worn skin without opening the studio: a **Group Colour** plate per group stands in a column directly to the right of the sprite, wearing the Visiting Golfers' card design (the group's colour as a swatch, its name beside it). Pressing a plate opens a colour picker and writes that group. See [UI & Controls](ui-and-controls.md).
+
 ## File Format
 
 A skin is a folder with two kinds of file:
