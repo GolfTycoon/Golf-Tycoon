@@ -364,13 +364,16 @@ func _refresh_skin_controls() -> void:
 		swatch.set_meta(GOLFER_SKILL_CARD_META, true)
 		# ColorPickerButton hides its native text behind the color preview in some themes;
 		# ensure the name is always readable by drawing it explicitly and keeping the native text for accessibility/tests.
+		var readable := _readable_text_for_group(group_color)
 		swatch.add_theme_font_override("font", VisitorCardButton.FONT)
 		swatch.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
-		swatch.add_theme_color_override("font_color", VisitorCardButton.CREAM)
-		swatch.add_theme_color_override("font_hover_color", VisitorCardButton.NAME_LIT)
-		swatch.add_theme_color_override("font_pressed_color", PixelButtonStyle.INK)
-		swatch.add_theme_color_override("font_focus_color", VisitorCardButton.NAME_LIT)
-		PixelButtonStyle.paint_card(swatch, group_color, 0, 6, VisitorCardButton.CREAM, VisitorCardButton.NAME_LIT)
+		swatch.add_theme_color_override("font_color", readable)
+		swatch.add_theme_color_override("font_hover_color", readable)
+		swatch.add_theme_color_override("font_pressed_color", readable)
+		swatch.add_theme_color_override("font_focus_color", readable)
+		swatch.add_theme_color_override("font_hover_pressed_color", readable)
+		swatch.add_theme_color_override("font_disabled_color", readable)
+		PixelButtonStyle.paint_card(swatch, group_color, 0, 6, readable, readable)
 		swatch.color_changed.connect(_on_skin_group_color_changed.bind(group_id))
 		color_row.add_child(swatch)
 		# Overlay label guarantees the group name is visible on top of the ColorPickerButton's swatch
@@ -382,7 +385,7 @@ func _refresh_skin_controls() -> void:
 		name_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		name_overlay.add_theme_font_override("font", VisitorCardButton.FONT)
 		name_overlay.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
-		name_overlay.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+		name_overlay.add_theme_color_override("font_color", readable)
 		name_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		swatch.add_child(name_overlay)
 	_refresh_skin_preview()
@@ -819,6 +822,12 @@ func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0
 			box.content_margin_top = 5
 			box.content_margin_bottom = 5
 			control.add_theme_stylebox_override(state, box)
+
+## Black or white text, whichever is more readable on the group's background colour.
+## Uses the standard luminance formula (as in edit_golfer_skins_screen.gd::_ink_for).
+static func _readable_text_for_group(bg: Color) -> Color:
+	var luminance := bg.r * 0.299 + bg.g * 0.587 + bg.b * 0.114
+	return Color.BLACK if luminance > 0.5 else Color.WHITE
 
 func _build_setup() -> void:
 	_selected_pros.clear()
