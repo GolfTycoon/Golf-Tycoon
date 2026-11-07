@@ -8,11 +8,11 @@ signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
 ## The same visiting green used by the on-course golfer cards, and by every
-## On/Off name plate on the owner's shelves: the Golfer Skills, the golfer's
-## Gender and Marital Status, and the Golfer Traits.
+## name plate on the owner's shelves: the Golfer Skills and Golfer Traits, and
+## the single plate each of Gender and Marital Status is chosen with.
 const SHELF_TOGGLE_ACCENT := Color("83c9a4")
 ## A narrower version of the visitor name plate, retaining its height. One
-## footprint is shared by every On/Off plate on the owner's shelves.
+## footprint is shared by every plate on the owner's shelves.
 const SHELF_TOGGLE_BUTTON_SIZE := Vector2(184, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
 ## owner's ordinary pixel controls during the final styling pass: the On/Off
@@ -28,9 +28,6 @@ const GROUP_COLORS_PER_COLUMN := 5
 ## 44px plates and their 2px gaps need 136px, which is the tallest stack the
 ## shelf's room between the header and the bottom bar holds.
 const TOGGLES_PER_COLUMN := 3
-## Marital Status is a choice of four plates. Two per column lays them out as a
-## balanced 2 x 2 block: one column of four would stand taller than the shelf.
-const MARITAL_STATUS_PER_COLUMN := 2
 var player_tab: PlayerTab
 ## Top-left score card owned by the game HUD (null in isolated tools and tests,
 ## which fall back to putting the scorecards on the round page).
@@ -763,21 +760,14 @@ func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> 
 	return button
 
 
-## A set of On/Off name plates laid out down the shelf, `per_column` at a time,
-## in the Golfer Skills card language. `chosen` is called with the index of the
-## plate that changed and its new state, so the caller can write the profile.
-## `exclusive` shares one ButtonGroup across the whole set - Gender and Marital
-## Status are choices of exactly one plate - while the independent sets (the
-## Golfer Traits) leave every plate free to be On or Off on its own.
+## A set of independent On/Off name plates laid out down the shelf, `per_column`
+## at a time, in the Golfer Skills card language. `chosen` is called with the
+## index of the plate that changed and its new state, so the caller can write
+## the profile. The Golfer Traits use it: every plate is free to be On or Off on
+## its own.
 func _build_toggle_plates(parent: HBoxContainer, captions: Array[String],
 		on_flags: Array[bool], per_column: int, chosen: Callable,
-		node_prefix: String, description_format: String,
-		exclusive: bool = false) -> Array[VBoxContainer]:
-	var group: ButtonGroup = ButtonGroup.new() if exclusive else null
-	if group != null:
-		# One plate of the set is always On: clicking the chosen plate again
-		# keeps it, the way a radio button does.
-		group.allow_unpress = false
+		node_prefix: String, description_format: String) -> Array[VBoxContainer]:
 	var columns: Array[VBoxContainer] = []
 	var column: VBoxContainer = null
 	for index in captions.size():
@@ -789,12 +779,42 @@ func _build_toggle_plates(parent: HBoxContainer, captions: Array[String],
 		var plate := _shelf_toggle_button(caption, on_flags[index],
 			description_format % caption)
 		plate.name = "%s%s" % [node_prefix, caption.replace(" ", "")]
-		if group != null:
-			plate.button_group = group
 		plate.toggled.connect(func(on: bool, value: int = index):
 			chosen.call(value, on))
 		column.add_child(plate)
 	return columns
+
+
+## One plate carrying a setting that has several values - Gender or Marital
+## Status - instead of one plate per value. Its caption always reads the value
+## the golfer has; a press steps to the next one and wraps round the set, so a
+## whole choice takes a single card on the shelf. The plate stays lit the way a
+## chosen Golfer Skill card does, because the golfer always has one of them.
+func _shelf_cycle_button(captions: Array[String], selected: int,
+		description_format: String, on_chosen: Callable) -> Button:
+	assert(not captions.is_empty(), "A cycle plate needs at least one value")
+	var start := clampi(selected, 0, captions.size() - 1)
+	var button := _shelf_toggle_button(captions[start], true,
+		description_format % captions[start])
+	button.set_meta("cycle_captions", captions)
+	button.set_meta("cycle_index", start)
+	button.set_meta("cycle_description", description_format)
+	# A lone toggle in a group that cannot be unpressed stays lit for good:
+	# every press advances the value instead of switching the plate off.
+	var group := ButtonGroup.new()
+	group.allow_unpress = false
+	button.button_group = group
+	button.pressed.connect(func():
+		var values: Array = button.get_meta("cycle_captions")
+		var next := (int(button.get_meta("cycle_index")) + 1) % values.size()
+		var caption := str(values[next])
+		var format_text := str(button.get_meta("cycle_description"))
+		button.set_meta("cycle_index", next)
+		button.text = caption
+		button.tooltip_text = format_text % caption
+		button.accessibility_description = format_text % caption
+		on_chosen.call(next))
+	return button
 
 
 func _style_player_control(control: Control, accent: Color = Color(0.28, 0.78, 0.55)) -> void:
@@ -890,36 +910,37 @@ func _build_setup() -> void:
 			draft.age = int(value)
 			_persist_player_profile())
 		content.add_child(age_spin)
-		# Gender and Marital Status are choices of one plate out of a set, so
-		# they wear the same On/Off cards as the Golfer Skills rather than a
-		# drop-down that hides the alternatives until it is opened. Gender is a
-		# column of two plates; Marital Status is a balanced 2 x 2 block.
+		# Gender and Marital Status wear the Golfer Skills card too, but each
+		# takes a single plate: its caption reads the value the golfer has and
+		# a press steps to the next choice. A whole setting therefore costs one
+		# card on the shelf rather than one card per option.
 		var gender_values: Array = GolferAttributes.GENDER_NAMES.keys()
 		var gender_captions: Array[String] = []
-		var gender_flags: Array[bool] = []
 		for value in gender_values:
 			gender_captions.append(str(GolferAttributes.GENDER_NAMES[value]))
-			gender_flags.append(int(draft.gender) == int(value))
-		var set_gender := func(index: int, on: bool) -> void:
-			if on:
-				draft.gender = int(gender_values[index])
-				_persist_player_profile()
-		_build_toggle_plates(edit_page, gender_captions, gender_flags,
-			gender_captions.size(), set_gender, "PlayerGender",
-			"Golfer gender: %s.", true)
+		var set_gender := func(index: int) -> void:
+			draft.gender = int(gender_values[index])
+			_persist_player_profile()
+		var gender_plate := _shelf_cycle_button(gender_captions, int(draft.gender),
+			"Golfer gender: %s. Press to choose the next gender.", set_gender)
+		gender_plate.name = "PlayerGenderToggle"
+		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
+		content.add_theme_constant_override("separation", 2)
+		content.add_child(gender_plate)
 		var marital_values: Array = GolferAttributes.MARITAL_STATUS_NAMES.keys()
 		var marital_captions: Array[String] = []
-		var marital_flags: Array[bool] = []
 		for value in marital_values:
 			marital_captions.append(str(GolferAttributes.MARITAL_STATUS_NAMES[value]))
-			marital_flags.append(int(draft.marital_status) == int(value))
-		var set_marital_status := func(index: int, on: bool) -> void:
-			if on:
-				draft.marital_status = int(marital_values[index])
-				_persist_player_profile()
-		_build_toggle_plates(edit_page, marital_captions, marital_flags,
-			MARITAL_STATUS_PER_COLUMN, set_marital_status, "PlayerMaritalStatus",
-			"Marital status: %s.", true)
+		var set_marital_status := func(index: int) -> void:
+			draft.marital_status = int(marital_values[index])
+			_persist_player_profile()
+		var marital_plate := _shelf_cycle_button(marital_captions,
+			int(draft.marital_status),
+			"Marital status: %s. Press to choose the next status.", set_marital_status)
+		marital_plate.name = "PlayerMaritalStatusToggle"
+		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
+		content.add_theme_constant_override("separation", 2)
+		content.add_child(marital_plate)
 		# The owner's own golfer is on the course: the ground they work when
 		# they are not playing gets a column of its own.
 		content = PlayerTab.add_column(edit_page, 220)
