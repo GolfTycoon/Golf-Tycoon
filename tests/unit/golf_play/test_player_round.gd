@@ -734,6 +734,7 @@ func test_player_skills_use_age_style_stepper_plates() -> void:
 		var row := rounds.skill_labels[i].get_parent()
 		assert_eq(row.get_child(0), rounds.skill_decrease_buttons[i])
 		assert_eq(row.get_child(2), rounds.skill_increase_buttons[i])
+		@warning_ignore("integer_division")
 		assert_eq(row.get_parent(), rounds.skill_labels[(i / 3) * 3].get_parent().get_parent())
 		assert_true(rounds.skill_decrease_buttons[i].disabled)
 		assert_false(rounds.skill_increase_buttons[i].disabled)
