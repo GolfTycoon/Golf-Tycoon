@@ -296,7 +296,8 @@ standing in the first column, with the skin they wear chosen directly beneath it
 The picker has no title of its own — the golfer above it says what it dresses, its
 entries name the skins and its tooltip explains them. A name too long for the
 column is trimmed to an ellipsis in the button, while the opened menu lists every
-skin in full.
+skin in full. The whole shelf keeps a little air below its heading, so the golfer
+and the columns beside it never rub against the header row above them.
 
 Directly to the right of the sprite stands the **Group Colour** column: one plate
 per Re-color Group of the skin being worn (Shirt, Pants, Cap, Hair, Skin, and any

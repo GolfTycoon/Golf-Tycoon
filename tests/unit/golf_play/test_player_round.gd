@@ -423,6 +423,8 @@ func test_embedded_player_navigation_and_setup() -> void:
 	assert_false(rounds.busy, "Editing a player does not reserve a round")
 	assert_null(rounds.overlay, "Embedded setup creates no floating overlay")
 	var edit_page := tab.pages[PlayerTab.PAGE_EDIT]
+	assert_eq((edit_page.get_parent() as ScrollContainer).offset_top, PlayerTab.EDIT_PAGE_TOP_GAP,
+		"The Edit Player Golfer title has breathing room below it")
 	assert_true(edit_page.is_ancestor_of(rounds.name_edit))
 	assert_true(edit_page.is_ancestor_of(rounds._skin_picker))
 	var preview_column := edit_page.get_child(0) as VBoxContainer

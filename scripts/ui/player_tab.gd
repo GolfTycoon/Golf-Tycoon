@@ -18,6 +18,10 @@ const PERSISTENT_META := "player_tab_persistent"
 ## corner, and the smallest the badge is drawn.
 const BADGE_INSET := 4.0
 const BADGE_MIN_SIZE := 16.0
+## Extra air between the Edit Player Golfer shelf heading and its controls, so
+## the animated golfer and the columns beside it never rub against the header
+## row above them.
+const EDIT_PAGE_TOP_GAP := 12.0
 ## Extra air between the Player Golfer Skills shelf heading and its controls.
 const SKILLS_PAGE_TOP_GAP := 12.0
 
@@ -61,8 +65,10 @@ func _ready() -> void:
 		navigation.add_child(button)
 		buttons.append(button)
 		pages.append(_make_page(body))
-	# Only the Skills shelf drops below its external page heading; the other
-	# player pages retain their existing top alignment.
+	# The owner shelves drop below their external page heading, so the first
+	# row of controls keeps clear of the header row; the Play Course shelf
+	# retains its existing top alignment.
+	(pages[PAGE_EDIT].get_parent() as ScrollContainer).offset_top = EDIT_PAGE_TOP_GAP
 	(pages[PAGE_SKILLS].get_parent() as ScrollContainer).offset_top = SKILLS_PAGE_TOP_GAP
 	skill_badge = _attach_skill_badge(buttons[PAGE_SKILLS])
 	# Alternate view for the Play Course page: the aiming HUD during a round.
