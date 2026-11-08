@@ -254,12 +254,33 @@ func test_the_tournament_menu_swaps_the_save_pair_for_its_own_actions() -> void:
 	GameManager.is_tournament_mode = was_tournament
 
 
-func test_the_hint_and_the_course_line_are_set_in_pixelify_sans_regular() -> void:
+func test_the_course_line_is_set_in_pixelify_sans_regular() -> void:
 	var menu := _menu()
 	await process_frames(3)
-	for label in [menu._info, menu._hint]:
-		assert_not_null(label, "the quiet lines exist")
-		if label == null:
+	assert_not_null(menu._info, "the menu names the course it paused")
+	if menu._info == null:
+		return
+	assert_eq((menu._info as Label).get_theme_font("font").resource_path, BODY_PATH,
+		"the course line is set in Pixelify Sans regular")
+
+
+## The options are the whole menu: it carries no footnote under them, so
+## nothing sits between the last option and the bottom of the card.
+func test_the_menu_carries_no_footnote_under_its_options() -> void:
+	var menu := _menu()
+	await process_frames(3)
+	var options := InputManager.collect_focusables(menu)
+	assert_false(options.is_empty(), "the menu has options")
+	var last: Control = options.back()
+	assert_not_null(last, "the menu has a last option")
+	if last == null:
+		return
+	var card_bottom: float = menu._panel.get_global_rect().end.y
+	for label in _text_controls(menu):
+		if label is Button:
 			continue
-		assert_eq((label as Label).get_theme_font("font").resource_path, BODY_PATH,
-			"the %s line is set in Pixelify Sans regular" % (label as Label).name)
+		if label.get_global_rect().get_center().y > last.get_global_rect().get_center().y:
+			assert_true(false,
+				"nothing is printed below the options (found \"%s\")" % label.text)
+	assert_lt(last.get_global_rect().end.y, card_bottom,
+		"the last option sits inside the card")

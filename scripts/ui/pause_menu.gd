@@ -44,7 +44,6 @@ var _bg: ColorRect = null
 var _panel: PanelContainer = null
 var _scroll: ScrollContainer = null
 var _vbox: VBoxContainer = null
-var _hint: Label = null
 var _info: Label = null
 var _title: Label = null
 var _spacer: Control = null
@@ -98,7 +97,6 @@ const KICKER_FONT := 11
 const TITLE_FONT_SIZE := 24
 const TITLE_FONT_SIZE_SHORT := 18
 const INFO_FONT := 12
-const HINT_FONT := 11
 ## Side of the flag mark beside the title, and its size on a short window.
 const MARK_SIZE := 34.0
 const MARK_SIZE_SHORT := 22.0
@@ -231,15 +229,6 @@ func _build_ui() -> void:
 				_on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER,
 				PixelIcon.Kind.DOOR, UIConstants.COLOR_DANGER_MUTED)
 
-	# Hint at bottom (touch-specific gesture help on touch screens)
-	var hint = MenuScreenKit.make_label(_hint_text(), HINT_FONT, UIConstants.COLOR_TEXT_MUTED)
-	hint.name = "Hint"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hint = hint
-	vbox.add_child(hint)
-
 	_paint_buttons()
 
 
@@ -294,12 +283,6 @@ func _info_text(in_tourney: bool) -> String:
 	return "%s - Day %d" % [GameManager.course_name, GameManager.current_day]
 
 
-func _hint_text() -> String:
-	if has_node("/root/Screen") and Screen.uses_touch_layout():
-		return "Look around while paused: drag to pan, pinch to zoom\nTap Resume to continue"
-	return "Look around while paused: middle-mouse drag or WASD to pan, scroll to zoom\nPress Escape to resume"
-
-
 ## Keep the whole menu on screen: the panel is clamped to the space a modal may
 ## use and its content scrolls when it does not fit. Called after the first
 ## layout pass, and again whenever the window or the screen metrics change, so
@@ -320,14 +303,12 @@ func _fit_to_view() -> void:
 		vertical_padding = style.get_margin(SIDE_TOP) + style.get_margin(SIDE_BOTTOM)
 		horizontal_padding = style.get_margin(SIDE_LEFT) + style.get_margin(SIDE_RIGHT)
 
-	# A short window (a phone held sideways) gets tighter spacing and loses the
-	# gesture footnote, so every option — Quit to Menu and Quit to Desktop
-	# included — is on screen without scrolling.
+	# A short window (a phone held sideways) gets tighter spacing, so every
+	# option — Quit to Menu and Quit to Desktop included — is on screen without
+	# scrolling.
 	var short_window := available.y < 420.0
 	_vbox.add_theme_constant_override("separation",
 		CARD_GAP_SHORT if short_window else CARD_GAP)
-	if is_instance_valid(_hint):
-		_hint.visible = not short_window
 	# On a short window the course line and its spacer give way first: the
 	# options themselves are what the player opened the menu for.
 	if is_instance_valid(_info):

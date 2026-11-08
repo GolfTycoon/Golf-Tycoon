@@ -106,6 +106,54 @@ func test_start_opens_the_pause_menu_and_b_closes_it() -> void:
 	assert_null(main.pause_menu, "B resumes and closes the menu")
 
 
+## The D-pad must never walk out of the pause menu into the HUD behind it: the
+## bottom bar keeps its focusable tiles while the menu is open, and Godot looks
+## for a neighbour of its own whenever a screen leaves a direction empty.
+func test_the_dpad_stays_on_the_pause_menus_options() -> void:
+	await new_game()
+	await _use_gamepad()
+	await process_frames(2)
+	await _push_joy(JOY_BUTTON_START)
+	assert_not_null(main.pause_menu, "Start opens the pause menu on the course")
+	if main.pause_menu == null:
+		return
+	await process_frames(4)
+	var menu: Control = main.pause_menu
+	var options := InputManager.collect_focusables(menu)
+	assert_gte(options.size(), 2, "the menu has options to walk between")
+
+	var visited: Array[Control] = []
+	for press in options.size():
+		var focus := get_viewport().gui_get_focus_owner()
+		assert_true(menu.is_ancestor_of(focus),
+			"D-pad Down %d keeps the focus on the menu's options" % press)
+		if focus != null and not visited.has(focus):
+			visited.append(focus)
+		await _push_joy(JOY_BUTTON_DPAD_DOWN)
+		await process_frames(1)
+	assert_eq(visited.size(), options.size(), "D-pad Down walks every option in the menu")
+
+	# One past the end comes back round to the top instead of running out.
+	for press in 2:
+		assert_true(menu.is_ancestor_of(get_viewport().gui_get_focus_owner()),
+			"D-pad Up %d keeps the focus on the menu's options" % press)
+		await _push_joy(JOY_BUTTON_DPAD_UP)
+		await process_frames(1)
+	# And across a one-column menu there is nowhere to go, so the selection
+	# holds rather than wandering sideways into the bottom bar.
+	await _push_joy(JOY_BUTTON_DPAD_LEFT)
+	await process_frames(1)
+	assert_true(menu.is_ancestor_of(get_viewport().gui_get_focus_owner()),
+		"D-pad Left keeps the focus on the menu's options")
+	await _push_joy(JOY_BUTTON_DPAD_RIGHT)
+	await process_frames(1)
+	assert_true(menu.is_ancestor_of(get_viewport().gui_get_focus_owner()),
+		"D-pad Right keeps the focus on the menu's options")
+
+	await _push_joy(JOY_BUTTON_B)
+	assert_null(main.pause_menu, "B closes the menu and hands the course back")
+
+
 func test_view_focuses_the_hud_and_b_returns_to_the_course() -> void:
 	await new_game()
 	await _use_gamepad()
