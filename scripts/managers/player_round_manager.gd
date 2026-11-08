@@ -73,6 +73,8 @@ var _pro_preview_nodes: Dictionary = {}
 var _round_player_preview: Golfer = null
 var _round_player_preview_box: Control = null
 var skill_labels: Array[Label] = []
+var skill_decrease_buttons: Array[Button] = []
+var skill_increase_buttons: Array[Button] = []
 var points_label: Label
 var start_button: Button
 var previous_mode: int
@@ -1151,7 +1153,10 @@ func _build_setup() -> void:
 				draft.golfer_skills[skill_key] = on
 				_persist_player_profile())
 			golfer_skills_column.add_child(skill_toggle)
-		content = PlayerTab.add_column(skills_page, 250)
+		# Keep the summary available to callers, but let the navigation badge
+		# carry the remaining-point count without a text column on the shelf.
+		points_label = Label.new()
+		points_label.hide()
 	else:
 		_label("Round format")
 		mode_picker = OptionButton.new()
@@ -1164,26 +1169,52 @@ func _build_setup() -> void:
 		pro_picker.disabled = true
 		content.add_child(pro_picker)
 		mode_picker.item_selected.connect(func(index: int): pro_picker.disabled = index != 1)
-	points_label = _label("")
-	_label("Each point adds 10% bonus. Maximum per skill: 990%.")
+	if not is_instance_valid(player_tab):
+		points_label = _label("")
+		_label("Each point adds 10% bonus. Maximum per skill: 990%.")
 	skill_labels.clear()
+	skill_decrease_buttons.clear()
+	skill_increase_buttons.clear()
 	for i in PlayerGolferProfile.SKILLS.size():
-		# Keep the allocation summary with the first two skills, then distribute
-		# the remaining skills evenly across the next two shelf columns (2 / 4 / 4).
-		if is_instance_valid(player_tab) and (i == 2 or i == 6):
-			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 290)
+		# Age-sized plates fit three high in the horizontally scrolling shelf.
+		if is_instance_valid(player_tab) and i % TOGGLES_PER_COLUMN == 0:
+			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_SKILLS], 300)
+			content.add_theme_constant_override("separation", 2)
 		var row := HBoxContainer.new()
+		row.name = "GolfSkill%d" % i
+		row.add_theme_constant_override("separation", 0)
 		content.add_child(row)
+		var skill_name: String = PlayerGolferProfile.SKILLS[i]
+		var decrease := _shelf_toggle_button("−", false, "Remove a point from %s" % skill_name)
+		var increase := _shelf_toggle_button("+", false, "Add a point to %s" % skill_name)
+		decrease.name = "GolfSkillDecrease%d" % i
+		increase.name = "GolfSkillIncrease%d" % i
+		decrease.accessibility_name = "Decrease %s" % skill_name
+		increase.accessibility_name = "Increase %s" % skill_name
+		for button in [decrease, increase]:
+			button.toggle_mode = false
+			button.custom_minimum_size = Vector2(40, SHELF_TOGGLE_BUTTON_SIZE.y)
+		row.add_child(decrease)
 		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.custom_minimum_size = Vector2(220, SHELF_TOGGLE_BUTTON_SIZE.y)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_meta(VISITOR_CARD_META, true)
+		label.add_theme_font_override("font", VisitorCardButton.FONT)
+		label.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+		label.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+		label.add_theme_stylebox_override("normal", PixelButtonStyle.card_style(
+			Color(SHELF_TOGGLE_ACCENT, PixelButtonStyle.CHOICE_TRIM), PixelButtonStyle.State.NORMAL,
+			MenuStyle.CARD_BG, 8, 0, 0))
 		row.add_child(label)
+		row.add_child(increase)
 		skill_labels.append(label)
-		for change in [-1, 1]:
-			var button := Button.new()
-			button.text = "+" if change == 1 else "−"
-			button.pressed.connect(allocate_skill.bind(i, change))
-			row.add_child(button)
+		skill_decrease_buttons.append(decrease)
+		skill_increase_buttons.append(increase)
+		decrease.pressed.connect(allocate_skill.bind(i, -1))
+		increase.pressed.connect(allocate_skill.bind(i, 1))
 	if is_instance_valid(player_tab):
+		skill_labels[0].get_parent().add_child(points_label)
 		# Apply one consistent pixel-art visual language to both owner tabs.
 		for page_index in [PlayerTab.PAGE_EDIT, PlayerTab.PAGE_SKILLS]:
 			for widget in player_tab.pages[page_index].find_children("*", "Control", true, false):
@@ -1225,6 +1256,9 @@ func _refresh_skills() -> void:
 	for i in skill_labels.size():
 		if i < PlayerGolferProfile.SKILLS.size():
 			skill_labels[i].text = "%s: %d%%" % [PlayerGolferProfile.SKILLS[i], draft.points[i] * 10]
+			skill_labels[i].accessibility_name = skill_labels[i].text
+			skill_decrease_buttons[i].disabled = draft.points[i] <= 0
+			skill_increase_buttons[i].disabled = draft.remaining() == 0 or draft.points[i] >= 99
 	# Unspent points never hold a round up, so the badge on the Player Skills
 	# button is what tells the owner points are still waiting to be allocated.
 	if is_instance_valid(player_tab):

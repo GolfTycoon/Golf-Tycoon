@@ -720,26 +720,34 @@ func test_player_skills_button_badges_unspent_points() -> void:
 	tab.refresh_skill_badge()
 	assert_eq(badge.text, "10", "A refresh reads the profile rather than the last count it was told")
 
-func test_player_skills_use_two_four_four_columns() -> void:
+func test_player_skills_use_age_style_stepper_plates() -> void:
 	var tab := PlayerTab.new()
 	fixture.add_child(tab)
 	rounds.attach_player_tab(tab)
-
-	var first_column := rounds.skill_labels[0].get_parent().get_parent()
-	var second_column := rounds.skill_labels[2].get_parent().get_parent()
-	var third_column := rounds.skill_labels[6].get_parent().get_parent()
-
-	for i in range(0, 2):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), first_column,
-			"The first Player Skills column contains skills 1–2")
-	for i in range(2, 6):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), second_column,
-			"The second Player Skills column contains skills 3–6")
-	for i in range(6, 10):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), third_column,
-			"The third Player Skills column contains skills 7–10")
-	assert_ne(first_column, second_column)
-	assert_ne(second_column, third_column)
+	assert_eq(rounds.skill_labels.size(), 10)
+	assert_false(rounds.points_label.visible, "The shelf has no point-summary text between skill areas")
+	var page := tab.pages[PlayerTab.PAGE_SKILLS]
+	assert_eq(rounds.skill_labels[0].get_parent().get_parent().get_index(), 1,
+		"Golf Skill plates follow the Golfer Skills column without a text column")
+	assert_eq(page.get_child_count(), 5)
+	for i in 10:
+		var row := rounds.skill_labels[i].get_parent()
+		assert_eq(row.get_child(0), rounds.skill_decrease_buttons[i])
+		assert_eq(row.get_child(2), rounds.skill_increase_buttons[i])
+		assert_eq(row.get_parent(), rounds.skill_labels[(i / 3) * 3].get_parent().get_parent())
+		assert_true(rounds.skill_decrease_buttons[i].disabled)
+		assert_false(rounds.skill_increase_buttons[i].disabled)
+	rounds.skill_increase_buttons[0].pressed.emit()
+	assert_eq(GameManager.player_profile.points[0], 1)
+	assert_eq(rounds.skill_labels[0].text, "Power Hitter: 10%")
+	assert_false(rounds.skill_decrease_buttons[0].disabled)
+	for i in range(1, 10):
+		rounds.skill_increase_buttons[i].pressed.emit()
+	assert_true(rounds.skill_increase_buttons[0].disabled)
+	rounds.skill_decrease_buttons[0].pressed.emit()
+	assert_true(rounds.skill_decrease_buttons[0].disabled)
+	assert_false(rounds.skill_increase_buttons[0].disabled)
+	assert_eq(GameManager.player_profile.points[0], 0)
 
 func test_embedded_round_uses_aim_page_and_returns_to_setup() -> void:
 	var tab := PlayerTab.new()
@@ -1662,19 +1670,20 @@ func test_skills_auto_save_and_take_effect_for_next_shot_mid_round() -> void:
 	assert_true(rounds.active, "Round is active")
 	assert_not_null(rounds.player, "Player golfer is spawned")
 
-	# Skills page controls must remain enabled during an active round
-	var skill_page := tab.pages[PlayerTab.PAGE_SKILLS]
-	for button in skill_page.find_children("*", "Button", true, false):
-		assert_false(button.disabled, "Skill adjustment buttons must remain enabled during round")
+	# Spent points remain refundable during a round; additions are disabled
+	# only because the pool is empty, not because the round is active.
+	assert_false(rounds.skill_decrease_buttons[4].disabled)
+	assert_true(rounds.skill_increase_buttons[1].disabled)
 
 	# Record the initial driving ability to compare against after allocating points
 	var initial_driving_ability := rounds.player.driving_ability()
 
 	# Mid-round: change skills (e.g. shift a point from Accurate Putter to Long Driver)
 	# First refund 1 from skill 4 (Accurate Putter)
-	assert_true(rounds.allocate_skill(4, -1))
+	rounds.skill_decrease_buttons[4].pressed.emit()
 	# Add to skill 1 (Long Driver)
-	assert_true(rounds.allocate_skill(1, 1))
+	assert_false(rounds.skill_increase_buttons[1].disabled)
+	rounds.skill_increase_buttons[1].pressed.emit()
 
 	# Verify skills auto-saved to GameManager.player_profile
 	assert_eq(GameManager.player_profile.points[4], 0, "Accurate Putter points updated in profile")
