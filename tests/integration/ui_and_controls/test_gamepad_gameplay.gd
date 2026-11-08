@@ -92,10 +92,16 @@ func test_start_opens_the_pause_menu_and_b_closes_it() -> void:
 	assert_true(main.pause_menu.is_ancestor_of(focus))
 	if focus != null:
 		assert_true(focus.has_focus(true), "the focused pause action shows its indicator")
-		var ring := focus.get_theme_stylebox("focus") as StyleBoxFlat
-		assert_not_null(ring, "the pause menu inherits the shared button highlight")
+		# The pause menu wears the shared pixel focus treatment: a cream ring
+		# drawn outside the card by its MenuFocusRing layer, and the warm wash
+		# the "focus" stylebox lays over the card itself.
+		var ring := focus.get_node_or_null("FocusRing") as MenuFocusRing
+		assert_not_null(ring, "the pause menu wears the shared focus ring")
 		if ring:
-			assert_gte(ring.border_width_left, 3, "the outline is prominent")
+			assert_eq(ring.ring_style.get_expand_margin(SIDE_LEFT),
+				PixelButtonStyle.FOCUS_EXPAND, "the outline reaches past the card")
+		assert_not_null(focus.get_theme_stylebox("focus"),
+			"and the warm wash sits over the card")
 	await _push_joy(JOY_BUTTON_B)
 	assert_null(main.pause_menu, "B resumes and closes the menu")
 
