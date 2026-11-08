@@ -161,7 +161,9 @@ func _build_skin_picker(column: VBoxContainer) -> void:
 	# No title sits above the picker, so its accessible name is what carries the
 	# label: its own text is only the skin it currently shows.
 	_skin_picker.accessibility_name = "Golfer skin"
-	_skin_picker.custom_minimum_size = Vector2(0, 28)
+	_style_shelf_plate(_skin_picker)
+	# The sprite column controls width; long names still trim in this dropdown.
+	_skin_picker.custom_minimum_size.x = 0
 	_skin_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# The first column is one sprite wide, and a skin name can be longer than
 	# that. Without these the picker widens the column to its longest entry and
@@ -212,6 +214,7 @@ func _build_work_area_column() -> void:
 
 	_work_area_button = Button.new()
 	_work_area_button.name = "MoveWorkArea"
+	_style_shelf_plate(_work_area_button)
 	_work_area_button.text = "Move work area"
 	_work_area_button.tooltip_text = "Choose the ground your golfer works when they are not playing."
 	_work_area_button.pressed.connect(func(): owner_area_move_requested.emit())
@@ -232,9 +235,10 @@ func _build_tournament_play_export_column() -> void:
 
 ## Career Mode export control on Golfers -> Edit Player.
 func _build_tournament_golfer_export_column() -> void:
-	_label("Export this golfer for Main Menu tournaments.")
+	# The action caption and tooltip explain export without another shelf row.
 	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
 	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
+	_style_shelf_plate(save_golfer_btn)
 	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance for standalone Tournament Mode."
 
 func _on_save_course_for_tournament() -> void:
@@ -731,14 +735,20 @@ func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> 
 	button.text = caption
 	button.toggle_mode = true
 	button.button_pressed = is_on
+	_style_shelf_plate(button)
+	button.accessibility_description = description
+	button.tooltip_text = description
+	return button
+
+
+## The trait-card appearance, shared by dropdowns and momentary actions too.
+func _style_shelf_plate(button: Button) -> void:
 	button.custom_minimum_size = SHELF_TOGGLE_BUTTON_SIZE
 	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.focus_mode = Control.FOCUS_ALL
-	button.accessibility_description = description
-	button.tooltip_text = description
 	button.set_meta(VISITOR_CARD_META, true)
 	button.add_theme_font_override("font", VisitorCardButton.FONT)
 	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
@@ -757,7 +767,85 @@ func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> 
 	for state in ["pressed", "hover_pressed"]:
 		button.add_theme_color_override("font_%s_color" % state, PixelButtonStyle.INK)
 	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
-	return button
+
+## Gender carries its current value's colour without changing its footprint.
+func _style_gender_plate(button: Button) -> void:
+	var accent := Color("77b9ed") if draft.gender == GolferAttributes.Gender.MALE else Color("ed9cbc")
+	PixelButtonStyle.paint_primary(button, accent)
+	button.add_theme_stylebox_override("hover_pressed", button.get_theme_stylebox("hover"))
+	button.add_theme_color_override("font_pressed_color", PixelButtonStyle.INK)
+	button.add_theme_color_override("font_hover_pressed_color", PixelButtonStyle.INK)
+
+
+## Editable identity fields share the quiet, unselected Trait card face.
+func _style_identity_field(field: LineEdit, width: float = SHELF_TOGGLE_BUTTON_SIZE.x) -> void:
+	field.custom_minimum_size = Vector2(width, SHELF_TOGGLE_BUTTON_SIZE.y)
+	field.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	field.expand_to_text_length = false
+	field.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	field.set_meta(VISITOR_CARD_META, true)
+	field.add_theme_font_override("font", VisitorCardButton.FONT)
+	field.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+	field.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+	field.add_theme_color_override("font_uneditable_color", UIConstants.COLOR_TEXT_MUTED)
+	field.add_theme_stylebox_override("normal", PixelButtonStyle.card_style(
+		Color(SHELF_TOGGLE_ACCENT, PixelButtonStyle.CHOICE_TRIM), PixelButtonStyle.State.NORMAL,
+		MenuStyle.CARD_BG, 8, 0, 0))
+	field.add_theme_stylebox_override("read_only", field.get_theme_stylebox("normal"))
+	PixelButtonStyle.paint_focus(field, SHELF_TOGGLE_ACCENT)
+
+
+## A Gender-style age plate with independent, keyboard-focusable step buttons.
+func _build_age_selector() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "PlayerAge"
+	row.custom_minimum_size = SHELF_TOGGLE_BUTTON_SIZE
+	row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	row.add_theme_constant_override("separation", 0)
+	row.set_meta(VISITOR_CARD_META, true)
+	var decrease := _shelf_toggle_button("−", false, "Decrease golfer age (minimum 18)")
+	decrease.name = "PlayerAgeDecrease"
+	decrease.accessibility_name = "Decrease golfer age"
+	var increase := _shelf_toggle_button("+", false, "Increase golfer age (maximum 100)")
+	increase.name = "PlayerAgeIncrease"
+	increase.accessibility_name = "Increase golfer age"
+	for button in [decrease, increase]:
+		button.toggle_mode = false
+		button.custom_minimum_size = Vector2(40, SHELF_TOGGLE_BUTTON_SIZE.y)
+	var readout := LineEdit.new()
+	readout.name = "PlayerAgeValue"
+	_style_identity_field(readout, SHELF_TOGGLE_BUTTON_SIZE.x - 80)
+	readout.select_all_on_focus = true
+	readout.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	readout.tooltip_text = "Click to type an age (18–100); press Enter to save"
+	row.add_child(decrease)
+	row.add_child(readout)
+	row.add_child(increase)
+	var refresh := func() -> void:
+		readout.text = str(draft.age) if readout.has_focus() else "Age %d" % draft.age
+		readout.accessibility_name = "Golfer age: %d" % draft.age
+		decrease.disabled = draft.age <= 18
+		increase.disabled = draft.age >= 100
+	var step := func(change: int) -> void:
+		draft.age = clampi(draft.age + change, 18, 100)
+		refresh.call()
+		_persist_player_profile()
+	var commit := func() -> void:
+		var entered := readout.text.strip_edges()
+		if entered.is_valid_int():
+			draft.age = clampi(entered.to_int(), 18, 100)
+			_persist_player_profile()
+		refresh.call()
+	readout.focus_entered.connect(func():
+		readout.text = str(draft.age)
+		readout.select_all.call_deferred())
+	readout.focus_exited.connect(commit)
+	readout.text_submitted.connect(func(_text: String): readout.release_focus())
+	decrease.pressed.connect(step.bind(-1))
+	increase.pressed.connect(step.bind(1))
+	refresh.call()
+	return row
 
 
 ## A set of independent On/Off name plates laid out down the shelf, `per_column`
@@ -796,6 +884,13 @@ func _shelf_cycle_button(captions: Array[String], selected: int,
 	var start := clampi(selected, 0, captions.size() - 1)
 	var button := _shelf_toggle_button(captions[start], true,
 		description_format % captions[start])
+	# Match the Age readout's breathing room without the full skill-card width.
+	# Reserve the widest caption so cycling never shifts the neighbouring card.
+	var caption_width := 0.0
+	for caption in captions:
+		caption_width = maxf(caption_width, VisitorCardButton.FONT.get_string_size(
+			caption, HORIZONTAL_ALIGNMENT_LEFT, -1, VisitorCardButton.NAME_FONT_SIZE).x)
+	button.custom_minimum_size.x = ceilf(caption_width) + 56.0
 	button.set_meta("cycle_captions", captions)
 	button.set_meta("cycle_index", start)
 	button.set_meta("cycle_description", description_format)
@@ -871,8 +966,9 @@ func _build_setup() -> void:
 		# before any of the owner's details.
 		_build_skin_group_controls()
 		edit_page.add_child(_skin_controls)
-		content = PlayerTab.add_column(edit_page, 200)
-		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
+		content.name = "PlayerIdentityColumn"
+		content.add_theme_constant_override("separation", 2)
 	else:
 		_make_panel(true)
 
@@ -886,30 +982,28 @@ func _build_setup() -> void:
 	name_edit.text_changed.connect(_on_player_name_changed)
 	content.add_child(name_edit)
 	if is_instance_valid(player_tab):
-		# The rest of who the golfer is takes the next column. The shelf has no
-		# vertical scroll, so a column of this page holds about
-		# four controls before it would grow past the bottom bar.
-		content = PlayerTab.add_column(edit_page, 200)
+		_style_identity_field(name_edit)
+		name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Identity reads top to bottom, with the three compact choices sharing
+		# its last row so the whole section remains only three cards tall.
 		var profession_edit := LineEdit.new()
 		profession_edit.name = "PlayerProfession"
 		profession_edit.placeholder_text = "Profession"
 		profession_edit.tooltip_text = "What your golfer does away from the course"
+		profession_edit.accessibility_name = "Profession"
+		profession_edit.max_length = 48
+		_style_identity_field(profession_edit)
+		profession_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		profession_edit.text = draft.profession
 		profession_edit.text_changed.connect(func(value: String):
 			draft.profession = value.left(48)
 			_persist_player_profile())
 		content.add_child(profession_edit)
-		var age_spin := SpinBox.new()
-		age_spin.name = "PlayerAge"
-		age_spin.prefix = "Age"
-		age_spin.tooltip_text = "Your golfer's age, from 18 to 100"
-		age_spin.min_value = 18
-		age_spin.max_value = 100
-		age_spin.value = draft.age
-		age_spin.value_changed.connect(func(value: float):
-			draft.age = int(value)
-			_persist_player_profile())
-		content.add_child(age_spin)
+		var identity_row := HBoxContainer.new()
+		identity_row.name = "PlayerIdentityChoices"
+		identity_row.add_theme_constant_override("separation", 4)
+		content.add_child(identity_row)
+		identity_row.add_child(_build_age_selector())
 		# Gender and Marital Status wear the Golfer Skills card too, but each
 		# takes a single plate: its caption reads the value the golfer has and
 		# a press steps to the next choice. A whole setting therefore costs one
@@ -924,9 +1018,9 @@ func _build_setup() -> void:
 		var gender_plate := _shelf_cycle_button(gender_captions, int(draft.gender),
 			"Golfer gender: %s. Press to choose the next gender.", set_gender)
 		gender_plate.name = "PlayerGenderToggle"
-		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
-		content.add_theme_constant_override("separation", 2)
-		content.add_child(gender_plate)
+		_style_gender_plate(gender_plate)
+		gender_plate.pressed.connect(func(): _style_gender_plate(gender_plate))
+		identity_row.add_child(gender_plate)
 		var marital_values: Array = GolferAttributes.MARITAL_STATUS_NAMES.keys()
 		var marital_captions: Array[String] = []
 		for value in marital_values:
@@ -938,17 +1032,12 @@ func _build_setup() -> void:
 			int(draft.marital_status),
 			"Marital status: %s. Press to choose the next status.", set_marital_status)
 		marital_plate.name = "PlayerMaritalStatusToggle"
-		content = PlayerTab.add_column(edit_page, SHELF_TOGGLE_BUTTON_SIZE.x)
-		content.add_theme_constant_override("separation", 2)
-		content.add_child(marital_plate)
-		# The owner's own golfer is on the course: the ground they work when
-		# they are not playing gets a column of its own.
-		content = PlayerTab.add_column(edit_page, 220)
-		_build_work_area_column()
-		if not GameManager.is_tournament_mode:
-			content = PlayerTab.add_column(edit_page, 210)
-			content.add_theme_constant_override("separation", 4)
-			_build_tournament_golfer_export_column()
+		# This is a value selector, not an enabled trait: keep its resting face quiet.
+		marital_plate.add_theme_stylebox_override("pressed", marital_plate.get_theme_stylebox("normal"))
+		marital_plate.add_theme_stylebox_override("hover_pressed", marital_plate.get_theme_stylebox("hover"))
+		marital_plate.add_theme_color_override("font_pressed_color", VisitorCardButton.CREAM)
+		marital_plate.add_theme_color_override("font_hover_pressed_color", VisitorCardButton.NAME_LIT)
+		identity_row.add_child(marital_plate)
 		# The Golfer Traits are independent On/Off plates, so every trait keeps
 		# its own switch instead of one being chosen from the set.
 		var trait_captions: Array[String] = []
@@ -962,6 +1051,14 @@ func _build_setup() -> void:
 		_build_toggle_plates(edit_page, trait_captions, trait_flags,
 			TOGGLES_PER_COLUMN, set_trait, "GolferTrait",
 			"Golfer trait: %s. Toggle on or off.")
+		# Keep the owner's actions together after all of the trait columns.
+		content = PlayerTab.add_column(edit_page, 220)
+		content.name = "PlayerActionsColumn"
+		content.add_theme_constant_override("separation", 4)
+		_build_work_area_column()
+		if not GameManager.is_tournament_mode:
+			_build_tournament_golfer_export_column()
+
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
 	# edited beside the sprite above (they follow into these fields); what is

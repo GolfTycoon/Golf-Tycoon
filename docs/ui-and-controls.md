@@ -310,6 +310,11 @@ A long group name is fitted to the plate rather than widening the column, and a
 skin carrying more groups than the column is tall continues in a second column to
 the right, where the shelf already scrolls. Like the skin picker, the plates stay
 reachable during a round: they only change how a golfer is drawn.
+The **Golfer Skin** dropdown, **Move work area**, and **Save Golfer for
+Tournament** actions use the same pixel-font card frames as the Golfer Traits.
+They retain their dropdown/action behaviour rather than becoming On/Off toggles.
+Move work area and Save Golfer for Tournament are stacked in one action column
+immediately to the right of all the Golfer Trait plates.
 
 **Gender**, **Marital Status** and the five **Golfer Traits** wear the same card
 plates as the Golfer Skills. Gender and Marital Status each take a single plate
@@ -317,7 +322,22 @@ that always reads the value the golfer has; pressing it steps to the next value
 (Male/Female, or Single → Married → Divorced → Widowed → Single), so a whole
 choice costs one card instead of a drop-down or a plate per option. Each Golfer
 Trait is an independent On/Off plate. Every plate saves as soon as it is pressed,
-the same way the name, profession and age fields do.
+the same way the name and profession fields do. **Age** uses a matching dark
+card readout with separate **−** and **+** buttons. Each press subtracts or adds
+one year and saves immediately; the buttons stop at ages 18 and 100. Click the
+centre age card to type a number directly, then press Enter or click away to
+save. Typed ages are clamped to 18–100; empty or invalid text keeps the last age.
+The **Name** and **Profession** fields share the Age card’s dark unselected-Trait face, pixel
+font and focus ring. Both remain directly editable and save as you type.
+These identity controls share one column: Name at the top, Profession in the
+middle, and Age, Gender and Marital Status side by side along the bottom. The
+Name and Profession cards span the width of that bottom row. Gender and Marital
+Status use narrower cards with Age-like caption padding, sized for their longest
+value so cycling choices does not shift the row.
+
+On Edit Player, Gender uses blue for Male and pink for Female. Name, Profession,
+Age and Marital Status use the dark unselected Golfer Trait card colour and cream
+text rather than the bright selected-Trait fill.
 
 The page also carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**
