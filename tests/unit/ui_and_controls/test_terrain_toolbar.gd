@@ -344,8 +344,8 @@ func test_tab_selection_toggles_visibility() -> void:
 
 func test_bulldozer_sits_in_the_header_row() -> void:
 	assert_not_null(toolbar._header_row, "The shelf builds a header row")
-	assert_eq(toolbar._header_row.get_parent(), toolbar,
-		"The header row is a child of the shelf, not a page")
+	assert_eq(toolbar._header_row.get_parent(), toolbar._chrome_layer,
+		"The header row is in the shelf's non-container chrome layer")
 	var btn: BulldozerButton = toolbar._bulldozer_button
 	assert_not_null(btn, "The header row holds the Bulldozer button")
 	assert_true(toolbar._header_row.is_ancestor_of(btn),
@@ -521,9 +521,10 @@ func test_the_page_heading_keeps_its_spot_when_the_shelf_relays_out() -> void:
 	# the heading stretched across the middle of the shelf.
 	var title: Label = toolbar._page_title
 	assert_not_null(title, "The shelf names its open page in a heading")
-	assert_eq(title.get_parent(), toolbar, "The heading is a child of the shelf")
-	assert_true(title.is_set_as_top_level(),
-		"The heading is top-level, so the container's layout never moves it")
+	assert_eq(title.get_parent(), toolbar._chrome_layer,
+		"The heading is in the shelf's non-container chrome layer")
+	assert_false(title.is_set_as_top_level(),
+		"The heading stays in normal HUD drawing and visibility order")
 	for section in [TerrainToolbar.Section.BUILD, TerrainToolbar.Section.MANAGE,
 			TerrainToolbar.Section.GOLFERS, TerrainToolbar.Section.BUILD]:
 		toolbar.select_section(section)
@@ -545,9 +546,22 @@ func test_the_page_heading_keeps_its_spot_when_the_shelf_relays_out() -> void:
 			assert_true(title.text.begins_with(section_name.to_upper()),
 				"%s: the heading names the open section" % section_name)
 
+func test_shelf_chrome_inherits_the_shelf_visibility() -> void:
+	var title: Label = toolbar._page_title
+	var row: Control = toolbar._header_row
+	assert_true(title.is_visible_in_tree(), "The title is visible with its shelf")
+	assert_true(row.is_visible_in_tree(), "The utility row is visible with its shelf")
+
+	toolbar.hide()
+	await process_frames(1)
+	assert_false(title.is_visible_in_tree(),
+		"Hiding the gameplay shelf also hides its title above modal screens")
+	assert_false(row.is_visible_in_tree(),
+		"Hiding the gameplay shelf also hides the shelf controls")
+
 func test_the_page_heading_stops_short_of_the_header_row() -> void:
 	# On a Build shelf the header row shows at the top-right; the heading must
-	# end before it (measured in one coordinate space: both are top-level).
+	# end before it. Both controls share the same shelf chrome layer.
 	# With no bottom bar around it the bare shelf sits at its minimum width,
 	# so give it the room it has in the HUD for the row and heading to share.
 	toolbar.size = Vector2(1200.0, toolbar.size.y)
@@ -903,8 +917,8 @@ func test_brush_controls_sit_in_the_header_row() -> void:
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	var row: Control = toolbar._header_row
 	assert_not_null(row, "The shelf builds a header row")
-	assert_eq(row.get_parent(), toolbar,
-		"The header row is a child of the shelf, not a page")
+	assert_eq(row.get_parent(), toolbar._chrome_layer,
+		"The header row is in the shelf's non-container chrome layer")
 	# No page pins a brush dock: the brush controls are shared in the header.
 	var page: Control = toolbar._pages[TerrainToolbar.Tab.TERRAIN]
 	assert_eq(page.find_children("BrushDock", "", true, false).size(), 0,

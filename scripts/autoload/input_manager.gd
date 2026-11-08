@@ -362,6 +362,14 @@ func _on_joy_connection_changed(_device_id: int, connected: bool) -> void:
 ## reading-order Tab cycle. Explicit neighbours already set by a screen are
 ## left alone. Rebuilt whenever a scope is focused, which covers screens that
 ## are torn down and rebuilt for a new window size.
+##
+## Every direction ends up with a neighbour inside the scope: an edge control
+## wraps round to the opposite edge, and one with nothing beside it in either
+## direction points at itself. A scope that leaves a direction empty does not
+## simply do nothing when it is pressed - Godot looks for a neighbour of its
+## own and picks the nearest focusable control in the window, which for a
+## screen over the live HUD (the pause menu, a confirmation) means the D-pad
+## walks out of the menu and into the bottom bar.
 func _wire_focus_graph(scope: Control) -> void:
 	var controls := collect_focusables(scope)
 	if controls.size() < 2:
@@ -400,6 +408,12 @@ func _wire_focus_graph(scope: Control) -> void:
 			"left": [null, INF], "right": [null, INF],
 			"top": [null, INF], "bottom": [null, INF],
 		}
+		# The far side of the scope in each direction: where a press that
+		# walks off this edge should come back in.
+		var far_side := {
+			"left": [null, -INF], "right": [null, -INF],
+			"top": [null, -INF], "bottom": [null, -INF],
+		}
 		for other in controls:
 			if other == control:
 				continue
@@ -408,20 +422,32 @@ func _wire_focus_graph(scope: Control) -> void:
 				"left": -delta.x, "right": delta.x,
 				"top": -delta.y, "bottom": delta.y,
 			}
+			var secondary_v := absf(delta.y)
+			var secondary_h := absf(delta.x)
 			for direction in distances:
 				var primary: float = distances[direction]
-				if primary <= 1.0:
-					continue
-				var secondary := absf(delta.y) if direction in ["left", "right"] else absf(delta.x)
+				var secondary := secondary_v if direction in ["left", "right"] else secondary_h
 				# Prefer the nearest control in that direction, with a penalty
 				# for drifting off axis so a row of buttons stays a row.
-				var score := primary + secondary * 1.8
-				if score < float(best[direction][1]):
-					best[direction] = [other, score]
-		_assign_neighbor(control, "left", best["left"][0])
-		_assign_neighbor(control, "right", best["right"][0])
-		_assign_neighbor(control, "top", best["top"][0])
-		_assign_neighbor(control, "bottom", best["bottom"][0])
+				if primary > 1.0:
+					var score := primary + secondary * 1.8
+					if score < float(best[direction][1]):
+						best[direction] = [other, score]
+				# And remember the furthest control the other way round, which
+				# is the edge a press leaving this one should reappear at.
+				var opposite := -primary - secondary * 1.8
+				if opposite > float(far_side[direction][1]):
+					far_side[direction] = [other, opposite]
+		for direction in ["left", "right", "top", "bottom"]:
+			var target: Control = best[direction][0]
+			# Nothing further this way: come back in at the opposite edge, so
+			# the D-pad cycles through the scope the way Tab does instead of
+			# leaving it. A control with nothing beside it in either direction
+			# (a press across a one-column menu) keeps the selection where it
+			# is by pointing at itself.
+			if target == null and float(far_side[direction][1]) > 1.0:
+				target = far_side[direction][0]
+			_assign_neighbor(control, direction, target if target != null else control)
 
 
 ## Rebuild the graph when the screen has reflowed. Checks at most a few times a

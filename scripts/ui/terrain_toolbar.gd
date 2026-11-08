@@ -271,6 +271,11 @@ var _pages_container: PanelContainer = null
 ## neighbour on one continuous mown fairway. It is this control's first child,
 ## so every circle and tile the toolbar adds later lands on top of it.
 var _backdrop: ShelfFanBackdrop = null
+## Floating shelf chrome sits in this full-rect Control rather than as
+## top-level CanvasItems. The PanelContainer lays out this one wrapper, while
+## its children keep their manually synced positions and still inherit the
+## shelf's visibility when a screen covers the gameplay HUD.
+var _chrome_layer: Control = null
 ## The curved window the pages are cut to (see ShelfPageWindow): it paints the
 ## shelf's inner silhouette and clips every page to it, so a page scrolls under
 ## the curved tab buttons instead of stopping at a straight edge beside them.
@@ -671,6 +676,14 @@ func _build_ui() -> void:
 	margins.add_theme_constant_override("margin_bottom", int(SHELF_PAD_Y))
 	add_child(margins)
 	move_child(_backdrop, 0)
+	# PanelContainer fills each direct Control child on every sort. Keep the
+	# manually positioned title and utility row inside a plain full-rect wrapper
+	# so they inherit this shelf's visibility without being relaid themselves.
+	_chrome_layer = Control.new()
+	_chrome_layer.name = "ShelfChrome"
+	_chrome_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chrome_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_chrome_layer)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", int(SHELF_ROW_GAP))
@@ -689,15 +702,11 @@ func _build_ui() -> void:
 	_page_title.add_theme_font_size_override("font_size", 14)
 	_page_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_page_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# This shelf is a PanelContainer, and a container re-lays every ordinary
-	# child to fill its rect whenever it sorts — which it does a frame after
-	# _sync_backdrop has placed the heading, each time the header row shows
-	# or hides with a section change. That left the heading stretched across
-	# the shelf, part way down it, until the next resize. As a top-level node
-	# (like the header row) the container never touches it, and
-	# _sync_backdrop places it from the shelf's global position instead.
-	_page_title.set_as_top_level(true)
-	add_child(_page_title)
+	# The shelf itself is a PanelContainer, so the title lives under a plain
+	# Control wrapper that the container fills but never sorts internally.
+	# Unlike a top-level CanvasItem, it inherits the shelf's visibility and
+	# stays behind fullscreen screens added later to the HUD.
+	_chrome_layer.add_child(_page_title)
 	_build_header_row()
 	# The page shelf: the whole width between the shelf's side padding, from
 	# under the heading to the bottom. Its left edge is the curved window above.
@@ -886,19 +895,16 @@ func _build_page(tab_index: int) -> Control:
 ## buttons plus Inspect. Other shelves carry nothing. The row floats over the
 ## empty top-right of the page area, beside the page title at the top-left.
 func _build_header_row() -> void:
-	# A plain Control wrapper, like the page title: it is positioned in
-	# _sync_backdrop, not by the parent's layout. The HBoxContainer inside it
-	# lays the buttons out in a row and fills the wrapper.
+	# The row is positioned in _sync_backdrop, not by the shelf's PanelContainer.
+	# It lives inside the plain chrome layer so it inherits shelf visibility and
+	# draws in normal HUD order beneath fullscreen screens.
 	var wrapper := HBoxContainer.new()
 	wrapper.name = "HeaderControls"
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrapper.add_theme_constant_override("separation", 8)
-	# The PanelContainer's layout would expand and reposition this row on every
-	# frame, overriding the manual positioning in _sync_backdrop. Making it a
-	# top-level node keeps the layout from touching it; its global position is
-	# set from the shelf's own global position in _sync_backdrop.
-	wrapper.set_as_top_level(true)
-	add_child(wrapper)
+	# Its parent is a plain Control, not a container, so _sync_backdrop can
+	# position it freely while it remains a regular child of the HUD canvas.
+	_chrome_layer.add_child(wrapper)
 	_header_row = wrapper
 
 	# Terrain brush shape: round/square toggle.

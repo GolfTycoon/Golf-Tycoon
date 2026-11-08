@@ -423,6 +423,8 @@ func test_embedded_player_navigation_and_setup() -> void:
 	assert_false(rounds.busy, "Editing a player does not reserve a round")
 	assert_null(rounds.overlay, "Embedded setup creates no floating overlay")
 	var edit_page := tab.pages[PlayerTab.PAGE_EDIT]
+	assert_eq((edit_page.get_parent() as ScrollContainer).offset_top, PlayerTab.EDIT_PAGE_TOP_GAP,
+		"The Edit Player Golfer title has breathing room below it")
 	assert_true(edit_page.is_ancestor_of(rounds.name_edit))
 	assert_true(edit_page.is_ancestor_of(rounds._skin_picker))
 	var preview_column := edit_page.get_child(0) as VBoxContainer
@@ -469,6 +471,163 @@ func test_embedded_player_navigation_and_setup() -> void:
 		for page in 3:
 			assert_eq(tab.pages[page].get_parent().visible, page == index)
 		assert_false(tab.aim_scroll.visible, "The aiming view stays hidden outside a round")
+
+func test_identity_colours_use_quiet_cards_and_gender_colours() -> void:
+	var toolbar := _embedded_toolbar()
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var trait_plate := _find_node(page, "GolferTraitNeat") as Button
+	var quiet_texture := (trait_plate.get_theme_stylebox("normal") as StyleBoxTexture).texture
+	for node_name in ["PlayerName", "PlayerProfession", "PlayerAgeValue", "PlayerMaritalStatusToggle"]:
+		var field := _find_node(page, node_name) as Control
+		var state := "pressed" if field is Button else "normal"
+		assert_eq((field.get_theme_stylebox(state) as StyleBoxTexture).texture, quiet_texture)
+		assert_eq(field.get_theme_color("font_pressed_color" if field is Button else "font_color"), VisitorCardButton.CREAM)
+	var gender := _find_node(page, "PlayerGenderToggle") as Button
+	var blue := (gender.get_theme_stylebox("pressed") as StyleBoxTexture).texture.get_image().get_pixel(30, 30)
+	assert_gt(blue.b, blue.r)
+	gender.pressed.emit()
+	var pink := (gender.get_theme_stylebox("pressed") as StyleBoxTexture).texture.get_image().get_pixel(30, 30)
+	assert_gt(pink.r, pink.b)
+	gender.pressed.emit()
+	assert_eq((gender.get_theme_stylebox("pressed") as StyleBoxTexture).texture.get_image().get_pixel(30, 30), blue)
+
+func test_owner_actions_share_a_column_to_the_right_of_all_traits() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var actions := _find_node(page, "PlayerActionsColumn") as VBoxContainer
+	var move := _find_node(page, "MoveWorkArea") as Button
+	var save := _find_node(page, "SaveEditGolferForTournamentButton") as Button
+	assert_eq(move.get_parent(), actions)
+	assert_eq(save.get_parent(), actions)
+	assert_lt(move.global_position.y, save.global_position.y)
+	for key in GolferAttributes.TRAIT_KEYS:
+		var plate := _find_node(page, "GolferTrait%s" % key.capitalize()) as Button
+		assert_gt(actions.global_position.x, plate.get_global_rect().end.x,
+			"The shared action column follows every trait column")
+	_assert_shelf_fits(page)
+
+func test_skin_work_area_and_export_actions_share_trait_card_style() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var trait_plate := _find_node(page, "GolferTraitNeat") as Button
+	var export_button := _find_node(page, "SaveEditGolferForTournamentButton") as Button
+	for button in [rounds._skin_picker, rounds._work_area_button, export_button]:
+		if not button is OptionButton:
+			assert_false(button.toggle_mode, "Actions stay momentary rather than On/Off toggles")
+		assert_true(button.has_meta(PlayerRoundManager.VISITOR_CARD_META))
+		assert_eq(button.custom_minimum_size.y, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE.y)
+		assert_eq(button.get_theme_font("font"), trait_plate.get_theme_font("font"))
+		assert_eq(button.get_theme_color("font_color"), trait_plate.get_theme_color("font_color"))
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			assert_true(button.get_theme_stylebox(state) is StyleBoxTexture)
+	assert_true(rounds._skin_picker.has_meta("editable_while_playing"))
+	_assert_shelf_fits(page)
+
+func test_identity_column_stacks_name_profession_and_a_row_of_choices() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var column := _find_node(page, "PlayerIdentityColumn") as VBoxContainer
+	var profession := _find_node(page, "PlayerProfession") as LineEdit
+	var choices := _find_node(page, "PlayerIdentityChoices") as HBoxContainer
+	assert_eq(column.get_children(), [rounds.name_edit, profession, choices])
+	var age := _find_node(page, "PlayerAge") as HBoxContainer
+	var gender := _find_node(page, "PlayerGenderToggle") as Button
+	var marital := _find_node(page, "PlayerMaritalStatusToggle") as Button
+	assert_eq(choices.get_children(), [age, gender, marital])
+	assert_lt(rounds.name_edit.global_position.y, profession.global_position.y)
+	assert_lt(profession.global_position.y, choices.global_position.y)
+	assert_almost_eq(age.global_position.y, gender.global_position.y, 1.0)
+	assert_almost_eq(gender.global_position.y, marital.global_position.y, 1.0)
+	assert_lt(age.global_position.x, gender.global_position.x)
+	assert_lt(gender.global_position.x, marital.global_position.x)
+	assert_almost_eq(rounds.name_edit.size.x, choices.size.x, 1.0)
+	assert_almost_eq(profession.size.x, choices.size.x, 1.0)
+	_assert_shelf_fits(page)
+
+func test_name_and_profession_share_the_editable_age_card_style() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var age := _find_node(page, "PlayerAgeValue") as LineEdit
+	var profession := _find_node(page, "PlayerProfession") as LineEdit
+	for field in [rounds.name_edit, profession]:
+		assert_true(field.editable)
+		assert_eq(field.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE)
+		assert_eq(field.get_theme_font("font"), age.get_theme_font("font"))
+		assert_eq(field.get_theme_color("font_color"), age.get_theme_color("font_color"))
+		assert_true(field.get_theme_stylebox("normal") is StyleBoxTexture)
+		assert_eq((field.get_theme_stylebox("normal") as StyleBoxTexture).texture,
+			(age.get_theme_stylebox("normal") as StyleBoxTexture).texture)
+	profession.text = "Architect"
+	profession.text_changed.emit(profession.text)
+	assert_eq(GameManager.player_profile.profession, "Architect")
+	rounds.name_edit.text = "Green Keeper"
+	rounds.name_edit.text_changed.emit(rounds.name_edit.text)
+	assert_eq(GameManager.player_profile.golfer_name, "Green Keeper")
+	_assert_shelf_fits(page)
+
+func test_age_plate_steps_saves_and_stays_within_limits() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_EDIT]
+	var row := _find_node(page, "PlayerAge") as HBoxContainer
+	var decrease := _find_node(row, "PlayerAgeDecrease") as Button
+	var increase := _find_node(row, "PlayerAgeIncrease") as Button
+	var readout := _find_node(row, "PlayerAgeValue") as LineEdit
+	assert_not_null(row, "Age is a plate with separate step buttons, not a SpinBox")
+	assert_eq(row.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE)
+	for button in [decrease, increase]:
+		assert_false(button.toggle_mode)
+		assert_eq(button.focus_mode, Control.FOCUS_ALL)
+		assert_true(button.get_theme_stylebox("normal") is StyleBoxTexture)
+		assert_eq(button.get_theme_font("font"), VisitorCardButton.FONT)
+	var initial_age := rounds.draft.age
+	increase.pressed.emit()
+	assert_eq(rounds.draft.age, initial_age + 1)
+	assert_eq(GameManager.player_profile.age, initial_age + 1)
+	assert_eq(readout.text, "Age %d" % (initial_age + 1))
+	decrease.pressed.emit()
+	assert_eq(GameManager.player_profile.age, initial_age)
+	for i in 110:
+		decrease.pressed.emit()
+	assert_eq(rounds.draft.age, 18)
+	assert_true(decrease.disabled)
+	assert_false(increase.disabled)
+	for i in 110:
+		increase.pressed.emit()
+	assert_eq(rounds.draft.age, 100)
+	assert_eq(GameManager.player_profile.age, 100)
+	assert_eq(readout.text, "Age 100")
+	assert_true(increase.disabled)
+	assert_false(decrease.disabled)
+	readout.grab_focus()
+	assert_eq(readout.text, "100", "Focus exposes the number for typing")
+	readout.text = "42"
+	readout.text_submitted.emit(readout.text)
+	assert_eq(GameManager.player_profile.age, 42)
+	assert_eq(readout.text, "Age 42")
+	assert_false(increase.disabled)
+	for entry in ["150", "12", "invalid", ""]:
+		readout.grab_focus()
+		readout.text = entry
+		readout.release_focus()
+		assert_eq(GameManager.player_profile.age, 100 if entry == "150" else 18,
+			"Typed ages clamp to limits; invalid or empty input keeps the last age")
+	await process_frames(5)
+	_assert_shelf_fits(page)
 
 func test_golfer_skills_lead_player_skills_shelf_as_untitled_visitor_cards() -> void:
 	var tab := PlayerTab.new()
@@ -561,26 +720,35 @@ func test_player_skills_button_badges_unspent_points() -> void:
 	tab.refresh_skill_badge()
 	assert_eq(badge.text, "10", "A refresh reads the profile rather than the last count it was told")
 
-func test_player_skills_use_two_four_four_columns() -> void:
+func test_player_skills_use_age_style_stepper_plates() -> void:
 	var tab := PlayerTab.new()
 	fixture.add_child(tab)
 	rounds.attach_player_tab(tab)
-
-	var first_column := rounds.skill_labels[0].get_parent().get_parent()
-	var second_column := rounds.skill_labels[2].get_parent().get_parent()
-	var third_column := rounds.skill_labels[6].get_parent().get_parent()
-
-	for i in range(0, 2):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), first_column,
-			"The first Player Skills column contains skills 1–2")
-	for i in range(2, 6):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), second_column,
-			"The second Player Skills column contains skills 3–6")
-	for i in range(6, 10):
-		assert_eq(rounds.skill_labels[i].get_parent().get_parent(), third_column,
-			"The third Player Skills column contains skills 7–10")
-	assert_ne(first_column, second_column)
-	assert_ne(second_column, third_column)
+	assert_eq(rounds.skill_labels.size(), 10)
+	assert_false(rounds.points_label.visible, "The shelf has no point-summary text between skill areas")
+	var page := tab.pages[PlayerTab.PAGE_SKILLS]
+	assert_eq(rounds.skill_labels[0].get_parent().get_parent().get_index(), 1,
+		"Golf Skill plates follow the Golfer Skills column without a text column")
+	assert_eq(page.get_child_count(), 5)
+	for i in 10:
+		var row := rounds.skill_labels[i].get_parent()
+		assert_eq(row.get_child(0), rounds.skill_decrease_buttons[i])
+		assert_eq(row.get_child(2), rounds.skill_increase_buttons[i])
+		@warning_ignore("integer_division")
+		assert_eq(row.get_parent(), rounds.skill_labels[(i / 3) * 3].get_parent().get_parent())
+		assert_true(rounds.skill_decrease_buttons[i].disabled)
+		assert_false(rounds.skill_increase_buttons[i].disabled)
+	rounds.skill_increase_buttons[0].pressed.emit()
+	assert_eq(GameManager.player_profile.points[0], 1)
+	assert_eq(rounds.skill_labels[0].text, "Power Hitter: 10%")
+	assert_false(rounds.skill_decrease_buttons[0].disabled)
+	for i in range(1, 10):
+		rounds.skill_increase_buttons[i].pressed.emit()
+	assert_true(rounds.skill_increase_buttons[0].disabled)
+	rounds.skill_decrease_buttons[0].pressed.emit()
+	assert_true(rounds.skill_decrease_buttons[0].disabled)
+	assert_false(rounds.skill_increase_buttons[0].disabled)
+	assert_eq(GameManager.player_profile.points[0], 0)
 
 func test_embedded_round_uses_aim_page_and_returns_to_setup() -> void:
 	var tab := PlayerTab.new()
@@ -1082,8 +1250,18 @@ func test_edit_player_identity_and_traits_wear_skill_toggle_plates() -> void:
 	all_plates.append_array(traits)
 	for plate in all_plates:
 		assert_true(plate.toggle_mode, "%s is a card plate" % plate.name)
-		assert_eq(plate.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
-			"%s uses the Golfer Skills footprint" % plate.name)
+		if plate in traits:
+			assert_eq(plate.custom_minimum_size, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE,
+				"Traits keep the Golfer Skills footprint")
+		else:
+			var widest := 0.0
+			for caption in plate.get_meta("cycle_captions"):
+				widest = maxf(widest, VisitorCardButton.FONT.get_string_size(
+					str(caption), HORIZONTAL_ALIGNMENT_LEFT, -1, VisitorCardButton.NAME_FONT_SIZE).x)
+			assert_eq(plate.custom_minimum_size.x, ceilf(widest) + 56.0,
+				"Identity choices have Age-like caption padding")
+			assert_lt(plate.custom_minimum_size.x, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE.x)
+			assert_eq(plate.custom_minimum_size.y, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE.y)
 		assert_eq(plate.get_theme_font("font"), VisitorCardButton.FONT,
 			"%s uses the Visiting Golfer pixel font" % plate.name)
 		assert_true(plate.get_theme_stylebox("normal") is StyleBoxTexture,
@@ -1493,19 +1671,20 @@ func test_skills_auto_save_and_take_effect_for_next_shot_mid_round() -> void:
 	assert_true(rounds.active, "Round is active")
 	assert_not_null(rounds.player, "Player golfer is spawned")
 
-	# Skills page controls must remain enabled during an active round
-	var skill_page := tab.pages[PlayerTab.PAGE_SKILLS]
-	for button in skill_page.find_children("*", "Button", true, false):
-		assert_false(button.disabled, "Skill adjustment buttons must remain enabled during round")
+	# Spent points remain refundable during a round; additions are disabled
+	# only because the pool is empty, not because the round is active.
+	assert_false(rounds.skill_decrease_buttons[4].disabled)
+	assert_true(rounds.skill_increase_buttons[1].disabled)
 
 	# Record the initial driving ability to compare against after allocating points
 	var initial_driving_ability := rounds.player.driving_ability()
 
 	# Mid-round: change skills (e.g. shift a point from Accurate Putter to Long Driver)
 	# First refund 1 from skill 4 (Accurate Putter)
-	assert_true(rounds.allocate_skill(4, -1))
+	rounds.skill_decrease_buttons[4].pressed.emit()
 	# Add to skill 1 (Long Driver)
-	assert_true(rounds.allocate_skill(1, 1))
+	assert_false(rounds.skill_increase_buttons[1].disabled)
+	rounds.skill_increase_buttons[1].pressed.emit()
 
 	# Verify skills auto-saved to GameManager.player_profile
 	assert_eq(GameManager.player_profile.points[4], 0, "Accurate Putter points updated in profile")

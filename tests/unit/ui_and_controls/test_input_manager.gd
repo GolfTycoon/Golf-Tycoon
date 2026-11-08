@@ -199,6 +199,38 @@ func test_directional_neighbours_follow_screen_positions() -> void:
 	assert_eq(bottom_right.get_node(bottom_right.focus_neighbor_top), top_right)
 
 
+func test_the_directional_edges_wrap_round_the_scope() -> void:
+	var root := _make_root()
+	var top := _make_button(root, "Top", Vector2(20, 20))
+	var bottom := _make_button(root, "Bottom", Vector2(20, 170))
+	manager.focus_scope(root)
+
+	# A press that walks off the end of a list comes back in at the other end,
+	# so the D-pad cycles through an open screen the way Tab does instead of
+	# running out of it — Godot looks for a neighbour of its own whenever a
+	# screen leaves a direction empty, and picks the nearest focusable control
+	# in the window, which for the pause menu is a tile in the HUD behind it.
+	assert_eq(top.get_node(top.focus_neighbor_top), bottom,
+		"Up on the first control wraps to the last")
+	assert_eq(bottom.get_node(bottom.focus_neighbor_bottom), top,
+		"Down on the last control wraps to the first")
+
+
+func test_a_control_with_nothing_beside_it_keeps_the_selection() -> void:
+	var root := _make_root()
+	var first := _make_button(root, "First", Vector2(20, 20))
+	var second := _make_button(root, "Second", Vector2(20, 170))
+	manager.focus_scope(root)
+
+	# There is nothing either side of a one-column menu, so a press across it
+	# holds the selection rather than letting Godot find a neighbour outside
+	# the screen.
+	assert_eq(first.get_node(first.focus_neighbor_left), first)
+	assert_eq(first.get_node(first.focus_neighbor_right), first,
+		"Right on a one-column menu keeps the selection where it is")
+	assert_eq(second.get_node(second.focus_neighbor_right), second)
+
+
 func test_tab_cycle_uses_reading_order() -> void:
 	var root := _make_root()
 	var top_left := _make_button(root, "TL", Vector2(20, 20))
