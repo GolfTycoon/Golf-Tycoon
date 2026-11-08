@@ -8,6 +8,16 @@ class_name PauseMenu
 ## The World Map is not here: it lives on the Club tab, where the company's
 ## sites are managed.
 ##
+## The menu is drawn in the title screen's own language, so pausing looks like
+## the screen the game was opened from instead of a system dialogue: a pixel
+## card (PixelButtonStyle's nine-patch frame) holding one column of action
+## cards, each with its own accent trim and a PixelIcon sprite - a play
+## triangle for Resume, a floppy and an archive for the save pair, a cog for
+## Settings, a map and a doorway for the two ways out. Resume is the gold call
+## to action, the save/load pair is green, Settings is the quiet utility and
+## the exits are the danger red, the same weighting the Main Menu gives them.
+## The heading is the game's flag mark beside the title, over a gold rule.
+##
 ## The simulation is frozen while this menu is open, but the player can still
 ## look around the course: pointer events that land on the dimmed backdrop
 ## (not on the menu panel) are forwarded to the isometric camera, which runs
@@ -34,7 +44,6 @@ var _bg: ColorRect = null
 var _panel: PanelContainer = null
 var _scroll: ScrollContainer = null
 var _vbox: VBoxContainer = null
-var _hint: Label = null
 var _info: Label = null
 var _title: Label = null
 var _spacer: Control = null
@@ -43,6 +52,59 @@ var _compact := false
 ## Quit to Desktop is native-only: closing the browser tab is the equivalent
 ## action on web. Kept as a value so the web menu can be tested natively.
 var _is_web := OS.has_feature("web")
+
+## The heading: the small gold line above the title, the flag mark beside it,
+## and the gold rule under it.
+var _kicker: Label = null
+var _mark: MenuFlagMark = null
+## Each action's recipe (accent, sprite, label colour, and whether it is the
+## one that takes focus), collected before the cards are painted because the
+## frame, the sprite and the label are all drawn from the same values.
+var _recipes: Array[Dictionary] = []
+
+# =============================================================================
+# PIXEL FURNITURE
+# =============================================================================
+
+## The scrim over the course: the frame's own ink rather than a flat black, so
+## the game behind dims into the palette instead of into grey.
+const SCRIM_COLOR := Color(0.016, 0.043, 0.035, 0.66)
+## The card the menu sits in: the title screen's rail recipe - a notched
+## nine-patch frame over the sheet colour, nearly opaque so the course behind
+## it cannot run through the type.
+const CARD_FILL := Color(0.031, 0.071, 0.059, 0.94)
+const CARD_BORDER := Color(0.388, 0.435, 0.353, 0.60)
+
+## Action cards: the title screen's tiles. One line of semibold Pixelify Sans,
+## a sprite scaled from the label size (the sprites snap to whole multiples of
+## their 16px grid, so 1.9x is a 32px sprite and 1.4x a 16px one), and the
+## ink outline that keeps the letter legible over the glass.
+const CARD_FONT := 16
+const CARD_HEIGHT := 52.0
+const CARD_HEIGHT_TOUCH := 44.0
+const CARD_PAD := 10
+const CARD_PAD_TOUCH := 8
+const CARD_ICON_SCALE := 1.9
+const CARD_ICON_SCALE_TOUCH := 1.4
+## Between the cards: the desktop gap, and the tighter one a short window
+## needs to keep all six options on screen without scrolling.
+const CARD_GAP := 8
+const CARD_GAP_SHORT := 5
+
+## Heading type. The short-window title drops a step so the six options still
+## fit without scrolling.
+const KICKER_FONT := 11
+const TITLE_FONT_SIZE := 24
+const TITLE_FONT_SIZE_SHORT := 18
+const INFO_FONT := 12
+## Side of the flag mark beside the title, and its size on a short window.
+const MARK_SIZE := 34.0
+const MARK_SIZE_SHORT := 22.0
+
+## The label's ink edge and drop shadow, as on the title screen's cards.
+const LABEL_OUTLINE_SIZE := 4
+const LABEL_SHADOW_OFFSET := Vector2(0.0, 2.0)
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -58,10 +120,12 @@ func _ready() -> void:
 	if has_node("/root/InputManager"):
 		InputManager.register_scope(self)
 
+
 func _build_ui() -> void:
 	# Semi-transparent dark overlay
 	var bg = ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.6)
+	bg.name = "Scrim"
+	bg.color = SCRIM_COLOR
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_bg = bg
@@ -72,22 +136,14 @@ func _build_ui() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 
-	# Menu panel
+	# Menu panel: the same notched pixel frame the title screen builds its
+	# cards and rails from, so the pause overlay belongs to the same game.
 	var panel = PanelContainer.new()
+	panel.name = "PausePanel"
 	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
 	_compact = compact
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.12, 0.1, 0.95)
-	style.border_color = UIConstants.COLOR_PRIMARY
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
-	var margin_h := 16 if compact else 30
-	var margin_v := 16 if compact else 24
-	style.content_margin_left = margin_h
-	style.content_margin_right = margin_h
-	style.content_margin_top = margin_v
-	style.content_margin_bottom = margin_v
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel",
+		PixelButtonStyle.panel_style(CARD_BORDER, CARD_FILL, 16, 14))
 	panel.custom_minimum_size = Vector2(_menu_width(), 0)
 	_panel = panel
 	center.add_child(panel)
@@ -101,38 +157,27 @@ func _build_ui() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The project theme paints scroll containers an opaque green; the card
+	# underneath is the surface here.
+	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_scroll = scroll
 	panel.add_child(scroll)
 
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
+	vbox.add_theme_constant_override("separation", CARD_GAP)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_vbox = vbox
 	scroll.add_child(vbox)
 
 	var in_tourney := GameManager.is_tournament_mode
 
-	# Title
-	var title = Label.new()
-	title.text = "Tournament Paused" if in_tourney else "Game Paused"
-	title.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XL)
-	title.add_theme_color_override("font_color", Color(0.85, 0.95, 0.75))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title = title
-	vbox.add_child(title)
-
-	# Separator
-	vbox.add_child(HSeparator.new())
+	# ── Heading: the state, the title beside the game's mark, the course.
+	vbox.add_child(_make_header(in_tourney))
 
 	# Course info
-	var info_label = Label.new()
-	if in_tourney:
-		var diff_str := GameManager.tournament_difficulty_label if not GameManager.tournament_difficulty_label.is_empty() else "Tournament Mode"
-		info_label.text = "%s — %s" % [GameManager.course_name, diff_str]
-	else:
-		info_label.text = "%s - Day %d" % [GameManager.course_name, GameManager.current_day]
-	info_label.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_SM)
-	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
+	var info_label = MenuScreenKit.make_label(_info_text(in_tourney), INFO_FONT,
+		UIConstants.COLOR_TEXT_DIM)
+	info_label.name = "Info"
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# Wrapped, so a long course name never forces the panel wider than a phone.
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -142,41 +187,101 @@ func _build_ui() -> void:
 
 	# Spacer
 	var spacer = Control.new()
-	spacer.custom_minimum_size = Vector2(0, 8)
+	spacer.custom_minimum_size = Vector2(0, 6)
 	_spacer = spacer
 	vbox.add_child(spacer)
 
-	# Menu buttons. Resume is the default focus, so A/Enter continues the game.
-	var resume := _add_menu_button(vbox, "Resume", _on_resume_pressed)
-	resume.set_meta(InputManager.DEFAULT_FOCUS_META, true)
+	# ── Options. Each one is a card with the accent and the sprite of its
+	# family, so the menu reads at a glance: gold to carry on, green to keep
+	# a game, red to leave it.
 	if in_tourney:
-		_add_menu_button(vbox, "Restart Tournament", func() -> void: restart_tournament_requested.emit())
-		_add_menu_button(vbox, "Tournament Setup", func() -> void: tournament_setup_requested.emit())
+		_add_menu_button(vbox, "Resume", "Back to the round", _on_resume_pressed,
+			MenuStyle.ACCENT_PRIMARY, PixelIcon.Kind.PLAY, UIConstants.COLOR_TEXT, true)
+		_add_menu_button(vbox, "Restart Tournament", "Tee off in this tournament again",
+			func() -> void: restart_tournament_requested.emit(),
+			MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.FLAG)
+		_add_menu_button(vbox, "Tournament Setup", "Choose a different difficulty, course or golfer",
+			func() -> void: tournament_setup_requested.emit(),
+			MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.TROPHY)
+		_add_menu_button(vbox, "Settings", "Audio, display and gameplay options",
+			_on_settings_pressed, MenuStyle.ACCENT_UTILITY, PixelIcon.Kind.GEAR)
+		_add_menu_button(vbox, "Quit to Menu", "Leave the tournament for the title screen",
+			_on_quit_to_menu_pressed, MenuStyle.ACCENT_QUIT, PixelIcon.Kind.MAP,
+			UIConstants.COLOR_DANGER_MUTED)
+		if not _is_web:
+			_add_menu_button(vbox, "Quit to Desktop", "Close the game",
+				_on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER,
+				PixelIcon.Kind.DOOR, UIConstants.COLOR_DANGER_MUTED)
 	else:
-		_add_menu_button(vbox, "Save Game", _on_save_pressed)
-		_add_menu_button(vbox, "Load Game", _on_load_pressed)
-	_add_menu_button(vbox, "Settings", _on_settings_pressed)
+		_add_menu_button(vbox, "Resume", "Back to the course", _on_resume_pressed,
+			MenuStyle.ACCENT_PRIMARY, PixelIcon.Kind.PLAY, UIConstants.COLOR_TEXT, true)
+		_add_menu_button(vbox, "Save Game", "Write your course to a save slot",
+			_on_save_pressed, MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.FLOPPY)
+		_add_menu_button(vbox, "Load Game", "Return to a saved course",
+			_on_load_pressed, MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.BOOK)
+		_add_menu_button(vbox, "Settings", "Audio, display and gameplay options",
+			_on_settings_pressed, MenuStyle.ACCENT_UTILITY, PixelIcon.Kind.GEAR)
+		_add_menu_button(vbox, "Quit to Menu", "Leave the course for the title screen",
+			_on_quit_to_menu_pressed, MenuStyle.ACCENT_QUIT, PixelIcon.Kind.MAP,
+			UIConstants.COLOR_DANGER_MUTED)
+		if not _is_web:
+			_add_menu_button(vbox, "Quit to Desktop", "Close the game",
+				_on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER,
+				PixelIcon.Kind.DOOR, UIConstants.COLOR_DANGER_MUTED)
 
-	# Separator before destructive actions
-	vbox.add_child(HSeparator.new())
+	_paint_buttons()
 
-	_add_menu_button(vbox, "Quit to Menu", _on_quit_to_menu_pressed, UIConstants.COLOR_WARNING)
-	if not _is_web:
-		_add_menu_button(vbox, "Quit to Desktop", _on_quit_to_desktop_pressed, UIConstants.COLOR_DANGER)
 
-	# Hint at bottom (touch-specific gesture help on touch screens)
-	var hint = Label.new()
-	if has_node("/root/Screen") and Screen.uses_touch_layout():
-		hint.text = "Look around while paused: drag to pan, pinch to zoom\nTap Resume to continue"
-	else:
-		hint.text = "Look around while paused: middle-mouse drag or WASD to pan, scroll to zoom\nPress Escape to resume"
-	hint.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_XS)
-	hint.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_hint = hint
-	vbox.add_child(hint)
+## The heading: a small gold line naming the mode, the title beside the game's
+## flag mark, and a gold rule closing it off. The mark is drawn, not typed,
+## like the title screen's sprites - the font carries no golf glyph.
+func _make_header(in_tourney: bool) -> Control:
+	var header := VBoxContainer.new()
+	header.name = "Header"
+	header.add_theme_constant_override("separation", 2)
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	_kicker = MenuScreenKit.make_kicker(
+		"Tournament" if in_tourney else "Career", KICKER_FONT)
+	_kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_child(_kicker)
+
+	var title_row := HBoxContainer.new()
+	title_row.name = "TitleRow"
+	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	title_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	title_row.add_theme_constant_override("separation", 8)
+	header.add_child(title_row)
+
+	var mark := MenuFlagMark.new()
+	mark.name = "Mark"
+	mark.mark_size = MARK_SIZE
+	_mark = mark
+	title_row.add_child(mark)
+
+	_title = MenuScreenKit.make_title_label(
+		"Tournament Paused" if in_tourney else "Game Paused", TITLE_FONT_SIZE)
+	_title.name = "PauseTitle"
+	title_row.add_child(_title)
+
+	# The gold rule that closes the heading off, as on the title screen.
+	var rule := ColorRect.new()
+	rule.name = "Rule"
+	rule.color = MenuStyle.with_alpha(MenuStyle.ACCENT_PRIMARY, 0.55)
+	rule.custom_minimum_size = Vector2(0, 1)
+	rule.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(rule)
+
+	return header
+
+
+func _info_text(in_tourney: bool) -> String:
+	if in_tourney:
+		var diff_str := GameManager.tournament_difficulty_label if not GameManager.tournament_difficulty_label.is_empty() else "Tournament Mode"
+		return "%s — %s" % [GameManager.course_name, diff_str]
+	return "%s - Day %d" % [GameManager.course_name, GameManager.current_day]
+
 
 ## Keep the whole menu on screen: the panel is clamped to the space a modal may
 ## use and its content scrolls when it does not fit. Called after the first
@@ -198,26 +303,31 @@ func _fit_to_view() -> void:
 		vertical_padding = style.get_margin(SIDE_TOP) + style.get_margin(SIDE_BOTTOM)
 		horizontal_padding = style.get_margin(SIDE_LEFT) + style.get_margin(SIDE_RIGHT)
 
-	# A short window (a phone held sideways) gets tighter spacing and loses the
-	# gesture footnote, so every option — Quit to Menu and Quit to Desktop
-	# included — is on screen without scrolling.
+	# A short window (a phone held sideways) gets tighter spacing, so every
+	# option — Quit to Menu and Quit to Desktop included — is on screen without
+	# scrolling.
 	var short_window := available.y < 420.0
-	_vbox.add_theme_constant_override("separation", 6 if short_window else 12)
-	if is_instance_valid(_hint):
-		_hint.visible = not short_window
+	_vbox.add_theme_constant_override("separation",
+		CARD_GAP_SHORT if short_window else CARD_GAP)
 	# On a short window the course line and its spacer give way first: the
 	# options themselves are what the player opened the menu for.
 	if is_instance_valid(_info):
 		_info.visible = not short_window
 	if is_instance_valid(_spacer):
 		_spacer.visible = not short_window
+	if is_instance_valid(_kicker):
+		_kicker.visible = not short_window
 	if is_instance_valid(_title):
 		_title.add_theme_font_size_override("font_size",
-			UIConstants.FONT_SIZE_LG if short_window else UIConstants.FONT_SIZE_XL)
-	if _compact:
-		for button in _buttons:
-			if is_instance_valid(button):
-				button.custom_minimum_size.y = 40 if short_window else 44
+			TITLE_FONT_SIZE_SHORT if short_window else TITLE_FONT_SIZE)
+	if is_instance_valid(_mark):
+		_mark.mark_size = MARK_SIZE_SHORT if short_window else MARK_SIZE
+
+	# Theme overrides land on the next sort, so ask for the new minimum sizes
+	# before measuring: otherwise the panel is sized from the heading's old
+	# type and every option sits a few pixels lower than it should.
+	if is_instance_valid(_vbox):
+		_vbox.update_minimum_size()
 
 	var natural_size := _vbox.get_combined_minimum_size()
 	var width := minf(maxf(_menu_width(), natural_size.x + horizontal_padding), available.x)
@@ -236,23 +346,63 @@ func _menu_width() -> float:
 	return 280.0 if has_node("/root/Screen") and Screen.uses_touch_layout() else 320.0
 
 
-func _add_menu_button(parent: VBoxContainer, text: String, callback: Callable, text_color: Color = Color.WHITE) -> Button:
+## Paint every action card: the shared frame recipe in this action's accent and
+## its own sprite — including the shared focus treatment (the cream ring drawn
+## outside the card and the warm wash over it). Cards are
+## sized once, from the layout the menu opened in - a touch window gets the
+## compact 44 px target with a small sprite, a desktop window the roomier card
+## with a full-size one.
+func _paint_buttons() -> void:
+	var compact := _compact
+	var height := CARD_HEIGHT_TOUCH if compact else CARD_HEIGHT
+	var pad := CARD_PAD_TOUCH if compact else CARD_PAD
+	var icon_side := int(roundf(float(CARD_FONT) * (CARD_ICON_SCALE_TOUCH if compact else CARD_ICON_SCALE)))
+	for recipe in _recipes:
+		var button: Button = recipe["button"]
+		if not is_instance_valid(button):
+			continue
+		var accent: Color = recipe["accent"]
+		var text_color: Color = recipe["text"]
+		var hover_color := Color.WHITE if text_color == UIConstants.COLOR_TEXT else text_color.lightened(0.25)
+		PixelButtonStyle.paint_card(button, accent, 0.0, pad, text_color, hover_color)
+		button.custom_minimum_size = Vector2(0, height)
+		button.icon = PixelIcon.texture(recipe["icon"], icon_side, accent)
+		button.add_theme_constant_override("h_separation", 8 if compact else 10)
+		if recipe["default"]:
+			button.set_meta(InputManager.DEFAULT_FOCUS_META, true)
+
+
+func _add_menu_button(parent: VBoxContainer, text: String, tooltip: String,
+		callback: Callable, accent: Color, icon_kind: int,
+		text_color: Color = UIConstants.COLOR_TEXT, default: bool = false) -> Button:
 	var btn = Button.new()
 	btn.text = text
-	var compact := has_node("/root/Screen") and Screen.uses_touch_layout()
-	if compact:
-		# Full-width, tall targets: easy to tap on touch screens.
-		btn.custom_minimum_size = Vector2(0, 44)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	else:
-		btn.custom_minimum_size = Vector2(260, 40)
+	btn.name = text.replace(" ", "") + "Button"
+	btn.tooltip_text = tooltip
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.add_theme_font_override("font", MenuScreenKit.SUBTITLE_FONT)
+	btn.add_theme_font_size_override("font_size", CARD_FONT)
+	# An outlined letter reads over the glassy card and over the course behind
+	# it, exactly as it does on the title screen's cards.
+	btn.add_theme_constant_override("outline_size", LABEL_OUTLINE_SIZE)
+	btn.add_theme_color_override("font_outline_color", PixelButtonStyle.INK)
+	btn.add_theme_color_override("font_shadow_color", Color(
+		PixelButtonStyle.INK.r, PixelButtonStyle.INK.g, PixelButtonStyle.INK.b, 0.55))
+	btn.add_theme_constant_override("shadow_offset_x", int(LABEL_SHADOW_OFFSET.x))
+	btn.add_theme_constant_override("shadow_offset_y", int(LABEL_SHADOW_OFFSET.y))
 	_buttons.append(btn)
-	btn.add_theme_font_size_override("font_size", UIConstants.FONT_SIZE_MD)
-	if text_color != Color.WHITE:
-		btn.add_theme_color_override("font_color", text_color)
+	_recipes.append({
+		"button": btn,
+		"accent": accent,
+		"text": text_color,
+		"icon": icon_kind,
+		"default": default,
+	})
 	btn.pressed.connect(callback)
 	parent.add_child(btn)
 	return btn
+
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
