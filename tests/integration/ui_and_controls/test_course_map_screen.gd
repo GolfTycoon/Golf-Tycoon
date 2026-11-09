@@ -235,6 +235,10 @@ func test_a_parcel_is_bought_from_the_map_through_the_strip() -> void:
 	GameManager.money = 500000
 	var for_sale: Array = land.get_purchasable_parcels()
 	assert_gt(for_sale.size(), 0, "there is land to buy next to the course")
+	# One roll of the world can leave a location with nothing beside it to buy;
+	# that is the failure above, not an index off the end of an empty list.
+	if for_sale.is_empty():
+		return
 	var owned_before: int = land.owned_parcels.size()
 	var money_before: int = GameManager.money
 
@@ -266,6 +270,9 @@ func test_a_parcel_is_bought_from_the_map_through_the_strip() -> void:
 func test_a_parcel_that_is_not_for_sale_is_only_read() -> void:
 	var screen := await open_map(MODE_LAND)
 	var land: LandManager = GameManager.land_manager
+	assert_gt(land.owned_parcels.size(), 0, "the company owns the land its course stands on")
+	if land.owned_parcels.is_empty():
+		return
 	var owned: Vector2i = land.owned_parcels.keys()[0]
 	var money_before: int = GameManager.money
 	screen._on_map_pressed(land.parcel_to_tile_rect(owned).position, {"kind": "parcel", "value": owned})

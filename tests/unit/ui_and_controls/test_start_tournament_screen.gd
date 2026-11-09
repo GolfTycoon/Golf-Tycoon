@@ -75,9 +75,10 @@ func test_tournament_uses_the_shared_header_with_trophy_and_compact_action() -> 
 			int(MenuScreenKit._header_metrics(header_mode)["mark"]), MenuScreenKit.COLOR_GOLD))
 		assert_eq(header.get_node("BackButton"), screen._back_button)
 		if include_cta:
-			assert_eq(header.get_node("Trailing"), screen._start_button)
+			assert_eq(header.get_node("StartTournamentButton"), screen._start_button,
+				"the compact header keeps the named Start Tournament button")
 		else:
-			assert_null(header.get_node_or_null("Trailing"))
+			assert_null(header.get_node_or_null("StartTournamentButton"))
 
 func test_every_label_and_button_uses_pixelify_sans() -> void:
 	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen

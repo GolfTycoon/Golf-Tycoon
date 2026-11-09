@@ -529,6 +529,113 @@ func test_skin_work_area_and_export_actions_share_trait_card_style() -> void:
 	assert_true(rounds._skin_picker.has_meta("editable_while_playing"))
 	_assert_shelf_fits(page)
 
+## Start Round is the Play Course shelf's one call to action, and it wears the
+## Visiting Golfers card like the Tournament Mode exports beneath it: the same
+## full visiting-green frame, pixel font and cream caption. It still fills the
+## setup column under the golfer and the pros it tees off with.
+func test_start_round_wears_a_visitor_card() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_PLAY]
+	var start_round: Button = null
+	for button in page.find_children("*", "Button", true, false):
+		if button.has_meta("owner_round_start"):
+			start_round = button as Button
+	assert_not_null(start_round, "Play Course carries its Start Round card")
+	assert_eq(start_round.text, "Start Round")
+	assert_true(start_round.has_meta(PlayerRoundManager.VISITOR_CARD_META),
+		"It wears the Visiting Golfers card frame")
+	assert_false(start_round.toggle_mode, "It stays a momentary action")
+	assert_eq(start_round.get_theme_font("font"), VisitorCardButton.FONT,
+		"It wears the pixel font")
+	assert_eq(start_round.get_theme_color("font_color"), VisitorCardButton.CREAM,
+		"It wears the cream caption")
+	assert_eq(start_round.get_theme_color("font_hover_color"), VisitorCardButton.NAME_LIT,
+		"It lights the caption under the pointer")
+	# The very same frame a visitor plate wears, in every state.
+	var visitor := VisitorCardButton.new() as VisitorCardButton
+	visitor.text = "A Visitor"
+	add_child_autofree(visitor)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var frame := start_round.get_theme_stylebox(state) as StyleBoxTexture
+		assert_not_null(frame, "The card frame is drawn in %s" % state)
+		var visitor_frame := visitor.get_theme_stylebox(state) as StyleBoxTexture
+		assert_eq(frame.texture.get_image().get_data(), visitor_frame.texture.get_image().get_data(),
+			"The card wears the visiting golfer frame in %s" % state)
+	# It closes the owner-and-pros column, stretched to that column's width.
+	var setup_column := start_round.get_parent() as VBoxContainer
+	assert_eq(setup_column, rounds._pro_roster.get_parent().get_parent(),
+		"The card stands under the golfer and the pros it tees off with")
+	assert_eq(start_round.size.x, setup_column.size.x,
+		"The card spans its column rather than sitting narrow in it")
+	_assert_shelf_fits(page)
+
+## The two Tournament Mode exports on Play Course are Visiting Golfers cards,
+## not bare buttons: same pixel font, cream caption and card frame as the
+## owner's plates, sized to hold their action caption. They close the shelf, so
+## they stand to the right of the tournaments they feed.
+func test_tournament_exports_wear_visitor_cards_right_of_the_tournaments() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	var page := tab.pages[PlayerTab.PAGE_PLAY]
+	var save_course := _find_node(page, "SaveTournamentCourseButton") as Button
+	var save_golfer := _find_node(page, "SaveTournamentGolferButton") as Button
+	assert_not_null(save_course, "The course export is on the Play Course shelf")
+	assert_not_null(save_golfer, "The golfer export is on the Play Course shelf")
+	var export_column := _find_node(page, "TournamentExportColumn") as VBoxContainer
+	assert_not_null(export_column, "Both exports share one column")
+	assert_eq(save_course.get_parent(), export_column)
+	assert_eq(save_golfer.get_parent(), export_column)
+	assert_lt(save_course.global_position.y, save_golfer.global_position.y,
+		"The course card stands above the golfer card")
+
+	# The benchmark is a visitor plate itself: the export cards wear the very
+	# same frame, not a look-alike.
+	var visitor := VisitorCardButton.new() as VisitorCardButton
+	visitor.text = "A Visitor"
+	add_child_autofree(visitor)
+	for card in [save_course, save_golfer]:
+		assert_true(card.has_meta(PlayerRoundManager.VISITOR_CARD_META),
+			"%s wears the Visiting Golfers card frame" % card.name)
+		assert_false(card.toggle_mode, "%s stays a momentary action" % card.name)
+		assert_eq(card.custom_minimum_size.y, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE.y,
+			"%s keeps the shelf plate height" % card.name)
+		assert_eq(card.get_theme_font("font"), VisitorCardButton.FONT,
+			"%s wears the pixel font" % card.name)
+		assert_eq(card.get_theme_color("font_color"), VisitorCardButton.CREAM,
+			"%s wears the cream caption" % card.name)
+		assert_eq(card.get_theme_color("font_hover_color"), VisitorCardButton.NAME_LIT,
+			"%s lights the caption under the pointer" % card.name)
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			var frame := card.get_theme_stylebox(state) as StyleBoxTexture
+			assert_not_null(frame, "%s wears the card frame in %s" % [card.name, state])
+			var visitor_frame := visitor.get_theme_stylebox(state) as StyleBoxTexture
+			assert_eq(frame.texture.get_image().get_data(), visitor_frame.texture.get_image().get_data(),
+				"%s wears the visiting golfer card in %s" % [card.name, state])
+		# The action caption fits inside the card rather than running over it.
+		var caption_width := VisitorCardButton.FONT.get_string_size(card.text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, VisitorCardButton.NAME_FONT_SIZE).x
+		assert_lte(caption_width, card.size.x,
+			"%s holds its caption" % card.name)
+
+	# The column closes the shelf, past the persistent tournament panel.
+	assert_eq(page.get_child(page.get_child_count() - 1), export_column,
+		"The export cards are the last column on the shelf")
+	var tournaments: Control = null
+	for child in page.get_children():
+		if child.has_meta(PlayerTab.PERSISTENT_META):
+			tournaments = child as Control
+	assert_not_null(tournaments, "The management tournament panel is on the page")
+	assert_lt(tournaments.get_index(), export_column.get_index(),
+		"The tournaments stand ahead of the export cards")
+	assert_lt(tournaments.get_global_rect().end.x, export_column.global_position.x,
+		"The export cards stand on the right of the tournaments")
+	_assert_shelf_fits(page)
+
 func test_identity_column_stacks_name_profession_and_a_row_of_choices() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
@@ -799,9 +906,10 @@ func test_round_roster_adds_up_to_three_pros_and_starts_one_group() -> void:
 	assert_not_null(rounds._add_golfer_button.icon)
 	var round_section: VBoxContainer = rounds._round_players_row.get_parent()
 	assert_eq(round_section.custom_minimum_size.x, 220.0,
-		"The round setup reserves four larger golfer-sprite slots")
-	assert_eq(rounds._round_player_preview_box.custom_minimum_size, Vector2(52, 66),
-		"The player's golfer sprite has a larger portrait area")
+		"The round setup reserves at least the width of its four golfer slots")
+	assert_eq(rounds._round_player_preview_box.custom_minimum_size,
+		PlayerRoundManager.PRO_PORTRAIT_SIZE,
+		"The player's golfer stands in a full portrait slot")
 	assert_eq(round_section.find_children("*", "Label", true, false).size(), 0,
 		"The setup has no title or visible golfer-name labels")
 	assert_eq(rounds._selected_pros.size(), 0, "A new round starts as practice")
@@ -814,9 +922,10 @@ func test_round_roster_adds_up_to_three_pros_and_starts_one_group() -> void:
 		assert_true(rounds._pro_preview_nodes.has(pro_name))
 		assert_true(rounds._pro_preview_nodes[pro_name] is Golfer)
 		var remove := rounds._pro_roster.get_child(index).find_child("RemoveProButton", true, false)
-		assert_not_null(remove, "Every pro portrait has a remove button")
-		assert_false(remove.get_parent().clip_contents,
-			"Remove controls sit outside the sprite's clipping rectangle")
+		assert_not_null(remove, "Every pro portrait has a remove chip")
+		assert_eq(remove.get_parent(),
+			rounds._pro_roster.get_child(index).find_child("ProPreview", true, false),
+			"The chip floats over the golfer's own sprite, not in a row beneath it")
 	assert_null(rounds._add_golfer_button, "The add icon disappears when the four-person group is full")
 	rounds._remove_round_pro(PlayerRoundManager.PROS[2])
 	assert_true(is_instance_valid(rounds._add_golfer_button), "Removing a pro restores the add icon")
@@ -831,6 +940,97 @@ func test_round_roster_adds_up_to_three_pros_and_starts_one_group() -> void:
 		assert_eq(rounds.participants[index + 1].group_id, rounds.player.group_id,
 			"Every selected pro joins the owner's playing group")
 	rounds.leave_round()
+
+## The owner and the pros are drawn at the same size as the golfer on the Edit
+## Player Golfer shelf: the round shelf's portrait slots are sized so the 48px
+## skin scales to the very height that shelf's preview draws it at.
+func test_round_sprites_stand_as_tall_as_the_edit_player_preview() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_EDIT)
+	await process_frames(5)
+	var edit_height := _drawn_sprite_height(rounds._skin_preview)
+	assert_gt(edit_height, 0.0, "The Edit Player preview draws a golfer sprite")
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	assert_almost_eq(_drawn_sprite_height(rounds._round_player_preview), edit_height, 0.5,
+		"The owner stands as tall on the Play Course shelf as on Edit Player")
+	rounds._on_add_golfer_selected(0)
+	await process_frames(3)
+	var pro: Golfer = rounds._pro_preview_nodes[PlayerRoundManager.PROS[0]]
+	assert_almost_eq(_drawn_sprite_height(pro), edit_height, 0.5,
+		"The pros stand at that same height beside the owner")
+	# The full four-golfer group still fits the shelf: the row grows sideways,
+	# where the shelf already scrolls, rather than taller than the bar.
+	rounds._on_add_golfer_selected(1)
+	rounds._on_add_golfer_selected(2)
+	await process_frames(3)
+	_assert_shelf_fits(tab.pages[PlayerTab.PAGE_PLAY])
+
+## Removing a pro is an overlay now: a chip pinned to the top-right of the
+## golfer's own sprite that waits transparent and out of the pointer's way. It
+## floats in over the golfer when the portrait is hovered, and a keyboard or
+## controller player reveals it by selecting it, because a transparent chip
+## still sits in the focus chain. There is no remove row below the portrait.
+func test_pro_remove_is_a_chip_that_floats_over_the_golfer() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(3)
+	rounds._on_add_golfer_selected(0)
+	await process_frames(3)
+	var card := rounds._pro_roster.get_child(0) as VBoxContainer
+	var portrait := card.find_child("ProPreview", true, false) as Control
+	var chip := card.find_child("RemoveProButton", true, false) as Button
+	assert_not_null(portrait, "The pro has a portrait")
+	assert_not_null(chip, "and a remove chip")
+	assert_eq(chip.get_parent(), portrait, "The chip is drawn on the portrait")
+	assert_eq(card.get_child_count(), 1, "No remove row sits under the portrait any more")
+	assert_eq(chip.text, "×")
+	assert_eq(chip.size, PlayerRoundManager.PRO_REMOVE_SIZE,
+		"The chip stays a small square rather than a tall slab")
+	assert_eq(chip.accessibility_name, "Remove Pro Alex from this round")
+	assert_eq(chip.get_theme_font("font"), VisitorCardButton.FONT,
+		"The chip wears the game's pixel font")
+	assert_true(chip.get_theme_stylebox("normal") is StyleBoxFlat,
+		"A small pixel chip, not a full shelf plate")
+	# Pinned to the portrait's top-right corner, over the golfer's shoulder.
+	var chip_rect := chip.get_global_rect()
+	var portrait_rect := portrait.get_global_rect()
+	assert_lte(chip_rect.end.x, portrait_rect.end.x + 0.5, "The chip stays inside the portrait")
+	assert_gte(chip_rect.position.x, portrait_rect.position.x + portrait_rect.size.x * 0.5,
+		"The chip sits on the right half of the sprite")
+	assert_lte(chip_rect.end.y, portrait_rect.position.y + portrait_rect.size.y * 0.5,
+		"at the top of the sprite")
+
+	# At rest it is transparent and ignores the pointer, but stays focusable.
+	assert_eq(chip.modulate.a, 0.0, "The chip waits over the golfer, unseen")
+	assert_eq(chip.mouse_filter, Control.MOUSE_FILTER_IGNORE,
+		"The hidden chip does not take the pointer from the portrait")
+	assert_true(chip.visible, "A transparent chip is still in the focus chain")
+	assert_eq(chip.focus_mode, Control.FOCUS_ALL, "so Tab can select it")
+
+	# Hovering the golfer floats the chip in.
+	card.mouse_entered.emit()
+	assert_eq(chip.modulate.a, 1.0, "Hovering the golfer shows the chip")
+	assert_eq(chip.mouse_filter, Control.MOUSE_FILTER_STOP, "and the chip takes clicks")
+	# Moving off the portrait clears it away again.
+	card.mouse_exited.emit()
+	assert_eq(chip.modulate.a, 0.0, "Leaving the golfer hides the chip")
+	# Selecting the chip (keyboard focus) reveals it even without a pointer.
+	chip.focus_entered.emit()
+	assert_eq(chip.modulate.a, 1.0, "Selecting the chip shows it over the golfer")
+	chip.focus_exited.emit()
+	assert_eq(chip.modulate.a, 0.0, "Moving the selection away hides it again")
+
+	_assert_shelf_fits(tab.pages[PlayerTab.PAGE_PLAY])
+
+	# Pressing it still removes the pro, and the roster rebuilds around it.
+	card.mouse_entered.emit()
+	chip.pressed.emit()
+	await process_frames(2)
+	assert_eq(rounds._selected_pros.size(), 0, "The chip removes its golfer")
+	assert_eq(rounds._pro_roster.get_child_count(), 0)
 
 ## The shot-type buttons are separate buttons running along the top of the Play
 ## Course page, one per shot type, above the aiming columns — no drop-down.
@@ -1821,6 +2021,25 @@ func test_the_edit_player_page_names_the_ground_they_work() -> void:
 	assert_eq(button.text, "Move work area")
 
 ## The node named `wanted` under `node`, wherever it sits in the tree.
+## The height a preview actually draws its golfer at: the skin frame's own
+## height times the scale the layout gave it.
+func _drawn_sprite_height(golfer: Golfer) -> float:
+	if not is_instance_valid(golfer):
+		return 0.0
+	var sprite := golfer.sprite_node()
+	if sprite == null or sprite.sprite_frames == null:
+		return 0.0
+	var animation: StringName = &"idle_south" if sprite.sprite_frames.has_animation(&"idle_south") \
+		else sprite.animation
+	if not sprite.sprite_frames.has_animation(animation) \
+			or sprite.sprite_frames.get_frame_count(animation) == 0:
+		return 0.0
+	var texture: Texture2D = sprite.sprite_frames.get_frame_texture(animation, 0)
+	if texture == null:
+		return 0.0
+	return texture.get_size().y * golfer.scale.y
+
+
 func _find_node(node: Node, wanted: String) -> Node:
 	if node == null:
 		return null

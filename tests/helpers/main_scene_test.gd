@@ -19,17 +19,21 @@ extends GameTest
 ## in before_all(), last in after_all().
 
 const MAIN_SCENE_PATH := "res://scenes/main/main.tscn"
+## The world map autoload's script, for the parts of it that are static.
+const WORLD_MAP_SCRIPT := preload("res://scripts/autoload/world_map_state.gd")
 ## The window the game is designed at (project.godot); layout tests that resize
 ## the window are put back to it.
 const DESIGN_WINDOW := Vector2i(1600, 1000)
 ## Frames a new course needs: the loading overlay paints for two, generation
 ## runs on the third, and Quick Start seats its first group a frame later.
 const NEW_COURSE_FRAMES := 8
-## Every course a script builds is the same course. Generation draws from the
-## clock and the global RNG otherwise, so a layout that trips one assert would
-## do it only on the runs whose random course happened to be awkward — flakes
-## that never reproduce. The seed pins the natural terrain, and the global RNG
-## pin makes everything drawn from it (the heightmap noise seed, golfer
+## Every course a script builds is the same course, on the same land. Generation
+## draws from the clock and the global RNG otherwise, so a layout that trips one
+## assert would do it only on the runs whose random course happened to be
+## awkward — flakes that never reproduce. The seed pins the natural terrain and
+## the world the script starts on (a roll decides how much land each location
+## comes with, and a course is laid around the land it is given), and the global
+## RNG pin makes everything drawn from it (the heightmap noise seed, golfer
 ## variety) reproducible too.
 const COURSE_SEED := 20261012
 ## Frames the harness will give a scene to finish its startup before it gives up
@@ -47,6 +51,11 @@ var startup_frames: int = 0
 func before_all() -> void:
 	_saved_state = GameState.capture()
 	seed(COURSE_SEED)
+	# Each script starts on the same world (see COURSE_SEED). A world roll draws
+	# how much land every location comes with, and a course is laid around the
+	# land it is given, so without this a script that reaches the same code
+	# builds a different course — and trips a different assert — every run.
+	WorldMap.new_world(WORLD_MAP_SCRIPT.default_options(), COURSE_SEED)
 	get_window().size = DESIGN_WINDOW
 	main = load(MAIN_SCENE_PATH).instantiate()
 	add_child(main)

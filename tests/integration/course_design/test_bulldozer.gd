@@ -20,7 +20,10 @@ func before_all() -> void:
 	if clubhouse == null:
 		clubhouse = CourseClubhouse.find(main.entity_layer)
 	assert_not_null(clubhouse, "The new course has a clubhouse")
-	_scenario_cursor = clubhouse.grid_position + Vector2i(0, clubhouse.height + 2)
+	# Read the footprint only once it is known to be there: a missing clubhouse
+	# is the failure above, not a nil dereference here.
+	if clubhouse != null:
+		_scenario_cursor = clubhouse.grid_position + Vector2i(0, clubhouse.height + 2)
 	# Hold the clock so green fees and day rollovers cannot move the balance
 	# between a demolition and the check of what it cost.
 	GameManager.set_speed(GameManager.GameSpeed.PAUSED)

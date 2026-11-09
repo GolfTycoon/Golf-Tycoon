@@ -282,8 +282,11 @@ static func _header_metrics(mode: int) -> Dictionary:
 
 ## The header bar: Back, a screen-specific pixel icon, the bold title and an optional
 ## `trailing` control (a treasury chip, a switch, a tab row).
-## Node names are fixed: "ScreenHeader", "BackButton", "ScreenIcon",
-## "TitleBlock", "Title" and "Trailing".
+## The header's own parts carry fixed names - "ScreenHeader", "BackButton",
+## "ScreenIcon", "TitleBlock", "Title" - and an unnamed trailing control takes
+## the "Trailing" slot name. A trailing control the caller already named keeps
+## that name, so an action stays findable by what it does: the tournament
+## header's trailing control is its "StartTournamentButton" in every layout.
 static func make_screen_header(mode: int, title_text: String, on_back: Callable = Callable(),
 		trailing: Control = null, icon_kind: int = PixelIcon.Kind.FLAG) -> HBoxContainer:
 	var metrics := _header_metrics(mode)
@@ -315,7 +318,11 @@ static func make_screen_header(mode: int, title_text: String, on_back: Callable 
 	header.add_child(title_block)
 
 	if trailing != null:
-		trailing.name = "Trailing"
+		# Keep a caller-given name (a fresh control is named after its class):
+		# the tournament's Start button has to stay findable in the header, the
+		# way it is in the layouts that put it in the sheet or the footer.
+		if String(trailing.name).is_empty() or String(trailing.name) == trailing.get_class():
+			trailing.name = "Trailing"
 		trailing.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		header.add_child(trailing)
 	return header

@@ -20,5 +20,6 @@ func test_shared_tournament_header_fits_each_layout() -> void:
 		assert_true(rect_within(screen._back_button.get_global_rect(), view), "%s: Back fits" % size)
 		assert_true(rect_within(icon.get_global_rect(), view), "%s: icon fits" % size)
 		if screen._layout_mode == StartTournamentScreen.Layout.LANDSCAPE:
-			assert_eq(header.get_node("Trailing"), screen._start_button)
+			assert_eq(header.get_node("StartTournamentButton"), screen._start_button,
+				"%s: the header keeps the named Start button" % size)
 			assert_true(rect_within(screen._start_button.get_global_rect(), view), "%s: Start fits" % size)

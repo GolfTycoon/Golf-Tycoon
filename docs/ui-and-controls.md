@@ -12,7 +12,7 @@
 **Shared screen chrome.** Every in-game screen (Start New Game, World Map, Course Map, Settings, Save and Load, Benchmark Results, Milestones, Achievements, Financial Overview, Golfer Skins, Generating Course, Credits, the pause menu and the game-over panel) is built from the same parts in `scripts/ui/components/menu_screen_kit.gd` (`MenuScreenKit`), so the screens share one layout and one look:
 
 - **Layout modes.** One `MenuScreenKit.LayoutMode` with five shapes: `DESKTOP`, `TABLET_LANDSCAPE`, `TABLET_PORTRAIT`, `PHONE_LANDSCAPE` and `PHONE_PORTRAIT`, picked by `layout_mode_for(view)` from the same breakpoints everywhere. `is_tablet` and `is_compact` group the shapes; `outer_padding` and `page_separation` set the spacing for each.
-- **Screen header.** `make_screen_header` builds the same top bar on every screen: a **Back** button on the left (`BackButton`, a utility card with a `‹` chevron), the golf-flag `MenuFlagMark`, a title block (gold kicker, bold title, subtitle) and an optional trailing group on the right (a treasury chip, an autosave chip, a tab row or a switch). Node names are fixed (`ScreenHeader`, `BackButton`, `FlagMark`, `TitleBlock`, `Kicker`, `Title`, `Subtitle`, `Trailing`).
+- **Screen header.** `make_screen_header` builds the same top bar on every screen: a **Back** button on the left (`BackButton`, a utility card with a `‹` chevron), the golf-flag `MenuFlagMark`, a title block (gold kicker, bold title, subtitle) and an optional trailing group on the right (a treasury chip, an autosave chip, a tab row or a switch). The header's own parts carry fixed node names (`ScreenHeader`, `BackButton`, `FlagMark`, `TitleBlock`, `Kicker`, `Title`, `Subtitle`), and an unnamed trailing control takes the `Trailing` slot name; a trailing control a screen names for what it does keeps that name, as the tournament header's `StartTournamentButton` does in every layout.
 - **Buttons.** `paint_utility_button` for secondary actions and Back, `paint_action` for the gold primary call to action, `paint_danger_button` for destructive actions such as Delete and Quit and `paint_toggle` for on/off switches. All of them use the rounded `PixelButtonStyle` frames.
 - **Cards and panels.** `make_panel` and `padded_panel` build the rounded pixel frame. `MenuStyle.panel`, `paint_card`, `paint_choice` and `paint_primary` delegate to `PixelButtonStyle`, so the older helpers draw the same frames.
 - **Rounded pixel frames.** `PixelButtonStyle` generates every card, button, panel and field as a rounded pill: one signed-distance rounded rectangle, rasterised per pixel with a one-pixel antialiased edge into a nine-patch texture, so the corners stay smooth and the interior stretches without smearing. The frame is built in layers, from the outside in: a soft contact shadow a little below the card, a dark ink outline, an accent rim whose top corners are lit warm and whose bottom edge drops into a rim shadow with a thin bounce-light line just inside it, a glass body that starts a shade lighter at the top and settles darker at the bottom, a gloss band under the top rim, and an inner bevel above the fill. The texture's margins (20 / 12 / 20 / 12 px, left / top / right / bottom) are wide enough to hold the whole corner curve, the gloss band and the contact shadow, so a nine-patch stretches only the flat middle and never smears the light; they are also kept tight enough that a small control - a filter chip, a row's action - still fits its own minimum size. `State.PRIMARY` paints the call to action on the same silhouette in a warm gold body with a cream rim; `State.INSET` sinks a recessed field into the surface; hover lifts the tint and the gloss, pressing darkens the body and drops the shadow, and disabled desaturates and fades the rim.
@@ -345,6 +345,36 @@ The page also carries an **On the course** column. It names the
 ground your own golfer works when they are not playing, and its **Move work area**
 button turns the next click on the course into the new ground. See [The Owner's
 Golfer on the Course](systems/golf-play/owner-on-the-course.md).
+
+**Play Course** gathers the round setup — your golfer beside the pros, the **+**
+card that adds up to three of them, and the **Start Round** card — then the
+tournaments the course can host, and closes the shelf with the **Tournament
+Mode** cards: **Save Course for Tournament** and **Save Golfer for Tournament**,
+stacked in one column at the far right, to the right of the tournament cards
+they feed. Every golfer in that row stands in a square portrait slot sized to
+draw the skin at the same height as the **Edit Player Golfer** preview, so the
+owner and the pros look the same size on both shelves; the row grows sideways as
+pros join it, where the shelf already scrolls.
+
+Removing a pro is an overlay rather than a row of buttons: a small **×** chip
+floats over the top-right corner of that pro's own skin sprite, so the shelf
+reads as a row of golfers. The chip is transparent and out of the pointer's way
+until the portrait is hovered, then it floats in over the golfer (and turns red
+under the pointer); moving off the portrait clears it away again. A keyboard or
+controller player reveals it by selecting it — the transparent chip stays in the
+focus chain, and focusing it floats it back over the sprite, where **Enter**
+removes the pro.
+
+The shelf's action cards all wear the **Visiting Golfers** card itself rather
+than the plain controls of the round setup: the same visiting-green glass frame,
+pixel font and cream caption as a visitor plate, widened to hold an action
+caption, with the caption lighting under the pointer and the shared focus ring
+for keyboard and controller players. **Start Round** is one, stretched across the
+setup column under the golfer and the pros it tees off with; the two export cards
+are the others. Each export card saves the open course, or your golfer's skills,
+traits and appearance, so Main Menu → Tournament Mode can offer them without the
+Career save. None of them is an On/Off plate — a press acts and reports itself in
+a notification. In standalone Tournament Mode the export cards step aside.
 
 ### Status column
 
