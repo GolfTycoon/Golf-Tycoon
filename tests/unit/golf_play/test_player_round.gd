@@ -1693,6 +1693,139 @@ func test_embedded_tournament_survives_rebuilds_and_fits_all_states() -> void:
 		assert_eq(panel.get_parent(), tab.pages[PlayerTab.PAGE_PLAY])
 		_assert_shelf_fits(tab.pages[PlayerTab.PAGE_PLAY])
 
+# ---------------------------------------------------------------------------
+# The tournament shelf: separated tickets
+# ---------------------------------------------------------------------------
+
+## The shelf's tournament section is a row of separated ticket cards, not one
+## column of stat rows: one card per tier, each in its own frame, all the same
+## size, with the desk's masthead leading them.
+func test_tournament_tiers_are_separated_ticket_cards() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	var panel := _tournament_shelf(tab)
+	assert_not_null(panel, "The tournament desk is on the Play Course shelf")
+	var cards := _find_node(panel, "TournamentCards") as HBoxContainer
+	assert_not_null(cards, "The tiers live in their own row")
+	assert_eq(cards.get_child_count(), TournamentSystem.TournamentTier.size(),
+		"One ticket per tier the course could host")
+	# The cards stand in the shelf's own row, with no heading column of their own
+	# and no scroll view between them and the shelf.
+	assert_eq(panel.get_child(0), cards, "The tickets are the panel's only content")
+	assert_eq(panel.get_child_count(), 1, "Nothing but the cards rides on the shelf")
+	assert_eq(cards.get_parent(), panel, "The cards are the shelf row, not a box inside it")
+	assert_null(_find_node(panel, "TournamentDesk"), "No heading column beside them")
+	assert_null(_find_node(panel, "ScrollContainer"), "and no scroll view of their own")
+	var previous_end := -1.0
+	for index in cards.get_child_count():
+		var card := cards.get_child(index) as TournamentTierCard
+		assert_not_null(card, "Ticket %d is a tournament card" % index)
+		assert_eq(cards.get_theme_constant("separation"), 10, "The tickets are separated by air")
+		var frame := card.get_theme_stylebox("panel")
+		assert_true(frame is StyleBoxTexture, "A ticket wears the dock's own frame")
+		assert_gt(card.size.y, 120.0, "A ticket fills the shelf's height")
+		# Every ticket is one footprint: the row reads as a set of posters.
+		assert_almost_eq(card.size.x, TournamentTierCard.CARD_WIDTH, 0.5,
+			"Ticket %d is the standard ticket width" % index)
+		assert_almost_eq(card.size.y, cards.get_child(0).size.y, 0.5,
+			"Ticket %d stands the same height as the rest" % index)
+		assert_gt(card.global_position.x, previous_end, "Ticket %d follows the one before it" % index)
+		previous_end = card.global_position.x + card.size.x
+		# The Host card is the ticket's one pressable control.
+		assert_not_null(card.host_button, "Ticket %d carries its Host card" % index)
+		assert_true(card.is_ancestor_of(card.host_button),
+			"The Host card belongs to its own ticket")
+		assert_true(panel.get_host_button(index) == card.host_button,
+			"The panel still hands out the tier's Host button")
+	_assert_shelf_fits(tab.pages[PlayerTab.PAGE_PLAY])
+
+## Each tier wears its own prestige colour on the frame, and a locked ticket
+## still says why in its own gate line, so a row of them reads as a ladder.
+func test_tickets_rank_the_tiers_and_name_their_gate() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	var panel := _tournament_shelf(tab)
+	var cards := _find_node(panel, "TournamentCards") as HBoxContainer
+	var colours := {}
+	for index in cards.get_child_count():
+		var card := cards.get_child(index) as TournamentTierCard
+		assert_eq(card.accent, TournamentTierCard.TIER_ACCENTS[index],
+			"Tier %d wears its own prestige colour" % index)
+		colours[card.accent] = true
+		var gate := _find_node(card, "GateLine") as Label
+		assert_not_null(gate, "Tier %d carries a gate line" % index)
+		assert_false(gate.text.is_empty(), "and it always says something")
+		if card.host_button.disabled:
+			assert_string_contains(gate.text, "NEED",
+				"A locked ticket names the requirement in its own line")
+			assert_eq(card.host_button.text, "Locked", "and its card says so")
+		else:
+			assert_eq(card.host_button.text, "Host Tournament", "A ready ticket offers the press")
+	assert_eq(colours.size(), TournamentSystem.TournamentTier.size(),
+		"Every tier is a different colour")
+
+## A course that qualifies fills its ticket's Host card in and swaps the gate
+## line for what the event pays the course: the shelf tells the same story the
+## button does.
+func test_a_qualifying_ticket_offers_the_host_card() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	GameManager.current_course = GameManager.CourseData.new()
+	for i in range(9):
+		var hole := GameManager.HoleData.new()
+		hole.hole_number = i + 1
+		hole.par = 3
+		hole.distance_yards = 400
+		hole.tee_position = Vector2i(4 + i * 4, 4)
+		hole.hole_position = Vector2i(6 + i * 4, 4)
+		GameManager.current_course.add_hole(hole)
+	GameManager.money = 50000
+	var panel := _tournament_shelf(tab)
+	panel._refresh_display()
+	await process_frames(5)
+	# The shelf refreshes itself as course and money signals arrive, so the
+	# ticket is read back fresh rather than held across a rebuild.
+	var local := panel.get_host_button(TournamentSystem.TournamentTier.LOCAL)
+	assert_not_null(local, "The Local ticket is on the shelf")
+	assert_false(local.disabled, "and it can be hosted on a qualifying course")
+	var card := _find_node(panel, "TournamentCard0") as TournamentTierCard
+	assert_not_null(card, "The first ticket is the Local event")
+	var gate := _find_node(card, "GateLine") as Label
+	assert_string_contains(gate.text, "GATE", "The ready ticket says what the event pays")
+	var purse := _find_node(card, "Purse") as Label
+	assert_string_contains(purse.text, "$", "The purse is on the ticket")
+	var entry := _find_node(card, "EntryFee") as Label
+	assert_string_contains(entry.text, "ENTRY", "beside the fee it costs to host")
+
+## The shelf keeps its cards in every state: a cooldown leaves the tickets in
+## place (locked), and the live board and a result wear the same card frames.
+func test_the_shelf_keeps_its_cards_in_every_state() -> void:
+	var toolbar := _embedded_toolbar()
+	var tab := toolbar.player_tab
+	tab.select(PlayerTab.PAGE_PLAY)
+	await process_frames(5)
+	var panel := _tournament_shelf(tab)
+	var manager := panel._tournament_manager
+	for state in [TournamentSystem.TournamentState.NONE, TournamentSystem.TournamentState.IN_PROGRESS,
+			TournamentSystem.TournamentState.COMPLETED]:
+		manager.current_tournament_state = state
+		manager.current_tournament_tier = 0
+		manager.tournament_results = {
+			"winner_name": "Tournament Winner", "winning_score": 70, "par": 72}
+		panel._refresh_display()
+		await process_frames(5)
+		var cards := _find_node(panel, "TournamentCards") as HBoxContainer
+		assert_gt(cards.get_child_count(), 0, "The shelf is never empty in state %d" % state)
+		for card in cards.get_children():
+			assert_true(card.get_theme_stylebox("panel") is StyleBoxTexture,
+				"Every card on the shelf wears the dock's frame")
+		_assert_shelf_fits(tab.pages[PlayerTab.PAGE_PLAY])
+
 ## The game's top-left score corner, as main.gd builds it: the round card first,
 ## the tournament board docked under it.
 func _scores_dock() -> ScoresDock:
@@ -2038,6 +2171,14 @@ func _drawn_sprite_height(golfer: Golfer) -> float:
 	if texture == null:
 		return 0.0
 	return texture.get_size().y * golfer.scale.y
+
+
+## The embedded tournament desk on the Play Course shelf, whatever node name it
+## was added under: the game names it, an isolated shelf does not.
+func _tournament_shelf(tab: PlayerTab) -> TournamentPanel:
+	for panel in tab.pages[PlayerTab.PAGE_PLAY].find_children("*", "TournamentPanel", true, false):
+		return panel as TournamentPanel
+	return null
 
 
 func _find_node(node: Node, wanted: String) -> Node:
