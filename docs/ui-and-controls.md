@@ -353,30 +353,28 @@ Mode** cards: **Save Course for Tournament** and **Save Golfer for Tournament**,
 stacked in one column at the far right, to the right of the tournament cards
 they feed.
 
-**The tournament desk.** The tournament section is a row of separated ticket
-cards rather than one column of stat rows. A **Tournaments** masthead opens the
-row: a trophy, the section's name and its one line of news — *Choose an event to
-host*, the cooldown count while the course rests, or the running event and the
-owner's place in it. Beside it stands one ticket per tier (`TournamentTierCard`),
-each the same 226px poster, so the row reads as a set: a trophy in a recessed
-well with the tier's rank and field size above the event's name, the purse in
-gold with the entry fee quiet at its right, a perforated fold, the course bar
-(holes and star rating) with the reputation the event pays, the **Host
-Tournament** card, and a gate line under it. Every ticket wears the shared
-`PixelButtonStyle` frame the rest of the dock's cards wear — the drawing is a
-non-interactive `PanelContainer`, so only its Host card takes a press — with a
-prestige colour down the left spine and the crest, rim and call to action: tier
-I fairway green, II sky blue, III flag gold, IV orchid. A qualifying event shows
-the Host card in the gold call-to-action frame and its gate line reports what the
-course keeps (*$800 GATE · $500 SPONSORS*); one that does not keeps the same
-silhouette with a muted rim, a dimmed crest, a **Locked** card and the
-requirement in its gate line (*NEED 18 HOLES (HAVE 9)*), so a ticket never
-changes size as the course or the treasury moves. During a cooldown every ticket
-opens on the same day (*OPENS IN 45 DAYS*) with the wait told once at the desk,
-which keeps the whole section on the shelf instead of emptying it. While an event
-runs, the row shows the live board — flag crest, the event and its round, the
-owner's scoreline and **Play It Out** — and, beside it, the champions' card for
-the last event. In standalone Tournament Mode the post-event row carries the
+**The tournament section** is a row of separated ticket cards standing in the
+shelf itself: no heading, no note and no scroll view of its own, so the player
+scrolls the dock once and the tournaments travel with the round-setup column
+beside them. Each tier (`TournamentTierCard`) is the same 226px poster, so the
+row reads as a set: a trophy in a recessed well with the tier's rank and field
+size above the event's name, the purse in gold with the entry fee quiet at its
+right, a perforated fold, the course bar (holes and star rating) with the
+reputation the event pays, the **Host Tournament** card, and a gate line under
+it. Every ticket wears the shared `PixelButtonStyle` frame the rest of the
+dock's cards wear — the drawing is a non-interactive `PanelContainer`, so only
+its Host card takes a press — with a prestige colour down the left spine and the
+crest, rim and call to action: tier I fairway green, II sky blue, III flag gold,
+IV orchid. A qualifying event shows the Host card in the gold call-to-action
+frame and its gate line reports what the course keeps (*$800 GATE · $500
+SPONSORS*); one that does not keeps the same silhouette with a muted rim, a
+dimmed crest, a **Locked** card and the requirement in its gate line (*NEED 18
+HOLES (HAVE 9)*), so a ticket never changes size as the course or the treasury
+moves. During a cooldown every ticket opens on the same day (*OPENS IN 45 DAYS*),
+which keeps the whole section on the shelf instead of emptying it. While an
+event runs, the row shows the live board — flag crest, the event and its round,
+the owner's scoreline and **Play It Out** — and, beside it, the champions' card
+for the last event. In standalone Tournament Mode the post-event row carries the
 result card and the three ways on.
 
 Every golfer in that row stands in a square portrait slot sized to

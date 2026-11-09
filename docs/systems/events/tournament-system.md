@@ -425,17 +425,19 @@ Tournament** button wired to `host_tournament()`; the button's tooltip reads
 "Starts right away — you are in the field" when it is live. Disabled buttons carry
 `can_schedule_tournament().reason`, one requirement at a time.
 
-On the Play Course shelf the same module reads as a tournament desk: a masthead
-column (`TournamentDesk`, 148px) carries the trophy crest, the **TOURNAMENTS**
-title, a rule and one line of news, and beside it sits one separated
-`TournamentTierCard` per tier — 226×138 tickets of the shared
+On the Play Course shelf the same module is a row of `TournamentTierCard`s
+standing in the shelf's own row — 226×144 tickets of the shared
 `PixelButtonStyle` frame, each with the tier's rank and field size, its name, the
 purse and entry fee, a perforated fold, the course bar and the reputation it pays,
 a **Host Tournament** card and a gate line (`$800 GATE · $500 SPONSORS`, or
-`NEED 18 HOLES (HAVE 9)` when the course falls short). The cards are built in
-`_build_tier_cards()` and their buttons registered in `_host_buttons` as before, so
-`get_host_button(tier)` still finds each one. Nothing on a ticket changes size with
-state: an unqualified tier only dims its rim and crest and swaps its call to action.
+`NEED 18 HOLES (HAVE 9)` when the course falls short). The embedded panel is a
+bare `PanelContainer` holding nothing but those cards: no heading column, no note
+and no scroll view of its own, so the shelf row is the only thing that scrolls —
+it also skips `CenteredPanel._ready()`, which would otherwise wrap it in a
+`ResponsiveScroll`. The cards are built in `_build_tier_cards()` and their
+buttons registered in `_host_buttons` as before, so `get_host_button(tier)` still
+finds each one. Nothing on a ticket changes size with state: an unqualified tier
+only dims its rim and crest and swaps its call to action.
 
 While an event runs, the tier tickets give way to the live board (`LiveEventBoard`):
 the flag crest, the event and its round, the owner's scoreline (`You: -2`, then
@@ -446,8 +448,7 @@ Course aiming page in the bottom bar. After completion, the final leaderboard re
 in that corner until the player returns to the course setup.
 
 During the cooldown the standalone dialog shows one line and no tier rows; the shelf
-keeps every ticket, each opening on the same day (`OPENS IN 45 DAYS`), with the wait
-also stated once at the desk.
+keeps every ticket, each opening on the same day (`OPENS IN 45 DAYS`).
 
 The panel refreshes through `_process()`: `hole_created`, `hole_deleted`,
 `hole_toggled`, `money_changed`, `day_changed`, `new_game_started` and

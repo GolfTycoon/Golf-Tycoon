@@ -54,8 +54,15 @@ func _panel_label(prefix: String) -> String:
 	return ""
 
 
+## The event spelled out on the shelf's cards, the way the shelf says it now:
+## the live board's crest block, or the gate line of the tickets behind it.
 func _status_text() -> String:
-	return main.tournament_panel._status_label.text.replace("\n", " | ")
+	var lines: PackedStringArray = []
+	for label in main.tournament_panel.find_children("*", "Label", true, false):
+		var text := str(label.text)
+		if not text.is_empty():
+			lines.append(text)
+	return " | ".join(lines)
 
 
 func test_the_shelf_offers_a_live_host_button_on_a_qualifying_course() -> void:
@@ -144,7 +151,7 @@ func test_the_scores_read_out_in_the_top_left_corner() -> void:
 func test_the_shelf_shows_the_running_event() -> void:
 	main.tournament_panel._refresh_display()
 	await process_frames(5)
-	assert_string_contains(_status_text(), "In progress", "The shelf shows the running event")
+	assert_string_contains(_status_text(), "IN PLAY", "The shelf shows the running event")
 	assert_true(_panel_label("You:").begins_with("You:"), "and the owner's scoreline")
 
 
@@ -177,13 +184,13 @@ func test_the_cooldown_follows_and_the_shelf_says_so() -> void:
 	main.tournament_panel._refresh_display()
 	await process_frames(5)
 	# The tickets stay on the shelf through the cooldown - they are the section's
-	# furniture, and the wait is told once at the desk - but none of them can be
+	# furniture, and each states its own opening day - but none of them can be
 	# hosted until the course is rested.
 	var cooling: Button = main.tournament_panel.get_host_button(REGIONAL)
 	assert_not_null(cooling, "The Regional ticket stays on the shelf during the cooldown")
 	assert_true(cooling.disabled, "But it cannot be hosted until the course has rested")
 	assert_string_contains(String(cooling.tooltip_text), "resting",
 		"and its card says why")
-	assert_string_contains(_status_text(), "Cooldown", "and the desk says how long")
+	assert_string_contains(_status_text(), "OPENS IN", "and each ticket says how long")
 	assert_string_contains(str(tournaments.can_schedule_tournament(REGIONAL).reason), "Must wait",
 		"Hosting again during the cooldown names the wait")

@@ -105,6 +105,8 @@ func configure(tier_index: int, tier_value: int, tier_data: Dictionary) -> void:
 
 
 func _build() -> void:
+	# The ticket's rows are one plain column laid inside its frame: no scroll
+	# view and no second card, so the shelf stays the only thing that scrolls.
 	var body := VBoxContainer.new()
 	body.name = "TicketBody"
 	body.add_theme_constant_override("separation", ROW_GAP)

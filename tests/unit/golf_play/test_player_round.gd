@@ -1711,10 +1711,13 @@ func test_tournament_tiers_are_separated_ticket_cards() -> void:
 	assert_not_null(cards, "The tiers live in their own row")
 	assert_eq(cards.get_child_count(), TournamentSystem.TournamentTier.size(),
 		"One ticket per tier the course could host")
-	var desk := _find_node(panel, "TournamentDesk") as VBoxContainer
-	assert_not_null(desk, "The desk names the section")
-	assert_eq(desk.get_parent().get_child(0), desk, "and leads the shelf")
-	assert_true(_find_node(desk, "TournamentDeskTitle") != null, "with its own title")
+	# The cards stand in the shelf's own row, with no heading column of their own
+	# and no scroll view between them and the shelf.
+	assert_eq(panel.get_child(0), cards, "The tickets are the panel's only content")
+	assert_eq(panel.get_child_count(), 1, "Nothing but the cards rides on the shelf")
+	assert_eq(cards.get_parent(), panel, "The cards are the shelf row, not a box inside it")
+	assert_null(_find_node(panel, "TournamentDesk"), "No heading column beside them")
+	assert_null(_find_node(panel, "ScrollContainer"), "and no scroll view of their own")
 	var previous_end := -1.0
 	for index in cards.get_child_count():
 		var card := cards.get_child(index) as TournamentTierCard
@@ -1799,9 +1802,9 @@ func test_a_qualifying_ticket_offers_the_host_card() -> void:
 	var entry := _find_node(card, "EntryFee") as Label
 	assert_string_contains(entry.text, "ENTRY", "beside the fee it costs to host")
 
-## The desk keeps its masthead in every state: a cooldown leaves the tickets in
+## The shelf keeps its cards in every state: a cooldown leaves the tickets in
 ## place (locked), and the live board and a result wear the same card frames.
-func test_the_desk_keeps_its_masthead_and_cards_in_every_state() -> void:
+func test_the_shelf_keeps_its_cards_in_every_state() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
 	tab.select(PlayerTab.PAGE_PLAY)
@@ -1816,9 +1819,6 @@ func test_the_desk_keeps_its_masthead_and_cards_in_every_state() -> void:
 			"winner_name": "Tournament Winner", "winning_score": 70, "par": 72}
 		panel._refresh_display()
 		await process_frames(5)
-		var desk := _find_node(panel, "TournamentDesk") as VBoxContainer
-		assert_true(desk.visible, "The desk names the section in state %d" % state)
-		assert_true(_find_node(desk, "TournamentDeskTitle") != null, "with its title")
 		var cards := _find_node(panel, "TournamentCards") as HBoxContainer
 		assert_gt(cards.get_child_count(), 0, "The shelf is never empty in state %d" % state)
 		for card in cards.get_children():

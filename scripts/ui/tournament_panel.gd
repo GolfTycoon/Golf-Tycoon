@@ -10,8 +10,9 @@ signal main_menu_requested
 var embedded := false
 var _tournament_manager: TournamentManager = null
 var _content_vbox: BoxContainer = null
+## The standalone dialog's note above the tier list. The embedded shelf has no
+## note of its own: the tickets say everything, and the desk's heading is gone.
 var _status_label: Label = null
-var _status_column: VBoxContainer = null
 var _title_label: Label = null
 ## Host buttons by tier, so a refresh can find and re-enable the exact one the
 ## player is hovering instead of rebuilding blind.
@@ -29,10 +30,17 @@ func get_settle_button() -> Button:
 	return _settle_button
 
 func _ready() -> void:
-	super._ready()
 	if embedded:
+		# Not CenteredPanel's _ready: that one builds, hides and registers a
+		# popup focus scope, and would measure the shelf against the screen's
+		# popup rect and wrap it in a scroll view of its own. The embedded shelf
+		# is a row of cards in the bottom bar, so it is built and shown here and
+		# the Player tab decides where it goes.
+		_build_ui()
 		size_flags_vertical = Control.SIZE_EXPAND_FILL
 		show()
+	else:
+		super._ready()
 	# Connect to tournament events
 	EventBus.tournament_scheduled.connect(_on_tournament_scheduled)
 	EventBus.tournament_started.connect(_on_tournament_started)
@@ -138,88 +146,24 @@ func _build_ui() -> void:
 	_content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content_vbox)
 
-## Embedded tournaments are a column of separated tickets on the Player shelf,
-## not the standalone dialog's tall list or a nested vertical scrollbar. The
-## column leads with the tournament desk's masthead and carries the status line
-## under it, so the shelf reads as one section: heading, note from the desk, then
-## one card per event. The cards run to the right of that column, each its own
-## frame (see TournamentTierCard), and the whole shelf still scrolls sideways.
+## Embedded tournaments are separated ticket cards standing directly in the
+## Play Course shelf, beside the round-setup column and ahead of the Tournament
+## Mode export cards: the player scrolls the shelf once, not a shelf inside a
+## shelf. Each card is its own frame (see TournamentTierCard); nothing here holds
+## a heading, a note or a scroll view of its own - the shelf is where they live.
 func _build_embedded_ui() -> void:
 	add_theme_font_size_override("font_size", 12)
-	# No frame of its own: the shelf's own fairway shows through behind it, so
-	# the panel sits in the bottom bar rather than becoming a card inside it.
+	# No frame of its own: the shelf's own fairway shows through behind the
+	# cards, so the panel sits in the bottom bar rather than becoming a card.
 	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var margin := MarginContainer.new()
-	for edge in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + edge, 4)
-	margin.add_theme_constant_override("margin_top", 0)
-	margin.add_theme_constant_override("margin_bottom", 0)
-	add_child(margin)
-	var shelf := HBoxContainer.new()
-	shelf.add_theme_constant_override("separation", 10)
-	margin.add_child(shelf)
-	_status_column = _build_desk_column(shelf)
+	# The tickets themselves row across the shelf. `_content_vbox` stays a box of
+	# cards; it is the shelf row, so every card the panel builds lands in it and
+	# the shelf's own scroll carries them.
 	_content_vbox = HBoxContainer.new()
 	_content_vbox.name = "TournamentCards"
 	_content_vbox.add_theme_constant_override("separation", 10)
 	_content_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	shelf.add_child(_content_vbox)
-
-## The masthead column: the desk's crest and name over a rule, then the line
-## that says what is happening at the desk - a cooldown, a live event, a result.
-## It leads the shelf, so the tickets beside it read as its offering; the title
-## is permanent (the shelf would otherwise have no name at all when there is
-## nothing to report) and only the note under the rule comes and goes.
-func _build_desk_column(shelf: HBoxContainer) -> VBoxContainer:
-	var column := VBoxContainer.new()
-	column.name = "TournamentDesk"
-	column.custom_minimum_size.x = 148.0
-	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 1)
-	shelf.add_child(column)
-	# A crest in the Golfers section's own green, so the desk belongs to the
-	# same dock the cards beside it come from.
-	var accent: Color = TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.GOLFERS]
-	var crest_row := HBoxContainer.new()
-	crest_row.add_theme_constant_override("separation", 5)
-	crest_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	column.add_child(crest_row)
-	var crest := TextureRect.new()
-	crest.name = "TournamentDeskCrest"
-	crest.texture = PixelIcon.texture(PixelIcon.Kind.TROPHY, 32, accent)
-	crest.custom_minimum_size = Vector2(32, 32)
-	crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	crest.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	crest_row.add_child(crest)
-	var title := Label.new()
-	title.name = "TournamentDeskTitle"
-	title.text = "TOURNAMENTS"
-	title.add_theme_font_override("font", PixelCircleButton.FONT)
-	title.add_theme_font_size_override("font_size", 15)
-	title.add_theme_color_override("font_color", PixelCircleButton.CREAM)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	crest_row.add_child(title)
-	var rule := ColorRect.new()
-	rule.name = "TournamentDeskRule"
-	rule.custom_minimum_size = Vector2(0, 1)
-	rule.color = Color(accent.r, accent.g, accent.b, 0.45)
-	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(rule)
-	_status_label = Label.new()
-	_status_label.name = "TournamentStatus"
-	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_label.add_theme_font_override("font", PixelCircleButton.FONT)
-	_status_label.add_theme_font_size_override("font_size", 11)
-	_status_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
-	column.add_child(_status_label)
-	var spacer := Control.new()
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(spacer)
-	return column
-
+	add_child(_content_vbox)
 
 func setup(tournament_manager: TournamentManager) -> void:
 	_tournament_manager = tournament_manager
@@ -249,9 +193,9 @@ func _refresh_display() -> void:
 		_show_available_tournaments()
 	else:
 		_show_current_tournament(info)
-	# An empty status line shouldn't reserve space. On the shelf the desk's
-	# masthead stays (it names the section); only its note goes.
-	_status_label.visible = _status_label.text != ""
+	# An empty status line shouldn't reserve space. The shelf has none at all.
+	if _status_label != null:
+		_status_label.visible = _status_label.text != ""
 
 func _show_available_tournaments() -> void:
 	if GameManager.is_tournament_mode:
@@ -259,25 +203,21 @@ func _show_available_tournaments() -> void:
 		return
 
 	var cooldown = _tournament_manager.get_cooldown_remaining()
-	if cooldown > 0:
-		# Kept short: the desk column is a masthead, and the tickets beside it
-		# already spell the wait out in their own gate lines.
-		_status_label.text = "Cooldown: %d days until next tournament" % cooldown
-		_status_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING_DIM)
-	elif embedded:
-		# The desk's one line of instruction while the shelf is idle: the tickets
-		# say what each event is, this says what the section is for.
-		_status_label.text = "Choose an event to host"
-		_status_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_MUTED)
-	else:
-		# Nothing to report: the tier rows speak for themselves.
-		_status_label.text = ""
-		_status_label.remove_theme_color_override("font_color")
+	# The shelf carries no note: its tickets are the whole section, and each one
+	# states its own wait in its gate line. Only the dialog needs telling.
+	if _status_label != null:
+		if cooldown > 0:
+			_status_label.text = "Cooldown: %d days until next tournament" % cooldown
+			_status_label.add_theme_color_override("font_color", UIConstants.COLOR_WARNING_DIM)
+		else:
+			# Nothing to report: the tier rows speak for themselves.
+			_status_label.text = ""
+			_status_label.remove_theme_color_override("font_color")
 
 	# While the course is resting between events nothing can be hosted. The
 	# standalone dialog skips the four identical "must wait" rows; the shelf
-	# keeps its tickets, each opening on the same day, with the wait told once
-	# at the desk - so the section reads as a schedule and never empties.
+	# keeps its tickets, each opening on the same day, so the section reads as a
+	# schedule and never empties.
 	if cooldown > 0 and not embedded:
 		return
 
@@ -287,9 +227,9 @@ func _show_available_tournaments() -> void:
 	else:
 		_build_dialog_tier_rows()
 
-## One separated card per tier on the embedded shelf. The standalone dialog
-## keeps its stat rows (see _build_dialog_tier_rows) - a floating dialog has
-## the vertical room for a list, while the shelf wants four posters.
+## One separated card per tier, standing in the shelf's own row. The standalone
+## dialog keeps its stat rows (see _build_dialog_tier_rows) - a floating dialog
+## has the vertical room for a list, while the shelf wants four posters.
 func _build_tier_cards() -> void:
 	var cooldown := _tournament_manager.get_cooldown_remaining()
 	for tier in TournamentSystem.TournamentTier.values():
@@ -364,6 +304,12 @@ func _build_dialog_tier_rows() -> void:
 		card.add_child(HSeparator.new())
 
 func _show_current_tournament(info: Dictionary) -> void:
+	if embedded:
+		# The live board names the event, its format and its round, so the shelf
+		# needs no note above it.
+		_build_live_event_cards(info)
+		return
+
 	var state_text = ""
 	match info.state:
 		TournamentSystem.TournamentState.SCHEDULED:
@@ -374,10 +320,6 @@ func _show_current_tournament(info: Dictionary) -> void:
 			_status_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS)
 
 	_status_label.text = "%s\n%s" % [info.name, state_text]
-
-	if embedded:
-		_build_live_event_cards(info)
-		return
 
 	var card: BoxContainer = _content_vbox
 
@@ -455,11 +397,11 @@ func _show_current_tournament(info: Dictionary) -> void:
 func _build_live_event_cards(info: Dictionary) -> void:
 	var accent: Color = TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.GOLFERS]
 	var board := _build_event_card("LiveEventBoard", accent)
-	var body: VBoxContainer = board.get_node("TicketBody")
+
 	# The event's own name rides in the crest block, beside the round it is on:
 	# the desk note at the head of the shelf already names it, and the board has
 	# only the ticket's height to say everything it needs to.
-	_add_event_crest(body, PixelIcon.Kind.FLAG, accent, "IN PLAY",
+	_add_event_crest(board, PixelIcon.Kind.FLAG, accent, "IN PLAY",
 			str(info.get("name", "Tournament")),
 			str(info.get("format_name", "Stroke Play")).to_upper(),
 			"ROUND %d OF %d" % [int(info.get("current_round", 1)),
@@ -470,14 +412,14 @@ func _build_live_event_cards(info: Dictionary) -> void:
 		var fmt_type := int(standing.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
 		var fmt_pts := int(standing.get("format_points", 0))
 		var score_str := TournamentLibrary.format_score_for_format(fmt_type, diff, fmt_pts, true)
-		_add_card_label(body, "You: %s" % score_str, 15, UIConstants.COLOR_GOLD)
-		_add_card_label(body, "RANK %d OF %d · %d HOLES IN" % [
+		_add_card_label(board, "You: %s" % score_str, 15, UIConstants.COLOR_GOLD)
+		_add_card_label(board, "RANK %d OF %d · %d HOLES IN" % [
 				standing.rank, standing.field_size, standing.holes_completed], 10,
 				UIConstants.COLOR_TEXT_DIM)
 		if standing.missed_cut:
-			_add_card_label(body, "MISSED CUT", 10, UIConstants.COLOR_DANGER)
-	_add_card_spacer(body)
-	var settle_btn := _add_card_button(body, "Play It Out", MenuStyle.ACCENT_PRIMARY)
+			_add_card_label(board, "MISSED CUT", 10, UIConstants.COLOR_DANGER)
+	_add_card_spacer(board)
+	var settle_btn := _add_card_button(board, "Play It Out", MenuStyle.ACCENT_PRIMARY)
 	settle_btn.name = "PlayItOutButton"
 	settle_btn.tooltip_text = "Settle the rest of the event from the cards as they stand"
 	settle_btn.pressed.connect(_on_play_it_out_pressed)
@@ -488,31 +430,31 @@ func _build_live_event_cards(info: Dictionary) -> void:
 		return
 	var results := _tournament_manager.tournament_results
 	var results_card := _build_event_card("PreviousResultsCard", Color("e5c57d"))
-	var results_body: VBoxContainer = results_card.get_node("TicketBody")
+
 	var winner_name := str(results.get("winner_name", "Unknown"))
 	if bool(results.get("winner_is_player", false)):
 		winner_name += " (you)"
-	_add_event_crest(results_body, PixelIcon.Kind.TROPHY, Color("e5c57d"), "LAST CHAMPION",
+	_add_event_crest(results_card, PixelIcon.Kind.TROPHY, Color("e5c57d"), "LAST CHAMPION",
 			winner_name, str(results.get("format_name", "Stroke Play")).to_upper())
 	var fmt := int(results.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
 	var win_str := "%d (Par %d)" % [int(results.get("winning_score", 0)), int(results.get("par", 72))]
 	if TournamentLibrary.higher_points_is_better(fmt):
 		win_str = TournamentLibrary.format_score_for_format(
 				fmt, 0, int(results.get("winning_points", 0)), true)
-	_add_card_spacer(results_body)
-	_add_card_label(results_body, "WINNING SCORE  %s" % win_str, 12, PixelCircleButton.CREAM)
+	_add_card_spacer(results_card)
+	_add_card_label(results_card, "WINNING SCORE  %s" % win_str, 12, PixelCircleButton.CREAM)
 	if int(results.get("playoff_holes", 0)) > 0:
-		_add_card_label(results_body, "WON IN A PLAYOFF", 10, UIConstants.COLOR_GOLD)
+		_add_card_label(results_card, "WON IN A PLAYOFF", 10, UIConstants.COLOR_GOLD)
 
 ## An event card's crest row: the trophy or flag in its recessed well, with the
 ## card's kicker and its one line of context stacked beside it - the same header
 ## a tier ticket wears, so the rows read as one set.
-func _add_event_crest(body: VBoxContainer, kind: int, accent: Color, kicker: String,
+func _add_event_crest(card: PanelContainer, kind: int, accent: Color, kicker: String,
 		title: String, context: String = "", detail: String = "") -> void:
 	var row := HBoxContainer.new()
 	row.name = "CrestRow"
 	row.add_theme_constant_override("separation", 6)
-	body.add_child(row)
+	card.get_node("TicketBody").add_child(row)
 	var well := PanelContainer.new()
 	well.name = "CrestWell"
 	well.custom_minimum_size = Vector2(TournamentTierCard.CREST + 8.0,
@@ -542,9 +484,9 @@ func _add_event_crest(body: VBoxContainer, kind: int, accent: Color, kicker: Str
 		var line := context if detail.is_empty() else "%s · %s" % [context, detail]
 		_add_card_label(text, line.to_upper(), 10, UIConstants.COLOR_TEXT_DIM)
 
-## One of the shelf's event cards: the shared ticket frame, with the body its
-## caller fills. The frame is the same recipe the tier tickets wear, so the live
-## board and the results card stand in the same row as the hostable events.
+## One of the shelf's event cards: the shared ticket frame, which its caller then
+## fills row by row. The frame is the same recipe the tier tickets wear, so the
+## live board and the results card stand in the same row as the hostable events.
 func _build_event_card(card_name: String, accent: Color) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = card_name
@@ -552,6 +494,9 @@ func _build_event_card(card_name: String, accent: Color) -> PanelContainer:
 	card.size_flags_vertical = Control.SIZE_FILL
 	card.add_theme_stylebox_override("panel", PixelButtonStyle.panel_style(
 			accent, MenuStyle.CARD_BG, TournamentTierCard.PAD, TournamentTierCard.PAD))
+	# The card's rows are one plain column inside its frame, as on a tier ticket:
+	# no scroll view and no second card, so the shelf stays the only thing that
+	# scrolls.
 	var body := VBoxContainer.new()
 	body.name = "TicketBody"
 	body.add_theme_constant_override("separation", 1)
@@ -561,7 +506,7 @@ func _build_event_card(card_name: String, accent: Color) -> PanelContainer:
 	_content_vbox.add_child(card)
 	return card
 
-func _add_card_label(body: VBoxContainer, text: String, font_size: int, color: Color) -> Label:
+func _add_card_label(body: Node, text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_override("font", PixelCircleButton.FONT)
@@ -573,15 +518,15 @@ func _add_card_label(body: VBoxContainer, text: String, font_size: int, color: C
 	body.add_child(label)
 	return label
 
-func _add_card_spacer(body: VBoxContainer) -> void:
+func _add_card_spacer(card: PanelContainer) -> void:
 	var spacer := Control.new()
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_child(spacer)
+	card.get_node("TicketBody").add_child(spacer)
 
 ## The one action on an event card: the shared gold call to action, sized to the
 ## ticket's own Host cards, with the content margins that keep its height fixed.
-func _add_card_button(body: VBoxContainer, text: String, accent: Color) -> Button:
+func _add_card_button(card: PanelContainer, text: String, accent: Color) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(0, TournamentTierCard.HOST_HEIGHT)
@@ -602,7 +547,7 @@ func _add_card_button(body: VBoxContainer, text: String, accent: Color) -> Butto
 	PixelButtonStyle.paint_focus(button, accent, 6, 0, 0)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(state, MenuStyle.INK)
-	body.add_child(button)
+	card.get_node("TicketBody").add_child(button)
 	return button
 
 ## Standalone Tournament Mode shelf after the event finishes: offer Play Again,
@@ -610,12 +555,12 @@ func _add_card_button(body: VBoxContainer, text: String, accent: Color) -> Butto
 ## On the shelf the ended event and the three ways on are two cards, so the row
 ## keeps the ticket language the rest of the section is drawn in.
 func _show_standalone_post_tournament() -> void:
-	_status_label.text = "Tournament Complete"
-	_status_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
-
 	if embedded:
 		_build_post_event_cards()
 		return
+
+	_status_label.text = "Tournament Complete"
+	_status_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
 
 	var card: BoxContainer = _content_vbox
 
@@ -669,10 +614,10 @@ func _build_post_event_cards() -> void:
 	if not _tournament_manager.tournament_results.is_empty():
 		var results := _tournament_manager.tournament_results
 		var card := _build_event_card("TournamentResultCard", Color("e5c57d"))
-		var body: VBoxContainer = card.get_node("TicketBody")
+
 		var fmt_type := int(results.get("format_type", TournamentLibrary.FormatType.STROKE_PLAY))
 		var fmt_name := str(results.get("format_name", TournamentLibrary.get_format_name(fmt_type)))
-		_add_event_crest(body, PixelIcon.Kind.TROPHY, Color("e5c57d"), "TOURNAMENT COMPLETE",
+		_add_event_crest(card, PixelIcon.Kind.TROPHY, Color("e5c57d"), "TOURNAMENT COMPLETE",
 				str(results.get("winner_name", "Unknown")),
 				fmt_name.to_upper(), "CHAMPION")
 		var win_str := "%d (Par %d)" % [int(results.get("winning_score", 0)), int(results.get("par", 72))]
@@ -681,23 +626,22 @@ func _build_post_event_cards() -> void:
 					fmt_type, 0, int(results.get("winning_points", 0)), true)
 		if int(results.get("playoff_holes", 0)) > 0:
 			win_str += " · Playoff"
-		_add_card_spacer(body)
-		_add_card_label(body, "WINNING SCORE", 10, UIConstants.COLOR_TEXT_MUTED)
-		_add_card_label(body, win_str, 14, PixelCircleButton.CREAM)
+		_add_card_spacer(card)
+		_add_card_label(card, "WINNING SCORE", 10, UIConstants.COLOR_TEXT_MUTED)
+		_add_card_label(card, win_str, 14, PixelCircleButton.CREAM)
 
 	var actions := _build_event_card("TournamentActionsCard",
 			TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.GOLFERS])
-	var actions_body: VBoxContainer = actions.get_node("TicketBody")
-	_add_card_label(actions_body, "NEXT", 10, UIConstants.COLOR_TEXT_MUTED)
-	_add_card_spacer(actions_body)
-	var replay_btn := _add_card_button(actions_body, "Play Again",
+	_add_card_label(actions, "NEXT", 10, UIConstants.COLOR_TEXT_MUTED)
+	_add_card_spacer(actions)
+	var replay_btn := _add_card_button(actions, "Play Again",
 			TerrainToolbar.SECTION_COLORS[TerrainToolbar.Section.GOLFERS])
 	replay_btn.name = "TournamentPlayAgainButton"
 	replay_btn.pressed.connect(func() -> void: play_again_requested.emit())
-	var setup_btn := _add_card_button(actions_body, "Tournament Setup", Color("8fa396"))
+	var setup_btn := _add_card_button(actions, "Tournament Setup", Color("8fa396"))
 	setup_btn.name = "TournamentSetupButton"
 	setup_btn.pressed.connect(func() -> void: tournament_setup_requested.emit())
-	var menu_btn := _add_card_button(actions_body, "Main Menu", Color("8fa396"))
+	var menu_btn := _add_card_button(actions, "Main Menu", Color("8fa396"))
 	menu_btn.name = "TournamentMainMenuButton"
 	menu_btn.pressed.connect(func() -> void: main_menu_requested.emit())
 
