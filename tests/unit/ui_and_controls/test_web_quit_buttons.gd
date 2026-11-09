@@ -54,7 +54,8 @@ func test_web_pause_menu_omits_only_quit_to_desktop() -> void:
 	var labels := _button_labels(menu)
 	assert_false(labels.has("Quit to Desktop"), "web has no application Quit action")
 	assert_has(labels, "Quit to Menu", "returning to the title screen remains available")
-	for expected in ["Resume", "Save Game", "Load Game", "Settings"]:
+	for expected in ["Resume", "Save Game", "Load Game", "Save Course",
+			"Save Golfer", "Settings"]:
 		assert_has(labels, expected, "the web pause menu keeps %s" % expected)
 
 
@@ -65,3 +66,5 @@ func test_native_menus_keep_their_application_quit_actions() -> void:
 	var labels := _button_labels(pause_menu)
 	assert_has(labels, "Quit to Menu", "the native pause menu keeps Quit to Menu")
 	assert_has(labels, "Quit to Desktop", "the native pause menu keeps Quit to Desktop")
+	assert_has(labels, "Save Course", "the native pause menu keeps the course export")
+	assert_has(labels, "Save Golfer", "the native pause menu keeps the golfer export")

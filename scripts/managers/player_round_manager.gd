@@ -24,10 +24,9 @@ const SHELF_TOGGLE_ACCENT := Color("83c9a4")
 ## A narrower version of the visitor name plate, retaining its height. One
 ## footprint is shared by every plate on the owner's shelves.
 const SHELF_TOGGLE_BUTTON_SIZE := Vector2(184, 44)
-## The action cards on the Play Course shelf - Start Round and the two
-## Tournament Mode exports - are wider than a name plate: their caption is an
-## action ("Save Course for Tournament", 185px at the plate font), not a single
-## word, so their card holds it with room to spare.
+## The Play Course shelf's one action card - Start Round - is wider than a name
+## plate: its caption is an action rather than a single word, so its card holds
+## it with room to spare. The Tournament Mode exports now live in the Pause Menu.
 const VISITOR_CARD_ACTION_SIZE := Vector2(212, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
 ## owner's ordinary pixel controls during the final styling pass: the On/Off
@@ -238,59 +237,6 @@ func _build_work_area_column() -> void:
 	content.add_child(_work_area_button)
 
 	_refresh_work_area()
-
-## Career Mode export controls on Golfers -> Play Course: save either the open
-## course or the owner's golfer for standalone Tournament Mode. Both wear the
-## Visiting Golfers card itself, and they close the shelf to the right of the
-## tournaments they feed.
-func _build_tournament_play_export_column() -> void:
-	_label("Tournament Mode")
-	var save_course_btn := _visitor_card_button(
-		"Save Course for Tournament",
-		"Export this course so you can select it on the Start Tournament screen from the Main Menu.",
-		_on_save_course_for_tournament)
-	save_course_btn.name = "SaveTournamentCourseButton"
-	var save_golfer_btn := _visitor_card_button(
-		"Save Golfer for Tournament",
-		"Export your golfer's skills, traits and appearance so you can play as them in Tournament Mode.",
-		_on_save_golfer_for_tournament)
-	save_golfer_btn.name = "SaveTournamentGolferButton"
-
-## Career Mode export control on Golfers -> Edit Player.
-func _build_tournament_golfer_export_column() -> void:
-	# The action caption and tooltip explain export without another shelf row.
-	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
-	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
-	_style_shelf_plate(save_golfer_btn)
-	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance for standalone Tournament Mode."
-
-func _on_save_course_for_tournament() -> void:
-	var result := TournamentLibrary.save_career_course()
-	if bool(result.get("ok", false)):
-		EventBus.notify(
-			"Saved '%s' (%d holes, Par %d) for Tournament Mode!" % [
-				str(result.get("name", "Course")),
-				int(result.get("hole_count", 0)),
-				int(result.get("par", 0)),
-			],
-			"success"
-		)
-	else:
-		EventBus.notify(str(result.get("error", "Could not save course for Tournament Mode.")), "warning")
-
-func _on_save_golfer_for_tournament() -> void:
-	_persist_player_profile()
-	var worn_skin := GolferSkins.player_skin() if GolferSkins != null else null
-	var chosen_skin_id := worn_skin.id if worn_skin != null else GameManager.player_skin_id
-	var skin_colors := TournamentLibrary.capture_skin_colors(GameManager.player_profile, chosen_skin_id)
-	var result := TournamentLibrary.save_career_golfer(GameManager.player_profile, chosen_skin_id, skin_colors)
-	if bool(result.get("ok", false)):
-		EventBus.notify(
-			"Saved golfer '%s' for Tournament Mode!" % str(result.get("name", "Golfer")),
-			"success"
-		)
-	else:
-		EventBus.notify(str(result.get("error", "Could not save golfer for Tournament Mode.")), "warning")
 
 ## Where the owner's own golfer works, in words the player can read.
 func _refresh_work_area() -> void:
@@ -850,10 +796,9 @@ func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> 
 ## One action card in the Visiting Golfers card language: the full
 ## visiting-green frame, cream pixel caption and hover lift a visitor plate
 ## wears, rather than the quieter trim of an unselected shelf toggle, because it
-## is an action rather than a choice. The Start Round card and the two
-## Tournament Mode exports wear it. Their caption is a sentence, so the card is
-## VISITOR_CARD_ACTION_SIZE rather than the name plate's width; callers that
-## fill their column can stretch it afterwards.
+## is an action rather than a choice. The Start Round card wears it. Its caption
+## is an action, so the card is VISITOR_CARD_ACTION_SIZE rather than the name
+## plate's width; callers that fill their column can stretch it afterwards.
 func _visitor_card_button(caption: String, description: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = caption
@@ -1192,8 +1137,6 @@ func _build_setup() -> void:
 		content.name = "PlayerActionsColumn"
 		content.add_theme_constant_override("separation", 4)
 		_build_work_area_column()
-		if not GameManager.is_tournament_mode:
-			_build_tournament_golfer_export_column()
 
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
@@ -1273,17 +1216,6 @@ func _build_setup() -> void:
 			round_button.name = "StartRoundButton"
 			round_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			round_button.set_meta("owner_round_start", true)
-
-			# Export the Career course or golfer for standalone Tournament Mode.
-			# The cards close the shelf, to the right of the tournaments they
-			# feed: restage_persistent puts the persistent panel ahead of them.
-			var export_column := PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY],
-				VISITOR_CARD_ACTION_SIZE.x)
-			export_column.name = "TournamentExportColumn"
-			export_column.add_theme_constant_override("separation", 3)
-			content = export_column
-			_build_tournament_play_export_column()
-			player_tab.add_trailing(export_column)
 		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
 		# Three untitled visitor-style name plates lead the shelf, ahead of the
 		# points-based Golf Skills.

@@ -4973,6 +4973,8 @@ func _show_pause_menu() -> void:
 	pause_menu.resume_requested.connect(_on_pause_resume)
 	pause_menu.save_requested.connect(_on_pause_save)
 	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.save_course_requested.connect(_on_pause_save_course)
+	pause_menu.save_golfer_requested.connect(_on_pause_save_golfer)
 	pause_menu.restart_tournament_requested.connect(_on_tournament_play_again)
 	pause_menu.tournament_setup_requested.connect(_on_return_to_tournament_setup)
 	pause_menu.settings_requested.connect(_on_pause_settings)
@@ -5006,6 +5008,22 @@ func _on_pause_load() -> void:
 	# Keep the game paused while the save/load panel is open
 	_hide_pause_menu()
 	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.LOAD)
+
+## Export the open Career course, or the owner's golfer, for standalone
+## Tournament Mode. The menu stays open: both exports are one visit, and its own
+## status line reports the outcome while the game is paused (a toast's tween is
+## frozen at time scale zero). The export helper reads GameManager's live state,
+## so this works without the owner's round shelf ever being built.
+func _on_pause_save_course() -> void:
+	_report_pause_export(TournamentCareerExport.save_course())
+
+func _on_pause_save_golfer() -> void:
+	_report_pause_export(TournamentCareerExport.save_golfer())
+
+func _report_pause_export(result: Dictionary) -> void:
+	if is_instance_valid(pause_menu):
+		pause_menu.show_export_feedback(
+			str(result.get("message", "")), bool(result.get("ok", false)))
 
 func _on_pause_settings() -> void:
 	# Keep the game paused while the settings menu is open

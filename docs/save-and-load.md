@@ -60,6 +60,7 @@ no saves, no reports, no custom skins.
 
 - **Quick save:** `Ctrl+S`.
 - **Save menu:** Pause menu, then Save, which uses named slots. The archive lists each save with its course, day, balance and hole count. Saving over an existing name asks first.
+- **Tournament exports:** Pause menu → Save Course or Save Golfer writes a snapshot of the open Career course or your golfer for Main Menu → Tournament Mode. Neither uses the Career save archive: the menu stays open and reports the result in its own status line.
 - **Autosave:** every 30 game days, and at the end of each year.
 
 ## Loading

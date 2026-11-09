@@ -23,24 +23,44 @@ func _button_named(root: Control, text: String) -> Button:
 	return null
 
 func _option_labels() -> Array:
-	return ["Resume", "Save Game", "Load Game", "Settings", "Quit to Menu", "Quit to Desktop"]
+	return ["Resume", "Save Game", "Load Game", "Save Course", "Save Golfer",
+		"Settings", "Quit to Menu", "Quit to Desktop"]
 
 func _inside_view(rect: Rect2, size: Vector2i) -> bool:
 	return Rect2(Vector2.ZERO, Vector2(size)).encloses(rect)
 
+## Eight career cards are taller than a phone held sideways, so reach each one
+## through the panel's scroll area before checking it can actually be tapped.
+func _scroll_to_button(menu: PauseMenu, button: Button) -> void:
+	var scroll := menu._scroll
+	if scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+		return
+	scroll.scroll_vertical = 0
+	await process_frames(2)
+	var bar := scroll.get_v_scroll_bar()
+	var offset := button.get_global_rect().position.y - scroll.get_global_rect().position.y
+	scroll.scroll_vertical = int(clampf(offset - 4.0, 0.0, bar.max_value))
+	await process_frames(2)
 
-func test_every_pause_option_is_on_screen_on_a_phone_held_sideways() -> void:
+
+func test_every_pause_option_is_reachable_on_a_phone_held_sideways() -> void:
 	await resize_window(PHONE_LANDSCAPE)
 	var menu := _menu()
 	await process_frames(4)
 	assert_true(_inside_view(menu._panel.get_global_rect(), PHONE_LANDSCAPE),
 		"the menu panel fits the window")
+	var options: Array[Button] = []
 	for label in _option_labels():
 		var button := _button_named(menu, label)
 		assert_not_null(button, "%s exists" % label)
 		if button != null:
-			assert_true(_inside_view(button.get_global_rect(), PHONE_LANDSCAPE),
-				"%s is on screen, so a finger can reach it" % label)
+			options.append(button)
+	assert_ne(menu._scroll.vertical_scroll_mode, ScrollContainer.SCROLL_MODE_DISABLED,
+		"eight career cards turn the menu into a scroll area")
+	for button in options:
+		await _scroll_to_button(menu, button)
+		assert_true(_inside_view(button.get_global_rect(), PHONE_LANDSCAPE),
+			"%s can be scrolled into view, so a finger can reach it" % button.text)
 
 
 func test_a_short_pause_menu_scrolls_instead_of_losing_its_last_options() -> void:
@@ -83,6 +103,10 @@ func test_quit_to_menu_answers_a_tap() -> void:
 	var asked: Array = []
 	menu.quit_to_menu_requested.connect(func() -> void: asked.append(true))
 	var quit_button := _button_named(menu, "Quit to Menu")
+	assert_not_null(quit_button, "Quit to Menu exists")
+	if quit_button == null:
+		return
+	await _scroll_to_button(menu, quit_button)
 	await touch_tap(quit_button.get_global_rect().get_center())
 	assert_eq(asked.size(), 1, "a tap on Quit to Menu asks to quit")
 

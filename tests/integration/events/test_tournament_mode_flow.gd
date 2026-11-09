@@ -295,19 +295,33 @@ func test_career_saved_course_and_golfer_roundtrip_into_tournament_mode() -> voi
 	main.player_round.open_setup()
 	await process_frames(2)
 
-	# Export Career Course & Career Golfer using the Golfers -> Play Course shelf buttons
-	main.terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
+	# Export Career Course & Career Golfer from the Pause Menu. The menu stays
+	# open, so both exports are one visit and the status line reports the result.
+	main._show_pause_menu()
 	await process_frames(2)
-	var save_course_btn := (main.terrain_toolbar as Control).find_child("SaveTournamentCourseButton", true, false) as Button
-	var save_golfer_btn := (main.terrain_toolbar as Control).find_child("SaveTournamentGolferButton", true, false) as Button
-	assert_not_null(save_course_btn)
-	assert_not_null(save_golfer_btn)
+	var pause: PauseMenu = main.pause_menu
+	assert_not_null(pause, "The pause menu opens in the Career game")
+	if pause == null:
+		return
+	var save_course_btn := pause.find_child("SaveCourseButton", true, false) as Button
+	var save_golfer_btn := pause.find_child("SaveGolferButton", true, false) as Button
+	assert_not_null(save_course_btn, "The Pause Menu carries Save Course")
+	assert_not_null(save_golfer_btn, "The Pause Menu carries Save Golfer")
+	if save_course_btn == null or save_golfer_btn == null:
+		return
+	assert_eq(save_course_btn.text, "Save Course")
+	assert_eq(save_golfer_btn.text, "Save Golfer")
 
 	await _press_btn(save_course_btn)
 	await _press_btn(save_golfer_btn)
 
 	assert_eq(TournamentLibrary.saved_course_count(), 1)
 	assert_eq(TournamentLibrary.saved_golfer_count(), 1)
+	assert_not_null(main.pause_menu, "The export leaves the Pause Menu open")
+	assert_true(pause._export_status.visible, "The menu reports the export")
+	assert_true("Bennelong Star" in pause._export_status.text,
+		"The status line names the golfer that was saved")
+	main._close_pause_menu()
 
 	# Open Start Tournament screen and configure a 4-round Modified Stableford event on Hard
 	main.golfer_manager.clear_all_golfers()

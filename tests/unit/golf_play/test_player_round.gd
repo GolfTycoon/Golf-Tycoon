@@ -499,25 +499,25 @@ func test_owner_actions_share_a_column_to_the_right_of_all_traits() -> void:
 	var page := tab.pages[PlayerTab.PAGE_EDIT]
 	var actions := _find_node(page, "PlayerActionsColumn") as VBoxContainer
 	var move := _find_node(page, "MoveWorkArea") as Button
-	var save := _find_node(page, "SaveEditGolferForTournamentButton") as Button
 	assert_eq(move.get_parent(), actions)
-	assert_eq(save.get_parent(), actions)
-	assert_lt(move.global_position.y, save.global_position.y)
+	assert_eq(actions.get_child_count(), 2,
+		"The action column holds only the work-area label and its button")
+	assert_null(_find_node(page, "SaveEditGolferForTournamentButton"),
+		"The Edit Player export moved to the Pause Menu")
 	for key in GolferAttributes.TRAIT_KEYS:
 		var plate := _find_node(page, "GolferTrait%s" % key.capitalize()) as Button
 		assert_gt(actions.global_position.x, plate.get_global_rect().end.x,
 			"The shared action column follows every trait column")
 	_assert_shelf_fits(page)
 
-func test_skin_work_area_and_export_actions_share_trait_card_style() -> void:
+func test_skin_and_work_area_actions_share_trait_card_style() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
 	tab.select(PlayerTab.PAGE_EDIT)
 	await process_frames(5)
 	var page := tab.pages[PlayerTab.PAGE_EDIT]
 	var trait_plate := _find_node(page, "GolferTraitNeat") as Button
-	var export_button := _find_node(page, "SaveEditGolferForTournamentButton") as Button
-	for button in [rounds._skin_picker, rounds._work_area_button, export_button]:
+	for button in [rounds._skin_picker, rounds._work_area_button]:
 		if not button is OptionButton:
 			assert_false(button.toggle_mode, "Actions stay momentary rather than On/Off toggles")
 		assert_true(button.has_meta(PlayerRoundManager.VISITOR_CARD_META))
@@ -530,9 +530,9 @@ func test_skin_work_area_and_export_actions_share_trait_card_style() -> void:
 	_assert_shelf_fits(page)
 
 ## Start Round is the Play Course shelf's one call to action, and it wears the
-## Visiting Golfers card like the Tournament Mode exports beneath it: the same
-## full visiting-green frame, pixel font and cream caption. It still fills the
-## setup column under the golfer and the pros it tees off with.
+## Visiting Golfers card: the same full visiting-green frame, pixel font and
+## cream caption. It still fills the setup column under the golfer and the pros
+## it tees off with. The Tournament Mode exports now live in the Pause Menu.
 func test_start_round_wears_a_visitor_card() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
@@ -572,69 +572,35 @@ func test_start_round_wears_a_visitor_card() -> void:
 		"The card spans its column rather than sitting narrow in it")
 	_assert_shelf_fits(page)
 
-## The two Tournament Mode exports on Play Course are Visiting Golfers cards,
-## not bare buttons: same pixel font, cream caption and card frame as the
-## owner's plates, sized to hold their action caption. They close the shelf, so
-## they stand to the right of the tournaments they feed.
-func test_tournament_exports_wear_visitor_cards_right_of_the_tournaments() -> void:
+## The Tournament Mode exports have left the owner's shelves: the Play Course
+## shelf closes with the tournament panel, and Edit Player no longer repeats the
+## golfer export. Both now live in the Pause Menu as Save Course / Save Golfer.
+func test_tournament_exports_are_not_on_the_owner_shelves() -> void:
 	var toolbar := _embedded_toolbar()
 	var tab := toolbar.player_tab
 	tab.select(PlayerTab.PAGE_PLAY)
 	await process_frames(5)
-	var page := tab.pages[PlayerTab.PAGE_PLAY]
-	var save_course := _find_node(page, "SaveTournamentCourseButton") as Button
-	var save_golfer := _find_node(page, "SaveTournamentGolferButton") as Button
-	assert_not_null(save_course, "The course export is on the Play Course shelf")
-	assert_not_null(save_golfer, "The golfer export is on the Play Course shelf")
-	var export_column := _find_node(page, "TournamentExportColumn") as VBoxContainer
-	assert_not_null(export_column, "Both exports share one column")
-	assert_eq(save_course.get_parent(), export_column)
-	assert_eq(save_golfer.get_parent(), export_column)
-	assert_lt(save_course.global_position.y, save_golfer.global_position.y,
-		"The course card stands above the golfer card")
-
-	# The benchmark is a visitor plate itself: the export cards wear the very
-	# same frame, not a look-alike.
-	var visitor := VisitorCardButton.new() as VisitorCardButton
-	visitor.text = "A Visitor"
-	add_child_autofree(visitor)
-	for card in [save_course, save_golfer]:
-		assert_true(card.has_meta(PlayerRoundManager.VISITOR_CARD_META),
-			"%s wears the Visiting Golfers card frame" % card.name)
-		assert_false(card.toggle_mode, "%s stays a momentary action" % card.name)
-		assert_eq(card.custom_minimum_size.y, PlayerRoundManager.SHELF_TOGGLE_BUTTON_SIZE.y,
-			"%s keeps the shelf plate height" % card.name)
-		assert_eq(card.get_theme_font("font"), VisitorCardButton.FONT,
-			"%s wears the pixel font" % card.name)
-		assert_eq(card.get_theme_color("font_color"), VisitorCardButton.CREAM,
-			"%s wears the cream caption" % card.name)
-		assert_eq(card.get_theme_color("font_hover_color"), VisitorCardButton.NAME_LIT,
-			"%s lights the caption under the pointer" % card.name)
-		for state in ["normal", "hover", "pressed", "disabled"]:
-			var frame := card.get_theme_stylebox(state) as StyleBoxTexture
-			assert_not_null(frame, "%s wears the card frame in %s" % [card.name, state])
-			var visitor_frame := visitor.get_theme_stylebox(state) as StyleBoxTexture
-			assert_eq(frame.texture.get_image().get_data(), visitor_frame.texture.get_image().get_data(),
-				"%s wears the visiting golfer card in %s" % [card.name, state])
-		# The action caption fits inside the card rather than running over it.
-		var caption_width := VisitorCardButton.FONT.get_string_size(card.text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, VisitorCardButton.NAME_FONT_SIZE).x
-		assert_lte(caption_width, card.size.x,
-			"%s holds its caption" % card.name)
-
-	# The column closes the shelf, past the persistent tournament panel.
-	assert_eq(page.get_child(page.get_child_count() - 1), export_column,
-		"The export cards are the last column on the shelf")
+	var play_page := tab.pages[PlayerTab.PAGE_PLAY]
+	var edit_page := tab.pages[PlayerTab.PAGE_EDIT]
+	for node_name in ["SaveTournamentCourseButton", "SaveTournamentGolferButton",
+			"SaveEditGolferForTournamentButton", "TournamentExportColumn"]:
+		assert_null(_find_node(play_page, node_name),
+			"%s is no longer on Play Course" % node_name)
+		assert_null(_find_node(edit_page, node_name),
+			"%s is no longer on Edit Player" % node_name)
+	var play_titles: Array[String] = []
+	for label in play_page.find_children("*", "Label", true, false):
+		play_titles.append(label.text)
+	assert_false("Tournament Mode" in play_titles,
+		"The Play Course export heading is gone")
 	var tournaments: Control = null
-	for child in page.get_children():
+	for child in play_page.get_children():
 		if child.has_meta(PlayerTab.PERSISTENT_META):
 			tournaments = child as Control
 	assert_not_null(tournaments, "The management tournament panel is on the page")
-	assert_lt(tournaments.get_index(), export_column.get_index(),
-		"The tournaments stand ahead of the export cards")
-	assert_lt(tournaments.get_global_rect().end.x, export_column.global_position.x,
-		"The export cards stand on the right of the tournaments")
-	_assert_shelf_fits(page)
+	assert_eq(play_page.get_child(play_page.get_child_count() - 1), tournaments,
+		"The tournaments close the shelf without an export column after them")
+	_assert_shelf_fits(play_page)
 
 func test_identity_column_stacks_name_profession_and_a_row_of_choices() -> void:
 	var toolbar := _embedded_toolbar()
@@ -1399,8 +1365,8 @@ func test_edit_player_shelf_has_no_section_titles() -> void:
 	assert_eq(rounds.name_edit.accessibility_name, "Player name")
 	assert_not_null(_find_node(page, "PlayerProfession"), "Golfer details remain")
 	assert_not_null(_find_node(page, "MoveWorkArea"), "Work-area controls remain")
-	assert_not_null(_find_node(page, "SaveEditGolferForTournamentButton"),
-		"Tournament export remains")
+	assert_null(_find_node(page, "SaveEditGolferForTournamentButton"),
+		"The Tournament export moved to the Pause Menu")
 	for key in GolferAttributes.TRAIT_KEYS:
 		assert_not_null(_find_node(page, "GolferTrait%s" % key.capitalize()),
 			"Every trait toggle remains: %s" % key)
@@ -1411,7 +1377,8 @@ func test_edit_player_shelf_has_no_section_titles() -> void:
 	var play_titles: Array[String] = []
 	for label in play_page.find_children("*", "Label", true, false):
 		play_titles.append(label.text)
-	assert_has(play_titles, "Tournament Mode", "The Play Course heading is unchanged")
+	assert_false("Tournament Mode" in play_titles,
+		"The Play Course export heading moved with the buttons")
 
 ## Gender and Marital Status each take one of the Golfer Skills' card plates:
 ## the caption reads the value the golfer has and a press steps to the next

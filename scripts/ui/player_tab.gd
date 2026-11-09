@@ -14,10 +14,6 @@ const PAGE_EDIT := 1
 const PAGE_SKILLS := 2
 ## Meta flag for Play Course nodes that survive setup rebuilds.
 const PERSISTENT_META := "player_tab_persistent"
-## Meta flag for Play Course columns that close the shelf, after everything
-## persistent: the Tournament Mode export cards stand at the far right, beside
-## the tournaments they feed (see add_trailing).
-const TRAILING_META := "player_tab_trailing"
 ## Gap between the skill-point badge and the Player Skills button's top-right
 ## corner, and the smallest the badge is drawn.
 const BADGE_INSET := 4.0
@@ -243,24 +239,12 @@ func add_persistent(node: Node) -> void:
 	node.set_meta(PERSISTENT_META, true)
 	pages[PAGE_PLAY].add_child(node)
 
-## Add a column that closes the Play Course shelf: it keeps to the far right,
-## past the persistent tournament panel, so the Tournament Mode export cards
-## stand beside the tournaments they feed however the page is rebuilt.
-func add_trailing(node: Node) -> void:
-	node.set_meta(TRAILING_META, true)
-	if node.get_parent() != pages[PAGE_PLAY]:
-		pages[PAGE_PLAY].add_child(node)
-
-## Move persistent nodes (the management tournament panel) after the owner
-## round choices, then the trailing nodes (the Tournament Mode export cards)
-## after those. They share the same horizontal shelf.
+## Move the persistent management tournament panel after the owner's round
+## choices. They share the same horizontal shelf, so the panel closes it.
 func restage_persistent() -> void:
 	var page := pages[PAGE_PLAY]
 	for child in page.get_children():
 		if child.has_meta(PERSISTENT_META):
-			page.move_child(child, page.get_child_count() - 1)
-	for child in page.get_children():
-		if child.has_meta(TRAILING_META):
 			page.move_child(child, page.get_child_count() - 1)
 
 ## A short column on a horizontal shelf. Its width is stable so wrapped text
