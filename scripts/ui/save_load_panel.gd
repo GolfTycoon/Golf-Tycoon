@@ -150,7 +150,6 @@ func _build() -> void:
 	page.add_child(_build_header(_layout_mode))
 	page.add_child(_build_mode_switch(_layout_mode))
 	page.add_child(_build_workspace(_layout_mode, _built_size))
-	page.add_child(_build_footer(_layout_mode))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
@@ -642,42 +641,6 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	content.add_child(badge)
 	row.pressed.connect(_on_save_selected.bind(save_name))
 	return row
-
-func _build_footer(mode: int) -> Control:
-	var footer := HBoxContainer.new()
-	footer.name = "ArchiveFooter"
-	footer.custom_minimum_size.y = 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46
-	footer.add_theme_constant_override("separation", 8)
-	var note := Kit.make_label("LOCAL SAVE  ·  %d COURSE%s" % [_saves.size(), "" if _saves.size() == 1 else "S"], 10, COLOR_QUIET)
-	note.name = "ArchiveFooterNote"
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
-	footer.add_child(note)
-	if allow_save:
-		var quit := Button.new()
-		quit.name = "QuitToMenuButton"
-		quit.text = "Quit to menu"
-		quit.custom_minimum_size = Vector2(130 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 40)
-		quit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		quit.add_theme_font_size_override("font_size", 11)
-		Kit.paint_danger_button(quit)
-		quit.pressed.connect(_on_quit_to_menu_pressed)
-		footer.add_child(quit)
-	var back := Button.new()
-	back.name = "FooterBackButton"
-	back.text = "Back to course" if allow_save else "Back"
-	back.custom_minimum_size = Vector2(142 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 42)
-	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
-	back.add_theme_font_size_override("font_size", 12)
-	MenuStyle.paint_primary(back, 9)
-	back.add_theme_color_override("font_color", MenuStyle.INK)
-	back.add_theme_color_override("font_hover_color", MenuStyle.INK)
-	back.add_theme_color_override("font_pressed_color", MenuStyle.INK)
-	back.pressed.connect(_on_back_pressed)
-	footer.add_child(back)
-	return footer
 
 func _set_mode(target_mode: int) -> void:
 	if target_mode == ScreenMode.SAVE and not allow_save:
