@@ -176,7 +176,14 @@ func test_the_cooldown_follows_and_the_shelf_says_so() -> void:
 	assert_gt(tournaments.get_cooldown_remaining(), 0, "The cooldown started")
 	main.tournament_panel._refresh_display()
 	await process_frames(5)
-	assert_null(main.tournament_panel.get_host_button(REGIONAL), "The tier cards step aside during the cooldown")
-	assert_string_contains(_status_text(), "Cooldown", "and the shelf says why")
+	# The tickets stay on the shelf through the cooldown - they are the section's
+	# furniture, and the wait is told once at the desk - but none of them can be
+	# hosted until the course is rested.
+	var cooling: Button = main.tournament_panel.get_host_button(REGIONAL)
+	assert_not_null(cooling, "The Regional ticket stays on the shelf during the cooldown")
+	assert_true(cooling.disabled, "But it cannot be hosted until the course has rested")
+	assert_string_contains(String(cooling.tooltip_text), "resting",
+		"and its card says why")
+	assert_string_contains(_status_text(), "Cooldown", "and the desk says how long")
 	assert_string_contains(str(tournaments.can_schedule_tournament(REGIONAL).reason), "Must wait",
 		"Hosting again during the cooldown names the wait")
