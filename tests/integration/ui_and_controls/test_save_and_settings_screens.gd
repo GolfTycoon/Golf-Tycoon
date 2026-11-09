@@ -228,6 +228,21 @@ func _assert_archive_fits_every_window(mode: SaveLoadPanel.ScreenMode) -> void:
 		_assert_targets(tag, panel, size)
 		_assert_fits(tag, panel.get_node_or_null("ArchiveFrame"), size,
 			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
+		var header := panel.get_node_or_null("ArchiveFrame/ArchivePage/ScreenHeader") as HBoxContainer
+		var title := header.get_node_or_null("TitleBlock/Title") as Label if header else null
+		var save_mode := panel.find_child("SaveMode", true, false) as Button
+		var load_mode := panel.find_child("LoadMode", true, false) as Button
+		assert_not_null(header, "%s: shared ScreenHeader is built" % tag)
+		assert_not_null(title, "%s: header title is built" % tag)
+		assert_not_null(save_mode, "%s: Save progress button is shown" % tag)
+		assert_not_null(load_mode, "%s: Load course button is shown" % tag)
+		if title != null:
+			assert_gt(title.size.x, 40.0, "%s: header title keeps readable width" % tag)
+		if layout != MenuScreenKit.LayoutMode.PHONE_PORTRAIT and header != null and save_mode != null and load_mode != null:
+			assert_true(header.is_ancestor_of(save_mode), "%s: Save progress lives in ScreenHeader" % tag)
+			assert_true(header.is_ancestor_of(load_mode), "%s: Load course lives in ScreenHeader" % tag)
+			assert_gt(save_mode.get_global_rect().position.x, float(size.x) * 0.45,
+				"%s: mode buttons sit in the top-right corner" % tag)
 		if saving:
 			assert_not_null(panel.get_node_or_null("ArchiveFrame/ArchivePage"), "%s: the save page is built" % tag)
 			assert_not_null(panel.find_child("SaveNameInput", true, false), "%s: with its name field" % tag)

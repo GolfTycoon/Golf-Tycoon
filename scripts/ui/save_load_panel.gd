@@ -147,8 +147,9 @@ func _build() -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", _page_gap(_layout_mode))
 	frame.add_child(page)
-	page.add_child(_build_header(_layout_mode))
-	page.add_child(_build_mode_switch(_layout_mode))
+	page.add_child(_build_header(_layout_mode, _built_size))
+	if allow_save and not _uses_header_mode_switch(_layout_mode, _built_size):
+		page.add_child(_build_mode_tabs(_layout_mode))
 	page.add_child(_build_workspace(_layout_mode, _built_size))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
@@ -169,8 +170,19 @@ func _page_gap(mode: int) -> int:
 		Kit.LayoutMode.PHONE_LANDSCAPE: return 5
 		_: return 8
 
-func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Load a course", _on_back_pressed, null, PixelIcon.Kind.FLOPPY)
+func _uses_header_mode_switch(mode: int, view: Vector2) -> bool:
+	return mode != Kit.LayoutMode.PHONE_PORTRAIT and view.x >= 480.0
+
+func _build_header(mode: int, view: Vector2) -> Control:
+	var trailing: Control = null
+	if allow_save and _uses_header_mode_switch(mode, view):
+		var group := HBoxContainer.new()
+		group.name = "HeaderActions"
+		group.add_theme_constant_override("separation", 8 if not Kit.is_phone(mode) else 5)
+		group.size_flags_horizontal = Control.SIZE_SHRINK_END
+		group.add_child(_build_mode_tabs(mode))
+		trailing = group
+	var header := Kit.make_screen_header(mode, "Load a course", _on_back_pressed, trailing, PixelIcon.Kind.FLOPPY)
 	_header_title = header.find_child("Title", true, false) as Label
 	_update_header_copy()
 	return header
@@ -183,53 +195,34 @@ func _update_header_copy() -> void:
 	else:
 		_header_title.text = "Load a course"
 
-func _build_mode_switch(mode: int) -> Control:
-	var bar := HBoxContainer.new()
-	bar.name = "ArchiveModeSwitch"
-	bar.add_theme_constant_override("separation", 6)
-	bar.custom_minimum_size.y = 40.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46.0
-	var surface_pad := 3 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 5
-	if not allow_save:
-		var load_only := PanelContainer.new()
-		load_only.name = "LoadOnlyLabel"
-		load_only.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		load_only.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-			MenuStyle.with_alpha(COLOR_GOLD, 0.30), MenuStyle.CARD_RADIUS, 12, 5, 1))
-		var label := Kit.make_label("LOAD A SAVED COURSE", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12, COLOR_GOLD)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		load_only.add_child(label)
-		bar.add_child(load_only)
-		return bar
-
-	var switch_surface := PanelContainer.new()
-	switch_surface.name = "ModeSegmentSurface"
-	switch_surface.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	switch_surface.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-		MenuStyle.with_alpha(COLOR_BORDER, 0.45), MenuStyle.CARD_RADIUS + 2, surface_pad, surface_pad, 1))
-	bar.add_child(switch_surface)
-	var segments := HBoxContainer.new()
-	segments.add_theme_constant_override("separation", 5)
-	switch_surface.add_child(segments)
-	for entry in [[ScreenMode.SAVE, "Save progress", "Create or replace a checkpoint"],
-			[ScreenMode.LOAD, "Load course", "Choose a saved clubhouse"]]:
-		var target_mode: int = entry[0]
-		var button := Button.new()
-		button.name = "SaveMode" if target_mode == ScreenMode.SAVE else "LoadMode"
-		button.text = str(entry[1])
+func _build_mode_tabs(mode: int) -> HBoxContainer:
+	var compact := Kit.is_phone(mode)
+	var row := HBoxContainer.new()
+	row.name = "ModeTabs"
+	row.add_theme_constant_override("separation", 5)
+	if mode == Kit.LayoutMode.PHONE_PORTRAIT:
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var button_group := ButtonGroup.new()
+	for entry in [
+		[ScreenMode.SAVE, "Save progress", "Create or replace a checkpoint", "SaveMode"],
+		[ScreenMode.LOAD, "Load course", "Choose a saved clubhouse", "LoadMode"],
+	]:
+		var target_mode: int = int(entry[0])
+		var button := CourseMapStyle.choice(str(entry[1]), 12 if not compact else 11)
+		button.name = str(entry[3])
 		button.tooltip_text = str(entry[2])
-		button.toggle_mode = true
-		button.button_pressed = _mode == target_mode
-		button.custom_minimum_size = Vector2(150 if mode == Kit.LayoutMode.DESKTOP else 128, 36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 40)
-		button.add_theme_font_size_override("font_size", 12 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 13)
-		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		MenuStyle.paint_choice(button, COLOR_MINT, 8)
-		button.add_theme_color_override("font_color", COLOR_MUTED)
-		button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-		button.add_theme_color_override("font_pressed_color", COLOR_GOLD)
+		button.button_group = button_group
+		button.set_pressed_no_signal(_mode == target_mode)
+		button.add_theme_color_override("font_hover_pressed_color", CourseMapStyle.GOLD)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.y = 36.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 38.0
+		if mode == Kit.LayoutMode.DESKTOP:
+			button.custom_minimum_size.x = 136.0
+		elif mode != Kit.LayoutMode.PHONE_PORTRAIT:
+			button.custom_minimum_size.x = 108.0 if compact else 120.0
 		button.pressed.connect(_set_mode.bind(target_mode))
-		segments.add_child(button)
-	return bar
+		row.add_child(button)
+	return row
 
 func _build_workspace(mode: int, view: Vector2) -> Control:
 	var split := _uses_split_workspace(mode, view)
@@ -647,10 +640,19 @@ func _set_mode(target_mode: int) -> void:
 		return
 	if _mode == target_mode:
 		return
+	var keep_mode_focus := false
+	var focused := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
+	if focused != null and (focused.name == "SaveMode" or focused.name == "LoadMode"):
+		keep_mode_focus = true
 	_capture_build_state()
 	_mode = target_mode
-	_update_header_copy()
+	_ensure_selection()
 	_build()
+	if keep_mode_focus and has_node("/root/InputManager") and InputManager.is_navigation_device():
+		var active_name := "SaveMode" if _mode == ScreenMode.SAVE else "LoadMode"
+		var active_button := find_child(active_name, true, false) as Button
+		if active_button != null:
+			active_button.grab_focus.call_deferred()
 
 func _on_save_selected(save_name: String) -> void:
 	_selected_save_name = save_name

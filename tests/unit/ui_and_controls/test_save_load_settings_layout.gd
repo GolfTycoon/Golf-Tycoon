@@ -250,3 +250,98 @@ func test_settings_screen_uses_shared_menu_backdrop_across_categories() -> void:
 			assert_eq(ctrl.anchor_top, 0.0)
 			assert_eq(ctrl.anchor_right, 1.0)
 			assert_eq(ctrl.anchor_bottom, 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Save / Load top-right header mode buttons
+# ---------------------------------------------------------------------------
+
+func test_save_load_mode_buttons_sit_in_top_right_header_like_course_map() -> void:
+	var original_window := get_window().size
+	await resize_window(Vector2i(1600, 1000))
+
+	var panel := SaveLoadPanel.new()
+	panel.allow_save = true
+	panel.open_mode = SaveLoadPanel.ScreenMode.SAVE
+	add_child_autofree(panel)
+	await process_frames(3)
+
+	var page := panel.get_node_or_null("ArchiveFrame/ArchivePage") as VBoxContainer
+	var header := panel.get_node_or_null("ArchiveFrame/ArchivePage/ScreenHeader") as HBoxContainer
+	assert_not_null(page, "Archive page is built")
+	assert_not_null(header, "Shared ScreenHeader leads the page")
+	assert_eq(page.get_child_count(), 2, "Only header and workspace sit in ArchivePage on desktop")
+	assert_null(panel.find_child("ArchiveModeSwitch", true, false), "Separate mode-switch row is gone")
+	assert_null(panel.find_child("ModeSegmentSurface", true, false), "Outer segment surface is gone")
+
+	var actions := header.get_node_or_null("HeaderActions") as HBoxContainer
+	var tabs := header.get_node_or_null("HeaderActions/ModeTabs") as HBoxContainer
+	var save_btn := header.find_child("SaveMode", true, false) as Button
+	var load_btn := header.find_child("LoadMode", true, false) as Button
+	var title := header.get_node_or_null("TitleBlock/Title") as Label
+	assert_not_null(actions, "Header carries HeaderActions like CourseMapScreen")
+	assert_not_null(tabs, "HeaderActions carries ModeTabs like CourseMapScreen")
+	assert_not_null(save_btn, "Save progress button is inside ScreenHeader")
+	assert_not_null(load_btn, "Load course button is inside ScreenHeader")
+	assert_not_null(title)
+
+	if save_btn != null and load_btn != null and title != null and actions != null:
+		assert_eq(title.text, "Save your course")
+		assert_gt(title.size.x, 0.0, "Title retains visible width")
+		assert_eq(save_btn.text, "Save progress")
+		assert_eq(load_btn.text, "Load course")
+		assert_eq(save_btn.get_theme_font("font"), CourseMapStyle.SUBTITLE_FONT,
+			"Mode buttons use the Course Map choice font")
+		assert_eq(load_btn.get_theme_font("font"), CourseMapStyle.SUBTITLE_FONT)
+		assert_true(save_btn.button_pressed, "Save progress starts selected in SAVE mode")
+		assert_false(load_btn.button_pressed, "Load course starts unselected in SAVE mode")
+
+		var save_rect := save_btn.get_global_rect()
+		var load_rect := load_btn.get_global_rect()
+		assert_gt(save_rect.position.x, 800.0, "Save progress sits on the right side of the header")
+		assert_gt(load_rect.position.x, save_rect.end.x, "Load course sits to the right of Save progress")
+		assert_lte(load_rect.end.x, 1600.0 + 1.0, "Load course stays inside the right edge")
+		assert_lt(save_rect.position.y, 120.0, "Save progress sits in the top corner")
+		assert_lte(title.get_global_rect().end.x, actions.get_global_rect().position.x + 1.0,
+			"HeaderActions do not overlap the title")
+
+		load_btn.pressed.emit()
+		await process_frames(3)
+
+	header = panel.get_node_or_null("ArchiveFrame/ArchivePage/ScreenHeader") as HBoxContainer
+	save_btn = header.find_child("SaveMode", true, false) as Button if header else null
+	load_btn = header.find_child("LoadMode", true, false) as Button if header else null
+	title = header.get_node_or_null("TitleBlock/Title") as Label if header else null
+	assert_not_null(save_btn, "Save progress stays in top-right header on Load screen")
+	assert_not_null(load_btn, "Load course stays in top-right header on Load screen")
+	if save_btn != null and load_btn != null and title != null:
+		assert_eq(title.text, "Load a course")
+		assert_false(save_btn.button_pressed, "Save progress is unselected in LOAD mode")
+		assert_true(load_btn.button_pressed, "Load course is selected in LOAD mode")
+		assert_gt(save_btn.get_global_rect().position.x, 800.0,
+			"Mode buttons remain in the top-right corner on the Load screen")
+
+	await resize_window(original_window)
+
+func test_load_only_archive_omits_mode_buttons_and_extra_row() -> void:
+	var original_window := get_window().size
+	await resize_window(Vector2i(1600, 1000))
+
+	var panel := SaveLoadPanel.new()
+	panel.allow_save = false
+	panel.open_mode = SaveLoadPanel.ScreenMode.LOAD
+	add_child_autofree(panel)
+	await process_frames(3)
+
+	var page := panel.get_node_or_null("ArchiveFrame/ArchivePage") as VBoxContainer
+	var header := panel.get_node_or_null("ArchiveFrame/ArchivePage/ScreenHeader") as HBoxContainer
+	assert_not_null(page)
+	assert_not_null(header)
+	if page != null and header != null:
+		assert_eq(page.get_child_count(), 2, "Load-only screen has only header and workspace")
+		assert_null(header.get_node_or_null("HeaderActions"), "No mode switch when saving is disallowed")
+		assert_null(panel.find_child("SaveMode", true, false))
+		assert_null(panel.find_child("LoadMode", true, false))
+		assert_null(panel.find_child("LoadOnlyLabel", true, false), "Legacy load-only banner row is gone")
+
+	await resize_window(original_window)
