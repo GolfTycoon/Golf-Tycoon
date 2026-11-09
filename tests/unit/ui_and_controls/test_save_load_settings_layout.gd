@@ -211,6 +211,9 @@ func test_save_load_screen_uses_shared_menu_backdrop_in_save_and_load_modes() ->
 	await process_frames(2)
 
 	var save_backdrop := panel.get_node_or_null("Backdrop")
+	var save_map := panel.find_child("CourseMapPreview", true, false) as CourseMapThumbnail
+	assert_not_null(save_map, "Save mode includes a course map in its left workspace")
+	assert_eq(save_map._grid, GameManager.terrain_grid, "Save map previews the live course")
 	assert_not_null(save_backdrop, "Save mode builds the shared backdrop")
 	assert_true(save_backdrop is MenuBackdrop, "Save mode uses MenuBackdrop like MainMenu")
 	assert_eq(panel.get_child(0), save_backdrop, "Backdrop sits behind the archive frame")
@@ -226,6 +229,8 @@ func test_save_load_screen_uses_shared_menu_backdrop_in_save_and_load_modes() ->
 	await process_frames(2)
 
 	var load_backdrop := panel.get_node_or_null("Backdrop")
+	var load_map := panel.find_child("CourseMapPreview", true, false) as CourseMapThumbnail
+	assert_not_null(load_map, "Load mode includes a map of the selected course")
 	assert_not_null(load_backdrop, "Load mode rebuilds the shared backdrop")
 	assert_true(load_backdrop is MenuBackdrop, "Load mode uses MenuBackdrop like MainMenu")
 	assert_eq(panel.get_child(0), load_backdrop, "Backdrop stays behind the archive frame")

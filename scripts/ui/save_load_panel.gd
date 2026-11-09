@@ -314,6 +314,7 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	content.add_child(heading)
+	content.add_child(_build_course_map(mode, _live_course_map_data()))
 
 	var course_card := Kit.make_panel(COLOR_RAISED, MenuStyle.with_alpha(COLOR_MINT, 0.20))
 	course_card.name = "LiveCourseSummary"
@@ -386,6 +387,7 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 	var compact := Kit.is_phone(mode)
 	var selected := _find_save(_selected_save_name)
 	content.add_child(Kit.make_label("SELECTED CLUBHOUSE", 10 if compact else 11, COLOR_GOLD))
+	content.add_child(_build_course_map(mode, _saved_course_map_data(str(selected.get("name", "")))))
 	if selected.is_empty():
 		content.add_child(_build_empty_dossier(compact))
 		return
@@ -940,6 +942,46 @@ func _is_interactive_control(control: Control) -> bool:
 func _picture_scale(mode: int) -> int:
 	return CourseLocationBanner.PICTURE_SCALE_COMPACT if Kit.is_phone(mode) \
 		else CourseLocationBanner.PICTURE_SCALE_DESKTOP
+
+func _build_course_map(mode: int, source: Dictionary) -> PanelContainer:
+	var frame := Kit.make_panel(COLOR_INSET, MenuStyle.with_alpha(COLOR_MINT, 0.27))
+	frame.name = "CourseMapFrame"
+	frame.custom_minimum_size.y = 62.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (96.0 if Kit.is_phone(mode) else (112.0 if Kit.is_tablet(mode) else 148.0))
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var map := CourseMapThumbnail.new()
+	map.name = "CourseMapPreview"
+	map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if source.has("grid"):
+		map.show_live_course(source["grid"], source.get("holes", []))
+	else:
+		map.show_saved_course(source.get("save_data", {}))
+	frame.add_child(map)
+	return frame
+
+func _live_course_map_data() -> Dictionary:
+	var grid: TerrainGrid = GameManager.terrain_grid if has_node("/root/GameManager") else null
+	var holes: Array = []
+	if has_node("/root/GameManager") and GameManager.current_course != null:
+		for hole in GameManager.current_course.holes:
+			holes.append({
+				"tee_position": {"x": hole.tee_position.x, "y": hole.tee_position.y},
+				"green_position": {"x": hole.green_position.x, "y": hole.green_position.y},
+			})
+	return {"grid": grid, "holes": holes}
+
+func _saved_course_map_data(save_name: String) -> Dictionary:
+	if save_name.is_empty():
+		return {}
+	var path := SaveManager.SAVE_DIR + save_name + ".save"
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return {"save_data": parsed}
+	return {}
 
 func _live_course_picture_texture(picture_scale: int) -> ImageTexture:
 	if has_node("/root/GameManager") and GameManager.is_tournament_mode:
