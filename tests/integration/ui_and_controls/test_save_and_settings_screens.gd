@@ -310,6 +310,55 @@ func test_a_checkpoint_needs_a_name_and_asks_before_it_overwrites() -> void:
 	await process_frames(2)
 
 
+func test_saved_courses_display_the_same_picture_as_the_top_left_hud_banner() -> void:
+	await set_window(DESIGN_WINDOW)
+	var previous_location := WorldMap.active_location_id
+	var previous_theme := GameManager.current_theme
+	var slot_monterey := "integration_pic_monterey"
+	var slot_hawaii := "integration_pic_hawaii"
+
+	WorldMap.set_active_location("monterey")
+	GameManager.current_theme = CourseTheme.Type.LINKS
+	main.course_location_banner.refresh()
+	var hud_monterey_tex: Texture2D = main.course_location_banner.get_node("Columns/PictureFrame/Picture").texture
+	assert_not_null(hud_monterey_tex)
+	assert_true(SaveManager.save_game(slot_monterey))
+
+	WorldMap.set_active_location("hawaii")
+	GameManager.current_theme = CourseTheme.Type.TROPICAL
+	main.course_location_banner.refresh()
+	var hud_hawaii_tex: Texture2D = main.course_location_banner.get_node("Columns/PictureFrame/Picture").texture
+	assert_not_null(hud_hawaii_tex)
+	assert_ne(hud_monterey_tex, hud_hawaii_tex)
+	assert_true(SaveManager.save_game(slot_hawaii))
+
+	var panel: SaveLoadPanel = await _open_archive(SaveLoadPanel.ScreenMode.SAVE)
+	var live_pic := panel.find_child("LiveCourseSummary", true, false).find_child("Picture", true, false) as TextureRect
+	var monterey_row_pic := panel.find_child("SaveRow_%s" % slot_monterey, true, false).find_child("Picture", true, false) as TextureRect
+	var hawaii_row_pic := panel.find_child("SaveRow_%s" % slot_hawaii, true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(live_pic.texture, hud_hawaii_tex, "Save workspace shows the current HUD course picture")
+	assert_eq(monterey_row_pic.texture, hud_monterey_tex, "Monterey save row matches Monterey's HUD picture")
+	assert_eq(hawaii_row_pic.texture, hud_hawaii_tex, "Hawaii save row matches Hawaii's HUD picture")
+
+	panel._set_mode(SaveLoadPanel.ScreenMode.LOAD)
+	await process_frames(3)
+	panel._on_save_selected(slot_monterey)
+	await process_frames(2)
+	var dossier_pic := panel.find_child("LoadDossier", true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(dossier_pic.texture, hud_monterey_tex, "Load dossier matches Monterey's HUD picture when selected")
+
+	panel._on_save_selected(slot_hawaii)
+	await process_frames(2)
+	dossier_pic = panel.find_child("LoadDossier", true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(dossier_pic.texture, hud_hawaii_tex, "Load dossier matches Hawaii's HUD picture when selected")
+
+	SaveManager.delete_save(slot_monterey)
+	SaveManager.delete_save(slot_hawaii)
+	WorldMap.set_active_location(previous_location)
+	GameManager.current_theme = previous_theme
+	main.course_location_banner.refresh()
+
+
 func test_a_settings_toggle_changes_the_live_setting() -> void:
 	var inverted := GameManager.invert_zoom_scroll
 	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())

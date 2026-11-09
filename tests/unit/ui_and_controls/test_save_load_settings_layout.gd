@@ -345,3 +345,149 @@ func test_load_only_archive_omits_mode_buttons_and_extra_row() -> void:
 		assert_null(panel.find_child("LoadOnlyLabel", true, false), "Legacy load-only banner row is gone")
 
 	await resize_window(original_window)
+
+
+# ---------------------------------------------------------------------------
+# Save / Load course location pictures (matching the top-left HUD banner)
+# ---------------------------------------------------------------------------
+
+const TEST_PICTURE_SAVE_A := "unit_save_pic_hawaii"
+const TEST_PICTURE_SAVE_B := "unit_save_pic_scotland"
+
+func _write_test_save(slot_name: String, data: Dictionary) -> void:
+	DirAccess.make_dir_recursive_absolute(SaveManager.SAVE_DIR)
+	var file := FileAccess.open(SaveManager.SAVE_DIR + slot_name + ".save", FileAccess.WRITE)
+	file.store_string(JSON.stringify(data))
+	file.close()
+
+func _delete_test_saves() -> void:
+	for slot_name in [TEST_PICTURE_SAVE_A, TEST_PICTURE_SAVE_B]:
+		SaveManager.delete_save(slot_name)
+
+func _has_flag_mark(root: Node) -> bool:
+	if root is MenuFlagMark:
+		return true
+	for child in root.get_children():
+		if _has_flag_mark(child):
+			return true
+	return false
+
+func test_picture_texture_for_save_matches_hud_course_location_picture() -> void:
+	CourseLocationPicture.clear_cache()
+	var monterey := SaveLoadPanel.picture_texture_for_save(
+		{"location_id": "monterey", "theme": "links"}, 2)
+	var scotland := SaveLoadPanel.picture_texture_for_save(
+		{"location_id": "scotland", "theme": "links"}, 2)
+	assert_eq(monterey, CourseLocationPicture.texture_for_location("monterey", CourseTheme.Type.LINKS, 2),
+		"save entry uses the exact cached texture of its active location")
+	assert_eq(scotland, CourseLocationPicture.texture_for_location("scotland", CourseTheme.Type.LINKS, 2),
+		"another save of the same theme uses its own location picture")
+	assert_ne(monterey, scotland, "two links locations keep distinct save pictures")
+
+	# Pre-world-map saves without location_id fall back to the legacy location for their theme.
+	var legacy_mountain := SaveLoadPanel.picture_texture_for_save({"theme": "mountain"}, 2)
+	assert_eq(legacy_mountain,
+		CourseLocationPicture.texture_for_location("rocky_mountains", CourseTheme.Type.MOUNTAIN, 2),
+		"legacy save falls back to the location activated when loaded")
+
+func test_save_and_load_screens_use_hud_course_pictures_instead_of_flag_marks() -> void:
+	var original_window := get_window().size
+	var previous_location := WorldMap.active_location_id
+	var previous_theme := GameManager.current_theme
+	CourseLocationPicture.clear_cache()
+
+	_write_test_save(TEST_PICTURE_SAVE_A, {
+		"timestamp": "2099-01-02T12:00:00",
+		"game_state": {"course_name": "Kohala Club", "current_day": 14, "money": 95000, "theme": "tropical"},
+		"world_map": {"active_location": "hawaii"},
+	})
+	_write_test_save(TEST_PICTURE_SAVE_B, {
+		"timestamp": "2099-01-01T12:00:00",
+		"game_state": {"course_name": "Fife Links", "current_day": 8, "money": 64000, "theme": "links"},
+		"world_map": {"active_location": "scotland"},
+	})
+	WorldMap.active_location_id = "las_vegas"
+	GameManager.current_theme = CourseTheme.Type.DESERT
+
+	await resize_window(Vector2i(1600, 1000))
+	var panel := SaveLoadPanel.new()
+	panel.allow_save = true
+	panel.open_mode = SaveLoadPanel.ScreenMode.SAVE
+	add_child_autofree(panel)
+	await process_frames(3)
+
+	var expected_live := CourseLocationPicture.texture_for_location("las_vegas", CourseTheme.Type.DESERT, 2)
+	var expected_hawaii := CourseLocationPicture.texture_for_location("hawaii", CourseTheme.Type.TROPICAL, 2)
+	var expected_scotland := CourseLocationPicture.texture_for_location("scotland", CourseTheme.Type.LINKS, 2)
+
+	# Save screen: LiveCourseSummary and every save row use PictureFrame/Picture, never MenuFlagMark.
+	var live_summary := panel.find_child("LiveCourseSummary", true, false)
+	assert_not_null(live_summary)
+	if live_summary != null:
+		assert_false(_has_flag_mark(live_summary),
+			"LiveCourseSummary replaces MenuFlagMark")
+		var live_pic := live_summary.find_child("Picture", true, false) as TextureRect
+		assert_not_null(live_pic, "LiveCourseSummary shows the live course picture")
+		if live_pic != null:
+			assert_eq(live_pic.texture, expected_live,
+				"LiveCourseSummary matches the HUD picture for the active course")
+
+	var row_a := panel.find_child("SaveRow_%s" % TEST_PICTURE_SAVE_A, true, false) as Button
+	var row_b := panel.find_child("SaveRow_%s" % TEST_PICTURE_SAVE_B, true, false) as Button
+	assert_not_null(row_a, "Hawaii save row is shown on Save screen")
+	assert_not_null(row_b, "Scotland save row is shown on Save screen")
+	if row_a != null and row_b != null:
+		assert_false(_has_flag_mark(row_a), "Hawaii save row has no MenuFlagMark")
+		assert_false(_has_flag_mark(row_b), "Scotland save row has no MenuFlagMark")
+		var pic_a := row_a.find_child("Picture", true, false) as TextureRect
+		var pic_b := row_b.find_child("Picture", true, false) as TextureRect
+		assert_not_null(pic_a)
+		assert_not_null(pic_b)
+		if pic_a != null and pic_b != null:
+			assert_eq(pic_a.texture, expected_hawaii, "Hawaii row uses Hawaii's HUD picture")
+			assert_eq(pic_b.texture, expected_scotland, "Scotland row uses Scotland's HUD picture")
+			assert_ne(pic_a.texture, pic_b.texture, "Distinct courses show distinct pictures")
+
+	# Load screen: dossier and save rows show each save's HUD picture and follow selection.
+	panel._set_mode(SaveLoadPanel.ScreenMode.LOAD)
+	await process_frames(3)
+
+	var dossier := panel.find_child("LoadDossier", true, false)
+	row_a = panel.find_child("SaveRow_%s" % TEST_PICTURE_SAVE_A, true, false) as Button
+	row_b = panel.find_child("SaveRow_%s" % TEST_PICTURE_SAVE_B, true, false) as Button
+	assert_not_null(dossier)
+	assert_not_null(row_a)
+	assert_not_null(row_b)
+	if dossier != null and row_a != null and row_b != null:
+		assert_false(_has_flag_mark(dossier),
+			"Selected save dossier replaces MenuFlagMark with the course picture")
+		var dossier_pic := dossier.find_child("Picture", true, false) as TextureRect
+		assert_not_null(dossier_pic)
+		if dossier_pic != null:
+			assert_eq(dossier_pic.texture, expected_hawaii,
+				"Newest save starts selected with its Hawaii HUD picture")
+		row_b.pressed.emit()
+		await process_frames(2)
+		dossier_pic = dossier.find_child("Picture", true, false) as TextureRect
+		assert_not_null(dossier_pic)
+		if dossier_pic != null:
+			assert_eq(dossier_pic.texture, expected_scotland,
+				"Selecting Scotland save swaps the dossier picture to Scotland's HUD picture")
+
+	# Phone compact layout scales the pictures to 1x (32x32), matching CourseLocationBanner.
+	await resize_window(Vector2i(390, 844))
+	await process_frames(3)
+	row_b = panel.find_child("SaveRow_%s" % TEST_PICTURE_SAVE_B, true, false) as Button
+	dossier = panel.find_child("LoadDossier", true, false)
+	if row_b != null and dossier != null:
+		var compact_scotland := CourseLocationPicture.texture_for_location("scotland", CourseTheme.Type.LINKS, 1)
+		var row_pic := row_b.find_child("Picture", true, false) as TextureRect
+		var compact_dossier_pic := dossier.find_child("Picture", true, false) as TextureRect
+		if row_pic != null and compact_dossier_pic != null:
+			assert_eq(row_pic.texture, compact_scotland, "Phone save row uses 1x location picture")
+			assert_eq(compact_dossier_pic.texture, compact_scotland, "Phone dossier uses 1x location picture")
+
+	_delete_test_saves()
+	WorldMap.active_location_id = previous_location
+	GameManager.current_theme = previous_theme
+	await resize_window(original_window)

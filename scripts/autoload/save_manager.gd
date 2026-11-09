@@ -460,21 +460,23 @@ func _apply_save_data(data: Dictionary) -> void:
 	# Active owner rounds are transient, like visitor rounds.
 	GameManager.player_profile = PlayerGolferProfile.from_data(data.get("player_golfer", {}))
 
+	# Game state (with fallbacks for older save versions). A field that is
+	# missing — or damaged, holding null or text where a number belongs — takes
+	# its default, so one bad value cannot stop the load half way.
+	var saved_game: Variant = data.get("game_state", data)  # v1 had flat structure
+	var game: Dictionary = saved_game if saved_game is Dictionary else {}
+	var theme_name := _saved_text(game, "theme", "parkland")
+
 	# Company world: which locations are owned, their prices and the courses
 	# stored for them. Older saves carry no world: give the company a matching
 	# location so the world map screen still has somewhere to build.
 	if data.has("world_map"):
 		WorldMap.deserialize(data.get("world_map", {}))
 	else:
-		WorldMap.ensure_legacy_world(GameManager.current_theme)
+		WorldMap.ensure_legacy_world(CourseTheme.from_string(theme_name))
 	# The course being loaded is the live one: a stored copy of it is stale.
 	WorldMap.clear_snapshot(WorldMap.active_location_id)
 
-	# Game state (with fallbacks for older save versions). A field that is
-	# missing — or damaged, holding null or text where a number belongs — takes
-	# its default, so one bad value cannot stop the load half way.
-	var saved_game: Variant = data.get("game_state", data)  # v1 had flat structure
-	var game: Dictionary = saved_game if saved_game is Dictionary else {}
 	GameManager.course_name = _saved_text(game, "course_name", "Loaded Course")
 	var old_money = GameManager.money
 	GameManager.money = int(_saved_number(game, "money", GameManager.DEFAULT_STARTING_MONEY))
@@ -498,7 +500,6 @@ func _apply_save_data(data: Dictionary) -> void:
 	GameManager.bankruptcy_threshold = diff_mods.get("bankruptcy_threshold", -1000)
 
 	# Restore theme (defaults to parkland for saves without theme)
-	var theme_name := _saved_text(game, "theme", "parkland")
 	GameManager.current_theme = CourseTheme.from_string(theme_name)
 	var base_colors := CourseTheme.get_terrain_colors(GameManager.current_theme)
 	var remapped := ColorblindMode.remap_colors(base_colors, GameManager.colorblind_mode)
@@ -715,19 +716,22 @@ func _read_save_metadata(path: String) -> Dictionary:
 
 	var raw_game = data.get("game_state", data)
 	var game: Dictionary = raw_game if raw_game is Dictionary else {}
+	var raw_world = data.get("world_map", {})
+	var world: Dictionary = raw_world if raw_world is Dictionary else {}
 	var raw_holes = data.get("holes", [])
 	var raw_day = game.get("current_day", 0)
 	var raw_money = game.get("money", 0)
 	var raw_reputation = game.get("reputation", 0.0)
 	return {
-		"timestamp": str(data.get("timestamp", "")),
-		"course_name": str(game.get("course_name", "Unknown")),
+		"timestamp": _saved_text(data, "timestamp", ""),
+		"course_name": _saved_text(game, "course_name", "Unknown"),
 		"day": int(raw_day) if raw_day is int or raw_day is float else 0,
 		"money": int(raw_money) if raw_money is int or raw_money is float else 0,
 		"reputation": float(raw_reputation) if raw_reputation is int or raw_reputation is float else 0.0,
 		"hole_count": raw_holes.size() if raw_holes is Array else 0,
-		"difficulty": str(game.get("difficulty", "")),
-		"theme": str(game.get("theme", "")),
+		"difficulty": _saved_text(game, "difficulty", ""),
+		"theme": _saved_text(game, "theme", ""),
+		"location_id": _saved_text(world, "active_location", ""),
 		"version": int(data.get("version", 0)) if data.get("version", 0) is int or data.get("version", 0) is float else 0,
 	}
 

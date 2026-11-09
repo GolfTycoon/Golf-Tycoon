@@ -1,6 +1,7 @@
 extends Control
 class_name SaveLoadPanel
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
+const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
 ## Responsive save desk and course archive.
 ##
 ## The Save and Load flows share the same archive, sitting on the shared
@@ -75,6 +76,18 @@ func _exit_tree() -> void:
 ## can be checked without constructing a window.
 static func layout_mode_for(view: Vector2) -> int:
 	return Kit.layout_mode_for(view)
+
+## Resolve the HUD location postcard texture for a save entry. Uses the
+## active WorldMap location stored in the save, falling back to the legacy
+## world location for the save's theme on pre-world-map saves.
+static func picture_texture_for_save(save_info: Dictionary, picture_scale: int = 2) -> ImageTexture:
+	var saved_theme := CourseTheme.from_string(str(save_info.get("theme", "")))
+	var location_id := str(save_info.get("location_id", "")).strip_edges()
+	if location_id.is_empty():
+		location_id = WorldMapStateScript.legacy_location_for_theme(saved_theme)
+	var definition := WorldLocations.get_definition(location_id)
+	var location_theme := int(definition.get("theme", saved_theme))
+	return CourseLocationPicture.texture_for_location(location_id, location_theme, picture_scale)
 
 ## Remove filesystem-sensitive characters while keeping ordinary spaces,
 ## punctuation and non-English course names. A blank result is rejected by the
@@ -308,11 +321,10 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	_set_margins(summary_margin, 9 if compact else 12)
 	course_card.add_child(summary_margin)
 	var course_row := HBoxContainer.new()
-	course_row.add_theme_constant_override("separation", 9)
+	course_row.add_theme_constant_override("separation", 9 if compact else 11)
 	summary_margin.add_child(course_row)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = (26 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 30) if compact else 38
-	course_row.add_child(mark)
+	var pic_scale := _picture_scale(mode)
+	course_row.add_child(_make_course_picture(_live_course_picture_texture(pic_scale), pic_scale))
 	var course_info := VBoxContainer.new()
 	course_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	course_info.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -380,9 +392,8 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 10)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = (36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 44) if compact else 58
-	title_row.add_child(mark)
+	var pic_scale := _picture_scale(mode)
+	title_row.add_child(_make_course_picture(picture_texture_for_save(selected, pic_scale), pic_scale))
 	var title_box := VBoxContainer.new()
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -580,13 +591,14 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	var save_name := str(save_info.get("name", "Unknown save"))
 	var compact := Kit.is_phone(mode)
 	var selected := save_name == _selected_save_name
+	var pic_scale := _picture_scale(mode)
 	var row := Button.new()
 	row.name = "SaveRow_%s" % save_name.validate_node_name()
 	row.set_meta("save_name", save_name)
 	row.toggle_mode = true
 	row.button_pressed = selected
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.custom_minimum_size.y = 64 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (70 if compact else 82)
+	row.custom_minimum_size.y = 64 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (70 if compact else 86)
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.tooltip_text = "Select %s" % save_name
 	MenuStyle.paint_choice(row, COLOR_MINT, 10)
@@ -595,16 +607,18 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	row.add_theme_color_override("font_pressed_color", COLOR_TEXT)
 	row.add_theme_color_override("font_disabled_color", COLOR_QUIET)
 	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_margins(margin, 8 if compact else 12)
+	margin.add_theme_constant_override("margin_left", 8 if compact else 12)
+	margin.add_theme_constant_override("margin_right", 8 if compact else 12)
+	margin.add_theme_constant_override("margin_top", 8 if compact else 9)
+	margin.add_theme_constant_override("margin_bottom", 8 if compact else 9)
 	row.add_child(margin)
 	var content := HBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_theme_constant_override("separation", 9)
+	content.add_theme_constant_override("separation", 9 if compact else 11)
 	margin.add_child(content)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = 27 if compact else 34
-	content.add_child(mark)
+	content.add_child(_make_course_picture(picture_texture_for_save(save_info, pic_scale), pic_scale))
 
 	var text_box := VBoxContainer.new()
 	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -922,6 +936,55 @@ func _is_interactive_control(control: Control) -> bool:
 			return true
 		node = node.get_parent()
 	return false
+
+func _picture_scale(mode: int) -> int:
+	return CourseLocationBanner.PICTURE_SCALE_COMPACT if Kit.is_phone(mode) \
+		else CourseLocationBanner.PICTURE_SCALE_DESKTOP
+
+func _live_course_picture_texture(picture_scale: int) -> ImageTexture:
+	if has_node("/root/GameManager") and GameManager.is_tournament_mode:
+		return CourseLocationPicture.texture_for_location(
+			"tournament_mode", GameManager.current_theme, picture_scale)
+	var current_theme: int = GameManager.current_theme if has_node("/root/GameManager") \
+		else CourseTheme.Type.PARKLAND
+	var location_id := ""
+	if has_node("/root/WorldMap"):
+		location_id = WorldMap.active_location_id
+	if location_id.is_empty():
+		location_id = WorldMapStateScript.legacy_location_for_theme(current_theme)
+	var definition := WorldLocations.get_definition(location_id)
+	var location_theme := int(definition.get("theme", current_theme))
+	return CourseLocationPicture.texture_for_location(location_id, location_theme, picture_scale)
+
+func _make_course_picture(texture: Texture2D, picture_scale: int) -> PanelContainer:
+	var safe_scale := maxi(1, picture_scale)
+	var side := CourseLocationPicture.GRID_W * safe_scale
+	var frame := PanelContainer.new()
+	frame.name = "PictureFrame"
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.set_border_width_all(1)
+	style.border_color = Color(UIConstants.COLOR_BORDER, 0.85)
+	style.set_corner_radius_all(CourseLocationBanner.FRAME_RADIUS)
+	style.content_margin_left = 2
+	style.content_margin_right = 2
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	frame.add_theme_stylebox_override("panel", style)
+
+	var picture := TextureRect.new()
+	picture.name = "Picture"
+	picture.texture = texture
+	picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.custom_minimum_size = Vector2(side, side)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(picture)
+	return frame
 
 func _set_margins(container: MarginContainer, margin: int) -> void:
 	for side in ["left", "right", "top", "bottom"]:

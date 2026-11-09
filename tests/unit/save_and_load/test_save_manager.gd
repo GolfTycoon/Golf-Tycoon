@@ -237,6 +237,9 @@ func test_save_list_carries_the_archive_details() -> void:
 			"difficulty": "hard",
 			"theme": "links",
 		},
+		"world_map": {
+			"active_location": "scotland",
+		},
 		"holes": [{"hole_number": 1}, {"hole_number": 2}, {"hole_number": 3}],
 	})
 	var found := _listed(TEST_SAVE)
@@ -248,14 +251,30 @@ func test_save_list_carries_the_archive_details() -> void:
 	assert_almost_eq(float(found.get("reputation", 0.0)), 61.5, 0.001)
 	assert_eq(found.get("difficulty", ""), "hard")
 	assert_eq(found.get("theme", ""), "links")
+	assert_eq(found.get("location_id", ""), "scotland")
 
 func test_save_list_tolerates_missing_fields() -> void:
-	_write_save(TEST_SAVE, {"holes": null, "game_state": {"money": "not a number"}})
+	_write_save(TEST_SAVE, {"holes": null, "world_map": null, "game_state": {"money": "not a number", "theme": null}})
 	var found := _listed(TEST_SAVE)
 	assert_false(found.is_empty(), "a sparse save is still listed")
 	assert_eq(int(found.get("money", -1)), 0, "a non-numeric balance reads as zero")
 	assert_eq(int(found.get("hole_count", -1)), 0, "missing holes read as none")
 	assert_eq(found.get("course_name", ""), "Unknown", "a missing course name keeps the old fallback")
+	assert_eq(found.get("theme", "wrong"), "", "a null theme reads back empty")
+	assert_eq(found.get("location_id", "wrong"), "", "a missing world_map leaves location_id empty")
+
+func test_loading_legacy_save_without_world_map_activates_saved_theme_location() -> void:
+	var saved_world := WorldMap.serialize()
+	GameManager.current_course = GameManager.CourseData.new()
+	GameManager.current_theme = CourseTheme.Type.PARKLAND
+	SaveManager._apply_save_data({
+		"version": 4,
+		"game_state": {"course_name": "Alpine Legacy", "theme": "mountain"},
+	})
+	assert_eq(WorldMap.active_location_id, "rocky_mountains",
+		"legacy mountain save activates the mountain location rather than the previous session's theme")
+	WorldMap.deserialize(saved_world)
+	TerrainPalette.set_theme_colors(CourseTheme.get_terrain_colors(GameManager.current_theme))
 
 ## get_save_list used to strip every ".save" from a name, not just the extension.
 func test_save_list_keeps_dots_inside_the_save_name() -> void:

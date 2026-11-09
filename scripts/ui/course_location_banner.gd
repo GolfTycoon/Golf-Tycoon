@@ -313,7 +313,8 @@ func refresh() -> void:
 	visible = true
 	var definition := WorldLocations.get_definition(location_id)
 	var location_name: String = str(definition.get("name", location_id))
-	var location_theme: int = int(definition.get("theme", CourseTheme.Type.PARKLAND))
+	var fallback_theme: int = GameManager.current_theme if has_node("/root/GameManager") else CourseTheme.Type.PARKLAND
+	var location_theme: int = int(definition.get("theme", fallback_theme))
 	_name_label.text = location_name
 	_picture.texture = CourseLocationPicture.texture_for_location(
 		location_id, location_theme, _picture_scale())
@@ -486,9 +487,10 @@ func apply_screen() -> void:
 	# The picture's pixel scale and the date format follow the layout.
 	if not _current_location_id.is_empty():
 		var definition := WorldLocations.get_definition(_current_location_id)
+		var fallback_theme: int = GameManager.current_theme if has_node("/root/GameManager") else CourseTheme.Type.PARKLAND
 		_picture.texture = CourseLocationPicture.texture_for_location(
 			_current_location_id,
-			int(definition.get("theme", CourseTheme.Type.PARKLAND)),
+			int(definition.get("theme", fallback_theme)),
 			_picture_scale())
 	_update_date()
 
