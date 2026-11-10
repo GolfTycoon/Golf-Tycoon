@@ -200,12 +200,14 @@ func test_every_landscape_layout_keeps_the_one_desktop_dock_height() -> void:
 		"but the dock keeps the one desktop height")
 
 
-func test_portrait_hud_is_phone_width_only() -> void:
+func test_portrait_hud_starts_at_the_compact_width_breakpoint() -> void:
 	var s := _make_screen()
-	for size in [Vector2(320, 568), Vector2(390, 844), Vector2(699, 1000)]:
+	for size in [Vector2(320, 568), Vector2(390, 844), Vector2(699, 1000),
+			Vector2(768, 1024), Vector2(899, 1200)]:
 		s.window_size = size
 		assert_true(s.uses_portrait_hud(), "%s uses the thumb layout" % size)
-	for size in [Vector2(700, 1000), Vector2(768, 1024), Vector2(844, 390), Vector2(1600, 1000)]:
+	for size in [Vector2(900, 1200), Vector2(1024, 1366),
+			Vector2(844, 390), Vector2(1600, 1000)]:
 		s.window_size = size
 		assert_false(s.uses_portrait_hud(), "%s keeps the wider composition" % size)
 

@@ -55,6 +55,11 @@ const COMPACT_HEIGHT := 640.0
 ## below it the world stays at 1:1 pixel scale so tiles remain tappable.
 const WORLD_SCALE_FLOOR_WIDTH := 900.0
 
+## Portrait HUD is used on portrait windows narrower than this. Matching the
+## compact HUD breakpoint avoids an intermediate narrow-column layout before
+## the dedicated mobile composition appears.
+const PORTRAIT_HUD_MAX_WIDTH := 900.0
+
 ## Breathing room a modal overlay keeps from the window edge.
 const MODAL_MARGIN := 12.0
 
@@ -484,9 +489,11 @@ func is_landscape() -> bool:
 	return window_size.x >= window_size.y
 
 ## A dedicated composition, not the desktop HUD squeezed into fewer pixels.
-## Wide portrait tablets keep the roomy desktop arrangement.
+## Start it at the compact-width breakpoint so portrait windows do not first
+## pass through a narrow desktop-HUD state. Landscape windows keep their usual
+## composition regardless of width.
 func uses_portrait_hud() -> bool:
-	return is_portrait() and window_size.x < 700.0
+	return is_portrait() and window_size.x < PORTRAIT_HUD_MAX_WIDTH
 
 func portrait_nav_height() -> float:
 	return float(UIConstants.PORTRAIT_NAV_HEIGHT) + safe_insets.w
