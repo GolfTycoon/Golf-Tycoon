@@ -297,7 +297,7 @@ func test_a_moved_stepper_still_drives_its_brush() -> void:
 	assert_eq(toolbar._elevation_size, before, "Smaller steps it back down")
 
 
-func test_only_the_build_pages_show_tools_and_every_page_keeps_its_heading() -> void:
+func test_only_the_build_pages_show_tools_and_no_page_keeps_a_shelf_header() -> void:
 	for phone: Vector2 in [NARROW_PHONES[0], WIDE_PHONES[1]]:
 		await _hold_phone(phone)
 		var tray := toolbar.get_global_rect()
@@ -312,19 +312,20 @@ func test_only_the_build_pages_show_tools_and_every_page_keeps_its_heading() -> 
 					assert_false(toolbar._header_row.visible, "%s shows no tool row" % where)
 					assert_false(toolbar._header_upper_row.visible, "%s: nor a stepper row" % where)
 					assert_eq(_shown_tools().size(), 0, "%s has no tools over the course" % where)
-				# With the tools out of the tray, the row under the tabs is
-				# the heading's on every page.
+				# The tray carries no shelf header on any page: the captioned
+				# tabs name the page, so the catalogue starts directly under
+				# them and the desktop heading stays hidden.
 				var title := toolbar._page_title
-				assert_true(title.is_visible_in_tree(), "%s keeps its heading" % where)
+				assert_false(title.visible, "%s has no shelf header" % where)
+				assert_false(title.is_visible_in_tree(), "%s: and nothing of it is drawn" % where)
 				assert_string_contains(title.text, TerrainToolbar.TAB_TITLES[tab])
-				var heading := title.get_global_rect()
-				assert_true(tray.encloses(heading), "%s: the heading %s is inside the tray" % [where, heading])
-				assert_gte(heading.position.y, toolbar._tab_buttons[tab].get_global_rect().end.y,
-					"%s: under the page tabs" % where)
-				assert_lt(heading.get_center().y, toolbar._pages_container.get_global_rect().position.y,
-					"%s: over the page" % where)
-				assert_almost_eq(heading.size.x, tray.size.x - 24.0, 0.01,
-					"%s: across the tray, no longer cut short by a tool row" % where)
+				var pages := toolbar._pages_container.get_global_rect()
+				assert_gte(pages.position.y, toolbar._tab_buttons[tab].get_global_rect().end.y,
+					"%s: the catalogue sits under the page tabs" % where)
+				assert_almost_eq(pages.position.y - tray.position.y, TerrainToolbar.PORTRAIT_PAGE_TOP, 0.01,
+					"%s: directly under the tabs, with no header band" % where)
+				assert_almost_eq(pages.end.y, tray.end.y - 6.0, 0.01,
+					"%s: and runs to the tray's bottom margin" % where)
 
 
 func test_the_tools_come_and_go_with_the_tray() -> void:
@@ -388,6 +389,7 @@ func test_turning_the_phone_on_its_side_hands_the_shelf_its_one_row_back() -> vo
 	await _hold_phone(NARROW_PHONES[1])
 	await _open(TerrainToolbar.Tab.TERRAIN)
 	assert_eq(toolbar._header_terrain_size.get_parent(), toolbar._header_upper_row, "Upright, the stepper is stacked")
+	assert_false(toolbar._page_title.visible, "Upright, the shelf header is gone")
 	# Landscape and desktop both wear the shelf with its single header row.
 	for window: Vector2 in [Vector2(844, 390), Vector2(1600, 1000)]:
 		Screen.apply_size(window)
@@ -416,9 +418,11 @@ func test_turning_the_phone_on_its_side_hands_the_shelf_its_one_row_back() -> vo
 			Vector2(0.01, 0.01), "%s: the stepper sits beside the shape again" % window)
 		assert_almost_eq(inspect.position.x, stepper.end.x + TerrainToolbar.HEADER_ROW_GAP, 0.01,
 			"%s: and Inspect beside the stepper" % window)
+		assert_true(toolbar._page_title.visible, "%s: the shelf header returns with the desktop shelf" % window)
 		# And upright again the stepper goes back up.
 		await _hold_phone(NARROW_PHONES[1])
 		assert_eq(toolbar._header_terrain_size.get_parent(), toolbar._header_upper_row,
 			"Upright again after %s, the stepper is stacked" % window)
+		assert_false(toolbar._page_title.visible, "Upright again after %s, the shelf header is gone" % window)
 		assert_eq(toolbar._header_row.get_theme_constant("separation"), int(TerrainToolbar.BRUSH_DOCK_GAP),
 			"and the lower row closes up under it")

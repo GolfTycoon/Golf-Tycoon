@@ -118,8 +118,13 @@ const PORTRAIT_TAB_FACE_HEIGHT := 48.0
 const PORTRAIT_TAB_TOP := 4.0
 const PORTRAIT_TAB_SIDE_MARGIN := 8.0
 const PORTRAIT_TAB_GAP := 4.0
-const PORTRAIT_TITLE_TOP := 58.0
-const PORTRAIT_PAGE_TOP := 100.0
+## The portrait tray carries no shelf header: the full-width tabs already
+## name the page under their icons, so the desktop heading ("BUILD / Terrain")
+## would only repeat them and steal catalogue height on a phone. The pages
+## therefore start directly under the tabs (tabs end at 52, rail at 56), and
+## the heading stays hidden until the phone turns sideways (see
+## _sync_portrait_chrome).
+const PORTRAIT_PAGE_TOP := 58.0
 ## In the portrait HUD the header row's tool buttons leave the tray and float
 ## over the course, just above the tray's top-right corner: level with the
 ## camera rail in the opposite corner (see PortraitHUD), the same distance
@@ -485,6 +490,10 @@ func _apply_portrait() -> void:
 	var width: float = Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z
 	custom_minimum_size = Vector2(width, Screen.portrait_tray_height())
 	_backdrop.visible = false
+	# No shelf header in the portrait tray (see PORTRAIT_PAGE_TOP): the
+	# captioned tabs name the page, so the heading is hidden here and only
+	# returns with the desktop shelf.
+	_page_title.visible = false
 	_tab_rail.custom_minimum_size = Vector2(width - 12.0, PORTRAIT_TAB_HEIGHT)
 	var tabs: Array = SECTION_TABS[current_section]
 	for index in _tab_buttons:
@@ -662,11 +671,10 @@ func _sync_backdrop() -> void:
 func _sync_portrait_chrome() -> void:
 	var origin := get_global_position()
 	_seat_portrait_tools(origin)
-	# The tool buttons float above the tray, so the row under the tabs belongs
-	# to the heading on every page.
-	_page_title.visible = true
-	_page_title.global_position = origin + Vector2(12.0, PORTRAIT_TITLE_TOP)
-	_page_title.size = Vector2(size.x - 24.0, 44.0)
+	# No shelf header in the portrait tray: the captioned tabs already name
+	# the page, so the catalogue starts directly under them (see
+	# PORTRAIT_PAGE_TOP) and the desktop heading stays hidden.
+	_page_title.visible = false
 	_page_window.set_curve(0.0, 0.0)
 
 ## Seat the tool buttons over the course, above the top-right corner of the
@@ -807,7 +815,9 @@ func _build_ui() -> void:
 	# at the top of the rail (its position is synced in _sync_backdrop), so
 	# the heading reads from the left of the page it names instead of sitting
 	# at the far end of the tab rail. It takes no clicks: anything it covers
-	# falls through to the page or the course beneath it.
+	# falls through to the page or the course beneath it. The portrait tray
+	# hides it (see _sync_portrait_chrome): there the tabs wear captions and
+	# name the page themselves.
 	_page_title = Label.new()
 	_page_title.name = "PageTitle"
 	_page_title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM

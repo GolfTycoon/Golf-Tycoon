@@ -172,9 +172,11 @@ tool state survive rotation. Rotating back restores the original parents/order.
   it again (or the collapsed context button) puts the tray away. The tray keeps
   all 11 pages behind **full-width page tabs**: the open section's tabs share
   the tray's width equally, like the section buttons under them, each a 48 px
-  tall face with its icon over a short caption. Under the tabs sit the page
-  title and a horizontally scrollable catalogue that never pans or paints the
-  course.
+  tall face with its icon over a short caption. The tray carries no shelf
+  header: the captioned tabs already name the page, so a horizontally
+  scrollable catalogue starts directly under them and never pans or paints
+  the course. Turning the phone sideways brings the desktop shelf's heading
+  back.
 - **Tool buttons (above the tray).** Brush shape, brush size, Bulldozer and
   Inspect float over the bottom-right corner of the course view, just above the
   open tray and level with the camera rail, each at least a 44 px target. Where

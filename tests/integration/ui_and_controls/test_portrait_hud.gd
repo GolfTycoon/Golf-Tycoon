@@ -163,12 +163,14 @@ func test_page_tabs_fill_the_tray_width_on_every_phone() -> void:
 				assert_almost_eq(tab.stacked_caption_rect().size.x, PixelCircleButton.FONT.get_string_size(tab.caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x, 0.01, "%s: %s is not trimmed" % [where, tab.caption])
 				for j in range(i + 1, tabs.size()):
 					assert_false(rect.intersects(tabs[j].get_global_rect()), "%s: page tabs do not overlap" % where)
-			# The tabs clear the heading and the catalogue below them; the
-			# tool buttons are out of the tray altogether, above its top.
+			# The tray carries no shelf header: the captioned tabs name the
+			# page, so the catalogue starts directly under them; the tool
+			# buttons are out of the tray altogether, above its top.
 			var row_end: float = tabs[0].get_global_rect().end.y
-			assert_true(toolbar._page_title.visible, "%s: the page keeps its heading" % where)
-			assert_gte(toolbar._page_title.get_global_rect().position.y, row_end, "%s: the tabs clear the heading" % where)
+			assert_false(toolbar._page_title.visible, "%s: the shelf header is gone" % where)
+			assert_false(toolbar._page_title.is_visible_in_tree(), "%s: and nothing of it is drawn" % where)
 			assert_gte(toolbar._pages_container.get_global_rect().position.y, row_end, "%s: the tabs clear the catalogue" % where)
+			assert_almost_eq(toolbar._pages_container.get_global_rect().position.y - tray.position.y, TerrainToolbar.PORTRAIT_PAGE_TOP, 0.5, "%s: the catalogue starts under the tabs, with no header band" % where)
 			for tool in _shown_tools():
 				assert_lte(tool.get_global_rect().end.y, tray.position.y, "%s: %s stands above the tab row" % [where, tool.name])
 			if tabs.size() == main.left_controls.section_buttons.size():
