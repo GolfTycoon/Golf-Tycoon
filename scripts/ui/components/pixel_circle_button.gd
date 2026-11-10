@@ -43,6 +43,19 @@ const ICONS := {
 	"minus": [".........", ".........", ".........", ".xxxxxxx.", ".xxxxxxx.", ".xxxxxxx.", ".........", ".........", "........."],
 	"plus": [".........", "...xxx...", "...xxx...", ".xxxxxxx.", ".xxxxxxx.", ".xxxxxxx.", "...xxx...", "...xxx...", "........."],
 }
+## Every icon casts an ink shadow this far below itself.
+const ICON_SHADOW := 2.0
+## Stacked wide faces (see stacked_caption) start the caption's capitals this
+## far under the icon's shadow. A pressed or selected icon sits two pixels
+## lower, so it still keeps two pixels of air above the caption.
+const STACK_GAP := 4.0
+## What a stacked caption keeps clear on each side of the face: the two-pixel
+## border and two more pixels of air.
+const STACK_SIDE_PAD := 4.0
+## Pixelify Sans capitals stand seven tenths of the font size above the
+## baseline. A stacked face centres its icon and the capitals as one block and
+## lets descenders hang below it, the way the icon's shadow hangs below the icon.
+const CAP_HEIGHT_RATIO := 0.7
 
 ## The icon can change while the button is on screen (the speed toggle wears
 ## one, two or three triangles as the tier changes), so a new glyph repaints.
@@ -59,6 +72,16 @@ var wide_face := false:
 	set(value):
 		wide_face = value
 		queue_redraw()
+## A wide face sets its caption beside its icon, which suits the thumb rail's
+## three roomy section tabs. A row that seats four tabs across a narrow phone
+## has no room for that ("Elevation" beside its icon is wider than the tab), so
+## those tabs stack the caption under the icon instead. Only a wide face with
+## both an icon and a caption stacks (see is_stacked).
+var stacked_caption := false:
+	set(value):
+		if stacked_caption != value:
+			stacked_caption = value
+			queue_redraw()
 @export var caption := ""
 @export var diameter := 32.0:
 	set(value):
@@ -109,6 +132,38 @@ func _has_point(point: Vector2) -> bool:
 		return Rect2(Vector2.ZERO, size).has_point(point)
 	return point.distance_to(size * 0.5) <= minf(size.x, size.y) * 0.5
 
+## The side of one icon pixel on a face whose shorter side is `d`.
+static func _icon_pixel(d: int) -> int:
+	return 3 if d >= 74 else 2
+
+## The caption's font size on a face whose shorter side is `d`.
+static func _caption_font_size(d: int) -> int:
+	return 12 if d < 74 else 14
+
+## True while this face draws its caption under its icon.
+func is_stacked() -> bool:
+	return wide_face and stacked_caption and not caption.is_empty() and ICONS.has(glyph)
+
+## Where a stacked face seats its icon, before the two-pixel nudge of a press:
+## centred across the face, at the top of the block it forms with the caption.
+func stacked_icon_rect() -> Rect2:
+	var d := int(minf(size.x, size.y))
+	var side := 9.0 * _icon_pixel(d)
+	var block := side + ICON_SHADOW + STACK_GAP + ceilf(_caption_font_size(d) * CAP_HEIGHT_RATIO)
+	return Rect2(floorf((size.x - side) * 0.5), floorf((size.y - block) * 0.5), side, side)
+
+## Where a stacked face seats its caption: a box as wide as the text and as
+## tall as its capitals, centred across the face, whose bottom edge is the
+## baseline. A caption wider than the room between the side pads is held to
+## that room, where it is trimmed rather than drawn over the border.
+func stacked_caption_rect() -> Rect2:
+	var font_size := _caption_font_size(int(minf(size.x, size.y)))
+	var room := maxf(size.x - 2.0 * STACK_SIDE_PAD, 0.0)
+	var width := minf(FONT.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x, room)
+	return Rect2(STACK_SIDE_PAD + floorf((room - width) * 0.5),
+			stacked_icon_rect().end.y + ICON_SHADOW + STACK_GAP,
+			width, ceilf(font_size * CAP_HEIGHT_RATIO))
+
 func _draw() -> void:
 	var selected := active or (button_pressed and pressed_lights_face)
 	var lit := is_hovered() or has_focus()
@@ -131,11 +186,14 @@ func _draw() -> void:
 		if not _faces.has(key):
 			_faces[key] = _make_face(d, selected, lit)
 		draw_texture_rect(_faces[key], Rect2(origin, Vector2.ONE * d), false)
+	var stacked := is_stacked()
 	if ICONS.has(glyph):
 		var pixels: Array = ICONS[glyph]
-		var pixel := 3 if d >= 74 else 2
+		var pixel := _icon_pixel(d)
 		var offset := origin + Vector2(floorf((d - 9 * pixel) * 0.5), floorf((d - 9 * pixel) * 0.5))
-		if wide_face and not caption.is_empty():
+		if stacked:
+			offset = stacked_icon_rect().position
+		elif wide_face and not caption.is_empty():
 			var text_width := FONT.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 			offset = Vector2(floorf((size.x - (9 * pixel + 4.0 + text_width)) * 0.5), floorf((size.y - 9 * pixel) * 0.5))
 		elif not caption.is_empty():
@@ -146,13 +204,20 @@ func _draw() -> void:
 			for x in pixels[y].length():
 				if pixels[y][x] == "x":
 					var rect := Rect2(offset + Vector2(x, y) * pixel, Vector2.ONE * pixel)
-					draw_rect(Rect2(rect.position + Vector2(0, 2), rect.size), INK)
+					draw_rect(Rect2(rect.position + Vector2(0, ICON_SHADOW), rect.size), INK)
 					draw_rect(rect, CREAM if not disabled else Color("748273"))
 	if notification_count > 0:
 		var badge_position := Vector2(size.x - 9, 4) if wide_face else origin + Vector2(d - 9, 2)
 		draw_rect(Rect2(badge_position, Vector2(6, 6)), Color("e5bd66"))
-	if not caption.is_empty():
-		var font_size := 12 if d < 74 else 14
+	if stacked:
+		# The caption keeps its place while a press nudges the icon, so a row of
+		# tabs reads along one baseline whichever of them is selected.
+		var caption_rect := stacked_caption_rect()
+		draw_string(FONT, Vector2(caption_rect.position.x, caption_rect.end.y), caption,
+				HORIZONTAL_ALIGNMENT_LEFT, maxf(size.x - 2.0 * STACK_SIDE_PAD, 1.0),
+				_caption_font_size(d), CREAM)
+	elif not caption.is_empty():
+		var font_size := _caption_font_size(d)
 		var width := FONT.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		var text_position := origin + Vector2(floorf((d - width) * 0.5), d - 15)
 		if wide_face and ICONS.has(glyph):

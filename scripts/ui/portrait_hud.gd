@@ -6,20 +6,27 @@ class_name PortraitHUD
 ## three-button thumb rail; Menu and time controls move to the header. They are
 ## the very same controls, not copies: focus, bindings, unread badges, tool
 ## state and signals survive rotation untouched. A compact ledger replaces the
-## two competing top corners. The middle remains a touch surface, with a small
-## camera rail and an optional course overview.
+## two competing top corners. The middle remains a touch surface: a small
+## camera rail floats over its bottom-left corner, just above the tray, and the
+## shelf seats its tool buttons level with it on the right (see
+## TerrainToolbar._seat_portrait_tools).
 
 const INK := Color("091f19")
 const FIELD := Color("15392d")
 const GOLD := Color("e5c57c")
 const CREAM := Color("f4edd9")
+## The camera rail's footprint: four actions (rotate left and right, zoom out
+## and in), each a touch target, a small gap apart. The shelf's tool buttons
+## share the rail's band and keep clear of this width.
+const CAMERA_ACTION_SIZE := 44.0
+const CAMERA_RAIL_GAP := 4.0
+const CAMERA_RAIL_WIDTH := 4.0 * CAMERA_ACTION_SIZE + 3.0 * CAMERA_RAIL_GAP
 
 var _main: Node
 var _header: Panel
 var _nav: Panel
 var _tray: Panel
 var _camera_rail: HBoxContainer
-var _map_button: PixelCircleButton
 var _menu_button: PixelCircleButton
 var _menu_home_parent: Node
 var _menu_home_index: int = -1
@@ -65,28 +72,25 @@ func _panel(title: String, fill: Color, border: Color) -> Panel:
 func _build_camera_rail() -> void:
 	_camera_rail = HBoxContainer.new()
 	_camera_rail.name = "CameraRail"
-	_camera_rail.add_theme_constant_override("separation", 4)
+	_camera_rail.add_theme_constant_override("separation", int(CAMERA_RAIL_GAP))
+	# The rail floats over the course, so it is one solid target: a tap that
+	# lands between two actions must not fall through and paint the tile below.
+	_camera_rail.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_camera_rail)
 	_camera_action("RotateLeft", "rotate_ccw", "Rotate view left", _main._on_view_rotate_ccw)
 	_camera_action("RotateRight", "rotate_cw", "Rotate view right", _main._on_view_rotate_cw)
 	_camera_action("ZoomOut", "minus", "Zoom out", func(): _main.camera.zoom_by_factor(1.0 / 1.2, Screen.window_size * 0.5))
 	_camera_action("ZoomIn", "plus", "Zoom in", func(): _main.camera.zoom_by_factor(1.2, Screen.window_size * 0.5))
-	_map_button = _camera_action("OverviewButton", "maps", "Show course overview", _toggle_map)
-	_map_button.toggle_mode = true
 
-func _camera_action(title: String, glyph: String, tip: String, action: Callable) -> PixelCircleButton:
+func _camera_action(title: String, glyph: String, tip: String, action: Callable) -> void:
 	var button := PixelCircleButton.new()
 	button.name = title
 	button.glyph = glyph
-	button.diameter = 44
+	button.diameter = CAMERA_ACTION_SIZE
 	button.tooltip_text = tip
 	button.accessibility_name = tip
 	button.pressed.connect(action)
 	_camera_rail.add_child(button)
-	return button
-
-func _toggle_map() -> void:
-	Screen.set_portrait_map_open(not Screen.portrait_map_open)
 
 func _on_tray_visibility(open: bool) -> void:
 	if _active and not _layout_busy:
@@ -165,10 +169,7 @@ func apply_layout() -> void:
 		_main.terrain_toolbar.collapse_section()
 	_tray.visible = Screen.portrait_tools_open
 	var course := Screen.portrait_course_rect()
-	_camera_rail.position = Vector2(course.position.x, course.end.y - 44)
-	_camera_rail.size = Vector2(236, 44)
-	_map_button.set_pressed_no_signal(Screen.portrait_map_open)
-	_map_button.active = Screen.portrait_map_open
-	_map_button.accessibility_name = ("Hide" if Screen.portrait_map_open else "Show") + " course overview"
+	_camera_rail.position = Vector2(course.position.x, course.end.y - CAMERA_ACTION_SIZE)
+	_camera_rail.size = Vector2(CAMERA_RAIL_WIDTH, CAMERA_ACTION_SIZE)
 	_layout_busy = false
 

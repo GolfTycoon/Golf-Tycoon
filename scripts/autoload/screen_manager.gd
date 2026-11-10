@@ -90,7 +90,6 @@ var world_scale: float = 1.0
 ## Portrait HUD state belongs to the layout adapter so every floating panel,
 ## toast and touch surface reserves the same live bottom clearance.
 var portrait_tools_open: bool = false
-var portrait_map_open: bool = false
 var safe_insets := Vector4.ZERO # left, top, right, bottom (logical pixels)
 
 ## Effective UI scale, applied to the root window's content scale.
@@ -499,12 +498,6 @@ func set_portrait_tools_open(open: bool) -> void:
 	if portrait_tools_open == open:
 		return
 	portrait_tools_open = open
-	changed.emit(window_size, world_scale)
-
-func set_portrait_map_open(open: bool) -> void:
-	if portrait_map_open == open:
-		return
-	portrait_map_open = open
 	changed.emit(window_size, world_scale)
 
 func portrait_header_height() -> float:

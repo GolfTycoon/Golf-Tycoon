@@ -170,13 +170,22 @@ tool state survive rotation. Rotating back restores the original parents/order.
 - **Thumb rail (bottom).** Five stable 44–52 px targets: Build, Manage, Golfers,
   Pause, Speed. The active section opens a full-width **tool tray**; tapping
   it again (or the collapsed context button) puts the tray away. The tray keeps
-  all 11 pages, brush size/shape, bulldozer and Inspect, with 48 px page tabs and
-  a horizontally scrollable catalogue that never pans or paints the course.
-- **Course view (middle).** The camera rail exposes Rotate left/right, Zoom
-  out/in and a course Overview toggle as five 44 px actions. Overview can open
-  even when the desktop minimap preference is off, without changing that
-  preference. Score cards, event feed and toasts dock below the ledger and clear
-  the rail/tray.
+  all 11 pages behind **full-width page tabs**: the open section's tabs share
+  the tray's width equally, like the section buttons under them, each a 48 px
+  tall face with its icon over a short caption. Under the tabs sit the page
+  title and a horizontally scrollable catalogue that never pans or paints the
+  course.
+- **Tool buttons (above the tray).** Brush shape, brush size, Bulldozer and
+  Inspect float over the bottom-right corner of the course view, just above the
+  open tray and level with the camera rail, each at least a 44 px target. Where
+  the brush cannot fit beside the rail (trays narrower than 470 px) the size
+  stepper takes a second row above the shape and Inspect buttons. They show
+  while the tray is open, and a tap on or between them never reaches the course.
+- **Course view (middle).** The camera rail exposes Rotate left/right and Zoom
+  out/in as four 44 px actions in the bottom-left corner. The portrait HUD has
+  no minimap, whatever the minimap preference says; turning the phone on its
+  side brings the corner minimap back when that preference is on. Score cards,
+  event feed and toasts dock below the ledger and clear the rail/tray.
 - **Safe areas.** `Screen.safe_insets` (left/top/right/bottom, logical px) reads
   native display safe areas on Android/iOS and `window.GolfTycoonSafeArea` on the
   web. The web shell publishes CSS `env(safe-area-inset-*)` through a hidden
@@ -187,7 +196,8 @@ tool state survive rotation. Rotating back restores the original parents/order.
 Contract: nav 64 px + bottom inset; tray 260 px; collapsed context 44 px; header
 108 px (148 px with conditions) + top inset. `Screen.portrait_course_rect()` is
 the shared playable rectangle. Regression coverage exercises 320×568 through
-540×960, rotation restore, safe-area offsets, shelf dragging and live actions.
+540×960, rotation restore, safe-area offsets, shelf dragging, the floating tool
+buttons and live actions.
 
 ### Bottom dock
 

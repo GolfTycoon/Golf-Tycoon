@@ -215,11 +215,9 @@ func test_portrait_state_emits_and_changes_only_the_affected_clearance() -> void
 	var emissions: Array = []
 	s.changed.connect(func(_size: Vector2, _scale: float): emissions.append(true))
 	s.set_portrait_tools_open(false)
-	s.set_portrait_map_open(false)
 	assert_eq(emissions.size(), 0, "Unchanged state is quiet")
 	s.set_portrait_tools_open(true)
-	s.set_portrait_map_open(true)
-	assert_eq(emissions.size(), 2)
+	assert_eq(emissions.size(), 1)
 	assert_eq(s.bottom_bar_height(), 324.0)
 	var course: Rect2 = s.portrait_course_rect()
 	assert_gte(course.position.y, s.portrait_header_height())

@@ -4387,11 +4387,6 @@ func _position_mini_map() -> void:
 	if not mini_map:
 		return
 	var map_size := mini_map.get_map_total_size()
-	if Screen.uses_portrait_hud():
-		var course := Screen.portrait_course_rect()
-		mini_map.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		mini_map.position = Vector2(course.end.x - map_size.x, course.position.y + 4)
-		return
 	mini_map.anchor_left = 0
 	mini_map.anchor_top = 1
 	mini_map.anchor_right = 0
