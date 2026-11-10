@@ -28,6 +28,12 @@ func test_every_phone_size_keeps_primary_controls_reachable_and_non_overlapping(
 		await set_window(dimensions)
 		var dock: BottomControlDock = main.left_controls
 		var menu: Control = main.portrait_hud.get_node("ClubhouseLedger/MenuBtn")
+		var sections := dock.section_buttons
+		assert_almost_eq(sections[0].get_global_rect().position.x, Screen.safe_insets.x + 8.0, 0.5, "Navigation starts at the safe left edge")
+		assert_almost_eq(sections[2].get_global_rect().end.x, Screen.window_size.x - Screen.safe_insets.z - 8.0, 0.5, "Navigation fills the safe width")
+		for section in sections:
+			assert_almost_eq(section.size.x, sections[0].size.x, 0.5, "Navigation tabs share the width equally")
+			assert_true(section._has_point(Vector2(2, section.size.y * 0.5)), "The full tab is a touch target")
 		var buttons: Array = dock.section_buttons.duplicate()
 		buttons.append_array([menu, main.pause_btn, main.speed_btn])
 		for i in buttons.size():
@@ -41,6 +47,10 @@ func test_every_phone_size_keeps_primary_controls_reachable_and_non_overlapping(
 		assert_almost_eq(menu.position.x, Screen.safe_insets.x + 8.0, 0.5, "Menu owns the top-left corner")
 		assert_almost_eq(menu.position.y, Screen.safe_insets.y + 6.0, 0.5, "Menu clears the top safe area")
 		assert_gte(main.course_location_banner.get_global_rect().position.x, menu.get_global_rect().end.x + 4.0, "The course identity strip does not cover Menu")
+		assert_eq(main.speed_controls.get_parent(), main.portrait_hud.get_node("ClubhouseLedger"), "Time controls live in the header")
+		assert_almost_eq(main.speed_btn.get_global_rect().end.x, Screen.window_size.x - Screen.safe_insets.z - 8.0, 0.5, "Speed owns the top-right corner")
+		assert_almost_eq(main.pause_btn.get_global_rect().position.y, Screen.safe_insets.y + 6.0, 0.5, "Time controls clear the top safe area")
+		assert_lte(main.course_location_banner.get_global_rect().end.x, main.pause_btn.get_global_rect().position.x - 4.0, "The banner clears the time controls")
 		assert_gte(main.scores_dock.offset_top, Screen.portrait_header_height(), "Score cards start below the portrait ledger")
 		assert_true(rect_within(main.hud_status_column.get_global_rect(), _view()), "%s: ledger %s" % [dimensions, main.hud_status_column.get_global_rect()])
 		assert_false(main.hud_status_column.get_global_rect().intersects(main.course_location_banner.get_global_rect()), "%s: banner %s ledger %s" % [dimensions, main.course_location_banner.get_global_rect(), main.hud_status_column.get_global_rect()])
@@ -63,6 +73,11 @@ func test_sections_toggle_a_full_width_tray_and_keep_all_tabs_reachable() -> voi
 		assert_true(rect_within(main.terrain_toolbar.get_global_rect(), _view()), "The whole tray fits")
 	await click(main.left_controls.section_buttons[TerrainToolbar.Section.GOLFERS])
 	assert_false(Screen.portrait_tools_open, "Tapping the active section puts the tray away")
+	assert_null(main.portrait_hud.get_node_or_null("OpenToolsButton"), "No redundant open-tools button remains")
+	assert_eq(Screen.bottom_bar_height(), Screen.portrait_nav_height(), "The collapsed tray leaves space for the course")
+	await click(main.left_controls.section_buttons[TerrainToolbar.Section.GOLFERS])
+	assert_true(Screen.portrait_tools_open, "The section button reopens the tray")
+	await click(main.left_controls.section_buttons[TerrainToolbar.Section.GOLFERS])
 	assert_gt(Screen.portrait_course_rect().size.y, 250.0, "The smallest phone gets its course view back")
 
 func test_brush_controls_and_horizontal_catalogue_do_not_move_the_camera() -> void:
@@ -97,8 +112,10 @@ func test_rotation_restores_the_original_desktop_controls_and_signals() -> void:
 	var funds: Control = main.hud_status_column.get_node("PortraitLedger/PrimaryStats/FundsRow")
 	await click(main.left_controls.section_buttons[TerrainToolbar.Section.MANAGE])
 	await process_frames(2)
+	await click(main.pause_btn)
+	assert_eq(GameManager.current_speed, GameManager.GameSpeed.PAUSED, "The moved pause button pauses simulation")
 	await click(main.speed_btn)
-	assert_ne(GameManager.current_speed, GameManager.GameSpeed.PAUSED, "The moved speed button still drives simulation")
+	assert_eq(GameManager.current_speed, GameManager.GameSpeed.NORMAL, "The moved speed button resumes simulation")
 	main.terrain_toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await set_window(Vector2i(1600, 1000))
 	assert_false(Screen.uses_portrait_hud())
@@ -106,8 +123,10 @@ func test_rotation_restores_the_original_desktop_controls_and_signals() -> void:
 	assert_eq(main.terrain_toolbar.get_parent(), main.bottom_bar, "The original shelf returns")
 	assert_eq(main.bottom_bar.get_child(0), main.left_controls, "Desktop ordering is restored")
 	assert_true(main.terrain_toolbar._backdrop.visible, "The desktop fairway returns")
+	assert_false(main.left_controls.section_buttons[0].wide_face, "Desktop sections return to circular medallions")
 	assert_eq(funds.get_parent(), main.hud_status_column.get_node("Column"), "The live funds card returns without duplicate signals")
 	assert_true(rect_within(main.pause_btn.get_global_rect(), main.left_controls.get_global_rect()), "Pause returns to the fan")
+	assert_true(rect_within(main.speed_btn.get_global_rect(), main.left_controls.get_global_rect()), "Speed returns to the fan")
 	var restored_menu: Control = main.left_controls.get_node("MenuBtn")
 	assert_eq(restored_menu.get_parent(), main.left_controls, "Menu returns to the desktop dock")
 	assert_eq(restored_menu.get_index(), main.portrait_hud._menu_home_index, "Menu restores its original child order")
@@ -130,7 +149,8 @@ func test_overview_camera_controls_and_safe_area_are_live() -> void:
 	Screen.changed.emit(Screen.window_size, Screen.world_scale)
 	await process_frames(3)
 	assert_gte(main.course_location_banner.position.y, 44.0, "The notch does not cover the course identity")
-	assert_lte(main.speed_btn.get_global_rect().end.y, 844.0 - 34.0, "The home indicator does not cover time controls")
+	assert_almost_eq(main.speed_btn.get_global_rect().end.x, 390.0 - 12.0 - 8.0, 0.5, "Time controls clear the right cutout")
+	assert_gte(main.pause_btn.get_global_rect().position.y, 44.0, "Time controls clear the notch")
 	assert_lte(main.left_controls.section_buttons[0].get_global_rect().end.x, 390.0 - 12.0, "Thumb targets respect the side cutout")
 	Screen.safe_insets = saved
 	Screen.changed.emit(Screen.window_size, Screen.world_scale)

@@ -124,7 +124,10 @@ func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
 				await process_frames(2)
 				assert_true(rect_within((main.portrait_hud.get_node("ThumbRail") if Screen.uses_portrait_hud() else main.bottom_bar).get_global_rect(), screen), "Bar stays on screen: %s, tab %s" % [window_size, tab])
 				for button in main.left_controls.section_buttons:
-					assert_almost_eq(button.size.x, button.size.y, 0.01)
+					if Screen.uses_portrait_hud():
+						assert_gte(button.size.x, button.size.y, "Portrait tabs fill their allotted width")
+					else:
+						assert_almost_eq(button.size.x, button.size.y, 0.01)
 					assert_true(rect_within(button.get_global_rect(), screen))
 				assert_true(rect_within(main.terrain_toolbar._tab_buttons[tab].get_global_rect(), screen))
 	await set_window(DESIGN_WINDOW)

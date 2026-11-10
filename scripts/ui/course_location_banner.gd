@@ -439,9 +439,10 @@ func _picture_scale() -> int:
 func _columns_width() -> float:
 	if _is_portrait():
 		# PortraitHUD pins Menu to the top-left; the identity strip starts one
-		# touch slot plus gap to its right and uses the remaining width.
+		# touch slot plus gap to its right; time controls occupy the right corner.
 		var menu_slot := float(UIConstants.TOUCH_TARGET_SIZE) + 8.0
-		return maxf(180.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0 - menu_slot)
+		var time_slots := 2.0 * float(UIConstants.TOUCH_TARGET_SIZE) + 8.0
+		return maxf(0.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0 - menu_slot - time_slots)
 	var width := WIDTH_COMPACT if _is_compact() else WIDTH_DESKTOP
 	if is_inside_tree():
 		var usable: float = get_viewport_rect().size.x \

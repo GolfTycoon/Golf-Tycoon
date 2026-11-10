@@ -563,7 +563,7 @@ func uses_touch_layout() -> bool:
 ## HUD is a separate composition with its own thumb rail.
 func bottom_bar_height() -> float:
 	if uses_portrait_hud():
-		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 44.0)
+		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 0.0)
 	return float(UIConstants.BOTTOM_BAR_HEIGHT)
 
 ## Vertical space below which popup panels must not sit (the bottom bar

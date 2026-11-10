@@ -54,6 +54,11 @@ const ICONS := {
 			glyph = value
 			if is_inside_tree():
 				queue_redraw()
+## Portrait navigation can stretch into a full-width touch tab.
+var wide_face := false:
+	set(value):
+		wide_face = value
+		queue_redraw()
 @export var caption := ""
 @export var diameter := 32.0:
 	set(value):
@@ -100,6 +105,8 @@ func _ready() -> void:
 			event.connect(queue_redraw)
 
 func _has_point(point: Vector2) -> bool:
+	if wide_face:
+		return Rect2(Vector2.ZERO, size).has_point(point)
 	return point.distance_to(size * 0.5) <= minf(size.x, size.y) * 0.5
 
 func _draw() -> void:
@@ -110,14 +117,28 @@ func _draw() -> void:
 		return
 	var origin := ((size - Vector2.ONE * d) * 0.5).floor()
 	var key := "%d:%s:%s:%s:%s:%s" % [d, accent, selected, lit, disabled, has_focus()]
-	if not _faces.has(key):
-		_faces[key] = _make_face(d, selected, lit)
-	draw_texture_rect(_faces[key], Rect2(origin, Vector2.ONE * d), false)
+	if wide_face:
+		var face := StyleBoxFlat.new()
+		face.bg_color = Color("284c3c") if selected else Color("192e26")
+		if lit:
+			face.bg_color = face.bg_color.lightened(0.12)
+		face.border_color = accent if selected or lit else accent.darkened(0.38)
+		face.set_border_width_all(2)
+		face.set_corner_radius_all(6)
+		face.anti_aliasing = false
+		draw_style_box(face, Rect2(Vector2.ZERO, size))
+	else:
+		if not _faces.has(key):
+			_faces[key] = _make_face(d, selected, lit)
+		draw_texture_rect(_faces[key], Rect2(origin, Vector2.ONE * d), false)
 	if ICONS.has(glyph):
 		var pixels: Array = ICONS[glyph]
 		var pixel := 3 if d >= 74 else 2
 		var offset := origin + Vector2(floorf((d - 9 * pixel) * 0.5), floorf((d - 9 * pixel) * 0.5))
-		if not caption.is_empty():
+		if wide_face and not caption.is_empty():
+			var text_width := FONT.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			offset = Vector2(floorf((size.x - (9 * pixel + 4.0 + text_width)) * 0.5), floorf((size.y - 9 * pixel) * 0.5))
+		elif not caption.is_empty():
 			offset.y -= 6
 		if is_pressed():
 			offset.y += 2
@@ -128,11 +149,16 @@ func _draw() -> void:
 					draw_rect(Rect2(rect.position + Vector2(0, 2), rect.size), INK)
 					draw_rect(rect, CREAM if not disabled else Color("748273"))
 	if notification_count > 0:
-		draw_rect(Rect2(origin + Vector2(d - 9, 2), Vector2(6, 6)), Color("e5bd66"))
+		var badge_position := Vector2(size.x - 9, 4) if wide_face else origin + Vector2(d - 9, 2)
+		draw_rect(Rect2(badge_position, Vector2(6, 6)), Color("e5bd66"))
 	if not caption.is_empty():
 		var font_size := 12 if d < 74 else 14
 		var width := FONT.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-		draw_string(FONT, origin + Vector2(floorf((d - width) * 0.5), d - 15), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, CREAM)
+		var text_position := origin + Vector2(floorf((d - width) * 0.5), d - 15)
+		if wide_face and ICONS.has(glyph):
+			var icon_size := 18.0 if d < 74 else 27.0
+			text_position = Vector2(floorf((size.x - (icon_size + 4.0 + width)) * 0.5) + icon_size + 4.0, floorf((size.y - FONT.get_height(font_size)) * 0.5) + FONT.get_ascent(font_size))
+		draw_string(FONT, text_position, caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, CREAM)
 
 func _make_face(d: int, selected: bool, lit: bool) -> ImageTexture:
 	return _build_face(d, accent, selected, lit, disabled, has_focus())

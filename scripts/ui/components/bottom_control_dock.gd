@@ -80,6 +80,7 @@ func apply_screen() -> void:
 
 	for i in section_buttons.size():
 		var button := section_buttons[i]
+		button.wide_face = false
 		button.diameter = SECTION_SIZES[i]
 		button.custom_minimum_size = Vector2.ONE * SECTION_SIZES[i]
 		button.position = SECTION_POSITIONS[i]
@@ -112,8 +113,8 @@ func apply_screen() -> void:
 			outer_circles.append(_circle_of(button))
 		_backdrop.set_circles(outer_circles, inner_circles)
 
-## Five stable thumb targets: three destinations, then Pause and Speed.
-## Menu lives in the portrait header (PortraitHUD). The same Buttons move here
+## Three stable thumb targets; Menu and time controls live in the header.
+## The same section buttons move here
 ## from the fan; no duplicate action wiring or state.
 func _apply_portrait() -> void:
 	var width: float = Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z
@@ -122,29 +123,15 @@ func _apply_portrait() -> void:
 	size = custom_minimum_size
 	if _backdrop:
 		_backdrop.visible = false
-	var speed := get_node_or_null("SpeedControls") as Control
-	if speed:
-		speed.position = Vector2.ZERO
-		speed.size = custom_minimum_size
-	var buttons: Array[Control] = []
-	for button in section_buttons:
-		buttons.append(button)
-	for path in ["SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]:
-		var button := get_node_or_null(path) as Control
-		if button:
-			buttons.append(button)
-	var gaps := maxi(buttons.size() - 1, 0)
-	var cell := (width - 20.0 - float(gaps) * 4.0) / maxi(buttons.size(), 1)
-	var diameter := floorf(clampf(cell, 44.0, 52.0))
-	for i in buttons.size():
-		var button := buttons[i]
-		if button is PixelCircleButton:
-			button.diameter = diameter
-		button.custom_minimum_size = Vector2.ONE * diameter
-		button.size = Vector2.ONE * diameter
-		button.position = Vector2(10.0 + i * (cell + 4.0) + (cell - diameter) * 0.5, 6.0)
-		if button is PixelCircleButton and i >= 3:
-			button.caption = ["Pause", "Speed"][i - 3]
+	var gaps := maxi(section_buttons.size() - 1, 0)
+	var cell := (width - 16.0 - float(gaps) * 4.0) / maxi(section_buttons.size(), 1)
+	for i in section_buttons.size():
+		var button := section_buttons[i]
+		button.wide_face = true
+		button.diameter = 52.0
+		button.custom_minimum_size = Vector2(cell, 52.0)
+		button.size = button.custom_minimum_size
+		button.position = Vector2(8.0 + i * (cell + 4.0), 6.0)
 		button.queue_redraw()
 
 ## A medallion as the backdrop needs it: centre and radius, packed.

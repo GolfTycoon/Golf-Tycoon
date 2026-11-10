@@ -3,7 +3,7 @@ class_name PortraitHUD
 ## Portrait-only composition around the live game controls.
 ##
 ## The desktop fan and its shelf are moved into a full-width tray and a fixed
-## five-button thumb rail; Menu moves to the top-left of the header. They are
+## three-button thumb rail; Menu and time controls move to the header. They are
 ## the very same controls, not copies: focus, bindings, unread badges, tool
 ## state and signals survive rotation untouched. A compact ledger replaces the
 ## two competing top corners. The middle remains a touch surface, with a small
@@ -13,13 +13,11 @@ const INK := Color("091f19")
 const FIELD := Color("15392d")
 const GOLD := Color("e5c57c")
 const CREAM := Color("f4edd9")
-const FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 
 var _main: Node
 var _header: Panel
 var _nav: Panel
 var _tray: Panel
-var _context: Button
 var _camera_rail: HBoxContainer
 var _map_button: PixelCircleButton
 var _menu_button: PixelCircleButton
@@ -41,24 +39,11 @@ func setup(main: Node) -> void:
 	add_child(_tray)
 	_nav = _panel("ThumbRail", INK, Color("63715a"))
 	add_child(_nav)
-	_context = Button.new()
-	_context.name = "OpenToolsButton"
-	_context.add_theme_font_override("font", FONT)
-	_context.add_theme_font_size_override("font_size", 14)
-	_context.custom_minimum_size.y = 44
-	_context.accessibility_name = "Open tool tray"
-	_context.clip_text = true
-	_context.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_context.pressed.connect(_open_tools)
-	PixelButtonStyle.paint_primary(_context, GOLD)
-	add_child(_context)
 	_build_camera_rail()
 	_menu_button = _main.left_controls.get_node("MenuBtn") as PixelCircleButton
 	_menu_home_parent = _menu_button.get_parent()
 	_menu_home_index = _menu_button.get_index()
 	_main.terrain_toolbar.section_visibility_changed.connect(_on_tray_visibility)
-	_main.terrain_toolbar.section_changed.connect(func(_section: int): _sync_context())
-	_main.terrain_toolbar.page_changed.connect(func(_tab: int): _sync_context())
 	hide()
 
 func _panel(title: String, fill: Color, border: Color) -> Panel:
@@ -103,10 +88,6 @@ func _camera_action(title: String, glyph: String, tip: String, action: Callable)
 func _toggle_map() -> void:
 	Screen.set_portrait_map_open(not Screen.portrait_map_open)
 
-func _open_tools() -> void:
-	_main.terrain_toolbar.expand_section()
-	Screen.set_portrait_tools_open(true)
-
 func _on_tray_visibility(open: bool) -> void:
 	if _active and not _layout_busy:
 		Screen.set_portrait_tools_open(open)
@@ -126,9 +107,11 @@ func apply_layout() -> void:
 			_main.left_controls.reparent(_nav)
 			_main.terrain_toolbar.reparent(_tray)
 			_menu_button.reparent(_header)
+			_main.speed_controls.reparent(_header)
 		else:
-			# Restore Menu before the dock reflows so its desktop arc sees the
+			# Restore controls before the dock reflows so its desktop arc sees the
 			# original child list, order and signal wiring.
+			_main.speed_controls.reparent(_main.left_controls)
 			_menu_button.reparent(_menu_home_parent)
 			_menu_home_parent.move_child(_menu_button, _menu_home_index)
 			_main.left_controls.reparent(_main.bottom_bar)
@@ -152,6 +135,18 @@ func apply_layout() -> void:
 	_menu_button.position = Vector2(left + 8.0, Screen.safe_insets.y + 6.0)
 	_menu_button.caption = "Menu"
 	_menu_button.queue_redraw()
+	# Keep the live time controls in the opposite corner, inside safe insets.
+	var target := float(UIConstants.TOUCH_TARGET_SIZE)
+	_main.speed_controls.position = Vector2(view.x - Screen.safe_insets.z - 8.0 - 2.0 * target - 4.0, Screen.safe_insets.y + 6.0)
+	_main.speed_controls.size = Vector2(2.0 * target + 4.0, target)
+	for i in 2:
+		var button: PixelCircleButton = _main.pause_btn if i == 0 else _main.speed_btn
+		button.diameter = target
+		button.custom_minimum_size = Vector2.ONE * target
+		button.size = Vector2.ONE * target
+		button.position = Vector2(i * (target + 4.0), 0)
+		button.caption = ["Pause", "Speed"][i]
+		button.queue_redraw()
 	var nav_height := Screen.portrait_nav_height()
 	_nav.position = Vector2(0, view.y - nav_height)
 	_nav.size = Vector2(view.x, nav_height)
@@ -169,10 +164,6 @@ func apply_layout() -> void:
 	else:
 		_main.terrain_toolbar.collapse_section()
 	_tray.visible = Screen.portrait_tools_open
-	_context.visible = not Screen.portrait_tools_open
-	_context.position = Vector2(left + 8, view.y - nav_height - 44)
-	_context.size = Vector2(width - 16, 44)
-	_sync_context()
 	var course := Screen.portrait_course_rect()
 	_camera_rail.position = Vector2(course.position.x, course.end.y - 44)
 	_camera_rail.size = Vector2(236, 44)
@@ -181,9 +172,3 @@ func apply_layout() -> void:
 	_map_button.accessibility_name = ("Hide" if Screen.portrait_map_open else "Show") + " course overview"
 	_layout_busy = false
 
-func _sync_context() -> void:
-	if _main == null or _context == null:
-		return
-	var toolbar: TerrainToolbar = _main.terrain_toolbar
-	_context.text = "%s / %s   ·   Open tools" % [TerrainToolbar.SECTION_TITLES[toolbar.current_section], TerrainToolbar.TAB_TITLES[toolbar.current_tab]]
-	_context.tooltip_text = "Open the %s tool tray. Tap the active section below to put it away." % TerrainToolbar.SECTION_TITLES[toolbar.current_section]

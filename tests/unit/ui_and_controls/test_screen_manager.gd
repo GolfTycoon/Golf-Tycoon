@@ -167,8 +167,8 @@ func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	var desktop_bar := UIConstants.BOTTOM_BAR_HEIGHT
 	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - desktop_bar - 8))
 	s.window_size = Vector2(390, 844)
-	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 108 - 8),
-		"Portrait popups clear the collapsed thumb rail and context button")
+	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 64 - 8),
+		"Portrait popups clear the collapsed thumb rail")
 	s.set_portrait_tools_open(true)
 	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 324 - 8),
 		"An open tray reserves its full height")
@@ -187,7 +187,7 @@ func test_every_landscape_layout_keeps_the_one_desktop_dock_height() -> void:
 			Vector2(390, 844), Vector2(360, 800)]:
 		s.window_size = size
 		if s.uses_portrait_hud():
-			assert_eq(s.bottom_bar_height(), 108.0, "%s wears the portrait thumb rail" % size)
+			assert_eq(s.bottom_bar_height(), 64.0, "%s wears the portrait thumb rail" % size)
 			continue
 		assert_eq(s.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
 			"%s keeps the desktop dock height%s" % [size,
