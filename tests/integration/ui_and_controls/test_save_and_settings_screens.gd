@@ -20,6 +20,9 @@ const SIZES := [
 ## What the settings page's bottom row was made of: a footer holding a save
 ## notice and a Done button. The row is gone and none of it may come back.
 const SETTINGS_BOTTOM_ROW: Array[String] = ["SettingsFooter", "SaveNotice", "DoneButton"]
+## The old category choosers - a rail beside the cards and a strip over them.
+## The categories are header buttons now, so neither may come back either.
+const SETTINGS_CATEGORY_RAIL: Array[String] = ["CategoryNavigation", "CategoryStrip"]
 ## Checkpoints on the shelf, so the archive has rows to lay out.
 const SEEDED_SAVES := ["integration_layout_one", "integration_layout_two"]
 const CHECKPOINT := "integration_layout_checkpoint"
@@ -290,14 +293,16 @@ func test_the_settings_office_fits_every_window() -> void:
 			await process_frames(3)
 			var page := "%s %s" % [tag, menu._category_name(category)]
 			_assert_targets(page, menu, size)
-			assert_not_null(menu.find_child("CategoryContent", true, false), "%s: the page is built" % page)
+			assert_not_null(menu.find_child("SettingsWorkspace", true, false), "%s: the page is built" % page)
 			_assert_settings_end_at_the_workspace(page, menu)
 		menu.free()
 
 
-## The settings page is the header over the workspace and nothing else: no
-## bottom row sits under the cards, so the workspace ends where the page does,
-## as far above the bottom of the screen as the header starts below the top.
+## The settings page is the header over the workspace and nothing else: the four
+## category buttons sit in the header's top right corner, the settings card is
+## the workspace under it, and no bottom row sits beneath the cards - so the
+## workspace ends where the page does, as far above the bottom of the screen as
+## the header starts below the top of it.
 func _assert_settings_end_at_the_workspace(tag: String, menu: SettingsMenu) -> void:
 	var page := menu.get_node_or_null("SettingsFrame/SettingsPage") as VBoxContainer
 	assert_not_null(page, "%s: the settings page exists" % tag)
@@ -310,7 +315,12 @@ func _assert_settings_end_at_the_workspace(tag: String, menu: SettingsMenu) -> v
 		"%s: the page is the header over the workspace" % tag)
 	for legacy in SETTINGS_BOTTOM_ROW:
 		assert_null(menu.find_child(legacy, true, false), "%s: the bottom row's %s is removed" % [tag, legacy])
+	# The categories moved into the header; neither of the old choosers is left.
+	for legacy in SETTINGS_CATEGORY_RAIL:
+		assert_null(menu.find_child(legacy, true, false), "%s: the old %s is removed" % [tag, legacy])
 	var header := page.get_node_or_null("ScreenHeader") as Control
+	var tabs := page.get_node_or_null("ScreenHeader/HeaderActions/CategoryTabs") as Control
+	assert_not_null(tabs, "%s: the header carries the page buttons" % tag)
 	var workspace := page.get_node_or_null("SettingsWorkspace") as Control
 	if header == null or workspace == null:
 		return
@@ -320,6 +330,11 @@ func _assert_settings_end_at_the_workspace(tag: String, menu: SettingsMenu) -> v
 		"%s: the workspace runs down to the end of the page" % tag)
 	assert_almost_eq(screen.end.y - workspace_end, header.get_global_rect().position.y - screen.position.y, 0.5,
 		"%s: only the screen margin is left under the workspace" % tag)
+	# The workspace is the page under the header, with nothing beside it.
+	assert_lte(workspace.get_global_rect().position.x, page.get_global_rect().position.x + 0.5,
+		"%s: the settings card starts at the page's left edge" % tag)
+	assert_eq(workspace.get_global_rect().size.x, page.get_global_rect().size.x,
+		"%s: and runs the page's whole width" % tag)
 
 
 ## With no Done button under the cards, the header's Back button is the
