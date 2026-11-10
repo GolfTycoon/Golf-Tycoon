@@ -1954,6 +1954,10 @@ func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Exclude popup panels that should remain hidden until explicitly toggled
 	var popup_panels = ["MainMenu", "StartNewGameScreen", "StartTournamentScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
+	# The notice band is a sibling of the HUD (see _setup_notification_toast), so
+	# it follows the gameplay UI explicitly: no toast or badge survives into a
+	# title screen, the world map or a goal screen.
+	$Notices.visible = visible_flag
 	for child in hud.get_children():
 		if child == mini_map:
 			mini_map.hud_visible = visible_flag
@@ -4640,7 +4644,7 @@ func _on_golfer_clicked(golfer: Golfer) -> void:
 func _setup_round_summary_popup() -> void:
 	round_summary_popup = RoundSummaryPopup.new()
 	round_summary_popup.name = "RoundSummaryPopup"
-	$UI.add_child(round_summary_popup)
+	$Notices.add_child(round_summary_popup)
 	EventBus.golfer_finished_round.connect(_on_golfer_round_for_summary)
 
 func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par: int) -> void:
@@ -4872,10 +4876,16 @@ func _on_tutorial_completed() -> void:
 
 # --- Notification Toast ---
 
+## Toasts, the autosave badge and the round summary are transient notices: they
+## hover over the course and the HUD, but never over a screen. They live in the
+## `Notices` CanvasLayer, which draws between the world and the `UI` layer, so
+## every screen, panel and dialogue - whichever order it was added in - covers
+## them instead of the other way round. The layer is hidden with the gameplay
+## HUD, so a notice cannot linger over the title screen either.
 func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
-	$UI.add_child(toast)
+	$Notices.add_child(toast)
 
 # --- Event Feed ---
 
@@ -5014,7 +5024,7 @@ func _on_transaction_for_floating_text(_description: String, amount: int) -> voi
 func _setup_autosave_indicator() -> void:
 	var indicator = AutosaveIndicator.new()
 	indicator.name = "AutosaveIndicator"
-	$UI.add_child(indicator)
+	$Notices.add_child(indicator)
 
 # --- Pause Menu ---
 

@@ -3,13 +3,15 @@
 > A running log of what happened on your course: records, money, weather, tournaments, construction and the daily month headers. Toasts pop up for important entries, and the feed keeps the full history for the session.
 
 **Source:** `scripts/managers/event_feed_manager.gd` (autoload: `add_event()`, `CATEGORY_DATA`, batching, fast-forward summary, signal handlers), `scripts/ui/event_feed_panel.gd`, `scripts/ui/notification_toast.gd` (`DISPLAY_DURATION`, `DISPLAY_DURATION_HIGH`)
-**Tests:** `tests/unit/test_event_feed_manager.gd`
+**Tests:** `tests/unit/events/test_event_feed_manager.gd`, `tests/integration/ui_and_controls/test_notice_layering.gd`
 
 ---
 
 ## Plain English
 
 Important things that happen in the game are logged to the **event feed**. The feed is a scrolling list you can open at any time, from the **Feed** card on the Club tab (Manage → Club → Review → Feed) or with `N`. Unlike a toast, which disappears after a few seconds, the feed keeps every entry for the whole session, so you can catch up after fast-forwarding or after looking at another part of the course.
+
+Toasts are passive notices. They live in the **Notices** `CanvasLayer` between the course and the UI, so they hover over the HUD but never over a screen: while the Save Course or Save/Load screen (or the pause menu, Settings, the World Map and so on) is open, its backdrop covers the toast, and the toast is still there when the screen closes. The same band carries the autosave badge and the round summary. See [Architecture](../../architecture.md#main-scene).
 
 Entries fall into eight **categories**:
 

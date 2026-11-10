@@ -65,7 +65,7 @@ func test_tabs_follow_the_rim_and_stay_on_screen_at_each_size() -> void:
 func test_every_tab_can_be_clicked_on_a_compact_shelf() -> void:
 	# Toasts are intentionally clickable overlays and may arrive while the
 	# simulation runs; keep this test focused on the unobscured shelf itself.
-	var notifications := main.get_node("UI/NotificationToast") as Control
+	var notifications := main.get_node("Notices/NotificationToast") as Control
 	var notifications_visible := notifications.visible
 	notifications.hide()
 	for window_size in [Vector2i(390, 844), Vector2i(360, 800)]:
