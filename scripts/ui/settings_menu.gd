@@ -3,17 +3,18 @@ class_name SettingsMenu
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
-## Preferences are grouped into Audio, Display and Controls, and Data holds the
+## Preferences are grouped into Display, Controls and Audio, and Data holds the
 ## buttons that delete what this device keeps (see PlayerDataStore). Like the
 ## Main Menu and the other fullscreen screens, it sits on the shared
 ## MenuBackdrop artwork.
 ##
 ## The page is the shared screen header over the page's own settings card and
 ## nothing else: it has no bottom row and no category rail or strip. The four
-## categories are Audio, Display, Controls and Data buttons in the header's top
+## categories are Display, Controls, Audio and Data buttons in the header's top
 ## right corner, laid out the way the Course Map's mode buttons are - one tap to
-## another page wherever the screen is opened. Every control keeps its original
-## live behavior and saves changes to user://settings.cfg.
+## another page wherever the screen is opened - and Display is the page the
+## screen starts on, being the first button in that row. Every control keeps
+## its original live behavior and saves changes to user://settings.cfg.
 ##
 ## Every change applies and saves as it is made, so there is nothing to confirm
 ## on the way out - the header's Back button, Esc and the controller's B all
@@ -45,7 +46,15 @@ signal quit_to_menu_requested()
 ## is never borrowed, paused mid-frame, as the test scene.
 enum Origin { MAIN_MENU, PAUSE_MENU }
 
-enum Category { AUDIO, DISPLAY, CONTROLS, DATA }
+## The four settings pages, in the order their header buttons read: Display
+## first, then Controls, Audio and Data. Display is the page the screen opens
+## on - it holds the things a player most often comes here to change (window,
+## UI scale, the menu background, the graphics preset and the benchmark) - and
+## Data, the page that deletes things, is kept at the end of the row.
+##
+## The numbers are the button order, not the order the text tables below are
+## written in, so those tables are keyed by this enum rather than indexed.
+enum Category { DISPLAY, CONTROLS, AUDIO, DATA }
 
 const DESKTOP_MIN_WIDTH := MenuScreenKit.DESKTOP_MIN_WIDTH
 const DESKTOP_MIN_HEIGHT := MenuScreenKit.DESKTOP_MIN_HEIGHT
@@ -92,7 +101,9 @@ const BENCHMARK_EMPTY_DETAILS_TEXT := "The tour prepares a throwaway course from
 func benchmarks_allowed() -> bool:
 	return origin == Origin.MAIN_MENU
 
-var _category: int = Category.AUDIO
+## The page the screen opens on: Display, the first button in the header row
+## and the page a player most often comes here for. _select_category moves it.
+var _category: int = Category.DISPLAY
 var _layout_mode: int = Kit.LayoutMode.PHONE_PORTRAIT
 var _built_size := Vector2.ZERO
 var _panel: Control
@@ -2085,21 +2096,37 @@ func _save_display_settings() -> void:
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:
-	return ["audio", "display", "controls", "data"][category]
+	return {
+		Category.DISPLAY: "display",
+		Category.CONTROLS: "controls",
+		Category.AUDIO: "audio",
+		Category.DATA: "data",
+	}.get(category, "display")
 
 func _category_name(category: int) -> String:
-	return ["Audio", "Display", "Controls", "Data"][category]
+	return {
+		Category.DISPLAY: "Display",
+		Category.CONTROLS: "Controls",
+		Category.AUDIO: "Audio",
+		Category.DATA: "Data",
+	}.get(category, "Display")
 
 func _category_title(category: int) -> String:
-	return ["Sound & ambience", "Screen & accessibility", "Your controls", "Your data"][category]
+	return {
+		Category.DISPLAY: "Screen & accessibility",
+		Category.CONTROLS: "Your controls",
+		Category.AUDIO: "Sound & ambience",
+		Category.DATA: "Your data",
+	}.get(category, "Screen & accessibility")
 
 func _category_description(category: int) -> String:
-	return [
-		"Balance the master, effects and ambient volume for the course.",
-		"Adjust how the game looks and feels on this display.",
-		"Rebind every course action, reset one control or reset them all.",
-		"What this device keeps: saved courses, records and custom art - delete any part, or all of it.",
-	][category]
+	var descriptions := {
+		Category.DISPLAY: "Adjust how the game looks and feels on this display.",
+		Category.CONTROLS: "Rebind every course action, reset one control or reset them all.",
+		Category.AUDIO: "Balance the master, effects and ambient volume for the course.",
+		Category.DATA: "What this device keeps: saved courses, records and custom art - delete any part, or all of it.",
+	}
+	return str(descriptions.get(category, "Adjust how the game looks and feels on this display."))
 
 func _make_separator() -> HSeparator:
 	var separator := HSeparator.new()
