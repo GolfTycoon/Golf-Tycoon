@@ -601,3 +601,158 @@ func test_save_and_load_screens_use_hud_course_pictures_instead_of_flag_marks() 
 	WorldMap.active_location_id = previous_location
 	GameManager.current_theme = previous_theme
 	await resize_window(original_window)
+
+
+# ---------------------------------------------------------------------------
+# Settings top-right header category buttons
+# ---------------------------------------------------------------------------
+
+## The four categories live in the header's top right corner, the way the
+## Course Map puts its mode buttons there, instead of a rail beside the cards or
+## a strip over them. What is checked: the buttons are inside the shared
+## ScreenHeader at every window size, they read Display / Controls / Audio /
+## Data (Display first, because it is the page the screen opens on), the page
+## under them shows one category at a time, and the old rail and strip are gone.
+func test_settings_category_buttons_sit_in_the_top_right_header_like_course_map() -> void:
+	var original_window := get_window().size
+	for window_size in SETTINGS_WINDOWS:
+		var menu: SettingsMenu = await _open_settings(window_size)
+		var header := menu.get_node_or_null("SettingsFrame/SettingsPage/ScreenHeader") as HBoxContainer
+		assert_not_null(header, "%s: the shared ScreenHeader leads the page" % window_size)
+		if header == null:
+			menu.free()
+			continue
+		var actions := header.get_node_or_null("HeaderActions") as HBoxContainer
+		var tabs := header.get_node_or_null("HeaderActions/CategoryTabs") as HBoxContainer
+		assert_not_null(actions, "%s: HeaderActions sit in the header like CourseMapScreen" % window_size)
+		assert_not_null(tabs, "%s: HeaderActions carry the CategoryTabs" % window_size)
+		assert_null(menu.find_child("CategoryNavigation", true, false),
+			"%s: the category rail is gone" % window_size)
+		assert_null(menu.find_child("CategoryStrip", true, false),
+			"%s: the category strip is gone" % window_size)
+		var labels: Array[String] = []
+		for category in SettingsMenu.Category.values():
+			var button := menu.find_child("Category_%s" % menu._category_key(category), true, false) as Button
+			assert_not_null(button, "%s: %s has a header button" % [window_size, menu._category_name(category)])
+			if button == null:
+				continue
+			labels.append(button.text)
+			assert_true(header.is_ancestor_of(button), "%s: %s lives in the ScreenHeader" % [
+				window_size, button.text])
+			assert_true(button.toggle_mode, "%s: %s is a page button" % [window_size, button.text])
+			assert_eq(button.get_theme_font("font"), CourseMapStyle.SUBTITLE_FONT,
+				"%s: %s uses the Course Map choice font" % [window_size, button.text])
+			assert_eq(button.button_pressed, category == menu._category,
+				"%s: only the open page's button is pressed" % window_size)
+			var rect := button.get_global_rect()
+			assert_gte(rect.size.y, 36.0, "%s: %s is a touch-sized target" % [window_size, button.text])
+			assert_gte(rect.size.x, 36.0, "%s: %s is a touch-sized target" % [window_size, button.text])
+			assert_true(rect_within(rect, Rect2(Vector2.ZERO, Vector2(window_size))),
+				"%s: %s is on the screen" % [window_size, button.text])
+			assert_gt(rect.position.x, float(window_size.x) * 0.4,
+				"%s: %s sits in the top right corner" % [window_size, button.text])
+			assert_lt(rect.position.y, 120.0,
+				"%s: %s sits in the top right corner" % [window_size, button.text])
+		assert_eq(labels, ["Display", "Controls", "Audio", "Data"],
+			"%s: one word per page, Display first and Data last" % window_size)
+		var title := header.get_node_or_null("TitleBlock/Title") as Label
+		assert_not_null(title, "%s: the header keeps its title" % window_size)
+		if title != null and actions != null:
+			assert_lte(title.get_global_rect().end.x, actions.get_global_rect().position.x + 1.0,
+				"%s: the buttons do not overlap the title" % window_size)
+
+		# Pressing a button swaps the page under the header and lights itself.
+		var data_button := menu.find_child("Category_data", true, false) as Button
+		if data_button != null:
+			data_button.pressed.emit()
+			await process_frames(3)
+			assert_eq(menu._category, SettingsMenu.Category.DATA, "%s: Data opens its page" % window_size)
+			var lit := menu.find_child("Category_data", true, false) as Button
+			assert_not_null(lit)
+			if lit != null:
+				assert_true(lit.button_pressed, "%s: the Data button stays lit" % window_size)
+			var content_title := menu.find_child("CategoryTitle", true, false) as Label
+			assert_not_null(content_title, "%s: the page carries its own heading" % window_size)
+		menu.free()
+	await resize_window(original_window)
+
+
+## The header's buttons are the only category chooser left: the settings card
+## runs from under the header down to the window's bottom margin, with nothing
+## above it and nothing beside it.
+func test_settings_workspace_is_the_card_under_the_header() -> void:
+	var original_window := get_window().size
+	for window_size in SETTINGS_WINDOWS:
+		var menu: SettingsMenu = await _open_settings(window_size)
+		var page := menu.get_node_or_null("SettingsFrame/SettingsPage") as VBoxContainer
+		assert_not_null(page, "%s: the page is built" % window_size)
+		if page == null:
+			menu.free()
+			continue
+		var rows: Array[String] = []
+		for row in page.get_children():
+			rows.append(str(row.name))
+		assert_eq(rows, ["ScreenHeader", "SettingsWorkspace"],
+			"%s: the page is the header over the workspace" % window_size)
+		var workspace := page.get_node_or_null("SettingsWorkspace") as Control
+		assert_not_null(workspace, "%s: the workspace is the settings card" % window_size)
+		if workspace != null:
+			assert_eq(workspace.name, "SettingsWorkspace")
+			assert_not_null(workspace.find_child("SettingsContentScroll", true, false),
+				"%s: the cards scroll inside the workspace" % window_size)
+			assert_true(rect_within(workspace.get_global_rect(), menu.get_global_rect()),
+				"%s: the workspace is on the screen" % window_size)
+		menu.free()
+	await resize_window(original_window)
+
+
+## Display is the page Settings opens on, and it is the first button in the
+## header row: the thing a player most often opens Settings for (window, UI
+## scale, the menu background, the graphics preset, the benchmark) is one glance
+## away, and the button order matches the enum that numbers the pages.
+func test_settings_opens_on_display_and_keeps_its_pages_in_that_order() -> void:
+	assert_eq(SettingsMenu.Category.values(),
+		[SettingsMenu.Category.DISPLAY, SettingsMenu.Category.CONTROLS,
+			SettingsMenu.Category.AUDIO, SettingsMenu.Category.DATA],
+		"Display first, then Controls, Audio and Data")
+	var namer := SettingsMenu.new()
+	var names: Array[String] = []
+	for category in SettingsMenu.Category.values():
+		names.append(namer._category_name(category))
+	namer.free()
+	assert_eq(names, ["Display", "Controls", "Audio", "Data"],
+		"and the pages read that way")
+
+	var original_window := get_window().size
+	for window_size in SETTINGS_WINDOWS:
+		var menu: SettingsMenu = await _open_settings(window_size)
+		assert_eq(menu._category, SettingsMenu.Category.DISPLAY,
+			"%s: Settings opens on Display" % window_size)
+		var lit: Array[String] = []
+		for category in SettingsMenu.Category.values():
+			var button := menu.find_child("Category_%s" % menu._category_key(category), true, false) as Button
+			assert_not_null(button)
+			if button != null and button.button_pressed:
+				lit.append(button.text)
+		assert_eq(lit, ["Display"], "%s: and only the Display button is lit" % window_size)
+		# The page under the header is Display's, not Audio's.
+		var title := menu.find_child("CategoryTitle", true, false) as Label
+		assert_not_null(title, "%s: the page carries its heading" % window_size)
+		if title != null:
+			assert_eq(title.text, "Screen & accessibility",
+				"%s: the open page is the Display page" % window_size)
+		var window_mode := menu.find_child("WindowMode", true, false) as OptionButton
+		assert_not_null(window_mode,
+			"%s: with Display's own controls on it" % window_size)
+		menu.free()
+
+	# A page chosen by hand still wins over the default.
+	var chosen: SettingsMenu = await _open_settings(Vector2i(1600, 1000))
+	chosen._select_category(SettingsMenu.Category.AUDIO)
+	await process_frames(2)
+	var audio_title := chosen.find_child("CategoryTitle", true, false) as Label
+	assert_eq(chosen._category, SettingsMenu.Category.AUDIO)
+	if audio_title != null:
+		assert_eq(audio_title.text, "Sound & ambience", "Audio still opens its own page")
+	chosen.free()
+	await resize_window(original_window)
