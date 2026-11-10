@@ -2,8 +2,8 @@
 
 > Every facility is a pixel image standing on the tiles it was bought for: one sprite per upgrade tier and per quarter-turn of the view. The same picture draws the placed building, its placement ghost and its tile on the Buildings tab.
 
-**Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing), `assets/sprites/buildings/` (72 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures)
-**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load)
+**Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`, `warp_point()`, `column_warp()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing, `draw_warped()`), `assets/sprites/buildings/` (72 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures)
+**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/course_design/test_building_warp.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load); `tests/integration/ui_and_controls/test_gradual_view_rotation.gd` (the shear between directions)
 
 ---
 
@@ -74,6 +74,8 @@ The art is authored in **grid space**:
 ### 4. Rotation
 
 The view can be rotated a quarter turn at a time, and buildings turn with it. Each rotation has its own pre-rendered image. After a rotation, `Building.set_position_in_grid()` passes the new `facing` to the architecture node, which swaps in that rotation's file.
+
+With **Settings → Controls → Camera → Gradual View Rotation** on, the course can be left at any angle between the four directions. The projection turns to that exact angle, and a building's picture is sheared on to the angled tiles so its base stays on its footprint: `BuildingSprites.draw_warped()` cuts the nearest quarter-turn picture into vertical slices and carries each slice by the ground point beneath it (`CourseArchitecture.column_warp()`). Walls stay vertical and every storey keeps its height, because the shear moves ground columns rather than skewing the picture as one piece. At the four quarter turns nothing is warped, so the picture is pixel-identical to before. The shear stops at 36° (`MAX_WARP_OFFSET`, 0.4 of a quarter turn): closer to the halfway point the projection squeezes one whole wall face to a line and the drawing would fold over itself, so the last few degrees of base sit slightly off the tiles. The click silhouette is carried with the drawing (`warp_point()`), and the placement ghost shears the same way. Trees keep their upright four-way art; `TerrainGrid.get_view_orientation()` reports the nearest direction for every piece of art that has only four views.
 
 | Function | What it does |
 | --- | --- |

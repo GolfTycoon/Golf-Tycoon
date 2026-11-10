@@ -127,6 +127,9 @@ var _min_zoom_value_label: Label = null
 var _max_zoom_value_label: Label = null
 var _minimap_toggle: CheckButton = null
 var _edge_pan_toggle: CheckButton = null
+## Gradual View Rotation (Controls → Camera): the course turns in small,
+## animated steps instead of snapping between four quarter turns.
+var _gradual_view_toggle: CheckButton = null
 ## The UI scale card: automatic (follow the device) or a pinned manual size.
 ## Cleared with every rebuild and kept in step by Screen.ui_scale_changed.
 var _ui_scale_slider: HSlider = null
@@ -196,6 +199,8 @@ func _ready() -> void:
 		EventBus.minimap_enabled_changed.connect(_on_minimap_enabled_changed)
 	if EventBus.has_signal("edge_pan_enabled_changed") and not EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
 		EventBus.edge_pan_enabled_changed.connect(_on_edge_pan_enabled_changed)
+	if EventBus.has_signal("view_rotation_mode_changed") and not EventBus.view_rotation_mode_changed.is_connected(_on_view_rotation_mode_changed):
+		EventBus.view_rotation_mode_changed.connect(_on_view_rotation_mode_changed)
 
 func _exit_tree() -> void:
 	if has_node("/root/Screen") and Screen.changed.is_connected(_on_screen_changed):
@@ -210,6 +215,8 @@ func _exit_tree() -> void:
 		EventBus.minimap_enabled_changed.disconnect(_on_minimap_enabled_changed)
 	if EventBus.has_signal("edge_pan_enabled_changed") and EventBus.edge_pan_enabled_changed.is_connected(_on_edge_pan_enabled_changed):
 		EventBus.edge_pan_enabled_changed.disconnect(_on_edge_pan_enabled_changed)
+	if EventBus.has_signal("view_rotation_mode_changed") and EventBus.view_rotation_mode_changed.is_connected(_on_view_rotation_mode_changed):
+		EventBus.view_rotation_mode_changed.disconnect(_on_view_rotation_mode_changed)
 
 ## Pure responsive breakpoint decision, also used by the layout tests.
 static func layout_mode_for(view: Vector2) -> int:
@@ -263,6 +270,7 @@ func _build() -> void:
 	_max_zoom_value_label = null
 	_minimap_toggle = null
 	_edge_pan_toggle = null
+	_gradual_view_toggle = null
 	_ui_scale_slider = null
 	_ui_scale_auto_toggle = null
 	_ui_scale_value_label = null
@@ -1361,6 +1369,10 @@ func _build_controls_cards(mode: int) -> Array[Control]:
 			_add_toggle_row(body, "Invert Scroll Zoom", "Reverse the scroll wheel zoom direction.",
 				GameManager.invert_zoom_scroll, _on_invert_zoom_toggled, mode)
 			body.add_child(_make_separator())
+			_gradual_view_toggle = _add_toggle_row(body, "Gradual View Rotation",
+				"Turn the course in small, animated 15° steps that can stop between the four directions, instead of snapping from one to the next. Hold a rotate key or controller button to keep turning.",
+				GameManager.gradual_view_rotation, _set_gradual_view_rotation, mode)
+			body.add_child(_make_separator())
 			_add_camera_zoom_controls(body, mode)
 			body.add_child(_make_separator())
 		for action in InputBindings.actions_in_group(group_id):
@@ -2058,6 +2070,14 @@ func _on_edge_pan_enabled_changed(enabled: bool) -> void:
 	if is_instance_valid(_edge_pan_toggle):
 		_edge_pan_toggle.set_pressed_no_signal(enabled)
 
+func _set_gradual_view_rotation(enabled: bool) -> void:
+	GameManager.set_gradual_view_rotation(enabled)
+	_save_camera_settings()
+
+func _on_view_rotation_mode_changed(enabled: bool) -> void:
+	if is_instance_valid(_gradual_view_toggle):
+		_gradual_view_toggle.set_pressed_no_signal(enabled)
+
 func _on_invert_zoom_toggled(enabled: bool) -> void:
 	GameManager.invert_zoom_scroll = enabled
 	_save_controls_settings()
@@ -2074,6 +2094,7 @@ func _save_camera_settings() -> void:
 	config.set_value("camera", "min_zoom", GameManager.camera_min_zoom)
 	config.set_value("camera", "max_zoom", GameManager.camera_max_zoom)
 	config.set_value("camera", "edge_pan_enabled", GameManager.edge_pan_enabled)
+	config.set_value("camera", "gradual_view_rotation", GameManager.gradual_view_rotation)
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _save_display_settings() -> void:

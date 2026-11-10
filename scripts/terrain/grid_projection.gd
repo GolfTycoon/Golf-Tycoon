@@ -7,7 +7,10 @@ const ORIENTATION_COUNT: int = 4
 var grid_size: Vector2i = Vector2i(128, 128)
 var tile_size: Vector2 = Vector2(64, 32)
 const isometric: bool = true
-var orientation: int = 0
+## Facing in quarter turns. The classic view snaps this to whole numbers (the
+## four directions); Gradual View Rotation lets it take any value, so the course
+## can be seen from every angle in between. See TerrainGrid.rotate_view_cw().
+var orientation: float = 0.0
 
 # Cached projection state, rebuilt whenever an input above changes.
 var _center := Vector2.ZERO
@@ -18,10 +21,10 @@ var _bounds := Rect2()
 var _dirty := true
 
 func _init(size: Vector2i = Vector2i(128, 128), tile: Vector2 = Vector2(64, 32),
-		facing: int = 0) -> void:
+		facing: float = 0.0) -> void:
 	grid_size = size
 	tile_size = tile
-	orientation = wrapi(facing, 0, ORIENTATION_COUNT)
+	orientation = fposmod(facing, float(ORIENTATION_COUNT))
 
 func configure(size: Vector2i, tile: Vector2) -> void:
 	grid_size = size
@@ -32,17 +35,26 @@ func _ensure_fresh() -> void:
 	if _dirty:
 		_refresh()
 
-## Rotate a point-space offset by `steps` quarter turns.
-func _rotate(offset: Vector2, steps: int) -> Vector2:
-	match steps % ORIENTATION_COUNT:
-		1:
-			return Vector2(-offset.y, offset.x)
-		2:
-			return Vector2(-offset.x, -offset.y)
-		3:
-			return Vector2(offset.y, -offset.x)
-		_:
-			return offset
+## Rotate a point-space offset by `steps` quarter turns. Fractional steps turn
+## the view by that fraction, which is what Gradual View Rotation uses. Whole
+## steps keep the exact integer arithmetic the four classic directions rely on,
+## so a quarter turn projects to exactly the same pixels it always has.
+func _rotate(offset: Vector2, steps: float) -> Vector2:
+	var whole := roundf(steps)
+	if absf(steps - whole) < 0.000001:
+		match wrapi(int(whole), 0, ORIENTATION_COUNT):
+			1:
+				return Vector2(-offset.y, offset.x)
+			2:
+				return Vector2(-offset.x, -offset.y)
+			3:
+				return Vector2(offset.y, -offset.x)
+			_:
+				return offset
+	var angle := steps * PI * 0.5
+	var c := cos(angle)
+	var s := sin(angle)
+	return Vector2(offset.x * c - offset.y * s, offset.x * s + offset.y * c)
 
 func _refresh() -> void:
 	_center = Vector2(grid_size.x * 0.5, grid_size.y * 0.5)
@@ -118,11 +130,20 @@ func world_bounds() -> Rect2:
 	return _bounds
 
 func rotate_cw() -> void:
-	set_orientation(orientation + 1)
+	set_orientation(orientation + 1.0)
 
 func rotate_ccw() -> void:
-	set_orientation(orientation - 1)
+	set_orientation(orientation - 1.0)
 
-func set_orientation(facing: int) -> void:
-	orientation = wrapi(facing, 0, ORIENTATION_COUNT)
+## Point the view at `facing` quarter turns, whole or fractional. Four quarter
+## turns bring it back round to north.
+func set_orientation(facing: float) -> void:
+	orientation = fposmod(facing, float(ORIENTATION_COUNT))
 	_dirty = true
+
+## The nearest of the four compass directions. Everything that draws a
+## four-sided sprite or a letter (buildings, trees, the facing chip, saves from
+## before gradual rotation) reads the view through this, while `orientation`
+## keeps the exact angle the course is drawn at.
+func orientation_steps() -> int:
+	return wrapi(roundi(orientation), 0, ORIENTATION_COUNT)

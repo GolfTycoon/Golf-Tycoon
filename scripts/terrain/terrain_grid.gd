@@ -9,10 +9,34 @@ const DEFAULT_TILE_HEIGHT: int = 32
 @export var tile_width: int = DEFAULT_TILE_WIDTH
 @export var tile_height: int = DEFAULT_TILE_HEIGHT
 const view_isometric: bool = true
+## The nearest of the four compass directions the course faces. The projection
+## itself keeps the exact angle (see `get_view_angle()`), so Gradual View
+## Rotation can stop between two of these.
 @export_range(0, 3) var view_orientation: int = 0
+## Whether turning the view takes small, animated steps instead of snapping a
+## quarter turn. Chosen in Settings → Controls → Camera; Main keeps this in step
+## with GameManager.gradual_view_rotation.
+var gradual_view_rotation: bool = false
+## How far one turn goes in gradual mode: 15 degrees, so a quarter turn is six
+## presses and every angle in between is reachable.
+const GRADUAL_VIEW_STEP_QUARTER_TURNS: float = 1.0 / 6.0
+## Long enough to read as a turn rather than a jump, short enough that holding
+## the key keeps the course moving.
+const GRADUAL_VIEW_TURN_SECONDS: float = 0.18
 
 ## Grid <-> world projection shared by every renderer and the input handlers.
 var projection: GridProjection = GridProjection.new()
+
+## The running turn, while Gradual View Rotation is animating between angles.
+var _view_turn: Tween = null
+## The angle the current turn is heading for, kept unwrapped so a turn continues
+## in the direction the player started it, even past the point where the
+## projection wraps back to north.
+var _view_turn_target: float = 0.0
+## The angle on screen, also unwrapped. The projection wraps its own angle to
+## one turn, so animating from a wrapped angle to an unwrapped target would
+## take the long way round whenever a turn crossed north.
+var _view_angle_unwrapped: float = 0.0
 
 ## Elevation levels run 0..10: 0 is the deepest a vertex can be dug down and
 ## 10 the highest it can be raised. Flat, untouched ground sits mid-range at
@@ -67,6 +91,9 @@ signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 signal vertex_elevation_changed(vertex: Vector2i, old_elevation: int, new_elevation: int)
 signal view_rotated(orientation: int, isometric: bool)
+## Emitted once a gradual turn has come to rest, after its last `view_rotated`.
+## A quarter turn that snaps emits only `view_rotated`, as it always has.
+signal view_rotation_settled
 ## Emitted whenever a "Green With Hole" (cup) marker is added or removed.
 signal cup_tiles_changed
 ## Emitted whenever the Path improvement (walking path) layer changes.
@@ -285,8 +312,9 @@ func _initialize_grid() -> void:
 
 func _init_projection() -> void:
 	projection.configure(Vector2i(grid_width, grid_height), Vector2(tile_width, tile_height))
-	projection.set_orientation(view_orientation)
-	view_orientation = projection.orientation
+	projection.set_orientation(float(view_orientation))
+	view_orientation = projection.orientation_steps()
+	_view_angle_unwrapped = projection.orientation
 
 func get_elevation_displacement(grid_pos: Vector2) -> Vector2:
 	if not view_isometric or ELEVATION_STEP_Y == 0.0:
@@ -528,27 +556,108 @@ static func _apply_projection_uniforms(shader_material: ShaderMaterial, proj: Gr
 	shader_material.set_shader_parameter("grid_axis_y", proj.axis_y())
 	shader_material.set_shader_parameter("surface_origin", proj.world_bounds().position)
 
+## Turn the view one step clockwise: a quarter turn in the classic mode, a
+## small animated step (GRADUAL_VIEW_STEP_QUARTER_TURNS) in gradual mode.
 func rotate_view_cw() -> void:
-	_apply_view(projection.orientation + 1)
+	_rotate_view(1.0)
 
 func rotate_view_ccw() -> void:
-	_apply_view(projection.orientation - 1)
+	_rotate_view(-1.0)
+
+## Gradual mode on or off. Turning it off settles the course on the nearest of
+## the four directions, so the classic view is always grid-aligned.
+func set_gradual_view_rotation(enabled: bool) -> void:
+	if gradual_view_rotation == enabled:
+		return
+	gradual_view_rotation = enabled
+	if enabled:
+		return
+	_stop_view_turn()
+	_apply_view(float(projection.orientation_steps()))
+
+func is_gradual_view_rotation_enabled() -> bool:
+	return gradual_view_rotation
+
+## True while a gradual turn is still animating.
+func is_view_turning() -> bool:
+	return _view_turn != null and _view_turn.is_valid()
 
 func is_view_isometric() -> bool:
 	return projection.isometric
 
+## The nearest of the four directions, for the four-way art and the compass
+## chip. `get_view_angle()` is the exact angle the course is drawn at.
 func get_view_orientation() -> int:
+	return projection.orientation_steps()
+
+## The view angle in quarter turns. Whole numbers are the four directions and
+## fractions are the angles in between (Gradual View Rotation).
+func get_view_angle() -> float:
 	return projection.orientation
 
-func set_view_orientation(orientation: int) -> void:
+## How far the exact view angle sits from the nearest of the four directions,
+## in quarter turns, from -0.5 to 0.5. The four-way art is drawn at the nearest
+## direction; this is what lets a building shear its drawing back on to the
+## course at the angle between two of them.
+func get_view_angle_offset() -> float:
+	return fposmod(get_view_angle() - float(get_view_orientation()) + 0.5, 1.0) - 0.5
+
+## Point the view straight at `orientation` quarter turns, without animating.
+## Used by loads and by anything that reasons in whole turns.
+func set_view_orientation(orientation: float) -> void:
+	_stop_view_turn()
+	if not gradual_view_rotation:
+		orientation = float(wrapi(roundi(orientation), 0, GridProjection.ORIENTATION_COUNT))
 	_apply_view(orientation)
 
-func _apply_view(orientation: int) -> void:
+func _rotate_view(direction: float) -> void:
+	if not gradual_view_rotation:
+		_stop_view_turn()
+		_apply_view(float(projection.orientation_steps()) + direction)
+		return
+	# Chain a held turn onto the angle the course is already heading for, so
+	# rapid presses keep up instead of restarting each step from the pixels on
+	# screen.
+	var base := _view_turn_target if is_view_turning() else _view_angle_unwrapped
+	_start_view_turn(base + GRADUAL_VIEW_STEP_QUARTER_TURNS * direction)
+
+func _start_view_turn(target: float) -> void:
+	_stop_view_turn()
+	_view_turn_target = target
+	if not is_inside_tree():
+		_apply_view(target)
+		return
+	var from := _view_angle_unwrapped
+	_view_turn = create_tween()
+	_view_turn.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# A view turn is a player-facing movement, like a camera pan: it takes the
+	# same time at any game speed. (It still waits behind a pause, like the rest
+	# of the course.)
+	_view_turn.set_ignore_time_scale(true)
+	_view_turn.tween_method(_apply_view, from, target, GRADUAL_VIEW_TURN_SECONDS)
+	_view_turn.finished.connect(_on_view_turn_finished)
+
+func _stop_view_turn() -> void:
+	if _view_turn != null and _view_turn.is_valid():
+		_view_turn.kill()
+	_view_turn = null
+
+func _on_view_turn_finished() -> void:
+	if _view_turn != null and _view_turn.is_valid():
+		_view_turn.kill()
+	_view_turn = null
+	# Land exactly on the angle the turn was asked for; the tween's last step
+	# may be a hair short of it.
+	_apply_view(_view_turn_target)
+	view_rotation_settled.emit()
+
+func _apply_view(orientation: float) -> void:
+	_view_angle_unwrapped = orientation
 	projection.set_orientation(orientation)
-	view_orientation = projection.orientation
+	view_orientation = projection.orientation_steps()
 	_sync_projection_dependents()
-	view_rotated.emit(projection.orientation, projection.isometric)
-	EventBus.view_rotated.emit(projection.orientation, projection.isometric)
+	view_rotated.emit(view_orientation, projection.isometric)
+	EventBus.view_rotated.emit(view_orientation, projection.isometric)
 
 func _sync_projection_dependents() -> void:
 	var bounds := projection.world_bounds()

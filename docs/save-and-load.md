@@ -75,6 +75,7 @@ no saves, no reports, no custom skins.
 | --- | --- |
 | Company | Money, reputation, calendar, the Course Location and World Milestones earned in this save, the unlimited-money flag, owned locations and unlocked land |
 | Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
+| Course view | The direction the course was left facing. Gradual View Rotation also stores the exact angle between two directions (`view.angle`); older saves store the whole-turn direction (`view.orientation`) and load facing it |
 | Entities | Buildings (including their original foundation terrain and vertex heights), decorations, path furniture; legacy tree entities are migrated |
 | Holes | Tee and cup positions, par, yardage, and the order they are played in (the saved list *is* the round) |
 | Course Aura | Where golfers spoke up: the newest comments kept, each with its cell, sentiment, trigger, hole and day |

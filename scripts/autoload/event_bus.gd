@@ -31,6 +31,9 @@ signal course_rating_changed(rating: Dictionary)
 # Terrain/Building Signals
 signal terrain_tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal view_rotated(orientation: int, isometric: bool)
+## The Settings preference that turns the view in small, animated steps instead
+## of snapping between the four quarter turns (see GameManager.gradual_view_rotation).
+signal view_rotation_mode_changed(enabled: bool)
 signal building_placed(building_type: String, position: Vector2i)
 signal building_removed(position: Vector2i)
 signal building_upgraded(building, new_level: int)

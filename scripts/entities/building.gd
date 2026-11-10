@@ -15,6 +15,13 @@ var building_data: Dictionary = {}
 ## The architecture node's view rotation, so the sidewalk the drawing shows is
 ## the side `CourseClubhouse.front_tile()` sends the golfers to.
 var _facing: int = 0
+## How far the exact view angle sits from `_facing`, in quarter turns, from
+## -0.5 to 0.5. Gradual View Rotation uses it to shear the drawing on to the
+## angled tiles; at the four quarter turns it is zero.
+var _angle_offset: float = 0.0
+## The click silhouettes at `_facing` before any gradual-turn shear, so the
+## shear can be applied afresh as the view turns instead of compounding.
+var _base_click_polygons: Array = []
 
 signal building_selected(building: Building)
 signal building_destroyed(building: Building)
@@ -174,21 +181,33 @@ func destroy(force: bool = false) -> void:
 	building_destroyed.emit(self)
 	queue_free()
 
-## Keep the drawing's view rotation in step with the course's.
+## Keep the drawing's view rotation - and its angle between two rotations -
+## in step with the course's.
 func _update_facing() -> void:
 	if terrain_grid == null:
 		return
 	var new_facing := terrain_grid.get_view_orientation()
-	if new_facing == _facing and get_node_or_null("ClickArea") != null:
+	var new_offset := terrain_grid.get_view_angle_offset()
+	var facing_changed := new_facing != _facing
+	var offset_changed := not is_equal_approx(new_offset, _angle_offset)
+	if not facing_changed and not offset_changed and get_node_or_null("ClickArea") != null:
 		return
 	_facing = new_facing
+	_angle_offset = new_offset
 	var visual := get_node_or_null("Visual/Architecture") as CourseArchitecture
-	if visual and visual.facing != _facing:
+	if visual:
+		var redraw := visual.facing != _facing \
+			or not is_equal_approx(visual.angle_offset, _angle_offset)
 		visual.facing = _facing
-		visual.queue_redraw()
-	# Each rotation draws a different sprite, so the clickable silhouette
-	# has to turn with the picture it outlines.
-	_refresh_click_area()
+		visual.angle_offset = _angle_offset
+		if redraw:
+			visual.queue_redraw()
+	if facing_changed:
+		# Each rotation draws a different sprite, so the clickable silhouette
+		# has to turn with the picture it outlines.
+		_refresh_click_area()
+	else:
+		_warp_click_area()
 
 ## The polygons a click on this building answers to, in local draw space:
 ## the silhouette of the sprite as it is currently drawn (current tier and
@@ -215,19 +234,65 @@ func _refresh_click_area() -> void:
 	remove_child(old_area)
 	old_area.queue_free()
 	add_child(_make_click_area())
+	_warp_click_area()
 
 func _make_click_area() -> Area2D:
 	var click_area := Area2D.new()
 	click_area.name = "ClickArea"
 	click_area.input_pickable = true
 	var footprint := Vector2(width * 64.0, height * 32.0)
-	for polygon in BuildingSprites.click_polygons(
-			building_type, upgrade_level, _facing, footprint):
+	_base_click_polygons = BuildingSprites.click_polygons(
+			building_type, upgrade_level, _facing, footprint)
+	for polygon in _base_click_polygons:
 		var collision := CollisionPolygon2D.new()
 		collision.polygon = polygon
 		click_area.add_child(collision)
 	click_area.input_event.connect(_on_click_area_input_event)
 	return click_area
+
+## Carry the click silhouettes with the sheared drawing, so the piece of building
+## a player can click stays the piece they see. The silhouettes are kept at
+## `_facing` and sheared afresh each time, never on top of the last shear.
+func _warp_click_area() -> void:
+	var click_area := get_node_or_null("ClickArea")
+	if click_area == null:
+		return
+	var footprint := Vector2(width * 64.0, height * 32.0)
+	var index := 0
+	for child in click_area.get_children():
+		if not child is CollisionPolygon2D or index >= _base_click_polygons.size():
+			continue
+		var base: PackedVector2Array = _base_click_polygons[index]
+		var collision := child as CollisionPolygon2D
+		var shear := CourseArchitecture.clamp_warp(_angle_offset)
+		var warped := PackedVector2Array()
+		var lines := CourseArchitecture.ground_lines(footprint, _facing)
+		var pivot := CourseArchitecture.footprint_pivot(footprint)
+		var matrix := CourseArchitecture.warp_matrix(shear)
+		if absf(shear) < CourseArchitecture.WARP_EPSILON or lines.is_empty():
+			collision.polygon = base
+		else:
+			for point in base:
+				var moved := point + CourseArchitecture.column_warp(
+						point.x, lines, pivot, matrix)
+				# An edge-on wall squeezes columns together; drop the points that
+				# land on top of each other so the shape stays simple.
+				if warped.is_empty() or moved.distance_to(warped[warped.size() - 1]) > 0.05:
+					warped.append(moved)
+			if warped.size() >= 3 and absf(_polygon_area(warped)) > 0.5:
+				collision.polygon = warped
+			else:
+				collision.polygon = base
+		index += 1
+
+
+static func _polygon_area(polygon: PackedVector2Array) -> float:
+	var area := 0.0
+	for i in range(polygon.size()):
+		var a := polygon[i]
+		var b := polygon[(i + 1) % polygon.size()]
+		area += a.x * b.y - b.x * a.y
+	return area * 0.5
 
 func _update_visuals() -> void:
 	"""Create visual representation for the building with shadows"""
@@ -255,6 +320,7 @@ func _update_visuals() -> void:
 	architecture.footprint = Vector2(size_x, size_y)
 	architecture.level = upgrade_level
 	architecture.facing = _facing
+	architecture.angle_offset = _angle_offset
 	visual.add_child(architecture)
 	# Sort the complete building at its ground footprint centre, not the
 	# top-left corner of its art canvas. Keep the drawing in the same place.
@@ -263,6 +329,7 @@ func _update_visuals() -> void:
 
 	# Add click detection area, shaped to the sprite's silhouette.
 	add_child(_make_click_area())
+	_warp_click_area()
 
 func get_building_info() -> Dictionary:
 	return {

@@ -619,6 +619,9 @@ func _draw_building_ghost_shape(grid_pos: Vector2i, building_type: String, size:
 		return
 	_building_ghost.kind = building_type
 	_building_ghost.facing = terrain_grid.get_view_orientation() if terrain_grid != null else 0
+	# The ghost shears with the ground exactly as the placed building does, so
+	# the picture under the cursor is the picture a click will drop.
+	_building_ghost.angle_offset = terrain_grid.get_view_angle_offset() if terrain_grid != null else 0.0
 	if "level" in _building_ghost:
 		_building_ghost.level = upgrade_level
 	_building_ghost.footprint = Vector2(w, h)

@@ -57,6 +57,19 @@ var _measure_overlay: Node2D = null
 
 ## Moving entities captured (in grid space) across a view projection change.
 var _pending_moving_entities: Array = []
+## While a gradual turn animates, the patch of course the camera is centred on:
+## every intermediate frame puts the camera and the moving entities back on it,
+## so the turn happens around the player's view instead of sliding the course
+## out from under it.
+var _view_turn_focus_grid: Vector2 = Vector2.ZERO
+var _view_turn_focus_active: bool = false
+## How long a rotate key or controller button must be held before Gradual View
+## Rotation keeps turning, and how often it takes its next step after that.
+const VIEW_ROTATE_HOLD_DELAY_MSEC: int = 320
+const VIEW_ROTATE_HOLD_STEP_MSEC: int = 90
+var _view_rotate_held_direction: int = 0
+var _view_rotate_hold_started_msec: int = 0
+var _view_rotate_last_step_msec: int = 0
 
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
@@ -614,6 +627,7 @@ func _process(_delta: float) -> void:
 	_update_ui()
 	_update_mini_map_camera()
 	_update_tile_inspector()
+	_update_held_view_rotation()
 
 ## The course hotkeys this scene dispatches. InputBindings owns their keys and
 ## Settings edits them; this list keeps one scene from claiming another's.
@@ -979,6 +993,12 @@ func _connect_signals() -> void:
 	EventBus.new_game_started.connect(_on_new_game_started)
 	hole_manager.hole_selected.connect(_on_hole_flag_selected)
 	terrain_grid.view_rotated.connect(_on_terrain_view_rotated)
+	terrain_grid.view_rotation_settled.connect(_on_view_rotation_settled)
+	# Gradual View Rotation is a player preference (Settings → Controls →
+	# Camera); this scene owns the grid it applies to.
+	if not EventBus.view_rotation_mode_changed.is_connected(_on_view_rotation_mode_changed):
+		EventBus.view_rotation_mode_changed.connect(_on_view_rotation_mode_changed)
+	terrain_grid.set_gradual_view_rotation(GameManager.gradual_view_rotation)
 	# Tee boxes, cups and holes decide what may be placed next and whether a hole
 	# is ready to open, so the toolbar re-reads the rules whenever they change.
 	terrain_grid.cup_tiles_changed.connect(_refresh_hole_layout_ui)
@@ -2579,7 +2599,79 @@ func _change_view_projection(clockwise: bool) -> void:
 		terrain_grid.rotate_view_cw()
 	else:
 		terrain_grid.rotate_view_ccw()
+	if terrain_grid.is_view_turning():
+		# A gradual turn is spread over the next few frames: keep its focus
+		# until view_rotation_settled says it has come to rest.
+		_view_turn_focus_grid = focus_grid
+		_view_turn_focus_active = true
+		_restore_moving_entities(_pending_moving_entities)
+		return
 	_finish_view_change(focus_grid)
+
+## The preference changed. Turning Gradual View Rotation off settles the course
+## back on the nearest direction and closes any turn in progress.
+func _on_view_rotation_mode_changed(enabled: bool) -> void:
+	if terrain_grid == null:
+		return
+	terrain_grid.set_gradual_view_rotation(enabled)
+	if not enabled and _view_turn_focus_active:
+		_view_turn_focus_active = false
+		_finish_view_change(_view_turn_focus_grid)
+
+## One frame of a gradual turn: the course turned a little, so the camera and
+## the golfers, balls and staff are put back on the patch of course they were
+## on before the turn started.
+func _on_view_rotation_settled() -> void:
+	if not _view_turn_focus_active:
+		return
+	_view_turn_focus_active = false
+	_finish_view_change(_view_turn_focus_grid)
+
+## A rotate key or controller button that stays down keeps turning the course
+## in gradual mode. The press already turned one step; this waits for the same
+## control to stay held and then takes another small step at a steady cadence,
+## so a tap stays precise and a hold spins the view.
+func _update_held_view_rotation() -> void:
+	if terrain_grid == null or not terrain_grid.is_gradual_view_rotation_enabled() \
+			or not _gameplay_input_active():
+		_view_rotate_held_direction = 0
+		return
+	var direction := _held_view_rotation_direction()
+	var now := Time.get_ticks_msec()
+	if direction == 0:
+		_view_rotate_held_direction = 0
+		return
+	if direction != _view_rotate_held_direction:
+		_view_rotate_held_direction = direction
+		_view_rotate_hold_started_msec = now
+		_view_rotate_last_step_msec = now
+		return
+	if now - _view_rotate_hold_started_msec < VIEW_ROTATE_HOLD_DELAY_MSEC:
+		return
+	if now - _view_rotate_last_step_msec < VIEW_ROTATE_HOLD_STEP_MSEC:
+		return
+	_view_rotate_last_step_msec = now
+	if direction > 0:
+		_on_view_rotate_cw()
+	else:
+		_on_view_rotate_ccw()
+
+## -1 counter-clockwise, +1 clockwise, 0 when no rotate key or button is held.
+## The on-screen arrows stay one press, one step: `pressed` fires when the
+## button comes back up, so holding one would step once on the way down and
+## again on the way up.
+func _held_view_rotation_direction() -> int:
+	var direction := 0
+	if _view_rotate_action_held("rotate_camera", "gamepad_rotate_ccw"):
+		direction -= 1
+	if _view_rotate_action_held("rotate_camera_cw", "gamepad_rotate_cw"):
+		direction += 1
+	return direction
+
+func _view_rotate_action_held(action: String, gamepad_action: String) -> bool:
+	if InputMap.has_action(action) and Input.is_action_pressed(action):
+		return true
+	return InputMap.has_action(gamepad_action) and Input.is_action_pressed(gamepad_action)
 
 func _begin_view_change() -> Vector2:
 	_pending_moving_entities = _snapshot_moving_entities()
@@ -2595,6 +2687,13 @@ func _finish_view_change(focus_grid: Vector2) -> void:
 
 func _on_terrain_view_rotated(_orientation: int, _isometric: bool) -> void:
 	_after_view_change()
+	# Every intermediate frame of a gradual turn moves the course under the
+	# camera and under the golfers, balls and staff; put them back where they
+	# were so only the view turns.
+	if _view_turn_focus_active:
+		_restore_moving_entities(_pending_moving_entities)
+		if camera:
+			camera.focus_on(terrain_grid.grid_to_screen_precise(_view_turn_focus_grid), true)
 
 func _snapshot_moving_entities() -> Array:
 	var snapshot: Array = []
@@ -3056,6 +3155,10 @@ func _disable_terrain_painting_preview() -> void:
 
 func _on_new_game_started() -> void:
 	"""Generate natural terrain when a new game starts"""
+	# A turn in progress belonged to the old course; the new one sets its own
+	# facing from scratch.
+	_view_turn_focus_active = false
+	_pending_moving_entities = []
 	_cancel_inspect_mode()
 	_game_over_shown = false
 	_close_hole_context_menu()
@@ -3749,6 +3852,9 @@ func _ensure_course_clubhouse(preferred: Vector2i = Vector2i(-1, -1)) -> Buildin
 	return CourseClubhouse.ensure(terrain_grid, entity_layer, preferred)
 
 func _on_load_completed(success: bool) -> void:
+	# The loaded course brings its own facing; a turn from the old one is over.
+	_view_turn_focus_active = false
+	_pending_moving_entities = []
 	_cancel_inspect_mode()
 	_just_loaded_game = success
 	_close_hole_context_menu()

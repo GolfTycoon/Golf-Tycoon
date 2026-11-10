@@ -271,17 +271,70 @@ static func draw(canvas: CanvasItem, kind: String, footprint: Vector2, tier := 1
 	canvas.draw_texture_rect(tex, art_rect, false)
 	return art_rect
 
+## Width of one vertical slice, in world pixels, used by draw_warped().
+## The slices are narrow enough that the sheared base reads as a smooth edge
+## on pixel art, and wide enough that a building is a handful of draw calls.
+const WARP_STRIP_WIDTH := 4.0
+
+## Draw `kind` sheared on to the course at an angle `residual` quarter turns
+## from `facing` (Gradual View Rotation).
+##
+## The quarter-turn picture cannot simply be skewed as one piece: the ground
+## plane is projected through the 2:1 axes, but a building's walls rise straight
+## up the screen. So the drawing is cut into vertical slices, each carried by
+## the ground point under it (CourseArchitecture.column_warp()). The bases end
+## up on the angled tiles while every wall stays vertical and every storey keeps
+## its height — the same footing the four quarter-turn pictures have. Returns
+## the area the slices cover.
+static func draw_warped(canvas: CanvasItem, kind: String, footprint: Vector2,
+		tier: int, facing: int, residual: float) -> Rect2:
+	var art_rect := rect(kind, tier, facing)
+	var tex := texture(kind, tier, facing)
+	if tex == null or art_rect.size.x <= 0.0:
+		# A mod's stand-in is drawn from the footprint itself; there is no
+		# picture to slice, but its frame can follow the same ground.
+		return _draw_fallback(canvas, kind, footprint, facing, residual)
+	var lines := CourseArchitecture.ground_lines(footprint, facing)
+	var pivot := CourseArchitecture.footprint_pivot(footprint)
+	var matrix := CourseArchitecture.warp_matrix(
+			CourseArchitecture.clamp_warp(residual))
+	var tex_size := Vector2(tex.get_size())
+	var strips := maxi(1, ceili(art_rect.size.x / WARP_STRIP_WIDTH))
+	var bounds := Rect2()
+	for i in range(strips):
+		var x0 := art_rect.position.x + art_rect.size.x * float(i) / float(strips)
+		var x1 := art_rect.position.x + art_rect.size.x * float(i + 1) / float(strips)
+		var left := x0 + CourseArchitecture.column_warp(x0, lines, pivot, matrix).x
+		var right := x1 + CourseArchitecture.column_warp(x1, lines, pivot, matrix).x
+		var shift: float = CourseArchitecture.column_warp(
+				(x0 + x1) * 0.5, lines, pivot, matrix).y
+		# Overlap by a pixel: a slice squeezed to nothing by an edge-on wall must
+		# still cover its column rather than leave a gap in the picture.
+		var dest := Rect2(Vector2(left, art_rect.position.y + shift),
+			Vector2(maxf(right - left, 1.0), art_rect.size.y))
+		var src := Rect2(
+			Vector2((x0 - art_rect.position.x) / art_rect.size.x * tex_size.x, 0.0),
+			Vector2((x1 - x0) / art_rect.size.x * tex_size.x, tex_size.y))
+		canvas.draw_texture_rect_region(tex, dest, src)
+		bounds = dest if bounds.size == Vector2.ZERO else bounds.merge(dest)
+	return bounds
+
 ## The stand-in drawn for a building with no sprite: its footprint diamond, a
 ## low wall and a pitched cap in the building's `color` (a warm timber brown
 ## when the data names none). It keeps mod buildings - which can be pure
 ## JSON - visible and clickable without any art pipeline, and it is what a
 ## player sees until a mod registers a sprite for the kind.
-static func _draw_fallback(canvas: CanvasItem, kind: String, footprint: Vector2, facing: int) -> Rect2:
+static func _draw_fallback(canvas: CanvasItem, kind: String, footprint: Vector2,
+		facing: int, residual := 0.0) -> Rect2:
 	if footprint.x <= 0.0 or footprint.y <= 0.0:
 		return Rect2()
 	var corners := CourseArchitecture.footprint_corners(footprint, facing)
 	if corners.size() < 4:
 		return Rect2()
+	if absf(residual) > CourseArchitecture.WARP_EPSILON:
+		for i in range(corners.size()):
+			corners[i] = CourseArchitecture.warp_point(
+				corners[i], footprint, facing, residual)
 	var color := fallback_color(kind)
 	var wall_height: float = clampf(minf(footprint.x, footprint.y) * 0.35, 10.0, 42.0)
 	# Painter order for a diamond: the two far points and the two near ones.
