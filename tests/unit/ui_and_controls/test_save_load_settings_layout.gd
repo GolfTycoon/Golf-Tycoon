@@ -258,6 +258,111 @@ func test_settings_screen_uses_shared_menu_backdrop_across_categories() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Settings page: the header over the workspace, with no bottom row
+# ---------------------------------------------------------------------------
+
+## One window for each arrangement the Settings office has.
+const SETTINGS_WINDOWS: Array[Vector2i] = [
+	Vector2i(1600, 1000),
+	Vector2i(1024, 768),
+	Vector2i(768, 1024),
+	Vector2i(844, 390),
+	Vector2i(390, 844),
+]
+## What the page's bottom row was made of: a footer holding a save notice and a
+## Done button. Settings save as they change and the header's Back button
+## already leaves the screen, so the row is gone and none of it may come back.
+const SETTINGS_BOTTOM_ROW: Array[String] = ["SettingsFooter", "SaveNotice", "DoneButton"]
+
+func _open_settings(window_size: Vector2i) -> SettingsMenu:
+	await resize_window(window_size)
+	var menu := SettingsMenu.new()
+	add_child_autofree(menu)
+	await process_frames(3)
+	return menu
+
+func test_settings_page_is_the_header_over_the_workspace_with_no_bottom_row() -> void:
+	var original_window := get_window().size
+	var arrangements: Dictionary = {}
+	for window_size in SETTINGS_WINDOWS:
+		var menu: SettingsMenu = await _open_settings(window_size)
+		arrangements[menu._layout_mode] = true
+		for category in SettingsMenu.Category.values():
+			menu._select_category(category)
+			await process_frames(2)
+			var tag := "%s %s" % [window_size, menu._category_name(category)]
+			var page := menu.get_node_or_null("SettingsFrame/SettingsPage") as VBoxContainer
+			assert_not_null(page, "%s: the page is built" % tag)
+			if page == null:
+				continue
+			var rows: Array[String] = []
+			for row in page.get_children():
+				rows.append(str(row.name))
+			assert_eq(rows, ["ScreenHeader", "SettingsWorkspace"],
+				"%s: the page is the header over the workspace and nothing else" % tag)
+			for legacy in SETTINGS_BOTTOM_ROW:
+				assert_null(menu.find_child(legacy, true, false),
+					"%s: the bottom row's %s is gone" % [tag, legacy])
+			# The room the row took went to the settings cards: the workspace
+			# ends where the page does, as far above the bottom of the screen
+			# as the header starts below the top of it.
+			var header := page.get_node_or_null("ScreenHeader") as Control
+			var workspace := page.get_node_or_null("SettingsWorkspace") as Control
+			if header == null or workspace == null:
+				continue
+			var screen := menu.get_global_rect()
+			var workspace_end := workspace.get_global_rect().end.y
+			assert_almost_eq(workspace_end, page.get_global_rect().end.y, 0.5,
+				"%s: the workspace runs down to the end of the page" % tag)
+			assert_almost_eq(screen.end.y - workspace_end,
+				header.get_global_rect().position.y - screen.position.y, 0.5,
+				"%s: only the screen margin is left under the workspace" % tag)
+		menu.free()
+	assert_eq(arrangements.size(), MenuScreenKit.LayoutMode.size(),
+		"every arrangement of the page was checked")
+	await resize_window(original_window)
+
+## With no Done button, the header's Back button is the on-screen way out.
+func test_settings_header_back_button_closes_the_screen_in_every_arrangement() -> void:
+	var original_window := get_window().size
+	for window_size in SETTINGS_WINDOWS:
+		var menu: SettingsMenu = await _open_settings(window_size)
+		var closed := [0]
+		menu.close_requested.connect(func() -> void: closed[0] += 1)
+		var back := menu.get_node_or_null("SettingsFrame/SettingsPage/ScreenHeader/BackButton") as Button
+		assert_not_null(back, "%s: the header carries the Back button" % window_size)
+		if back == null:
+			menu.free()
+			continue
+		assert_true(back.is_visible_in_tree(), "%s: Back is shown" % window_size)
+		assert_false(back.disabled, "%s: Back can be pressed" % window_size)
+		assert_true(rect_within(back.get_global_rect(), menu.get_global_rect()),
+			"%s: Back is on the screen" % window_size)
+		assert_eq(back.focus_mode, Control.FOCUS_ALL,
+			"%s: Back can take keyboard and controller focus" % window_size)
+		back.pressed.emit()
+		await process_frames(2)
+		assert_eq(closed[0], 1, "%s: Back asks the game to close the screen, once" % window_size)
+		# (the screen freed itself, so GUT cannot re-interrogate it for signals)
+		assert_false(is_instance_valid(menu), "%s: and the screen frees itself" % window_size)
+	await resize_window(original_window)
+
+func test_settings_escape_closes_the_screen() -> void:
+	var original_window := get_window().size
+	var menu: SettingsMenu = await _open_settings(Vector2i(1600, 1000))
+	var closed := [0]
+	menu.close_requested.connect(func() -> void: closed[0] += 1)
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	menu._input(esc)
+	await process_frames(2)
+	assert_eq(closed[0], 1, "Esc asks the game to close the screen, once")
+	assert_false(is_instance_valid(menu), "and the screen frees itself")
+	await resize_window(original_window)
+
+
+# ---------------------------------------------------------------------------
 # Save / Load top-right header mode buttons
 # ---------------------------------------------------------------------------
 

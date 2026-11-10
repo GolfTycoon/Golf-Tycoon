@@ -10,6 +10,11 @@ const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## control cards; tablets keep the cards roomy, while phones use a swipeable
 ## category strip and one scrollable settings column. Every control keeps its
 ## original live behavior and saves changes to user://settings.cfg.
+##
+## The page is the shared screen header over that workspace and nothing else:
+## it has no bottom row. Every change applies and saves as it is made, so there
+## is nothing to confirm on the way out - the header's Back button, Esc and the
+## controller's B all close the screen (see _on_close and _input).
 
 signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
@@ -57,7 +62,6 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 ## Set by Main when opened from a pause session so the course camera can still
 ## be moved from the dimmed backdrop.
 var camera: IsometricCamera = null
-var close_label: String = "Done"
 
 ## Set by Main before the menu is added (see Origin). The default treats a
 ## host that does not say - a test harness adding the menu directly - as
@@ -282,9 +286,10 @@ func _build() -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", _page_gap(_layout_mode))
 	frame.add_child(page)
+	# The header over the workspace, and no row under them: the workspace runs
+	# down to the window's bottom margin, and the header's Back button closes.
 	page.add_child(_build_header(_layout_mode))
 	page.add_child(_build_workspace(_layout_mode, _built_size))
-	page.add_child(_build_footer(_layout_mode))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
@@ -1927,33 +1932,6 @@ func _on_reset_zoom_limits() -> void:
 		_min_zoom_slider.value = GameManager.camera_min_zoom
 	if is_instance_valid(_max_zoom_slider):
 		_max_zoom_slider.value = GameManager.camera_max_zoom
-
-func _build_footer(mode: int) -> Control:
-	var footer := HBoxContainer.new()
-	footer.name = "SettingsFooter"
-	footer.custom_minimum_size.y = 44 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 48
-	footer.add_theme_constant_override("separation", 8)
-	# The notice only earns its room when the footer has the width to spare.
-	var note := Kit.make_label("CHANGES APPLY IMMEDIATELY  ·  SAVED ON THIS DEVICE", 10, COLOR_QUIET)
-	note.name = "SaveNotice"
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
-	footer.add_child(note)
-	var done := Button.new()
-	done.name = "DoneButton"
-	done.text = close_label
-	done.custom_minimum_size = Vector2(136 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 96, 44)
-	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
-	done.add_theme_font_size_override("font_size", 12)
-	MenuStyle.paint_primary(done, 9)
-	done.add_theme_color_override("font_color", MenuStyle.INK)
-	done.add_theme_color_override("font_hover_color", MenuStyle.INK)
-	done.add_theme_color_override("font_pressed_color", MenuStyle.INK)
-	done.pressed.connect(_on_close)
-	footer.add_child(done)
-	return footer
 
 ## The one run there is: Main closes this menu and the tour prepares its own
 ## throwaway course to build every test course on. Only a menu accessed from
