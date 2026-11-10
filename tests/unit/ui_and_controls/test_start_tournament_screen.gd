@@ -8,6 +8,10 @@ extends GameTest
 ##      Stableford / Skins, Rounds, Field Size, Cut Rule, Playoff).
 ##   4. Community Mod Game Features section (Weather, Wind, Seasons, plus custom
 ##      mod features when enabled; hidden when all feature mods are disabled).
+##
+## The course and golfer lists themselves moved to the Choose Course / Choose
+## Golfer screens (see test_choose_course_screen.gd / test_choose_golfer_screen.gd);
+## here they are summary cards and Choose * buttons.
 
 const SCRATCH_ROOT := "user://test_start_tournament_screen"
 const SCRATCH_SAVES := SCRATCH_ROOT + "/saves/"
@@ -125,32 +129,6 @@ func _image_holds_colour(image: Image, wanted: Color, tolerance: float = 0.02) -
 					and absf(pixel.b - wanted.b) <= tolerance:
 				return true
 	return false
-
-func test_golfer_rows_show_each_golfers_own_sprite_in_their_skin_colours() -> void:
-	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
-	add_child(screen)
-
-	var textures: Array[Texture2D] = []
-	for gid in ["default:claire_vance", "default:marcus_cole", "default:elena_sato", "default:arthur_pendleton"]:
-		var entry := TournamentLibrary.get_golfer(gid)
-		var portrait := screen.find_child("GolferPortrait_%s" % gid.replace(":", "_"), true, false) as GolferPortrait
-		assert_not_null(portrait, "%s has a sprite portrait on its row" % gid)
-		assert_not_null(portrait.sprite_texture, "%s's portrait draws the golfer's skin sprite" % gid)
-		assert_true(portrait._source_rect.size.x < 48.0 and portrait._source_rect.size.y < 48.0,
-			"%s's portrait trims the sprite's transparent canvas" % gid)
-		assert_true(portrait.custom_minimum_size.y >= 66.0,
-			"%s's row is tall enough to draw the sprite at twice its pixel size" % gid)
-		# Every shipped skin paints the Skin group, so it is the one colour each
-		# entry is guaranteed to wear whichever skin it is dressed in.
-		var skin_tone := Color.from_string(str((entry["skin_colors"] as Dictionary)["Skin"]), Color.WHITE)
-		assert_true(_image_holds_colour(portrait.sprite_texture.get_image(), skin_tone),
-			"%s's portrait is recoloured with the entry's Skin Colour (#%s)" % [gid, skin_tone.to_html(false)])
-		textures.append(portrait.sprite_texture)
-
-	# Claire and Marcus wear the same Casual skin, so their portraits only differ
-	# because each one's Skin Colours were applied to the sprite.
-	assert_ne(textures[0].get_image().get_data(), textures[1].get_image().get_data(),
-		"two golfers sharing a skin still get portraits in their own colours")
 
 func test_golfer_dossier_portrait_follows_the_selected_golfer() -> void:
 	var screen := autofree(StartTournamentScreen.new()) as StartTournamentScreen
@@ -300,11 +278,11 @@ func test_format_type_rules_difficulty_course_and_golfer_emit_start_options() ->
 	assert_true(cut_50_btn.disabled, "1-round events disable multi-round cut options")
 	assert_eq(str(screen.get_options()["cut_rule"]), "none")
 
-	# Delete the Career-saved golfer via its Delete button and confirm fallback to default
-	var del_btn := screen.find_child("DeleteSavedGolfer_career_legend", true, false) as Button
-	assert_not_null(del_btn, "Career-saved golfer exposes a delete button")
-	del_btn.pressed.emit()
-	await wait_frames(2)
+	# A Career golfer deleted on the Choose Golfer screen is picked up on the
+	# catalogue sync Main performs when that screen closes: the selection falls
+	# back to a default golfer instead of pointing at the deleted entry.
+	assert_true(TournamentLibrary.delete_saved_golfer("saved:career_legend"))
+	screen.sync_catalogues()
 	assert_eq(TournamentLibrary.saved_golfer_count(), 0)
 	assert_true(str(screen.get_options()["golfer_id"]).begins_with("default:"),
 		"selection falls back cleanly to a default golfer after deletion")

@@ -128,6 +128,14 @@ var achievements_screen: AchievementsScreen = null
 var mods_screen: ModsScreen = null
 ## Standalone Tournament Mode setup screen opened from the title screen.
 var start_tournament_screen: StartTournamentScreen = null
+## The Save Course / Save Golfer screens the pause menu's export cards open.
+## Each is fullscreen; closing one returns to the pause menu.
+var save_course_screen: SaveCourseScreen = null
+var save_golfer_screen: SaveGolferScreen = null
+## The Choose Course / Choose Golfer screens the tournament setup screen opens.
+## They hand the pick back through select_course()/select_golfer().
+var choose_course_screen: ChooseCourseScreen = null
+var choose_golfer_screen: ChooseGolferScreen = null
 ## The pause flag from before a goal screen opened. The screens freeze the
 ## day while they are up, so this is what the course resumes to on the way
 ## out.
@@ -1235,9 +1243,75 @@ func _start_tournament_is_open() -> bool:
 	return is_instance_valid(start_tournament_screen) and start_tournament_screen.visible
 
 func _close_start_tournament_screen() -> void:
+	_close_choose_course_screen()
+	_close_choose_golfer_screen()
 	if is_instance_valid(start_tournament_screen):
 		start_tournament_screen.queue_free()
 	start_tournament_screen = null
+
+## Open the fullscreen Choose Course screen above the tournament setup screen,
+## pre-selecting the course it currently has ready.
+func _open_choose_course_screen() -> void:
+	_close_choose_course_screen()
+	var screen := ChooseCourseScreen.new()
+	screen.name = "ChooseCourseScreen"
+	if is_instance_valid(start_tournament_screen):
+		screen.configure(str(start_tournament_screen.get_options().get("course_id", "")))
+	screen.course_chosen.connect(_on_choose_course)
+	screen.closed.connect(_on_choose_course_closed)
+	$UI/HUD.add_child(screen)
+	choose_course_screen = screen
+
+func _open_choose_golfer_screen() -> void:
+	_close_choose_golfer_screen()
+	var screen := ChooseGolferScreen.new()
+	screen.name = "ChooseGolferScreen"
+	if is_instance_valid(start_tournament_screen):
+		screen.configure(str(start_tournament_screen.get_options().get("golfer_id", "")))
+	screen.golfer_chosen.connect(_on_choose_golfer)
+	screen.closed.connect(_on_choose_golfer_closed)
+	$UI/HUD.add_child(screen)
+	choose_golfer_screen = screen
+
+func _close_choose_course_screen() -> void:
+	var had_screen := is_instance_valid(choose_course_screen)
+	if had_screen:
+		choose_course_screen.queue_free()
+	choose_course_screen = null
+	_sync_start_tournament_catalogues()
+
+func _close_choose_golfer_screen() -> void:
+	var had_screen := is_instance_valid(choose_golfer_screen)
+	if had_screen:
+		choose_golfer_screen.queue_free()
+	choose_golfer_screen = null
+	_sync_start_tournament_catalogues()
+
+func _on_choose_course(course_id: String) -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.select_course(course_id)
+	_close_choose_course_screen()
+
+func _on_choose_golfer(golfer_id: String) -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.select_golfer(golfer_id)
+	_close_choose_golfer_screen()
+
+## The chooser left (Back, or a pick was applied). Re-read the catalogues so
+## any saved-entry changes it may have made (a deleted Career course/golfer)
+## land in the setup screen — the summary cards and the options never point
+## at a ghost.
+func _on_choose_course_closed() -> void:
+	choose_course_screen = null
+	_sync_start_tournament_catalogues()
+
+func _on_choose_golfer_closed() -> void:
+	choose_golfer_screen = null
+	_sync_start_tournament_catalogues()
+
+func _sync_start_tournament_catalogues() -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.sync_catalogues()
 
 func _open_start_tournament_screen(initial_options: Dictionary = {}) -> void:
 	_hide_main_menu()
@@ -1251,6 +1325,8 @@ func _open_start_tournament_screen(initial_options: Dictionary = {}) -> void:
 	start_tournament_screen.start_requested.connect(func(options: Dictionary) -> void:
 		_close_start_tournament_screen()
 		_start_standalone_tournament(options))
+	start_tournament_screen.choose_course_requested.connect(_open_choose_course_screen)
+	start_tournament_screen.choose_golfer_requested.connect(_open_choose_golfer_screen)
 	$UI/HUD.add_child(start_tournament_screen)
 	_set_course_world_visible(false)
 	_set_gameplay_ui_visible(false)
@@ -5009,21 +5085,47 @@ func _on_pause_load() -> void:
 	_hide_pause_menu()
 	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.LOAD)
 
-## Export the open Career course, or the owner's golfer, for standalone
-## Tournament Mode. The menu stays open: both exports are one visit, and its own
-## status line reports the outcome while the game is paused (a toast's tween is
-## frozen at time scale zero). The export helper reads GameManager's live state,
-## so this works without the owner's round shelf ever being built.
+## Keep the open Career course, or the owner's golfer, for standalone
+## Tournament Mode. The cards open the Save Course and Save Golfer screens,
+## where the keepsake is named, kept or replaced; the pause menu steps aside
+## while either screen is open and comes back when it closes.
 func _on_pause_save_course() -> void:
-	_report_pause_export(TournamentCareerExport.save_course())
+	_hide_pause_menu()
+	_open_save_screen(true)
 
 func _on_pause_save_golfer() -> void:
-	_report_pause_export(TournamentCareerExport.save_golfer())
+	_hide_pause_menu()
+	_open_save_screen(false)
 
-func _report_pause_export(result: Dictionary) -> void:
-	if is_instance_valid(pause_menu):
-		pause_menu.show_export_feedback(
-			str(result.get("message", "")), bool(result.get("ok", false)))
+func _open_save_screen(course: bool) -> void:
+	_close_save_screens()
+	if course:
+		save_course_screen = SaveCourseScreen.new()
+		save_course_screen.name = "SaveCourseScreen"
+		save_course_screen.closed.connect(_on_save_screen_closed)
+		$UI/HUD.add_child(save_course_screen)
+	else:
+		save_golfer_screen = SaveGolferScreen.new()
+		save_golfer_screen.name = "SaveGolferScreen"
+		save_golfer_screen.closed.connect(_on_save_screen_closed)
+		$UI/HUD.add_child(save_golfer_screen)
+
+func _close_save_screens() -> void:
+	if is_instance_valid(save_course_screen):
+		save_course_screen.queue_free()
+	save_course_screen = null
+	if is_instance_valid(save_golfer_screen):
+		save_golfer_screen.queue_free()
+	save_golfer_screen = null
+
+## The save screens freed themselves (Back). The pause session is still
+## active (the game is paused behind the screen), so come back to the menu.
+func _on_save_screen_closed() -> void:
+	save_course_screen = null
+	save_golfer_screen = null
+	if GameManager.is_paused and _pause_session_active \
+			and GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+		_show_pause_menu()
 
 func _on_pause_settings() -> void:
 	# Keep the game paused while the settings menu is open

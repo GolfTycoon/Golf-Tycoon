@@ -10,15 +10,19 @@ class_name TournamentCareerExport
 ##
 ## TournamentLibrary owns the file format; this helper captures whatever the
 ## library needs from the live game, reports the outcome through EventBus and
-## returns the same result plus a `message` the menu can show in place.
+## returns the same result plus a `message` the caller can show in place.
+##
+## The Save Course and Save Golfer screens (opened from the Pause Menu) pass a
+## name the player typed; the plain calls keep the course's or the golfer's own
+## name, which is what the headless export entry points want.
 
 const COURSE_ERROR := "Could not save course for Tournament Mode."
 const GOLFER_ERROR := "Could not save golfer for Tournament Mode."
 
 
 ## Snapshot the open Career course so Start Tournament can offer it.
-static func save_course() -> Dictionary:
-	var result := TournamentLibrary.save_career_course()
+static func save_course(custom_name: String = "") -> Dictionary:
+	var result := TournamentLibrary.save_career_course(custom_name)
 	var ok := bool(result.get("ok", false))
 	var message := course_message(result)
 	EventBus.notify(message, "success" if ok else "warning")
@@ -29,7 +33,7 @@ static func save_course() -> Dictionary:
 ## the skin they wear - so Start Tournament can offer them as a playable golfer.
 ## Profile edits persist as they are made, so GameManager holds the live record;
 ## there is no round-shelf draft to flush first.
-static func save_golfer() -> Dictionary:
+static func save_golfer(custom_name: String = "") -> Dictionary:
 	var worn_skin: GolferSkin = null
 	if GolferSkins != null:
 		worn_skin = GolferSkins.player_skin()
@@ -38,7 +42,7 @@ static func save_golfer() -> Dictionary:
 		skin_id = worn_skin.id
 	var skin_colors := TournamentLibrary.capture_skin_colors(GameManager.player_profile, skin_id)
 	var result := TournamentLibrary.save_career_golfer(
-		GameManager.player_profile, skin_id, skin_colors)
+		GameManager.player_profile, skin_id, skin_colors, custom_name)
 	var ok := bool(result.get("ok", false))
 	var message := golfer_message(result)
 	EventBus.notify(message, "success" if ok else "warning")

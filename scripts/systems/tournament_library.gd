@@ -1030,13 +1030,18 @@ static func skin_color_overrides_from_entry(golfer_entry: Dictionary) -> Diction
 static func save_career_golfer(
 	profile: PlayerGolferProfile = null,
 	skin_id: String = "",
-	explicit_skin_colors: Dictionary = {}
+	explicit_skin_colors: Dictionary = {},
+	custom_name: String = ""
 ) -> Dictionary:
 	var active_profile := profile if profile != null else GameManager.player_profile
 	if active_profile == null:
 		return {"ok": false, "error": "No golfer profile is available to save."}
 
-	var display_name := active_profile.golfer_name.strip_edges()
+	# The Save Golfer screen lets the player store the export under a name of
+	# their choosing; blank means "keep the golfer's own name".
+	var display_name := custom_name.strip_edges()
+	if display_name.is_empty():
+		display_name = active_profile.golfer_name.strip_edges()
 	if display_name.is_empty():
 		display_name = "Club Pro"
 	var slug := sanitize_slug(display_name, "career_golfer")
@@ -1193,7 +1198,7 @@ static func _saved_golfer_entry_from_record(slug: String, record: Dictionary) ->
 		p.age,
 		GolferAttributes.GENDER_NAMES.get(p.gender, "Male"),
 	]
-	return _build_golfer_entry(
+	var built := _build_golfer_entry(
 		"saved:" + slug,
 		p,
 		false,
@@ -1203,6 +1208,8 @@ static func _saved_golfer_entry_from_record(slug: String, record: Dictionary) ->
 		skin_colors,
 		str(record.get("saved_at", ""))
 	)
+	built["slug"] = slug
+	return built
 
 static func _skin_display_name(skin_id: String) -> String:
 	if skin_id.is_empty():

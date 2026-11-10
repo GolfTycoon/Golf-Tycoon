@@ -10,15 +10,22 @@ class_name StartTournamentScreen
 ##      and Format Rules (Rounds, Field Size, Cut Line, Sudden-Death Playoff)
 ##   3. Game Features from enabled community mods (Weather, Wind, Seasons, plus
 ##      any mod calling ModAPI.register_feature / register_feature_option)
-##   4. Course (4 built-in Default Courses + Career-saved courses)
-##   5. Golfer (4 built-in Default Golfers + Career-saved golfers, showing the
-##      golfer's own recoloured sprite portrait plus complete identity, Skin &
-##      Skin Colours, Golfer Traits, Golfer Skills, and all 10 Golf Skills)
+##   4. Course (4 built-in Default Courses + Career-saved courses, the current
+##      pick on a summary card; the dedicated Choose Course screen lists them
+##      with previews and dossiers, opened from the card or its button)
+##   5. Golfer (4 built-in Default Golfers + Career-saved golfers, same shape;
+##      the dedicated Choose Golfer screen shows each golfer's recoloured sprite
+##      portrait plus complete identity, Skin & Skin Colours, Golfer Traits,
+##      Golfer Skills, and all 10 Golf Skills)
 
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
 signal start_requested(options: Dictionary)
 signal back_requested()
+## The course and golfer sections open the dedicated chooser screens;
+## Main owns them, picks come back through select_course()/select_golfer().
+signal choose_course_requested()
+signal choose_golfer_requested()
 
 enum Layout { WIDE, TABLET, LANDSCAPE, PHONE }
 
@@ -94,8 +101,18 @@ var _field_size_buttons: Dictionary = {} # field_size -> Button
 var _cut_buttons: Dictionary = {}        # cut_id -> Button
 var _playoff_button: Button = null
 var _feature_buttons: Dictionary = {}    # feature_id -> Button
-var _course_buttons: Dictionary = {}     # course_id -> Button
-var _golfer_buttons: Dictionary = {}     # golfer_id -> Button
+## The compact picker cards the course and golfer sections open with.
+## They mirror the selection; the Choose * screens are where it changes.
+var _course_picker_card: Button = null
+var _course_picker_preview: TournamentCoursePreview = null
+var _course_picker_name: Label = null
+var _course_picker_meta: Label = null
+var _course_picker_badge: Label = null
+var _golfer_picker_card: Button = null
+var _golfer_picker_portrait: GolferPortrait = null
+var _golfer_picker_name: Label = null
+var _golfer_picker_meta: Label = null
+var _golfer_picker_badge: Label = null
 
 var _difficulty_desc_label: Label = null
 var _difficulty_roster_label: Label = null
@@ -169,6 +186,14 @@ func refresh() -> void:
 	_reload_catalogues()
 	if is_inside_tree():
 		_build()
+
+## Re-read the course and golfer catalogues after one of the chooser screens
+## may have changed it (a saved entry deleted there) and fall the selection
+## back to a valid entry. Keeps this screen alive — cheaper than refresh()
+## and keeps the player's scroll and focus where they left them.
+func sync_catalogues() -> void:
+	_reload_catalogues()
+	_sync_selection_states()
 
 func get_options() -> Dictionary:
 	var diff := TournamentLibrary.get_difficulty(_difficulty)
@@ -362,8 +387,16 @@ func _clear_refs() -> void:
 	_cut_buttons.clear()
 	_playoff_button = null
 	_feature_buttons.clear()
-	_course_buttons.clear()
-	_golfer_buttons.clear()
+	_course_picker_card = null
+	_course_picker_preview = null
+	_course_picker_name = null
+	_course_picker_meta = null
+	_course_picker_badge = null
+	_golfer_picker_card = null
+	_golfer_picker_portrait = null
+	_golfer_picker_name = null
+	_golfer_picker_meta = null
+	_golfer_picker_badge = null
 	_difficulty_desc_label = null
 	_difficulty_roster_label = null
 	_format_desc_label = null
@@ -976,116 +1009,77 @@ func _make_course_section(s: float, scrollable: bool, compact: bool) -> Control:
 	box.add_theme_constant_override("separation", 6 if compact else roundi(8.0 * s))
 
 	var saved_cnt := TournamentLibrary.saved_course_count()
-	var kicker_text := "CHOOSE COURSE" if saved_cnt <= 0 else "CHOOSE COURSE (%d SAVED)" % saved_cnt
+	var kicker_text := "COURSE" if saved_cnt <= 0 else "COURSE (%d SAVED)" % saved_cnt
 	box.add_child(_make_kicker(kicker_text, s))
 
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 6)
-
-	var min_h := 44.0 if compact else maxf(54.0, roundf(58.0 * s))
-	for entry in _courses:
-		list.add_child(_make_course_row(entry, s, min_h, compact))
-
-	if scrollable:
-		var scroll := ScrollContainer.new()
-		scroll.name = "CourseScroll"
-		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.follow_focus = true
-		scroll.add_child(list)
-		box.add_child(scroll)
-	else:
-		box.add_child(list)
-
-	return box
-
-func _make_course_row(entry: Dictionary, s: float, min_h: float, compact: bool) -> Control:
-	var cid := str(entry["id"])
+	var entry := _selected_course()
+	var min_h := 52.0 if compact else maxf(58.0, roundf(66.0 * s))
 	var is_default := bool(entry.get("is_default", true))
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 4)
-
-	var btn := Button.new()
-	btn.name = "Course_%s" % cid.replace(":", "_")
-	btn.toggle_mode = true
-	btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(100.0, min_h)
-	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	btn.tooltip_text = str(entry.get("tagline", ""))
-	btn.add_theme_font_override("font", SUBTITLE_FONT)
-	MenuStyle.paint_choice(btn, COURSE_ACCENT if is_default else CAREER_BADGE_COLOR)
-	btn.toggled.connect(_on_course_toggled.bind(cid))
+	var card := Button.new()
+	card.name = "CourseSummaryCard"
+	card.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size = Vector2(0.0, min_h)
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.tooltip_text = "Open the course shelf (Choose Course)"
+	card.add_theme_font_override("font", SUBTITLE_FONT)
+	MenuStyle.paint_card(card, COURSE_ACCENT, 0.0, 8 if compact else 10,
+		UIConstants.COLOR_TEXT, Color.WHITE)
+	card.pressed.connect(func() -> void: choose_course_requested.emit())
 
 	var inner := MarginContainer.new()
 	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_theme_constant_override("margin_left", 10)
-	inner.add_theme_constant_override("margin_right", 10)
-	inner.add_theme_constant_override("margin_top", 5)
-	inner.add_theme_constant_override("margin_bottom", 5)
-	btn.add_child(inner)
+	_set_margins(inner, 2)
+	card.add_child(inner)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 10)
+	inner.add_child(h)
+
+	var preview := TournamentCoursePreview.new()
+	preview.name = "CourseSummaryPreview"
+	preview.custom_minimum_size = Vector2(96.0 if compact else 112.0, min_h - 16.0)
+	preview.set_course_entry(entry)
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(preview)
 
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 2)
-	inner.add_child(v)
+	h.add_child(v)
 
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_theme_constant_override("separation", 6)
 	v.add_child(top)
 
-	var name_lbl := _make_label(
-		str(entry["name"]),
-		SUBTITLE_FONT,
-		13 if compact else maxi(14, roundi(15.0 * s)),
-		UIConstants.COLOR_TEXT
-	)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	top.add_child(name_lbl)
+	_course_picker_name = _make_label(str(entry.get("name", "Course")),
+		SUBTITLE_FONT, 13 if compact else maxi(14, roundi(15.0 * s)), UIConstants.COLOR_TEXT)
+	_course_picker_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_course_picker_name.clip_text = true
+	_course_picker_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	top.add_child(_course_picker_name)
 
-	var badge_col := DEFAULT_BADGE_COLOR if is_default else CAREER_BADGE_COLOR
-	var badge_lbl := _make_label(
-		str(entry.get("source_label", "DEFAULT")),
-		SUBTITLE_FONT,
-		10,
-		badge_col
-	)
-	top.add_child(badge_lbl)
+	_course_picker_badge = _make_label(str(entry.get("source_label", "DEFAULT")),
+		SUBTITLE_FONT, 10, DEFAULT_BADGE_COLOR if is_default else CAREER_BADGE_COLOR)
+	top.add_child(_course_picker_badge)
 
-	var detail := "%s · %d Holes · Par %d" % [
-		str(entry.get("theme_name", "Parkland")),
-		int(entry.get("hole_count", 9)),
-		int(entry.get("par", 36)),
-	]
-	var meta_lbl := _make_label(
-		detail,
-		BODY_FONT,
-		10 if compact else maxi(11, roundi(12.0 * s)),
-		UIConstants.COLOR_TEXT_DIM
-	)
-	meta_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	v.add_child(meta_lbl)
+	_course_picker_meta = _make_label(_course_summary_text(entry),
+		BODY_FONT, 10 if compact else maxi(11, roundi(12.0 * s)), UIConstants.COLOR_TEXT_DIM)
+	_course_picker_meta.clip_text = true
+	_course_picker_meta.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(_course_picker_meta)
 
-	row.add_child(btn)
-	_course_buttons[cid] = btn
-
-	if not is_default:
-		var del_btn := _make_delete_button(
-			"DeleteSavedCourse_%s" % cid.trim_prefix("saved:"),
-			"Remove saved course '%s' from Tournament Mode" % str(entry["name"]),
-			min_h
-		)
-		del_btn.pressed.connect(_on_delete_course_pressed.bind(cid))
-		row.add_child(del_btn)
-
-	return row
+	_course_picker_preview = preview
+	_course_picker_card = card
+	box.add_child(card)
+	box.add_child(_make_choose_button("ChooseCourseButton", "Choose Course",
+		"Browse the built-in and Career-saved courses",
+		PixelIcon.Kind.FLAG, func() -> void: choose_course_requested.emit(), COURSE_ACCENT, s, compact))
+	return box
 
 func _make_golfer_section(s: float, scrollable: bool, compact: bool) -> Control:
 	var box := VBoxContainer.new()
@@ -1096,75 +1090,38 @@ func _make_golfer_section(s: float, scrollable: bool, compact: bool) -> Control:
 	box.add_theme_constant_override("separation", 6 if compact else roundi(8.0 * s))
 
 	var saved_cnt := TournamentLibrary.saved_golfer_count()
-	var kicker_text := "CHOOSE GOLFER" if saved_cnt <= 0 else "CHOOSE GOLFER (%d SAVED)" % saved_cnt
+	var kicker_text := "GOLFER" if saved_cnt <= 0 else "GOLFER (%d SAVED)" % saved_cnt
 	box.add_child(_make_kicker(kicker_text, s))
 
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 6)
-
-	# Tall enough for the portrait to draw the sprite at twice its pixel size.
-	var min_h := 56.0 if compact else 82.0
-	for entry in _golfers:
-		list.add_child(_make_golfer_row(entry, s, min_h, compact))
-
-	if scrollable:
-		var scroll := ScrollContainer.new()
-		scroll.name = "GolferScroll"
-		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.follow_focus = true
-		scroll.add_child(list)
-		box.add_child(scroll)
-	else:
-		box.add_child(list)
-
-	return box
-
-func _make_golfer_row(entry: Dictionary, s: float, min_h: float, compact: bool) -> Control:
-	var gid := str(entry["id"])
+	var entry := _selected_golfer()
+	var min_h := 58.0 if compact else maxf(66.0, roundf(74.0 * s))
 	var is_default := bool(entry.get("is_default", true))
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 4)
-
-	var btn := Button.new()
-	btn.name = "Golfer_%s" % gid.replace(":", "_")
-	btn.toggle_mode = true
-	btn.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.custom_minimum_size = Vector2(100.0, min_h)
-	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	btn.tooltip_text = "%s · %s · Age %d · %s · Skin: %s" % [
-		str(entry.get("profession", "Golfer")),
-		str(entry.get("gender_name", "Male")),
-		int(entry.get("age", 30)),
-		str(entry.get("marital_status_name", "Single")),
-		str(entry.get("skin_name", "Casual")),
-	]
-	btn.add_theme_font_override("font", SUBTITLE_FONT)
-	MenuStyle.paint_choice(btn, GOLFER_ACCENT if is_default else CAREER_BADGE_COLOR)
-	btn.toggled.connect(_on_golfer_toggled.bind(gid))
+	var card := Button.new()
+	card.name = "GolferSummaryCard"
+	card.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size = Vector2(0.0, min_h)
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.tooltip_text = "Open the golfer shelf (Choose Golfer)"
+	card.add_theme_font_override("font", SUBTITLE_FONT)
+	MenuStyle.paint_card(card, GOLFER_ACCENT, 0.0, 8 if compact else 10,
+		UIConstants.COLOR_TEXT, Color.WHITE)
+	card.pressed.connect(func() -> void: choose_golfer_requested.emit())
 
 	var inner := MarginContainer.new()
 	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_theme_constant_override("margin_left", 8)
-	inner.add_theme_constant_override("margin_right", 10)
-	inner.add_theme_constant_override("margin_top", 5)
-	inner.add_theme_constant_override("margin_bottom", 5)
-	btn.add_child(inner)
-
+	_set_margins(inner, 2)
+	card.add_child(inner)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 10)
 	inner.add_child(h)
 
 	var portrait := GolferPortrait.new(entry)
-	portrait.name = "GolferPortrait_%s" % gid.replace(":", "_")
+	portrait.name = "GolferPickerPortrait"
 	portrait.accent_color = GOLFER_ACCENT if is_default else CAREER_BADGE_COLOR
-	portrait.custom_minimum_size = Vector2(32.0, maxf(min_h - 10.0, 30.0))
+	portrait.custom_minimum_size = Vector2(36.0, min_h - 12.0)
 	portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(portrait)
 
@@ -1180,53 +1137,98 @@ func _make_golfer_row(entry: Dictionary, s: float, min_h: float, compact: bool) 
 	top.add_theme_constant_override("separation", 6)
 	v.add_child(top)
 
-	var name_lbl := _make_label(
-		str(entry["name"]),
-		SUBTITLE_FONT,
-		13 if compact else maxi(14, roundi(15.0 * s)),
-		UIConstants.COLOR_TEXT
-	)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	top.add_child(name_lbl)
+	_golfer_picker_name = _make_label(str(entry.get("name", "Golfer")),
+		SUBTITLE_FONT, 13 if compact else maxi(14, roundi(15.0 * s)), UIConstants.COLOR_TEXT)
+	_golfer_picker_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_golfer_picker_name.clip_text = true
+	_golfer_picker_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	top.add_child(_golfer_picker_name)
 
-	var badge_col := DEFAULT_BADGE_COLOR if is_default else CAREER_BADGE_COLOR
-	var badge_lbl := _make_label(
-		str(entry.get("source_label", "DEFAULT")),
-		SUBTITLE_FONT,
-		10,
-		badge_col
-	)
-	top.add_child(badge_lbl)
+	_golfer_picker_badge = _make_label(str(entry.get("source_label", "DEFAULT")),
+		SUBTITLE_FONT, 10, DEFAULT_BADGE_COLOR if is_default else CAREER_BADGE_COLOR)
+	top.add_child(_golfer_picker_badge)
 
-	var stats_line := "%s · Age %d · %s · %.0f%% Skill" % [
+	_golfer_picker_meta = _make_label(_golfer_summary_text(entry),
+		BODY_FONT, 10 if compact else maxi(11, roundi(12.0 * s)), UIConstants.COLOR_TEXT_DIM)
+	_golfer_picker_meta.clip_text = true
+	_golfer_picker_meta.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(_golfer_picker_meta)
+
+	_golfer_picker_portrait = portrait
+	_golfer_picker_card = card
+	box.add_child(card)
+	box.add_child(_make_choose_button("ChooseGolferButton", "Choose Golfer",
+		"Browse the built-in and Career-saved golfers",
+		PixelIcon.Kind.SHIRT, func() -> void: choose_golfer_requested.emit(), GOLFER_ACCENT, s, compact))
+	return box
+
+## The full-width utility card under a picker summary: the one obvious way
+## into its dedicated screen.
+func _make_choose_button(btn_name: String, text: String, tip: String,
+		icon_kind: int, on_pressed: Callable, accent: Color, s: float, compact: bool) -> Button:
+	var btn := Button.new()
+	btn.name = btn_name
+	btn.text = text
+	btn.tooltip_text = tip
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.custom_minimum_size = Vector2(0.0, 40.0 if compact else maxf(44.0, roundf(48.0 * s)))
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.add_theme_font_override("font", SUBTITLE_FONT)
+	btn.add_theme_font_size_override("font_size", 12 if compact else 13)
+	var icon_side := PixelIcon.snapped_side(16 if compact else 32)
+	btn.icon = PixelIcon.texture(icon_kind, icon_side, accent)
+	btn.add_theme_constant_override("h_separation", 8)
+	Kit.paint_utility_button(btn, false)
+	btn.pressed.connect(on_pressed)
+	return btn
+
+func _course_summary_text(entry: Dictionary) -> String:
+	return "%s · %d Holes · Par %d" % [
+		str(entry.get("theme_name", "Parkland")),
+		int(entry.get("hole_count", 0)),
+		int(entry.get("par", 0)),
+	]
+
+func _golfer_summary_text(entry: Dictionary) -> String:
+	return "%s · Age %d · %.0f%% Skill" % [
 		str(entry.get("profession", "Golfer")),
 		int(entry.get("age", 30)),
-		str(entry.get("skin_name", "Casual")),
 		float(entry.get("avg_golf_skill_pct", 50.0)),
 	]
-	var meta_lbl := _make_label(
-		stats_line,
-		BODY_FONT,
-		10 if compact else maxi(11, roundi(12.0 * s)),
-		UIConstants.COLOR_TEXT_DIM
-	)
-	meta_lbl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	v.add_child(meta_lbl)
 
-	row.add_child(btn)
-	_golfer_buttons[gid] = btn
+## Mirror the current selection onto the two picker cards. Called from
+## _sync_selection_states() after every selection change.
+func _update_picker_summaries() -> void:
+	var course := _selected_course()
+	var is_default_course := bool(course.get("is_default", true))
+	if is_instance_valid(_course_picker_preview):
+		_course_picker_preview.set_course_entry(course)
+	if is_instance_valid(_course_picker_name):
+		_course_picker_name.text = str(course.get("name", "Course"))
+	if is_instance_valid(_course_picker_meta):
+		_course_picker_meta.text = _course_summary_text(course)
+	if is_instance_valid(_course_picker_badge):
+		_course_picker_badge.text = str(course.get("source_label", "DEFAULT"))
+		_course_picker_badge.add_theme_color_override("font_color",
+			DEFAULT_BADGE_COLOR if is_default_course else CAREER_BADGE_COLOR)
+	var golfer := _selected_golfer()
+	var is_default_golfer := bool(golfer.get("is_default", true))
+	if is_instance_valid(_golfer_picker_portrait):
+		_golfer_picker_portrait.set_from_entry(golfer)
+	if is_instance_valid(_golfer_picker_name):
+		_golfer_picker_name.text = str(golfer.get("name", "Golfer"))
+	if is_instance_valid(_golfer_picker_meta):
+		_golfer_picker_meta.text = _golfer_summary_text(golfer)
+	if is_instance_valid(_golfer_picker_badge):
+		_golfer_picker_badge.text = str(golfer.get("source_label", "DEFAULT"))
+		_golfer_picker_badge.add_theme_color_override("font_color",
+			DEFAULT_BADGE_COLOR if is_default_golfer else CAREER_BADGE_COLOR)
 
-	if not is_default:
-		var del_btn := _make_delete_button(
-			"DeleteSavedGolfer_%s" % gid.trim_prefix("saved:"),
-			"Remove saved golfer '%s' from Tournament Mode" % str(entry["name"]),
-			min_h
-		)
-		del_btn.pressed.connect(_on_delete_golfer_pressed.bind(gid))
-		row.add_child(del_btn)
-
-	return row
+func _set_margins(margin: MarginContainer, pad: int) -> void:
+	margin.add_theme_constant_override("margin_left", pad)
+	margin.add_theme_constant_override("margin_right", pad)
+	margin.add_theme_constant_override("margin_top", pad)
+	margin.add_theme_constant_override("margin_bottom", pad)
 
 func _make_dossier_rail(s: float) -> Control:
 	var rail := PanelContainer.new()
@@ -1467,25 +1469,6 @@ func _make_start_button(min_h: float, font_sz: int) -> Button:
 	btn.pressed.connect(_on_start_pressed)
 	return btn
 
-func _make_delete_button(btn_name: String, tip: String, min_h: float) -> Button:
-	var btn := Button.new()
-	btn.name = btn_name
-	btn.text = "Del"
-	btn.tooltip_text = tip
-	btn.custom_minimum_size = Vector2(56.0, min_h)
-	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	btn.add_theme_font_override("font", SUBTITLE_FONT)
-	btn.add_theme_font_size_override("font_size", 11)
-	PixelButtonStyle.paint_card(
-		btn,
-		MenuStyle.ACCENT_QUIT,
-		0.0,
-		6,
-		Color(0.96, 0.72, 0.68),
-		Color.WHITE
-	)
-	return btn
-
 func _wrap_sheet_card(inner: Control, s: float) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1595,15 +1578,7 @@ func _sync_selection_states() -> void:
 					UIConstants.COLOR_SUCCESS if on else UIConstants.COLOR_TEXT_MUTED
 				)
 
-	for cid in _course_buttons:
-		var btn: Button = _course_buttons[cid]
-		if is_instance_valid(btn):
-			btn.set_pressed_no_signal(str(cid) == _course_id)
-
-	for gid in _golfer_buttons:
-		var btn: Button = _golfer_buttons[gid]
-		if is_instance_valid(btn):
-			btn.set_pressed_no_signal(str(gid) == _golfer_id)
+	_update_picker_summaries()
 
 	var diff := TournamentLibrary.get_difficulty(_difficulty)
 	var fmt := TournamentLibrary.get_format_info(_format_type)
@@ -1750,30 +1725,6 @@ func _on_playoff_toggled(pressed: bool) -> void:
 
 func _on_feature_toggled(pressed: bool, feature_id: String) -> void:
 	set_feature_enabled(feature_id, pressed)
-
-func _on_course_toggled(pressed: bool, course_id: String) -> void:
-	if not pressed:
-		if course_id == _course_id and _course_buttons.has(course_id):
-			(_course_buttons[course_id] as Button).set_pressed_no_signal(true)
-		return
-	select_course(course_id)
-
-func _on_golfer_toggled(pressed: bool, golfer_id: String) -> void:
-	if not pressed:
-		if golfer_id == _golfer_id and _golfer_buttons.has(golfer_id):
-			(_golfer_buttons[golfer_id] as Button).set_pressed_no_signal(true)
-		return
-	select_golfer(golfer_id)
-
-func _on_delete_course_pressed(course_id: String) -> void:
-	if TournamentLibrary.delete_saved_course(course_id):
-		EventBus.notify("Removed saved tournament course.", "info")
-		refresh()
-
-func _on_delete_golfer_pressed(golfer_id: String) -> void:
-	if TournamentLibrary.delete_saved_golfer(golfer_id):
-		EventBus.notify("Removed saved tournament golfer.", "info")
-		refresh()
 
 func _on_start_pressed() -> void:
 	start_requested.emit(get_options())

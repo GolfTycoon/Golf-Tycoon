@@ -2,10 +2,12 @@ extends GameTest
 ## The Career pause menu owns the Tournament Mode exports.
 ##
 ## Save Course and Save Golfer used to sit on the owner's round shelves; they
-## now sit with the pause menu's save options, carry short captions, and report
-## their outcome in the menu instead of closing it. Main wires the requests to
-## TournamentCareerExport; these tests cover the menu's own contract, while the
-## round-trip into Start Tournament is covered by the integration flow.
+## now sit with the pause menu's save options and carry short captions.
+## Pressing either card asks Main (via the menu's export signals) to open the
+## Save Course / Save Golfer screen; Main hides the menu while that screen is
+## open and brings it back when it closes. These tests cover the menu's own
+## contract; the screens and the round-trip into Start Tournament are covered
+## by their own tests and the integration flow.
 
 
 func _menu() -> PauseMenu:
@@ -60,27 +62,16 @@ func test_the_export_cards_request_their_exports() -> void:
 		"Save Golfer asks Main to export the golfer")
 
 
-func test_an_export_reports_itself_above_the_options_without_leaving_the_menu() -> void:
+func test_the_menu_has_no_inline_export_status_line() -> void:
 	GameManager.is_tournament_mode = false
 	var menu := _menu()
 	await process_frames(3)
-	assert_false(menu._export_status.visible, "No status is shown before an export")
-	var message := "Saved golfer 'Bennelong Star' for Tournament Mode!"
-	menu.show_export_feedback(message, true)
-	await process_frames(3)
-	assert_true(menu._export_status.visible, "The menu stays open and shows the result")
-	assert_eq(menu._export_status.text, message)
-	assert_eq(menu._export_status.get_theme_color("font_color"), UIConstants.COLOR_SUCCESS)
-	var options := InputManager.collect_focusables(menu)
-	assert_false(options.is_empty(), "The menu keeps its options")
-	assert_lt(menu._export_status.get_global_rect().get_center().y,
-		(options[0] as Control).get_global_rect().get_center().y,
-		"The result stands above the options, not as a footnote under them")
-	# A failed export is reported in the same place, in the warning colour.
-	menu.show_export_feedback("No course is currently open.", false)
-	await process_frames(2)
-	assert_eq(menu._export_status.text, "No course is currently open.")
-	assert_eq(menu._export_status.get_theme_color("font_color"), UIConstants.COLOR_WARNING)
+	# The outcome of a save is reported by the Save Course / Save Golfer screen
+	# itself, above its own archive; the menu has no status line of its own.
+	assert_null(menu.find_child("ExportStatus", true, false),
+		"the menu does not carry a status line for the Tournament exports")
+	assert_false(menu.has_method("show_export_feedback"),
+		"and no feedback method remains for a caller to report through")
 
 
 func test_the_tournament_pause_menu_omits_the_career_exports() -> void:

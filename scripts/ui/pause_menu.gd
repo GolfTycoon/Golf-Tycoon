@@ -19,9 +19,9 @@ class_name PauseMenu
 ## save/load pair is green, the export pair is blue, Settings is the quiet
 ## utility and the exits are the danger red, the same weighting the Main Menu
 ## gives them. The heading is the game's flag mark beside the title, over a
-## gold rule. An export reports itself in a line above the options, so the menu
-## stays open and both the course and the golfer can be saved in one visit; the
-## exports step aside in standalone Tournament Mode.
+## gold rule. The two export cards open the Save Course and Save Golfer
+## screens, where the keepsake is named, kept or replaced; the exports step
+## aside in standalone Tournament Mode.
 ##
 ## The simulation is frozen while this menu is open, but the player can still
 ## look around the course: pointer events that land on the dimmed backdrop
@@ -52,8 +52,6 @@ var _panel: PanelContainer = null
 var _scroll: ScrollContainer = null
 var _vbox: VBoxContainer = null
 var _info: Label = null
-## The outcome of the last Tournament Mode export, shown above the options.
-var _export_status: Label = null
 var _title: Label = null
 var _spacer: Control = null
 var _buttons: Array[Button] = []
@@ -203,19 +201,6 @@ func _build_ui() -> void:
 	_spacer = spacer
 	vbox.add_child(spacer)
 
-	# A line for the Tournament Mode exports: hidden until one is saved, so the
-	# menu can report success or its error without closing. It stands above the
-	# options, never as a footnote under them, and stays visible on short
-	# windows where the course line gives way.
-	var export_status := MenuScreenKit.make_label("", INFO_FONT, UIConstants.COLOR_SUCCESS)
-	export_status.name = "ExportStatus"
-	export_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	export_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	export_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	export_status.visible = false
-	_export_status = export_status
-	vbox.add_child(export_status)
-
 	# ── Options. Each one is a card with the accent and the sprite of its
 	# family, so the menu reads at a glance: gold to carry on, green to keep
 	# a game, red to leave it.
@@ -248,10 +233,10 @@ func _build_ui() -> void:
 		# save pair; the tooltips spell out what is exported and where it can be
 		# played, so the menu needs no extra heading for them.
 		_add_menu_button(vbox, "Save Course",
-			"Export this course so you can select it on the Start Tournament screen from the Main Menu.",
+			"Keep this course so you can pick it on the Start Tournament screen from the Main Menu.",
 			_on_save_course_pressed, EXPORT_ACCENT, PixelIcon.Kind.FLAG)
 		_add_menu_button(vbox, "Save Golfer",
-			"Export your golfer's skills, traits and appearance so you can play as them in Tournament Mode.",
+			"Keep your golfer's skills, traits and appearance so you can play as them in Tournament Mode.",
 			_on_save_golfer_pressed, EXPORT_ACCENT, PixelIcon.Kind.SHIRT)
 		_add_menu_button(vbox, "Settings", "Audio, display and gameplay options",
 			_on_settings_pressed, MenuStyle.ACCENT_UTILITY, PixelIcon.Kind.GEAR)
@@ -308,22 +293,6 @@ func _make_header(in_tourney: bool) -> Control:
 	header.add_child(rule)
 
 	return header
-
-
-## Report a Tournament Mode export without leaving the menu. The line sits above
-## the options, so even a short window that hides the course line still shows
-## the outcome; a long error wraps instead of widening the panel.
-func show_export_feedback(message: String, ok: bool) -> void:
-	if not is_instance_valid(_export_status):
-		return
-	_export_status.text = message
-	_export_status.add_theme_color_override("font_color",
-		UIConstants.COLOR_SUCCESS if ok else UIConstants.COLOR_WARNING)
-	_export_status.visible = true
-	_export_status.update_minimum_size()
-	# The message changes the menu's minimum height: re-fit so a short window
-	# scrolls to it rather than clipping it.
-	call_deferred("_fit_to_view")
 
 
 func _info_text(in_tourney: bool) -> String:
