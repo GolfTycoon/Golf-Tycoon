@@ -128,6 +128,14 @@ var achievements_screen: AchievementsScreen = null
 var mods_screen: ModsScreen = null
 ## Standalone Tournament Mode setup screen opened from the title screen.
 var start_tournament_screen: StartTournamentScreen = null
+## The Save Course / Save Golfer screens the pause menu's export cards open.
+## Each is fullscreen; closing one returns to the pause menu.
+var save_course_screen: SaveCourseScreen = null
+var save_golfer_screen: SaveGolferScreen = null
+## The Choose Course / Choose Golfer screens the tournament setup screen opens.
+## They hand the pick back through select_course()/select_golfer().
+var choose_course_screen: ChooseCourseScreen = null
+var choose_golfer_screen: ChooseGolferScreen = null
 ## The pause flag from before a goal screen opened. The screens freeze the
 ## day while they are up, so this is what the course resumes to on the way
 ## out.
@@ -1235,9 +1243,75 @@ func _start_tournament_is_open() -> bool:
 	return is_instance_valid(start_tournament_screen) and start_tournament_screen.visible
 
 func _close_start_tournament_screen() -> void:
+	_close_choose_course_screen()
+	_close_choose_golfer_screen()
 	if is_instance_valid(start_tournament_screen):
 		start_tournament_screen.queue_free()
 	start_tournament_screen = null
+
+## Open the fullscreen Choose Course screen above the tournament setup screen,
+## pre-selecting the course it currently has ready.
+func _open_choose_course_screen() -> void:
+	_close_choose_course_screen()
+	var screen := ChooseCourseScreen.new()
+	screen.name = "ChooseCourseScreen"
+	if is_instance_valid(start_tournament_screen):
+		screen.configure(str(start_tournament_screen.get_options().get("course_id", "")))
+	screen.course_chosen.connect(_on_choose_course)
+	screen.closed.connect(_on_choose_course_closed)
+	$UI/HUD.add_child(screen)
+	choose_course_screen = screen
+
+func _open_choose_golfer_screen() -> void:
+	_close_choose_golfer_screen()
+	var screen := ChooseGolferScreen.new()
+	screen.name = "ChooseGolferScreen"
+	if is_instance_valid(start_tournament_screen):
+		screen.configure(str(start_tournament_screen.get_options().get("golfer_id", "")))
+	screen.golfer_chosen.connect(_on_choose_golfer)
+	screen.closed.connect(_on_choose_golfer_closed)
+	$UI/HUD.add_child(screen)
+	choose_golfer_screen = screen
+
+func _close_choose_course_screen() -> void:
+	var had_screen := is_instance_valid(choose_course_screen)
+	if had_screen:
+		choose_course_screen.queue_free()
+	choose_course_screen = null
+	_sync_start_tournament_catalogues()
+
+func _close_choose_golfer_screen() -> void:
+	var had_screen := is_instance_valid(choose_golfer_screen)
+	if had_screen:
+		choose_golfer_screen.queue_free()
+	choose_golfer_screen = null
+	_sync_start_tournament_catalogues()
+
+func _on_choose_course(course_id: String) -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.select_course(course_id)
+	_close_choose_course_screen()
+
+func _on_choose_golfer(golfer_id: String) -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.select_golfer(golfer_id)
+	_close_choose_golfer_screen()
+
+## The chooser left (Back, or a pick was applied). Re-read the catalogues so
+## any saved-entry changes it may have made (a deleted Career course/golfer)
+## land in the setup screen — the summary cards and the options never point
+## at a ghost.
+func _on_choose_course_closed() -> void:
+	choose_course_screen = null
+	_sync_start_tournament_catalogues()
+
+func _on_choose_golfer_closed() -> void:
+	choose_golfer_screen = null
+	_sync_start_tournament_catalogues()
+
+func _sync_start_tournament_catalogues() -> void:
+	if is_instance_valid(start_tournament_screen):
+		start_tournament_screen.sync_catalogues()
 
 func _open_start_tournament_screen(initial_options: Dictionary = {}) -> void:
 	_hide_main_menu()
@@ -1251,6 +1325,8 @@ func _open_start_tournament_screen(initial_options: Dictionary = {}) -> void:
 	start_tournament_screen.start_requested.connect(func(options: Dictionary) -> void:
 		_close_start_tournament_screen()
 		_start_standalone_tournament(options))
+	start_tournament_screen.choose_course_requested.connect(_open_choose_course_screen)
+	start_tournament_screen.choose_golfer_requested.connect(_open_choose_golfer_screen)
 	$UI/HUD.add_child(start_tournament_screen)
 	_set_course_world_visible(false)
 	_set_gameplay_ui_visible(false)
@@ -1878,6 +1954,10 @@ func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Exclude popup panels that should remain hidden until explicitly toggled
 	var popup_panels = ["MainMenu", "StartNewGameScreen", "StartTournamentScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
+	# The notice band is a sibling of the HUD (see _setup_notification_toast), so
+	# it follows the gameplay UI explicitly: no toast or badge survives into a
+	# title screen, the world map or a goal screen.
+	$Notices.visible = visible_flag
 	for child in hud.get_children():
 		if child == mini_map:
 			mini_map.hud_visible = visible_flag
@@ -4307,11 +4387,6 @@ func _position_mini_map() -> void:
 	if not mini_map:
 		return
 	var map_size := mini_map.get_map_total_size()
-	if Screen.uses_portrait_hud():
-		var course := Screen.portrait_course_rect()
-		mini_map.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-		mini_map.position = Vector2(course.end.x - map_size.x, course.position.y + 4)
-		return
 	mini_map.anchor_left = 0
 	mini_map.anchor_top = 1
 	mini_map.anchor_right = 0
@@ -4564,7 +4639,7 @@ func _on_golfer_clicked(golfer: Golfer) -> void:
 func _setup_round_summary_popup() -> void:
 	round_summary_popup = RoundSummaryPopup.new()
 	round_summary_popup.name = "RoundSummaryPopup"
-	$UI.add_child(round_summary_popup)
+	$Notices.add_child(round_summary_popup)
 	EventBus.golfer_finished_round.connect(_on_golfer_round_for_summary)
 
 func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par: int) -> void:
@@ -4796,10 +4871,16 @@ func _on_tutorial_completed() -> void:
 
 # --- Notification Toast ---
 
+## Toasts, the autosave badge and the round summary are transient notices: they
+## hover over the course and the HUD, but never over a screen. They live in the
+## `Notices` CanvasLayer, which draws between the world and the `UI` layer, so
+## every screen, panel and dialogue - whichever order it was added in - covers
+## them instead of the other way round. The layer is hidden with the gameplay
+## HUD, so a notice cannot linger over the title screen either.
 func _setup_notification_toast() -> void:
 	var toast = NotificationToast.new()
 	toast.name = "NotificationToast"
-	$UI.add_child(toast)
+	$Notices.add_child(toast)
 
 # --- Event Feed ---
 
@@ -4938,7 +5019,7 @@ func _on_transaction_for_floating_text(_description: String, amount: int) -> voi
 func _setup_autosave_indicator() -> void:
 	var indicator = AutosaveIndicator.new()
 	indicator.name = "AutosaveIndicator"
-	$UI.add_child(indicator)
+	$Notices.add_child(indicator)
 
 # --- Pause Menu ---
 
@@ -4973,6 +5054,8 @@ func _show_pause_menu() -> void:
 	pause_menu.resume_requested.connect(_on_pause_resume)
 	pause_menu.save_requested.connect(_on_pause_save)
 	pause_menu.load_requested.connect(_on_pause_load)
+	pause_menu.save_course_requested.connect(_on_pause_save_course)
+	pause_menu.save_golfer_requested.connect(_on_pause_save_golfer)
 	pause_menu.restart_tournament_requested.connect(_on_tournament_play_again)
 	pause_menu.tournament_setup_requested.connect(_on_return_to_tournament_setup)
 	pause_menu.settings_requested.connect(_on_pause_settings)
@@ -5006,6 +5089,48 @@ func _on_pause_load() -> void:
 	# Keep the game paused while the save/load panel is open
 	_hide_pause_menu()
 	_show_save_load_panel(true, SaveLoadPanel.ScreenMode.LOAD)
+
+## Keep the open Career course, or the owner's golfer, for standalone
+## Tournament Mode. The cards open the Save Course and Save Golfer screens,
+## where the keepsake is named, kept or replaced; the pause menu steps aside
+## while either screen is open and comes back when it closes.
+func _on_pause_save_course() -> void:
+	_hide_pause_menu()
+	_open_save_screen(true)
+
+func _on_pause_save_golfer() -> void:
+	_hide_pause_menu()
+	_open_save_screen(false)
+
+func _open_save_screen(course: bool) -> void:
+	_close_save_screens()
+	if course:
+		save_course_screen = SaveCourseScreen.new()
+		save_course_screen.name = "SaveCourseScreen"
+		save_course_screen.closed.connect(_on_save_screen_closed)
+		$UI/HUD.add_child(save_course_screen)
+	else:
+		save_golfer_screen = SaveGolferScreen.new()
+		save_golfer_screen.name = "SaveGolferScreen"
+		save_golfer_screen.closed.connect(_on_save_screen_closed)
+		$UI/HUD.add_child(save_golfer_screen)
+
+func _close_save_screens() -> void:
+	if is_instance_valid(save_course_screen):
+		save_course_screen.queue_free()
+	save_course_screen = null
+	if is_instance_valid(save_golfer_screen):
+		save_golfer_screen.queue_free()
+	save_golfer_screen = null
+
+## The save screens freed themselves (Back). The pause session is still
+## active (the game is paused behind the screen), so come back to the menu.
+func _on_save_screen_closed() -> void:
+	save_course_screen = null
+	save_golfer_screen = null
+	if GameManager.is_paused and _pause_session_active \
+			and GameManager.current_mode != GameManager.GameMode.MAIN_MENU:
+		_show_pause_menu()
 
 func _on_pause_settings() -> void:
 	# Keep the game paused while the settings menu is open

@@ -110,8 +110,31 @@ const TAB_RAIL_GAP := 2.0
 ## growing, so the tab rail relies on the page content for thumb-sized targets.
 const TAB_DIAMETER := 44.0
 const PORTRAIT_TAB_HEIGHT := 56.0
-const PORTRAIT_CONTROLS_TOP := 58.0
-const PORTRAIT_PAGE_TOP := 100.0
+## In the portrait tray the page tabs are full-width touch tabs rather than
+## medallions: the tabs on show share the whole row between the same side
+## margins, and with the same gap, as the thumb rail's section buttons under
+## the tray. Each is this tall and starts this far below the tray's top edge.
+const PORTRAIT_TAB_FACE_HEIGHT := 48.0
+const PORTRAIT_TAB_TOP := 4.0
+const PORTRAIT_TAB_SIDE_MARGIN := 8.0
+const PORTRAIT_TAB_GAP := 4.0
+## The portrait tray carries no shelf header: the full-width tabs already
+## name the page under their icons, so the desktop heading ("BUILD / Terrain")
+## would only repeat them and steal catalogue height on a phone. The pages
+## therefore start directly under the tabs (tabs end at 52, rail at 56), and
+## the heading stays hidden until the phone turns sideways (see
+## _sync_portrait_chrome).
+const PORTRAIT_PAGE_TOP := 58.0
+## In the portrait HUD the header row's tool buttons leave the tray and float
+## over the course, just above the tray's top-right corner: level with the
+## camera rail in the opposite corner (see PortraitHUD), the same distance
+## above the tray and in from the edge of the screen.
+const PORTRAIT_TOOLS_LIFT := 8.0
+const PORTRAIT_TOOLS_SIDE_MARGIN := 8.0
+## The clear space a row of tool buttons keeps from the camera rail when the
+## two share the band. A whole brush (shape, size stepper, Inspect) is too
+## wide for that on a phone, and stands its size stepper on a second row.
+const PORTRAIT_TOOLS_RAIL_GAP := 16.0
 const PORTRAIT_TAB_CAPTIONS := {
 	Tab.TERRAIN: "Terrain", Tab.IMPROVEMENTS: "Improve", Tab.BUILDINGS: "Buildings",
 	Tab.ELEVATION: "Elevation", Tab.HOLES: "Holes", Tab.GOLFERS: "Golfers",
@@ -222,6 +245,9 @@ static func brush_size_text(tiles: int) -> String:
 ## buttons match the Inspect button's diameter, with a small gap between them.
 const BRUSH_DOCK_CELL := InspectButton.BUTTON_DIAMETER
 const BRUSH_DOCK_GAP := 2.0
+## The gap between the header row's tools: wider than the one inside a size
+## stepper, so the stepper reads as a single control.
+const HEADER_ROW_GAP := 8.0
 ## Holes stack three deep per column and the columns run off to the right, so
 ## the tab grows along the axis the page already scrolls on and never past the
 ## bottom bar's height.
@@ -286,7 +312,12 @@ var _sync_pending := false  # True when the fairway needs re-syncing after layou
 # Bulldozer button — the controls that used to be pinned to each page's
 # corners. The row floats over the empty top-right of the page area, beside
 # the page title at the top-left, and stays in step with the rail's width.
+# The portrait HUD seats it above the tray instead (see _seat_portrait_tools).
 var _header_row: Control = null
+# The second row of tool buttons, used by the portrait HUD alone: the brush
+# size steppers move up here on a phone too narrow to seat a whole brush
+# beside the camera rail (see _stack_header_steppers).
+var _header_upper_row: Control = null
 var _inspect_button: InspectButton = null  # The shared Inspect toggle
 var _bulldozer_button: BulldozerButton = null  # The shared Bulldozer button
 var _header_terrain_shape: BrushShapeButton = null  # Terrain brush shape in the header row
@@ -413,6 +444,9 @@ func apply_screen() -> void:
 		return
 	_backdrop.visible = true
 	_page_title.visible = true
+	# On the shelf the tool row covers part of the page and the course above
+	# it, and lets through whatever falls between its buttons.
+	_header_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pages_container.offset_top = SHELF_PAD_Y + HEADER_HEIGHT
 	_pages_container.offset_bottom = -SHELF_PAD_Y
 	_fit_page_window_height()
@@ -443,6 +477,9 @@ func apply_screen() -> void:
 	for button in _tab_buttons.values():
 		if not is_instance_valid(button):
 			continue
+		# A phone turned on its side hands its full-width tabs back as medallions.
+		button.wide_face = false
+		button.stacked_caption = false
 		button.diameter = diameter
 		button.custom_minimum_size = Vector2.ONE * diameter
 		button.size = Vector2.ONE * diameter
@@ -453,14 +490,22 @@ func _apply_portrait() -> void:
 	var width: float = Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z
 	custom_minimum_size = Vector2(width, Screen.portrait_tray_height())
 	_backdrop.visible = false
+	# No shelf header in the portrait tray (see PORTRAIT_PAGE_TOP): the
+	# captioned tabs name the page, so the heading is hidden here and only
+	# returns with the desktop shelf.
+	_page_title.visible = false
 	_tab_rail.custom_minimum_size = Vector2(width - 12.0, PORTRAIT_TAB_HEIGHT)
 	var tabs: Array = SECTION_TABS[current_section]
 	for index in _tab_buttons:
 		var button: PixelCircleButton = _tab_buttons[index]
-		button.diameter = 48.0
-		button.custom_minimum_size = Vector2.ONE * 48.0
-		button.size = Vector2.ONE * 48.0
+		# Full-width touch tabs with the caption under the icon. Their width
+		# belongs to _layout_tab_rail, which shares the row out between the
+		# tabs on show; it is left alone here so a tab that is already laid
+		# out never snaps back to a square for a frame.
+		button.diameter = PORTRAIT_TAB_FACE_HEIGHT
 		button.caption = PORTRAIT_TAB_CAPTIONS[index] if index in tabs else ""
+		button.stacked_caption = true
+		button.wide_face = true
 		button.tooltip_text = TAB_TITLES[index]
 		button.accessibility_name = TAB_TITLES[index]
 	for page in _pages:
@@ -469,6 +514,10 @@ func _apply_portrait() -> void:
 		if content.get_child_count() > 0:
 			(content.get_child(0) as Control).custom_minimum_size.x = 8.0
 		scroll.get_h_scroll_bar().custom_minimum_size.y = 6.0
+	# Over the course the tool row is one solid target: a thumb that lands
+	# between two buttons, or on the size readout, must not paint the tile
+	# underneath. Inside the shelf the shelf itself used to see to that.
+	_header_row.mouse_filter = Control.MOUSE_FILTER_STOP
 	_page_window.custom_minimum_size.y = Screen.portrait_tray_height()
 	_pages_container.offset_top = PORTRAIT_PAGE_TOP
 	_pages_container.offset_bottom = -6.0
@@ -495,12 +544,28 @@ func _layout_tab_rail() -> void:
 	var rail_rect := _tab_rail.get_global_rect()
 	var rail_origin := rail_rect.position - get_global_position()
 	if Screen.uses_portrait_hud():
-		var visible_tabs: Array = SECTION_TABS[current_section]
-		var cell := (size.x - 20.0) / maxi(visible_tabs.size(), 1)
-		for i in visible_tabs.size():
-			var button: PixelCircleButton = _tab_buttons[visible_tabs[i]]
-			button.position = Vector2(4.0 + i * cell + (cell - 48.0) * 0.5, 2.0)
-			button.size = Vector2.ONE * 48.0
+		# Only the tabs on show take a cell: Tournament Mode hides two of the
+		# Golfers tabs, and the two it leaves share the whole row.
+		var shown: Array[PixelCircleButton] = []
+		for tab in SECTION_TABS[current_section]:
+			var tab_button: PixelCircleButton = _tab_buttons[tab]
+			if tab_button.visible:
+				shown.append(tab_button)
+		if shown.is_empty():
+			return
+		# A tray too narrow to share out keeps its tabs as wide as they are
+		# tall instead of squeezing them to nothing.
+		var cell := maxf((size.x - 2.0 * PORTRAIT_TAB_SIDE_MARGIN
+				- PORTRAIT_TAB_GAP * (shown.size() - 1)) / shown.size(),
+				PORTRAIT_TAB_FACE_HEIGHT)
+		for i in shown.size():
+			# Whole-pixel edges keep the borders, the icons and the captions
+			# crisp on widths that do not divide evenly; neighbours may then
+			# differ by a single pixel, and the gap between them never does.
+			var left := PORTRAIT_TAB_SIDE_MARGIN + i * (cell + PORTRAIT_TAB_GAP)
+			var face := Vector2(roundf(left + cell) - roundf(left), PORTRAIT_TAB_FACE_HEIGHT)
+			shown[i].position = Vector2(roundf(left), PORTRAIT_TAB_TOP) - rail_origin
+			shown[i].size = face
 		return
 	var curve_width := rail_origin.x + rail_rect.size.x
 	var inset := _shelf_seam_inset(curve_width)
@@ -539,6 +604,8 @@ func _sync_backdrop() -> void:
 	# narrow for the row, hide it: the row would otherwise cover the tab rail
 	# and swallow touches meant for the curved cutout.
 	if _header_row != null:
+		# A phone turned on its side brings its stacked size steppers back.
+		_stack_header_steppers(false)
 		var visible_children := []
 		for child in _header_row.get_children():
 			if child.visible:
@@ -603,24 +670,78 @@ func _sync_backdrop() -> void:
 
 func _sync_portrait_chrome() -> void:
 	var origin := get_global_position()
-	var row_width := 0.0
-	var shown := 0
-	for child in _header_row.get_children():
-		if child.visible:
-			row_width += child.get_combined_minimum_size().x
-			shown += 1
-	if shown > 1:
-		row_width += _header_row.get_theme_constant("separation") * (shown - 1)
-	_header_row.visible = shown > 0
-	if _header_row.visible:
-		_header_row.global_position = origin + Vector2(size.x - row_width - 10.0, PORTRAIT_CONTROLS_TOP)
-		_header_row.size = Vector2(row_width, 46.0)
-	# Tab captions name the page; on narrow screens give the entire utility row
-	# to brush/inspect controls rather than overlap it with a redundant heading.
-	_page_title.visible = not _header_row.visible
-	_page_title.global_position = origin + Vector2(12.0, PORTRAIT_CONTROLS_TOP)
-	_page_title.size = Vector2(size.x - 24.0, 44.0)
+	_seat_portrait_tools(origin)
+	# No shelf header in the portrait tray: the captioned tabs already name
+	# the page, so the catalogue starts directly under them (see
+	# PORTRAIT_PAGE_TOP) and the desktop heading stays hidden.
+	_page_title.visible = false
 	_page_window.set_curve(0.0, 0.0)
+
+## Seat the tool buttons over the course, above the top-right corner of the
+## tray (at `origin`): level with the camera rail, which holds the opposite
+## corner. A row that fits beside the rail shares the one band with it. A
+## whole brush does not fit on a phone, so its size stepper stands on a second
+## row, above the brush shape and Inspect and flush with the same margin.
+## Inspect therefore keeps the one corner on every Build page, and the rail
+## never moves.
+func _seat_portrait_tools(origin: Vector2) -> void:
+	var beside_rail := size.x - 2.0 * PORTRAIT_TOOLS_SIDE_MARGIN \
+			- PortraitHUD.CAMERA_RAIL_WIDTH - PORTRAIT_TOOLS_RAIL_GAP
+	# Whether a brush fits depends on the tray's width alone, so the steppers
+	# move when the window changes shape and never when a tab is chosen.
+	var stacked := false
+	for brush in _header_brushes():
+		var brush_width := 2.0 * HEADER_ROW_GAP + _inspect_button.get_combined_minimum_size().x
+		for control: Control in brush:
+			brush_width += control.get_combined_minimum_size().x
+		stacked = stacked or brush_width > beside_rail
+	_stack_header_steppers(stacked)
+	var right := origin.x + size.x - PORTRAIT_TOOLS_SIDE_MARGIN
+	var bottom := origin.y - PORTRAIT_TOOLS_LIFT
+	for row: Control in [_header_row, _header_upper_row]:
+		var width := 0.0
+		var shown := 0
+		for child: Control in row.get_children():
+			if child.visible:
+				width += child.get_combined_minimum_size().x
+				shown += 1
+		row.visible = shown > 0
+		if not row.visible:
+			continue
+		width += row.get_theme_constant("separation") * (shown - 1)
+		row.global_position = Vector2(right - width, bottom - BRUSH_DOCK_CELL)
+		row.size = Vector2(width, BRUSH_DOCK_CELL)
+		bottom -= BRUSH_DOCK_CELL + BRUSH_DOCK_GAP
+
+## The header row's two brushes: each brush shape, then the size stepper that
+## rides straight after it.
+func _header_brushes() -> Array[Array]:
+	return [[_header_terrain_shape, _header_terrain_size],
+			[_header_elevation_shape, _header_elevation_size]]
+
+## Move the brush size steppers to the upper row (`stacked`), where the
+## portrait HUD stands them above the rest of the tools, or back to their
+## seats in the header row. The controls are moved, never copied, so their
+## state and signals carry over.
+func _stack_header_steppers(stacked: bool) -> void:
+	for brush in _header_brushes():
+		var shape: Control = brush[0]
+		var stepper: Control = brush[1]
+		if stacked == (stepper.get_parent() == _header_upper_row):
+			continue
+		if stacked:
+			stepper.reparent(_header_upper_row, false)
+		else:
+			stepper.reparent(_header_row, false)
+			_header_row.move_child(stepper, shape.get_index() + 1)
+	# Under a stepper the row closes up to the stepper's own gap, so the two
+	# rows make one grid: each tool stands under a cell of the stepper.
+	var gap := int(BRUSH_DOCK_GAP if stacked else HEADER_ROW_GAP)
+	if _header_row.get_theme_constant("separation") != gap:
+		_header_row.add_theme_constant_override("separation", gap)
+	if not stacked:
+		# Emptied, the upper row has nothing left to show.
+		_header_upper_row.visible = false
 
 ## Only the painted fairway consumes otherwise empty shelf clicks. Its children
 ## (including the parts of the circular tabs outside the rim) remain clickable.
@@ -694,7 +815,9 @@ func _build_ui() -> void:
 	# at the top of the rail (its position is synced in _sync_backdrop), so
 	# the heading reads from the left of the page it names instead of sitting
 	# at the far end of the tab rail. It takes no clicks: anything it covers
-	# falls through to the page or the course beneath it.
+	# falls through to the page or the course beneath it. The portrait tray
+	# hides it (see _sync_portrait_chrome): there the tabs wear captions and
+	# name the page themselves.
 	_page_title = Label.new()
 	_page_title.name = "PageTitle"
 	_page_title.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -901,11 +1024,19 @@ func _build_header_row() -> void:
 	var wrapper := HBoxContainer.new()
 	wrapper.name = "HeaderControls"
 	wrapper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrapper.add_theme_constant_override("separation", 8)
+	wrapper.add_theme_constant_override("separation", int(HEADER_ROW_GAP))
 	# Its parent is a plain Control, not a container, so _sync_backdrop can
 	# position it freely while it remains a regular child of the HUD canvas.
 	_chrome_layer.add_child(wrapper)
 	_header_row = wrapper
+	# The portrait HUD's second row (see _seat_portrait_tools). It only ever
+	# shows over the course, where a row is one solid target.
+	var upper := HBoxContainer.new()
+	upper.name = "HeaderControlsUpper"
+	upper.mouse_filter = Control.MOUSE_FILTER_STOP
+	upper.visible = false
+	_chrome_layer.add_child(upper)
+	_header_upper_row = upper
 
 	# Terrain brush shape: round/square toggle.
 	_header_terrain_shape = _create_brush_shape(Vector2(BRUSH_DOCK_CELL, BRUSH_DOCK_CELL))

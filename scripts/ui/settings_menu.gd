@@ -3,13 +3,22 @@ class_name SettingsMenu
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 ## SettingsMenu - responsive clubhouse settings workspace.
 ##
-## Preferences are grouped into Audio, Display and Controls, and Data holds the
+## Preferences are grouped into Display, Controls and Audio, and Data holds the
 ## buttons that delete what this device keeps (see PlayerDataStore). Like the
 ## Main Menu and the other fullscreen screens, it sits on the shared
-## MenuBackdrop artwork. Wide desktop windows use a navigation rail beside the
-## control cards; tablets keep the cards roomy, while phones use a swipeable
-## category strip and one scrollable settings column. Every control keeps its
-## original live behavior and saves changes to user://settings.cfg.
+## MenuBackdrop artwork.
+##
+## The page is the shared screen header over the page's own settings card and
+## nothing else: it has no bottom row and no category rail or strip. The four
+## categories are Display, Controls, Audio and Data buttons in the header's top
+## right corner, laid out the way the Course Map's mode buttons are - one tap to
+## another page wherever the screen is opened - and Display is the page the
+## screen starts on, being the first button in that row. Every control keeps
+## its original live behavior and saves changes to user://settings.cfg.
+##
+## Every change applies and saves as it is made, so there is nothing to confirm
+## on the way out - the header's Back button, Esc and the controller's B all
+## close the screen (see _on_close and _input).
 
 signal close_requested
 ## The Display category's benchmark card asks Main to open the fullscreen
@@ -37,7 +46,15 @@ signal quit_to_menu_requested()
 ## is never borrowed, paused mid-frame, as the test scene.
 enum Origin { MAIN_MENU, PAUSE_MENU }
 
-enum Category { AUDIO, DISPLAY, CONTROLS, DATA }
+## The four settings pages, in the order their header buttons read: Display
+## first, then Controls, Audio and Data. Display is the page the screen opens
+## on - it holds the things a player most often comes here to change (window,
+## UI scale, the menu background, the graphics preset and the benchmark) - and
+## Data, the page that deletes things, is kept at the end of the row.
+##
+## The numbers are the button order, not the order the text tables below are
+## written in, so those tables are keyed by this enum rather than indexed.
+enum Category { DISPLAY, CONTROLS, AUDIO, DATA }
 
 const DESKTOP_MIN_WIDTH := MenuScreenKit.DESKTOP_MIN_WIDTH
 const DESKTOP_MIN_HEIGHT := MenuScreenKit.DESKTOP_MIN_HEIGHT
@@ -57,7 +74,6 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 ## Set by Main when opened from a pause session so the course camera can still
 ## be moved from the dimmed backdrop.
 var camera: IsometricCamera = null
-var close_label: String = "Done"
 
 ## Set by Main before the menu is added (see Origin). The default treats a
 ## host that does not say - a test harness adding the menu directly - as
@@ -85,7 +101,9 @@ const BENCHMARK_EMPTY_DETAILS_TEXT := "The tour prepares a throwaway course from
 func benchmarks_allowed() -> bool:
 	return origin == Origin.MAIN_MENU
 
-var _category: int = Category.AUDIO
+## The page the screen opens on: Display, the first button in the header row
+## and the page a player most often comes here for. _select_category moves it.
+var _category: int = Category.DISPLAY
 var _layout_mode: int = Kit.LayoutMode.PHONE_PORTRAIT
 var _built_size := Vector2.ZERO
 var _panel: Control
@@ -282,9 +300,10 @@ func _build() -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", _page_gap(_layout_mode))
 	frame.add_child(page)
+	# The header over the workspace, and no row under them: the workspace runs
+	# down to the window's bottom margin, and the header's Back button closes.
 	page.add_child(_build_header(_layout_mode))
 	page.add_child(_build_workspace(_layout_mode, _built_size))
-	page.add_child(_build_footer(_layout_mode))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
@@ -305,114 +324,70 @@ func _page_gap(mode: int) -> int:
 		_: return 8
 
 func _build_header(mode: int) -> Control:
-	var trailing: Control = null
+	# The four categories are the header's trailing controls, in the top right
+	# corner exactly as the Course Map puts its mode buttons there: one tap
+	# swaps the page under the header, whatever shape the window is.
+	var group := HBoxContainer.new()
+	group.name = "HeaderActions"
+	group.add_theme_constant_override("separation", 8 if not Kit.is_phone(mode) else 5)
+	group.size_flags_horizontal = Control.SIZE_SHRINK_END
 	if mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode):
-		trailing = Kit.make_chip("SAVED AUTOMATICALLY", COLOR_GOLD, COLOR_GOLD, 10)
-		trailing.custom_minimum_size = Vector2(0.0, 26.0)
-	var header := Kit.make_screen_header(mode, "Settings", _on_close, trailing, PixelIcon.Kind.GEAR)
+		# Changes save as they are made (see the class comment); the stamp sits
+		# beside the page buttons, as the Course Map's cash block does.
+		var saved := Kit.make_chip("SAVED AUTOMATICALLY", COLOR_GOLD, COLOR_GOLD, 10)
+		saved.custom_minimum_size = Vector2(0.0, 26.0)
+		saved.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		group.add_child(saved)
+	group.add_child(_build_category_tabs(mode))
+	var header := Kit.make_screen_header(mode, "Settings", _on_close, group, PixelIcon.Kind.GEAR)
+	if _uses_compact_tabs(mode):
+		# A small phone cannot carry the four page buttons and the screen mark
+		# in one row, and the buttons are what the header is for.
+		var mark := header.get_node_or_null("ScreenIcon")
+		if mark != null:
+			header.remove_child(mark)
+			mark.queue_free()
 	return header
 
 func _build_workspace(mode: int, view: Vector2) -> Control:
-	var side_navigation := _uses_side_navigation(mode, view)
-	if side_navigation:
-		var row := HBoxContainer.new()
-		row.name = "SettingsWorkspace"
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation", 12 if mode == Kit.LayoutMode.DESKTOP else 8)
-		var nav := _build_navigation(mode, true)
-		nav.custom_minimum_size.x = _navigation_width(mode, view)
-		nav.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		row.add_child(nav)
-		var content := _build_category_content(mode, view)
-		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		content.size_flags_stretch_ratio = 1.0
-		row.add_child(content)
-		return row
+	# With the categories in the header, the workspace is the settings card
+	# itself: it runs from under the header down to the window's bottom margin,
+	# with no rail or strip beside it.
+	var content := _build_category_content(mode, view)
+	content.name = "SettingsWorkspace"
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	return content
 
-	var stack := VBoxContainer.new()
-	stack.name = "SettingsWorkspace"
-	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 8)
-	stack.add_child(_build_navigation(mode, false))
-	var content_panel := _build_category_content(mode, view)
-	content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_child(content_panel)
-	return stack
-
-func _uses_side_navigation(mode: int, view: Vector2) -> bool:
-	if mode == Kit.LayoutMode.DESKTOP or mode == Kit.LayoutMode.PHONE_LANDSCAPE:
-		return true
-	return Kit.is_tablet(mode) and view.x > view.y
-
-func _navigation_width(mode: int, view: Vector2) -> float:
-	if mode == Kit.LayoutMode.PHONE_LANDSCAPE:
-		return clampf(view.x * 0.17, 120.0, 148.0)
-	if Kit.is_tablet(mode):
-		return clampf(view.x * 0.19, 166.0, 210.0)
-	return clampf(view.x * 0.15, 210.0, 252.0)
-
-func _build_navigation(mode: int, vertical: bool) -> Control:
-	if vertical:
-		var surface := PanelContainer.new()
-		surface.name = "CategoryNavigation"
-		surface.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-			MenuStyle.with_alpha(COLOR_BORDER, 0.40), 14, 0, 0, 1))
-		var margin := MarginContainer.new()
-		_set_margins(margin, 11 if mode == Kit.LayoutMode.DESKTOP else 7)
-		surface.add_child(margin)
-		var stack := VBoxContainer.new()
-		stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		stack.add_theme_constant_override("separation", 7 if mode != Kit.LayoutMode.PHONE_LANDSCAPE else 5)
-		margin.add_child(stack)
-		var kicker := Kit.make_label("PREFERENCES", 9, COLOR_QUIET)
-		kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		stack.add_child(kicker)
-		for category in Category.values():
-			stack.add_child(_build_category_button(category, mode, true))
-		if mode != Kit.LayoutMode.PHONE_LANDSCAPE:
-			var note := Kit.make_label("Changes save as you make them.", 9, COLOR_QUIET)
-			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			note.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			note.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-			stack.add_child(note)
-		return surface
-
-	# Phones and short windows: the four categories share the width as equal
-	# tiles, so none of them ever needs a sideways scroll.
-	var bar := HBoxContainer.new()
-	bar.name = "CategoryStrip" if mode == Kit.LayoutMode.PHONE_PORTRAIT else "CategoryNavigation"
-	bar.add_theme_constant_override("separation", 5 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 7)
+## The page buttons' row. The four labels are the categories themselves, so the
+## row reads the way the Course Map's tabs do - one word per page.
+func _build_category_tabs(mode: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.name = "CategoryTabs"
+	row.add_theme_constant_override("separation",
+		4 if _uses_compact_tabs(mode) else (5 if Kit.is_phone(mode) else 6))
+	var group := ButtonGroup.new()
 	for category in Category.values():
-		bar.add_child(_build_category_button(category, mode, false))
-	return bar
+		row.add_child(_build_category_button(category, mode, group))
+	return row
 
-func _build_category_button(category: int, mode: int, vertical: bool) -> Button:
-	var button := Button.new()
+## A small portrait phone has the least room for the row, so it drops a font
+## step, tightens the frame padding and stands the screen mark down (see
+## _build_header). Everything else keeps the Course Map's tab sizing.
+func _uses_compact_tabs(mode: int) -> bool:
+	return mode == Kit.LayoutMode.PHONE_PORTRAIT and _window_size().x < 420.0
+
+func _build_category_button(category: int, mode: int, group: ButtonGroup) -> Button:
+	var compact := _uses_compact_tabs(mode)
+	var font_size := 10 if compact else (11 if Kit.is_phone(mode) else (12 if Kit.is_tablet(mode) else 13))
+	var button := CourseMapStyle.choice(_category_name(category), font_size)
 	button.name = "Category_%s" % _category_key(category)
-	button.toggle_mode = true
-	button.button_pressed = category == _category
-	button.text = _category_name(category)
-	if vertical and mode != Kit.LayoutMode.PHONE_LANDSCAPE:
-		button.text += "\n" + _category_short_description(category)
 	button.tooltip_text = _category_description(category)
-	if vertical:
-		button.custom_minimum_size = Vector2(0, 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 60)
-	else:
-		# Horizontal tabs share the row evenly; the minimum is only a floor.
-		button.custom_minimum_size = Vector2(0, 46 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 52)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var narrow_phone := mode == Kit.LayoutMode.PHONE_PORTRAIT and _window_size().x < 400.0
-	button.add_theme_font_size_override("font_size", 11 if narrow_phone else (12 if Kit.is_phone(mode) else 13))
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	MenuStyle.paint_choice(button, COLOR_MINT, 9)
-	button.add_theme_color_override("font_color", COLOR_MUTED)
-	button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-	button.add_theme_color_override("font_pressed_color", COLOR_GOLD)
+	button.button_group = group
+	button.button_pressed = category == _category
+	button.custom_minimum_size.y = 38.0
+	CourseMapStyle.pad(button, 5 if compact else (8 if Kit.is_phone(mode) else 11), 0)
+	button.add_theme_color_override("font_hover_pressed_color", COLOR_GOLD)
 	button.pressed.connect(_select_category.bind(category))
 	return button
 
@@ -1928,33 +1903,6 @@ func _on_reset_zoom_limits() -> void:
 	if is_instance_valid(_max_zoom_slider):
 		_max_zoom_slider.value = GameManager.camera_max_zoom
 
-func _build_footer(mode: int) -> Control:
-	var footer := HBoxContainer.new()
-	footer.name = "SettingsFooter"
-	footer.custom_minimum_size.y = 44 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 48
-	footer.add_theme_constant_override("separation", 8)
-	# The notice only earns its room when the footer has the width to spare.
-	var note := Kit.make_label("CHANGES APPLY IMMEDIATELY  ·  SAVED ON THIS DEVICE", 10, COLOR_QUIET)
-	note.name = "SaveNotice"
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
-	footer.add_child(note)
-	var done := Button.new()
-	done.name = "DoneButton"
-	done.text = close_label
-	done.custom_minimum_size = Vector2(136 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 96, 44)
-	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
-	done.add_theme_font_size_override("font_size", 12)
-	MenuStyle.paint_primary(done, 9)
-	done.add_theme_color_override("font_color", MenuStyle.INK)
-	done.add_theme_color_override("font_hover_color", MenuStyle.INK)
-	done.add_theme_color_override("font_pressed_color", MenuStyle.INK)
-	done.pressed.connect(_on_close)
-	footer.add_child(done)
-	return footer
-
 ## The one run there is: Main closes this menu and the tour prepares its own
 ## throwaway course to build every test course on. Only a menu accessed from
 ## the Main Menu may ask - away from it the card says so instead.
@@ -2054,6 +2002,8 @@ func _select_category(category: int) -> void:
 	if category != Category.DATA:
 		# A deletion message belongs to the page it happened on.
 		_data_status_text = "Choose what to delete. This cannot be undone."
+	# The page rebuilds under the header, so the header's page buttons (which
+	# live in the page) are rebuilt with it and light the new page then.
 	_build()
 
 func _on_window_mode_selected(index: int) -> void:
@@ -2146,24 +2096,37 @@ func _save_display_settings() -> void:
 	config.save(SaveManager.SETTINGS_PATH)
 
 func _category_key(category: int) -> String:
-	return ["audio", "display", "controls", "data"][category]
+	return {
+		Category.DISPLAY: "display",
+		Category.CONTROLS: "controls",
+		Category.AUDIO: "audio",
+		Category.DATA: "data",
+	}.get(category, "display")
 
 func _category_name(category: int) -> String:
-	return ["Audio", "Display", "Controls", "Data"][category]
+	return {
+		Category.DISPLAY: "Display",
+		Category.CONTROLS: "Controls",
+		Category.AUDIO: "Audio",
+		Category.DATA: "Data",
+	}.get(category, "Display")
 
 func _category_title(category: int) -> String:
-	return ["Sound & ambience", "Screen & accessibility", "Your controls", "Your data"][category]
-
-func _category_short_description(category: int) -> String:
-	return ["Mixer", "Screen", "Keys", "Files"][category]
+	return {
+		Category.DISPLAY: "Screen & accessibility",
+		Category.CONTROLS: "Your controls",
+		Category.AUDIO: "Sound & ambience",
+		Category.DATA: "Your data",
+	}.get(category, "Screen & accessibility")
 
 func _category_description(category: int) -> String:
-	return [
-		"Balance the master, effects and ambient volume for the course.",
-		"Adjust how the game looks and feels on this display.",
-		"Rebind every course action, reset one control or reset them all.",
-		"What this device keeps: saved courses, records and custom art - delete any part, or all of it.",
-	][category]
+	var descriptions := {
+		Category.DISPLAY: "Adjust how the game looks and feels on this display.",
+		Category.CONTROLS: "Rebind every course action, reset one control or reset them all.",
+		Category.AUDIO: "Balance the master, effects and ambient volume for the course.",
+		Category.DATA: "What this device keeps: saved courses, records and custom art - delete any part, or all of it.",
+	}
+	return str(descriptions.get(category, "Adjust how the game looks and feels on this display."))
 
 func _make_separator() -> HSeparator:
 	var separator := HSeparator.new()

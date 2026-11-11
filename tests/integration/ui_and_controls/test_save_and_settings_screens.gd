@@ -17,6 +17,12 @@ const SIZES := [
 	[Vector2i(1600, 1000), "desktop"],
 	[Vector2i(2560, 1440), "large desktop"],
 ]
+## What the settings page's bottom row was made of: a footer holding a save
+## notice and a Done button. The row is gone and none of it may come back.
+const SETTINGS_BOTTOM_ROW: Array[String] = ["SettingsFooter", "SaveNotice", "DoneButton"]
+## The old category choosers - a rail beside the cards and a strip over them.
+## The categories are header buttons now, so neither may come back either.
+const SETTINGS_CATEGORY_RAIL: Array[String] = ["CategoryNavigation", "CategoryStrip"]
 ## Checkpoints on the shelf, so the archive has rows to lay out.
 const SEEDED_SAVES := ["integration_layout_one", "integration_layout_two"]
 const CHECKPOINT := "integration_layout_checkpoint"
@@ -228,6 +234,21 @@ func _assert_archive_fits_every_window(mode: SaveLoadPanel.ScreenMode) -> void:
 		_assert_targets(tag, panel, size)
 		_assert_fits(tag, panel.get_node_or_null("ArchiveFrame"), size,
 			layout == MenuScreenKit.LayoutMode.DESKTOP or layout == MenuScreenKit.LayoutMode.PHONE_LANDSCAPE)
+		var header := panel.get_node_or_null("ArchiveFrame/ArchivePage/ScreenHeader") as HBoxContainer
+		var title := header.get_node_or_null("TitleBlock/Title") as Label if header else null
+		var save_mode := panel.find_child("SaveMode", true, false) as Button
+		var load_mode := panel.find_child("LoadMode", true, false) as Button
+		assert_not_null(header, "%s: shared ScreenHeader is built" % tag)
+		assert_not_null(title, "%s: header title is built" % tag)
+		assert_not_null(save_mode, "%s: Save progress button is shown" % tag)
+		assert_not_null(load_mode, "%s: Load course button is shown" % tag)
+		if title != null:
+			assert_gt(title.size.x, 40.0, "%s: header title keeps readable width" % tag)
+		if layout != MenuScreenKit.LayoutMode.PHONE_PORTRAIT and header != null and save_mode != null and load_mode != null:
+			assert_true(header.is_ancestor_of(save_mode), "%s: Save progress lives in ScreenHeader" % tag)
+			assert_true(header.is_ancestor_of(load_mode), "%s: Load course lives in ScreenHeader" % tag)
+			assert_gt(save_mode.get_global_rect().position.x, float(size.x) * 0.45,
+				"%s: mode buttons sit in the top-right corner" % tag)
 		if saving:
 			assert_not_null(panel.get_node_or_null("ArchiveFrame/ArchivePage"), "%s: the save page is built" % tag)
 			assert_not_null(panel.find_child("SaveNameInput", true, false), "%s: with its name field" % tag)
@@ -272,8 +293,113 @@ func test_the_settings_office_fits_every_window() -> void:
 			await process_frames(3)
 			var page := "%s %s" % [tag, menu._category_name(category)]
 			_assert_targets(page, menu, size)
-			assert_not_null(menu.find_child("CategoryContent", true, false), "%s: the page is built" % page)
+			assert_not_null(menu.find_child("SettingsWorkspace", true, false), "%s: the page is built" % page)
+			_assert_settings_end_at_the_workspace(page, menu)
 		menu.free()
+
+
+## The settings page is the header over the workspace and nothing else: the four
+## category buttons sit in the header's top right corner, the settings card is
+## the workspace under it, and no bottom row sits beneath the cards - so the
+## workspace ends where the page does, as far above the bottom of the screen as
+## the header starts below the top of it.
+func _assert_settings_end_at_the_workspace(tag: String, menu: SettingsMenu) -> void:
+	var page := menu.get_node_or_null("SettingsFrame/SettingsPage") as VBoxContainer
+	assert_not_null(page, "%s: the settings page exists" % tag)
+	if page == null:
+		return
+	var rows: Array[String] = []
+	for row in page.get_children():
+		rows.append(str(row.name))
+	assert_eq(rows, ["ScreenHeader", "SettingsWorkspace"],
+		"%s: the page is the header over the workspace" % tag)
+	for legacy in SETTINGS_BOTTOM_ROW:
+		assert_null(menu.find_child(legacy, true, false), "%s: the bottom row's %s is removed" % [tag, legacy])
+	# The categories moved into the header; neither of the old choosers is left.
+	for legacy in SETTINGS_CATEGORY_RAIL:
+		assert_null(menu.find_child(legacy, true, false), "%s: the old %s is removed" % [tag, legacy])
+	var header := page.get_node_or_null("ScreenHeader") as Control
+	var tabs := page.get_node_or_null("ScreenHeader/HeaderActions/CategoryTabs") as Control
+	assert_not_null(tabs, "%s: the header carries the page buttons" % tag)
+	var workspace := page.get_node_or_null("SettingsWorkspace") as Control
+	if header == null or workspace == null:
+		return
+	var screen := menu.get_global_rect()
+	var workspace_end := workspace.get_global_rect().end.y
+	assert_almost_eq(workspace_end, page.get_global_rect().end.y, 0.5,
+		"%s: the workspace runs down to the end of the page" % tag)
+	assert_almost_eq(screen.end.y - workspace_end, header.get_global_rect().position.y - screen.position.y, 0.5,
+		"%s: only the screen margin is left under the workspace" % tag)
+	# The workspace is the page under the header, with nothing beside it.
+	assert_lte(workspace.get_global_rect().position.x, page.get_global_rect().position.x + 0.5,
+		"%s: the settings card starts at the page's left edge" % tag)
+	assert_eq(workspace.get_global_rect().size.x, page.get_global_rect().size.x,
+		"%s: and runs the page's whole width" % tag)
+
+
+## With no Done button under the cards, the header's Back button is the
+## on-screen way out. A real click on it, at every window size, closes the
+## office the Main Menu opened and leaves the title screen as it was.
+func test_back_in_the_header_closes_the_settings_office_in_every_window() -> void:
+	for entry in SIZES:
+		var size: Vector2i = entry[0]
+		var tag := "settings %s" % entry[1]
+		await set_window(size)
+		main._on_main_menu_settings()
+		await process_frames(5)
+		await _click_back_out_of_settings(tag)
+		assert_true(is_instance_valid(main.main_menu) and main.main_menu.is_visible_in_tree(),
+			"%s: the title screen is what is left" % tag)
+		assert_eq(GameManager.current_mode, GameManager.GameMode.MAIN_MENU,
+			"%s: and the game is still on the Main Menu" % tag)
+
+
+## Click the header's Back button of the settings office the game has open, the
+## way the player would, and check the office went: it asked to close once,
+## freed itself and left the HUD.
+func _click_back_out_of_settings(tag: String) -> void:
+	var menu := main.get_node_or_null("UI/HUD/SettingsMenu") as SettingsMenu
+	assert_not_null(menu, "%s: the game opens the settings office" % tag)
+	if menu == null:
+		return
+	var back := menu.get_node_or_null("SettingsFrame/SettingsPage/ScreenHeader/BackButton") as Button
+	assert_not_null(back, "%s: the header carries the Back button" % tag)
+	if back == null:
+		menu.free()
+		return
+	var closed := [0]
+	menu.close_requested.connect(func() -> void: closed[0] += 1)
+	# The GUT runner's own title bar sits in the top-left corner of the test
+	# viewport, where a phone's Back button is; hide it so this pointer-level
+	# click reaches the game.
+	var gut_box := _gut_main_box()
+	if gut_box:
+		gut_box.hide()
+	await process_frames(1)
+	await click(back)
+	await process_frames(2)
+	if gut_box:
+		gut_box.show()
+	assert_eq(closed[0], 1, "%s: a click on Back closes the office, once" % tag)
+	# (the office freed itself, so GUT cannot re-interrogate it for signals)
+	assert_false(is_instance_valid(menu), "%s: the office frees itself" % tag)
+	assert_null(main.get_node_or_null("UI/HUD/SettingsMenu"), "%s: and is off the screen" % tag)
+	if is_instance_valid(menu):
+		menu.free()
+
+
+## The GUT GUI's root panel (ancestor of its TitleBox), if a GUI is present.
+func _gut_main_box() -> Control:
+	var title := get_tree().root.find_child("TitleBox", true, false) as Control
+	if title == null:
+		return null
+	var title_bar := title.get_parent() as Control
+	if title_bar == null:
+		return null
+	var main_box := title_bar.get_parent() as Control
+	if main_box == null:
+		return null
+	return main_box.get_parent() as Control
 
 
 func test_a_checkpoint_needs_a_name_and_asks_before_it_overwrites() -> void:
@@ -293,6 +419,55 @@ func test_a_checkpoint_needs_a_name_and_asks_before_it_overwrites() -> void:
 	assert_not_null(panel.find_child("ArchiveConfirmation", true, false), "Saving over a name asks first")
 	panel._close_confirmation()
 	await process_frames(2)
+
+
+func test_saved_courses_display_the_same_picture_as_the_top_left_hud_banner() -> void:
+	await set_window(DESIGN_WINDOW)
+	var previous_location := WorldMap.active_location_id
+	var previous_theme := GameManager.current_theme
+	var slot_monterey := "integration_pic_monterey"
+	var slot_hawaii := "integration_pic_hawaii"
+
+	WorldMap.set_active_location("monterey")
+	GameManager.current_theme = CourseTheme.Type.LINKS
+	main.course_location_banner.refresh()
+	var hud_monterey_tex: Texture2D = main.course_location_banner.get_node("Columns/PictureFrame/Picture").texture
+	assert_not_null(hud_monterey_tex)
+	assert_true(SaveManager.save_game(slot_monterey))
+
+	WorldMap.set_active_location("hawaii")
+	GameManager.current_theme = CourseTheme.Type.TROPICAL
+	main.course_location_banner.refresh()
+	var hud_hawaii_tex: Texture2D = main.course_location_banner.get_node("Columns/PictureFrame/Picture").texture
+	assert_not_null(hud_hawaii_tex)
+	assert_ne(hud_monterey_tex, hud_hawaii_tex)
+	assert_true(SaveManager.save_game(slot_hawaii))
+
+	var panel: SaveLoadPanel = await _open_archive(SaveLoadPanel.ScreenMode.SAVE)
+	var live_pic := panel.find_child("LiveCourseSummary", true, false).find_child("Picture", true, false) as TextureRect
+	var monterey_row_pic := panel.find_child("SaveRow_%s" % slot_monterey, true, false).find_child("Picture", true, false) as TextureRect
+	var hawaii_row_pic := panel.find_child("SaveRow_%s" % slot_hawaii, true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(live_pic.texture, hud_hawaii_tex, "Save workspace shows the current HUD course picture")
+	assert_eq(monterey_row_pic.texture, hud_monterey_tex, "Monterey save row matches Monterey's HUD picture")
+	assert_eq(hawaii_row_pic.texture, hud_hawaii_tex, "Hawaii save row matches Hawaii's HUD picture")
+
+	panel._set_mode(SaveLoadPanel.ScreenMode.LOAD)
+	await process_frames(3)
+	panel._on_save_selected(slot_monterey)
+	await process_frames(2)
+	var dossier_pic := panel.find_child("LoadDossier", true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(dossier_pic.texture, hud_monterey_tex, "Load dossier matches Monterey's HUD picture when selected")
+
+	panel._on_save_selected(slot_hawaii)
+	await process_frames(2)
+	dossier_pic = panel.find_child("LoadDossier", true, false).find_child("Picture", true, false) as TextureRect
+	assert_eq(dossier_pic.texture, hud_hawaii_tex, "Load dossier matches Hawaii's HUD picture when selected")
+
+	SaveManager.delete_save(slot_monterey)
+	SaveManager.delete_save(slot_hawaii)
+	WorldMap.set_active_location(previous_location)
+	GameManager.current_theme = previous_theme
+	main.course_location_banner.refresh()
 
 
 func test_a_settings_toggle_changes_the_live_setting() -> void:
@@ -856,3 +1031,47 @@ func test_deleting_benchmark_reports_clears_the_display_cards_last_run() -> void
 		assert_string_contains(status.text, "Ready",
 			"and it offers a fresh run instead")
 	PerformanceBenchmark.last_result = {}
+
+
+# ---------------------------------------------------------------------------
+# Leaving the settings of a pause session (opens a course, so it comes last)
+# ---------------------------------------------------------------------------
+
+## From a pause session the same Back button hands the screen back to the pause
+## menu with the course still paused. That holds at every window size - an
+## upright phone included, where the course HUD keeps its own Menu button in
+## that corner, underneath the office - and Esc does the same from the keyboard.
+func test_back_returns_the_settings_of_a_pause_session_to_the_pause_menu() -> void:
+	await set_window(DESIGN_WINDOW)
+	await new_game("Settings way out")
+	for entry in SIZES:
+		var size: Vector2i = entry[0]
+		var tag := "paused settings %s" % entry[1]
+		await set_window(size)
+		main._show_pause_menu()
+		await process_frames(2)
+		main._on_pause_settings()
+		await process_frames(5)
+		assert_null(main.pause_menu, "%s: the pause menu steps aside for the office" % tag)
+		await _click_back_out_of_settings(tag)
+		assert_true(is_instance_valid(main.pause_menu) and main.pause_menu.is_visible_in_tree(),
+			"%s: the pause menu is back" % tag)
+		assert_true(GameManager.is_paused, "%s: and the course is still paused" % tag)
+		main._on_pause_resume()
+		await process_frames(2)
+
+	await set_window(DESIGN_WINDOW)
+	main._show_pause_menu()
+	await process_frames(2)
+	main._on_pause_settings()
+	await process_frames(5)
+	assert_not_null(main.get_node_or_null("UI/HUD/SettingsMenu"), "the office is open again")
+	press_key(KEY_ESCAPE)
+	await process_frames(3)
+	assert_null(main.get_node_or_null("UI/HUD/SettingsMenu"), "Esc closes the office")
+	assert_true(is_instance_valid(main.pause_menu) and main.pause_menu.is_visible_in_tree(),
+		"and the pause menu is back")
+	assert_true(GameManager.is_paused, "with the course still paused")
+	main._on_pause_resume()
+	await process_frames(2)
+	assert_false(GameManager.is_paused, "resuming from there lets the course run again")

@@ -257,3 +257,18 @@ func test_start_tournament_screen_is_operable_and_b_backs_out() -> void:
 	await _push_joy(BUTTON_B)
 	assert_true(backed[0], "B backs out of Start Tournament to the Main Menu")
 
+
+func test_save_course_is_operable_and_b_backs_out() -> void:
+	await _assert_back_on_b("save course", await _add(SaveCourseScreen.new()), "closed")
+
+
+func test_save_golfer_is_operable_and_b_backs_out() -> void:
+	await _assert_back_on_b("save golfer", await _add(SaveGolferScreen.new()), "closed")
+
+
+func test_choose_course_is_operable_and_b_backs_out() -> void:
+	await _assert_back_on_b("choose course", await _add(ChooseCourseScreen.new()), "closed")
+
+
+func test_choose_golfer_is_operable_and_b_backs_out() -> void:
+	await _assert_back_on_b("choose golfer", await _add(ChooseGolferScreen.new()), "closed")

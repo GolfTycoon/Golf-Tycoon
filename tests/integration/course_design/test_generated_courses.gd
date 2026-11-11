@@ -14,6 +14,10 @@ var grid: TerrainGrid
 
 func before_all() -> void:
 	await super()
+	# The walk checks below are a promise about the course this script builds:
+	# a run whose ground happened to seal a tee off from the Path tool failed
+	# one of them and never reproduced. The harness pins the world and the
+	# terrain behind that course (see MainSceneTest.COURSE_SEED).
 	await quick_start("Generated courses")
 	grid = main.terrain_grid
 
@@ -106,6 +110,10 @@ func test_every_prebuilt_package_delivers_its_holes_with_nothing_waiting() -> vo
 func test_a_prebuilt_package_started_through_the_game_arrives_with_its_paths() -> void:
 	main._prebuilt_pending = "starter"
 	main._prebuilt_money = GameManager.money
+	# This step skips the start entry points that carry a terrain seed, so it
+	# hands over the pinned one itself — the same course every run, like the
+	# Quick Start above it.
+	main._pending_terrain_seed = COURSE_SEED
 	main._on_new_game_started()
 	await process_frames(12)
 	assert_eq(GameManager.current_course.holes.size(), PACKAGES["starter"], "The Starter Pack builds its holes")

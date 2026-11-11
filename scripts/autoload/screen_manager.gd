@@ -55,6 +55,11 @@ const COMPACT_HEIGHT := 640.0
 ## below it the world stays at 1:1 pixel scale so tiles remain tappable.
 const WORLD_SCALE_FLOOR_WIDTH := 900.0
 
+## Portrait HUD is used on portrait windows narrower than this. Matching the
+## compact HUD breakpoint avoids an intermediate narrow-column layout before
+## the dedicated mobile composition appears.
+const PORTRAIT_HUD_MAX_WIDTH := 900.0
+
 ## Breathing room a modal overlay keeps from the window edge.
 const MODAL_MARGIN := 12.0
 
@@ -90,7 +95,6 @@ var world_scale: float = 1.0
 ## Portrait HUD state belongs to the layout adapter so every floating panel,
 ## toast and touch surface reserves the same live bottom clearance.
 var portrait_tools_open: bool = false
-var portrait_map_open: bool = false
 var safe_insets := Vector4.ZERO # left, top, right, bottom (logical pixels)
 
 ## Effective UI scale, applied to the root window's content scale.
@@ -485,9 +489,11 @@ func is_landscape() -> bool:
 	return window_size.x >= window_size.y
 
 ## A dedicated composition, not the desktop HUD squeezed into fewer pixels.
-## Wide portrait tablets keep the roomy desktop arrangement.
+## Start it at the compact-width breakpoint so portrait windows do not first
+## pass through a narrow desktop-HUD state. Landscape windows keep their usual
+## composition regardless of width.
 func uses_portrait_hud() -> bool:
-	return is_portrait() and window_size.x < 700.0
+	return is_portrait() and window_size.x < PORTRAIT_HUD_MAX_WIDTH
 
 func portrait_nav_height() -> float:
 	return float(UIConstants.PORTRAIT_NAV_HEIGHT) + safe_insets.w
@@ -499,12 +505,6 @@ func set_portrait_tools_open(open: bool) -> void:
 	if portrait_tools_open == open:
 		return
 	portrait_tools_open = open
-	changed.emit(window_size, world_scale)
-
-func set_portrait_map_open(open: bool) -> void:
-	if portrait_map_open == open:
-		return
-	portrait_map_open = open
 	changed.emit(window_size, world_scale)
 
 func portrait_header_height() -> float:
@@ -563,7 +563,7 @@ func uses_touch_layout() -> bool:
 ## HUD is a separate composition with its own thumb rail.
 func bottom_bar_height() -> float:
 	if uses_portrait_hud():
-		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 44.0)
+		return portrait_nav_height() + (portrait_tray_height() if portrait_tools_open else 0.0)
 	return float(UIConstants.BOTTOM_BAR_HEIGHT)
 
 ## Vertical space below which popup panels must not sit (the bottom bar

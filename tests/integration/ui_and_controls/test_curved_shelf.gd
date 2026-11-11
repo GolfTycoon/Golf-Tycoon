@@ -31,8 +31,15 @@ func test_tabs_follow_the_rim_and_stay_on_screen_at_each_size() -> void:
 				var rect := button.get_global_rect()
 				var center := rect.get_center()
 				var radius := rect.size.x * 0.5
-				assert_almost_eq(rect.size.x, rect.size.y, 0.01, "tab hit areas remain circular")
+				if portrait:
+					# The portrait tray stretches its tabs across the whole row.
+					assert_gt(rect.size.x, rect.size.y, "portrait tabs fill their share of the row")
+					assert_true(button._has_point(Vector2(1, 1)),
+							"and answer across their whole rectangle")
+				else:
+					assert_almost_eq(rect.size.x, rect.size.y, 0.01, "tab hit areas remain circular")
 				assert_gte(rect.size.x, 44.0, "each tab remains a comfortable target")
+				assert_gte(rect.size.y, 44.0, "each tab remains a comfortable target")
 				assert_true(rect_within(rect, screen), "tabs stay on screen at %s" % window_size)
 				assert_true(toolbar._tab_rail.get_global_rect().encloses(rect),
 						"tabs stay clear of the scrolling page")
@@ -65,7 +72,7 @@ func test_tabs_follow_the_rim_and_stay_on_screen_at_each_size() -> void:
 func test_every_tab_can_be_clicked_on_a_compact_shelf() -> void:
 	# Toasts are intentionally clickable overlays and may arrive while the
 	# simulation runs; keep this test focused on the unobscured shelf itself.
-	var notifications := main.get_node("UI/NotificationToast") as Control
+	var notifications := main.get_node("Notices/NotificationToast") as Control
 	var notifications_visible := notifications.visible
 	notifications.hide()
 	for window_size in [Vector2i(390, 844), Vector2i(360, 800)]:
@@ -133,12 +140,20 @@ func test_course_cutout_passes_input_but_exposed_tab_edges_work() -> void:
 func test_header_row_controls_stay_on_screen_on_a_narrow_phone() -> void:
 	await set_window(Vector2i(360, 800))
 	var toolbar: TerrainToolbar = main.terrain_toolbar
-	# The full-width portrait tray keeps the Terrain row (brush shape + size +
-	# Inspect) visible; the old curved shelf hid it and let the cutout through.
+	# The portrait HUD floats the Terrain tools (brush shape + size + Inspect)
+	# over the course above its full-width tray, the size stepper on a row of
+	# its own; the old curved shelf hid the row and let the cutout through.
 	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
 	await process_frames(3)
 	assert_true(toolbar._header_row.visible,
-			"the portrait tray keeps the Terrain tool row visible")
+			"the portrait HUD keeps the Terrain tool row visible")
+	var narrow_screen := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	for brush_control: Control in [toolbar._header_terrain_shape, toolbar._header_terrain_size,
+			toolbar.inspect_button()]:
+		assert_true(brush_control.is_visible_in_tree(),
+				"the whole Terrain brush shows on the narrow phone")
+		assert_true(rect_within(brush_control.get_global_rect(), narrow_screen),
+				"and stays on screen")
 	var cutout := toolbar.get_global_position() + Vector2(4, 8)
 	assert_true(bool(TouchInput._touch_target_at(cutout)["over_ui"]),
 			"the portrait tray consumes touches across its rectangle on Terrain")

@@ -7,6 +7,16 @@ signal session_opened
 signal owner_area_move_requested
 
 const PROS = ["Pro Alex", "Pro Morgan", "Pro Riley"]
+## One golfer's portrait slot on the round shelf: the owner and every pro added
+## to the round stand in one of these, and the golfer is scaled to fit it. The
+## slot is square and sized so the sprite inside is drawn at the same height as
+## the Edit Player Golfer shelf's preview: a 48px skin scaled to the 82px the
+## 6px inset leaves (see _layout_golfer_portrait and _layout_skin_preview).
+const PRO_PORTRAIT_SIZE := Vector2(88, 88)
+## The remove chip that floats over a pro's portrait. It is small enough to sit
+## on the sprite's shoulder without hiding the golfer it removes.
+const PRO_REMOVE_SIZE := Vector2(20, 20)
+const PRO_REMOVE_FONT_SIZE := 13
 ## The same visiting green used by the on-course golfer cards, and by every
 ## name plate on the owner's shelves: the Golfer Skills and Golfer Traits, and
 ## the single plate each of Gender and Marital Status is chosen with.
@@ -14,6 +24,10 @@ const SHELF_TOGGLE_ACCENT := Color("83c9a4")
 ## A narrower version of the visitor name plate, retaining its height. One
 ## footprint is shared by every plate on the owner's shelves.
 const SHELF_TOGGLE_BUTTON_SIZE := Vector2(184, 44)
+## The Play Course shelf's one action card - Start Round - is wider than a name
+## plate: its caption is an action rather than a single word, so its card holds
+## it with room to spare. The Tournament Mode exports now live in the Pause Menu.
+const VISITOR_CARD_ACTION_SIZE := Vector2(212, 44)
 ## Marks buttons whose shared visitor-card styling must not be replaced by the
 ## owner's ordinary pixel controls during the final styling pass: the On/Off
 ## shelf plates and the Edit Player page's Group Colour plates.
@@ -223,53 +237,6 @@ func _build_work_area_column() -> void:
 	content.add_child(_work_area_button)
 
 	_refresh_work_area()
-
-## Career Mode export controls on Golfers -> Play Course: save either the open
-## course or the owner's golfer for standalone Tournament Mode.
-func _build_tournament_play_export_column() -> void:
-	_label("Tournament Mode")
-	var save_course_btn := _button("Save Course for Tournament", _on_save_course_for_tournament)
-	save_course_btn.name = "SaveTournamentCourseButton"
-	save_course_btn.tooltip_text = "Export this course so you can select it on the Start Tournament screen from the Main Menu."
-	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
-	save_golfer_btn.name = "SaveTournamentGolferButton"
-	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance so you can play as them in Tournament Mode."
-
-## Career Mode export control on Golfers -> Edit Player.
-func _build_tournament_golfer_export_column() -> void:
-	# The action caption and tooltip explain export without another shelf row.
-	var save_golfer_btn := _button("Save Golfer for Tournament", _on_save_golfer_for_tournament)
-	save_golfer_btn.name = "SaveEditGolferForTournamentButton"
-	_style_shelf_plate(save_golfer_btn)
-	save_golfer_btn.tooltip_text = "Export your golfer's skills, traits and appearance for standalone Tournament Mode."
-
-func _on_save_course_for_tournament() -> void:
-	var result := TournamentLibrary.save_career_course()
-	if bool(result.get("ok", false)):
-		EventBus.notify(
-			"Saved '%s' (%d holes, Par %d) for Tournament Mode!" % [
-				str(result.get("name", "Course")),
-				int(result.get("hole_count", 0)),
-				int(result.get("par", 0)),
-			],
-			"success"
-		)
-	else:
-		EventBus.notify(str(result.get("error", "Could not save course for Tournament Mode.")), "warning")
-
-func _on_save_golfer_for_tournament() -> void:
-	_persist_player_profile()
-	var worn_skin := GolferSkins.player_skin() if GolferSkins != null else null
-	var chosen_skin_id := worn_skin.id if worn_skin != null else GameManager.player_skin_id
-	var skin_colors := TournamentLibrary.capture_skin_colors(GameManager.player_profile, chosen_skin_id)
-	var result := TournamentLibrary.save_career_golfer(GameManager.player_profile, chosen_skin_id, skin_colors)
-	if bool(result.get("ok", false)):
-		EventBus.notify(
-			"Saved golfer '%s' for Tournament Mode!" % str(result.get("name", "Golfer")),
-			"success"
-		)
-	else:
-		EventBus.notify(str(result.get("error", "Could not save golfer for Tournament Mode.")), "warning")
 
 ## Where the owner's own golfer works, in words the player can read.
 func _refresh_work_area() -> void:
@@ -486,13 +453,18 @@ func _create_add_golfer_button() -> void:
 	_add_golfer_button.add_child(_pro_menu)
 
 
+## One pro added to the round: their own skin sprite, with the remove chip
+## floating over it. The chip only shows itself over the golfer - on hover, or
+## when it holds the keyboard focus - so the shelf reads as a row of golfers
+## rather than a row of controls.
 func _make_pro_portrait(pro_name: String) -> void:
 	var card := VBoxContainer.new()
-	card.custom_minimum_size.x = 52
+	card.name = "ProCard" + pro_name.replace(" ", "")
+	card.custom_minimum_size.x = PRO_PORTRAIT_SIZE.x
 	card.add_theme_constant_override("separation", 0)
 	var box := Control.new()
 	box.name = "ProPreview"
-	box.custom_minimum_size = Vector2(52, 66)
+	box.custom_minimum_size = PRO_PORTRAIT_SIZE
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.clip_contents = true
 	card.add_child(box)
@@ -509,19 +481,97 @@ func _make_pro_portrait(pro_name: String) -> void:
 		preview._update_visual()
 	_pro_preview_nodes[pro_name] = preview
 	box.resized.connect(_layout_golfer_portrait.bind(preview, box))
-	var remove_row := HBoxContainer.new()
-	remove_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# The portrait is now just the golfer, so the card itself takes the pointer:
+	# its hover is what floats the remove chip over the sprite. The sprite box
+	# ignores the mouse, leaving nothing between the pointer and the card.
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
+	card.tooltip_text = pro_name
+	var remove := _make_pro_remove_chip(pro_name)
+	box.add_child(remove)
+	card.mouse_entered.connect(_set_pro_remove_shown.bind(remove, true))
+	card.mouse_exited.connect(_refresh_pro_remove.bind(card, remove))
+	remove.mouse_entered.connect(_set_pro_remove_shown.bind(remove, true))
+	remove.mouse_exited.connect(_refresh_pro_remove.bind(card, remove))
+	remove.focus_entered.connect(_set_pro_remove_shown.bind(remove, true))
+	remove.focus_exited.connect(_refresh_pro_remove.bind(card, remove))
+	_pro_roster.add_child(card)
+
+
+## The remove chip itself: a small pixel card in the game's ink-and-visiting-
+## green language, pinned to the portrait's top-right corner where it floats
+## over the golfer's shoulder. It starts faded out and out of the pointer's way
+## (see _set_pro_remove_shown) but stays in the focus chain, so a keyboard or
+## controller player reveals it by selecting it.
+func _make_pro_remove_chip(pro_name: String) -> Button:
 	var remove := Button.new()
 	remove.name = "RemoveProButton"
 	remove.text = "×"
 	remove.tooltip_text = "Remove %s from this round" % pro_name
-	remove.custom_minimum_size = Vector2(24, 20)
-	remove.add_theme_font_size_override("font_size", 9)
+	remove.accessibility_name = "Remove %s from this round" % pro_name
+	remove.custom_minimum_size = PRO_REMOVE_SIZE
+	remove.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	remove.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	remove.focus_mode = Control.FOCUS_ALL
+	remove.add_theme_font_override("font", VisitorCardButton.FONT)
+	remove.add_theme_font_size_override("font_size", PRO_REMOVE_FONT_SIZE)
+	remove.add_theme_color_override("font_color", VisitorCardButton.CREAM)
+	for state in ["hover", "pressed", "focus"]:
+		remove.add_theme_color_override("font_%s_color" % state, Color.WHITE)
+	# A dark chip rimmed in visiting green at rest, so it reads over any skin and
+	# any artwork; red under the pointer, the way a remove action should. Focus
+	# keeps the chip dark but rims it in cream, the shared focus colour.
+	var ink := Color("08130f")
+	var chip_styles := {
+		"normal": [ink, Color(SHELF_TOGGLE_ACCENT, 0.75)],
+		"hover": [Color("a83e34"), Color.WHITE],
+		"pressed": [Color("7d2b25"), Color.WHITE],
+		"focus": [ink, PixelButtonStyle.FOCUS_LIGHT],
+		"disabled": [Color(ink, 0.6), Color(SHELF_TOGGLE_ACCENT, 0.35)],
+	}
+	for state in chip_styles:
+		var chip := StyleBoxFlat.new()
+		chip.bg_color = chip_styles[state][0]
+		chip.border_color = chip_styles[state][1]
+		chip.set_border_width_all(1)
+		chip.set_corner_radius_all(0)
+		remove.add_theme_stylebox_override(state, chip)
+	# Pinned into the portrait's top-right corner by hand: a fixed chip, so the
+	# button's own text metrics can never stretch it into a tall slab.
+	remove.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	remove.offset_left = -(PRO_REMOVE_SIZE.x + 2.0)
+	remove.offset_right = -2.0
+	remove.offset_top = 2.0
+	remove.offset_bottom = PRO_REMOVE_SIZE.y + 2.0
 	remove.pressed.connect(_remove_round_pro.bind(pro_name))
-	remove_row.add_child(remove)
-	card.add_child(remove_row)
-	card.tooltip_text = pro_name
-	_pro_roster.add_child(card)
+	_set_pro_remove_shown(remove, false)
+	return remove
+
+
+## Float the remove chip over the sprite, or clear it out of the way again. A
+## hidden chip is transparent rather than invisible: it stays in the focus
+## chain, so Tab still finds it and its focus_entered floats it back into view
+## (see _make_pro_remove_chip). While hidden it ignores the mouse, so the
+## pointer keeps hovering the portrait underneath it.
+func _set_pro_remove_shown(remove: Button, shown: bool) -> void:
+	if not is_instance_valid(remove):
+		return
+	remove.modulate.a = 1.0 if shown else 0.0
+	remove.mouse_filter = Control.MOUSE_FILTER_STOP if shown else Control.MOUSE_FILTER_IGNORE
+
+
+## Hide the chip again once the pointer or the focus leaves the portrait, but
+## only when it has really left: moving from the card onto the chip itself ends
+## the card's hover, and the chip floating over the sprite must not blink out
+## under the pointer. It stays up while the pointer is anywhere on the portrait,
+## or while the chip holds the focus.
+func _refresh_pro_remove(card: Control, remove: Button) -> void:
+	if not is_instance_valid(card) or not is_instance_valid(remove):
+		return
+	var pointer_on_portrait := card.get_global_rect().has_point(card.get_global_mouse_position())
+	var viewport := card.get_viewport()
+	var focus := viewport.gui_get_focus_owner() if viewport != null else null
+	var focused := focus != null and (focus == card or card.is_ancestor_of(focus))
+	_set_pro_remove_shown(remove, pointer_on_portrait or focused)
 
 
 func _open_add_golfer_menu() -> void:
@@ -740,6 +790,35 @@ func _shelf_toggle_button(caption: String, is_on: bool, description: String) -> 
 	_style_shelf_plate(button)
 	button.accessibility_description = description
 	button.tooltip_text = description
+	return button
+
+
+## One action card in the Visiting Golfers card language: the full
+## visiting-green frame, cream pixel caption and hover lift a visitor plate
+## wears, rather than the quieter trim of an unselected shelf toggle, because it
+## is an action rather than a choice. The Start Round card wears it. Its caption
+## is an action, so the card is VISITOR_CARD_ACTION_SIZE rather than the name
+## plate's width; callers that fill their column can stretch it afterwards.
+func _visitor_card_button(caption: String, description: String, action: Callable) -> Button:
+	var button := Button.new()
+	button.text = caption
+	button.pressed.connect(action)
+	content.add_child(button)
+	button.custom_minimum_size = VISITOR_CARD_ACTION_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.focus_mode = Control.FOCUS_ALL
+	# The page's final styling pass must leave this frame alone (see
+	# _style_player_control).
+	button.set_meta(VISITOR_CARD_META, true)
+	button.add_theme_font_override("font", VisitorCardButton.FONT)
+	button.add_theme_font_size_override("font_size", VisitorCardButton.NAME_FONT_SIZE)
+	PixelButtonStyle.paint_card(button, SHELF_TOGGLE_ACCENT, 0, 0,
+		VisitorCardButton.CREAM, VisitorCardButton.NAME_LIT)
+	button.tooltip_text = description
+	button.accessibility_description = description
 	return button
 
 
@@ -1058,8 +1137,6 @@ func _build_setup() -> void:
 		content.name = "PlayerActionsColumn"
 		content.add_theme_constant_override("separation", 4)
 		_build_work_area_column()
-		if not GameManager.is_tournament_mode:
-			_build_tournament_golfer_export_column()
 
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are
@@ -1105,14 +1182,14 @@ func _build_setup() -> void:
 			var players_row := HBoxContainer.new()
 			_round_players_row = players_row
 			players_row.add_theme_constant_override("separation", 4)
-			players_row.custom_minimum_size.y = 88
+			players_row.custom_minimum_size.y = PRO_PORTRAIT_SIZE.y
 			content.add_child(players_row)
 			var owner_card := VBoxContainer.new()
 			owner_card.add_theme_constant_override("separation", 0)
 			players_row.add_child(owner_card)
 			_round_player_preview_box = Control.new()
 			_round_player_preview_box.name = "RoundPlayerPreview"
-			_round_player_preview_box.custom_minimum_size = Vector2(52, 66)
+			_round_player_preview_box.custom_minimum_size = PRO_PORTRAIT_SIZE
 			_round_player_preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_round_player_preview_box.clip_contents = true
 			owner_card.add_child(_round_player_preview_box)
@@ -1130,14 +1207,15 @@ func _build_setup() -> void:
 			players_row.add_child(_pro_roster)
 			_refresh_pro_roster()
 
-			var round_button := _button("Start Round", _start_embedded.bind(0))
+			# The round's one call to action wears the Visiting Golfers card,
+			# and fills the setup column under the golfer and the pros it tees
+			# off with.
+			var round_button := _visitor_card_button("Start Round",
+				"Tee off with your golfer and anyone you have added to the round.",
+				_start_embedded.bind(0))
+			round_button.name = "StartRoundButton"
 			round_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			round_button.set_meta("owner_round_start", true)
-
-			# Export the Career course or golfer for standalone Tournament Mode.
-			content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_PLAY], 216)
-			content.add_theme_constant_override("separation", 3)
-			_build_tournament_play_export_column()
 		var skills_page := player_tab.pages[PlayerTab.PAGE_SKILLS]
 		# Three untitled visitor-style name plates lead the shelf, ahead of the
 		# points-based Golf Skills.

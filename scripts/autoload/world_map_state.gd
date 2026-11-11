@@ -364,19 +364,27 @@ func get_snapshot(location_id: String) -> Dictionary:
 func clear_snapshot(location_id: String) -> void:
 	location_snapshots.erase(location_id)
 
+## Deterministic catalog location for a theme when a legacy save carries no
+## world-map active location of its own.
+static func legacy_location_for_theme(theme: int) -> String:
+	for def in WorldLocations.get_all():
+		if int(def["theme"]) == theme and int(def["size"]) != WorldLocations.Size.CHAMPIONSHIP:
+			return str(def["id"])
+	for def in WorldLocations.get_all():
+		if int(def["theme"]) == theme:
+			return str(def["id"])
+	var all := WorldLocations.get_all()
+	return str(all[0]["id"]) if not all.is_empty() else ""
+
 ## Ensure a world exists for a game started outside the normal flow (legacy
 ## "new game" entry points, tests and harnesses). The location matching the
 ## requested theme is owned and made active.
 func ensure_legacy_world(theme: int) -> String:
 	if not world_ready or locations.is_empty():
 		new_world(default_options())
-	var preferred := ""
-	for def in WorldLocations.get_all():
-		if int(def["theme"]) == theme and WorldLocations.get_definition(str(def["id"]))["size"] != WorldLocations.Size.CHAMPIONSHIP:
-			preferred = str(def["id"])
-			break
+	var preferred := legacy_location_for_theme(theme)
 	if preferred.is_empty():
-		preferred = str(WorldLocations.get_all()[0]["id"])
+		return ""
 	locations[preferred]["owned"] = true
 	if first_purchased_location_id.is_empty():
 		first_purchased_location_id = preferred

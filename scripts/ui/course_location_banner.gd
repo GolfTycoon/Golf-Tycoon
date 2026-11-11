@@ -313,7 +313,8 @@ func refresh() -> void:
 	visible = true
 	var definition := WorldLocations.get_definition(location_id)
 	var location_name: String = str(definition.get("name", location_id))
-	var location_theme: int = int(definition.get("theme", CourseTheme.Type.PARKLAND))
+	var fallback_theme: int = GameManager.current_theme if has_node("/root/GameManager") else CourseTheme.Type.PARKLAND
+	var location_theme: int = int(definition.get("theme", fallback_theme))
 	_name_label.text = location_name
 	_picture.texture = CourseLocationPicture.texture_for_location(
 		location_id, location_theme, _picture_scale())
@@ -438,9 +439,10 @@ func _picture_scale() -> int:
 func _columns_width() -> float:
 	if _is_portrait():
 		# PortraitHUD pins Menu to the top-left; the identity strip starts one
-		# touch slot plus gap to its right and uses the remaining width.
+		# touch slot plus gap to its right; time controls occupy the right corner.
 		var menu_slot := float(UIConstants.TOUCH_TARGET_SIZE) + 8.0
-		return maxf(180.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0 - menu_slot)
+		var time_slots := 2.0 * float(UIConstants.TOUCH_TARGET_SIZE) + 8.0
+		return maxf(0.0, Screen.window_size.x - Screen.safe_insets.x - Screen.safe_insets.z - 16.0 - menu_slot - time_slots)
 	var width := WIDTH_COMPACT if _is_compact() else WIDTH_DESKTOP
 	if is_inside_tree():
 		var usable: float = get_viewport_rect().size.x \
@@ -486,9 +488,10 @@ func apply_screen() -> void:
 	# The picture's pixel scale and the date format follow the layout.
 	if not _current_location_id.is_empty():
 		var definition := WorldLocations.get_definition(_current_location_id)
+		var fallback_theme: int = GameManager.current_theme if has_node("/root/GameManager") else CourseTheme.Type.PARKLAND
 		_picture.texture = CourseLocationPicture.texture_for_location(
 			_current_location_id,
-			int(definition.get("theme", CourseTheme.Type.PARKLAND)),
+			int(definition.get("theme", fallback_theme)),
 			_picture_scale())
 	_update_date()
 

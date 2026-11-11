@@ -91,9 +91,14 @@ Main (Node2D)                      main.gd
 ├── PlayerGolferManager (Node)        the owner's own golfer and the ground they work
 ├── Holes (Node2D)                 hole visuals
 ├── IsometricCamera (Camera2D)
-└── UI (CanvasLayer)
-    └── HUD (Control)              status column, bottom bar, panels, toasts
+├── Notices (CanvasLayer 1)        toasts, autosave badge and round summary
+└── UI (CanvasLayer 2)
+    └── HUD (Control)              status column, bottom bar, panels and screens
 ```
+
+The two CanvasLayers set the UI's layering: `Notices` draws over the course but
+under `UI`, so every HUD panel and every screen covers a transient notice instead
+of the other way round.
 
 The main scene is set in `project.godot` as `res://scenes/main/main.tscn`.
 
@@ -143,6 +148,13 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 | 150-300 | Impact and celebration effects |
 
 The UI is a `CanvasLayer`, so it always draws over the world whatever band it uses.
+The screen stack is split across two of them: `Notices` (layer 1) carries the
+transient notices — event-feed toasts, the autosave badge and the round summary —
+and `UI` (layer 2) carries the HUD, its panels and every screen opened over it.
+A notice therefore hovers over the course and the HUD but never over a screen:
+opening the Save Course, Save/Load or pause screen covers it. The tooltip,
+player-round, benchmark-tour and generating-course layers sit above both (15 to
+100) as before.
 
 Standing sprites share a Y-sort chain through Main, TerrainGrid/TreeOverlay,
 Entities/Golfers/Staff, and EntityLayer/Buildings/Decorations. All standing bodies

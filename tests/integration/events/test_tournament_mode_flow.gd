@@ -295,19 +295,80 @@ func test_career_saved_course_and_golfer_roundtrip_into_tournament_mode() -> voi
 	main.player_round.open_setup()
 	await process_frames(2)
 
-	# Export Career Course & Career Golfer using the Golfers -> Play Course shelf buttons
-	main.terrain_toolbar.select_player_section(PlayerTab.PAGE_PLAY)
+	# Export the Career Course and the Career Golfer from the Pause Menu. Each
+	# card opens its own fullscreen screen, named for what it keeps; the pause
+	# menu steps aside while it is open and comes back when it closes.
+	main._show_pause_menu()
 	await process_frames(2)
-	var save_course_btn := (main.terrain_toolbar as Control).find_child("SaveTournamentCourseButton", true, false) as Button
-	var save_golfer_btn := (main.terrain_toolbar as Control).find_child("SaveTournamentGolferButton", true, false) as Button
-	assert_not_null(save_course_btn)
-	assert_not_null(save_golfer_btn)
+	var pause: PauseMenu = main.pause_menu
+	assert_not_null(pause, "The pause menu opens in the Career game")
+	if pause == null:
+		return
+	var save_course_btn := pause.find_child("SaveCourseButton", true, false) as Button
+	var save_golfer_btn := pause.find_child("SaveGolferButton", true, false) as Button
+	assert_not_null(save_course_btn, "The Pause Menu carries Save Course")
+	assert_not_null(save_golfer_btn, "The Pause Menu carries Save Golfer")
+	if save_course_btn == null or save_golfer_btn == null:
+		return
+	assert_eq(save_course_btn.text, "Save Course")
+	assert_eq(save_golfer_btn.text, "Save Golfer")
 
+	# Save Course: the card opens the screen, named after the open course.
 	await _press_btn(save_course_btn)
-	await _press_btn(save_golfer_btn)
-
+	await process_frames(2)
+	assert_null(main.pause_menu, "The pause menu steps aside while Save Course is open")
+	var course_screen: SaveCourseScreen = main.save_course_screen
+	assert_not_null(course_screen, "Save Course opens its own fullscreen screen")
+	if course_screen == null:
+		return
+	var course_name_input := course_screen.find_child("CourseNameInput", true, false) as LineEdit
+	assert_not_null(course_name_input, "The screen carries a name field")
+	if course_name_input != null:
+		assert_eq(course_name_input.text, "Royal Sydney Club",
+			"The name field is prefilled with the open course's name")
+	var save_course_cta := course_screen.find_child("SaveCourseButton", true, false) as Button
+	assert_not_null(save_course_cta, "The screen carries its gold Save Course action")
+	if save_course_cta != null:
+		await _press_btn(save_course_cta)
+	await process_frames(2)
 	assert_eq(TournamentLibrary.saved_course_count(), 1)
+	var course_back := course_screen.find_child("BackButton", true, false) as Button
+	assert_not_null(course_back, "The screen carries a Back button")
+	if course_back != null:
+		await _press_btn(course_back)
+	await process_frames(2)
+	assert_not_null(main.pause_menu, "The pause menu returns when Save Course closes")
+
+	# Save Golfer: same shape, named after the profile golfer.
+	var save_golfer_btn2 := main.pause_menu.find_child("SaveGolferButton", true, false) as Button
+	assert_not_null(save_golfer_btn2, "The returned pause menu still carries Save Golfer")
+	if save_golfer_btn2 == null:
+		return
+	await _press_btn(save_golfer_btn2)
+	await process_frames(2)
+	assert_null(main.pause_menu, "The pause menu steps aside while Save Golfer is open")
+	var golfer_screen: SaveGolferScreen = main.save_golfer_screen
+	assert_not_null(golfer_screen, "Save Golfer opens its own fullscreen screen")
+	if golfer_screen == null:
+		return
+	var golfer_name_input := golfer_screen.find_child("GolferNameInput", true, false) as LineEdit
+	assert_not_null(golfer_name_input, "The screen carries a name field")
+	if golfer_name_input != null:
+		assert_eq(golfer_name_input.text, "Bennelong Star",
+			"The name field is prefilled with the golfer's name")
+	var save_golfer_cta := golfer_screen.find_child("SaveGolferButton", true, false) as Button
+	assert_not_null(save_golfer_cta, "The screen carries its gold Save Golfer action")
+	if save_golfer_cta != null:
+		await _press_btn(save_golfer_cta)
+	await process_frames(2)
 	assert_eq(TournamentLibrary.saved_golfer_count(), 1)
+	var golfer_back := golfer_screen.find_child("BackButton", true, false) as Button
+	assert_not_null(golfer_back, "The screen carries a Back button")
+	if golfer_back != null:
+		await _press_btn(golfer_back)
+	await process_frames(2)
+	assert_not_null(main.pause_menu, "The pause menu returns when Save Golfer closes")
+	main._close_pause_menu()
 
 	# Open Start Tournament screen and configure a 4-round Modified Stableford event on Hard
 	main.golfer_manager.clear_all_golfers()
@@ -318,13 +379,52 @@ func test_career_saved_course_and_golfer_roundtrip_into_tournament_mode() -> voi
 
 	var screen: StartTournamentScreen = main.start_tournament_screen
 	assert_not_null(screen)
+
+	# The Course and Golfer sections open the chooser screens; each hands the
+	# pick back to the setup screen. The summary shows the pick afterwards.
+	await _press_btn(screen.find_child("ChooseCourseButton", true, false) as Button)
+	await process_frames(2)
+	var course_chooser: ChooseCourseScreen = main.choose_course_screen
+	assert_not_null(course_chooser, "Choose Course opens its fullscreen screen")
+	if course_chooser != null:
+		var saved_row := course_chooser.find_child("Course_saved_royal_sydney_club", true, false) as Button
+		assert_not_null(saved_row, "The chooser lists the saved Royal Sydney Club")
+		if saved_row != null:
+			saved_row.toggled.emit(true)  # the rows are toggles: selecting emits toggled
+			await process_frames(2)
+		var course_cta := course_chooser.find_child("ChooseCourseButton", true, false) as Button
+		assert_not_null(course_cta, "The dossier carries its gold Choose Course action")
+		if course_cta != null:
+			await _press_btn(course_cta)
+		await process_frames(2)
+	assert_null(main.choose_course_screen, "Choosing frees the course chooser")
+	assert_eq(str(screen.get_options().get("course_id", "")), "saved:royal_sydney_club",
+		"the pick lands on the setup screen")
+
+	await _press_btn(screen.find_child("ChooseGolferButton", true, false) as Button)
+	await process_frames(2)
+	var golfer_chooser: ChooseGolferScreen = main.choose_golfer_screen
+	assert_not_null(golfer_chooser, "Choose Golfer opens its fullscreen screen")
+	if golfer_chooser != null:
+		var saved_row := golfer_chooser.find_child("Golfer_saved_bennelong_star", true, false) as Button
+		assert_not_null(saved_row, "The chooser lists the saved Bennelong Star")
+		if saved_row != null:
+			saved_row.toggled.emit(true)  # the rows are toggles: selecting emits toggled
+			await process_frames(2)
+		var golfer_cta := golfer_chooser.find_child("ChooseGolferButton", true, false) as Button
+		assert_not_null(golfer_cta, "The dossier carries its gold Choose Golfer action")
+		if golfer_cta != null:
+			await _press_btn(golfer_cta)
+		await process_frames(2)
+	assert_null(main.choose_golfer_screen, "Choosing frees the golfer chooser")
+	assert_eq(str(screen.get_options().get("golfer_id", "")), "saved:bennelong_star",
+		"the pick lands on the setup screen")
+
 	screen.select_difficulty(TournamentLibrary.Difficulty.HARD)
 	screen.select_format_type(TournamentLibrary.FormatType.MODIFIED_STABLEFORD)
 	screen.select_rounds(4)
 	screen.select_field_size(12)
 	screen.select_cut_rule("top_50pct")
-	screen.select_course("saved:royal_sydney_club")
-	screen.select_golfer("saved:bennelong_star")
 
 	var start_btn := screen.find_child("StartTournamentButton", true, false) as Button
 	await _press_btn(start_btn)

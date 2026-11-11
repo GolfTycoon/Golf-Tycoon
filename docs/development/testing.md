@@ -72,6 +72,17 @@ automatically: it forces the sliced startup on for its own scene and checks that
 the scene really did build over several frames, that every step ran, and that
 the title screen is up at the end.
 
+Every script starts from the same game, not just the same code: `MainSceneTest`
+snapshots the global state, pins the global RNG, rolls one fixed world and
+starts each course on the pinned natural terrain (`COURSE_SEED`). A world roll
+decides how much land a location comes with, and a course is laid around the
+land it is given, so without the pin every run builds a different course — and
+the run whose course happened to be awkward trips an assert no other run trips.
+A test that starts a course through a path of its own (rather than
+`new_game()` or `quick_start()`) should carry the seed itself, the way those
+entry points do (`main._pending_terrain_seed = COURSE_SEED`), so the course it
+checks is the same course on every run.
+
 ### Manual previews and reports
 
 The scripts and scene under `tests/manual/` are for inspection, not automated

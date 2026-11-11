@@ -60,6 +60,7 @@ no saves, no reports, no custom skins.
 
 - **Quick save:** `Ctrl+S`.
 - **Save menu:** Pause menu, then Save, which uses named slots. The archive lists each save with its course, day, balance and hole count. Saving over an existing name asks first.
+- **Tournament exports:** Pause menu → Save Course or Save Golfer opens its own fullscreen screen. The Save Course screen snapshots the open Career course — name field prefilled with the open course's name, a live top-down map of the holes, and the shelf of courses already kept on this device, where one can be picked back up for an overwrite or deleted. The Save Golfer screen does the same for your golfer — skills, traits, appearance and the colours of the skin they wear — with their portrait, ability bars and identity beside the shelf. Saving over an existing name asks first; the outcome is reported in the screen's own status line and the screen stays open. Neither uses the Career save archive, and both step the pause menu aside while they are open (it comes back when they close).
 - **Autosave:** every 30 game days, and at the end of each year.
 
 ## Loading

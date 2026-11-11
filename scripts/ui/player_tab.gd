@@ -239,8 +239,8 @@ func add_persistent(node: Node) -> void:
 	node.set_meta(PERSISTENT_META, true)
 	pages[PAGE_PLAY].add_child(node)
 
-## Move persistent nodes (the management tournament panel) after the owner
-## round choices. They share the same horizontal shelf.
+## Move the persistent management tournament panel after the owner's round
+## choices. They share the same horizontal shelf, so the panel closes it.
 func restage_persistent() -> void:
 	var page := pages[PAGE_PLAY]
 	for child in page.get_children():

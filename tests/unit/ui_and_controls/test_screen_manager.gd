@@ -167,8 +167,8 @@ func test_available_panel_size_stays_clear_of_bottom_bar() -> void:
 	var desktop_bar := UIConstants.BOTTOM_BAR_HEIGHT
 	assert_eq(s.available_panel_size(), Vector2(1568, 1000 - 24 - desktop_bar - 8))
 	s.window_size = Vector2(390, 844)
-	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 108 - 8),
-		"Portrait popups clear the collapsed thumb rail and context button")
+	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 64 - 8),
+		"Portrait popups clear the collapsed thumb rail")
 	s.set_portrait_tools_open(true)
 	assert_eq(s.available_panel_size(), Vector2(358, 844 - 24 - 324 - 8),
 		"An open tray reserves its full height")
@@ -187,7 +187,7 @@ func test_every_landscape_layout_keeps_the_one_desktop_dock_height() -> void:
 			Vector2(390, 844), Vector2(360, 800)]:
 		s.window_size = size
 		if s.uses_portrait_hud():
-			assert_eq(s.bottom_bar_height(), 108.0, "%s wears the portrait thumb rail" % size)
+			assert_eq(s.bottom_bar_height(), 64.0, "%s wears the portrait thumb rail" % size)
 			continue
 		assert_eq(s.bottom_bar_height(), float(UIConstants.BOTTOM_BAR_HEIGHT),
 			"%s keeps the desktop dock height%s" % [size,
@@ -200,12 +200,14 @@ func test_every_landscape_layout_keeps_the_one_desktop_dock_height() -> void:
 		"but the dock keeps the one desktop height")
 
 
-func test_portrait_hud_is_phone_width_only() -> void:
+func test_portrait_hud_starts_at_the_compact_width_breakpoint() -> void:
 	var s := _make_screen()
-	for size in [Vector2(320, 568), Vector2(390, 844), Vector2(699, 1000)]:
+	for size in [Vector2(320, 568), Vector2(390, 844), Vector2(699, 1000),
+			Vector2(768, 1024), Vector2(899, 1200)]:
 		s.window_size = size
 		assert_true(s.uses_portrait_hud(), "%s uses the thumb layout" % size)
-	for size in [Vector2(700, 1000), Vector2(768, 1024), Vector2(844, 390), Vector2(1600, 1000)]:
+	for size in [Vector2(900, 1200), Vector2(1024, 1366),
+			Vector2(844, 390), Vector2(1600, 1000)]:
 		s.window_size = size
 		assert_false(s.uses_portrait_hud(), "%s keeps the wider composition" % size)
 
@@ -215,11 +217,9 @@ func test_portrait_state_emits_and_changes_only_the_affected_clearance() -> void
 	var emissions: Array = []
 	s.changed.connect(func(_size: Vector2, _scale: float): emissions.append(true))
 	s.set_portrait_tools_open(false)
-	s.set_portrait_map_open(false)
 	assert_eq(emissions.size(), 0, "Unchanged state is quiet")
 	s.set_portrait_tools_open(true)
-	s.set_portrait_map_open(true)
-	assert_eq(emissions.size(), 2)
+	assert_eq(emissions.size(), 1)
 	assert_eq(s.bottom_bar_height(), 324.0)
 	var course: Rect2 = s.portrait_course_rect()
 	assert_gte(course.position.y, s.portrait_header_height())

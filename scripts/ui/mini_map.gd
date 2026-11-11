@@ -77,10 +77,12 @@ func _on_minimap_enabled_changed(_enabled: bool) -> void:
 	_sync_visibility()
 
 func _sync_visibility() -> void:
-	if has_node("/root/Screen") and Screen.uses_portrait_hud() and not Screen.portrait_map_open:
+	# The portrait HUD keeps the middle of a phone for the course itself: it
+	# has no minimap, whatever the desktop preference says.
+	if has_node("/root/Screen") and Screen.uses_portrait_hud():
 		visible = false
 		return
-	visible = hud_visible and (GameManager.minimap_enabled or (has_node("/root/Screen") and Screen.uses_portrait_hud() and Screen.portrait_map_open))
+	visible = hud_visible and GameManager.minimap_enabled
 
 func _on_visibility_changed() -> void:
 	if not visible:

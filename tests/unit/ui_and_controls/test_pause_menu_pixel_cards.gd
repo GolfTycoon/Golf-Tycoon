@@ -9,19 +9,22 @@ extends GameTest
 ## up here.
 ##
 ## The options' names, the signals they raise and the way the menu fits a
-## short window are covered by test_pause_menu_touch.gd; what is checked here
-## is the dressing.
+## short window are covered by test_pause_menu_touch.gd and
+## test_pause_menu_career_exports.gd; what is checked here is the dressing.
 
 const SUBTITLE_PATH := "res://assets/fonts/PixelifySans-SemiBold.ttf"
 const BODY_PATH := "res://assets/fonts/PixelifySans-Regular.ttf"
 
 ## The accent each action's frame is trimmed in, matched to the weight the
 ## title screen gives the same family: gold to carry on, green to keep a
-## game, the quiet utility grey for Settings, the danger red to leave.
+## game, blue for the Tournament Mode exports, the quiet utility grey for
+## Settings, the danger red to leave.
 const ACCENTS := {
 	"ResumeButton": MenuStyle.ACCENT_PRIMARY,
 	"SaveGameButton": MenuStyle.ACCENT_SECONDARY,
 	"LoadGameButton": MenuStyle.ACCENT_SECONDARY,
+	"SaveCourseButton": PauseMenu.EXPORT_ACCENT,
+	"SaveGolferButton": PauseMenu.EXPORT_ACCENT,
 	"SettingsButton": MenuStyle.ACCENT_UTILITY,
 	"QuittoMenuButton": MenuStyle.ACCENT_QUIT,
 	"QuittoDesktopButton": UIConstants.COLOR_DANGER,
@@ -32,6 +35,8 @@ const ICONS := {
 	"ResumeButton": PixelIcon.Kind.PLAY,
 	"SaveGameButton": PixelIcon.Kind.FLOPPY,
 	"LoadGameButton": PixelIcon.Kind.BOOK,
+	"SaveCourseButton": PixelIcon.Kind.FLAG,
+	"SaveGolferButton": PixelIcon.Kind.SHIRT,
 	"SettingsButton": PixelIcon.Kind.GEAR,
 	"QuittoMenuButton": PixelIcon.Kind.MAP,
 	"QuittoDesktopButton": PixelIcon.Kind.DOOR,
@@ -139,8 +144,10 @@ func test_the_actions_tell_themselves_apart() -> void:
 		for j in range(i + 1, frames.size()):
 			if frames[i] == frames[j]:
 				shared_frames.append("%s+%s" % [names[i], names[j]])
-	assert_eq(shared_frames, ["SaveGameButton+LoadGameButton"],
-		"only the save pair shares a frame - Resume, Settings and each way out has its own")
+	assert_eq(shared_frames, [
+		"SaveGameButton+LoadGameButton",
+		"SaveCourseButton+SaveGolferButton",
+	], "the save pair and the export pair share a frame within their own families")
 
 
 func test_the_options_are_set_in_pixelify_sans() -> void:
@@ -241,6 +248,8 @@ func test_the_tournament_menu_swaps_the_save_pair_for_its_own_actions() -> void:
 	assert_eq(menu._title.text, "Tournament Paused", "the heading names the mode")
 	assert_null(_named(menu, "SaveGameButton"), "a tournament is not saved mid-round")
 	assert_null(_named(menu, "LoadGameButton"), "nor loaded")
+	assert_null(_named(menu, "SaveCourseButton"), "nor is its course exported")
+	assert_null(_named(menu, "SaveGolferButton"), "nor its golfer")
 	assert_not_null(_named(menu, "RestartTournamentButton"), "it is restarted instead")
 	assert_not_null(_named(menu, "TournamentSetupButton"), "or set up again")
 	# The tournament actions wear the same cards as the career ones.
@@ -275,6 +284,11 @@ func test_the_menu_carries_no_footnote_under_its_options() -> void:
 	assert_not_null(last, "the menu has a last option")
 	if last == null:
 		return
+	# Eight career cards do not fit the tiny headless window: scroll to the last
+	# option before measuring it against the card's bottom edge.
+	if menu._scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+		menu._scroll.scroll_vertical = int(menu._scroll.get_v_scroll_bar().max_value)
+		await process_frames(2)
 	var card_bottom: float = menu._panel.get_global_rect().end.y
 	for label in _text_controls(menu):
 		if label is Button:

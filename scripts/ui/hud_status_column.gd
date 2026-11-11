@@ -379,8 +379,8 @@ func apply_screen() -> void:
 	var portrait := has_node("/root/Screen") and Screen.uses_portrait_hud()
 	var arrangement_changed := portrait != _portrait_mode
 	_portrait_mode = portrait
-	# Move the live cards only when the arrangement actually changes; tray and
-	# map toggles also emit Screen.changed and must not churn focus/ownership.
+	# Move the live cards only when the arrangement actually changes; tray
+	# toggles also emit Screen.changed and must not churn focus/ownership.
 	var expected_parent: Container
 	if portrait:
 		expected_parent = _portrait_primary

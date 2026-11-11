@@ -18,7 +18,12 @@ func before_all() -> void:
 	await super()
 	await new_game("Walking paths")
 	grid = main.terrain_grid
-	origin = CourseClubhouse.find(main.entity_layer).grid_position
+	# A new course always puts a clubhouse down; say so before reading its tiles,
+	# so a course without one is a readable failure and not a nil dereference.
+	var clubhouse := CourseClubhouse.find(main.entity_layer)
+	assert_not_null(clubhouse, "A new course arrives with a clubhouse")
+	if clubhouse != null:
+		origin = clubhouse.grid_position
 	# Hold the clock so green fees and day rollovers cannot move the balance
 	# between a purchase and the check of what it cost.
 	GameManager.set_speed(GameManager.GameSpeed.PAUSED)

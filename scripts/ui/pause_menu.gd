@@ -2,8 +2,9 @@ extends Control
 class_name PauseMenu
 ## PauseMenu - Full-screen pause overlay with game options
 ##
-## Triggered by Escape key. Provides Resume, Save, Load, Settings and Quit to
-## Menu, plus Quit to Desktop on native builds. Dims the game behind it.
+## Triggered by Escape key. Career games provide Resume, Save Game, Load Game,
+## Save Course and Save Golfer (the Tournament Mode exports), Settings and Quit
+## to Menu, plus Quit to Desktop on native builds. Dims the game behind it.
 ##
 ## The World Map is not here: it lives on the Club tab, where the company's
 ## sites are managed.
@@ -12,11 +13,15 @@ class_name PauseMenu
 ## the screen the game was opened from instead of a system dialogue: a pixel
 ## card (PixelButtonStyle's nine-patch frame) holding one column of action
 ## cards, each with its own accent trim and a PixelIcon sprite - a play
-## triangle for Resume, a floppy and an archive for the save pair, a cog for
-## Settings, a map and a doorway for the two ways out. Resume is the gold call
-## to action, the save/load pair is green, Settings is the quiet utility and
-## the exits are the danger red, the same weighting the Main Menu gives them.
-## The heading is the game's flag mark beside the title, over a gold rule.
+## triangle for Resume, a floppy and an archive for the save pair, a flag and a
+## golfer shirt for the Tournament Mode exports, a cog for Settings, a map and
+## a doorway for the two ways out. Resume is the gold call to action, the
+## save/load pair is green, the export pair is blue, Settings is the quiet
+## utility and the exits are the danger red, the same weighting the Main Menu
+## gives them. The heading is the game's flag mark beside the title, over a
+## gold rule. The two export cards open the Save Course and Save Golfer
+## screens, where the keepsake is named, kept or replaced; the exports step
+## aside in standalone Tournament Mode.
 ##
 ## The simulation is frozen while this menu is open, but the player can still
 ## look around the course: pointer events that land on the dimmed backdrop
@@ -30,6 +35,8 @@ class_name PauseMenu
 signal resume_requested
 signal save_requested
 signal load_requested
+signal save_course_requested
+signal save_golfer_requested
 signal restart_tournament_requested
 signal tournament_setup_requested
 signal settings_requested
@@ -87,12 +94,15 @@ const CARD_PAD_TOUCH := 8
 const CARD_ICON_SCALE := 1.9
 const CARD_ICON_SCALE_TOUCH := 1.4
 ## Between the cards: the desktop gap, and the tighter one a short window
-## needs to keep all six options on screen without scrolling.
+## needs to keep the options as close to fitting as it can.
 const CARD_GAP := 8
 const CARD_GAP_SHORT := 5
+## The Tournament Mode exports are a third family: blue cards with a flag and a
+## golfer shirt, so they never read as another way to write a Career save slot.
+const EXPORT_ACCENT := UIConstants.COLOR_INFO
 
-## Heading type. The short-window title drops a step so the six options still
-## fit without scrolling.
+## Heading type. The short-window title drops a step so the options still fit
+## as closely as they can before the scroll area takes over.
 const KICKER_FONT := 11
 const TITLE_FONT_SIZE := 24
 const TITLE_FONT_SIZE_SHORT := 18
@@ -219,6 +229,15 @@ func _build_ui() -> void:
 			_on_save_pressed, MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.FLOPPY)
 		_add_menu_button(vbox, "Load Game", "Return to a saved course",
 			_on_load_pressed, MenuStyle.ACCENT_SECONDARY, PixelIcon.Kind.BOOK)
+		# Career -> Tournament Mode exports. Their short captions sit beside the
+		# save pair; the tooltips spell out what is exported and where it can be
+		# played, so the menu needs no extra heading for them.
+		_add_menu_button(vbox, "Save Course",
+			"Keep this course so you can pick it on the Start Tournament screen from the Main Menu.",
+			_on_save_course_pressed, EXPORT_ACCENT, PixelIcon.Kind.FLAG)
+		_add_menu_button(vbox, "Save Golfer",
+			"Keep your golfer's skills, traits and appearance so you can play as them in Tournament Mode.",
+			_on_save_golfer_pressed, EXPORT_ACCENT, PixelIcon.Kind.SHIRT)
 		_add_menu_button(vbox, "Settings", "Audio, display and gameplay options",
 			_on_settings_pressed, MenuStyle.ACCENT_UTILITY, PixelIcon.Kind.GEAR)
 		_add_menu_button(vbox, "Quit to Menu", "Leave the course for the title screen",
@@ -303,9 +322,10 @@ func _fit_to_view() -> void:
 		vertical_padding = style.get_margin(SIDE_TOP) + style.get_margin(SIDE_BOTTOM)
 		horizontal_padding = style.get_margin(SIDE_LEFT) + style.get_margin(SIDE_RIGHT)
 
-	# A short window (a phone held sideways) gets tighter spacing, so every
-	# option — Quit to Menu and Quit to Desktop included — is on screen without
-	# scrolling.
+	# A short window (a phone held sideways) gets tighter spacing and drops the
+	# heading's extras first: the options are what the player opened the menu
+	# for. Eight career cards may still be taller than the window, in which case
+	# the scroll area takes over and keeps every one of them reachable.
 	var short_window := available.y < 420.0
 	_vbox.add_theme_constant_override("separation",
 		CARD_GAP_SHORT if short_window else CARD_GAP)
@@ -482,6 +502,12 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
+
+func _on_save_course_pressed() -> void:
+	save_course_requested.emit()
+
+func _on_save_golfer_pressed() -> void:
+	save_golfer_requested.emit()
 
 func _on_settings_pressed() -> void:
 	settings_requested.emit()

@@ -20,6 +20,10 @@ func before_all() -> void:
 ## A tile near the clubhouse a decoration may stand on, or (-1, -1).
 func _placement_tile() -> Vector2i:
 	var clubhouse := CourseClubhouse.find(main.entity_layer)
+	# The caller reads (-1, -1) as "no tile"; answer it rather than dereferencing
+	# a clubhouse the course does not have.
+	if clubhouse == null:
+		return Vector2i(-1, -1)
 	for radius in range(3, 10):
 		for dx in range(-radius, radius + 1):
 			for dy in range(-radius, radius + 1):

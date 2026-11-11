@@ -1,6 +1,7 @@
 extends Control
 class_name SaveLoadPanel
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
+const WorldMapStateScript := preload("res://scripts/autoload/world_map_state.gd")
 ## Responsive save desk and course archive.
 ##
 ## The Save and Load flows share the same archive, sitting on the shared
@@ -76,6 +77,18 @@ func _exit_tree() -> void:
 static func layout_mode_for(view: Vector2) -> int:
 	return Kit.layout_mode_for(view)
 
+## Resolve the HUD location postcard texture for a save entry. Uses the
+## active WorldMap location stored in the save, falling back to the legacy
+## world location for the save's theme on pre-world-map saves.
+static func picture_texture_for_save(save_info: Dictionary, picture_scale: int = 2) -> ImageTexture:
+	var saved_theme := CourseTheme.from_string(str(save_info.get("theme", "")))
+	var location_id := str(save_info.get("location_id", "")).strip_edges()
+	if location_id.is_empty():
+		location_id = WorldMapStateScript.legacy_location_for_theme(saved_theme)
+	var definition := WorldLocations.get_definition(location_id)
+	var location_theme := int(definition.get("theme", saved_theme))
+	return CourseLocationPicture.texture_for_location(location_id, location_theme, picture_scale)
+
 ## Remove filesystem-sensitive characters while keeping ordinary spaces,
 ## punctuation and non-English course names. A blank result is rejected by the
 ## save action; path separators and traversal-only names can never reach disk.
@@ -147,10 +160,10 @@ func _build() -> void:
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", _page_gap(_layout_mode))
 	frame.add_child(page)
-	page.add_child(_build_header(_layout_mode))
-	page.add_child(_build_mode_switch(_layout_mode))
+	page.add_child(_build_header(_layout_mode, _built_size))
+	if allow_save and not _uses_header_mode_switch(_layout_mode, _built_size):
+		page.add_child(_build_mode_tabs(_layout_mode))
 	page.add_child(_build_workspace(_layout_mode, _built_size))
-	page.add_child(_build_footer(_layout_mode))
 
 func _outer_padding(mode: int, view: Vector2) -> int:
 	match mode:
@@ -170,8 +183,19 @@ func _page_gap(mode: int) -> int:
 		Kit.LayoutMode.PHONE_LANDSCAPE: return 5
 		_: return 8
 
-func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Load a course", _on_back_pressed, null, PixelIcon.Kind.FLOPPY)
+func _uses_header_mode_switch(mode: int, view: Vector2) -> bool:
+	return mode != Kit.LayoutMode.PHONE_PORTRAIT and view.x >= 480.0
+
+func _build_header(mode: int, view: Vector2) -> Control:
+	var trailing: Control = null
+	if allow_save and _uses_header_mode_switch(mode, view):
+		var group := HBoxContainer.new()
+		group.name = "HeaderActions"
+		group.add_theme_constant_override("separation", 8 if not Kit.is_phone(mode) else 5)
+		group.size_flags_horizontal = Control.SIZE_SHRINK_END
+		group.add_child(_build_mode_tabs(mode))
+		trailing = group
+	var header := Kit.make_screen_header(mode, "Load a course", _on_back_pressed, trailing, PixelIcon.Kind.FLOPPY)
 	_header_title = header.find_child("Title", true, false) as Label
 	_update_header_copy()
 	return header
@@ -184,53 +208,34 @@ func _update_header_copy() -> void:
 	else:
 		_header_title.text = "Load a course"
 
-func _build_mode_switch(mode: int) -> Control:
-	var bar := HBoxContainer.new()
-	bar.name = "ArchiveModeSwitch"
-	bar.add_theme_constant_override("separation", 6)
-	bar.custom_minimum_size.y = 40.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46.0
-	var surface_pad := 3 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 5
-	if not allow_save:
-		var load_only := PanelContainer.new()
-		load_only.name = "LoadOnlyLabel"
-		load_only.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		load_only.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-			MenuStyle.with_alpha(COLOR_GOLD, 0.30), MenuStyle.CARD_RADIUS, 12, 5, 1))
-		var label := Kit.make_label("LOAD A SAVED COURSE", 11 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 12, COLOR_GOLD)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		load_only.add_child(label)
-		bar.add_child(load_only)
-		return bar
-
-	var switch_surface := PanelContainer.new()
-	switch_surface.name = "ModeSegmentSurface"
-	switch_surface.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	switch_surface.add_theme_stylebox_override("panel", MenuStyle.panel(COLOR_RAISED,
-		MenuStyle.with_alpha(COLOR_BORDER, 0.45), MenuStyle.CARD_RADIUS + 2, surface_pad, surface_pad, 1))
-	bar.add_child(switch_surface)
-	var segments := HBoxContainer.new()
-	segments.add_theme_constant_override("separation", 5)
-	switch_surface.add_child(segments)
-	for entry in [[ScreenMode.SAVE, "Save progress", "Create or replace a checkpoint"],
-			[ScreenMode.LOAD, "Load course", "Choose a saved clubhouse"]]:
-		var target_mode: int = entry[0]
-		var button := Button.new()
-		button.name = "SaveMode" if target_mode == ScreenMode.SAVE else "LoadMode"
-		button.text = str(entry[1])
+func _build_mode_tabs(mode: int) -> HBoxContainer:
+	var compact := Kit.is_phone(mode)
+	var row := HBoxContainer.new()
+	row.name = "ModeTabs"
+	row.add_theme_constant_override("separation", 5)
+	if mode == Kit.LayoutMode.PHONE_PORTRAIT:
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var button_group := ButtonGroup.new()
+	for entry in [
+		[ScreenMode.SAVE, "Save progress", "Create or replace a checkpoint", "SaveMode"],
+		[ScreenMode.LOAD, "Load course", "Choose a saved clubhouse", "LoadMode"],
+	]:
+		var target_mode: int = int(entry[0])
+		var button := CourseMapStyle.choice(str(entry[1]), 12 if not compact else 11)
+		button.name = str(entry[3])
 		button.tooltip_text = str(entry[2])
-		button.toggle_mode = true
-		button.button_pressed = _mode == target_mode
-		button.custom_minimum_size = Vector2(150 if mode == Kit.LayoutMode.DESKTOP else 128, 36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 40)
-		button.add_theme_font_size_override("font_size", 12 if mode == Kit.LayoutMode.PHONE_PORTRAIT else 13)
-		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		MenuStyle.paint_choice(button, COLOR_MINT, 8)
-		button.add_theme_color_override("font_color", COLOR_MUTED)
-		button.add_theme_color_override("font_hover_color", COLOR_TEXT)
-		button.add_theme_color_override("font_pressed_color", COLOR_GOLD)
+		button.button_group = button_group
+		button.set_pressed_no_signal(_mode == target_mode)
+		button.add_theme_color_override("font_hover_pressed_color", CourseMapStyle.GOLD)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.y = 36.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 38.0
+		if mode == Kit.LayoutMode.DESKTOP:
+			button.custom_minimum_size.x = 136.0
+		elif mode != Kit.LayoutMode.PHONE_PORTRAIT:
+			button.custom_minimum_size.x = 108.0 if compact else 120.0
 		button.pressed.connect(_set_mode.bind(target_mode))
-		segments.add_child(button)
-	return bar
+		row.add_child(button)
+	return row
 
 func _build_workspace(mode: int, view: Vector2) -> Control:
 	var split := _uses_split_workspace(mode, view)
@@ -309,6 +314,7 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.visible = mode != Kit.LayoutMode.PHONE_LANDSCAPE
 	content.add_child(heading)
+	content.add_child(_build_course_map(mode, _live_course_map_data()))
 
 	var course_card := Kit.make_panel(COLOR_RAISED, MenuStyle.with_alpha(COLOR_MINT, 0.20))
 	course_card.name = "LiveCourseSummary"
@@ -316,11 +322,10 @@ func _populate_save_workspace(content: VBoxContainer, mode: int) -> void:
 	_set_margins(summary_margin, 9 if compact else 12)
 	course_card.add_child(summary_margin)
 	var course_row := HBoxContainer.new()
-	course_row.add_theme_constant_override("separation", 9)
+	course_row.add_theme_constant_override("separation", 9 if compact else 11)
 	summary_margin.add_child(course_row)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = (26 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 30) if compact else 38
-	course_row.add_child(mark)
+	var pic_scale := _picture_scale(mode)
+	course_row.add_child(_make_course_picture(_live_course_picture_texture(pic_scale), pic_scale))
 	var course_info := VBoxContainer.new()
 	course_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	course_info.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -382,15 +387,15 @@ func _populate_load_dossier(content: VBoxContainer, mode: int, view: Vector2) ->
 	var compact := Kit.is_phone(mode)
 	var selected := _find_save(_selected_save_name)
 	content.add_child(Kit.make_label("SELECTED CLUBHOUSE", 10 if compact else 11, COLOR_GOLD))
+	content.add_child(_build_course_map(mode, _saved_course_map_data(str(selected.get("name", "")))))
 	if selected.is_empty():
 		content.add_child(_build_empty_dossier(compact))
 		return
 
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 10)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = (36 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 44) if compact else 58
-	title_row.add_child(mark)
+	var pic_scale := _picture_scale(mode)
+	title_row.add_child(_make_course_picture(picture_texture_for_save(selected, pic_scale), pic_scale))
 	var title_box := VBoxContainer.new()
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -588,13 +593,14 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	var save_name := str(save_info.get("name", "Unknown save"))
 	var compact := Kit.is_phone(mode)
 	var selected := save_name == _selected_save_name
+	var pic_scale := _picture_scale(mode)
 	var row := Button.new()
 	row.name = "SaveRow_%s" % save_name.validate_node_name()
 	row.set_meta("save_name", save_name)
 	row.toggle_mode = true
 	row.button_pressed = selected
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.custom_minimum_size.y = 64 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (70 if compact else 82)
+	row.custom_minimum_size.y = 64 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (70 if compact else 86)
 	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	row.tooltip_text = "Select %s" % save_name
 	MenuStyle.paint_choice(row, COLOR_MINT, 10)
@@ -603,16 +609,18 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	row.add_theme_color_override("font_pressed_color", COLOR_TEXT)
 	row.add_theme_color_override("font_disabled_color", COLOR_QUIET)
 	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_margins(margin, 8 if compact else 12)
+	margin.add_theme_constant_override("margin_left", 8 if compact else 12)
+	margin.add_theme_constant_override("margin_right", 8 if compact else 12)
+	margin.add_theme_constant_override("margin_top", 8 if compact else 9)
+	margin.add_theme_constant_override("margin_bottom", 8 if compact else 9)
 	row.add_child(margin)
 	var content := HBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_theme_constant_override("separation", 9)
+	content.add_theme_constant_override("separation", 9 if compact else 11)
 	margin.add_child(content)
-	var mark := MenuFlagMark.new()
-	mark.mark_size = 27 if compact else 34
-	content.add_child(mark)
+	content.add_child(_make_course_picture(picture_texture_for_save(save_info, pic_scale), pic_scale))
 
 	var text_box := VBoxContainer.new()
 	text_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -643,51 +651,24 @@ func _build_save_row(save_info: Dictionary, mode: int) -> Button:
 	row.pressed.connect(_on_save_selected.bind(save_name))
 	return row
 
-func _build_footer(mode: int) -> Control:
-	var footer := HBoxContainer.new()
-	footer.name = "ArchiveFooter"
-	footer.custom_minimum_size.y = 40 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else 46
-	footer.add_theme_constant_override("separation", 8)
-	var note := Kit.make_label("LOCAL SAVE  ·  %d COURSE%s" % [_saves.size(), "" if _saves.size() == 1 else "S"], 10, COLOR_QUIET)
-	note.name = "ArchiveFooterNote"
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note.visible = mode == Kit.LayoutMode.DESKTOP or Kit.is_tablet(mode)
-	footer.add_child(note)
-	if allow_save:
-		var quit := Button.new()
-		quit.name = "QuitToMenuButton"
-		quit.text = "Quit to menu"
-		quit.custom_minimum_size = Vector2(130 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 40)
-		quit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		quit.add_theme_font_size_override("font_size", 11)
-		Kit.paint_danger_button(quit)
-		quit.pressed.connect(_on_quit_to_menu_pressed)
-		footer.add_child(quit)
-	var back := Button.new()
-	back.name = "FooterBackButton"
-	back.text = "Back to course" if allow_save else "Back"
-	back.custom_minimum_size = Vector2(142 if mode != Kit.LayoutMode.PHONE_PORTRAIT else 0, 42)
-	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL if mode == Kit.LayoutMode.PHONE_PORTRAIT else Control.SIZE_SHRINK_END
-	back.add_theme_font_size_override("font_size", 12)
-	MenuStyle.paint_primary(back, 9)
-	back.add_theme_color_override("font_color", MenuStyle.INK)
-	back.add_theme_color_override("font_hover_color", MenuStyle.INK)
-	back.add_theme_color_override("font_pressed_color", MenuStyle.INK)
-	back.pressed.connect(_on_back_pressed)
-	footer.add_child(back)
-	return footer
-
 func _set_mode(target_mode: int) -> void:
 	if target_mode == ScreenMode.SAVE and not allow_save:
 		return
 	if _mode == target_mode:
 		return
+	var keep_mode_focus := false
+	var focused := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
+	if focused != null and (focused.name == "SaveMode" or focused.name == "LoadMode"):
+		keep_mode_focus = true
 	_capture_build_state()
 	_mode = target_mode
-	_update_header_copy()
+	_ensure_selection()
 	_build()
+	if keep_mode_focus and has_node("/root/InputManager") and InputManager.is_navigation_device():
+		var active_name := "SaveMode" if _mode == ScreenMode.SAVE else "LoadMode"
+		var active_button := find_child(active_name, true, false) as Button
+		if active_button != null:
+			active_button.grab_focus.call_deferred()
 
 func _on_save_selected(save_name: String) -> void:
 	_selected_save_name = save_name
@@ -957,6 +938,95 @@ func _is_interactive_control(control: Control) -> bool:
 			return true
 		node = node.get_parent()
 	return false
+
+func _picture_scale(mode: int) -> int:
+	return CourseLocationBanner.PICTURE_SCALE_COMPACT if Kit.is_phone(mode) \
+		else CourseLocationBanner.PICTURE_SCALE_DESKTOP
+
+func _build_course_map(mode: int, source: Dictionary) -> PanelContainer:
+	var frame := Kit.make_panel(COLOR_INSET, MenuStyle.with_alpha(COLOR_MINT, 0.27))
+	frame.name = "CourseMapFrame"
+	frame.custom_minimum_size.y = 62.0 if mode == Kit.LayoutMode.PHONE_LANDSCAPE else (96.0 if Kit.is_phone(mode) else (112.0 if Kit.is_tablet(mode) else 148.0))
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var map := CourseMapThumbnail.new()
+	map.name = "CourseMapPreview"
+	map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if source.has("grid"):
+		map.show_live_course(source["grid"], source.get("holes", []))
+	else:
+		map.show_saved_course(source.get("save_data", {}))
+	frame.add_child(map)
+	return frame
+
+func _live_course_map_data() -> Dictionary:
+	var grid: TerrainGrid = GameManager.terrain_grid if has_node("/root/GameManager") else null
+	var holes: Array = []
+	if has_node("/root/GameManager") and GameManager.current_course != null:
+		for hole in GameManager.current_course.holes:
+			holes.append({
+				"tee_position": {"x": hole.tee_position.x, "y": hole.tee_position.y},
+				"green_position": {"x": hole.green_position.x, "y": hole.green_position.y},
+			})
+	return {"grid": grid, "holes": holes}
+
+func _saved_course_map_data(save_name: String) -> Dictionary:
+	if save_name.is_empty():
+		return {}
+	var path := SaveManager.SAVE_DIR + save_name + ".save"
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Dictionary:
+		return {"save_data": parsed}
+	return {}
+
+func _live_course_picture_texture(picture_scale: int) -> ImageTexture:
+	if has_node("/root/GameManager") and GameManager.is_tournament_mode:
+		return CourseLocationPicture.texture_for_location(
+			"tournament_mode", GameManager.current_theme, picture_scale)
+	var current_theme: int = GameManager.current_theme if has_node("/root/GameManager") \
+		else CourseTheme.Type.PARKLAND
+	var location_id := ""
+	if has_node("/root/WorldMap"):
+		location_id = WorldMap.active_location_id
+	if location_id.is_empty():
+		location_id = WorldMapStateScript.legacy_location_for_theme(current_theme)
+	var definition := WorldLocations.get_definition(location_id)
+	var location_theme := int(definition.get("theme", current_theme))
+	return CourseLocationPicture.texture_for_location(location_id, location_theme, picture_scale)
+
+func _make_course_picture(texture: Texture2D, picture_scale: int) -> PanelContainer:
+	var safe_scale := maxi(1, picture_scale)
+	var side := CourseLocationPicture.GRID_W * safe_scale
+	var frame := PanelContainer.new()
+	frame.name = "PictureFrame"
+	frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.set_border_width_all(1)
+	style.border_color = Color(UIConstants.COLOR_BORDER, 0.85)
+	style.set_corner_radius_all(CourseLocationBanner.FRAME_RADIUS)
+	style.content_margin_left = 2
+	style.content_margin_right = 2
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	frame.add_theme_stylebox_override("panel", style)
+
+	var picture := TextureRect.new()
+	picture.name = "Picture"
+	picture.texture = texture
+	picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.custom_minimum_size = Vector2(side, side)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(picture)
+	return frame
 
 func _set_margins(container: MarginContainer, margin: int) -> void:
 	for side in ["left", "right", "top", "bottom"]:

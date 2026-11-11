@@ -26,6 +26,19 @@ func _hud_confirm_dialog() -> ConfirmDialog:
 			return child
 	return null
 
+## Career's pause menu now has eight cards: on a phone held sideways the lower
+## options are reached through the panel's scroll area before they are tapped.
+func _scroll_to_button(menu: PauseMenu, button: Button) -> void:
+	var scroll := menu._scroll
+	if scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+		return
+	scroll.scroll_vertical = 0
+	await process_frames(2)
+	var bar := scroll.get_v_scroll_bar()
+	var offset := button.get_global_rect().position.y - scroll.get_global_rect().position.y
+	scroll.scroll_vertical = int(clampf(offset - 4.0, 0.0, bar.max_value))
+	await process_frames(2)
+
 func test_quit_to_menu_asks_then_returns_to_the_title_on_touch() -> void:
 	await resize_window(PHONE_LANDSCAPE)
 	main._show_pause_menu()
@@ -40,6 +53,7 @@ func test_quit_to_menu_asks_then_returns_to_the_title_on_touch() -> void:
 	assert_not_null(quit_button, "the pause menu offers Quit to Menu")
 	if quit_button == null:
 		return
+	await _scroll_to_button(menu, quit_button)
 	assert_true(Rect2(Vector2.ZERO, Vector2(PHONE_LANDSCAPE)).encloses(quit_button.get_global_rect()),
 		"Quit to Menu is on the screen, not below it")
 
@@ -86,6 +100,9 @@ func test_cancelling_the_quit_confirmation_restores_the_pause_menu_on_touch() ->
 	for child in menu.find_children("*", "Button", true, false):
 		if (child as Button).text == "Quit to Menu":
 			quit_button = child as Button
+	if quit_button == null:
+		return
+	await _scroll_to_button(menu, quit_button)
 	await touch_tap(quit_button.get_global_rect().get_center())
 	await process_frames(3)
 	var dialog := _hud_confirm_dialog()
