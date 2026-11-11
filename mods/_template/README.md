@@ -11,6 +11,9 @@ beginning with `_` are skipped) - copy it, rename the copy, and fill it in.
 2. Edit `mod.json`: pick a unique reverse-style `id`
    (`yourname.my_mod` - it namespaces everything you add and must never
    change once players have saves), a name, a version, a description.
+   The `icon` field points at `icon.png`, the picture the Mods screen
+   shows for the mod - swap in your own image (PNG, JPG, WebP or BMP) or
+   point it at another file in the folder.
 3. Decide what kind of mod it is (docs/modding.md walks through them):
    data only, scripted gameplay, a feature provider, UI... The bundled
    examples beside this template each do one kind end to end.

@@ -58,6 +58,11 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 
 const ROW_HEIGHT := 68.0
 const ROW_GAP := 8
+## The picture at the front of a list row: the mod's own icon, or the
+## default mark when the mod ships none.
+const ROW_ICON_SIZE := 44.0
+## The same picture at the head of the field-notes pane.
+const DETAIL_ICON_SIZE := 64.0
 ## Preferred panel widths; clamped down on narrow windows so nothing is
 ## clipped off the sides.
 const MIN_LIBRARY_WIDTH := 340.0
@@ -77,6 +82,7 @@ const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 var _rows_box: VBoxContainer = null
 var _subtitle: Label = null
 var _details: RichTextLabel = null
+var _detail_icon: TextureRect = null
 var _status: Label = null
 var _apply_button: Button = null
 var _uninstall_button: Button = null
@@ -228,6 +234,7 @@ func _build() -> void:
 	_rows_box = null
 	_subtitle = null
 	_details = null
+	_detail_icon = null
 	_status = null
 	_apply_button = null
 	_uninstall_button = null
@@ -506,6 +513,13 @@ func _build_inspector_panel(page_scrolled: bool) -> PanelContainer:
 	head.uppercase = true
 	stack.add_child(head)
 
+	# The selected mod's own icon, at the head of its field notes - the
+	# default mark when it has none.
+	_detail_icon = _mod_icon_texture_rect()
+	_detail_icon.name = "DetailIcon"
+	_detail_icon.custom_minimum_size = Vector2(DETAIL_ICON_SIZE, DETAIL_ICON_SIZE)
+	stack.add_child(_detail_icon)
+
 	var details_scroll := ScrollContainer.new()
 	details_scroll.name = "DetailsScroll"
 	details_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -689,6 +703,10 @@ func _make_row(mod_id: String) -> Control:
 	row.name = "ModRow_" + mod_id.replace(".", "_").replace("-", "_")
 	row.add_theme_constant_override("separation", 6)
 
+	var icon := _mod_icon_texture_rect()
+	icon.name = "ModIcon"
+	row.add_child(icon)
+
 	var check := CheckBox.new()
 	check.name = "EnabledCheck"
 	check.custom_minimum_size = Vector2(44.0, 44.0)
@@ -730,6 +748,39 @@ func _paint_row(row: Node, info: Dictionary) -> void:
 	var name_button := row.get_node("ModName") as Button
 	name_button.text = row_title(info) + "\n" + row_badge(info).to_upper()
 	name_button.tooltip_text = str(info.get("description", ""))
+	# The picture at the front of the row: the mod's own icon, or the
+	# default mark in its place.
+	var icon := row.get_node("ModIcon") as TextureRect
+	icon.texture = icon_texture_for(info)
+	icon.tooltip_text = str(info.get("description", ""))
+
+
+## A TextureRect sized for a list row or the details pane, ready to take a
+## mod's icon: it keeps any picture centred and undistorted.
+func _mod_icon_texture_rect() -> TextureRect:
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(ROW_ICON_SIZE, ROW_ICON_SIZE)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return icon
+
+
+## The icon texture for `info`: the mod's own picture through the manager,
+## or the shared default mark when it has none (or its icon would not read).
+static func icon_texture_for(info: Dictionary) -> Texture2D:
+	var texture: Texture2D = ModManager.get_mod_icon_texture(str(info.get("id", "")))
+	return texture if texture != null else fallback_icon_texture()
+
+
+## The mark a mod without a readable icon of its own wears: the same puzzle
+## piece as the screen's header, muted so it reads as "placeholder".
+static var _fallback_icon: Texture2D = null
+static func fallback_icon_texture() -> Texture2D:
+	if _fallback_icon == null:
+		_fallback_icon = PixelIcon.texture(PixelIcon.Kind.PUZZLE, 64,
+			MenuStyle.ACCENT_UTILITY, true)
+	return _fallback_icon
 
 func _on_row_toggled(on: bool, mod_id: String) -> void:
 	ModManager.set_mod_enabled(mod_id, on)
@@ -805,6 +856,11 @@ func _show_details() -> void:
 	_details.text = details_text(info,
 		ContentRegistry.get_conflicts(), ContentRegistry.get_warnings())
 	_uninstall_button.disabled = info.is_empty() or not bool(info.get("can_uninstall", false))
+	if _detail_icon != null:
+		# No selection, no picture; the pane still opens on its heading.
+		_detail_icon.visible = not info.is_empty()
+		if not info.is_empty():
+			_detail_icon.texture = icon_texture_for(info)
 	_refresh_row_highlights()
 
 func _on_create_mod_pressed() -> void:

@@ -102,6 +102,10 @@ func _validate(path: String) -> bool:
 			if not FileAccess.file_exists(path.path_join(relative)) 					and not DirAccess.dir_exists_absolute(path.path_join(relative)):
 				push_error("  error: content path not found: %s (%s)" % [relative, str(kind)])
 				ok = false
+	# A missing icon is a warning, not an error: the mod still loads and is
+	# listed, it just wears the default mark in the Mods screen.
+	if not manifest.icon.is_empty() and not FileAccess.file_exists(path.path_join(manifest.icon)):
+		print("  warning: icon file not found: %s" % manifest.icon)
 	if ok:
 		print("  valid")
 	return ok
@@ -150,6 +154,8 @@ func _list(zip_path: String) -> bool:
 	print("mod: %s" % manifest.display_line())
 	for warning in manifest.warnings:
 		print("  warning: " + warning)
+	if not manifest.icon.is_empty() and not bool(read.get("icon_present", true)):
+		print("  warning: icon '%s' is declared but not in the zip" % manifest.icon)
 	var reader := ZIPReader.new()
 	if reader.open(zip_path) == OK:
 		for entry in reader.get_files():

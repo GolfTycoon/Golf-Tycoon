@@ -77,6 +77,55 @@ func test_a_single_wrapper_folder_is_accepted() -> void:
 		"into installed/<mod id>/")
 
 
+func test_a_zip_mods_icon_is_found_or_flagged_without_installing() -> void:
+	var icon := Image.create_empty(8, 8, false, Image.FORMAT_RGBA8)
+	icon.fill(Color(0.2, 0.6, 0.4, 1.0))
+	var icon_path := ROOT.path_join("icon.png")
+	assert_eq(icon.save_png(icon_path), OK)
+	var icon_bytes: PackedByteArray = FileAccess.get_file_as_bytes(icon_path)
+
+	# A manifest that declares an icon the zip does not hold.
+	var declaring_manifest := """{
+	"format_version": 1, "id": "tester.zipped", "name": "Zipped",
+	"version": "2.0.0", "api_version": 1, "description": "Packed by a test.",
+	"icon": "icon.png"
+}"""
+	var packer := ZIPPacker.new()
+	var bare_zip := ROOT.path_join("no_icon.zip")
+	assert_eq(packer.open(bare_zip), OK)
+	packer.start_file("mod.json")
+	packer.write_file(declaring_manifest.to_utf8_buffer())
+	packer.close_file()
+	packer.close()
+	var bare := ModPackage.read_manifest_from_zip(bare_zip)
+	assert_true(bool(bare.get("ok", false)))
+	assert_false(bool(bare.get("icon_present", true)),
+		"a declared icon that is not in the zip is reported")
+	assert_true(ModPackage.read_file_from_zip(bare_zip, "icon.png").is_empty(),
+		"and asking for it by hand gives nothing")
+
+	# The same zip with the icon in it, under a wrapper folder.
+	packer = ZIPPacker.new()
+	var with_zip := ROOT.path_join("with_icon.zip")
+	assert_eq(packer.open(with_zip), OK)
+	packer.start_file("mod_folder/mod.json")
+	packer.write_file(declaring_manifest.to_utf8_buffer())
+	packer.close_file()
+	packer.start_file("mod_folder/icon.png")
+	packer.write_file(icon_bytes)
+	packer.close_file()
+	packer.close()
+	var with_read := ModPackage.read_manifest_from_zip(with_zip)
+	assert_true(bool(with_read.get("icon_present", false)),
+		"the icon is found through the wrapper folder")
+	assert_eq(ModPackage.read_file_from_zip(with_zip, "icon.png"), icon_bytes,
+		"and reads back exactly what went in")
+	assert_true(ModPackage.read_file_from_zip(with_zip, "nope.png").is_empty(),
+		"asking for a file the zip does not hold gives nothing")
+	# An unsafe relative path is refused without opening anything.
+	assert_true(ModPackage.read_file_from_zip(with_zip, "../icon.png").is_empty())
+
+
 func test_a_zip_with_no_manifest_is_not_a_mod() -> void:
 	var packer := ZIPPacker.new()
 	var zip_path := ROOT.path_join("empty.zip")

@@ -225,8 +225,8 @@ func _update_state() -> void:
 		_feedback.add_theme_color_override("font_color", UIConstants.COLOR_DANGER_MUTED)
 		return
 	var mod_id: String = str(fields.get("id", "")).strip_edges()
-	var made: String = "mod.json, mod_main.gd and README.md" \
-		if ModScaffold.has_script(fields) else "mod.json and README.md"
+	var made: String = "mod.json, mod_main.gd, README.md and icon.png" \
+		if ModScaffold.has_script(fields) else "mod.json, README.md and icon.png"
 	_feedback.text = "Ready: mods/%s/ - %s." % [mod_id, made]
 	_feedback.add_theme_color_override("font_color", COLOR_MINT)
 

@@ -175,10 +175,15 @@ func _make_library() -> Node:
 	_write(ROOT.path_join("lib/tester.databoi/mod.json"), """{
 	"format_version": 1, "id": "tester.databoi", "name": "Databoi",
 	"version": "1.0.0", "api_version": 1, "description": "test",
+	"icon": "icon.png",
 	"content": {"buildings": "buildings.json"}
 }""")
 	_write(ROOT.path_join("lib/tester.databoi/buildings.json"),
 		'{"tower": {"name": "Tower"}}')
+	# A small red picture the Mods screen can show for the data mod.
+	var icon := Image.create_empty(8, 8, false, Image.FORMAT_RGBA8)
+	icon.fill(Color(0.8, 0.2, 0.2, 1.0))
+	assert_eq(icon.save_png(ROOT.path_join("lib/tester.databoi/icon.png")), OK)
 
 	var manager: Node = ManagerScript.new()
 	manager.bundled_root = ROOT.path_join("no_bundled")
@@ -207,6 +212,58 @@ func test_discovery_lists_both_kinds_and_starts_them_off() -> void:
 	var scripty: Dictionary = manager.get_mod_info("tester.scripty")
 	assert_true(bool(scripty.get("has_script", false)), "the script permission is player-visible")
 	assert_false(bool(manager.get_mod_info("tester.databoi").get("has_script", true)))
+
+
+# ---------------------------------------------------------------------------
+# Icons: the picture the Mods screen shows for each mod
+# ---------------------------------------------------------------------------
+
+func test_a_mods_icon_is_read_and_prepared_for_the_screen() -> void:
+	var manager := _make_library()
+	manager.discover()
+	var info: Dictionary = manager.get_mod_info("tester.databoi")
+	assert_eq(str(info.get("icon", "")), "icon.png", "the manifest's icon rides along")
+	var texture: Texture2D = manager.get_mod_icon_texture("tester.databoi")
+	assert_not_null(texture, "the declared icon is found and decoded")
+	var image := (texture as ImageTexture).get_image()
+	assert_eq(image.get_width(), image.get_height(), "it is prepared square for a row")
+	assert_lte(image.get_width(), ModManagerClass.ICON_MAX_SIDE, "and capped to a display size")
+	# A mod that declares no icon gets no texture: the screen wears its own
+	# default mark in the gap.
+	assert_null(manager.get_mod_icon_texture("tester.scripty"))
+	# Unknown ids get nothing at all.
+	assert_null(manager.get_mod_icon_texture("tester.ghost"))
+
+
+func test_a_declared_icon_that_is_missing_falls_back_and_says_so() -> void:
+	var missing: String = ROOT.path_join("lib/tester.nope")
+	_write(missing.path_join("mod.json"), """{
+	"format_version": 1, "id": "tester.nope", "name": "Nope",
+	"version": "1.0.0", "api_version": 1, "description": "test",
+	"icon": "icon.png"
+}""")
+	var manager := _make_library()
+	manager.discover()
+	assert_null(manager.get_mod_icon_texture("tester.nope"),
+		"the picture is not there, so the screen falls back")
+	var warnings: Array = manager.get_mod_info("tester.nope").get("warnings", [])
+	assert_true(warnings.any(func(w): return w.contains("default mark")),
+		"and the field notes tell the player why")
+
+
+func test_icons_are_centred_on_a_square_and_capped() -> void:
+	var small := Image.create_empty(10, 4, false, Image.FORMAT_RGBA8)
+	small.fill(Color(1, 0, 0, 1))
+	var squared := ModManagerClass.square_icon_texture(small)
+	assert_eq(squared.get_width(), 10, "the smaller side sets the square's side")
+	assert_eq(squared.get_height(), 10)
+	assert_eq(squared.get_image().get_pixel(0, 0).a, 0.0, "the padding stays transparent")
+	assert_eq(squared.get_image().get_pixel(5, 5).r, 1.0, "the picture lands in the middle")
+	var wide := Image.create_empty(300, 100, false, Image.FORMAT_RGBA8)
+	wide.fill(Color(0, 1, 0, 1))
+	var capped := ModManagerClass.square_icon_texture(wide)
+	assert_eq(capped.get_width(), ModManagerClass.ICON_MAX_SIDE, "oversized pictures shrink")
+	assert_eq(capped.get_height(), ModManagerClass.ICON_MAX_SIDE)
 
 
 func test_enabling_loading_saving_and_restoring_a_script_mod() -> void:

@@ -2,7 +2,9 @@
 
 Everything in this folder ships with the game and is loaded by the same
 mod loader players use - there is no special treatment for first-party
-content beyond being enabled by default where it says so.
+content beyond being enabled by default where it says so. Every folder
+carries an `icon.png` (declared in its `mod.json`) that the Mods screen
+shows next to the mod.
 
 | Folder | What it is |
 | --- | --- |

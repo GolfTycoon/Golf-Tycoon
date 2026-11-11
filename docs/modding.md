@@ -33,7 +33,9 @@ pressing it again moves the same mod another row. When two mods change
 the same thing (a building's price, a terrain's upkeep, which system
 drives the weather), **the mod lower in the list wins**. The details pane
 names the losers whenever a conflict was overwritten, so nothing is
-silently ambiguous.
+silently ambiguous. Each row opens with the mod's own icon image (a large
+copy heads its field notes too), so a shelf of mods tells at a glance
+which is which; a mod that ships no icon wears the default mark.
 
 Ticking a mod on or off never moves its row: a mod you switch on loads
 where it already stands, after the enabled mods above it. The list starts
@@ -116,13 +118,20 @@ A mod is a folder with a `mod.json` at its root. There are two ways in:
 
 - In the game, **Mods -> Create New Mod** scaffolds a folder in your
   library (`user://mods/<id>/`): a valid `mod.json`, a starter
-  `mod_main.gd` unless you untick the box, and a README with the next
-  steps. The new mod appears in the list switched off, like an installed
-  zip; tick it and **Apply & Reload** when you are ready.
+  `mod_main.gd` unless you untick the box, a placeholder `icon.png`, and a
+  README with the next steps. The new mod appears in the list switched
+  off, like an installed zip; tick it and **Apply & Reload** when you are
+  ready.
 - From a source checkout, copy `mods/_template/` (or unzip any example)
   and edit three things: the `id` (something like `yourname.my_mod` - it
   namespaces everything you add, and must never change once players have
   saves), the `name`, and the `description`.
+
+Every mod carries an `icon` - the picture the Mods screen shows in its
+list row and at the head of its field notes (the bundled mods each ship
+one, a square PNG next to `mod.json`). Point the manifest's `icon` field
+at your own image (PNG, JPG, WebP or BMP); a mod without one, or with a
+picture that will not read, gets the shared default mark instead.
 
 Then pick a kind - each row is a working bundled example you can open and
 copy, `mods/` directory included with the game:

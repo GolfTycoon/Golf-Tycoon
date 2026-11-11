@@ -321,6 +321,84 @@ func test_the_screen_renders_the_live_library() -> void:
 		"the header reports the live counts, not a blank")
 
 
+func test_every_row_opens_with_its_mods_own_icon() -> void:
+	var screen := await _screen()
+	var rows := screen.find_child("ModRows", true, false)
+	var fingerprints: Dictionary = {}
+	for row in rows.get_children():
+		var icon := row.get_node_or_null("ModIcon") as TextureRect
+		assert_not_null(icon, "every row carries an icon")
+		assert_not_null(icon.texture, "and it is painted")
+		assert_true(icon.texture is ImageTexture, "the icon is a real picture")
+		# The bundled mods each ship their own picture, so the rows show
+		# distinct ones; count them (the pixels hash by content).
+		if icon.texture is ImageTexture:
+			var fingerprint := (icon.texture as ImageTexture).get_image().get_data()
+			fingerprints[fingerprint] = true
+	assert_gte(fingerprints.size(), 10, "a shelf of bundled mods shows many pictures, not one repeated")
+	screen.queue_free()
+	await process_frames(1)
+
+
+func test_the_field_notes_head_with_the_selected_mods_icon() -> void:
+	var screen := await _screen()
+	var detail_icon := screen.find_child("DetailIcon", true, false) as TextureRect
+	assert_not_null(detail_icon, "the field notes carry an icon")
+	var first: Dictionary = ModManager.get_all_mod_infos()[0]
+	var first_id := str(first.get("id", ""))
+	assert_eq(detail_icon.texture, ModManager.get_mod_icon_texture(first_id),
+		"it is the first mod's own icon")
+	# Select another mod: the picture follows the selection.
+	var rows := screen.find_child("ModRows", true, false)
+	var target: Button = null
+	for row in rows.get_children():
+		if str(row.get_meta("mod_id", "")) == screen._selected_id:
+			continue
+		var btn := row.get_node_or_null("ModName") as Button
+		if btn != null:
+			target = btn
+			break
+	assert_not_null(target, "found another mod to select")
+	target.emit_signal("pressed")
+	await process_frames(1)
+	var other_id: String = screen._selected_id
+	assert_ne(other_id, first_id)
+	assert_eq(detail_icon.texture, ModManager.get_mod_icon_texture(other_id),
+		"the new mod's icon is on show")
+	screen.queue_free()
+	await process_frames(1)
+
+
+func test_a_mod_without_an_icon_wears_the_default_mark() -> void:
+	var mod_id := "tester.iconless"
+	var directory: String = ModManager.user_root.path_join(mod_id)
+	DirAccess.make_dir_recursive_absolute(directory)
+	var file := FileAccess.open(directory.path_join("mod.json"), FileAccess.WRITE)
+	file.store_string("""{
+	"format_version": 1, "id": "tester.iconless", "name": "Iconless",
+	"version": "1.0.0", "api_version": 1, "description": "test"
+}""")
+	file.close()
+	ModManager.discover()
+	var screen := await _screen()
+	var row := _row(screen, mod_id)
+	assert_not_null(row, "the icon-less mod is listed")
+	var row_icon := row.get_node("ModIcon") as TextureRect
+	assert_eq(row_icon.texture, ModsScreen.fallback_icon_texture(),
+		"its row wears the shared default mark")
+	var name_button := row.get_node("ModName") as Button
+	name_button.emit_signal("pressed")
+	await process_frames(1)
+	var detail_icon := screen.find_child("DetailIcon", true, false) as TextureRect
+	assert_eq(detail_icon.texture, ModsScreen.fallback_icon_texture(),
+		"and its field notes do")
+	screen.queue_free()
+	await process_frames(1)
+	# Take the test mod away again and rescan, so no later suite sees it.
+	ModPackage.remove_directory_recursive(directory)
+	ModManager.discover()
+
+
 func test_workshop_controls_are_not_exposed() -> void:
 	var screen := await _screen()
 	for node in screen.find_children("*", "Button", true, false):

@@ -44,6 +44,9 @@ func test_every_bundled_manifest_validates_and_references_real_files() -> void:
 		if manifest.has_script():
 			assert_true(FileAccess.file_exists(root.path_join(manifest.entry_point)),
 				"%s entry point exists" % folder)
+		assert_false(manifest.icon.is_empty(), "%s declares an icon" % folder)
+		assert_true(FileAccess.file_exists(root.path_join(manifest.icon)),
+			"%s icon exists (%s)" % [folder, manifest.icon])
 		for kind in manifest.content:
 			var declared: Variant = manifest.content[kind]
 			var paths: Array = []
@@ -79,6 +82,24 @@ func test_bundled_ids_are_unique_and_the_template_stays_inert() -> void:
 	for info in ModManager.get_all_mod_infos():
 		infos[str(info.get("id", ""))] = info
 	assert_false(infos.has("yourname.my_mod"), "the _template folder is never discovered")
+
+
+func test_every_bundled_mod_ships_a_distinct_icon_the_manager_resolves() -> void:
+	var seen: Dictionary = {}
+	for folder in _bundled_folders():
+		var manifest := _manifest_of(folder)
+		var texture: Texture2D = ModManager.get_mod_icon_texture(manifest.id)
+		assert_not_null(texture, "%s resolves its icon in the live manager" % folder)
+		var image := (texture as ImageTexture).get_image()
+		assert_eq(image.get_width(), image.get_height(), "%s icon is square" % folder)
+		assert_lte(image.get_width(), ModManager.ICON_MAX_SIDE,
+			"%s icon is capped to a display size" % folder)
+		# The picture's own pixels: two mods must not wear the same one, or
+		# the shelf of icons stops saying which is which. (Packed arrays
+		# hash by content, so the bytes are their own fingerprint.)
+		var fingerprint := image.get_data()
+		assert_false(seen.has(fingerprint), "%s reuses another mod's icon" % folder)
+		seen[fingerprint] = manifest.id
 
 
 func test_the_seasons_mod_events_are_registered_in_this_session() -> void:

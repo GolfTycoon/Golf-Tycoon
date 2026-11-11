@@ -50,6 +50,9 @@ const CONFIG_FILE: String = "load_order.json"
 ## first (see _update_listed_order).
 const LIBRARY_ORDER_FILE: String = "library_order.json"
 const CRASH_MARKER: String = ".loading_mods"
+## Longest side a mod icon is prepared to: rows and the details pane are a
+## few dozen pixels, so bigger pictures are shrunk before display.
+const ICON_MAX_SIDE: int = 128
 
 var bundled_root: String = "res://mods"
 var user_root: String = "user://mods"
@@ -76,6 +79,10 @@ var _season_provider_owner: String = ""
 var _provider_notes: Array[String] = []
 var _start_features: Array = []  # feature option dicts registered by mods: {id, title, caption, tooltip, glyph, mod_id}
 var _texture_cache: Dictionary = {}
+## Prepared mod icons (see get_mod_icon_texture), by mod id. Dropped on every
+## discover(): a rescan is exactly when the pictures under the cache can
+## change.
+var _icon_cache: Dictionary = {}
 var _mod_configs: Dictionary = {}  # id -> Dictionary (lazy)
 var _main_scene: Node = null
 
@@ -151,6 +158,8 @@ func discover() -> void:
 	var previous_records := _records.duplicate()
 	_records.clear()
 	_discovery_warnings.clear()
+	# Rescanned means the files under the cached pictures can have changed.
+	_icon_cache.clear()
 	_discover_folder_mods(bundled_root, SOURCE_BUNDLED, 0)
 	if use_steam and _steam != null:
 		for item in _steam.get_subscribed_mod_roots():
@@ -200,7 +209,10 @@ func _discover_one_folder(folder: String, source: String, workshop_id: int, inst
 	if manifest.id.is_empty():
 		_discovery_warnings.append("%s: mod.json has no usable id." % folder)
 		return
-	_register_discovered(manifest, source, folder, "", workshop_id, installed)
+	var icon_found := true
+	if not manifest.icon.is_empty():
+		icon_found = FileAccess.file_exists(folder.path_join(manifest.icon))
+	_register_discovered(manifest, source, folder, "", workshop_id, installed, icon_found)
 
 
 func _discover_zip_mods(root: String) -> void:
@@ -217,13 +229,14 @@ func _discover_zip_mods(root: String) -> void:
 			if manifest == null or manifest.id.is_empty():
 				_discovery_warnings.append("%s: %s" % [zip_path, "; ".join(read.get("errors", ["not a mod zip"]))])
 			else:
-				_register_discovered(manifest, SOURCE_ZIP, "", zip_path, 0, false)
+				_register_discovered(manifest, SOURCE_ZIP, "", zip_path, 0, false,
+					bool(read.get("icon_present", true)))
 		entry = dir.get_next()
 	dir.list_dir_end()
 
 
 func _register_discovered(manifest: ModManifest, source: String, root: String,
-		zip_path: String, workshop_id: int, installed: bool) -> void:
+		zip_path: String, workshop_id: int, installed: bool, icon_found: bool = true) -> void:
 	var existing: Dictionary = _records.get(manifest.id, {})
 	if not existing.is_empty():
 		var mine: int = int(_SOURCE_PRECEDENCE.get(source, 0))
@@ -233,12 +246,17 @@ func _register_discovered(manifest: ModManifest, source: String, root: String,
 		if mine == theirs and ModManifest.compare_versions(
 				manifest.version, (existing["manifest"] as ModManifest).version) < 0:
 			return
+	var warnings: Array[String] = manifest.warnings.duplicate()
+	# A declared icon that is not in the copy this one resolves to: the mod
+	# still loads and lists, but it wears the default mark, so say so.
+	if not manifest.icon.is_empty() and not icon_found:
+		warnings.append("Icon '%s' is not in this mod, so it shows the default mark." % manifest.icon)
 	_records[manifest.id] = {
 		"id": manifest.id, "manifest": manifest, "source": source,
 		"root": root, "zip_path": zip_path, "workshop_id": workshop_id,
 		"installed": installed, "enabled": false, "loaded": false,
 		"auto_enabled": false, "state": "discovered",
-		"errors": manifest.errors.duplicate(), "warnings": manifest.warnings.duplicate(),
+		"errors": manifest.errors.duplicate(), "warnings": warnings,
 	}
 
 
@@ -1065,24 +1083,93 @@ func load_mod_texture(mod_id: String, full_path: String) -> Texture2D:
 		var loaded: Resource = load(full_path)
 		if loaded is Texture2D:
 			texture_value = loaded
-	if texture_value == null and FileAccess.file_exists(full_path):
-		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(full_path)
-		var image := Image.new()
-		var extension: String = full_path.get_extension().to_lower()
-		var ok: bool = false
-		match extension:
-			"png":
-				ok = image.load_png_from_buffer(bytes) == OK
-			"jpg", "jpeg":
-				ok = image.load_jpg_from_buffer(bytes) == OK
-			"webp":
-				ok = image.load_webp_from_buffer(bytes) == OK
-			"bmp":
-				ok = image.load_bmp_from_buffer(bytes) == OK
-		if ok:
+	if texture_value == null:
+		var image := load_mod_image(full_path)
+		if image != null:
 			texture_value = ImageTexture.create_from_image(image)
 	_texture_cache[cache_key] = texture_value
 	return texture_value
+
+
+## An image from a mod file, decoded from the bytes the same way: no import
+## step, and null when the file is missing or not a decodable picture.
+func load_mod_image(full_path: String) -> Image:
+	if not FileAccess.file_exists(full_path):
+		return null
+	return decode_image_bytes(FileAccess.get_file_as_bytes(full_path),
+		full_path.get_extension().to_lower())
+
+
+## The formats a mod may ship pictures in. Anything else decodes to null,
+## so a mistyped icon falls back to the default mark instead of erroring.
+static func decode_image_bytes(bytes: PackedByteArray, extension: String) -> Image:
+	var image := Image.new()
+	var ok := false
+	match extension:
+		"png":
+			ok = image.load_png_from_buffer(bytes) == OK
+		"jpg", "jpeg":
+			ok = image.load_jpg_from_buffer(bytes) == OK
+		"webp":
+			ok = image.load_webp_from_buffer(bytes) == OK
+		"bmp":
+			ok = image.load_bmp_from_buffer(bytes) == OK
+	return image if ok else null
+
+
+## The mod's icon prepared for display: a square texture with the picture
+## centred on a transparent canvas, its longest side capped at
+## ICON_MAX_SIDE. Null when the mod declares no icon or its icon cannot be
+## read - the caller shows the default mark in its place. Cached until the
+## next discover().
+func get_mod_icon_texture(mod_id: String) -> Texture2D:
+	if _icon_cache.has(mod_id):
+		return _icon_cache[mod_id]
+	var texture_value: Texture2D = null
+	var record: Dictionary = _records.get(mod_id, {})
+	if not record.is_empty():
+		var manifest: ModManifest = record["manifest"]
+		if not manifest.icon.is_empty():
+			var image: Image = null
+			var root: String = str(record.get("root", ""))
+			if not root.is_empty():
+				image = load_mod_image(root.path_join(manifest.icon))
+			elif not str(record.get("zip_path", "")).is_empty():
+				# Not installed yet: read the picture out of the archive.
+				var bytes := ModPackage.read_file_from_zip(
+					str(record["zip_path"]), manifest.icon)
+				if not bytes.is_empty():
+					image = decode_image_bytes(bytes, manifest.icon.get_extension().to_lower())
+			if image != null:
+				texture_value = square_icon_texture(image)
+	_icon_cache[mod_id] = texture_value
+	return texture_value
+
+
+## The picture centred on a transparent square canvas, shrunk to at most
+## ICON_MAX_SIDE on its longest side: one square texture that fits a list
+## row and the details pane whatever the mod's picture is shaped.
+static func square_icon_texture(image: Image) -> ImageTexture:
+	var working: Image = image
+	var side := maxi(working.get_width(), working.get_height())
+	if side > ICON_MAX_SIDE:
+		working = working.duplicate()
+		working.resize(
+			maxi(1, ceili(float(working.get_width()) * float(ICON_MAX_SIDE) / float(side))),
+			maxi(1, ceili(float(working.get_height()) * float(ICON_MAX_SIDE) / float(side))),
+			Image.INTERPOLATE_NEAREST)
+		side = maxi(working.get_width(), working.get_height())
+	var src_w: int = working.get_width()
+	var src_h: int = working.get_height()
+	var canvas := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0, 0, 0, 0))
+	# Centre the picture on the square; float so the pixel offset is a clean
+	# floor, not an integer-division the linter would flag.
+	var dest := Vector2i(
+		int(floorf(float(side - src_w) / 2.0)),
+		int(floorf(float(side - src_h) / 2.0)))
+	canvas.blend_rect(working, Rect2i(0, 0, src_w, src_h), dest)
+	return ImageTexture.create_from_image(canvas)
 
 
 # =============================================================================
@@ -1227,7 +1314,8 @@ func get_mod_info(mod_id: String) -> Dictionary:
 	return {
 		"id": mod_id, "name": manifest.name, "version": manifest.version,
 		"author": manifest.author, "description": manifest.description,
-		"homepage": manifest.homepage, "types": manifest.types.duplicate(),
+		"homepage": manifest.homepage, "icon": manifest.icon,
+		"types": manifest.types.duplicate(),
 		"source": str(record["source"]),
 		"source_label": _source_label(str(record["source"]), int(record["workshop_id"])),
 		"root": str(record["root"]), "enabled": is_mod_enabled(mod_id),

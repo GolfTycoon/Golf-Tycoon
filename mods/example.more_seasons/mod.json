@@ -2,6 +2,7 @@
 	"format_version": 1,
 	"id": "example.more_seasons",
 	"name": "Example: Extra Seasonal Events",
+	"icon": "icon.png",
 	"version": "1.0.0",
 	"api_version": 1,
 	"author": "Golf Tycoon examples",

@@ -17,6 +17,7 @@ class_name ModScaffold
 const DEFAULT_VERSION: String = "0.1.0"
 const SCRIPT_FILE: String = "mod_main.gd"
 const README_FILE: String = "README.md"
+const ICON_FILE: String = "icon.png"
 const DEFAULT_DESCRIPTION: String = "A new Golf Tycoon mod."
 ## Folder names the mod library keeps for itself. A mod created there would
 ## either be invisible to discovery (`config`) or break the install shelf
@@ -123,6 +124,7 @@ static func manifest_for(fields: Dictionary) -> Dictionary:
 		"author": str(fields.get("author", "")).strip_edges(),
 		"description": description,
 		"homepage": "",
+		"icon": ICON_FILE,
 		"types": ["script", "gameplay"] if has_script(fields) else ["data"],
 		"dependencies": [],
 		"content": {},
@@ -132,6 +134,13 @@ static func manifest_for(fields: Dictionary) -> Dictionary:
 		data["entry_point"] = SCRIPT_FILE
 		data["permissions"] = [ModManifest.PERMISSION_SCRIPT]
 	return data
+
+
+## The placeholder icon a new mod is born with: the same muted puzzle piece
+## the Mods screen falls back to, so the mod shows a picture of its own
+## before the modder has painted one. 64x64, the row size times two.
+static func icon_image() -> Image:
+	return PixelIcon.image(PixelIcon.Kind.PUZZLE, 64, MenuStyle.ACCENT_UTILITY, true)
 
 
 ## The starter mod_main.gd for a scripted scaffold, or "" for a data mod.
@@ -157,6 +166,10 @@ static func readme_text(fields: Dictionary) -> String:
 	lines.append("mod adds, and must never change once players have saves.")
 	lines.append("")
 	lines.append("## Next steps")
+	lines.append("")
+	lines.append("The `icon.png` at the mod's root is the picture the Mods screen shows")
+	lines.append("next to its name - a placeholder until you replace it with your own")
+	lines.append("(PNG, JPG, WebP or BMP; a square reads best).")
 	lines.append("")
 	if has_script(fields):
 		lines.append("1. Open `%s` and write the mod." % SCRIPT_FILE)
@@ -210,6 +223,12 @@ static func create(user_root: String, fields: Dictionary, taken_ids: Array = [])
 			ModPackage.remove_directory_recursive(directory)
 			result["errors"] = ["Could not write '%s'. Check that the mods folder is writable." % directory.path_join(relative)]
 			return result
+	# The mod's own picture for the Mods screen, like every other mod's.
+	if icon_image().save_png(directory.path_join(ICON_FILE)) != OK:
+		ModPackage.remove_directory_recursive(directory)
+		result["errors"] = ["Could not write '%s'. Check that the mods folder is writable." % directory.path_join(ICON_FILE)]
+		return result
+	files.append(ICON_FILE)
 	result["ok"] = true
 	result["mod_id"] = mod_id
 	result["directory"] = directory

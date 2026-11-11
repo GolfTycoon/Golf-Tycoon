@@ -57,6 +57,7 @@ func test_a_scripted_scaffold_builds_a_valid_manifest() -> void:
 	assert_true(manifest.wants_script(), "the starter script carries the script permission")
 	assert_eq(manifest.entry_point, ModScaffold.SCRIPT_FILE)
 	assert_true("script" in manifest.types)
+	assert_eq(manifest.icon, ModScaffold.ICON_FILE, "the manifest points at the icon")
 
 
 func test_a_data_only_scaffold_declares_no_code() -> void:
@@ -119,6 +120,14 @@ func test_creating_writes_a_folder_the_loader_discovers_switched_off() -> void:
 	assert_true(manifest.wants_script())
 	assert_false(_read(directory.path_join("mod_main.gd")).contains("\nclass_name "),
 		"mod scripts never declare a class_name (the rule is in its comments)")
+	# The icon is a real, readable picture - the Mods screen shows it.
+	var icon_path := directory.path_join(ModScaffold.ICON_FILE)
+	assert_true(FileAccess.file_exists(icon_path), "the icon is written")
+	var icon := Image.new()
+	assert_eq(icon.load_png_from_buffer(FileAccess.get_file_as_bytes(icon_path)), OK,
+		"the icon decodes as a PNG")
+	assert_gt(icon.get_width(), 0)
+	assert_eq(icon.get_width(), icon.get_height(), "the placeholder is square")
 
 	var manager := _manager()
 	manager.discover()
