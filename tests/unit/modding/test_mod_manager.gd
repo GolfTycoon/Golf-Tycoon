@@ -215,7 +215,8 @@ func test_enabling_loading_saving_and_restoring_a_script_mod() -> void:
 	manager.set_mod_enabled("tester.scripty", true)
 	manager.set_mod_enabled("tester.databoi", true)
 	manager.load_enabled_mods()
-	assert_eq(manager.get_load_order(), ["tester.scripty", "tester.databoi"])
+	assert_eq(manager.get_load_order(), ["tester.databoi", "tester.scripty"],
+		"Databoi is listed above Scripty, so it loads first whichever was ticked first")
 	assert_true(manager.is_mod_loaded("tester.scripty"))
 	assert_false(manager.safe_mode_triggered)
 
@@ -272,6 +273,367 @@ func test_the_enabled_list_persists_as_the_players_order() -> void:
 	again.discover()
 	assert_eq(again.get_enabled_order(), ["tester.scripty", "tester.databoi"],
 		"the order is read back from load_order.json")
+
+
+# ---------------------------------------------------------------------------
+# The player's list: a place for every mod, which is also the load order
+# ---------------------------------------------------------------------------
+
+func _listed_ids(manager: Node) -> Array:
+	var ids := []
+	for info in manager.get_all_mod_infos():
+		ids.append(str(info.get("id", "")))
+	return ids
+
+
+## A data-only mod folder, in the throwaway library unless `root` says where.
+func _write_mod(mod_id: String, display_name: String, root: String = ROOT.path_join("lib")) -> void:
+	_write(root.path_join(mod_id).path_join("mod.json"), JSON.stringify({
+		"format_version": 1, "id": mod_id, "name": display_name,
+		"version": "1.0.0", "api_version": 1, "description": "test",
+	}))
+
+
+## Take a mod folder out of the throwaway library, as a player would.
+func _remove_mod(mod_id: String) -> void:
+	ModPackage.remove_directory_recursive(ROOT.path_join("lib").path_join(mod_id))
+
+
+func _library_order_path() -> String:
+	return ROOT.path_join("lib").path_join(ModManagerClass.LIBRARY_ORDER_FILE)
+
+
+func _load_order_path() -> String:
+	return ROOT.path_join("lib").path_join(ModManagerClass.CONFIG_FILE)
+
+
+## The ids one of the two saved lists holds, in the order it holds them.
+func _saved_ids(path: String, key: String) -> Array:
+	var parsed: Variant = ModManifest.parse_json_quietly(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary and parsed.get(key) is Array:
+		return parsed[key]
+	return []
+
+
+## The ids library_order.json holds, top of the list first.
+func _remembered_ids() -> Array:
+	return _saved_ids(_library_order_path(), "mods")
+
+
+## The ids load_order.json holds, first to load first.
+func _saved_loadout() -> Array:
+	return _saved_ids(_load_order_path(), "enabled")
+
+
+func test_mods_found_in_the_same_scan_are_ordered_by_name_then_id() -> void:
+	assert_true(ModManagerClass.listed_before(
+		{"id": "z.last", "name": "apple"}, {"id": "a.first", "name": "Banana"}),
+		"by the name a player reads, whatever its case - not by id")
+	assert_false(ModManagerClass.listed_before(
+		{"id": "a.first", "name": "Banana"}, {"id": "z.last", "name": "apple"}))
+	assert_true(ModManagerClass.listed_before(
+		{"id": "a.one", "name": "Pack 2"}, {"id": "a.two", "name": "Pack 10"}),
+		"numbers in a name count as numbers")
+	assert_true(ModManagerClass.listed_before(
+		{"id": "a.one", "name": "Twin"}, {"id": "b.two", "name": "Twin"}),
+		"two mods with one name are split by id, so their order is still fixed")
+	assert_false(ModManagerClass.listed_before(
+		{"id": "b.two", "name": "Twin"}, {"id": "a.one", "name": "Twin"}))
+	assert_true(ModManagerClass.listed_before(
+		{"id": "b.nameless", "name": ""}, {"id": "a.named", "name": "Cedar"}),
+		"a mod with no name is placed by its id")
+	var same := {"id": "a.one", "name": "Twin"}
+	assert_false(ModManagerClass.listed_before(same, same), "nothing is listed before itself")
+	assert_true(ModManagerClass.listed_before(
+		{"id": "a.one", "name": "Apple", "enabled": false, "order_index": -1},
+		{"id": "b.two", "name": "Banana", "enabled": true, "order_index": 0}),
+		"being enabled, or first to load, moves nothing")
+
+
+func test_one_list_is_arranged_like_another_without_moving_anything_else() -> void:
+	assert_eq(ModManagerClass.arranged_like(["a", "b", "c"], ["c", "a"]), ["c", "b", "a"],
+		"the ids both lists hold trade places; b keeps the slot it had")
+	assert_eq(ModManagerClass.arranged_like(["x", "a", "y", "b", "z"], ["b", "a"]),
+		["x", "b", "y", "a", "z"], "whatever the guide does not mention stays exactly where it is")
+	assert_eq(ModManagerClass.arranged_like(["a", "b"], ["ghost", "b", "other", "a"]), ["b", "a"],
+		"ids only the guide holds are not brought in")
+	assert_eq(ModManagerClass.arranged_like(["a", "b", "c"], ["a", "c"]), ["a", "b", "c"],
+		"a list already in the guide's order is returned as it was")
+	assert_eq(ModManagerClass.arranged_like(["a", "b"], []), ["a", "b"], "an empty guide asks for nothing")
+	assert_eq(ModManagerClass.arranged_like([], ["a", "b"]), [])
+	assert_eq(ModManagerClass.arranged_like(["a", "b", "c"], ["c", "c", "a", "c"]), ["c", "b", "a"],
+		"an id the guide repeats is placed once, where the guide first has it")
+
+
+func test_the_first_scan_lists_every_mod_by_name() -> void:
+	var manager := _make_library()
+	# Named to be listed first, with an id that would put it last.
+	_write_mod("tester.zed", "alpha Pack")
+	assert_false(FileAccess.file_exists(_library_order_path()), "nothing is remembered before the first scan")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.zed", "tester.databoi", "tester.scripty"],
+		"found together, none is older than another: alpha Pack, Databoi, Scripty")
+	assert_eq(manager.get_listed_order(), ["tester.zed", "tester.databoi", "tester.scripty"],
+		"the ids on their own read the same way")
+	assert_eq(_remembered_ids(), ["tester.zed", "tester.databoi", "tester.scripty"],
+		"and that order is written down, to be the order from now on")
+
+
+func test_a_mod_the_player_has_not_had_before_joins_the_bottom_of_the_list() -> void:
+	var manager := _make_library()
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty"])
+
+	# Its name and its id both sort above everything already listed.
+	_write_mod("aaa.early", "Aardvark")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "aaa.early"],
+		"a new mod goes under the ones the player already had, whatever it is called")
+
+	# Two that turn up in the same scan go in by name between themselves.
+	_write_mod("bbb.second", "Zulu")
+	_write_mod("ccc.third", "Mike")
+	manager.discover()
+	assert_eq(_listed_ids(manager),
+		["tester.databoi", "tester.scripty", "aaa.early", "ccc.third", "bbb.second"],
+		"both under everything older: Mike, then Zulu")
+	assert_eq(_remembered_ids(), _listed_ids(manager))
+
+
+func test_a_mod_taken_away_and_put_back_returns_to_its_place() -> void:
+	var manager := _make_library()
+	_write_mod("tester.middle", "Middle")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.middle", "tester.scripty"])
+
+	_remove_mod("tester.middle")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty"],
+		"a mod that is gone from the folder is not listed")
+	assert_true("tester.middle" in _remembered_ids(), "but its place is kept")
+
+	_write_mod("tester.newer", "Newer")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "tester.newer"])
+
+	# Back under a new name, as an updated copy might be: the id is the mod.
+	_write_mod("tester.middle", "A Renamed Middle")
+	manager.discover()
+	assert_eq(_listed_ids(manager),
+		["tester.databoi", "tester.middle", "tester.scripty", "tester.newer"],
+		"put back, it is listed where it was - not at the bottom, as a new mod would be")
+
+
+func test_a_reinstalled_zip_returns_to_its_place_too() -> void:
+	var manager := _make_library()
+	manager.discover()
+	var source := ROOT.path_join("src")
+	_write_mod("aaa.zipped", "Aaa Zipped", source)
+	var zip_path := ROOT.path_join("aaa.zipped.zip")
+	assert_true(bool(ModPackage.pack_folder(source.path_join("aaa.zipped"), zip_path)["ok"]))
+
+	assert_true(bool(manager.install_zip(zip_path)["ok"]))
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "aaa.zipped"],
+		"a newly installed mod is at the bottom of the list")
+
+	_write_mod("tester.newer", "Newer")
+	manager.discover()
+	assert_true(bool(manager.uninstall_mod("aaa.zipped")["ok"]))
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "tester.newer"])
+
+	assert_true(bool(manager.install_zip(zip_path)["ok"]))
+	assert_eq(_listed_ids(manager),
+		["tester.databoi", "tester.scripty", "aaa.zipped", "tester.newer"],
+		"installed again after an uninstall, it is back above the mod that came later")
+
+
+func test_a_mod_moves_up_and_down_the_list_whether_it_is_enabled_or_not() -> void:
+	var manager := _make_library()
+	_write_mod("tester.third", "Third")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "tester.third"])
+	assert_eq(manager.get_enabled_order(), [], "nothing here is switched on")
+
+	manager.move_mod("tester.scripty", -1)
+	assert_eq(_listed_ids(manager), ["tester.scripty", "tester.databoi", "tester.third"],
+		"a mod that is off moves up a place all the same")
+	manager.move_mod("tester.scripty", 2)
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.third", "tester.scripty"],
+		"and down as many places as it is asked to")
+	assert_eq(_remembered_ids(), _listed_ids(manager), "each move is written down")
+
+	manager.move_mod("tester.scripty", 1)
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.third", "tester.scripty"],
+		"the last mod has nowhere further down to go")
+	manager.move_mod("tester.third", -9)
+	assert_eq(_listed_ids(manager), ["tester.third", "tester.databoi", "tester.scripty"],
+		"a move past the end stops at the end")
+	manager.move_mod("tester.third", 0)
+	manager.move_mod("no.such_mod", 1)
+	assert_eq(_listed_ids(manager), ["tester.third", "tester.databoi", "tester.scripty"],
+		"no steps, or no such mod, moves nothing")
+
+	assert_eq(manager.get_enabled_order(), [], "moving a mod never switches it on")
+	assert_false(manager.needs_reload, "and with nothing enabled there is nothing to apply")
+	assert_false(FileAccess.file_exists(_load_order_path()),
+		"so the enabled list was never written")
+
+
+func test_enabled_mods_load_in_the_order_they_are_listed() -> void:
+	var manager := _make_library()
+	_write_mod("tester.third", "Third")
+	manager.discover()
+	var listed := ["tester.databoi", "tester.scripty", "tester.third"]
+	assert_eq(_listed_ids(manager), listed)
+
+	manager.set_mod_enabled("tester.third", true)
+	manager.set_mod_enabled("tester.databoi", true)
+	assert_eq(manager.get_enabled_order(), ["tester.databoi", "tester.third"],
+		"the first on the list loads first, whichever was ticked first")
+	assert_eq(_saved_loadout(), ["tester.databoi", "tester.third"])
+	assert_eq(_listed_ids(manager), listed, "and ticking moved nothing")
+	assert_eq(int(manager.get_mod_info("tester.databoi")["order_index"]), 0)
+	assert_eq(int(manager.get_mod_info("tester.third")["order_index"]), 1,
+		"each enabled mod carries its place in the load order")
+	assert_eq(int(manager.get_mod_info("tester.scripty")["order_index"]), -1)
+
+	manager.load_enabled_mods()
+	assert_eq(manager.get_load_order(), ["tester.databoi", "tester.third"])
+	assert_false(manager.needs_reload)
+
+	# Past a mod that is off: a new place in the list, the same load order.
+	manager.move_mod("tester.third", -1)
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.third", "tester.scripty"])
+	assert_eq(manager.get_enabled_order(), ["tester.databoi", "tester.third"])
+	assert_false(manager.needs_reload, "nothing loads differently, so there is nothing to apply")
+
+	# Past a mod that is on: the two swap in the load order as well.
+	manager.move_mod("tester.third", -1)
+	assert_eq(_listed_ids(manager), ["tester.third", "tester.databoi", "tester.scripty"])
+	assert_eq(manager.get_enabled_order(), ["tester.third", "tester.databoi"],
+		"the mod moved above another enabled mod now loads before it")
+	assert_eq(_saved_loadout(), ["tester.third", "tester.databoi"])
+	assert_true(manager.needs_reload, "which is a change to apply")
+	assert_eq(int(manager.get_mod_info("tester.third")["order_index"]), 0)
+
+	# A mod switched on between two others loads between them.
+	manager.move_mod("tester.scripty", -1)
+	manager.set_mod_enabled("tester.scripty", true)
+	assert_eq(_listed_ids(manager), ["tester.third", "tester.scripty", "tester.databoi"])
+	assert_eq(manager.get_enabled_order(), ["tester.third", "tester.scripty", "tester.databoi"],
+		"not last, as the newest tick, but where the list has it")
+	manager.unload_all()
+
+
+func test_a_load_order_from_before_the_list_was_kept_is_the_order_listed() -> void:
+	var manager := _make_library()
+	_write_mod("tester.middle", "Middle")
+	# What an earlier version of the game left: the enabled mods in the order
+	# they were ticked, and no list of the library.
+	_write(_load_order_path(), JSON.stringify(
+		{"version": 1, "enabled": ["tester.scripty", "tester.databoi"]}))
+	manager.discover()
+	assert_eq(manager.get_enabled_order(), ["tester.scripty", "tester.databoi"],
+		"the load order the player had is the load order they keep")
+	assert_eq(_listed_ids(manager), ["tester.scripty", "tester.middle", "tester.databoi"],
+		"so the two enabled mods trade places in the by-name list; Middle, which is off, stays put")
+	assert_eq(_remembered_ids(), _listed_ids(manager))
+
+	# The same holds whenever the file says otherwise, a hand edit included.
+	_write(_load_order_path(), JSON.stringify(
+		{"version": 1, "enabled": ["tester.databoi", "tester.middle", "tester.scripty"]}))
+	manager.discover()
+	assert_eq(manager.get_enabled_order(), ["tester.databoi", "tester.middle", "tester.scripty"])
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.middle", "tester.scripty"],
+		"load_order.json has the last word on the order its mods are listed in")
+
+
+func test_a_moved_mod_that_is_taken_away_returns_to_where_the_player_put_it() -> void:
+	var manager := _make_library()
+	_write_mod("tester.third", "Third")
+	manager.discover()
+	manager.move_mod("tester.third", -2)
+	assert_eq(_listed_ids(manager), ["tester.third", "tester.databoi", "tester.scripty"])
+
+	_remove_mod("tester.third")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty"])
+	# The mods that are still here can be moved around the gap it left.
+	manager.move_mod("tester.scripty", -1)
+	assert_eq(_listed_ids(manager), ["tester.scripty", "tester.databoi"],
+		"a place is a place among the mods on show: the missing one is not in the way")
+	_write_mod("tester.newer", "Newer")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.scripty", "tester.databoi", "tester.newer"])
+
+	_write_mod("tester.third", "Third")
+	manager.discover()
+	assert_eq(_listed_ids(manager),
+		["tester.third", "tester.scripty", "tester.databoi", "tester.newer"],
+		"back at the top, where the player moved it - not where it was first found")
+
+
+func test_the_listed_order_is_remembered_between_sessions() -> void:
+	var manager := _make_library()
+	manager.discover()
+	_write_mod("aaa.early", "Aardvark")
+	manager.discover()
+	manager.move_mod("tester.scripty", -1)
+	var listed := _listed_ids(manager)
+	assert_eq(listed, ["tester.scripty", "tester.databoi", "aaa.early"])
+
+	var again := _make_library()
+	again.discover()
+	assert_eq(_listed_ids(again), listed,
+		"the order is read back from library_order.json, not worked out afresh by name")
+
+
+func test_a_damaged_list_file_starts_the_order_over() -> void:
+	var manager := _make_library()
+	manager.discover()
+	_write_mod("aaa.early", "Aardvark")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty", "aaa.early"])
+
+	_write(_library_order_path(), "{ not json")
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["aaa.early", "tester.databoi", "tester.scripty"],
+		"with nothing to go on every mod is a newcomer again: by name")
+	assert_eq(_remembered_ids(), _listed_ids(manager), "and a readable list is written back")
+
+
+func test_the_command_line_tool_lists_mods_without_remembering_them() -> void:
+	var manager := _make_library()
+	# What initialize() sets when it finds itself under tools/mod_tool.gd.
+	manager._remembers_finds = false
+	manager.discover()
+	assert_eq(_listed_ids(manager), ["tester.databoi", "tester.scripty"],
+		"the scan still has an order for as long as the tool runs")
+	assert_false(FileAccess.file_exists(_library_order_path()),
+		"but the tool is not the game finding a mod: nothing is written down")
+
+
+func test_switching_mods_on_and_off_never_moves_a_mod_in_the_list() -> void:
+	var manager := _make_library()
+	manager.discover()
+	var listed := _listed_ids(manager)
+	assert_eq(listed, ["tester.databoi", "tester.scripty"])
+
+	manager.set_mod_enabled("tester.scripty", true)
+	assert_eq(_listed_ids(manager), listed, "an enabled mod does not jump to the top")
+
+	manager.set_mod_enabled("tester.databoi", true)
+	assert_eq(_listed_ids(manager), listed)
+	assert_eq(manager.get_enabled_order(), listed, "the load order follows the list, not the other way round")
+
+	manager.set_mod_enabled("tester.databoi", false)
+	assert_eq(_listed_ids(manager), listed, "nor does switching one back off move anything")
+	assert_eq(int(manager.get_mod_info("tester.databoi")["order_index"]), -1)
+	assert_eq(int(manager.get_mod_info("tester.scripty")["order_index"]), 0)
+
+	manager.discover()
+	assert_eq(_listed_ids(manager), listed, "and a rescan with nothing new to find leaves it be")
+	assert_eq(_remembered_ids(), listed)
 
 
 # ---------------------------------------------------------------------------

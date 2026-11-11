@@ -324,6 +324,60 @@ func test_directional_neighbours_are_rebuilt_when_the_layout_changes() -> void:
 		"and the stale right neighbour is gone")
 
 
+func test_a_screen_can_have_the_neighbours_rebuilt_when_its_controls_trade_places() -> void:
+	var root := _make_root()
+	var first := _make_button(root, "First", Vector2(20, 20))
+	var second := _make_button(root, "Second", Vector2(20, 120))
+	var third := _make_button(root, "Third", Vector2(20, 220))
+	manager.focus_scope(root)
+	assert_eq(first.get_node(first.focus_neighbor_bottom), second)
+	assert_eq(second.get_node(second.focus_neighbor_bottom), third)
+	# The layout has just been looked at; the next look is not yet due.
+	manager._refresh_focus_graph_if_stale(root)
+
+	# The top two rows of a list swap. Each place holds a control the size of
+	# the one before, so the layout alone does not show that anything moved.
+	first.position = Vector2(20, 120)
+	second.position = Vector2(20, 20)
+	root.move_child(second, 0)
+	manager.invalidate_focus_graph(root)
+	manager._refresh_focus_graph_if_stale(root)
+
+	assert_eq(second.get_node(second.focus_neighbor_bottom), first,
+		"Down from the control now on top reaches the one it swapped with")
+	assert_eq(first.get_node(first.focus_neighbor_top), second)
+	assert_eq(first.get_node(first.focus_neighbor_bottom), third,
+		"and Down again carries on to the third, instead of doubling back")
+
+
+func test_a_button_that_greys_out_under_the_focus_is_still_given_its_way_out() -> void:
+	var root := _make_root()
+	var first := _make_button(root, "First", Vector2(20, 20))
+	var second := _make_button(root, "Second", Vector2(20, 120))
+	var third := _make_button(root, "Third", Vector2(20, 220))
+	manager.focus_scope(root)
+	second.grab_focus()
+
+	# The second button is pressed: it swaps places with the third and, at
+	# the end of the column now, greys out - still holding the focus.
+	second.position = Vector2(20, 220)
+	third.position = Vector2(20, 120)
+	root.move_child(third, 1)
+	second.disabled = true
+	manager.invalidate_focus_graph(root)
+	manager._refresh_focus_graph_if_stale(root)
+
+	assert_eq(get_viewport().gui_get_focus_owner(), second, "the greyed-out button keeps the focus")
+	assert_eq(second.get_node(second.focus_neighbor_top), third,
+		"Up from it reaches the control that stands above it now")
+	assert_eq(second.get_node(second.focus_next), first, "Tab goes on to what reads next, round the cycle")
+	assert_eq(second.get_node(second.focus_previous), third, "and Shift+Tab back to what reads before it")
+	assert_eq(third.get_node(third.focus_neighbor_bottom), first,
+		"nothing leads to it: Down from the control above wraps round past it")
+	assert_eq(third.get_node(third.focus_next), first)
+	assert_eq(first.get_node(first.focus_previous), third)
+
+
 func test_the_synthetic_pointer_only_lives_for_navigation_devices() -> void:
 	manager.virtual_pointer = Vector2(120, 340)
 	assert_eq(manager.pointer_screen_position(), Vector2(120, 340))

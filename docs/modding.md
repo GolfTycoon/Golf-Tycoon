@@ -22,16 +22,43 @@ every kind of thing a mod can do.
 
 Open **Mods** on the main menu. The screen lists every mod the game found,
 where it came from, and - most importantly - **the order enabled mods will
-load in**. Enabled mods sit at the top of the list in load order; the ▲ ▼
-buttons move them. When two mods change the same thing (a building's
-price, a terrain's upkeep, which system drives the weather), **the mod
-lower in the list wins**. The details pane names the losers whenever a
-conflict was overwritten, so nothing is silently ambiguous.
+load in**.
 
-Changes are written to your list (`user://mods/load_order.json`)
-immediately but do not hot-swap a running game: **Apply & Reload** reloads
-the scene with exactly the new set, in exactly the new order. Nothing is
-ever half-applied to a course in play.
+Every mod has a place in the list, enabled or not, and **the list is the
+load order**: the enabled mods load from the top of the list down, and
+each shows its place as the number in front of its name (`1.` loads
+first). The ▲ ▼ buttons move any mod one row up or down; on a keyboard
+or a controller the arrow you pressed stays selected as its row moves, so
+pressing it again moves the same mod another row. When two mods change
+the same thing (a building's price, a terrain's upkeep, which system
+drives the weather), **the mod lower in the list wins**. The details pane
+names the losers whenever a conflict was overwritten, so nothing is
+silently ambiguous.
+
+Ticking a mod on or off never moves its row: a mod you switch on loads
+where it already stands, after the enabled mods above it. The list starts
+out in the order your game first found each mod (mods found in the same
+scan - every bundled mod, the first time the game runs - go in by name),
+and from then on the order is yours. A mod you have not had before joins
+the bottom of the list, whether you installed it from a zip, created it,
+or dropped it into the mods folder. A mod you take out of the mods folder
+(or uninstall) and later put back returns to the place it had, because
+the game keeps a place for every mod it has listed
+(`user://mods/library_order.json`).
+
+To find a mod, type in the search box (it matches names, ids and
+descriptions) or pick a filter: **All**, **Enabled** or **Disabled**. The
+two combine, and neither changes what is enabled or the order. While rows
+are hidden, ▲ ▼ move a mod past the next row you can see, so under
+**Enabled** each press is one place in the load order. A mod you tick or
+untick while a filter is on stays listed until you pick a filter again,
+so its row never vanishes from under the pointer.
+
+Changes are written to your lists (`user://mods/load_order.json` for what
+is enabled, `user://mods/library_order.json` for the order of the whole
+library) immediately but do not hot-swap a running game: **Apply &
+Reload** reloads the scene with exactly the new set, in exactly the new
+order. Nothing is ever half-applied to a course in play.
 
 ### Where mods live
 
@@ -154,11 +181,11 @@ references:
 | `ModPackage` | `scripts/modding/mod_package.gd` | Zip reading/installing/packing (static, autoload-free so the CLI can use it). |
 | `ModScaffold` | `scripts/modding/mod_scaffold.gd` | Writes a new mod folder - `mod.json`, starter script, README - for the Mods screen's **Create New Mod** button (static, autoload-free). |
 | `ContentRegistry` | `scripts/modding/mod_content_registry.gd` (autoload) | Owns merged content: base `data/buildings.json` + `data/decorations.json`, then each mod's declared content in load order; namespacing, deep-merge/patch semantics, provenance and conflict reporting, tuning values; pushes the result into the game's static libraries (`TerrainTypes`, `CourseTheme`, `TournamentSystem`, `WorldLocations`, `GolferAttributes`, `GolferSkinLibrary`, `BuildingSprites`, `TreeOverlay`). |
-| `ModManager` | `scripts/modding/mod_manager.gd` (autoload) | Discovery, the player's ordered list, dependency/topological load-order resolution, safe mode, resource packs, script loading, provider registration, hooks, per-mod config and save slices. |
+| `ModManager` | `scripts/modding/mod_manager.gd` (autoload) | Discovery, the player's ordered list (a place for every mod; the enabled ones load in that order), dependency/topological load-order resolution, safe mode, resource packs, script loading, provider registration, hooks, per-mod config and save slices. |
 | `GolfTycoonMod` / `ModAPI` | `scripts/modding/mod_base.gd`, `mod_api.gd` | What a script mod extends and the object it is handed. |
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |
 | Neutral bases + facade | `scripts/systems/weather_system.gd`, `wind_system.gd`, `season_provider.gd`, `season_system.gd` | The game's built-in "nothing happens" weather/wind/season answers; mods provide the real systems. Same classes, same calls, so callers never know. |
-| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order, details, create/install/uninstall/upload, Apply & Reload. |
+| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload, Apply & Reload. |
 | Bundled mods | `res://mods/` | Three official feature mods + nine examples + `_template`. |
 | CLI | `tools/mod_tool.gd`, `make mods` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them. |
 
@@ -181,5 +208,51 @@ on narrow screens. Each pane scrolls independently, and short windows can scroll
 the workspace to keep installation and Apply & Reload reachable. The tool row
 scrolls sideways when the window is narrower than its buttons, so **Create New
 Mod**, **Install ZIP**, **Rescan**, **Mods folder**, **Disable all** and
-**Apply & Reload** all stay reachable on a phone. Search only filters the
-visible cards: it never changes enabled mods or their order.
+**Apply & Reload** all stay reachable on a phone.
+
+The rows come from `ModManager.get_all_mod_infos()`, in the player's order
+(`ModManager.get_listed_order()`). `ModManager` keeps that order in
+`user://mods/library_order.json` (`{"version": 1, "mods": [ids, top of the
+list first]}`): every `discover()` adds the ids it has not listed before to
+the end (`_update_listed_order()`), ordering mods met in the same scan by name
+(`ModManager.listed_before()`), and never takes an id out, which is what lets
+a mod that went missing come back to its place. A missing or unreadable file
+starts the order over, and a run of the command-line mod tool, which is not
+the game, records nothing. `ModManager.move_mod()` moves a mod up or down the
+list, enabled or not.
+
+The enabled list in `load_order.json` is always the enabled mods in the order
+that list has them (`ModManager.arranged_like()`): a mod switched on is
+slotted in where it stands, and a move past another enabled mod swaps the two
+in the load order. If the file says otherwise when it is read - it was
+written before the list was kept, or edited by hand - the file wins, and the
+enabled mods trade places in the list to match it.
+
+On the screen a tick only repaints its row, and a ▲ ▼ press moves the one
+row: `ModsScreen._sync_rows()` keeps every mod's row and puts the rows in
+order, so the focused control is still the same one afterwards, and the list
+scrolls only as far as it takes to keep a moved row on show
+(`_scroll_to_row()`). An arrow moves its mod past the next row on show
+(`_on_row_moved()`), so the arrows greyed out are the up arrow of the first
+row on show and the down arrow of the last (`_update_move_buttons()`).
+
+On a keyboard or a controller the arrow that was pressed keeps the focus as
+its row moves, so pressing it again moves the same mod another place. It
+keeps the focus when it greys out at the end of the rows on show as well:
+pressing it again does nothing, rather than the focus jumping to a button
+that does something else. Rows that swap leave the screen measuring exactly
+as it did, and its measurements are all `InputManager` looks at to tell
+whether its D-pad graph is out of date, so `_sync_rows()` calls
+`InputManager.invalidate_focus_graph()` when a row changes places: Up and
+Down then step through the rows as they now stand, from a greyed-out arrow
+too.
+
+The search box and the **All / Enabled / Disabled** chips (`ModsScreen.Filter`)
+only hide rows: they never change enabled mods or the order. The chips share
+the search box's row on desktop and on a phone held sideways (where they read
+All / On / Off to leave the box room to type), and take a row of their own
+under it on tablets and portrait phones. The count line reads "showing X of Y"
+while rows are hidden, and an empty list says why (`ModsScreen.empty_text()`).
+A row ticked or unticked under a filter stays listed until a filter is picked
+again, and a newly created or installed mod clears a filter or search that
+would hide it.

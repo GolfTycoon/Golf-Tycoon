@@ -298,6 +298,13 @@ First launch, the list is seeded with bundled mods that set
 `enabled_by_default`, by `load_priority` then id - that is the only time
 `load_priority` ever matters.
 
+The order in `load_order.json` is the order the enabled mods stand in on
+the Mods screen, whose list has a place for every mod, enabled or not
+(`user://mods/library_order.json`; see
+[Using mods](../modding.md#using-mods)). A mod that is switched on joins
+the load order where it stands in that list, and moving it up or down the
+list moves it in the load order.
+
 **Duplicate copies**: the same id discovered twice resolves by source
 precedence - folders in your library (including installed zips) > a loose
 zip in the library > a Workshop download > bundled - and within the same

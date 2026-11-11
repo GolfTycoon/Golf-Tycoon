@@ -370,14 +370,22 @@ func _on_joy_connection_changed(_device_id: int, connected: bool) -> void:
 ## own and picks the nearest focusable control in the window, which for a
 ## screen over the live HUD (the pause menu, a confirmation) means the D-pad
 ## walks out of the menu and into the bottom bar.
+##
+## A control that holds the focus without being focusable any more - a button
+## that greyed out as it was pressed keeps the focus - is given its ways out
+## with the rest, because the next press starts from it. Nothing leads to it.
 func _wire_focus_graph(scope: Control) -> void:
 	var controls := collect_focusables(scope)
 	if controls.size() < 2:
 		return
+	var stranded := _stranded_focus(scope, controls)
+	var wired: Array[Control] = controls.duplicate()
+	if stranded != null:
+		wired.append(stranded)
 
 	# Recompute rather than add: a control can move to a different side when
 	# the screen reflows, so old neighbours are cleared first.
-	for control in controls:
+	for control in wired:
 		control.focus_neighbor_left = NodePath()
 		control.focus_neighbor_right = NodePath()
 		control.focus_neighbor_top = NodePath()
@@ -388,21 +396,31 @@ func _wire_focus_graph(scope: Control) -> void:
 	# Reading order: top-to-bottom rows, left-to-right inside a row. Controls
 	# within a quarter of the average height are treated as one row.
 	var row_height := _average_height(controls) * 0.5
-	var ordered: Array[Control] = controls.duplicate()
-	ordered.sort_custom(func(a: Control, b: Control) -> bool:
+	var reads_before := func(a: Control, b: Control) -> bool:
 		var ar := a.get_global_rect()
 		var br := b.get_global_rect()
 		if absf(ar.get_center().y - br.get_center().y) > row_height:
 			return ar.get_center().y < br.get_center().y
-		return ar.get_center().x < br.get_center().x)
+		return ar.get_center().x < br.get_center().x
+	var ordered: Array[Control] = controls.duplicate()
+	ordered.sort_custom(reads_before)
 	for index in ordered.size():
 		var control: Control = ordered[index]
 		var next: Control = ordered[(index + 1) % ordered.size()]
 		var previous: Control = ordered[(index - 1 + ordered.size()) % ordered.size()]
 		control.focus_next = control.get_path_to(next)
 		control.focus_previous = control.get_path_to(previous)
+	if stranded != null:
+		# Tab leaves it for the control that reads next after it, Shift+Tab
+		# for the one before; the cycle itself passes it by.
+		var after := 0
+		while after < ordered.size() and reads_before.call(ordered[after], stranded):
+			after += 1
+		stranded.focus_next = stranded.get_path_to(ordered[after % ordered.size()])
+		stranded.focus_previous = stranded.get_path_to(
+			ordered[(after - 1 + ordered.size()) % ordered.size()])
 
-	for control in controls:
+	for control in wired:
 		var center := control.get_global_rect().get_center()
 		var best := {
 			"left": [null, INF], "right": [null, INF],
@@ -450,6 +468,18 @@ func _wire_focus_graph(scope: Control) -> void:
 			_assign_neighbor(control, direction, target if target != null else control)
 
 
+## The control in `scope` that holds the focus although it is not one of the
+## scope's focusable `controls`: a button disabled while it was focused. Null
+## when the focus is on one of them, outside the scope, or nowhere.
+func _stranded_focus(scope: Control, controls: Array[Control]) -> Control:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null or controls.has(focused):
+		return null
+	if not scope.is_ancestor_of(focused) or not focused.is_visible_in_tree():
+		return null
+	return focused
+
+
 ## Rebuild the graph when the screen has reflowed. Checks at most a few times a
 ## second: layout can settle over several frames (a panel sizes itself after the
 ## first process_frame), so one deferred pass is not enough.
@@ -463,6 +493,21 @@ func _refresh_focus_graph_if_stale(scope: Control) -> void:
 		return
 	_wire_focus_graph(scope)
 	_wired_scopes[id] = _layout_signature(scope)
+
+
+## Have a scope's graph rebuilt the next time it is looked at, whatever its
+## layout signature says. For a screen whose controls trade places without
+## the layout changing shape - a row moved up a list of like rows: control
+## for control the screen measures the same as before, so nothing above would
+## notice, and the D-pad would go on stepping to where each row used to be.
+## Nothing is rebuilt here and now, because the controls have usually not
+## been laid out in their new places yet when a screen calls this.
+func invalidate_focus_graph(scope: Control) -> void:
+	if not is_instance_valid(scope):
+		return
+	_wired_scopes.erase(scope.get_instance_id())
+	# Not a fifth of a second from now: the next press may be on its way.
+	_last_wire_ms = 0
 
 
 ## A cheap value that changes whenever the focusable controls move or resize.

@@ -22,6 +22,13 @@ extends Node
 ## how Weather, Wind and Seasons, the three official feature mods, come to
 ## be running out of the box.
 ##
+## That order is read off the one list the Mods screen shows, which has a
+## place for every mod, enabled or not (user://mods/library_order.json).
+## The player moves mods up and down it, and the enabled ones load from the
+## top of it down; switching a mod on or off never moves it. A mod the
+## player has not had before joins the bottom of the list, and one that is
+## taken out of the mods folder and put back returns to the place it had.
+##
 ## Loading a mod means: mount its resource packs, apply its declared data
 ## through ContentRegistry, then - only with the "script" permission - run
 ## its entry point with a ModAPI. A mod that errors is marked and skipped;
@@ -39,6 +46,9 @@ const _SOURCE_PRECEDENCE: Dictionary = {
 }
 
 const CONFIG_FILE: String = "load_order.json"
+## Every mod id this library has ever listed, top of the Mods screen's list
+## first (see _update_listed_order).
+const LIBRARY_ORDER_FILE: String = "library_order.json"
 const CRASH_MARKER: String = ".loading_mods"
 
 var bundled_root: String = "res://mods"
@@ -50,7 +60,8 @@ var _steam: SteamWorkshopProvider = SteamWorkshopProvider.new()
 
 var _records: Dictionary = {}  # id -> record Dictionary (see _new_record)
 var _discovery_warnings: Array[String] = []
-var _persisted_enabled: Array[String] = []  # The player's ordered list.
+var _persisted_enabled: Array[String] = []  # The enabled mods, in load order.
+var _listed: Array[String] = []  # Every mod ever listed, in the player's order.
 var _loaded_order: Array[String] = []  # What actually loaded, in order.
 var _loaded_nodes: Dictionary = {}  # id -> GolfTycoonMod
 var _resolution_errors: Dictionary = {}  # id -> [String]
@@ -76,6 +87,9 @@ var needs_reload: bool = false
 var safe_mode_triggered: bool = false
 ## True when --no-mods was passed: nothing loads this session.
 var mods_disabled_by_flag: bool = false
+## False under the command-line mod tool, which is not the player's game:
+## the mods it happens to scan are not written into the player's list.
+var _remembers_finds: bool = true
 var _initialized: bool = false
 var _owns_crash_marker: bool = false
 
@@ -103,10 +117,12 @@ func initialize() -> void:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	mods_disabled_by_flag = "--no-mods" in args
 	# Validation/packing must not start a gameplay mod session or leave a
-	# crash marker simply because the command-line tool quits immediately.
+	# crash marker simply because the command-line tool quits immediately,
+	# nor does its scan count as the game finding a mod.
 	var loop_script: Script = Engine.get_main_loop().get_script()
 	if loop_script != null and loop_script.resource_path == "res://tools/mod_tool.gd":
 		mods_disabled_by_flag = true
+		_remembers_finds = false
 	discover()
 	if not mods_disabled_by_flag:
 		load_enabled_mods()
@@ -128,7 +144,9 @@ func content_registry() -> Node:
 # =============================================================================
 
 ## Find every mod this installation knows about. The player's enabled list is
-## read (or seeded) here, so the Mods screen can render straight away.
+## read (or seeded) here, and every mod found for the first time is given its
+## place at the bottom of the player's list, so the Mods screen can render
+## straight away.
 func discover() -> void:
 	var previous_records := _records.duplicate()
 	_records.clear()
@@ -154,6 +172,7 @@ func discover() -> void:
 	for live_id in _loaded_order:
 		if not _records.has(live_id) and previous_records.has(live_id):
 			_records[live_id] = previous_records[live_id]
+	_update_listed_order()
 
 
 func _discover_folder_mods(root: String, source: String, workshop_id: int, installed: bool = false) -> void:
@@ -224,7 +243,7 @@ func _register_discovered(manifest: ModManifest, source: String, root: String,
 
 
 # =============================================================================
-# THE PLAYER'S ORDERED LIST (user://mods/load_order.json)
+# THE ENABLED MODS, IN LOAD ORDER (user://mods/load_order.json)
 # =============================================================================
 
 func _config_path() -> String:
@@ -290,10 +309,14 @@ func get_mod_version(mod_id: String) -> String:
 	return ""
 
 
+## Switch a mod on or off. Its place in the player's list does not change,
+## and that place decides when it loads: after the enabled mods listed
+## above it and before the ones listed below (see move_mod).
 func set_mod_enabled(mod_id: String, enabled: bool) -> void:
 	if enabled:
 		if not mod_id in _persisted_enabled:
 			_persisted_enabled.append(mod_id)
+			_persisted_enabled = arranged_like(_persisted_enabled, _listed)
 	else:
 		_persisted_enabled.erase(mod_id)
 	if _records.has(mod_id):
@@ -302,22 +325,133 @@ func set_mod_enabled(mod_id: String, enabled: bool) -> void:
 	_refresh_needs_reload()
 
 
-## Move a mod one step in the ordered list (+1 loads it later, -1 earlier).
-func move_mod(mod_id: String, steps: int) -> void:
-	var index: int = _persisted_enabled.find(mod_id)
-	if index < 0:
-		return
-	var target: int = clampi(index + steps, 0, _persisted_enabled.size() - 1)
-	if target == index:
-		return
-	_persisted_enabled.remove_at(index)
-	_persisted_enabled.insert(target, mod_id)
-	_write_persisted_order()
-	_refresh_needs_reload()
-
-
 func _refresh_needs_reload() -> void:
 	needs_reload = _persisted_enabled != _loaded_order
+
+
+# =============================================================================
+# THE PLAYER'S LIST: EVERY MOD, IN ORDER (user://mods/library_order.json)
+# =============================================================================
+
+func _library_order_path() -> String:
+	return user_root.path_join(LIBRARY_ORDER_FILE)
+
+
+## The ids of the discovered mods in the order the Mods screen lists them,
+## top first. The enabled ones load in this order.
+func get_listed_order() -> Array[String]:
+	var ids: Array[String] = []
+	for mod_id in _listed:
+		if _records.has(mod_id):
+			ids.append(mod_id)
+	return ids
+
+
+## Move a mod `steps` places down the list (-1 is one place up), whether it
+## is enabled or not; it stops at either end. Enabled mods load in the order
+## the list has them, so moving one past another enabled mod changes the
+## load order as well.
+func move_mod(mod_id: String, steps: int) -> void:
+	var shown: Array[String] = get_listed_order()
+	var index: int = shown.find(mod_id)
+	if index < 0:
+		return
+	var target: int = clampi(index + steps, 0, shown.size() - 1)
+	if target == index:
+		return
+	# Places are counted among the mods that are here to be seen. A mod that
+	# has gone missing still holds its place in `_listed`, so this one goes
+	# to the far side of the mod it stops at rather than to an index.
+	var stop: String = shown[target]
+	_listed.erase(mod_id)
+	_listed.insert(_listed.find(stop) + (1 if target > index else 0), mod_id)
+	_write_listed_order()
+	var loadout: Array[String] = arranged_like(_persisted_enabled, _listed)
+	if loadout != _persisted_enabled:
+		_persisted_enabled = loadout
+		_write_persisted_order()
+		_refresh_needs_reload()
+
+
+## Bring the list up to date with what this scan found. Every mod found for
+## the first time gets a place at the bottom, and the list only ever grows:
+## a mod that has gone missing keeps its place, so one taken out of the mods
+## folder (or uninstalled) and later put back is listed where it was, while
+## a mod the player has never had lands under everything they already knew.
+## Mods met in the same scan - all of them, the first time the game runs -
+## go in by name (see listed_before). Called at the end of discover(), so
+## every discovered mod has a place by the time anything asks for the list.
+func _update_listed_order() -> void:
+	var saved: Array[String] = _read_listed_order()
+	_listed = saved.duplicate()
+	var newcomers: Array = []
+	for mod_id in _records:
+		if not mod_id in _listed:
+			var manifest: ModManifest = _records[mod_id]["manifest"]
+			newcomers.append({"id": str(mod_id), "name": manifest.name})
+	newcomers.sort_custom(listed_before)
+	for newcomer in newcomers:
+		_listed.append(str(newcomer["id"]))
+	# load_order.json has the last word on what loads and in which order,
+	# and it can be older than this list or edited by hand. Where the two
+	# disagree, the enabled mods trade places with one another in the list
+	# until it shows the order they will load in.
+	_listed = arranged_like(_listed, _persisted_enabled)
+	if _listed != saved and _remembers_finds:
+		_write_listed_order()
+
+
+## The list as it was saved. A missing or unreadable file reads as an empty
+## list, which makes every mod a newcomer: the order starts over.
+func _read_listed_order() -> Array[String]:
+	var listed: Array[String] = []
+	var parsed: Variant = null
+	if FileAccess.file_exists(_library_order_path()):
+		parsed = ModManifest.parse_json_quietly(FileAccess.get_file_as_string(_library_order_path()))
+	if parsed is Dictionary and parsed.get("mods") is Array:
+		for entry in parsed["mods"]:
+			var mod_id: String = str(entry)
+			if not mod_id.is_empty() and not mod_id in listed:
+				listed.append(mod_id)
+	return listed
+
+
+func _write_listed_order() -> void:
+	DirAccess.make_dir_recursive_absolute(user_root)
+	var file := FileAccess.open(_library_order_path(), FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(
+			{"version": 1, "mods": _listed}, "\t") + "\n")
+
+
+## `list` with the ids `guide` also holds put into the order `guide` has
+## them, and nothing else moved: those ids trade places among the slots they
+## already fill, and every other entry stays exactly where it is. This is
+## what keeps the player's list and the enabled order telling one story -
+## arranged_like(enabled, listed) loads mods in the order they are listed,
+## arranged_like(listed, enabled) lists mods in the order they load. Neither
+## array should hold an id twice. Pure.
+static func arranged_like(list: Array, guide: Array) -> Array[String]:
+	var in_list: Dictionary = {}
+	for entry in list:
+		in_list[str(entry)] = true
+	var in_guide: Dictionary = {}
+	var shared: Array[String] = []
+	for entry in guide:
+		var mod_id: String = str(entry)
+		if in_list.has(mod_id) and not in_guide.has(mod_id):
+			shared.append(mod_id)
+		in_guide[mod_id] = true
+	var arranged: Array[String] = []
+	var next: int = 0
+	for entry in list:
+		var mod_id: String = str(entry)
+		if in_guide.has(mod_id) and next < shared.size():
+			arranged.append(shared[next])
+			next += 1
+		else:
+			arranged.append(mod_id)
+	return arranged
 
 
 # =============================================================================
@@ -1047,21 +1181,34 @@ func upload_to_workshop(mod_id: String, change_note: String = "") -> Dictionary:
 # WHAT THE MODS SCREEN READS
 # =============================================================================
 
-## A display-ready snapshot of every discovered mod. Enabled mods come
-## first, in the player's order; the rest follow alphabetically.
+## A display-ready snapshot of every discovered mod, in the order the Mods
+## screen lists them: the player's (see get_listed_order). Whether a mod is
+## enabled plays no part in where it is listed, so ticking a mod on or off
+## never moves it. An enabled mod's place in the load order is in
+## `order_index`, counted from the top of the list down.
 func get_all_mod_infos() -> Array:
 	var infos: Array = []
-	for mod_id in _persisted_enabled:
-		if _records.has(mod_id):
-			infos.append(get_mod_info(mod_id))
-	var rest: Array[String] = []
-	for mod_id in _records:
-		if not mod_id in _persisted_enabled:
-			rest.append(mod_id)
-	rest.sort()
-	for mod_id in rest:
+	for mod_id in get_listed_order():
 		infos.append(get_mod_info(mod_id))
 	return infos
+
+
+## Whether `a` joins the list above `b` when both are found in the same scan
+## and so are equally new to it: by name the way a player reads it
+## (ignoring case, "Pack 2" before "Pack 10"), then by id so two mods that
+## share a name still have one fixed order. A mod with no name is placed by
+## its id. Both are mod infos, or anything with an `id` and a `name`. Pure,
+## so the order can be checked without a library.
+static func listed_before(a: Dictionary, b: Dictionary) -> bool:
+	var a_id: String = str(a.get("id", ""))
+	var b_id: String = str(b.get("id", ""))
+	var a_name: String = str(a.get("name", ""))
+	var b_name: String = str(b.get("name", ""))
+	var by_name: int = (a_name if not a_name.is_empty() else a_id).naturalnocasecmp_to(
+		b_name if not b_name.is_empty() else b_id)
+	if by_name != 0:
+		return by_name < 0
+	return a_id < b_id
 
 
 func get_mod_info(mod_id: String) -> Dictionary:

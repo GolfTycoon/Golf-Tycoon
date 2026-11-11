@@ -3,15 +3,22 @@ class_name ModsScreen
 ## ModsScreen - The player's mod library: what is installed, what is on,
 ## and the order it loads in.
 ##
-## The list *is* the load order: enabled mods sit at the top in the order
-## they will load (arrow buttons move them - later wins data conflicts,
-## provider take-overs and hook order), disabled mods follow
-## alphabetically. The details pane says where each mod came from (bundled,
-## the mods folder, a zip, the Steam Workshop), what it needs, what the
-## loader complained about.
+## The list *is* the load order, with a place in it for every mod: the
+## enabled ones load from the top of the list down (later wins data
+## conflicts, provider take-overs and hook order) and carry their place as
+## the number in front of their name. The arrow buttons move any mod up or
+## down the list, enabled or not, and its row moves with it; ticking a mod
+## on or off never moves its row. ModManager keeps the order: it starts as
+## the order the game first found each mod, a mod new to the player joins
+## the bottom, and one that is taken away and put back returns to its
+## place. The search box and the All / Enabled / Disabled filter chips
+## narrow the list without touching the loadout or the order. The details
+## pane says where each mod came from (bundled, the mods folder, a zip, the
+## Steam Workshop), what it needs, what the loader complained about.
 ##
-## Toggling or reordering writes the player's list
-## (user://mods/load_order.json) straight away but changes nothing live:
+## Toggling or reordering writes the player's lists
+## (user://mods/load_order.json, user://mods/library_order.json) straight
+## away but changes nothing live:
 ## **Apply & Reload** re-runs the loader and reloads the scene, so a course
 ## in play is never half re-modded. Installing a zip copies it into the
 ## library still disabled - installing is never enabling. **Create New
@@ -34,6 +41,10 @@ class_name ModsScreen
 
 signal back_requested()
 
+## Which mods the list shows, on top of whatever the search box asks for. A
+## filter only narrows the view: it never enables, disables or reorders.
+enum Filter { ALL, ENABLED, DISABLED }
+
 const Kit := preload("res://scripts/ui/components/menu_screen_kit.gd")
 
 const COLOR_SURFACE := MenuStyle.SHEET_BG
@@ -51,6 +62,12 @@ const ROW_GAP := 8
 ## clipped off the sides.
 const MIN_LIBRARY_WIDTH := 340.0
 const MIN_INSPECTOR_WIDTH := 420.0
+## The search box never gets squeezed thinner than this by the filter chips
+## that share its row.
+const MIN_SEARCH_WIDTH := 96.0
+## Desktop filter chips are all this wide, so the three read as one switch
+## whatever the length of their words.
+const FILTER_CHIP_WIDTH := 90.0
 
 const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
 const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
@@ -68,6 +85,14 @@ var _create_dialog: CreateModDialog = null
 var _selected_id: String = ""
 var _infos: Array = []
 var _search_query: String = ""
+var _filter: int = Filter.ALL
+## Filter -> its chip, so the one in force can be shown held down.
+var _filter_buttons: Dictionary = {}
+## Mods ticked on or off since a filter was last picked. Their rows stay
+## listed even if they no longer fit that filter, so a tick never makes its
+## own row vanish from under the pointer; picking a filter (the one in force
+## included) sorts every row afresh.
+var _held_ids: Dictionary = {}
 
 var _tabs: HBoxContainer = null
 var _library: PanelContainer = null
@@ -112,17 +137,82 @@ func _unhandled_input(event: InputEvent) -> void:
 		back_requested.emit()
 		get_viewport().set_input_as_handled()
 
-## Show only the rows whose searchable text contains the search query.
+## Show only the rows the filter lets through whose searchable text contains
+## the search query. Rows are hidden, never removed or reordered, so the list
+## keeps its order whatever is on show - and the arrows are lit for the rows
+## that are.
 func _filter_rows() -> void:
 	if _rows_box == null or _search == null:
 		return
-	var count := 0
+	var query := _search.text.strip_edges().to_lower()
+	var shown := 0
 	for row in _rows_box.get_children():
-		row.visible = _search.text.is_empty() or str(row.get_meta("search", "")).contains(_search.text.to_lower())
+		var listed: bool = filter_accepts(_filter, bool(row.get_meta("enabled", false))) \
+			or _held_ids.has(str(row.get_meta("mod_id", "")))
+		row.visible = listed and (query.is_empty() or str(row.get_meta("search", "")).contains(query))
 		if row.visible:
-			count += 1
+			shown += 1
 	if _empty != null:
-		_empty.visible = count == 0
+		_empty.text = empty_text(_filter, not query.is_empty(), _rows_box.get_child_count())
+		_empty.visible = shown == 0
+	if _subtitle != null:
+		_subtitle.text = "   " + summary_text(shown, _infos.size(),
+			ModManager.get_enabled_order().size(), ModManager.get_load_order().size())
+	_update_move_buttons()
+
+## Light the arrows that have somewhere to go. A mod moves past the rows on
+## show (see _on_row_moved), so the first of those cannot go up and the last
+## cannot go down. An arrow that goes out under the press that took its row
+## to the end keeps the focus: pressing it again does nothing, rather than
+## the focus jumping to a button that does something else.
+func _update_move_buttons() -> void:
+	var shown: Array[Node] = []
+	for row in _rows_box.get_children():
+		if row.visible:
+			shown.append(row)
+	for index in shown.size():
+		(shown[index].get_node("MoveUp") as Button).disabled = index == 0
+		(shown[index].get_node("MoveDown") as Button).disabled = index == shown.size() - 1
+
+func _on_filter_pressed(filter: int) -> void:
+	_filter = filter
+	# Picking a filter - even the one already in force - sorts every row
+	# afresh, so the rows that were only being held on show step out.
+	_held_ids.clear()
+	_update_filter_buttons()
+	_filter_rows()
+
+## Hold down the chip of the filter in force and release the others. The
+## chips are plain toggles, so this is also what keeps a second press on the
+## chosen one from popping it back up.
+func _update_filter_buttons() -> void:
+	for filter in _filter_buttons:
+		var button := _filter_buttons[filter] as Button
+		if is_instance_valid(button):
+			button.set_pressed_no_signal(int(filter) == _filter)
+
+## The row listing `mod_id`, or null when the library has no such mod.
+func _row_for(mod_id: String) -> Control:
+	if _rows_box == null:
+		return null
+	for row in _rows_box.get_children():
+		if str(row.get_meta("mod_id", "")) == mod_id:
+			return row as Control
+	return null
+
+## Make sure a mod that has just arrived can be seen: if the search or the
+## filter would hide its row, clear them both and show the whole library.
+func _reveal(mod_id: String) -> void:
+	var row := _row_for(mod_id)
+	if row != null and row.visible:
+		return
+	_search_query = ""
+	if is_instance_valid(_search):
+		_search.text = ""
+	_filter = Filter.ALL
+	_held_ids.clear()
+	_update_filter_buttons()
+	_filter_rows()
 
 # =============================================================================
 # BUILDING
@@ -148,6 +238,7 @@ func _build() -> void:
 	_inspector = null
 	_search = null
 	_empty = null
+	_filter_buttons.clear()
 
 	_layout_mode = Kit.layout_mode_for(_window_size())
 	_built_size = _window_size()
@@ -189,7 +280,8 @@ func _build() -> void:
 	_restore_build_state()
 
 ## Remembers the live search text before the tree is thrown away for a
-## rebuild, so a resize does not lose what the player typed.
+## rebuild, so a resize does not lose what the player typed. (The filter in
+## force is not kept in a control, so it carries over by itself.)
 func _saved_build_state() -> void:
 	if is_instance_valid(_search):
 		_search_query = _search.text
@@ -274,12 +366,21 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	stack.add_theme_constant_override("separation", 8)
 	margin.add_child(stack)
 
+	# The filter chips sit beside the search box where the panel is wide
+	# (desktop) or the window is short (a phone on its side, where a row of
+	# their own would cost the list a row); everywhere else they take the
+	# full width under it.
+	var filters_beside_search := _layout_mode == Kit.LayoutMode.DESKTOP \
+		or _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE
 	var controls := HBoxContainer.new()
+	controls.name = "LibraryControls"
 	controls.add_theme_constant_override("separation", 8)
 	_search = LineEdit.new()
 	_search.name = "ModSearch"
-	_search.placeholder_text = "Search your collection..."
-	_search.custom_minimum_size.y = 44.0
+	# A phone on its side has room for a short prompt only.
+	_search.placeholder_text = "Search mods..." \
+		if _layout_mode == Kit.LayoutMode.PHONE_LANDSCAPE else "Search your collection..."
+	_search.custom_minimum_size = Vector2(MIN_SEARCH_WIDTH, 44.0)
 	_search.add_theme_font_override("font", BODY_FONT)
 	_search.add_theme_font_size_override("font_size", 13)
 	_search.add_theme_color_override("font_color", COLOR_TEXT_BRIGHT)
@@ -293,10 +394,19 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	_search.text_changed.connect(func(_text: String) -> void: _filter_rows())
 	controls.add_child(_search)
 	stack.add_child(controls)
+	var filters := _build_filter_bar(filters_beside_search)
+	if filters_beside_search:
+		controls.add_child(filters)
+	else:
+		stack.add_child(filters)
 
-	var caption := _label("LOADOUT / tick to enable · arrows set priority", 13, COLOR_GOLD,
+	var caption := _label("LOADOUT / tick to enable · arrows set the order", 13, COLOR_GOLD,
 		SUBTITLE_FONT)
+	caption.name = "LoadoutCaption"
 	caption.uppercase = true
+	# Wraps rather than widening the panel: on one line it is wider than the
+	# narrowest phones, and would push every row's arrows off the right edge.
+	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(caption)
 
 	_subtitle = _label("", 13, COLOR_TEXT_SECONDARY)
@@ -305,6 +415,7 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	stack.add_child(_subtitle)
 
 	var list_scroll := ScrollContainer.new()
+	list_scroll.name = "ModList"
 	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if page_scrolled:
 		list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -315,15 +426,25 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 		list_scroll.custom_minimum_size.y = ROW_HEIGHT * 4.0 + 10.0
 	stack.add_child(list_scroll)
 
+	# The note shares the list's own space: an empty list says why where its
+	# first row would have been, and the panel is no taller for saying it.
+	var list_content := VBoxContainer.new()
+	list_content.name = "ModListContent"
+	list_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_content.add_theme_constant_override("separation", 0)
+	list_scroll.add_child(list_content)
+
+	_empty = _label("", 13, COLOR_TEXT_QUIET)
+	_empty.name = "EmptyNote"
+	_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_empty.visible = false
+	list_content.add_child(_empty)
+
 	_rows_box = VBoxContainer.new()
 	_rows_box.name = "ModRows"
 	_rows_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rows_box.add_theme_constant_override("separation", ROW_GAP)
-	list_scroll.add_child(_rows_box)
-
-	_empty = _label("No matching mods. Try another search.", 13, COLOR_TEXT_QUIET)
-	_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(_empty)
+	list_content.add_child(_rows_box)
 
 	_library = panel
 	panel.custom_minimum_size.x = clampf(MIN_LIBRARY_WIDTH, 100.0,
@@ -331,6 +452,38 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL if not page_scrolled \
 		else Control.SIZE_SHRINK_BEGIN
 	return panel
+
+## The All / Enabled / Disabled chips. One is always held down; picking
+## another narrows the rows on top of the search, and leaves the loadout
+## alone. `beside_search` chips are only as wide as they need to be, so the
+## search box keeps the rest of the row; on a row of their own the three
+## share the panel's width.
+func _build_filter_bar(beside_search: bool) -> HBoxContainer:
+	var phone := Kit.is_phone(_layout_mode)
+	# A phone on its side has the least room of all: "On" and "Off" leave
+	# the search box wide enough to read what is typed into it.
+	var short_labels := beside_search and phone
+	var bar := HBoxContainer.new()
+	bar.name = "ModFilters"
+	bar.add_theme_constant_override("separation", 4 if phone else 6)
+	for filter in [Filter.ALL, Filter.ENABLED, Filter.DISABLED]:
+		var button := Button.new()
+		button.name = "Filter_" + filter_label(int(filter))
+		button.text = filter_label(int(filter), short_labels)
+		button.tooltip_text = filter_hint(int(filter))
+		button.toggle_mode = true
+		button.add_theme_font_size_override("font_size",
+			10 if short_labels else (11 if phone else 12))
+		if not beside_search:
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		elif not phone:
+			button.custom_minimum_size.x = FILTER_CHIP_WIDTH
+		Kit.paint_toggle(button)
+		button.pressed.connect(_on_filter_pressed.bind(int(filter)))
+		_filter_buttons[int(filter)] = button
+		bar.add_child(button)
+	_update_filter_buttons()
+	return bar
 
 func _build_inspector_panel(page_scrolled: bool) -> PanelContainer:
 	var panel := Kit.make_panel(COLOR_SURFACE_RAISED,
@@ -425,6 +578,7 @@ func _build_tools_strip() -> Control:
 			_file_dialog.popup_centered(get_viewport().get_visible_rect().size.min(Vector2(720, 480)) * 0.9), true),
 		_button("Rescan", func() -> void:
 			ModManager.discover()
+			_held_ids.clear()
 			refresh("Library rescanned.")),
 		_button("Mods folder", func() -> void: OS.shell_open(ModManager.mods_folder_path())),
 		_button("Disable all", _on_disable_all_pressed),
@@ -475,14 +629,7 @@ func refresh(message: String = "") -> void:
 		pass
 	elif not _infos.is_empty():
 		_selected_id = str(_infos[0].get("id", ""))
-	for child in _rows_box.get_children():
-		_rows_box.remove_child(child)
-		child.queue_free()
-	for info in _infos:
-		_rows_box.add_child(_make_row(info))
-	if _subtitle != null:
-		_subtitle.text = "   %d found · %d enabled · %d loaded" % [
-			_infos.size(), ModManager.get_enabled_order().size(), ModManager.get_load_order().size()]
+	_sync_rows()
 	_filter_rows()
 	_show_details()
 	if _apply_button != null:
@@ -500,10 +647,44 @@ func refresh(message: String = "") -> void:
 	if _status != null:
 		_status.tooltip_text = _status.text
 
-func _make_row(info: Dictionary) -> Control:
-	var mod_id: String = str(info.get("id", ""))
+## Bring the rows in line with `_infos`: one row per mod, in the list's
+## order. Rows are kept and moved, not rebuilt - one is only made for a mod
+## that is new to the library, and only dropped when its mod has left it -
+## so after a tick, a move or a rescan the control under the pointer, or
+## holding the keyboard focus, still belongs to the same mod.
+func _sync_rows() -> void:
+	var rows: Dictionary = {}
+	for row in _rows_box.get_children():
+		rows[str(row.get_meta("mod_id", ""))] = row
+	var listed: Dictionary = {}
+	for info in _infos:
+		listed[str(info.get("id", ""))] = true
+	for mod_id in rows:
+		if not listed.has(mod_id):
+			_rows_box.remove_child(rows[mod_id])
+			rows[mod_id].queue_free()
+	var traded_places := false
+	for index in _infos.size():
+		var mod_id := str(_infos[index].get("id", ""))
+		var row: Node = rows.get(mod_id)
+		if row == null:
+			row = _make_row(mod_id)
+			_rows_box.add_child(row)
+		if row.get_index() != index:
+			_rows_box.move_child(row, index)
+			traded_places = true
+		_paint_row(row, _infos[index])
+	# The D-pad steps from row to row by where each row was when the screen
+	# was last measured, and rows that swap leave it measuring the same.
+	if traded_places and has_node("/root/InputManager"):
+		InputManager.invalidate_focus_graph(self)
+
+## One row of the list, wired to its mod. What it shows is _paint_row()'s
+## business, so the same row can be repainted as the loadout changes and
+## moved as the order does.
+func _make_row(mod_id: String) -> Control:
 	var row := HBoxContainer.new()
-	row.set_meta("search", (str(info.get("name", "")) + " " + mod_id + " " + str(info.get("description", ""))).to_lower())
+	row.set_meta("mod_id", mod_id)
 	row.custom_minimum_size.y = ROW_HEIGHT
 	row.name = "ModRow_" + mod_id.replace(".", "_").replace("-", "_")
 	row.add_theme_constant_override("separation", 6)
@@ -511,50 +692,94 @@ func _make_row(info: Dictionary) -> Control:
 	var check := CheckBox.new()
 	check.name = "EnabledCheck"
 	check.custom_minimum_size = Vector2(44.0, 44.0)
-	check.button_pressed = bool(info.get("enabled", false))
 	check.tooltip_text = "Load this mod"
-	check.toggled.connect(func(on: bool) -> void:
-		ModManager.set_mod_enabled(mod_id, on)
-		_selected_id = mod_id
-		refresh())
+	check.toggled.connect(_on_row_toggled.bind(mod_id))
 	row.add_child(check)
 
 	var name_button := Button.new()
 	name_button.name = "ModName"
 	name_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_button.text = row_title(info) + "\n" + row_badge(info).to_upper()
 	name_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_button.clip_text = true
 	name_button.custom_minimum_size.x = 40.0
-	name_button.tooltip_text = str(info.get("description", ""))
 	name_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	name_button.pressed.connect(func() -> void:
-		_selected_id = mod_id
-		_inspect_mobile = true
-		_update_panes()
-		_show_details()
-		_refresh_row_highlights())
+	name_button.pressed.connect(_on_row_selected.bind(mod_id))
 	row.add_child(name_button)
 
-	var order_index: int = int(info.get("order_index", -1))
-	var up := _row_button("▲", func() -> void:
-		ModManager.move_mod(mod_id, -1)
-		_selected_id = mod_id
-		refresh())
+	var up := _row_button("▲", _on_row_moved.bind(mod_id, -1))
 	up.name = "MoveUp"
-	up.tooltip_text = "Load earlier"
-	up.disabled = order_index <= 0
+	up.tooltip_text = "Move up the list (loads earlier)"
 	row.add_child(up)
 
-	var down := _row_button("▼", func() -> void:
-		ModManager.move_mod(mod_id, 1)
-		_selected_id = mod_id
-		refresh())
+	var down := _row_button("▼", _on_row_moved.bind(mod_id, 1))
 	down.name = "MoveDown"
-	down.tooltip_text = "Load later (wins conflicts)"
-	down.disabled = order_index < 0 or order_index >= ModManager.get_enabled_order().size() - 1
+	down.tooltip_text = "Move down the list (loads later, wins conflicts)"
 	row.add_child(down)
 	return row
+
+## Show `info` on its row: the tick, and the numbered title over the state
+## badge. (Which arrows are lit depends on the rows on show, not on the
+## mod: see _update_move_buttons.)
+func _paint_row(row: Node, info: Dictionary) -> void:
+	var enabled := bool(info.get("enabled", false))
+	row.set_meta("enabled", enabled)
+	row.set_meta("search", (str(info.get("name", "")) + " " + str(info.get("id", "")) \
+		+ " " + str(info.get("description", ""))).to_lower())
+	# Without the signal: this is the manager's answer, not a click to act on.
+	(row.get_node("EnabledCheck") as CheckBox).set_pressed_no_signal(enabled)
+	var name_button := row.get_node("ModName") as Button
+	name_button.text = row_title(info) + "\n" + row_badge(info).to_upper()
+	name_button.tooltip_text = str(info.get("description", ""))
+
+func _on_row_toggled(on: bool, mod_id: String) -> void:
+	ModManager.set_mod_enabled(mod_id, on)
+	_selected_id = mod_id
+	# The row suited the filter when it was ticked; keep it on show.
+	_held_ids[mod_id] = true
+	refresh()
+
+func _on_row_selected(mod_id: String) -> void:
+	_selected_id = mod_id
+	_inspect_mobile = true
+	_update_panes()
+	_show_details()
+	_refresh_row_highlights()
+
+## An arrow was pressed (`direction` is -1 for up, 1 for down): move the mod
+## past the next row on show that way, enabled or not. Rows the search or a
+## filter is hiding are stepped over with it, so a press always moves the
+## row one place in the list as it reads right now - under the Enabled
+## filter, one place in the load order.
+func _on_row_moved(mod_id: String, direction: int) -> void:
+	var row := _row_for(mod_id)
+	if row == null:
+		return
+	var rows := _rows_box.get_children()
+	var stop := row.get_index() + direction
+	while stop >= 0 and stop < rows.size() and not rows[stop].visible:
+		stop += direction
+	if stop < 0 or stop >= rows.size():
+		return
+	ModManager.move_mod(mod_id, stop - row.get_index())
+	_selected_id = mod_id
+	refresh()
+	# The rows only take their new places when the list next lays itself
+	# out, which is before this deferred call comes round.
+	_scroll_to_row.call_deferred(row.get_instance_id())
+
+## Scroll whatever scrolls the list - the list itself or, on a phone held
+## upright, the whole page - far enough to keep a row that has just moved
+## on show. By instance id: the row can be gone (a rebuild for a new window
+## shape) by the time a deferred call arrives.
+func _scroll_to_row(row_id: int) -> void:
+	var row := instance_from_id(row_id) as Control
+	if row == null or not row.is_visible_in_tree():
+		return
+	var node := row.get_parent()
+	while node != null and node != self:
+		if node is ScrollContainer:
+			(node as ScrollContainer).ensure_control_visible(row)
+		node = node.get_parent()
 
 func _row_button(text: String, action: Callable) -> Button:
 	var button := Button.new()
@@ -570,7 +795,7 @@ func _refresh_row_highlights() -> void:
 		var name_button := row.get_node_or_null("ModName") as Button
 		if name_button == null:
 			continue
-		var chosen: bool = row.name == "ModRow_" + _selected_id.replace(".", "_").replace("-", "_")
+		var chosen: bool = str(row.get_meta("mod_id", "")) == _selected_id
 		Kit.paint_utility_button(name_button, chosen)
 		name_button.add_theme_color_override("font_color",
 			COLOR_GOLD if chosen else UIConstants.COLOR_TEXT)
@@ -591,17 +816,15 @@ func _on_create_mod_pressed() -> void:
 	add_child(_create_dialog)
 
 ## A new mod arrived switched off, like an installed zip. Select it (clearing
-## any search that would hide its row) and say what to do next.
+## any search or filter that would hide its row) and say what to do next.
 func _on_mod_created(mod_id: String) -> void:
 	_inspect_mobile = true
 	_update_panes()
-	_search_query = ""
-	if is_instance_valid(_search):
-		_search.text = ""
 	refresh("Created %s in your mods folder - still off. Its README has the next steps: tick it, then Apply & Reload." % mod_id)
 	# The refresh may have fallen back to the first row while going through
 	# the manager; the new mod is in the list now, so open its field notes.
 	_selected_id = mod_id
+	_reveal(mod_id)
 	_show_details()
 	_refresh_row_highlights()
 
@@ -610,12 +833,16 @@ func _on_zip_selected(path: String) -> void:
 	if bool(result.get("ok", false)):
 		_selected_id = str(result.get("mod_id", ""))
 		refresh("Installed %s - still disabled. Tick it, then Apply & Reload." % _selected_id)
+		# It arrives unticked, which the Enabled filter would hide.
+		_reveal(_selected_id)
 	else:
 		refresh("That zip is not a Golf Tycoon mod: %s" % "; ".join(result.get("errors", ["unknown error"])))
 
 func _on_disable_all_pressed() -> void:
 	for info in _infos:
 		ModManager.set_mod_enabled(str(info.get("id", "")), false)
+	# A sweep of the whole library, not a tick on one row: nothing is held.
+	_held_ids.clear()
 	refresh("Every mod is off. Apply & Reload to run the plain game - its built-in weather, wind and seasons stand-ins keep everything working.")
 
 func _on_uninstall_pressed() -> void:
@@ -663,6 +890,60 @@ func _button(text: String, action: Callable, accent: bool = false) -> Button:
 # =============================================================================
 # ROW AND DETAIL TEXT (pure, unit-tested)
 # =============================================================================
+
+## Whether `filter` lists a mod that is ticked to load (`enabled`) or not.
+static func filter_accepts(filter: int, enabled: bool) -> bool:
+	match filter:
+		Filter.ENABLED:
+			return enabled
+		Filter.DISABLED:
+			return not enabled
+	return true
+
+## The word on a filter's chip. `short` is for the narrowest rows, where
+## "On" and "Off" stand in for "Enabled" and "Disabled".
+static func filter_label(filter: int, short: bool = false) -> String:
+	match filter:
+		Filter.ENABLED:
+			return "On" if short else "Enabled"
+		Filter.DISABLED:
+			return "Off" if short else "Disabled"
+	return "All"
+
+## The tooltip on a filter's chip.
+static func filter_hint(filter: int) -> String:
+	match filter:
+		Filter.ENABLED:
+			return "Show only the mods ticked to load"
+		Filter.DISABLED:
+			return "Show only the mods that are switched off"
+	return "Show every mod"
+
+## The line under the caption: how much of the library is on show, and the
+## state of the loadout. Says "showing" only when rows are hidden.
+static func summary_text(shown: int, found: int, enabled: int, loaded: int) -> String:
+	var listed := "%d found" % found if shown == found else "showing %d of %d" % [shown, found]
+	return "%s · %d enabled · %d loaded" % [listed, enabled, loaded]
+
+## What the list says when it has no row to show, so an empty list always
+## names the reason: nothing installed, nothing in that filter, or nothing
+## matching the search.
+static func empty_text(filter: int, searching: bool, library_size: int) -> String:
+	if library_size == 0:
+		return "No mods here yet. Create one, install a zip, or drop a mod folder into the mods folder and Rescan."
+	if searching:
+		match filter:
+			Filter.ENABLED:
+				return "No enabled mods match. Try another search, or the All filter."
+			Filter.DISABLED:
+				return "No disabled mods match. Try another search, or the All filter."
+		return "No matching mods. Try another search."
+	match filter:
+		Filter.ENABLED:
+			return "No mods are enabled. Pick All, then tick the ones you want."
+		Filter.DISABLED:
+			return "No mods are disabled: every one of them is ticked."
+	return "No matching mods. Try another search."
 
 static func row_title(info: Dictionary) -> String:
 	var place: String = ""
