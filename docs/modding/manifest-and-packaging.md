@@ -63,7 +63,7 @@ whether it wants to run code. The parser and validator live in
 | `author` | string | no | Shown in the Mods screen and used as the Workshop item author line. |
 | `description` | string | no (warns) | Player-facing blurb in the details pane. |
 | `homepage` | string | no | Link shown with the details. |
-| `icon` | string | no | Mod-root-relative path to the picture the Mods screen shows next to the mod - in its list row and at the head of its field notes. PNG, JPG, WebP or BMP; a square reads best (anything is drawn centred on a transparent square, capped at 128px on its longest side). A wrong type, a missing file or no icon at all leaves the mod the shared default mark, and a missing file is called out in its field notes. |
+| `icon` | string | no | Mod-root-relative path to the picture the Mods screen shows for the mod - inside its list row's button, ahead of the title, and at the head of its field notes. PNG, JPG, WebP or BMP; a square reads best (anything is drawn centred on a transparent square, capped at 128px on its longest side). A wrong type, a missing file or no icon at all leaves the mod the shared default mark, and a missing file is called out in its field notes. |
 | `min_game_version` / `max_game_version` | string | no | Game-version window the mod supports; outside it the mod is listed but does not load. Empty = open-ended. |
 | `types` | string[] | no | Free-form kind tags (`data`, `script`, `gameplay`, `balance`, …) displayed in the Mods screen. Cosmetic. |
 | `entry_point` | string | script mods only | Mod-root-relative path to the GDScript the loader instantiates (must end `.gd`, must extend `GolfTycoonMod`). |

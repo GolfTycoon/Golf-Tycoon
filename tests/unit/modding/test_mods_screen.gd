@@ -321,21 +321,51 @@ func test_the_screen_renders_the_live_library() -> void:
 		"the header reports the live counts, not a blank")
 
 
-func test_every_row_opens_with_its_mods_own_icon() -> void:
+func test_every_mod_button_carries_its_mods_own_icon() -> void:
 	var screen := await _screen()
 	var rows := screen.find_child("ModRows", true, false)
 	var fingerprints: Dictionary = {}
 	for row in rows.get_children():
-		var icon := row.get_node_or_null("ModIcon") as TextureRect
-		assert_not_null(icon, "every row carries an icon")
-		assert_not_null(icon.texture, "and it is painted")
-		assert_true(icon.texture is ImageTexture, "the icon is a real picture")
+		var button := row.get_node_or_null("ModName") as Button
+		assert_not_null(button, "every row has its mod button")
+		var icon: Texture2D = button.icon
+		assert_not_null(icon, "and the button wears the mod's icon")
+		assert_true(icon is ImageTexture, "the icon is a real picture")
+		# Nothing of the picture is left outside the button: the row holds
+		# the tick, the button and the two arrows, and no icon node of its own.
+		assert_eq(row.get_child_count(), 4, "the picture lives inside the button, not beside it")
+		assert_null(row.get_node_or_null("ModIcon"), "there is no icon node in the row itself")
 		# The bundled mods each ship their own picture, so the rows show
 		# distinct ones; count them (the pixels hash by content).
-		if icon.texture is ImageTexture:
-			var fingerprint := (icon.texture as ImageTexture).get_image().get_data()
+		if icon is ImageTexture:
+			var fingerprint := (icon as ImageTexture).get_image().get_data()
 			fingerprints[fingerprint] = true
 	assert_gte(fingerprints.size(), 10, "a shelf of bundled mods shows many pictures, not one repeated")
+	screen.queue_free()
+	await process_frames(1)
+
+
+## The picture is the button's own icon, so it sits inside the frame the
+## player clicks - level with the start of the title text, not hanging off
+## the row beside it.
+func test_the_icon_sits_inside_the_mod_button() -> void:
+	var screen := await _screen()
+	await process_frames(2)
+	var rows := screen.find_child("ModRows", true, false)
+	for row in rows.get_children():
+		var button := row.get_node("ModName") as Button
+		var row_rect := (row as Control).get_global_rect()
+		var button_rect := button.get_global_rect()
+		assert_true(rect_within(button_rect, row_rect), "the mod button fits in its row")
+		assert_gt(button_rect.position.x, row_rect.position.x,
+			"the tick box still leads the row, and the button follows it")
+		assert_eq(button.get_theme_constant("icon_max_width"), ModsScreen.ROW_ICON_SIZE,
+			"the button caps its icon to the row's picture size")
+		assert_true(button.expand_icon, "and stretches it to fill its box, undistorted")
+		# The picture is the button's own icon, so nothing is painted over
+		# the frame or hung on the row beside it.
+		for child in button.get_children():
+			assert_false(child is TextureRect, "no sprite hangs over the frame")
 	screen.queue_free()
 	await process_frames(1)
 
@@ -383,10 +413,9 @@ func test_a_mod_without_an_icon_wears_the_default_mark() -> void:
 	var screen := await _screen()
 	var row := _row(screen, mod_id)
 	assert_not_null(row, "the icon-less mod is listed")
-	var row_icon := row.get_node("ModIcon") as TextureRect
-	assert_eq(row_icon.texture, ModsScreen.fallback_icon_texture(),
-		"its row wears the shared default mark")
 	var name_button := row.get_node("ModName") as Button
+	assert_eq(name_button.icon, ModsScreen.fallback_icon_texture(),
+		"its mod button wears the shared default mark")
 	name_button.emit_signal("pressed")
 	await process_frames(1)
 	var detail_icon := screen.find_child("DetailIcon", true, false) as TextureRect

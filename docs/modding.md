@@ -33,9 +33,11 @@ pressing it again moves the same mod another row. When two mods change
 the same thing (a building's price, a terrain's upkeep, which system
 drives the weather), **the mod lower in the list wins**. The details pane
 names the losers whenever a conflict was overwritten, so nothing is
-silently ambiguous. Each row opens with the mod's own icon image (a large
-copy heads its field notes too), so a shelf of mods tells at a glance
-which is which; a mod that ships no icon wears the default mark.
+silently ambiguous. Each mod's own icon image rides inside its row's
+button, in front of the numbered title and the state badge (a large copy
+heads its field notes too), so a shelf of mods tells at a glance which is
+which and the whole width of the button the player clicks reads as one
+card; a mod that ships no icon wears the default mark.
 
 Ticking a mod on or off never moves its row: a mod you switch on loads
 where it already stands, after the enabled mods above it. The list starts
@@ -127,9 +129,9 @@ A mod is a folder with a `mod.json` at its root. There are two ways in:
   namespaces everything you add, and must never change once players have
   saves), the `name`, and the `description`.
 
-Every mod carries an `icon` - the picture the Mods screen shows in its
-list row and at the head of its field notes (the bundled mods each ship
-one, a square PNG next to `mod.json`). Point the manifest's `icon` field
+Every mod carries an `icon` - the picture the Mods screen shows inside
+its list row's button and at the head of its field notes (the bundled mods
+each ship one, a square PNG next to `mod.json`). Point the manifest's `icon` field
 at your own image (PNG, JPG, WebP or BMP); a mod without one, or with a
 picture that will not read, gets the shared default mark instead.
 
