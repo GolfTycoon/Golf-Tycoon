@@ -10,7 +10,7 @@ class_name CreateModDialog
 ## ModManager.create_mod().
 ##
 ## Creating never enables: the new folder is discovered switched off, and
-## the Mods screen's usual tick + Apply & Reload puts it into play. The
+## the usual tick, then leaving the Mods screen, puts it into play. The
 ## dialog closes itself after creating; `created` carries the new mod id so
 ## the screen can select and describe it.
 
@@ -112,7 +112,7 @@ func _build() -> void:
 	stack.add_child(title)
 
 	var blurb := Kit.make_label(
-		"Builds a folder in your mods library. It stays switched off until you tick it and Apply & Reload.",
+		"Builds a folder in your mods library. It stays switched off until you tick it - then it loads when you leave this screen.",
 		13, COLOR_TEXT_SECONDARY)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(blurb)

@@ -20,7 +20,7 @@ starter" writes this same scaffold into your mods library for you.
 3. The four bundled designs (`mods/example.gui_glass/`, `.gui_neon`,
    `.gui_parchment`, `.gui_porcelain`) are complete references; the full
    role and metric list is in docs/modding/gui-themes.md.
-4. Launch the game, open Mods, tick yours, Apply & Reload. With two GUI
-   theme mods on, the lower one in the list wins.
+4. Launch the game, open Mods and tick yours: it loads when you leave
+   the screen. With two GUI theme mods on, the lower one in the list wins.
 5. Share it: zip the folder so `mod.json` is at the zip root (or run
    `make mod-pack MOD=path/to/folder` from a source checkout).

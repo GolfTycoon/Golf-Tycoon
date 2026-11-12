@@ -58,7 +58,7 @@ so two mods can never collide by accident.
 ## Try it
 
 1. The Mods screen lists this mod as **off** (only the three official mods load
-   by default). Tick it and press **Apply & Reload**.
+   by default). Tick it and leave the screen - it loads on the way out.
 2. Open **Settings → Display → Background**. Both new pictures and all three
    overlays are in the lists, marked with this mod's id.
 3. Leave both on **Auto** and visit the title screen in Winter, or open a resort

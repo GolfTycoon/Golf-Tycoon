@@ -802,6 +802,19 @@ func apply_and_reload_scene() -> void:
 		get_tree().reload_current_scene()
 
 
+## The player changed the list on the Mods screen and has now left it: put
+## the new loadout into play without being asked, since the screen has no
+## Apply button. Reloading the whole scene is what makes the change whole -
+## providers, HUD widgets and GUI themes are wired during the main scene's
+## startup - so this reloads it, and it does nothing at all when the loaded
+## set already matches the list. Returns whether the scene is being reloaded.
+func apply_staged_changes() -> bool:
+	if not needs_reload:
+		return false
+	apply_and_reload_scene()
+	return true
+
+
 func unload_all() -> void:
 	_main_scene = null
 	_texture_cache.clear()
@@ -1223,7 +1236,7 @@ func get_installed_mod_ids() -> Array[String]:
 ## Scaffold a new mod folder in the player's library, then rediscover so it
 ## shows in the list. Creating is not enabling: like an installed zip, the
 ## new mod arrives switched off and does nothing until the player ticks it
-## and applies. Result: {ok, mod_id, directory, files, errors} - see
+## and leaves the Mods screen. Result: {ok, mod_id, directory, files, errors} - see
 ## ModScaffold.create().
 func create_mod(fields: Dictionary) -> Dictionary:
 	var result: Dictionary = ModScaffold.create(user_root, fields, get_installed_mod_ids())
@@ -1254,7 +1267,7 @@ func uninstall_mod(mod_id: String) -> Dictionary:
 	if str(record["source"]) == SOURCE_WORKSHOP:
 		return {"ok": false, "errors": ["Workshop mods are removed by unsubscribing in Steam."]}
 	if is_mod_loaded(mod_id):
-		return {"ok": false, "errors": ["Disable the mod and apply the change first."]}
+		return {"ok": false, "errors": ["Switch the mod off on the Mods screen and leave it, then uninstall it here."]}
 	set_mod_enabled(mod_id, false)
 	if not str(record["zip_path"]).is_empty() and FileAccess.file_exists(str(record["zip_path"])):
 		DirAccess.remove_absolute(str(record["zip_path"]))

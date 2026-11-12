@@ -1178,9 +1178,10 @@ func _show_main_menu() -> void:
 ## The title screen's Achievements tile: the career trophy room opens over
 ## the menu on the shared backdrop, and its Back comes home to the menu.
 
-## The title screen's Mods tile: the mod library. Applying a new set from
-## there reloads this scene wholesale, so the screen closes back to the
-## menu whether the player applies or just browses.
+## The title screen's Mods tile: the mod library. Leaving the screen with a
+## changed loadout reloads this scene wholesale, so the mods the player
+## picked are in force by the time the menu comes back; browsing without
+## changing anything just closes the screen.
 func _on_menu_mods() -> void:
 	_hide_main_menu()
 	mods_screen = ModsScreen.new()

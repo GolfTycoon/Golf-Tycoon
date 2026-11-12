@@ -1,6 +1,6 @@
 {
 	"name": "My Interface",
-	"description": "Edit these colours, then tick the mod and Apply & Reload. Any role you delete keeps the stock look.",
+	"description": "Edit these colours, then tick the mod and leave the Mods screen. Any role you delete keeps the stock look.",
 	"colors": {
 		"accent": "8be9e2",
 		"panel": "16222ecc",

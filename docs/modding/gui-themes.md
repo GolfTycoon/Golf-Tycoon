@@ -5,13 +5,13 @@ the HUD, menus, panels, popups, buttons, fields and scrollbars — without
 changing anything the game does. It is the simplest kind of mod there is:
 one JSON palette, no code, no permissions. Four bundled examples ship a
 complete design each (**Modern Glass**, **Neon Fairway**, **Clubhouse
-Parchment**, **Porcelain Fairway**); enable one on the Mods screen, press
-**Apply & Reload**, and every screen changes at once.
+Parchment**, **Porcelain Fairway**); enable one on the Mods screen, leave
+it, and every screen changes at once.
 
 | You want to... | Do this |
 | --- | --- |
-| Try the bundled designs | Mods screen → tick `Example: … GUI` → **Apply & Reload** |
-| Make your own in the game | Mods → **Create New Mod** → tick **GUI theme starter** → edit `data/gui_theme.json` → **Apply & Reload** |
+| Try the bundled designs | Mods screen → tick `Example: … GUI` → Back (it loads on the way out) |
+| Make your own in the game | Mods → **Create New Mod** → tick **GUI theme starter** → edit `data/gui_theme.json` → come back in → Back |
 | Make your own by hand | Copy `mods/_gui_template/` (or any `example.gui_*` folder) and edit the palette |
 
 ## The manifest

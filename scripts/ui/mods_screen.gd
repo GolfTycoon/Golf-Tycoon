@@ -18,13 +18,15 @@ class_name ModsScreen
 ##
 ## Toggling or reordering writes the player's lists
 ## (user://mods/load_order.json, user://mods/library_order.json) straight
-## away but changes nothing live:
-## **Apply & Reload** re-runs the loader and reloads the scene, so a course
-## in play is never half re-modded. Installing a zip copies it into the
-## library still disabled - installing is never enabling. **Create New
-## Mod** scaffolds a fresh folder in the same library (mod.json, an
-## optional starter script and a README) and likewise leaves it off until
-## the player ticks it.
+## away, and the new loadout is put into play the moment the player leaves
+## the screen: Back (or Esc, or the header's Back) re-runs the loader and
+## reloads the scene, so the changes land whole and a course in play is
+## never half re-modded. There is no Apply button to press and nothing to
+## forget; leaving with the list unchanged reloads nothing. Installing a
+## zip copies it into the library still disabled - installing is never
+## enabling. **Create New Mod** scaffolds a fresh folder in the same
+## library (mod.json, an optional starter script and a README) and likewise
+## leaves it off until the player ticks it.
 ##
 ## The screen sits on the same MenuBackdrop as the World Map and the other
 ## fullscreen menus, and composes for the window's shape the way they do:
@@ -78,13 +80,12 @@ const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
 const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 
-## Live state: what is shown, what is selected, what is staged for reload.
+## Live state: what is shown and what is selected.
 var _rows_box: VBoxContainer = null
 var _subtitle: Label = null
 var _details: RichTextLabel = null
 var _detail_icon: TextureRect = null
 var _status: Label = null
-var _apply_button: Button = null
 var _uninstall_button: Button = null
 var _file_dialog: FileDialog = null
 var _create_dialog: CreateModDialog = null
@@ -140,7 +141,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event.is_action_pressed("cancel"):
-		back_requested.emit()
+		leave()
 		get_viewport().set_input_as_handled()
 
 ## Show only the rows the filter lets through whose searchable text contains
@@ -236,7 +237,6 @@ func _build() -> void:
 	_details = null
 	_detail_icon = null
 	_status = null
-	_apply_button = null
 	_uninstall_button = null
 	# Rebuilding the tree closes any open form; it was a child like the rest.
 	_create_dialog = null
@@ -299,7 +299,7 @@ func _restore_build_state() -> void:
 		_filter_rows()
 
 func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Mods", func(): back_requested.emit(), null, PixelIcon.Kind.PUZZLE)
+	var header := Kit.make_screen_header(mode, "Mods", leave, null, PixelIcon.Kind.PUZZLE)
 	return header
 
 func _build_desktop_body(view: Vector2, _page_scrolled: bool) -> Control:
@@ -407,7 +407,7 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	else:
 		stack.add_child(filters)
 
-	var caption := _label("LOADOUT / tick to enable · arrows set the order", 13, COLOR_GOLD,
+	var caption := _label("LOADOUT / tick to enable · arrows set the order · leaving loads it", 13, COLOR_GOLD,
 		SUBTITLE_FONT)
 	caption.name = "LoadoutCaption"
 	caption.uppercase = true
@@ -576,9 +576,6 @@ func _build_tools_strip() -> Control:
 	strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	strip_scroll.add_child(strip)
 
-	_apply_button = _button("Apply & Reload", _on_apply_pressed, true)
-	_apply_button.name = "ApplyButton"
-
 	var create_button := _button("Create New Mod", _on_create_mod_pressed)
 	create_button.name = "CreateModButton"
 	create_button.tooltip_text = "Scaffold a new mod folder in your library"
@@ -595,7 +592,6 @@ func _build_tools_strip() -> Control:
 			refresh("Library rescanned.")),
 		_button("Mods folder", func() -> void: OS.shell_open(ModManager.mods_folder_path())),
 		_button("Disable all", _on_disable_all_pressed),
-		_apply_button,
 	])
 	for i in buttons.size():
 		strip.add_child(buttons[i])
@@ -645,18 +641,18 @@ func refresh(message: String = "") -> void:
 	_sync_rows()
 	_filter_rows()
 	_show_details()
-	if _apply_button != null:
-		_apply_button.disabled = not ModManager.needs_reload
 	if not message.is_empty():
 		_status.text = message
 	elif ModManager.safe_mode_triggered:
-		_status.text = "A previous session stopped while loading script mods, so this session loaded data only (safe mode). Press Apply & Reload to try the set again."
+		_status.text = "A previous session stopped while loading script mods, so this session loaded data only (safe mode). Switch the mod that caused it off and leave the screen to load the rest normally."
 	elif ModManager.mods_disabled_by_flag:
 		_status.text = "Started with --no-mods: nothing loads this session. The list above is still saved for next time."
 	elif not ModManager.get_discovery_warnings().is_empty():
 		_status.text = "While scanning: " + " · ".join(ModManager.get_discovery_warnings())
+	elif ModManager.needs_reload:
+		_status.text = "Back puts this loadout into play."
 	else:
-		_status.text = "Changes are staged. Apply & Reload to put your loadout into play."
+		_status.text = "Everything above is loaded and in play."
 	if _status != null:
 		_status.tooltip_text = _status.text
 
@@ -877,7 +873,7 @@ func _on_create_mod_pressed() -> void:
 func _on_mod_created(mod_id: String) -> void:
 	_inspect_mobile = true
 	_update_panes()
-	refresh("Created %s in your mods folder - still off. Its README has the next steps: tick it, then Apply & Reload." % mod_id)
+	refresh("Created %s in your mods folder - still off. Its README has the next steps: tick it, and it loads when you leave this screen." % mod_id)
 	# The refresh may have fallen back to the first row while going through
 	# the manager; the new mod is in the list now, so open its field notes.
 	_selected_id = mod_id
@@ -889,7 +885,7 @@ func _on_zip_selected(path: String) -> void:
 	var result: Dictionary = ModManager.install_zip(path)
 	if bool(result.get("ok", false)):
 		_selected_id = str(result.get("mod_id", ""))
-		refresh("Installed %s - still disabled. Tick it, then Apply & Reload." % _selected_id)
+		refresh("Installed %s - still disabled. Tick it, and it loads when you leave this screen." % _selected_id)
 		# It arrives unticked, which the Enabled filter would hide.
 		_reveal(_selected_id)
 	else:
@@ -900,7 +896,7 @@ func _on_disable_all_pressed() -> void:
 		ModManager.set_mod_enabled(str(info.get("id", "")), false)
 	# A sweep of the whole library, not a tick on one row: nothing is held.
 	_held_ids.clear()
-	refresh("Every mod is off. Apply & Reload to run the plain game - its built-in weather, wind and seasons stand-ins keep everything working.")
+	refresh("Every mod is off, and leaving the screen puts that into play - the plain game's built-in weather, wind and seasons stand-ins keep everything working.")
 
 func _on_uninstall_pressed() -> void:
 	var result: Dictionary = ModManager.uninstall_mod(_selected_id)
@@ -910,10 +906,15 @@ func _on_uninstall_pressed() -> void:
 	else:
 		refresh("Could not uninstall: %s" % "; ".join(result.get("errors", [])))
 
-func _on_apply_pressed() -> void:
-	# The screen does not survive the reload it asks for.
+## Leave the screen, putting the loadout into play on the way out: a tick or
+## an arrow press writes the list straight away, and this is where those
+## changes take effect, so the player never has to press Apply. A set that
+## has not changed since it loaded reloads nothing - Back is just Back.
+func leave() -> void:
+	if ModManager.apply_staged_changes():
+		# The scene is reloading under us; the screen goes with it.
+		return
 	back_requested.emit()
-	ModManager.apply_and_reload_scene()
 
 # =============================================================================
 # LOOK AND FEEL
@@ -1015,7 +1016,7 @@ static func row_badge(info: Dictionary) -> String:
 	if bool(info.get("loaded", false)):
 		return "loaded"
 	if bool(info.get("enabled", false)):
-		return "pending apply"
+		return "loads on leave"
 	return str(info.get("source", ""))
 
 static func details_text(info: Dictionary,
