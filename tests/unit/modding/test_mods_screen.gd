@@ -34,6 +34,7 @@ var _window_before := Vector2i.ZERO
 var _listed_before: Array[String] = []
 var _loadout_before: Array[String] = []
 var _loadout_was_saved := false
+var _library_was_saved := false
 
 func before_each() -> void:
 	super()
@@ -41,6 +42,7 @@ func before_each() -> void:
 	_listed_before = ModManager.get_listed_order()
 	_loadout_before = ModManager.get_enabled_order()
 	_loadout_was_saved = FileAccess.file_exists(ModManager._config_path())
+	_library_was_saved = FileAccess.file_exists(ModManager._library_order_path())
 
 func after_each() -> void:
 	_restore_library()
@@ -50,7 +52,7 @@ func after_each() -> void:
 ## The screen edits the real ModManager, so a test that ticks or moves a mod
 ## would leave it that way for every suite after this one. Put every mod
 ## back in the place the test found it, tick the ones that were ticked, and
-## leave no load_order.json behind where there was none.
+## leave no load_order.json or library_order.json behind where there was none.
 func _restore_library() -> void:
 	for place in _listed_before.size():
 		var mod_id := _listed_before[place]
@@ -62,6 +64,8 @@ func _restore_library() -> void:
 			ModManager.set_mod_enabled(mod_id, true)
 	if not _loadout_was_saved and FileAccess.file_exists(ModManager._config_path()):
 		DirAccess.remove_absolute(ModManager._config_path())
+	if not _library_was_saved and FileAccess.file_exists(ModManager._library_order_path()):
+		DirAccess.remove_absolute(ModManager._library_order_path())
 
 func _screen(size: Vector2i = DESKTOP) -> ModsScreen:
 	get_window().size = size
@@ -147,6 +151,66 @@ func _loadout() -> Array:
 
 func _arrow(screen: ModsScreen, mod_id: String, arrow: String) -> Button:
 	return _row(screen, mod_id).get_node(arrow) as Button
+
+func _grip(screen: ModsScreen, mod_id: String) -> Control:
+	return _row(screen, mod_id).get_node("DragHandle") as Control
+
+func _mouse_down(pos: Vector2, button: MouseButton = MOUSE_BUTTON_LEFT) -> void:
+	var hover := InputEventMouseMotion.new()
+	hover.position = pos
+	hover.global_position = pos
+	get_viewport().push_input(hover, true)
+	var press := InputEventMouseButton.new()
+	press.button_index = button
+	press.pressed = true
+	press.position = pos
+	press.global_position = pos
+	get_viewport().push_input(press, true)
+
+func _mouse_move(from: Vector2, to: Vector2, steps: int = 6) -> void:
+	for step in range(1, steps + 1):
+		var at := from.lerp(to, float(step) / float(steps))
+		var motion := InputEventMouseMotion.new()
+		motion.position = at
+		motion.global_position = at
+		motion.relative = (to - from) / float(steps)
+		get_viewport().push_input(motion, true)
+		await process_frames(1)
+
+func _mouse_up(pos: Vector2, button: MouseButton = MOUSE_BUTTON_LEFT) -> void:
+	var release := InputEventMouseButton.new()
+	release.button_index = button
+	release.pressed = false
+	release.position = pos
+	release.global_position = pos
+	get_viewport().push_input(release, true)
+	await process_frames(1)
+
+func _mouse_drag(from: Vector2, to: Vector2, steps: int = 6) -> void:
+	_mouse_down(from)
+	await _mouse_move(from, to, steps)
+	await _mouse_up(to)
+
+func _touch_drag(from: Vector2, to: Vector2, steps: int = 6) -> void:
+	var down := InputEventScreenTouch.new()
+	down.index = 0
+	down.pressed = true
+	down.position = from
+	get_viewport().push_input(down, true)
+	for step in range(1, steps + 1):
+		var at := from.lerp(to, float(step) / float(steps))
+		var drag_ev := InputEventScreenDrag.new()
+		drag_ev.index = 0
+		drag_ev.position = at
+		drag_ev.relative = (to - from) / float(steps)
+		get_viewport().push_input(drag_ev, true)
+		await process_frames(1)
+	var up := InputEventScreenTouch.new()
+	up.index = 0
+	up.pressed = false
+	up.position = to
+	get_viewport().push_input(up, true)
+	await process_frames(1)
 
 ## Tick the mods at these places in the list and no others, so a test of the
 ## order does not hang on which mods the library happens to have switched on
@@ -263,6 +327,27 @@ func test_an_empty_list_says_why_it_is_empty() -> void:
 	for filter in [ALL, ENABLED, DISABLED]:
 		assert_true(ModsScreen.empty_text(filter, false, 0).contains("install a zip"),
 			"an empty library says how to fill it, whatever the filter")
+
+
+func test_target_slot_for_drag_steps_across_midpoints_with_hysteresis() -> void:
+	assert_eq(ModsScreen.target_slot_for_drag(0, 200.0, PackedFloat32Array()), 0)
+	assert_eq(ModsScreen.target_slot_for_drag(0, 200.0, PackedFloat32Array([100.0])), 0)
+
+	var slots := PackedFloat32Array([100.0, 176.0, 252.0, 328.0])
+	# Midpoint between 100 and 176 is 138; with 2px hysteresis it swaps past 140.
+	assert_eq(ModsScreen.target_slot_for_drag(0, 100.0, slots), 0)
+	assert_eq(ModsScreen.target_slot_for_drag(0, 139.5, slots), 0,
+		"holding right on the boundary does not jump early")
+	assert_eq(ModsScreen.target_slot_for_drag(0, 141.0, slots), 1,
+		"past the midpoint and hysteresis, the row claims the next slot")
+	assert_eq(ModsScreen.target_slot_for_drag(1, 137.0, slots), 1,
+		"and a slight wobble back stays in the new slot instead of flickering")
+	assert_eq(ModsScreen.target_slot_for_drag(1, 135.0, slots), 0,
+		"crossing back above the band returns to the upper slot")
+	assert_eq(ModsScreen.target_slot_for_drag(0, 340.0, slots), 3,
+		"a fast sweep across several rows lands on the end slot")
+	assert_eq(ModsScreen.target_slot_for_drag(3, -50.0, slots), 0,
+		"and a sweep past the top clamps at the first slot")
 
 
 # ── screen ───────────────────────────────────────────────────────────────
@@ -737,6 +822,289 @@ func test_a_row_that_is_moved_stays_on_show() -> void:
 		screen.queue_free()
 		await process_frames(1)
 		_restore_library()
+
+
+# ── dragging mods up and down the list ───────────────────────────────────
+
+func test_every_row_has_a_drag_handle_that_stays_out_of_keyboard_focus() -> void:
+	var screen := await _screen()
+	await process_frames(1)
+	var focusables := InputManager.collect_focusables(screen)
+	for mod_id in _listed_ids(screen):
+		var handle := _grip(screen, str(mod_id))
+		assert_not_null(handle, "each row leads with a grip handle (%s)" % mod_id)
+		assert_eq(handle.get_index(), 0, "at the leading edge of the row")
+		assert_eq(handle.focus_mode, Control.FOCUS_NONE,
+			"arrows serve keyboard and controller players, so the grip skips focus")
+		assert_false(focusables.has(handle))
+		assert_eq(handle.mouse_default_cursor_shape, Control.CURSOR_DRAG)
+		assert_false(handle.tooltip_text.is_empty())
+
+	# With a single row on show there is nowhere to drag it: the grip dims.
+	var only_id := str(_listed_ids(screen)[0])
+	_type(screen, only_id)
+	assert_eq(_shown_ids(screen), [only_id])
+	var lone_handle := _grip(screen, only_id) as ModsScreen.DragHandle
+	assert_true(lone_handle.disabled, "a lone row cannot be reordered")
+	assert_eq(lone_handle.mouse_default_cursor_shape, Control.CURSOR_ARROW)
+	_type(screen, "")
+	assert_false(lone_handle.disabled, "and lights up again when the rest of the library returns")
+
+
+func test_dragging_a_row_card_reorders_mods_and_updates_load_order() -> void:
+	var ticked := _tick_only([0, 1, 3])
+	var first := str(ticked[0])
+	var second := str(ticked[1])
+	var third := str(ticked[2])
+	var screen := await _screen()
+	await process_frames(2)
+	var before := _listed_ids(screen)
+	var unticked_id := str(before[2])
+	var first_row := _row(screen, first)
+
+	# Dragging an unticked mod up one place leaves the load order untouched.
+	var from_unticked := (_row(screen, unticked_id).get_node("ModName") as Control).get_global_rect().get_center()
+	await _mouse_drag(from_unticked, from_unticked - Vector2(0.0, ROW_PITCH))
+	assert_eq(_listed_ids(screen).slice(0, 4), [first, unticked_id, second, third],
+		"dragging an unticked mod moves its row without switching it on")
+	assert_false(ModManager.is_mod_enabled(unticked_id))
+	assert_eq(_loadout(), [first, second, third])
+
+	# Now drag the top enabled mod across three slots in one sweep, inspecting
+	# the live preview mid-flight before letting go.
+	var start := (first_row.get_node("ModName") as Control).get_global_rect().get_center()
+	var destination := start + Vector2(0.0, ROW_PITCH * 3.0)
+	_mouse_down(start)
+	await _mouse_move(start, destination, 8)
+	assert_true(screen.is_dragging(), "the row is lifted while the button is held")
+	assert_eq(screen.dragged_mod_id(), first)
+	var preview := screen.find_child("ModDragPreview", true, false) as Control
+	assert_not_null(preview, "a floating preview rides with the pointer")
+	assert_lt(first_row.modulate.a, 0.9, "while its slot in the list dims underneath")
+	assert_eq(_loadout(), [second, third, first],
+		"live swaps update the load order before the button is even released")
+	var preview_text := (preview.find_child("*", true, false) as Node)
+	assert_not_null(preview_text)
+
+	await _mouse_up(destination)
+	assert_false(screen.is_dragging(), "releasing drops the row into place")
+	assert_null(screen.find_child("ModDragPreview", true, false), "and clears the floating card")
+	assert_eq(first_row.modulate, Color.WHITE, "restoring full opacity to the row")
+	assert_eq(_row(screen, first), first_row, "the same row node moved rather than being rebuilt")
+	assert_eq(_listed_ids(screen).slice(0, 4), [unticked_id, second, third, first])
+	assert_eq(_loadout(), [second, third, first])
+	_assert_the_numbers_run_down_the_list(screen, "after dragging an enabled mod down")
+	_assert_the_arrows_fit_the_rows_on_show(screen, "after dragging an enabled mod down")
+	assert_true(ModManager.needs_reload)
+	assert_eq(screen._selected_id, first, "the dragged mod's field notes open")
+
+
+func test_dragging_the_grip_handle_reorders_mods_up_and_down() -> void:
+	var screen := await _screen()
+	await process_frames(2)
+	var before := _listed_ids(screen)
+	var top := str(before[0])
+	var fourth := str(before[3])
+
+	var handle_start := _grip(screen, fourth).get_global_rect().get_center()
+	var top_spot := _grip(screen, top).get_global_rect().get_center()
+	await _mouse_drag(handle_start, top_spot, 8)
+	assert_eq(str(_listed_ids(screen)[0]), fourth,
+		"dragging a row's grip handle to the top places it first")
+	assert_eq(str(_listed_ids(screen)[1]), top)
+
+	# Drag it back down to where it came from.
+	var back_start := _grip(screen, fourth).get_global_rect().get_center()
+	await _mouse_drag(back_start, back_start + Vector2(0.0, ROW_PITCH * 3.0), 8)
+	assert_eq(_listed_ids(screen), before, "dragging it back restores the list")
+
+
+func test_a_short_pointer_wobble_clicks_rather_than_dragging() -> void:
+	var screen := await _screen(PHONE)
+	await process_frames(2)
+	var before := _listed_ids(screen)
+	var second := str(before[1])
+
+	# Dragging on a portrait phone keeps the Library tab open afterwards,
+	# instead of treating the mouse release as a row click into the Inspector.
+	var drag_start := (_row(screen, second).get_node("ModName") as Control).get_global_rect().get_center()
+	await _mouse_drag(drag_start, drag_start - Vector2(0.0, ROW_PITCH))
+	assert_eq(str(_listed_ids(screen)[0]), second)
+	assert_true(screen._library.visible and not screen._inspector.visible,
+		"finishing a drag on a portrait phone leaves the library on show")
+
+	# A tiny wobble inside DRAG_THRESHOLD is a plain click: nothing reorders,
+	# and the Inspector opens for the tapped mod.
+	var order_after_drag := _listed_ids(screen)
+	var target_id := str(order_after_drag[2])
+	var tap_spot := (_row(screen, target_id).get_node("ModName") as Control).get_global_rect().get_center()
+	await _mouse_drag(tap_spot, tap_spot + Vector2(0.0, 2.0), 2)
+	assert_eq(_listed_ids(screen), order_after_drag, "sub-threshold pointer wobble moves nothing")
+	assert_eq(screen._selected_id, target_id)
+	assert_true(screen._inspector.visible, "a click still opens the mod's field notes on phone")
+
+
+func test_touch_drags_the_grip_to_reorder_while_swiping_the_list_still_scrolls() -> void:
+	var screen := await _screen(PHONE)
+	await process_frames(2)
+	var scroller := screen.find_child("PhoneModsScroll", true, false) as ScrollContainer
+	assert_not_null(scroller)
+	var before := _listed_ids(screen)
+	var first := str(before[0])
+	var second := str(before[1])
+
+	# Touch-dragging the grip handle reorders the mod without scrolling or
+	# flipping away from the Library tab.
+	var grip_from := _grip(screen, first).get_global_rect().get_center()
+	await _touch_drag(grip_from, grip_from + Vector2(0.0, ROW_PITCH * 2.0), 8)
+	assert_eq(_listed_ids(screen).slice(0, 3), [second, str(before[2]), first],
+		"a finger on the grip handle drags the mod down two places")
+	assert_true(screen._library.visible, "the Library tab stays open after a touch drag")
+	assert_eq(scroller.scroll_vertical, 0, "the grip gesture reordered rather than scrolling")
+
+	# Swiping vertically on the mod button itself still scrolls the list
+	# without reordering anything.
+	var order_now := _listed_ids(screen)
+	var body_spot := (_row(screen, str(order_now[2])).get_node("ModName") as Control).get_global_rect().get_center()
+	await _touch_drag(body_spot, body_spot - Vector2(0.0, 140.0), 6)
+	assert_eq(_listed_ids(screen), order_now, "swiping the row body does not reorder mods")
+	assert_gt(scroller.scroll_vertical, 0, "swiping the row body scrolls the library")
+
+	# Opening a modal over the screen shields the grip handles behind it.
+	scroller.scroll_vertical = 0
+	await process_frames(2)
+	var covered_order := _listed_ids(screen)
+	var covered_grip := _grip(screen, str(covered_order[0])).get_global_rect().get_center()
+	(screen.find_child("CreateModButton", true, false) as Button).emit_signal("pressed")
+	await process_frames(2)
+	await _touch_drag(covered_grip, covered_grip + Vector2(0.0, ROW_PITCH * 2.0), 6)
+	assert_eq(_listed_ids(screen), covered_order,
+		"a dialogue over the screen prevents touches reaching the grips underneath")
+
+
+func test_dragging_under_a_filter_or_search_steps_over_hidden_rows() -> void:
+	var ticked := _tick_only([0, 2, 4])
+	var first := str(ticked[0])
+	var second := str(ticked[1])
+	var third := str(ticked[2])
+	var screen := await _screen()
+	await process_frames(2)
+	var hidden := _listed_ids(screen).filter(func(mod_id: String) -> bool: return not mod_id in ticked)
+
+	_press(_chip(screen, "Enabled"))
+	await process_frames(2)
+	assert_eq(_shown_ids(screen), [first, second, third])
+
+	var start := _grip(screen, first).get_global_rect().get_center()
+	var bottom := _grip(screen, third).get_global_rect().get_center()
+	await _mouse_drag(start, bottom, 8)
+	assert_eq(_shown_ids(screen), [second, third, first],
+		"dragging to the bottom of the filtered view puts the mod last among enabled mods")
+	assert_eq(_loadout(), [second, third, first])
+	assert_eq(_listed_ids(screen).filter(func(mod_id: String) -> bool: return not mod_id in ticked),
+		hidden, "hidden rows keep their order untouched")
+	_assert_the_arrows_fit_the_rows_on_show(screen, "after dragging under Enabled filter")
+	_press(_chip(screen, "All"))
+	await process_frames(1)
+	_assert_the_numbers_run_down_the_list(screen, "back on All after filtered drag")
+
+
+func test_cancelling_a_drag_with_escape_or_right_click_restores_the_order() -> void:
+	var screen := await _screen()
+	await process_frames(2)
+	assert_false(ModManager.needs_reload)
+	var before := _listed_ids(screen)
+	var loadout_before := _loadout()
+	var top := str(before[0])
+	var back_calls := []
+	screen.back_requested.connect(func() -> void: back_calls.append(true))
+
+	# Drag down two places, then cancel with Escape before releasing.
+	var start := _grip(screen, top).get_global_rect().get_center()
+	var moved_to := start + Vector2(0.0, ROW_PITCH * 2.0)
+	_mouse_down(start)
+	await _mouse_move(start, moved_to, 6)
+	assert_true(screen.is_dragging())
+	assert_ne(_listed_ids(screen), before, "the row has moved mid-drag")
+
+	var esc := InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	esc.physical_keycode = KEY_ESCAPE
+	get_viewport().push_input(esc, true)
+	await process_frames(1)
+	assert_false(screen.is_dragging(), "Escape cancels the active drag")
+	assert_null(screen.find_child("ModDragPreview", true, false))
+	assert_eq(_listed_ids(screen), before, "putting every mod back where it started")
+	assert_eq(_loadout(), loadout_before)
+	assert_false(ModManager.needs_reload, "so nothing is staged to reload")
+	assert_eq(back_calls, [], "and the screen stays open rather than backing out")
+	await _mouse_up(moved_to)
+
+	# Right-click mid-drag cancels the same way.
+	_mouse_down(start)
+	await _mouse_move(start, moved_to, 6)
+	assert_true(screen.is_dragging())
+	var right_click := InputEventMouseButton.new()
+	right_click.button_index = MOUSE_BUTTON_RIGHT
+	right_click.pressed = true
+	right_click.position = moved_to
+	right_click.global_position = moved_to
+	get_viewport().push_input(right_click, true)
+	await process_frames(1)
+	assert_false(screen.is_dragging(), "right-click cancels the active drag too")
+	assert_eq(_listed_ids(screen), before)
+	assert_eq(back_calls, [])
+	await _mouse_up(moved_to)
+
+
+func test_dragging_to_the_list_edge_scrolls_more_rows_into_reach() -> void:
+	var screen := await _screen()
+	await process_frames(2)
+	var scroller := screen.find_child("ModList", true, false) as ScrollContainer
+	assert_not_null(scroller)
+	var everything := _listed_ids(screen)
+	assert_gt(everything.size() * ROW_PITCH, scroller.size.y,
+		"the library overflows the list so edge scrolling has somewhere to go")
+	var top := str(everything[0])
+	var start := _grip(screen, top).get_global_rect().get_center()
+	var bottom_edge := Vector2(start.x, scroller.get_global_rect().end.y - 4.0)
+
+	_mouse_down(start)
+	await _mouse_move(start, bottom_edge, 6)
+	var scrolled := await process_frames_until(func() -> bool:
+		return scroller.scroll_vertical > 120, 90)
+	assert_true(scrolled, "holding a dragged row at the bottom edge scrolls the list down")
+	await _mouse_up(bottom_edge)
+	var new_place := _listed_ids(screen).find(top)
+	assert_gt(new_place, 4, "and carries the dragged mod down into the newly revealed rows")
+	assert_true(rect_within(_row(screen, top).get_global_rect(), scroller.get_global_rect()),
+		"leaving the dropped row in view")
+
+
+func test_the_d_pad_steps_through_the_new_order_after_a_drag() -> void:
+	var screen := await _screen()
+	await process_frames(2)
+	var before := _listed_ids(screen)
+	var first := str(before[0])
+	var second := str(before[1])
+	var third := str(before[2])
+
+	var start := _grip(screen, first).get_global_rect().get_center()
+	await _mouse_drag(start, start + Vector2(0.0, ROW_PITCH * 2.0), 6)
+	assert_eq(_listed_ids(screen).slice(0, 3), [second, third, first])
+
+	InputManager.device = InputManager.Device.GAMEPAD
+	var middle_btn := _row(screen, third).get_node("ModName") as Button
+	middle_btn.grab_focus()
+	await process_frames(2)
+	await _press_action("ui_down")
+	assert_eq(_focused(), _row(screen, first).get_node("ModName"),
+		"Down steps to the mod dragged under it")
+	await _press_action("ui_up")
+	await _press_action("ui_up")
+	assert_eq(_focused(), _row(screen, second).get_node("ModName"),
+		"and Up reaches the mod now standing at the top")
 
 
 # ── moving mods from a keyboard or a controller ──────────────────────────

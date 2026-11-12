@@ -29,9 +29,13 @@ load in**.
 Every mod has a place in the list, enabled or not, and **the list is the
 load order**: the enabled mods load from the top of the list down, and
 each shows its place as the number in front of its name (`1.` loads
-first). The ▲ ▼ buttons move any mod one row up or down; on a keyboard
-or a controller the arrow you pressed stays selected as its row moves, so
-pressing it again moves the same mod another row. When two mods change
+first). Drag any mod (by its row or its `⋮⋮` grip handle) up or down the
+list to reorder it, or press ▲ ▼ to nudge it one row at a time; on a
+touchscreen, drag the grip handle to reorder while swiping anywhere else
+on the list keeps scrolling it, and on a keyboard or a controller the
+arrow you pressed stays selected as its row moves, so pressing it again
+moves the same mod another row. Pressing Esc or right-clicking mid-drag
+puts the mod back where it started. When two mods change
 the same thing (a building's price, a terrain's upkeep, which system
 drives the weather), **the mod lower in the list wins**. The details pane
 names the losers whenever a conflict was overwritten, so nothing is
@@ -54,10 +58,10 @@ the game keeps a place for every mod it has listed
 To find a mod, type in the search box (it matches names, ids and
 descriptions) or pick a filter: **All**, **Enabled** or **Disabled**. The
 two combine, and neither changes what is enabled or the order. While rows
-are hidden, ▲ ▼ move a mod past the next row you can see, so under
-**Enabled** each press is one place in the load order. A mod you tick or
-untick while a filter is on stays listed until you pick a filter again,
-so its row never vanishes from under the pointer.
+are hidden, dragging or pressing ▲ ▼ moves a mod past the rows you can
+see, so under **Enabled** each slot is one place in the load order. A mod
+you tick or untick while a filter is on stays listed until you pick a
+filter again, so its row never vanishes from under the pointer.
 
 Changes are written to your lists (`user://mods/load_order.json` for what
 is enabled, `user://mods/library_order.json` for the order of the whole
@@ -250,13 +254,18 @@ in the load order. If the file says otherwise when it is read - it was
 written before the list was kept, or edited by hand - the file wins, and the
 enabled mods trade places in the list to match it.
 
-On the screen a tick only repaints its row, and a ▲ ▼ press moves the one
-row: `ModsScreen._sync_rows()` keeps every mod's row and puts the rows in
-order, so the focused control is still the same one afterwards, and the list
-scrolls only as far as it takes to keep a moved row on show
-(`_scroll_to_row()`). An arrow moves its mod past the next row on show
-(`_on_row_moved()`), so the arrows greyed out are the up arrow of the first
-row on show and the down arrow of the last (`_update_move_buttons()`).
+On the screen a tick only repaints its row, and dragging a row (or its
+`DragHandle` grip) or pressing ▲ ▼ moves the row in place:
+`ModsScreen._sync_rows()` keeps every mod's row and puts the rows in order, so
+the focused control is still the same one afterwards, and the list scrolls to
+keep a moved row on show (`_scroll_to_row()`, plus edge auto-scrolling while a
+dragged row is held near the top or bottom of the list). Both drags and arrows
+move a mod past the rows on show (`target_slot_for_drag()` / `_on_row_moved()`),
+so the arrows greyed out are the up arrow of the first row on show and the down
+arrow of the last (`_update_move_buttons()`), and grip handles dim when fewer
+than two rows are shown. `DragHandle` skips keyboard focus (`FOCUS_NONE`) and
+joins `"native_touch_input"` so touch drags on the grip reorder rows while
+swiping on the row body continues to scroll the list.
 
 On a keyboard or a controller the arrow that was pressed keeps the focus as
 its row moves, so pressing it again moves the same mod another place. It

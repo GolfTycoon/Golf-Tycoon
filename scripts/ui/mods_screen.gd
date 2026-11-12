@@ -6,9 +6,10 @@ class_name ModsScreen
 ## The list *is* the load order, with a place in it for every mod: the
 ## enabled ones load from the top of the list down (later wins data
 ## conflicts, provider take-overs and hook order) and carry their place as
-## the number in front of their name. The arrow buttons move any mod up or
-## down the list, enabled or not, and its row moves with it; ticking a mod
-## on or off never moves its row. ModManager keeps the order: it starts as
+## the number in front of their name. Dragging a row (or its grip handle) or
+## pressing its arrow buttons moves any mod up or down the list, enabled or
+## not, and its row moves with it; ticking a mod on or off never moves its
+## row. ModManager keeps the order: it starts as
 ## the order the game first found each mod, a mod new to the player joins
 ## the bottom, and one that is taken away and put back returns to its
 ## place. The search box and the All / Enabled / Disabled filter chips
@@ -74,10 +75,88 @@ const MIN_SEARCH_WIDTH := 96.0
 ## Desktop filter chips are all this wide, so the three read as one switch
 ## whatever the length of their words.
 const FILTER_CHIP_WIDTH := 90.0
+## Pointer travel (px) before a press on a row lifts it to reorder, so a
+## click or tap still selects the mod without twitching the list.
+const DRAG_THRESHOLD := 6.0
+## Hysteresis (px) either side of the midpoint between two slots, so holding
+## the pointer on the boundary never flickers a row back and forth.
+const DRAG_SWAP_HYSTERESIS := 2.0
+## Strip at the top and bottom of the scrolling list where holding a dragged
+## row scrolls more of the library into reach.
+const DRAG_SCROLL_MARGIN := 52.0
+const DRAG_SCROLL_MAX_SPEED := 520.0
+const DRAG_HANDLE_WIDTH := 22.0
+const DRAG_HANDLE_WIDTH_PHONE := 26.0
 
 const TITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-Bold.ttf")
 const SUBTITLE_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
+
+## Pixel six-dot grip on the leading edge of each mod row. Gives pointer
+## players an unmistakable place to grab, and owns raw touch gestures on
+## mobile (through "native_touch_input") so dragging the grip reorders the row
+## while swiping anywhere else on the list keeps scrolling it.
+class DragHandle extends Control:
+	var disabled: bool = false:
+		set(value):
+			if disabled == value:
+				return
+			disabled = value
+			mouse_default_cursor_shape = Control.CURSOR_ARROW if disabled else Control.CURSOR_DRAG
+			tooltip_text = "" if disabled else "Drag up or down to reorder"
+			queue_redraw()
+	var dragging: bool = false:
+		set(value):
+			if dragging == value:
+				return
+			dragging = value
+			queue_redraw()
+	var _hovered: bool = false
+
+	func _init(handle_width: float = DRAG_HANDLE_WIDTH, interactive: bool = true) -> void:
+		name = "DragHandle" if interactive else "PreviewGrip"
+		custom_minimum_size = Vector2(handle_width, 44.0)
+		size_flags_vertical = Control.SIZE_EXPAND_FILL
+		focus_mode = Control.FOCUS_NONE
+		if interactive:
+			mouse_filter = Control.MOUSE_FILTER_STOP
+			mouse_default_cursor_shape = Control.CURSOR_DRAG
+			tooltip_text = "Drag up or down to reorder"
+			add_to_group("native_touch_input")
+			mouse_entered.connect(func() -> void:
+				_hovered = true
+				queue_redraw())
+			mouse_exited.connect(func() -> void:
+				_hovered = false
+				queue_redraw())
+		else:
+			mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var dot_color: Color
+		if disabled:
+			dot_color = MenuStyle.with_alpha(GuiTheme.remap_color(COLOR_TEXT_QUIET), 0.30)
+		elif dragging or _hovered:
+			dot_color = GuiTheme.remap_color(COLOR_GOLD)
+		else:
+			dot_color = GuiTheme.remap_color(MenuStyle.ACCENT_UTILITY)
+		var shadow_color := Color(PixelButtonStyle.INK.r, PixelButtonStyle.INK.g,
+			PixelButtonStyle.INK.b, dot_color.a * 0.85)
+		var dot_side := 3.0
+		var col_gap := 6.0
+		var row_gap := 6.0
+		var block_w := dot_side * 2.0 + col_gap
+		var block_h := dot_side * 3.0 + row_gap * 2.0
+		var origin := Vector2(
+			floorf((size.x - block_w) * 0.5),
+			floorf((size.y - block_h) * 0.5))
+		for r in 3:
+			for c in 2:
+				var pos := origin + Vector2(
+					float(c) * (dot_side + col_gap),
+					float(r) * (dot_side + row_gap))
+				draw_rect(Rect2(pos + Vector2(0.0, 1.0), Vector2(dot_side, dot_side)), shadow_color)
+				draw_rect(Rect2(pos, Vector2(dot_side, dot_side)), dot_color)
 
 ## Live state: what is shown and what is selected.
 var _rows_box: VBoxContainer = null
@@ -112,16 +191,39 @@ var _inspect_mobile := false
 var _layout_mode: int = -1
 var _built_size := Vector2.ZERO
 
+## Drag-to-reorder state: a press on a row's grip or card starts as a
+## candidate and becomes an active drag once the pointer travels past
+## DRAG_THRESHOLD, so clicks and taps still select without moving anything.
+var _drag_candidate_id: String = ""
+var _drag_id: String = ""
+var _drag_active := false
+var _drag_touch_index: int = -1
+var _drag_start_pos := Vector2.ZERO
+var _drag_pointer_pos := Vector2.ZERO
+var _drag_grab_offset_y: float = ROW_HEIGHT * 0.5
+var _drag_origin_listed_index: int = -1
+var _drag_scroll_accum: float = 0.0
+var _drag_last_usec: int = 0
+var _drag_preview: PanelContainer = null
+var _drag_preview_label: Label = null
+var _drag_preview_icon: TextureRect = null
+var _suppress_select_for_id: String = ""
+
 func _ready() -> void:
 	name = "ModsScreen"
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	set_process(false)
+	visibility_changed.connect(_on_visibility_changed)
 	if has_node("/root/Screen"):
 		Screen.changed.connect(_on_screen_changed)
 	_build()
 
 	if has_node("/root/InputManager"):
 		InputManager.register_scope(self)
+
+func _exit_tree() -> void:
+	_cleanup_drag_state()
 
 func _window_size() -> Vector2:
 	return Kit.window_size_of(self)
@@ -161,22 +263,30 @@ func _filter_rows() -> void:
 		_empty.text = empty_text(_filter, not query.is_empty(), _rows_box.get_child_count())
 		_empty.visible = shown == 0
 	_update_move_buttons()
+	if _drag_active:
+		var dragged_row := _row_for(_drag_id)
+		if dragged_row == null or not dragged_row.visible or shown <= 1:
+			_cleanup_drag_state()
 
-## Light the arrows that have somewhere to go. A mod moves past the rows on
-## show (see _on_row_moved), so the first of those cannot go up and the last
-## cannot go down. An arrow that goes out under the press that took its row
-## to the end keeps the focus: pressing it again does nothing, rather than
-## the focus jumping to a button that does something else.
+## Light the arrows and grip handles that have somewhere to go. A mod moves
+## past the rows on show (see _on_row_moved), so the first of those cannot go
+## up and the last cannot go down, and a grip dims when only one row is shown.
+## An arrow that goes out under the press that took its row to the end keeps
+## the focus: pressing it again does nothing, rather than the focus jumping to
+## a button that does something else.
 func _update_move_buttons() -> void:
-	var shown: Array[Node] = []
+	var shown := _shown_rows()
+	var single_or_empty := shown.size() <= 1
 	for row in _rows_box.get_children():
-		if row.visible:
-			shown.append(row)
+		var handle := row.get_node_or_null("DragHandle") as DragHandle
+		if handle != null:
+			handle.disabled = single_or_empty or not row.visible
 	for index in shown.size():
 		(shown[index].get_node("MoveUp") as Button).disabled = index == 0
 		(shown[index].get_node("MoveDown") as Button).disabled = index == shown.size() - 1
 
 func _on_filter_pressed(filter: int) -> void:
+	_cleanup_drag_state()
 	_filter = filter
 	# Picking a filter - even the one already in force - sorts every row
 	# afresh, so the rows that were only being held on show step out.
@@ -222,6 +332,7 @@ func _reveal(mod_id: String) -> void:
 
 func _build() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_cleanup_drag_state()
 	_saved_build_state()
 	for child in get_children():
 		remove_child(child)
@@ -406,6 +517,7 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	if page_scrolled:
 		list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		list_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		list_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	else:
 		list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -506,6 +618,7 @@ func _build_inspector_panel(page_scrolled: bool) -> PanelContainer:
 	details_scroll.custom_minimum_size.y = 200.0
 	if page_scrolled:
 		details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		details_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		details_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	else:
 		details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -567,6 +680,7 @@ func _build_tools_strip() -> Control:
 		_button("+ Install ZIP", func() -> void:
 			_file_dialog.popup_centered(get_viewport().get_visible_rect().size.min(Vector2(720, 480)) * 0.9), true),
 		_button("Rescan", func() -> void:
+			_cleanup_drag_state()
 			ModManager.discover()
 			_held_ids.clear()
 			refresh("Library rescanned.")),
@@ -635,6 +749,8 @@ func refresh(message: String = "") -> void:
 		_status.text = "Everything above is loaded and in play."
 	if _status != null:
 		_status.tooltip_text = _status.text
+	if _drag_active:
+		_sync_drag_visuals()
 
 ## Bring the rows in line with `_infos`: one row per mod, in the list's
 ## order. Rows are kept and moved, not rebuilt - one is only made for a mod
@@ -677,6 +793,12 @@ func _make_row(mod_id: String) -> Control:
 	row.custom_minimum_size.y = ROW_HEIGHT
 	row.name = "ModRow_" + mod_id.replace(".", "_").replace("-", "_")
 	row.add_theme_constant_override("separation", 6)
+	row.gui_input.connect(_on_row_card_gui_input.bind(mod_id, row))
+
+	var handle_width := DRAG_HANDLE_WIDTH_PHONE if Kit.is_phone(_layout_mode) else DRAG_HANDLE_WIDTH
+	var handle := DragHandle.new(handle_width)
+	handle.gui_input.connect(_on_drag_handle_gui_input.bind(mod_id, handle))
+	row.add_child(handle)
 
 	var check := CheckBox.new()
 	check.name = "EnabledCheck"
@@ -700,6 +822,7 @@ func _make_row(mod_id: String) -> Control:
 	name_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_button.add_theme_constant_override("icon_max_width", int(ROW_ICON_SIZE))
 	name_button.add_theme_constant_override("h_separation", 10)
+	name_button.gui_input.connect(_on_row_card_gui_input.bind(mod_id, name_button))
 	name_button.pressed.connect(_on_row_selected.bind(mod_id))
 	row.add_child(name_button)
 
@@ -767,6 +890,9 @@ func _on_row_toggled(on: bool, mod_id: String) -> void:
 	refresh()
 
 func _on_row_selected(mod_id: String) -> void:
+	if _suppress_select_for_id == mod_id:
+		_suppress_select_for_id = ""
+		return
 	_selected_id = mod_id
 	_inspect_mobile = true
 	_update_panes()
@@ -872,6 +998,7 @@ func _on_zip_selected(path: String) -> void:
 		refresh("That zip is not a Golf Tycoon mod: %s" % "; ".join(result.get("errors", ["unknown error"])))
 
 func _on_disable_all_pressed() -> void:
+	_cleanup_drag_state()
 	for info in _infos:
 		ModManager.set_mod_enabled(str(info.get("id", "")), false)
 	# A sweep of the whole library, not a tick on one row: nothing is held.
@@ -879,6 +1006,7 @@ func _on_disable_all_pressed() -> void:
 	refresh("Every mod is off, and leaving the screen puts that into play - the plain game's built-in weather, wind and seasons stand-ins keep everything working.")
 
 func _on_uninstall_pressed() -> void:
+	_cleanup_drag_state()
 	var result: Dictionary = ModManager.uninstall_mod(_selected_id)
 	if bool(result.get("ok", false)):
 		_selected_id = ""
@@ -886,11 +1014,15 @@ func _on_uninstall_pressed() -> void:
 	else:
 		refresh("Could not uninstall: %s" % "; ".join(result.get("errors", [])))
 
-## Leave the screen, putting the loadout into play on the way out: a tick or
-## an arrow press writes the list straight away, and this is where those
-## changes take effect, so the player never has to press Apply. A set that
-## has not changed since it loaded reloads nothing - Back is just Back.
+## Leave the screen, putting the loadout into play on the way out: a tick, a
+## drag or an arrow press writes the list straight away, and this is where
+## those changes take effect, so the player never has to press Apply. A set
+## that has not changed since it loaded reloads nothing - Back is just Back.
 func leave() -> void:
+	if _drag_active:
+		_finish_drag()
+	else:
+		_cleanup_drag_state()
 	if ModManager.apply_staged_changes():
 		# The scene is reloading under us; the screen goes with it.
 		return
@@ -925,9 +1057,434 @@ func _button(text: String, action: Callable, accent: bool = false) -> Button:
 # INPUT
 # =============================================================================
 
+## Whether a row is currently lifted and being dragged to a new place.
+func is_dragging() -> bool:
+	return _drag_active
+
+## The id of the mod currently lifted in a drag, or "" when idle.
+func dragged_mod_id() -> String:
+	return _drag_id
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		if _drag_active:
+			_cancel_drag()
+		else:
+			_cleanup_drag_state()
+
+func _on_drag_handle_gui_input(event: InputEvent, mod_id: String, handle: DragHandle) -> void:
+	if handle.disabled or _shown_rows().size() <= 1:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			var global_pos := handle.get_global_transform_with_canvas() * mb.position
+			_start_drag_candidate(mod_id, global_pos)
+			handle.accept_event()
+
+func _on_row_card_gui_input(event: InputEvent, mod_id: String, source: Control) -> void:
+	if _shown_rows().size() <= 1:
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			var global_pos := source.get_global_transform_with_canvas() * mb.position
+			_start_drag_candidate(mod_id, global_pos)
+			# Leave ModName's press unconsumed so a plain click still selects
+			# the mod; consume presses in the inter-button gap on the row box.
+			if not (source is BaseButton):
+				source.accept_event()
+
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	# Escape, right-click or controller B while dragging puts the mod back
+	# where it started rather than leaving the screen.
+	if _drag_active and event.is_action_pressed("cancel"):
+		_cancel_drag()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if _drag_touch_index < 0 and _drag_candidate_id.is_empty():
+				var hit_id := _touch_drag_handle_at(touch.position)
+				if not hit_id.is_empty():
+					_drag_touch_index = touch.index
+					_start_drag_candidate(hit_id, touch.position)
+					get_viewport().set_input_as_handled()
+		elif touch.index == _drag_touch_index:
+			if touch.canceled:
+				_cancel_drag()
+			elif _drag_active:
+				_update_drag(touch.position)
+				_finish_drag()
+			else:
+				var tapped_id := _drag_candidate_id
+				_cleanup_drag_state()
+				if not tapped_id.is_empty():
+					_selected_id = tapped_id
+					_show_details()
+					_refresh_row_highlights()
+			_drag_touch_index = -1
+			get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index == _drag_touch_index and not _drag_candidate_id.is_empty():
+			if not _drag_active and drag.position.distance_to(_drag_start_pos) > DRAG_THRESHOLD:
+				_begin_drag(drag.position)
+			if _drag_active:
+				_update_drag(drag.position)
+			get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				_suppress_select_for_id = ""
+				if _drag_touch_index < 0 and not _drag_candidate_id.is_empty():
+					if _drag_active:
+						_finish_drag()
+					else:
+						_cleanup_drag_state()
+			elif _drag_touch_index < 0 and not _drag_candidate_id.is_empty():
+				if _drag_active:
+					_suppress_select_for_id = _drag_id
+					_update_drag(mb.position)
+					_finish_drag()
+				else:
+					var clicked_id := _drag_candidate_id
+					_cleanup_drag_state()
+					if _selected_id != clicked_id:
+						var row := _row_for(clicked_id)
+						var handle := row.get_node_or_null("DragHandle") as Control if row != null else null
+						if handle != null and handle.get_global_rect().has_point(mb.position):
+							_selected_id = clicked_id
+							_show_details()
+							_refresh_row_highlights()
+		return
+
+	if event is InputEventMouseMotion:
+		if _drag_touch_index < 0 and not _drag_candidate_id.is_empty():
+			var mm := event as InputEventMouseMotion
+			if not _drag_active and mm.position.distance_to(_drag_start_pos) > DRAG_THRESHOLD:
+				_begin_drag(mm.position)
+			if _drag_active:
+				_update_drag(mm.position)
+
+func _process(delta: float) -> void:
+	if not _drag_active or not visible:
+		set_process(false)
+		return
+	var now_usec := Time.get_ticks_usec()
+	var dt := delta
+	if dt <= 0.0 and _drag_last_usec > 0:
+		dt = clampf(float(now_usec - _drag_last_usec) / 1000000.0, 0.0, 0.1)
+	_drag_last_usec = now_usec
+	# Re-evaluate against the latest sorted layout first, so a list that
+	# scrolled on the previous frame advances the dragged row across newly
+	# revealed slots even while the pointer stands still.
+	_update_drag(_drag_pointer_pos)
+	var scroller := _active_scroller()
+	if scroller == null:
+		return
+	var v_bar := scroller.get_v_scroll_bar()
+	if v_bar == null or v_bar.max_value <= v_bar.page + 1.0:
+		_drag_scroll_accum = 0.0
+		return
+	var rect := scroller.get_global_rect()
+	var margin := minf(DRAG_SCROLL_MARGIN, rect.size.y * 0.25)
+	if margin <= 1.0:
+		return
+	var velocity := 0.0
+	if _drag_pointer_pos.y < rect.position.y + margin:
+		var t := clampf((rect.position.y + margin - _drag_pointer_pos.y) / margin, 0.0, 1.0)
+		velocity = -DRAG_SCROLL_MAX_SPEED * t
+	elif _drag_pointer_pos.y > rect.end.y - margin:
+		var t := clampf((_drag_pointer_pos.y - (rect.end.y - margin)) / margin, 0.0, 1.0)
+		velocity = DRAG_SCROLL_MAX_SPEED * t
+	else:
+		_drag_scroll_accum = 0.0
+		return
+	_drag_scroll_accum += velocity * dt
+	var step := int(_drag_scroll_accum)
+	if step == 0:
+		return
+	_drag_scroll_accum -= float(step)
+	var max_scroll := maxi(0, roundi(v_bar.max_value - v_bar.page))
+	var next_scroll := clampi(scroller.scroll_vertical + step, 0, max_scroll)
+	if next_scroll != scroller.scroll_vertical:
+		scroller.scroll_vertical = next_scroll
+
+func _start_drag_candidate(mod_id: String, global_pos: Vector2) -> void:
+	var row := _row_for(mod_id)
+	if row == null or not row.visible:
+		return
+	_drag_candidate_id = mod_id
+	_drag_start_pos = global_pos
+	_drag_pointer_pos = global_pos
+	var row_rect := row.get_global_rect()
+	var row_h := maxf(row_rect.size.y, ROW_HEIGHT)
+	_drag_grab_offset_y = clampf(global_pos.y - row_rect.position.y, 0.0, row_h)
+
+func _begin_drag(current_pos: Vector2) -> void:
+	if _drag_candidate_id.is_empty() or _shown_rows().size() <= 1:
+		return
+	var row := _row_for(_drag_candidate_id)
+	if row == null or not row.visible:
+		_cleanup_drag_state()
+		return
+	_drag_id = _drag_candidate_id
+	_drag_active = true
+	_drag_pointer_pos = current_pos
+	_drag_origin_listed_index = ModManager.get_listed_order().find(_drag_id)
+	_drag_scroll_accum = 0.0
+	_drag_last_usec = Time.get_ticks_usec()
+	_selected_id = _drag_id
+	_show_details()
+	_refresh_row_highlights()
+	_create_drag_preview()
+	_sync_drag_visuals()
+	set_process(true)
+
+func _update_drag(pointer_pos: Vector2) -> void:
+	_drag_pointer_pos = pointer_pos
+	if not _drag_active or _drag_id.is_empty():
+		return
+	var shown := _shown_rows()
+	var dragged_row := _row_for(_drag_id)
+	if dragged_row == null or shown.size() <= 1:
+		_cleanup_drag_state()
+		return
+	var cur := shown.find(dragged_row)
+	if cur < 0:
+		_cleanup_drag_state()
+		return
+	var card_center_y := pointer_pos.y - _drag_grab_offset_y + ROW_HEIGHT * 0.5
+	var centers := _shown_slot_centers_y(shown)
+	var target := target_slot_for_drag(cur, card_center_y, centers)
+	if target != cur:
+		var target_row := shown[target]
+		ModManager.move_mod(_drag_id, target_row.get_index() - dragged_row.get_index())
+		refresh()
+	else:
+		_position_drag_preview()
+
+func _finish_drag() -> void:
+	var moved_id := _drag_id
+	_cleanup_drag_state()
+	if not moved_id.is_empty():
+		_selected_id = moved_id
+		refresh()
+		var moved_row := _row_for(moved_id)
+		if moved_row != null:
+			_scroll_to_row.call_deferred(moved_row.get_instance_id())
+
+func _cancel_drag() -> void:
+	var cancelled_id := _drag_id
+	var origin_index := _drag_origin_listed_index
+	_suppress_select_for_id = cancelled_id
+	_cleanup_drag_state()
+	if not cancelled_id.is_empty() and origin_index >= 0:
+		var current_index := ModManager.get_listed_order().find(cancelled_id)
+		if current_index >= 0 and current_index != origin_index:
+			ModManager.move_mod(cancelled_id, origin_index - current_index)
+		refresh()
+
+func _cleanup_drag_state() -> void:
+	_free_drag_preview()
+	if _rows_box != null:
+		for child in _rows_box.get_children():
+			var row := child as Control
+			if row != null:
+				row.modulate = Color.WHITE
+				var handle := row.get_node_or_null("DragHandle") as DragHandle
+				if handle != null:
+					handle.dragging = false
+	_drag_candidate_id = ""
+	_drag_id = ""
+	_drag_active = false
+	_drag_touch_index = -1
+	_drag_origin_listed_index = -1
+	_drag_scroll_accum = 0.0
+	_drag_last_usec = 0
+	set_process(false)
+
+func _create_drag_preview() -> void:
+	_free_drag_preview()
+	var card := PanelContainer.new()
+	card.name = "ModDragPreview"
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.z_index = 20
+	card.add_theme_stylebox_override("panel", PixelButtonStyle.card_style(
+		COLOR_GOLD, PixelButtonStyle.State.HOVER, COLOR_SURFACE_RAISED, 10, 6, 6))
+
+	var row_box := HBoxContainer.new()
+	row_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row_box.add_theme_constant_override("separation", 10)
+	card.add_child(row_box)
+
+	var grip := DragHandle.new(DRAG_HANDLE_WIDTH, false)
+	grip.dragging = true
+	row_box.add_child(grip)
+
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(ROW_ICON_SIZE, ROW_ICON_SIZE)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row_box.add_child(icon)
+
+	var title := _label("", 14, COLOR_GOLD, SUBTITLE_FONT)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title.clip_text = true
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	row_box.add_child(title)
+
+	add_child(card)
+	_drag_preview = card
+	_drag_preview_icon = icon
+	_drag_preview_label = title
+	_paint_drag_preview()
+	_position_drag_preview()
+
+func _paint_drag_preview() -> void:
+	if _drag_preview == null or _drag_id.is_empty():
+		return
+	var info: Dictionary = ModManager.get_mod_info(_drag_id)
+	if info.is_empty():
+		return
+	if _drag_preview_label != null:
+		_drag_preview_label.text = row_title(info) + "\n" + row_badge(info).to_upper()
+	if _drag_preview_icon != null:
+		_drag_preview_icon.texture = icon_texture_for(info)
+
+func _position_drag_preview() -> void:
+	if _drag_preview == null or _rows_box == null:
+		return
+	var rows_rect := _rows_box.get_global_rect()
+	var bounds_rect := _library.get_global_rect() if _library != null else get_global_rect()
+	var width := maxf(rows_rect.size.x, 120.0)
+	var min_y := bounds_rect.position.y
+	var max_y := maxf(min_y, bounds_rect.end.y - ROW_HEIGHT)
+	var target_y := clampf(_drag_pointer_pos.y - _drag_grab_offset_y, min_y, max_y)
+	_drag_preview.size = Vector2(width, ROW_HEIGHT)
+	_drag_preview.global_position = Vector2(rows_rect.position.x, target_y)
+
+func _free_drag_preview() -> void:
+	if is_instance_valid(_drag_preview):
+		if _drag_preview.get_parent() == self:
+			remove_child(_drag_preview)
+		_drag_preview.free()
+	_drag_preview = null
+	_drag_preview_label = null
+	_drag_preview_icon = null
+
+func _sync_drag_visuals() -> void:
+	if not _drag_active or _rows_box == null:
+		return
+	for child in _rows_box.get_children():
+		var row := child as Control
+		if row == null:
+			continue
+		var is_dragged := str(row.get_meta("mod_id", "")) == _drag_id
+		row.modulate = Color(1.0, 1.0, 1.0, 0.35) if is_dragged else Color.WHITE
+		var handle := row.get_node_or_null("DragHandle") as DragHandle
+		if handle != null:
+			handle.dragging = is_dragged
+	_paint_drag_preview()
+	_position_drag_preview()
+
+func _shown_rows() -> Array[Control]:
+	var shown: Array[Control] = []
+	if _rows_box == null:
+		return shown
+	for child in _rows_box.get_children():
+		var row := child as Control
+		if row != null and row.visible:
+			shown.append(row)
+	return shown
+
+## Global Y centres of the visible row slots in their current child order.
+## Computed from `_rows_box`'s canvas transform and each row's height rather
+## than each child's `position.y`, so multiple swaps within one frame see the
+## new slot positions immediately without waiting for Container to re-sort.
+func _shown_slot_centers_y(shown: Array[Control]) -> PackedFloat32Array:
+	var centers := PackedFloat32Array()
+	if _rows_box == null:
+		return centers
+	var xform := _rows_box.get_global_transform_with_canvas()
+	var y := 0.0
+	for row in shown:
+		var h := maxf(row.size.y, ROW_HEIGHT)
+		centers.append((xform * Vector2(0.0, y + h * 0.5)).y)
+		y += h + float(ROW_GAP)
+	return centers
+
+func _active_scroller() -> ScrollContainer:
+	if _rows_box == null:
+		return null
+	var node: Node = _rows_box.get_parent()
+	while node != null and node != self:
+		if node is ScrollContainer:
+			var scroller := node as ScrollContainer
+			if scroller.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+				return scroller
+		node = node.get_parent()
+	return null
+
+func _touch_drag_handle_at(screen_pos: Vector2) -> String:
+	if _rows_box == null or _shown_rows().size() <= 1:
+		return ""
+	var scroller := _active_scroller()
+	if scroller != null and not scroller.get_global_rect().has_point(screen_pos):
+		return ""
+	for child in _rows_box.get_children():
+		var row := child as Control
+		if row == null or not row.is_visible_in_tree():
+			continue
+		var handle := row.get_node_or_null("DragHandle") as DragHandle
+		if handle == null or handle.disabled:
+			continue
+		if not handle.get_global_rect().has_point(screen_pos):
+			continue
+		if has_node("/root/TouchInput") and not TouchInput.owns_native_touch(handle, screen_pos):
+			return ""
+		return str(row.get_meta("mod_id", ""))
+	return ""
+
 # =============================================================================
 # ROW AND DETAIL TEXT (pure, unit-tested)
 # =============================================================================
+
+## Which visible slot (`0 .. slot_centers.size() - 1`) a dragged row belongs
+## in when its vertical centre is at `card_center_y`. `hysteresis` keeps a
+## pointer parked right on the midpoint between two slots from flickering the
+## row back and forth.
+static func target_slot_for_drag(current_slot: int, card_center_y: float,
+		slot_centers: PackedFloat32Array, hysteresis: float = DRAG_SWAP_HYSTERESIS) -> int:
+	if slot_centers.size() <= 1:
+		return 0
+	var slot := clampi(current_slot, 0, slot_centers.size() - 1)
+	while slot + 1 < slot_centers.size():
+		var midpoint := (slot_centers[slot] + slot_centers[slot + 1]) * 0.5
+		if card_center_y > midpoint + hysteresis:
+			slot += 1
+		else:
+			break
+	while slot > 0:
+		var midpoint := (slot_centers[slot - 1] + slot_centers[slot]) * 0.5
+		if card_center_y < midpoint - hysteresis:
+			slot -= 1
+		else:
+			break
+	return slot
 
 ## Whether `filter` lists a mod that is ticked to load (`enabled`) or not.
 static func filter_accepts(filter: int, enabled: bool) -> bool:
