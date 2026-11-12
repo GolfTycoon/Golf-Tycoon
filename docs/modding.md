@@ -273,8 +273,8 @@ The search box and the **All / Enabled / Disabled** chips (`ModsScreen.Filter`)
 only hide rows: they never change enabled mods or the order. The chips share
 the search box's row on desktop and on a phone held sideways (where they read
 All / On / Off to leave the box room to type), and take a row of their own
-under it on tablets and portrait phones. The count line reads "showing X of Y"
-while rows are hidden, and an empty list says why (`ModsScreen.empty_text()`).
+under it on tablets and portrait phones. The list follows the controls directly,
+and an empty list says why (`ModsScreen.empty_text()`).
 A row ticked or unticked under a filter stays listed until a filter is picked
 again, and a newly created or installed mod clears a filter or search that
 would hide it.

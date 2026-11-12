@@ -251,13 +251,6 @@ func test_filter_chips_are_named_for_what_they_show() -> void:
 		assert_false(ModsScreen.filter_hint(filter).is_empty(), "every chip explains itself on hover")
 
 
-func test_the_summary_says_how_much_of_the_library_is_on_show() -> void:
-	assert_eq(ModsScreen.summary_text(14, 14, 3, 3), "14 found · 3 enabled · 3 loaded")
-	assert_eq(ModsScreen.summary_text(3, 14, 3, 3), "showing 3 of 14 · 3 enabled · 3 loaded",
-		"a narrowed list says so, and still counts the whole loadout")
-	assert_eq(ModsScreen.summary_text(0, 14, 3, 3), "showing 0 of 14 · 3 enabled · 3 loaded")
-
-
 func test_an_empty_list_says_why_it_is_empty() -> void:
 	assert_eq(ModsScreen.empty_text(ALL, true, 14), "No matching mods. Try another search.")
 	assert_true(ModsScreen.empty_text(ENABLED, false, 14).begins_with("No mods are enabled"),
@@ -316,9 +309,6 @@ func test_the_screen_renders_the_live_library() -> void:
 	assert_eq(screen._selected_id, str(first.get("id", "")))
 	assert_true(details.text.contains(str(first.get("name", ""))),
 		"the details pane opens on the first mod in the list")
-	var subtitle := screen.find_child("SubtitleLabel", true, false) as Label
-	assert_true(subtitle.text.contains("loaded"),
-		"the header reports the live counts, not a blank")
 
 
 func test_every_row_opens_with_its_mods_own_icon() -> void:
@@ -540,8 +530,6 @@ func test_ticking_a_mod_leaves_every_row_where_it_was() -> void:
 	_assert_the_numbers_run_down_the_list(screen, "after a tick")
 	assert_true(_row_text(screen, mod_id).contains("LOADS ON LEAVE"))
 	assert_eq(screen._selected_id, mod_id, "its field notes open")
-	assert_true(screen._subtitle.text.contains("%d enabled" % ModManager.get_enabled_order().size()),
-		"and the counts follow")
 
 	_press(check)
 	await process_frames(1)
@@ -853,14 +841,11 @@ func test_the_filter_chips_show_all_enabled_or_disabled_mods() -> void:
 	assert_true(all_chip.button_pressed, "the screen opens on the whole library")
 	assert_false(enabled_chip.button_pressed or disabled_chip.button_pressed)
 	assert_eq(_shown_ids(screen), everything)
-	assert_true(screen._subtitle.text.contains("%d found" % everything.size()))
 
 	_press(enabled_chip)
 	assert_eq(_shown_ids(screen), ticked, "only the ticked mods, still in the list's order")
 	assert_true(enabled_chip.button_pressed, "the chosen chip is held down")
 	assert_false(all_chip.button_pressed or disabled_chip.button_pressed, "and only that one")
-	assert_true(screen._subtitle.text.contains("showing %d of %d" % [ticked.size(), everything.size()]),
-		"the summary says the list is narrowed")
 	assert_false(screen._empty.visible)
 
 	_press(enabled_chip)
@@ -894,7 +879,6 @@ func test_the_filter_and_the_search_narrow_the_list_together() -> void:
 	assert_true(screen._empty.visible, "so the list explains itself")
 	assert_eq(screen._empty.text,
 		ModsScreen.empty_text(ENABLED, true, screen._rows_box.get_child_count()))
-	assert_true(screen._subtitle.text.contains("showing 0 of"))
 
 	_press(_chip(screen, "Disabled"))
 	assert_eq(_shown_ids(screen), [unticked_id], "the search is kept when the filter changes")
@@ -992,6 +976,29 @@ func test_disable_all_leaves_the_enabled_filter_empty_and_says_so() -> void:
 	_press(_chip(screen, "Disabled"))
 	assert_eq(_shown_ids(screen), _listed_ids(screen), "every mod is unticked now")
 	assert_false(screen._empty.visible)
+
+
+func test_the_mod_list_follows_the_filters_without_a_caption_or_summary() -> void:
+	for size in [DESKTOP, TABLET, Vector2i(720, 820), PHONE_SIDEWAYS, PHONE, NARROW_PHONE]:
+		var screen := await _screen(size)
+		await process_frames(2)
+		var at := "at %dx%d" % [size.x, size.y]
+		assert_null(screen.find_child("LoadoutCaption", true, false), "no instructions above the list %s" % at)
+		assert_null(screen.find_child("SubtitleLabel", true, false), "no count summary above the list %s" % at)
+		var list := screen.find_child("ModList", true, false) as Control
+		var stack := list.get_parent() as VBoxContainer
+		var filters := _chip(screen, "All").get_parent() as Control
+		var controls := screen._search.get_parent() as Control
+		var last_control: Control = filters if filters.get_parent() == stack else controls
+		assert_eq(stack.get_child(last_control.get_index() + 1), list,
+			"the list immediately follows the filters %s" % at)
+		assert_eq(list.position.y - last_control.position.y - last_control.size.y,
+			float(stack.get_theme_constant("separation")),
+			"only the usual spacing separates the controls and the list %s" % at)
+		assert_not_null(screen.find_child("EmptyNote", true, false),
+			"the empty-list message is still available %s" % at)
+		screen.queue_free()
+		await process_frames(1)
 
 
 func test_the_filter_chips_fit_the_library_at_every_window_shape() -> void:

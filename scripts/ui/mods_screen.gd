@@ -53,7 +53,6 @@ const COLOR_SURFACE := MenuStyle.SHEET_BG
 const COLOR_SURFACE_RAISED := MenuStyle.RAIL_BG
 const COLOR_SURFACE_INSET := MenuStyle.INSET_BG
 const COLOR_TEXT_BRIGHT := MenuStyle.TITLE_COLOR
-const COLOR_TEXT_SECONDARY := UIConstants.COLOR_TEXT_DIM
 const COLOR_TEXT_QUIET := UIConstants.COLOR_TEXT_MUTED
 const COLOR_GOLD := MenuStyle.ACCENT_PRIMARY
 const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
@@ -82,7 +81,6 @@ const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-Regular.ttf")
 
 ## Live state: what is shown and what is selected.
 var _rows_box: VBoxContainer = null
-var _subtitle: Label = null
 var _details: RichTextLabel = null
 var _detail_icon: TextureRect = null
 var _status: Label = null
@@ -162,9 +160,6 @@ func _filter_rows() -> void:
 	if _empty != null:
 		_empty.text = empty_text(_filter, not query.is_empty(), _rows_box.get_child_count())
 		_empty.visible = shown == 0
-	if _subtitle != null:
-		_subtitle.text = "   " + summary_text(shown, _infos.size(),
-			ModManager.get_enabled_order().size(), ModManager.get_load_order().size())
 	_update_move_buttons()
 
 ## Light the arrows that have somewhere to go. A mod moves past the rows on
@@ -233,7 +228,6 @@ func _build() -> void:
 		child.queue_free()
 
 	_rows_box = null
-	_subtitle = null
 	_details = null
 	_detail_icon = null
 	_status = null
@@ -406,20 +400,6 @@ func _build_library_panel(page_scrolled: bool, pad: int = 12) -> PanelContainer:
 		controls.add_child(filters)
 	else:
 		stack.add_child(filters)
-
-	var caption := _label("LOADOUT / tick to enable · arrows set the order · leaving loads it", 13, COLOR_GOLD,
-		SUBTITLE_FONT)
-	caption.name = "LoadoutCaption"
-	caption.uppercase = true
-	# Wraps rather than widening the panel: on one line it is wider than the
-	# narrowest phones, and would push every row's arrows off the right edge.
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(caption)
-
-	_subtitle = _label("", 13, COLOR_TEXT_SECONDARY)
-	_subtitle.name = "SubtitleLabel"
-	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stack.add_child(_subtitle)
 
 	var list_scroll := ScrollContainer.new()
 	list_scroll.name = "ModList"
@@ -976,12 +956,6 @@ static func filter_hint(filter: int) -> String:
 		Filter.DISABLED:
 			return "Show only the mods that are switched off"
 	return "Show every mod"
-
-## The line under the caption: how much of the library is on show, and the
-## state of the loadout. Says "showing" only when rows are hidden.
-static func summary_text(shown: int, found: int, enabled: int, loaded: int) -> String:
-	var listed := "%d found" % found if shown == found else "showing %d of %d" % [shown, found]
-	return "%s · %d enabled · %d loaded" % [listed, enabled, loaded]
 
 ## What the list says when it has no row to show, so an empty list always
 ## names the reason: nothing installed, nothing in that filter, or nothing
