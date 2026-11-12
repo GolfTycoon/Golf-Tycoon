@@ -31,8 +31,9 @@ inside Steam.
    in the Mods screen takes you there).
 2. Wait for Steam to finish downloading, then **Rescan** (or relaunch).
 3. The mod appears, badged `Steam Workshop item <id>`, **disabled** -
-   subscribing is not enabling, same as installing a zip. Ticking it,
-   ordering it and Apply & Reload work exactly like any mod.
+   subscribing is not enabling, same as installing a zip. Ticking it and
+   ordering it work exactly like any mod; it loads when you leave the
+   screen.
 4. Steam keeps subscribed items up to date; unsubscribing (in Steam) is
    how they go away - the in-game Uninstall refuses Workshop mods.
 

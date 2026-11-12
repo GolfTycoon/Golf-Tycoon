@@ -202,8 +202,8 @@ func test_row_titles_number_the_load_order() -> void:
 func test_row_badges_say_the_mod_state() -> void:
 	assert_eq(ModsScreen.row_badge({"errors": ["boom"]}), "won't load")
 	assert_eq(ModsScreen.row_badge({"errors": [], "loaded": true}), "loaded")
-	assert_eq(ModsScreen.row_badge({"errors": [], "loaded": false, "enabled": true}), "pending apply",
-		"ticked but not applied is called out, because nothing hot-swaps")
+	assert_eq(ModsScreen.row_badge({"errors": [], "loaded": false, "enabled": true}), "loads on leave",
+		"ticked but not loaded yet is called out, because nothing hot-swaps")
 	assert_eq(ModsScreen.row_badge({"errors": [], "loaded": false, "enabled": false, "source": "zip"}),
 		"zip", "otherwise the badge says where the mod came from")
 
@@ -538,7 +538,7 @@ func test_ticking_a_mod_leaves_every_row_where_it_was() -> void:
 	assert_true(_row_text(screen, mod_id).begins_with("%d. " % (_ids_where(true).find(mod_id) + 1)),
 		"the number in front of its name is its place among the ticked rows")
 	_assert_the_numbers_run_down_the_list(screen, "after a tick")
-	assert_true(_row_text(screen, mod_id).contains("PENDING APPLY"))
+	assert_true(_row_text(screen, mod_id).contains("LOADS ON LEAVE"))
 	assert_eq(screen._selected_id, mod_id, "its field notes open")
 	assert_true(screen._subtitle.text.contains("%d enabled" % ModManager.get_enabled_order().size()),
 		"and the counts follow")
@@ -549,7 +549,7 @@ func test_ticking_a_mod_leaves_every_row_where_it_was() -> void:
 	assert_eq(_listed_ids(screen), order_before, "unticking leaves the row in place as well")
 	assert_eq(row.get_global_rect(), place_before)
 	assert_false(check.button_pressed)
-	assert_false(_row_text(screen, mod_id).contains("PENDING APPLY"), "and takes its number away")
+	assert_false(_row_text(screen, mod_id).contains("LOADS ON LEAVE"), "and takes its number away")
 	_assert_the_numbers_run_down_the_list(screen, "after an untick")
 
 
@@ -667,8 +667,9 @@ func test_moving_an_enabled_mod_past_another_changes_the_load_order() -> void:
 	assert_gt(_row(screen, first).position.y, _row(screen, second).position.y,
 		"the row itself stands below the row of the mod that loads before it")
 	_assert_the_numbers_run_down_the_list(screen, "after moving an enabled mod down")
-	var apply := screen.find_child("ApplyButton", true, false) as Button
-	assert_eq(apply.disabled, not ModManager.needs_reload, "Apply & Reload follows the manager")
+	assert_true(ModManager.needs_reload, "the changed order is waiting to be put into play")
+	assert_null(screen.find_child("ApplyButton", true, false),
+		"there is no Apply button: leaving the screen does it")
 
 	_press(up)
 	_press(up)
@@ -1071,11 +1072,48 @@ func test_escape_requests_back() -> void:
 	assert_true(calls.has(true))
 
 
-func test_the_apply_button_stages_a_reload() -> void:
+func test_leaving_with_an_unchanged_list_just_goes_back() -> void:
+	# The list already matches what loaded, so there is nothing to re-mod:
+	# Back is Back, and the scene is left alone.
 	var screen := await _screen()
-	var apply := screen.find_child("ApplyButton", true, false)
-	assert_not_null(apply, "Apply & Reload is the headline action")
-	assert_eq(apply.disabled, not ModManager.needs_reload)
+	assert_false(ModManager.needs_reload, "nothing has changed yet")
+	var calls := []
+	screen.back_requested.connect(func(): calls.push_back(true))
+	screen.leave()
+	assert_eq(calls, [true], "leaving asks for the screen to go away")
+	assert_false(ModManager.needs_reload)
+
+
+func test_leaving_after_a_change_reloads_the_mods_and_the_scene() -> void:
+	# Ticking a mod stages the change; leaving the screen is what puts it
+	# into play, so the player never has to press anything else.
+	var screen := await _screen()
+	var mod_id := str(_ids_where(false).back())
+	_press(_row(screen, mod_id).get_node("EnabledCheck") as CheckBox)
+	await process_frames(1)
+	assert_true(ModManager.needs_reload, "the tick is waiting to be put into play")
+	# The screen does not survive the reload, so it asks for no back: the
+	# scene coming back is the new one.
+	var calls := []
+	screen.back_requested.connect(func(): calls.push_back(true))
+	assert_true(ModManager.apply_staged_changes(), "leaving applies the new loadout")
+	await process_frames(1)
+	assert_eq(calls, [], "and the old screen asks for nothing")
+	assert_false(ModManager.needs_reload, "nothing is left staged")
+	assert_true(ModManager.is_mod_loaded(mod_id), "the ticked mod is in play")
+
+
+func test_there_is_no_apply_button() -> void:
+	var screen := await _screen()
+	assert_null(screen.find_child("ApplyButton", true, false),
+		"mods apply themselves, so the screen carries no Apply button")
+	var tools := screen.find_child("Tools", true, false)
+	var labels: Array[String] = []
+	for button in tools.get_children():
+		if button is Button:
+			labels.append((button as Button).text)
+	assert_eq(labels, ["Create New Mod", "+ Install ZIP", "Rescan", "Mods folder", "Disable all"],
+		"the tool row's actions, and nothing that applies a loadout")
 
 
 func test_create_new_mod_opens_the_scaffold_form() -> void:

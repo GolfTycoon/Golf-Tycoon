@@ -332,6 +332,23 @@ func test_the_enabled_list_persists_as_the_players_order() -> void:
 		"the order is read back from load_order.json")
 
 
+func test_leaving_the_mods_screen_applies_a_staged_change_once() -> void:
+	var manager := _make_library()
+	manager.discover()
+	manager.load_enabled_mods()
+	assert_false(manager.apply_staged_changes(), "an unchanged list applies nothing")
+
+	manager.set_mod_enabled("tester.databoi", true)
+	assert_true(manager.needs_reload, "the tick is staged")
+	assert_true(manager.apply_staged_changes(), "leaving the screen puts it into play")
+	assert_false(manager.needs_reload, "and nothing is left staged")
+	assert_true(manager.is_mod_loaded("tester.databoi"), "the ticked mod is loaded")
+	# The mods screen is gone by now (the scene reloaded); a second leave with
+	# the same list is not a second apply.
+	assert_false(manager.apply_staged_changes(), "leaving again reloads nothing")
+	manager.unload_all()
+
+
 # ---------------------------------------------------------------------------
 # The player's list: a place for every mod, which is also the load order
 # ---------------------------------------------------------------------------

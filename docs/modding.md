@@ -61,9 +61,12 @@ so its row never vanishes from under the pointer.
 
 Changes are written to your lists (`user://mods/load_order.json` for what
 is enabled, `user://mods/library_order.json` for the order of the whole
-library) immediately but do not hot-swap a running game: **Apply &
-Reload** reloads the scene with exactly the new set, in exactly the new
-order. Nothing is ever half-applied to a course in play.
+library) immediately, and they take effect the moment you leave the
+screen: **Back** (or Esc, or the header's Back) re-runs the loader and
+reloads the scene with exactly the new set, in exactly the new order.
+There is no Apply button to press and nothing to forget - and leaving
+without changing anything reloads nothing. Because the change lands in one
+go on the way out, nothing is ever half-applied to a course in play.
 
 ### Where mods live
 
@@ -123,7 +126,7 @@ A mod is a folder with a `mod.json` at its root. There are two ways in:
   library (`user://mods/<id>/`): a valid `mod.json`, a starter
   `mod_main.gd` unless you untick the box, a placeholder `icon.png`, and a
   README with the next steps. The new mod appears in the list switched
-  off, like an installed zip; tick it and **Apply & Reload** when you are
+  off, like an installed zip; tick it, then leave the screen, when you are
   ready.
 - From a source checkout, copy `mods/_template/` (or unzip any example)
   and edit three things: the `id` (something like `yourname.my_mod` - it
@@ -158,7 +161,8 @@ copy, `mods/` directory included with the game:
 
 The workflow is: edit in place (inside your `user://mods/` library or a
 source checkout's `mods/`), then in the game hit **Rescan**, tick your
-mod, **Apply & Reload**. When it works, share it:
+mod, and leave the screen - the game comes back with it loaded. When it
+works, share it:
 
 - **As a zip:** zip the folder's contents (`mod.json` at the zip root or
   one wrapper folder deep). From a source checkout,
@@ -202,7 +206,7 @@ references:
 | `GolfTycoonMod` / `ModAPI` | `scripts/modding/mod_base.gd`, `mod_api.gd` | What a script mod extends and the object it is handed. |
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |
 | Neutral bases + facade | `scripts/systems/weather_system.gd`, `wind_system.gd`, `season_provider.gd`, `season_system.gd` | The game's built-in "nothing happens" weather/wind/season answers; mods provide the real systems. Same classes, same calls, so callers never know. |
-| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload, Apply & Reload. |
+| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload. Leaving the screen applies a changed loadout (`ModManager.apply_staged_changes()`), so there is no Apply button. |
 | `GuiTheme` / `GuiThemeApplier` | `scripts/ui/gui_theme.gd`, `gui_theme_applier.gd` | The design a GUI theme mod declared: role palette + metrics, the built `Theme`, and the walker that re-maps code-built styles onto it. No mod in force = the stock look, untouched. |
 | Bundled mods | `res://mods/` | Three official feature mods + fifteen examples + `_template` + `_gui_template`. |
 | CLI | `tools/mod_tool.gd`, `make mods` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them. |
@@ -223,10 +227,10 @@ The Mods screen uses a pixel-art workbench layout. Desktop and tablet widths
 show the searchable loadout and selected-mod inspector side by side; widths
 below 700 px use Library / Inspector tabs. Selecting a mod opens its inspector
 on narrow screens. Each pane scrolls independently, and short windows can scroll
-the workspace to keep installation and Apply & Reload reachable. The tool row
-scrolls sideways when the window is narrower than its buttons, so **Create New
-Mod**, **Install ZIP**, **Rescan**, **Mods folder**, **Disable all** and
-**Apply & Reload** all stay reachable on a phone.
+the workspace to keep installation reachable. The tool row scrolls sideways
+when the window is narrower than its buttons, so **Create New Mod**, **Install
+ZIP**, **Rescan**, **Mods folder** and **Disable all** all stay reachable on a
+phone.
 
 The rows come from `ModManager.get_all_mod_infos()`, in the player's order
 (`ModManager.get_listed_order()`). `ModManager` keeps that order in

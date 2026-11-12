@@ -1,8 +1,8 @@
 # Example: User Tree Sprite Pack
 
 A complete **data-only** replacement for Golf Tycoon's standing-tree art.
-There is no script and no dependency: enable it in the Mods screen, then use
-**Apply & Reload**. Every existing course keeps its terrain, saves and tree
+There is no script and no dependency: enable it in the Mods screen and leave
+the screen, and it loads. Every existing course keeps its terrain, saves and tree
 species; only the pictures change.
 
 ## What is in this pack

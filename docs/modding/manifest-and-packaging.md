@@ -363,7 +363,8 @@ players' Mods screens.
   `user://mods/.loading_mods`; surviving a few frames deletes it. If it is
   still there next launch - the previous session died while loading -
   that session loads **data only** and says so, so a bad mod can never
-  crash-loop the game. Apply & Reload tries the set again.
+  crash-loop the game; loading the set again (leaving the Mods screen
+  after a change) tries it once more.
 - `--no-mods` on the command line loads nothing and leaves the saved list
   untouched.
 - A mod that fails mid-load (missing entry point, script not a

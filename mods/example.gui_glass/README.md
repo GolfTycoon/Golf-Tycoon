@@ -24,7 +24,7 @@ mod is a single JSON palette:
 
 With two GUI theme mods enabled, the one lower in the Mods list wins -
 the same rule as every provider. Switch this one off (or move it above
-another GUI theme) and Apply & Reload to go back.
+another GUI theme) and leave the screen to go back.
 
 **Make your own:** copy this folder (or use Mods -> Create New Mod and
 tick "GUI theme starter"), change the hex colours, and reload. The full

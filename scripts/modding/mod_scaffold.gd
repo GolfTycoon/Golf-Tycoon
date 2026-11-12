@@ -9,7 +9,7 @@ class_name ModScaffold
 ##
 ## Creating is not enabling. The folder is discovered by the rescan that
 ## follows, arrives switched off like an installed zip, and changes nothing
-## until the player ticks it and presses Apply & Reload.
+## until the player ticks it and leaves the Mods screen.
 ##
 ## Everything here is static and autoload-free (like ModPackage), so the
 ## rules can be tested - and reused by tools - without a running game.
@@ -165,7 +165,7 @@ static func starter_gui_theme(display_name: String) -> String:
 		heading = "My Interface"
 	var spec: Dictionary = {
 		"name": heading,
-		"description": "A new interface design. Edit the colours in this file, then tick the mod and Apply & Reload.",
+		"description": "A new interface design. Edit the colours in this file, then tick the mod and leave the Mods screen.",
 		"colors": {
 			"accent": "8be9e2",
 			"panel": "16222ecc",
@@ -218,7 +218,7 @@ static func readme_text(fields: Dictionary) -> String:
 	if has_script(fields):
 		lines.append("1. Open `%s` and write the mod." % SCRIPT_FILE)
 		lines.append("2. Describe it in `mod.json`; players read that description in the Mods screen.")
-		lines.append("3. In the game: Mods -> tick the mod -> Apply & Reload.")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen.")
 	elif has_gui_theme(fields):
 		lines.append("1. Open `%s` and make the design yours: every colour" % GUI_THEME_FILE)
 		lines.append("   is a named role (`panel`, `button`, `accent`, `text`, ...),")
@@ -230,7 +230,7 @@ static func readme_text(fields: Dictionary) -> String:
 		lines.append("   the game repository; the bundled example.gui_* mods are")
 		lines.append("   complete designs to borrow from.")
 		lines.append("2. Describe it in `mod.json`; players read that description in the Mods screen.")
-		lines.append("3. In the game: Mods -> tick the mod -> Apply & Reload. The")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen. The")
 		lines.append("   whole interface - HUD, menus, panels - changes at once.")
 		lines.append("   With two GUI theme mods on, the lower one in the list wins.")
 	else:
@@ -239,7 +239,7 @@ static func readme_text(fields: Dictionary) -> String:
 		lines.append("   (Start with `content.buildings` or `content.tuning`; the")
 		lines.append("   bundled examples show every kind, and this is a data-only")
 		lines.append("   mod, so no code runs.)")
-		lines.append("3. In the game: Mods -> tick the mod -> Apply & Reload.")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen.")
 	lines.append("4. Share it: zip this folder so `mod.json` is at the zip root,")
 	lines.append("   then install it from Mods -> Install ZIP on another machine.")
 	lines.append("")
