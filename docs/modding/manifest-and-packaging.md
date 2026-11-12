@@ -114,6 +114,7 @@ screen reports every cross-mod overwrite by name.
 | `menu_backdrops` | `{"backdrops": {id: entry}}` - see [Menu backgrounds](#menu-backgrounds) | The pictures offered in **Settings → Display → Background**. An existing id (a shipped one such as `clubhouse`, or an earlier mod's) is patched; a new id is namespaced. Sparse entries are fine - the shipped picture fills every field you leave out. |
 | `menu_overlays` | `{"overlays": {id: entry}, "settings": {key: schema}}` | The overlay patterns drawn over those pictures, plus any per-overlay settings you want the Display card to offer. Same patch/namespace rules. |
 | `tuning` | `{"tuning": {"dotted.key": number}}` | Flat numeric levers read by the game and by mods via `get_tuning`. Non-numbers are skipped with a warning. The game's own keys are listed in [mod-api.md](mod-api.md). |
+| `gui_theme` | `{"name": "…", "colors": {role: hex}, "metrics": {…}, "font": "…", "rules": […]}` (the file may also wrap it as `{"gui_theme": {…}}`) | One design for the whole interface - HUD, menus, panels, popups, the bottom bar - plus `rules` that aim styles at one screen, control type or named control. Last in the load order wins; roles left out keep the stock look. No merge with other themes. The full reference is [gui-themes.md](gui-themes.md). |
 
 ### Tree sprite layout (`tree_art_root/layout.json`)
 

@@ -1,0 +1,46 @@
+{
+	"name": "Neon Fairway",
+	"description": "Synthwave night golf: midnight-purple panes with sharp corners, a magenta call to action, cyan highlights and electric-yellow focus.",
+	"colors": {
+		"panel": "12081fe6",
+		"inset": "0a0414f2",
+		"deep": "05030a",
+		"button": "24104d",
+		"button_hover": "35156e",
+		"button_pressed": "180a36",
+		"button_disabled": "170b2ecc",
+		"primary": "c9187a",
+		"primary_hover": "e02a92",
+		"border": "00e5ff99",
+		"focus": "ffe95e",
+		"scrollbar": "3a1c71",
+		"scrollbar_hover": "5b2ea6",
+		"text": "f6ecff",
+		"text_dim": "c9aef0",
+		"text_muted": "8a6fc0",
+		"accent": "00e5ff",
+		"accent_text": "1a0533",
+		"success": "3dff9e",
+		"warning": "ffe95e",
+		"danger": "ff4d6d",
+		"info": "4dc9ff",
+		"tooltip": "0d0518f2",
+		"bottom_bar": "0a0618",
+		"bottom_bar_light": "150b2e"
+	},
+	"metrics": {
+		"panel_radius": 6,
+		"button_radius": 6,
+		"border_width": 2,
+		"font_size": 14,
+		"shadow_size": 4
+	},
+	"rules": [
+		{
+			"target": {"screen": "ModsScreen", "type": "Button"},
+			"icon": "icons/bolt.png",
+			"radius": 4,
+			"border_width": 2
+		}
+	]
+}

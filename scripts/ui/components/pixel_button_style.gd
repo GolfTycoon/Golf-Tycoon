@@ -194,7 +194,8 @@ static func paint_primary(button: Button, accent: Color = MenuStyle.ACCENT_PRIMA
 	paint_focus(button, accent)
 	for font_state in ["normal", "hover", "pressed", "focus"]:
 		button.add_theme_color_override("font_color" if font_state == "normal" \
-			else "font_%s_color" % font_state, MenuStyle.INK)
+			else "font_%s_color" % font_state,
+			GuiTheme.role_color("accent_text", MenuStyle.INK))
 	button.add_theme_color_override("font_disabled_color", UIConstants.COLOR_TEXT_MUTED)
 
 ## Paint a text field as a recessed surface with the same visible focus
@@ -219,7 +220,7 @@ static func paint_field(field: LineEdit, accent: Color, fill: Color, pad: int) -
 static func paint_focus(control: Control, accent: Color,
 		pad_left: int = 0, pad_top: int = 0, pad_bottom: int = 0) -> void:
 	var wash := StyleBoxFlat.new()
-	wash.bg_color = FOCUS_WASH
+	wash.bg_color = GuiTheme.remap_color(FOCUS_WASH)
 	wash.set_corner_radius_all(int(RADIUS))
 	wash.content_margin_left = float(pad_left)
 	wash.content_margin_right = float(pad_left)
@@ -241,6 +242,8 @@ static func focus_ring(accent: Color) -> StyleBoxTexture:
 ## A full-width slab of the frame's cross-section - ink, rim, gloss and the
 ## body - with no rounded ends, for the bar a screen pins to its bottom edge.
 static func bar_style(accent: Color, fill: Color) -> StyleBoxTexture:
+	accent = GuiTheme.remap_color(accent)
+	fill = GuiTheme.remap_color(fill)
 	var key := _cache_key(accent, State.NORMAL, fill) + "|bar"
 	if _style_cache.has(key):
 		return _style_cache[key]
@@ -331,6 +334,11 @@ static func inset_style(accent: Color, fill: Color, pad: int) -> StyleBoxTexture
 ## The nine-patch StyleBoxTexture itself, from the cache when this palette has
 ## been generated before.
 static func texture_style(accent: Color, state: int, fill: Color) -> StyleBoxTexture:
+	# A GUI theme re-dresses generated frames too: map the stock colours
+	# callers pass to its palette before anything is generated or cached, so
+	# the themed palette gets its own cache entries (see GuiTheme).
+	accent = GuiTheme.remap_color(accent)
+	fill = GuiTheme.remap_color(fill)
 	var key := _cache_key(accent, state, fill)
 	if _style_cache.has(key):
 		return _style_cache[key]

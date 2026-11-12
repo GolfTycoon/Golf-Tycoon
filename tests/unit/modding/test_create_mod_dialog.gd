@@ -79,6 +79,27 @@ func test_a_valid_form_enables_create_and_previews_the_folder() -> void:
 		"a data mod previews only the files it writes")
 
 
+func test_the_gui_theme_tick_previews_and_creates_a_theme_mod() -> void:
+	var dialog := await _open_dialog()
+	assert_not_null(dialog._gui_theme_check)
+	assert_false(dialog._gui_theme_check.button_pressed, "a script stays the default starter")
+	_fill(dialog, "tester.glassy", "Glassy")
+	dialog._gui_theme_check.button_pressed = true
+	dialog._update_state()
+	assert_true(dialog._script_check.disabled, "a GUI theme needs no code to offer")
+	assert_true(dialog._feedback.text.contains("data/gui_theme.json"),
+		"the preview names the palette file it will write")
+	dialog._create_button.emit_signal("pressed")
+	await process_frames(2)
+	var directory := ROOT.path_join("tester.glassy")
+	assert_true(FileAccess.file_exists(directory.path_join(ModScaffold.GUI_THEME_FILE)))
+	assert_false(FileAccess.file_exists(directory.path_join("mod_main.gd")))
+	var manifest := ModManifest.from_json_text(
+		FileAccess.get_file_as_string(directory.path_join("mod.json")))
+	assert_true(manifest.is_valid())
+	assert_eq(str(manifest.content.get("gui_theme", "")), ModScaffold.GUI_THEME_FILE)
+
+
 func test_an_unusable_id_keeps_create_disabled_and_explains_it() -> void:
 	var dialog := await _open_dialog()
 	_fill(dialog, "Not A Mod Id", "Whatever")

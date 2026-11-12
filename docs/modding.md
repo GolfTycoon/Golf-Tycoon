@@ -9,13 +9,15 @@ GDScript, against a versioned Mod API.
 Everything first-party goes through the same machinery as a community mod
 would - the three environment systems the game was born with (**Seasons**,
 **Weather** and **Wind**) are now ordinary mods in the bundled mods
-folder, enabled by default, and nine small example mods beside them cover
-every kind of thing a mod can do.
+folder, enabled by default, and fifteen example mods beside them cover
+every kind of thing a mod can do — including four that do nothing but
+re-dress the interface (see [GUI themes](modding/gui-themes.md)).
 
 - **For players:** [Using mods](#using-mods)
 - **For modders:** [Making your first mod](#making-your-first-mod), then the
   references: [manifest & packaging](modding/manifest-and-packaging.md),
-  [the Mod API](modding/mod-api.md), [Steam Workshop](modding/steam-workshop.md).
+  [the Mod API](modding/mod-api.md), [GUI themes](modding/gui-themes.md),
+  [Steam Workshop](modding/steam-workshop.md).
 - **For contributors:** [How it fits together](#how-it-fits-together).
 
 ## Using mods
@@ -178,6 +180,11 @@ references:
 - [mod-api.md](modding/mod-api.md) - the `GolfTycoonMod` lifecycle, the
   `ModAPI` surface, providers (weather/wind/seasons), value hooks, tuning
   keys, config, save data, EventBus signals, building sprites and effects.
+- [gui-themes.md](modding/gui-themes.md) - re-dressing the whole interface
+  (HUD, menus, panels, popups, the bottom bar) with one JSON palette:
+  every colour role and metric, shipped fonts, targeted rules for one
+  screen or a single button, the derivation rules and what a theme
+  cannot reach.
 - [steam-workshop.md](modding/steam-workshop.md) - how Workshop
   discovery/upload works, what a Steam build needs (GodotSteam + an App
   ID), and how to test without one.
@@ -195,7 +202,8 @@ references:
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |
 | Neutral bases + facade | `scripts/systems/weather_system.gd`, `wind_system.gd`, `season_provider.gd`, `season_system.gd` | The game's built-in "nothing happens" weather/wind/season answers; mods provide the real systems. Same classes, same calls, so callers never know. |
 | Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload, Apply & Reload. |
-| Bundled mods | `res://mods/` | Three official feature mods + nine examples + `_template`. |
+| `GuiTheme` / `GuiThemeApplier` | `scripts/ui/gui_theme.gd`, `gui_theme_applier.gd` | The design a GUI theme mod declared: role palette + metrics, the built `Theme`, and the walker that re-maps code-built styles onto it. No mod in force = the stock look, untouched. |
+| Bundled mods | `res://mods/` | Three official feature mods + fifteen examples + `_template` + `_gui_template`. |
 | CLI | `tools/mod_tool.gd`, `make mods` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them. |
 
 Autoload order matters: `ContentRegistry` loads base content, then

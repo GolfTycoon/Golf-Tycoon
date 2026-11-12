@@ -57,6 +57,12 @@ var _menu_overlays: Dictionary = {}  # id -> entry
 var _menu_overlay_settings: Dictionary = {}  # setting key -> schema
 var _menu_backdrop_sources: Dictionary = {}  # id -> mod id
 var _menu_overlay_sources: Dictionary = {}  # id -> mod id
+## The interface design a mod declared (`gui_theme`), if any. Unlike the
+## catalogues above there is only ever one in force: the last mod in load
+## order to declare one wins, and the main scene dresses the whole GUI in
+## it (see GuiTheme / GuiThemeApplier).
+var _gui_theme: GuiTheme = null
+var _gui_theme_source: String = ""
 
 
 func _init() -> void:
@@ -106,6 +112,8 @@ func reset_mod_content() -> void:
 	_menu_overlay_settings.clear()
 	_menu_backdrop_sources.clear()
 	_menu_overlay_sources.clear()
+	_gui_theme = null
+	_gui_theme_source = ""
 	SeasonalEvents.clear_registered_events()
 	BuildingSprites.clear_mod_sprites()
 	TreeOverlay.clear_mod_art()
@@ -178,6 +186,37 @@ func has_tuning(key: String) -> bool:
 	return _tuning.has(key)
 
 
+## The GUI theme in force, or null when no enabled mod dresses the
+## interface. The main scene reads this once, before building its HUD.
+func get_gui_theme() -> GuiTheme:
+	return _gui_theme
+
+
+## Which mod's GUI theme is in force ("" for the stock look), for the
+## Mods screen and for a script mod asking whose design it would replace.
+func get_gui_theme_source() -> String:
+	return _gui_theme_source
+
+
+## Put one mod's GUI theme in force, replacing any earlier mod's. Called
+## for the `gui_theme` content key and forwarded by ModManager for the
+## script API, always in load order - the last call wins, the rule every
+## provider takeover follows. Parse problems are warnings, never failures:
+## the offending entries keep their stock values and the theme applies.
+func register_gui_theme(mod_id: String, spec: Dictionary, base_dir: String = "") -> bool:
+	var theme := GuiTheme.from_dictionary(spec)
+	for warning in theme.warnings:
+		_warn(mod_id, "gui_theme: " + warning)
+	if not base_dir.is_empty():
+		_resolve_gui_theme_assets(mod_id, theme, base_dir)
+	if not _gui_theme_source.is_empty() and _gui_theme_source != mod_id:
+		_conflicts.append("Interface theme: %s replaces the one from %s (later in the load order wins)." % [mod_id, _gui_theme_source])
+	_gui_theme = theme
+	_gui_theme_source = mod_id
+	content_changed.emit()
+	return true
+
+
 ## Which mod last wrote a piece of content ("core" for the shipped game).
 func source_of(kind: String, entry_id: String) -> String:
 	return str(_provenance.get(kind, {}).get(entry_id, ""))
@@ -216,6 +255,10 @@ func get_content_summary() -> Dictionary:
 		if not summary.has(source_mod):
 			summary[source_mod] = {}
 		summary[source_mod]["overlays"] = int(summary[source_mod].get("overlays", 0)) + 1
+	if not _gui_theme_source.is_empty():
+		if not summary.has(_gui_theme_source):
+			summary[_gui_theme_source] = {}
+		summary[_gui_theme_source]["gui_theme"] = 1
 	return summary
 
 
@@ -274,6 +317,8 @@ func apply_mod_content(mod_id: String, mod_root: String, content: Dictionary) ->
 		_apply_menu_backdrops(mod_id, mod_root.path_join(str(content["menu_backdrops"])))
 	if content.has("menu_overlays"):
 		_apply_menu_overlays(mod_id, mod_root.path_join(str(content["menu_overlays"])))
+	if content.has("gui_theme"):
+		_apply_gui_theme(mod_id, mod_root.path_join(str(content["gui_theme"])), mod_root)
 	_push_statics()
 	content_changed.emit()
 
@@ -644,6 +689,84 @@ func _apply_menu_overlays(mod_id: String, path: String) -> void:
 			_warn(mod_id, warning)
 		_menu_overlays[entry_id] = merged
 		_menu_overlay_sources[entry_id] = mod_id
+
+
+## `gui_theme`: one design for the whole interface, in GuiTheme's shape.
+## The file may wrap it (`{"gui_theme": {...}}`) or hold it bare. Font and
+## icon paths inside it are relative to the mod folder, as every content
+## path is, so `mod_root` rides along for their resolution.
+func _apply_gui_theme(mod_id: String, path: String, mod_root: String) -> void:
+	var parsed: Variant = _read_json_file(path)
+	if not (parsed is Dictionary):
+		_warn(mod_id, "gui_theme '%s' could not be read as JSON." % path)
+		return
+	var spec: Variant = (parsed as Dictionary).get("gui_theme", parsed)
+	if not (spec is Dictionary):
+		_warn(mod_id, "gui_theme '%s' must hold a theme object (name, colors, metrics)." % path)
+		return
+	register_gui_theme(mod_id, spec, mod_root)
+
+
+## Load the files a palette names - its fonts and its rules' fonts and
+## icons - from the mod's own folder (a full res:// or user:// path is
+## honoured as written). A file that will not load warns in player words
+## and the stock look stands in for it, like any other broken entry.
+func _resolve_gui_theme_assets(mod_id: String, theme: GuiTheme, base_dir: String) -> void:
+	if not theme.font_path.is_empty():
+		theme.font = _load_theme_font(_theme_asset_path(base_dir, theme.font_path))
+		if theme.font == null:
+			_warn(mod_id, "gui_theme font '%s' could not be loaded; the stock font was kept." % theme.font_path)
+	if not theme.font_bold_path.is_empty():
+		theme.font_bold = _load_theme_font(_theme_asset_path(base_dir, theme.font_bold_path))
+		if theme.font_bold == null:
+			_warn(mod_id, "gui_theme font_bold '%s' could not be loaded; the stock display font was kept." % theme.font_bold_path)
+	for rule in theme.rules:
+		if rule.has("font_path"):
+			var rule_font := _load_theme_font(_theme_asset_path(base_dir, str(rule["font_path"])))
+			if rule_font == null:
+				_warn(mod_id, "A rule's font '%s' could not be loaded; that rule keeps the theme font." % str(rule["font_path"]))
+			else:
+				rule["font"] = rule_font
+		if rule.has("icon_path"):
+			var rule_icon := _load_theme_icon(_theme_asset_path(base_dir, str(rule["icon_path"])))
+			if rule_icon == null:
+				_warn(mod_id, "A rule's icon '%s' could not be loaded; that rule sets no icon." % str(rule["icon_path"]))
+			else:
+				rule["icon"] = rule_icon
+
+
+static func _theme_asset_path(base_dir: String, path: String) -> String:
+	if path.begins_with("res://") or path.begins_with("user://"):
+		return path
+	return base_dir.path_join(path)
+
+
+## A typeface from a file: imported fonts under res:// load as resources;
+## anything else (a mod folder in user://) is read as raw font data, the
+## only way an un-imported .ttf can enter the game at runtime.
+static func _load_theme_font(path: String) -> Font:
+	if path.begins_with("res://"):
+		var resource: Variant = ResourceLoader.load(path)
+		if resource is Font:
+			return resource as Font
+	# load_dynamic_font reports success even for files that are not there,
+	# so existence and payload are checked by hand.
+	if not FileAccess.file_exists(path):
+		return null
+	var font_file := FontFile.new()
+	if font_file.load_dynamic_font(path) == OK and font_file.data.size() > 0:
+		return font_file
+	return null
+
+
+## A button icon from an image file, likewise raw-first so a mod's plain
+## .png loads wherever the mod lives.
+static func _load_theme_icon(path: String) -> Texture2D:
+	var image := Image.new()
+	if image.load(path) == OK:
+		return ImageTexture.create_from_image(image)
+	var resource: Variant = ResourceLoader.load(path)
+	return resource as Texture2D if resource is Texture2D else null
 
 
 ## The wrapper key's contents: `{wrapper: {id: entry}}`, or the file itself

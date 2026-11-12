@@ -1,0 +1,48 @@
+{
+	"name": "Porcelain Fairway",
+	"description": "A minimal light interface: white porcelain panes, dark green-slate text, a fairway-green call to action and muted gold highlights.",
+	"colors": {
+		"panel": "fffffff5",
+		"inset": "eef2eef2",
+		"deep": "dde5dd",
+		"button": "ffffff",
+		"button_hover": "eef5ee",
+		"button_pressed": "dde8dd",
+		"button_disabled": "f2f4f2b3",
+		"primary": "2e6b34",
+		"primary_hover": "35803d",
+		"border": "9db89d99",
+		"focus": "2e6b34",
+		"scrollbar": "b9c9b9",
+		"scrollbar_hover": "93ad93",
+		"text": "1d2b1d",
+		"text_dim": "4c5f4c",
+		"text_muted": "7d8f7d",
+		"accent": "a87f0a",
+		"accent_text": "ffffff",
+		"success": "2e8b3a",
+		"warning": "b8860b",
+		"danger": "c0392b",
+		"info": "2471a3",
+		"tooltip": "22301ff2",
+		"bottom_bar": "dfe8dd",
+		"bottom_bar_light": "eef4ec"
+	},
+	"metrics": {
+		"panel_radius": 10,
+		"button_radius": 10,
+		"border_width": 1,
+		"font_size": 14,
+		"shadow_size": 4
+	},
+	"rules": [
+		{
+			"target": {"screen": "MainMenu", "type": "Label"},
+			"font_size": 16
+		},
+		{
+			"target": {"screen": "SettingsMenu", "type": "PanelContainer"},
+			"radius": 6
+		}
+	]
+}

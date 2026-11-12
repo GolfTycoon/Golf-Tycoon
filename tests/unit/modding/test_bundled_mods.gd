@@ -35,7 +35,7 @@ func _manifest_of(folder: String) -> ModManifest:
 
 func test_every_bundled_manifest_validates_and_references_real_files() -> void:
 	var folders := _bundled_folders()
-	assert_eq(folders.size(), 14, "three official mods and eleven examples ship with the game")
+	assert_eq(folders.size(), 18, "three official mods and fifteen examples ship with the game")
 	for folder in folders:
 		var root := BUNDLED_ROOT.path_join(folder)
 		var manifest := _manifest_of(folder)
@@ -135,6 +135,52 @@ func test_more_seasons_is_a_true_add_on() -> void:
 	assert_true("golf_tycoon.seasons" in deps, "it hard-depends on the Seasons mod")
 	var hard: Array = manifest.dependencies.filter(func(d): return str(d.get("id", "")) == "golf_tycoon.seasons")
 	assert_false(bool(hard[0].get("optional", true)), "and the dependency is not optional")
+
+
+func test_the_gui_theme_examples_each_register_a_complete_design() -> void:
+	# Every GUI example is data-only and dresses the whole interface:
+	# applying its content (as the loader does, in order) puts its design
+	# in force, and the next GUI mod replaces it - lower in the list wins.
+	const GUI_EXAMPLES: Array = [
+		["example.gui_glass", "Modern Glass"],
+		["example.gui_neon", "Neon Fairway"],
+		["example.gui_parchment", "Clubhouse Parchment"],
+		["example.gui_porcelain", "Porcelain Fairway"],
+	]
+	var warnings_before := ContentRegistry.get_warnings().size()
+	for entry in GUI_EXAMPLES:
+		var mod_id: String = entry[0]
+		var folder := BUNDLED_ROOT.path_join(mod_id)
+		var manifest := _manifest_of(mod_id)
+		assert_false(manifest.has_script(), "%s needs no code to re-dress the game" % mod_id)
+		assert_true(manifest.content.has("gui_theme"), "%s declares a GUI theme" % mod_id)
+		ContentRegistry.apply_mod_content(mod_id, folder, manifest.content)
+		assert_eq(ContentRegistry.get_gui_theme_source(), mod_id,
+			"%s's design is in force once it has loaded" % mod_id)
+		var theme := ContentRegistry.get_gui_theme()
+		assert_not_null(theme, "%s produced a theme" % mod_id)
+		assert_eq(theme.theme_name, entry[1])
+		# A complete design: the handful of roles every screen is painted
+		# from must all differ from stock, or part of the game would keep
+		# its green while the rest changed clothes.
+		for role in ["panel", "button", "text", "accent", "border", "bottom_bar"]:
+			assert_false(GuiTheme._same_color(theme.color(role), GuiTheme.default_colors()[role]),
+				"%s restyles %s" % [entry[1], role])
+		assert_eq(theme.warnings, [], "%s parses without a warning" % mod_id)
+		# And the files each palette names really load through the registry.
+		match mod_id:
+			"example.gui_glass":
+				assert_not_null(theme.font_bold, "glass ships its display font")
+			"example.gui_parchment":
+				assert_not_null(theme.font, "parchment ships its body font")
+			"example.gui_neon":
+				assert_eq(theme.rules.size(), 1, "neon ships its Mods-screen rule")
+				assert_not_null(theme.rules[0].get("icon"), "and its bolt icon loads")
+	assert_eq(ContentRegistry.get_warnings().size(), warnings_before,
+		"no GUI example costs a registry warning: %s" % str(ContentRegistry.get_warnings()))
+	var summary: Dictionary = ContentRegistry.get_content_summary()
+	assert_eq(int((summary["example.gui_porcelain"] as Dictionary).get("gui_theme", 0)), 1,
+		"the winning design is counted for its mod")
 
 
 func test_the_example_backgrounds_mod_ships_pictures_and_overlays() -> void:

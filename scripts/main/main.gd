@@ -30,6 +30,10 @@ var orientation_toggle: OrientationToggleButton = null
 # New UI components
 var player_round: PlayerRoundManager
 
+## Dresses the whole GUI in a mod's GUI theme while one is in force (see
+## _setup_gui_theme). Null - and nothing is themed - with no such mod.
+var gui_theme_applier: GuiThemeApplier = null
+
 var hud_status_column: HUDStatusColumn = null
 var course_location_banner: CourseLocationBanner = null
 var portrait_hud: PortraitHUD = null
@@ -242,6 +246,7 @@ const STARTUP_STEPS := 7
 ## the engine's own boot splash (application/boot_splash in project.godot) up
 ## until the first frame and nothing half-built is ever seen.
 func _ready() -> void:
+	_setup_gui_theme()
 	var sliced := _startup_is_sliced()
 	for step in STARTUP_STEPS:
 		# The stage is announced before the frame that follows it, so the
@@ -2037,6 +2042,25 @@ func _dock_scores_below_banner() -> void:
 	if Screen.uses_portrait_hud():
 		top = maxf(top, Screen.portrait_header_height() + 8.0)
 	scores_dock.set_top_clearance(top)
+
+## Dress the GUI in the loaded GUI theme mod's design, before a single
+## HUD control is built: PixelButtonStyle paints from the active theme,
+## the HUD root wears the built Theme in place of the scene's stock one,
+## and the applier re-maps code-built overrides across the whole scene -
+## panels and popups included, as they appear. With no GUI theme mod the
+## stock look is kept exactly, and any theme a previous (reloaded) scene
+## activated is cleared so it can never leak into an unthemed session.
+func _setup_gui_theme() -> void:
+	var gui_theme: GuiTheme = ModManager.get_gui_theme()
+	if gui_theme == null:
+		GuiTheme.deactivate()
+		return
+	GuiTheme.activate(gui_theme)
+	gui_theme_applier = GuiThemeApplier.new()
+	gui_theme_applier.name = "GuiThemeApplier"
+	add_child(gui_theme_applier)
+	gui_theme_applier.setup(self, gui_theme, $UI/HUD)
+
 
 ## Hand the loaded mods their HUD space: each registered widget factory
 ## returns a Control, added to the HUD in load order. The Weather mod's

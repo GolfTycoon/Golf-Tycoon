@@ -174,15 +174,30 @@ static func _rim_top(curve: PackedVector2Array, width: int) -> PackedFloat32Arra
 # PAINTING THE FAN
 # =============================================================================
 
+## The fan's palette in the active GUI theme's dress - the bottom_bar
+## family is a theme's handle on this surface (see GuiTheme). With no
+## theme in force these are the stock constants themselves, so the
+## unmodded fan is painted exactly as before.
+static func _palette() -> Dictionary:
+	return {
+		"dark": GuiTheme.remap_color(TURF_DARK),
+		"light": GuiTheme.remap_color(TURF_LIGHT),
+		"socket": GuiTheme.remap_color(SOCKET),
+		"ink": GuiTheme.remap_color(INK),
+		"gold": GuiTheme.remap_color(FLIGHT_GOLD),
+	}
+
+
 ## The generated texture for one geometry and accent, from the cache when
 ## this fan has been painted before.
 static func texture_for(canvas_size: Vector2, outer_circles: Array,
 		inner_circles: Array, trim: Color) -> ImageTexture:
-	var key := _cache_key(canvas_size, outer_circles, inner_circles, trim)
+	var palette := _palette()
+	var key := _cache_key(canvas_size, outer_circles, inner_circles, trim, palette)
 	if _texture_cache.has(key):
 		return _texture_cache[key]
 	var texture := ImageTexture.create_from_image(
-			arc_image(canvas_size, outer_circles, inner_circles, trim))
+			arc_image(canvas_size, outer_circles, inner_circles, trim, palette))
 	_texture_cache[key] = texture
 	return texture
 
@@ -192,8 +207,10 @@ static func texture_for(canvas_size: Vector2, outer_circles: Array,
 ## `canvas_size`; the corner hub is the canvas's bottom-left. Pure Image
 ## work, so it runs headless and tests can inspect it pixel by pixel.
 static func arc_image(canvas_size: Vector2, outer_circles: Array,
-		inner_circles: Array, trim: Color) -> Image:
-	var key := _cache_key(canvas_size, outer_circles, inner_circles, trim)
+		inner_circles: Array, trim: Color, palette: Dictionary = {}) -> Image:
+	if palette.is_empty():
+		palette = _palette()
+	var key := _cache_key(canvas_size, outer_circles, inner_circles, trim, palette)
 	if _image_cache.has(key):
 		return _image_cache[key]
 	var w := maxi(1, int(ceil(canvas_size.x / float(PIXEL))))
@@ -203,7 +220,7 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 	if outer_circles.is_empty():
 		# No medallions to shape around yet (the dock lays its buttons out
 		# after this control first draws): plain turf, as the bar was.
-		image.fill(TURF_DARK)
+		image.fill(palette["dark"])
 		_image_cache[key] = image
 		return image
 	var hub := Vector2(0.0, canvas_size.y)
@@ -234,8 +251,8 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 				continue
 			inside[py * w + px] = 1
 			image.set_pixel(px, py, _turf_at(point, hub, socket_d,
-					point.y - maxf(top[column], 0.0), px, py, dots))
-	stamp_rim(image, inside, curve, canvas_size, top, trim)
+					point.y - maxf(top[column], 0.0), px, py, dots, palette))
+	stamp_rim(image, inside, curve, canvas_size, top, trim, palette)
 	_draw_flag(image, inside, circles)
 	_image_cache[key] = image
 	return image
@@ -243,16 +260,20 @@ static func arc_image(canvas_size: Vector2, outer_circles: Array,
 ## The turf colour at one point of the fan, before the rim bands are
 ## stamped over it: ring, chequer sector, socket, flight dots and dew.
 static func _turf_at(point: Vector2, hub: Vector2, socket_d: float,
-		rim_gap: float, px: int, py: int, dots: Array) -> Color:
-	var hue := TURF_DARK if int(point.distance_to(hub) / RING_WIDTH) % 2 == 0 else TURF_LIGHT
+		rim_gap: float, px: int, py: int, dots: Array, palette: Dictionary) -> Color:
+	var turf_dark: Color = palette["dark"]
+	var turf_light: Color = palette["light"]
+	var socket: Color = palette["socket"]
+	var gold: Color = palette["gold"]
+	var hue := turf_dark if int(point.distance_to(hub) / RING_WIDTH) % 2 == 0 else turf_light
 	var angle := rad_to_deg(atan2(hub.y - point.y, point.x - hub.x))
 	if int(angle / SECTOR_DEGREES) % 2 == 1:
 		hue = _scaled(hue, SECTOR_LIFT)
 	if socket_d >= 0.0 and socket_d <= SOCKET_WIDTH:
-		return SOCKET
+		return socket
 	for dot: Vector3 in dots:
 		if point.distance_squared_to(Vector2(dot.x, dot.y)) < 2.6:
-			return FLIGHT_GOLD if dot.z > 0.5 else FLIGHT_SAGE
+			return gold if dot.z > 0.5 else FLIGHT_SAGE
 	# Dew: a deterministic speckle, kept clear of the rim and the sockets
 	# so it never muddies either edge.
 	if rim_gap > 12.0 and socket_d > 8.0 and ((px * 73856093) ^ (py * 19349663)) & 0xff < 4:
@@ -286,7 +307,9 @@ static func _flight_dots(row: Array, color: Color) -> Array:
 ## painter for its mirrored rim, so both sides keep identical frame bands.
 static func stamp_rim(image: Image, inside: PackedByteArray,
 		curve: PackedVector2Array, canvas_size: Vector2,
-		top: PackedFloat32Array, trim: Color) -> void:
+		top: PackedFloat32Array, trim: Color, palette: Dictionary = {}) -> void:
+	var ink: Color = palette.get("ink", INK)
+	var turf_light: Color = palette.get("light", TURF_LIGHT)
 	var path: Array = []
 	var last := Vector2(0.0, clampf(top[0], 0.0, canvas_size.y))
 	path.append(last)
@@ -302,10 +325,10 @@ static func stamp_rim(image: Image, inside: PackedByteArray,
 					clampf(point.y, 0.0, canvas_size.y)))
 	var bands: Array = [
 		[-SHADOW_REACH, SHADOW],
-		[BAND_SHEEN, _scaled(TURF_LIGHT, 1.35)],
+		[BAND_SHEEN, _scaled(turf_light, 1.35)],
 		[BAND_BEVEL, _scaled(trim, 1.25)],
 		[BAND_TRIM, trim],
-		[BAND_INK, INK],
+		[BAND_INK, ink],
 	]
 	var w := image.get_width()
 	var h := image.get_height()
@@ -361,6 +384,12 @@ static func _scaled(color: Color, factor: float) -> Color:
 			minf(color.b * factor, 1.0), color.a)
 
 static func _cache_key(canvas_size: Vector2, outer_circles: Array,
-		inner_circles: Array, trim: Color) -> String:
-	return "%dx%d|%s|%s|%s" % [int(canvas_size.x), int(canvas_size.y),
-			trim.to_html(), str(outer_circles), str(inner_circles)]
+		inner_circles: Array, trim: Color, palette: Dictionary = {}) -> String:
+	var palette_key := ""
+	if not palette.is_empty():
+		palette_key = "|%s%s%s%s" % [(palette["dark"] as Color).to_html(),
+			(palette["light"] as Color).to_html(),
+			(palette["socket"] as Color).to_html(),
+			(palette["ink"] as Color).to_html()]
+	return "%dx%d|%s|%s|%s%s" % [int(canvas_size.x), int(canvas_size.y),
+			trim.to_html(), str(outer_circles), str(inner_circles), palette_key]

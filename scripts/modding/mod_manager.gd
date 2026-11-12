@@ -76,6 +76,7 @@ var _weather_factory_owner: String = ""
 var _wind_factory: Callable
 var _wind_factory_owner: String = ""
 var _season_provider_owner: String = ""
+var _gui_theme_owner: String = ""
 var _provider_notes: Array[String] = []
 var _start_features: Array = []  # feature option dicts registered by mods: {id, title, caption, tooltip, glyph, mod_id}
 var _texture_cache: Dictionary = {}
@@ -739,6 +740,8 @@ func _load_one(mod_id: String, data_only: bool) -> bool:
 			return false
 	if content_registry() != null and not manifest.content.is_empty():
 		content_registry().apply_mod_content(mod_id, root, manifest.content)
+		if manifest.content.has("gui_theme"):
+			_note_gui_theme_owner(mod_id)
 	if manifest.wants_script() and not data_only:
 		if not _load_script(record, root, manifest):
 			return false
@@ -819,6 +822,7 @@ func unload_all() -> void:
 	_wind_factory = Callable()
 	_wind_factory_owner = ""
 	_season_provider_owner = ""
+	_gui_theme_owner = ""
 	_provider_notes.clear()
 	clear_feature_options()
 	SeasonSystem.set_provider(null)
@@ -957,6 +961,36 @@ func apply_hook(hook_name: String, value: float, context: Dictionary = {}) -> fl
 
 func hook_names() -> Array:
 	return _hooks.keys()
+
+
+## A GUI theme registered through the script API: forwarded to the
+## ContentRegistry, which keeps the one in force. Registration order is
+## load order, so a script mod's theme lands after every earlier mod's
+## data theme and after its own manifest's (which applied just before its
+## script ran) - the last registration wins, as with providers.
+func register_gui_theme(mod_id: String, spec: Dictionary) -> void:
+	if content_registry() != null:
+		var record: Dictionary = _records.get(mod_id, {})
+		content_registry().register_gui_theme(mod_id, spec,
+			str(record.get("root", "")))
+	_note_gui_theme_owner(mod_id)
+
+
+func _note_gui_theme_owner(mod_id: String) -> void:
+	if not _gui_theme_owner.is_empty() and _gui_theme_owner != mod_id:
+		_provider_notes.append("Interface theme: %s replaces %s (later in the load order wins)." % [mod_id, _gui_theme_owner])
+	_gui_theme_owner = mod_id
+
+
+## The GUI theme in force, or null for the stock look. The main scene
+## reads this once, before building its HUD.
+func get_gui_theme() -> GuiTheme:
+	return content_registry().get_gui_theme() if content_registry() != null else null
+
+
+## Which loaded mod dresses the interface ("" for the stock look).
+func gui_theme_owner() -> String:
+	return _gui_theme_owner
 
 
 func register_hud_widget(mod_id: String, factory: Callable) -> void:

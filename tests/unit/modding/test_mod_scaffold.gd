@@ -152,6 +152,40 @@ func test_the_scaffolded_script_actually_loads_as_a_mod() -> void:
 	assert_true(manager.is_mod_loaded("tester.scaffold"))
 
 
+func test_a_gui_theme_scaffold_is_a_valid_data_only_theme_mod() -> void:
+	var fields := _fields({"script": true, "gui_theme": true})
+	assert_true(ModScaffold.has_gui_theme(fields))
+	assert_false(ModScaffold.has_script(fields), "a GUI theme starter retires the script")
+	var manifest := ModManifest.from_dictionary(ModScaffold.manifest_for(fields))
+	assert_true(manifest.is_valid(), "the scaffold writes manifests the loader accepts")
+	assert_false(manifest.has_script())
+	assert_true("gui" in manifest.types)
+	assert_eq(str(manifest.content.get("gui_theme", "")), ModScaffold.GUI_THEME_FILE)
+	var theme := GuiTheme.from_dictionary(JSON.parse_string(
+		ModScaffold.starter_gui_theme("Scaffold Test")))
+	assert_eq(theme.theme_name, "Scaffold Test")
+	assert_eq(theme.warnings, [], "the starter palette only uses real roles")
+
+
+func test_creating_a_gui_theme_writes_its_palette_and_loads() -> void:
+	var result: Dictionary = ModScaffold.create(ROOT,
+		_fields({"script": true, "gui_theme": true}))
+	assert_true(bool(result.get("ok", false)), "; ".join(result.get("errors", [])))
+	var directory: String = ROOT.path_join("tester.scaffold")
+	assert_true(FileAccess.file_exists(directory.path_join(ModScaffold.GUI_THEME_FILE)),
+		"the palette is written beside the manifest")
+	assert_false(FileAccess.file_exists(directory.path_join("mod_main.gd")),
+		"and no starter script comes with it")
+	var manager := _manager()
+	manager.discover()
+	manager.set_mod_enabled("tester.scaffold", true)
+	manager.load_enabled_mods()
+	assert_true(manager.is_mod_loaded("tester.scaffold"))
+	assert_eq(manager.gui_theme_owner(), "tester.scaffold",
+		"the scaffolded design is the interface theme in force")
+	assert_not_null(manager.get_gui_theme())
+
+
 func test_a_data_only_create_writes_no_script_file() -> void:
 	var result: Dictionary = ModScaffold.create(ROOT, _fields({"script": false}))
 	assert_true(bool(result.get("ok", false)))

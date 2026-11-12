@@ -149,15 +149,29 @@ static func contains_point(point: Vector2, canvas_size: Vector2, width: float,
 	return Rect2(Vector2.ZERO, canvas_size).has_point(point) \
 		and point.y >= maxf(0.0, rim_top_at(point.x, canvas_size, width, inset))
 
+## The fairway's palette in the active GUI theme's dress - the bottom_bar
+## family, shared with the dock fan (see GuiTheme). With no theme in
+## force these are the stock constants themselves.
+static func _palette() -> Dictionary:
+	return {
+		"dark": GuiTheme.remap_color(TURF_DARK),
+		"light": GuiTheme.remap_color(TURF_LIGHT),
+		"socket": GuiTheme.remap_color(SOCKET),
+		"ink": GuiTheme.remap_color(INK),
+		"gold": GuiTheme.remap_color(FLIGHT_GOLD),
+	}
+
+
 ## The generated texture for one geometry and accent, from the cache when this
 ## fairway has been painted before.
 static func texture_for(canvas_size: Vector2, hub: Vector2, medallions: Array,
 		trim: Color, rule: Rect2 = Rect2(), width: float = 0.0, inset: float = 0.0) -> ImageTexture:
-	var key := _cache_key(canvas_size, hub, medallions, trim, rule, width, inset)
+	var palette := _palette()
+	var key := _cache_key(canvas_size, hub, medallions, trim, rule, width, inset, palette)
 	if _texture_cache.has(key):
 		return _texture_cache[key]
 	var texture := ImageTexture.create_from_image(
-		shelf_image(canvas_size, hub, medallions, trim, rule, width, inset))
+		shelf_image(canvas_size, hub, medallions, trim, rule, width, inset, palette))
 	_cache_store(_texture_cache, key, texture)
 	return texture
 
@@ -167,8 +181,11 @@ static func texture_for(canvas_size: Vector2, hub: Vector2, medallions: Array,
 ## radius and `inset` accounts for the dock's clipped rim. Pure Image work, so
 ## tests can inspect the silhouette pixel by pixel.
 static func shelf_image(canvas_size: Vector2, hub: Vector2, medallions: Array,
-		trim: Color, rule: Rect2 = Rect2(), width: float = 0.0, inset: float = 0.0) -> Image:
-	var key := _cache_key(canvas_size, hub, medallions, trim, rule, width, inset)
+		trim: Color, rule: Rect2 = Rect2(), width: float = 0.0, inset: float = 0.0,
+		palette: Dictionary = {}) -> Image:
+	if palette.is_empty():
+		palette = _palette()
+	var key := _cache_key(canvas_size, hub, medallions, trim, rule, width, inset, palette)
 	if _image_cache.has(key):
 		return _image_cache[key]
 	var w := maxi(1, int(ceil(canvas_size.x / float(PIXEL))))
@@ -187,31 +204,35 @@ static func shelf_image(canvas_size: Vector2, hub: Vector2, medallions: Array,
 			if point.y < top[clampi(int(point.x), 0, top.size() - 1)]:
 				continue
 			inside[py * w + px] = 1
-			image.set_pixel(px, py, _turf_at(point, hub, medallions, px, py, dots))
+			image.set_pixel(px, py, _turf_at(point, hub, medallions, px, py, dots, palette))
 	# Reuse the dock's painter, including its pixel shadow and four frame bands.
-	DockArcBackdrop.stamp_rim(image, inside, PackedVector2Array(), canvas_size, top, trim)
-	_draw_title_rule(image, rule, inside)
+	DockArcBackdrop.stamp_rim(image, inside, PackedVector2Array(), canvas_size, top, trim, palette)
+	_draw_title_rule(image, rule, inside, palette)
 	_cache_store(_image_cache, key, image)
 	return image
 
 ## The turf colour at one point of the fairway: ring, chequer sector, socket,
 ## flight dot and dew, in that order.
 static func _turf_at(point: Vector2, hub: Vector2, medallions: Array,
-		px: int, py: int, dots: Array) -> Color:
+		px: int, py: int, dots: Array, palette: Dictionary) -> Color:
+	var turf_dark: Color = palette["dark"]
+	var turf_light: Color = palette["light"]
+	var socket: Color = palette["socket"]
+	var gold: Color = palette["gold"]
 	var dist := point.distance_to(hub)
-	var hue := TURF_DARK if int(dist / RING_WIDTH) % 2 == 0 else TURF_LIGHT
+	var hue := turf_dark if int(dist / RING_WIDTH) % 2 == 0 else turf_light
 	var angle := rad_to_deg(atan2(hub.y - point.y, point.x - hub.x))
 	if int(angle / SECTOR_DEGREES) % 2 == 1:
 		hue = _scaled(hue, SECTOR_LIFT)
 	var socket_d := INF
 	for circle: Vector3 in medallions:
 		socket_d = minf(socket_d,
-			point.distance_to(Vector2(circle.x, circle.y)) - circle.z)
+				point.distance_to(Vector2(circle.x, circle.y)) - circle.z)
 		if socket_d >= 0.0 and socket_d <= SOCKET_WIDTH:
-			return SOCKET
+			return socket
 	for dot: Vector3 in dots:
 		if point.distance_squared_to(Vector2(dot.x, dot.y)) < 2.6:
-			return FLIGHT_GOLD
+			return gold
 	# Dew: a deterministic speckle, kept clear of the sockets so it never
 	# muddies a medallion's seat.
 	if socket_d > 8.0 and ((px * 73856093) ^ (py * 19349663)) & 0xff < 4:
@@ -236,7 +257,9 @@ static func _flight_dots(row: Array) -> Array:
 ## The page title's gold rule: a straight solid line along the title's bottom
 ## edge. Every step sits on the same row, so the rule has no bump in its
 ## middle. Drawn in generated-image pixels, one band thick.
-static func _draw_title_rule(image: Image, rule: Rect2, inside: PackedByteArray) -> void:
+static func _draw_title_rule(image: Image, rule: Rect2, inside: PackedByteArray,
+		palette: Dictionary = {}) -> void:
+	var gold: Color = palette.get("gold", FLIGHT_GOLD)
 	if rule.size.x < 6.0:
 		return
 	var w := image.get_width()
@@ -251,7 +274,7 @@ static func _draw_title_rule(image: Image, rule: Rect2, inside: PackedByteArray)
 		var px := int(round(x / float(PIXEL)))
 		var py := int(round(y / float(PIXEL)))
 		if px >= 0 and px < w and py >= 0 and py < h and inside[py * w + px] == 1:
-			image.set_pixel(px, py, FLIGHT_GOLD)
+			image.set_pixel(px, py, gold)
 
 ## Multiply a colour's light without shifting its hue (unlike lightened,
 ## which walks toward white): the fairway's own steps, kept in family.
@@ -266,6 +289,13 @@ static func _cache_store(cache: Dictionary, key: String, value: Variant) -> void
 	cache[key] = value
 
 static func _cache_key(canvas_size: Vector2, hub: Vector2, medallions: Array,
-		trim: Color, rule: Rect2, width: float, inset: float) -> String:
-	return "%dx%d|%s|%s|%s|%s|%.2f|%.2f" % [int(canvas_size.x), int(canvas_size.y),
-		hub, str(medallions), trim.to_html(), str(rule), width, inset]
+		trim: Color, rule: Rect2, width: float, inset: float,
+		palette: Dictionary = {}) -> String:
+	var palette_key := ""
+	if not palette.is_empty():
+		palette_key = "|%s%s%s%s" % [(palette["dark"] as Color).to_html(),
+			(palette["light"] as Color).to_html(),
+			(palette["socket"] as Color).to_html(),
+			(palette["ink"] as Color).to_html()]
+	return "%dx%d|%s|%s|%s|%s|%.2f|%.2f%s" % [int(canvas_size.x), int(canvas_size.y),
+		hub, str(medallions), trim.to_html(), str(rule), width, inset, palette_key]
