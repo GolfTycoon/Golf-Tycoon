@@ -58,7 +58,7 @@ const COLOR_MINT := MenuStyle.ACCENT_SECONDARY
 
 const ROW_HEIGHT := 68.0
 const ROW_GAP := 8
-## The picture at the front of a list row: the mod's own icon, or the
+## The picture inside a list row's mod button: the mod's own icon, or the
 ## default mark when the mod ships none.
 const ROW_ICON_SIZE := 44.0
 ## The same picture at the head of the field-notes pane.
@@ -517,7 +517,6 @@ func _build_inspector_panel(page_scrolled: bool) -> PanelContainer:
 	# default mark when it has none.
 	_detail_icon = _mod_icon_texture_rect()
 	_detail_icon.name = "DetailIcon"
-	_detail_icon.custom_minimum_size = Vector2(DETAIL_ICON_SIZE, DETAIL_ICON_SIZE)
 	stack.add_child(_detail_icon)
 
 	var details_scroll := ScrollContainer.new()
@@ -703,10 +702,6 @@ func _make_row(mod_id: String) -> Control:
 	row.name = "ModRow_" + mod_id.replace(".", "_").replace("-", "_")
 	row.add_theme_constant_override("separation", 6)
 
-	var icon := _mod_icon_texture_rect()
-	icon.name = "ModIcon"
-	row.add_child(icon)
-
 	var check := CheckBox.new()
 	check.name = "EnabledCheck"
 	check.custom_minimum_size = Vector2(44.0, 44.0)
@@ -721,6 +716,14 @@ func _make_row(mod_id: String) -> Control:
 	name_button.clip_text = true
 	name_button.custom_minimum_size.x = 40.0
 	name_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# The mod's own picture rides inside the button, at the left of its
+	# label. A button draws its icon at the texture's size unless the theme
+	# caps it, so cap it at the row's icon side - the prepared icons are
+	# square, and the height follows the width.
+	name_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	name_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_button.add_theme_constant_override("icon_max_width", int(ROW_ICON_SIZE))
+	name_button.add_theme_constant_override("h_separation", 10)
 	name_button.pressed.connect(_on_row_selected.bind(mod_id))
 	row.add_child(name_button)
 
@@ -735,9 +738,9 @@ func _make_row(mod_id: String) -> Control:
 	row.add_child(down)
 	return row
 
-## Show `info` on its row: the tick, and the numbered title over the state
-## badge. (Which arrows are lit depends on the rows on show, not on the
-## mod: see _update_move_buttons.)
+## Show `info` on its row: the tick, the mod's picture inside its button,
+## and the numbered title over the state badge. (Which arrows are lit
+## depends on the rows on show, not on the mod: see _update_move_buttons.)
 func _paint_row(row: Node, info: Dictionary) -> void:
 	var enabled := bool(info.get("enabled", false))
 	row.set_meta("enabled", enabled)
@@ -748,18 +751,16 @@ func _paint_row(row: Node, info: Dictionary) -> void:
 	var name_button := row.get_node("ModName") as Button
 	name_button.text = row_title(info) + "\n" + row_badge(info).to_upper()
 	name_button.tooltip_text = str(info.get("description", ""))
-	# The picture at the front of the row: the mod's own icon, or the
-	# default mark in its place.
-	var icon := row.get_node("ModIcon") as TextureRect
-	icon.texture = icon_texture_for(info)
-	icon.tooltip_text = str(info.get("description", ""))
+	# The picture inside the button: the mod's own icon, or the default
+	# mark in its place.
+	name_button.icon = icon_texture_for(info)
 
 
-## A TextureRect sized for a list row or the details pane, ready to take a
-## mod's icon: it keeps any picture centred and undistorted.
+## A TextureRect sized for the details pane's head, ready to take a mod's
+## icon: it keeps any picture centred and undistorted.
 func _mod_icon_texture_rect() -> TextureRect:
 	var icon := TextureRect.new()
-	icon.custom_minimum_size = Vector2(ROW_ICON_SIZE, ROW_ICON_SIZE)
+	icon.custom_minimum_size = Vector2(DETAIL_ICON_SIZE, DETAIL_ICON_SIZE)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -35,9 +35,10 @@ pressing it again moves the same mod another row. When two mods change
 the same thing (a building's price, a terrain's upkeep, which system
 drives the weather), **the mod lower in the list wins**. The details pane
 names the losers whenever a conflict was overwritten, so nothing is
-silently ambiguous. Each row opens with the mod's own icon image (a large
-copy heads its field notes too), so a shelf of mods tells at a glance
-which is which; a mod that ships no icon wears the default mark.
+silently ambiguous. Each row's mod button carries the mod's own icon image
+inside it (a large copy heads its field notes too), so a shelf of mods
+tells at a glance which is which; a mod that ships no icon wears the
+default mark.
 
 Ticking a mod on or off never moves its row: a mod you switch on loads
 where it already stands, after the enabled mods above it. The list starts

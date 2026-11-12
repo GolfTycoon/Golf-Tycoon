@@ -326,14 +326,18 @@ func test_every_row_opens_with_its_mods_own_icon() -> void:
 	var rows := screen.find_child("ModRows", true, false)
 	var fingerprints: Dictionary = {}
 	for row in rows.get_children():
-		var icon := row.get_node_or_null("ModIcon") as TextureRect
-		assert_not_null(icon, "every row carries an icon")
-		assert_not_null(icon.texture, "and it is painted")
-		assert_true(icon.texture is ImageTexture, "the icon is a real picture")
+		assert_null(row.get_node_or_null("ModIcon"),
+			"the icon rides inside the mod button, not beside it")
+		var name_button := row.get_node("ModName") as Button
+		var icon := name_button.icon
+		assert_not_null(icon, "every row's mod button carries an icon")
+		assert_true(icon is ImageTexture, "the icon is a real picture")
+		assert_eq(name_button.get_theme_constant("icon_max_width"), int(ModsScreen.ROW_ICON_SIZE),
+			"and the button caps it at the row's icon side")
 		# The bundled mods each ship their own picture, so the rows show
 		# distinct ones; count them (the pixels hash by content).
-		if icon.texture is ImageTexture:
-			var fingerprint := (icon.texture as ImageTexture).get_image().get_data()
+		if icon is ImageTexture:
+			var fingerprint := (icon as ImageTexture).get_image().get_data()
 			fingerprints[fingerprint] = true
 	assert_gte(fingerprints.size(), 10, "a shelf of bundled mods shows many pictures, not one repeated")
 	screen.queue_free()
@@ -383,10 +387,9 @@ func test_a_mod_without_an_icon_wears_the_default_mark() -> void:
 	var screen := await _screen()
 	var row := _row(screen, mod_id)
 	assert_not_null(row, "the icon-less mod is listed")
-	var row_icon := row.get_node("ModIcon") as TextureRect
-	assert_eq(row_icon.texture, ModsScreen.fallback_icon_texture(),
-		"its row wears the shared default mark")
 	var name_button := row.get_node("ModName") as Button
+	assert_eq(name_button.icon, ModsScreen.fallback_icon_texture(),
+		"its row's mod button wears the shared default mark")
 	name_button.emit_signal("pressed")
 	await process_frames(1)
 	var detail_icon := screen.find_child("DetailIcon", true, false) as TextureRect
