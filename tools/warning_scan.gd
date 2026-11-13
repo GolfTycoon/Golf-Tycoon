@@ -13,7 +13,7 @@ extends Node
 ##
 ##     godot --headless -d --path . -- --warning-sweep
 
-const SWEEP_ROOTS: Array[String] = ["res://scripts", "res://tests", "res://tools", "res://mods"]
+const SWEEP_ROOTS: Array[String] = ["res://scripts", "res://tests", "res://tools", "res://mods", "res://repository/packages"]
 
 
 func _ready() -> void:

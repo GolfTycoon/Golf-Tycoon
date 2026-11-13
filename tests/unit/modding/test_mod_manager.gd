@@ -8,7 +8,7 @@ extends GameTest
 
 const ManagerScript := preload("res://scripts/modding/mod_manager.gd")
 const RegistryScript := preload("res://scripts/modding/mod_content_registry.gd")
-const WeatherImpl := preload("res://mods/golf_tycoon.weather/weather_system.gd")
+const WeatherImpl := preload("res://repository/packages/golf_tycoon.weather/weather_system.gd")
 const ROOT := "user://ut_mod_manager"
 const GAME_VERSION := "0.6.3"
 
@@ -719,7 +719,7 @@ func test_the_last_weather_factory_registered_wins() -> void:
 	manager.register_weather_factory("tester.a", func() -> WeatherSystem: return WeatherSystem.new())
 	manager.register_weather_factory("tester.b", func() -> WeatherSystem: return WeatherImpl.new())
 	var made: WeatherSystem = manager.create_weather_system()
-	assert_true(made.get_script().resource_path.ends_with("mods/golf_tycoon.weather/weather_system.gd"),
+	assert_true(made.get_script().resource_path.ends_with("repository/packages/golf_tycoon.weather/weather_system.gd"),
 		"load order is the tie-breaker")
 	assert_eq(str(manager.provider_owners().get("weather", "")), "tester.b")
 	made.free()
@@ -735,16 +735,18 @@ func test_hooks_chain_in_load_order_and_bad_returns_pass_through() -> void:
 	assert_almost_eq(manager.apply_hook("nothing_registered", 3.5, {}), 3.5, 0.0001)
 
 
-func test_the_live_session_loaded_the_official_mods() -> void:
-	# The real autoload in this very test run: the three official mods are
-	# what makes the season/weather suites meaningful.
-	assert_eq(ModManager.get_load_order(),
-		["golf_tycoon.seasons", "golf_tycoon.weather", "golf_tycoon.wind"])
+func test_the_live_session_boots_without_mods_until_the_player_downloads_some() -> void:
+	# The real autoload in this very test run: nothing ships in the package
+	# any more, so a fresh boot loads nothing - the environment systems run
+	# on their neutral stand-ins until the player downloads the official
+	# mods from the Browse Mods screen (the repository suites apply the
+	# Seasons package by hand where a test needs its content).
+	assert_eq(ModManager.get_load_order(), [] as Array[String])
 	var owners: Dictionary = ModManager.provider_owners()
-	assert_eq(str(owners.get("seasons", "")), "golf_tycoon.seasons")
-	assert_eq(str(owners.get("weather", "")), "golf_tycoon.weather")
-	assert_eq(str(owners.get("wind", "")), "golf_tycoon.wind")
-	assert_true(GameManager.feature_available("seasons"))
+	assert_eq(str(owners.get("seasons", "")), "core (neutral)")
+	assert_eq(str(owners.get("weather", "")), "core (neutral)")
+	assert_eq(str(owners.get("wind", "")), "core (neutral)")
+	assert_false(GameManager.feature_available("seasons"))
 
 
 func test_conflict_exclusions_cascade_to_add_ons() -> void:
@@ -774,7 +776,7 @@ func test_rescanning_does_not_forget_running_mods() -> void:
 func test_the_weather_zip_loads_relative_sibling_scripts_from_user_storage() -> void:
 	var manager := _make_library()
 	var zip_path := ROOT.path_join("weather.zip")
-	assert_true(bool(ModPackage.pack_folder("res://mods/golf_tycoon.weather", zip_path)["ok"]))
+	assert_true(bool(ModPackage.pack_folder("res://repository/packages/golf_tycoon.weather", zip_path)["ok"]))
 	assert_true(bool(manager.install_zip(zip_path)["ok"]))
 	manager.set_mod_enabled("golf_tycoon.weather", true)
 	manager.load_enabled_mods()

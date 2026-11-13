@@ -43,6 +43,9 @@ class_name ModsScreen
 ## MenuScreenKit.
 
 signal back_requested()
+## The header's Browse Mods button was pressed: the game's mod repositories
+## (the Official one included, by default) open on the Browse Mods screen.
+signal browse_requested()
 
 ## Which mods the list shows, on top of whatever the search box asks for. A
 ## filter only narrows the view: it never enables, disables or reorders.
@@ -404,8 +407,19 @@ func _restore_build_state() -> void:
 		_filter_rows()
 
 func _build_header(mode: int) -> Control:
-	var header := Kit.make_screen_header(mode, "Mods", leave, null, PixelIcon.Kind.PUZZLE)
-	return header
+	# The top-right corner is the way into the mod repositories: the
+	# Official and Example mods are downloaded from there, not shipped with
+	# the game. A caller-named trailing control keeps its own name (see
+	# make_screen_header), so the button stays findable as "BrowseModsButton"
+	# in every layout.
+	var browse_button := Button.new()
+	browse_button.name = "BrowseModsButton"
+	browse_button.text = "Browse Mods"
+	browse_button.tooltip_text = "Download the official mods and examples, or add a self-hosted repository feed"
+	browse_button.custom_minimum_size.y = 44.0
+	Kit.paint_action(browse_button, true)
+	browse_button.pressed.connect(func() -> void: browse_requested.emit())
+	return Kit.make_screen_header(mode, "Mods", leave, browse_button, PixelIcon.Kind.PUZZLE)
 
 func _build_desktop_body(view: Vector2, _page_scrolled: bool) -> Control:
 	var body := HBoxContainer.new()
@@ -1519,7 +1533,7 @@ static func filter_hint(filter: int) -> String:
 ## matching the search.
 static func empty_text(filter: int, searching: bool, library_size: int) -> String:
 	if library_size == 0:
-		return "No mods here yet. Create one, install a zip, or drop a mod folder into the mods folder and Rescan."
+		return "No mods here yet. Browse Mods for the official set, create one, install a zip, or drop a mod folder into the mods folder and Rescan."
 	if searching:
 		match filter:
 			Filter.ENABLED:

@@ -97,8 +97,9 @@ the Workshop change note can carry the human-facing summary.
 3. In Steamworks for that App ID: enable the Workshop, define the tags
    manifests use, and (for subscribed-item downloads) configure the
    content type as user-generated folders.
-4. Export normally. The `mods/**` include filter and the mod loader are
-   unchanged; bundled official mods keep loading from `res://mods`.
+4. Export normally. The game package ships no mods (players' libraries
+   fill from the Official Repository and their own feeds), and the mod
+   loader is unchanged.
 
 **Testing without Steam:** everything except actual subscribe/upload
 round-trips is exercised without it - discovery precedence, ordering,

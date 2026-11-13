@@ -8,10 +8,13 @@ GDScript, against a versioned Mod API.
 
 Everything first-party goes through the same machinery as a community mod
 would - the three environment systems the game was born with (**Seasons**,
-**Weather** and **Wind**) are now ordinary mods in the bundled mods
-folder, enabled by default, and fifteen example mods beside them cover
-every kind of thing a mod can do — including four that do nothing but
-re-dress the interface (see [GUI themes](modding/gui-themes.md)).
+**Weather** and **Wind**) are ordinary mods, and fifteen example mods
+beside them cover every kind of thing a mod can do — including four that
+do nothing but re-dress the interface (see [GUI themes](modding/gui-themes.md)).
+The game itself ships **without any of them**: you download what you want
+from the **Browse Mods** screen, whose **Official Repository** — a JSON
+feed published on GitHub — is set up out of the box, and which accepts
+any self-hosted feed you add.
 
 - **For players:** [Using mods](#using-mods)
 - **For modders:** [Making your first mod](#making-your-first-mod), then the
@@ -25,6 +28,32 @@ re-dress the interface (see [GUI themes](modding/gui-themes.md)).
 Open **Mods** on the main menu. The screen lists every mod the game found,
 where it came from, and - most importantly - **the order enabled mods will
 load in**.
+
+### Browse Mods
+
+The game installs with an **empty library**: nothing ships inside the
+package, so the Mods screen starts bare. Press the **Browse Mods** button
+in its top-right corner to open the catalogue.
+
+The catalogue lists **repositories** — JSON feeds, each a card naming its
+address — and under each, the mods the feed offers: one row per mod, with
+its icon, a short description, its version, and a **Download** button (or
+**Installed** once it is in your library, and **Update** when the feed
+offers a newer version than you have). Downloading fetches the mod's zip,
+installs it into your library and leaves it **switched off**, exactly like
+**Install ZIP…** would - nothing loads until you tick it on the Mods
+screen, and while a download runs, a status line reports its progress; the
+screen takes one download at a time.
+
+Out of the box one repository is on the list: the **Official Repository**,
+a feed at `raw.githubusercontent.com/GolfTycoon/Golf-Tycoon` that carries
+the three official environment mods and the fifteen examples. Press
+**Add Repository** to add your own feed (a URL to a JSON file in the feed
+format - self-host it anywhere a plain GET can reach), and **Remove** to
+take any repository off the list, Official one included; a **Restore
+Official Repository** button brings it back.
+
+### The library
 
 Every mod has a place in the list, enabled or not, and **the list is the
 load order**: the enabled mods load from the top of the list down, and
@@ -47,7 +76,7 @@ default mark.
 Ticking a mod on or off never moves its row: a mod you switch on loads
 where it already stands, after the enabled mods above it. The list starts
 out in the order your game first found each mod (mods found in the same
-scan - every bundled mod, the first time the game runs - go in by name),
+scan - a batch of downloads, say - go in by name),
 and from then on the order is yours. A mod you have not had before joins
 the bottom of the list, whether you installed it from a zip, created it,
 or dropped it into the mods folder. A mod you take out of the mods folder
@@ -78,16 +107,18 @@ The game scans these places, every launch and on **Rescan**:
 
 | Source | Where | Notes |
 | --- | --- | --- |
-| Bundled | `res://mods/` inside the game | The official Seasons/Weather/Wind mods and the examples. Cannot be uninstalled. |
 | Mods folder | `user://mods/` ("Open Mods Folder") | Drop mod folders or `.zip` files here. Zips found here appear as installable entries' sources. |
-| Installed zips | `user://mods/installed/` | Where **Install ZIP…** unpacks a mod. Owned by the game; uninstalling deletes the folder. |
+| Installed zips | `user://mods/installed/` | Where **Install ZIP…** unpacks a mod — and where **Browse Mods** downloads land. Owned by the game; uninstalling deletes the folder. |
 | Steam Workshop | Steam's per-game workshop folder | Subscribed items appear automatically once Steam has downloaded them (Steam builds only). |
+
+There is no fourth place: the game package carries **no mods at all** -
+everything first-party arrives through the Official Repository like any
+community feed would.
 
 If the same mod id turns up in two places, one copy wins: your own mods
 folder (folders and installed zips) beats a loose zip there, which beats
-a Workshop copy, which beats the bundled one - a modder iterating
-locally always tests their own build, and players can override even a
-bundled mod.
+a Workshop copy - a modder iterating
+locally always tests their own build.
 
 Installing never enables. A new mod always arrives switched **off** until
 you tick it, so a zip from a stranger can change nothing until you've read
@@ -99,7 +130,9 @@ The three official environment mods can be switched off - the game then
 falls back to built-in neutral stand-ins (perpetual clear skies, calm air,
 no seasonal modifiers) and everything keeps working, including saves that
 had the features "on": a feature toggle in a save is honored only while
-some loaded mod actually provides it.
+some loaded mod actually provides it. Until you download them from the
+Browse Mods screen the stand-ins are all there is - the plain game runs
+whole on them.
 
 Those switches are mod content too. The **Game features** section of the
 Start New Game screen is hidden unless a mod has added an option there (see
@@ -132,19 +165,21 @@ A mod is a folder with a `mod.json` at its root. There are two ways in:
   README with the next steps. The new mod appears in the list switched
   off, like an installed zip; tick it, then leave the screen, when you are
   ready.
-- From a source checkout, copy `mods/_template/` (or unzip any example)
+- From a source checkout, copy `mods/_template/` (or any package under
+  `repository/packages/`)
   and edit three things: the `id` (something like `yourname.my_mod` - it
   namespaces everything you add, and must never change once players have
   saves), the `name`, and the `description`.
 
 Every mod carries an `icon` - the picture the Mods screen shows in its
-list row and at the head of its field notes (the bundled mods each ship
-one, a square PNG next to `mod.json`). Point the manifest's `icon` field
+list row and at the head of its field notes (the official and example
+mods each ship one, a square PNG next to `mod.json`). Point the manifest's `icon` field
 at your own image (PNG, JPG, WebP or BMP); a mod without one, or with a
 picture that will not read, gets the shared default mark instead.
 
-Then pick a kind - each row is a working bundled example you can open and
-copy, `mods/` directory included with the game:
+Then pick a kind - each row is a working example you can open and copy:
+download it from the Browse Mods screen (it lands in your mods library),
+or read it in a source checkout under `repository/packages/`:
 
 | You want to… | Manifest needs | No code? | Example |
 | --- | --- | --- | --- |
@@ -163,16 +198,20 @@ copy, `mods/` directory included with the game:
 | A widget on the HUD | script + `register_hud_widget` | GDScript | `example.hud_clock` |
 | Replace weather / wind / seasons entirely | script + a provider registration | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
 
-The workflow is: edit in place (inside your `user://mods/` library or a
-source checkout's `mods/`), then in the game hit **Rescan**, tick your
-mod, and leave the screen - the game comes back with it loaded. When it
-works, share it:
+The workflow is: edit in place (inside your `user://mods/` library, or a
+source checkout's `repository/packages/` for the shipped examples), then
+in the game hit **Rescan**, tick your mod, and leave the screen - the game
+comes back with it loaded. When it works, share it:
 
 - **As a zip:** zip the folder's contents (`mod.json` at the zip root or
   one wrapper folder deep). From a source checkout,
   `make mod-pack MOD=path/to/folder` validates and packs it into
   `dist/mods/`; players install it from the Mods screen. The same folder
   also loads unzipped - just copy it into the mods folder.
+- **In a feed:** host the zip anywhere and list the mod in a feed JSON
+  (the Official Repository's `repository/official.json` is the worked
+  example); players add your feed's URL on the Browse Mods screen and
+  download from there like any other catalogue entry.
 - **Steam Workshop (deferred):** the integration remains available internally,
   but browsing and upload controls are currently hidden from the Mods screen.
   Use ZIP sharing for now. See [modding/steam-workshop.md](modding/steam-workshop.md).
@@ -210,10 +249,12 @@ references:
 | `GolfTycoonMod` / `ModAPI` | `scripts/modding/mod_base.gd`, `mod_api.gd` | What a script mod extends and the object it is handed. |
 | `SteamWorkshopProvider` | `scripts/modding/steam_workshop_provider.gd` | Runtime-detects the GodotSteam `Steam` singleton; subscribed roots, workshop page, async uploads. Safe no-op off Steam. |
 | Neutral bases + facade | `scripts/systems/weather_system.gd`, `wind_system.gd`, `season_provider.gd`, `season_system.gd` | The game's built-in "nothing happens" weather/wind/season answers; mods provide the real systems. Same classes, same calls, so callers never know. |
-| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload. Leaving the screen applies a changed loadout (`ModManager.apply_staged_changes()`), so there is no Apply button. |
+| Mods screen | `scripts/ui/mods_screen.gd` | The Mods tile's screen: list = load order with a row for every mod, search and All / Enabled / Disabled filters, details, create/install/uninstall/upload. Leaving the screen applies a changed loadout (`ModManager.apply_staged_changes()`), so there is no Apply button. A **Browse Mods** button in the top-right corner opens the catalogue. |
+| Browse Mods screen | `scripts/ui/browse_mods_screen.gd`, `add_repository_dialog.gd` | The catalogue: one card per repository feed, one row per offered mod (icon, version, Download / Installed / Update); feeds are added, removed and restored here. |
 | `GuiTheme` / `GuiThemeApplier` | `scripts/ui/gui_theme.gd`, `gui_theme_applier.gd` | The design a GUI theme mod declared: role palette + metrics, the built `Theme`, and the walker that re-maps code-built styles onto it. No mod in force = the stock look, untouched. |
-| Bundled mods | `res://mods/` | Three official feature mods + fifteen examples + `_template` + `_gui_template`. |
-| CLI | `tools/mod_tool.gd`, `make mods` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them. |
+| Repository feed / store / downloader | `scripts/modding/mod_repository_feed.gd`, `mod_repository_store.gd`, `mod_repository_downloader.gd` | The catalogue's plumbing: the feed JSON format; the player's repository list (`user://mods/repositories.json`, the Official one seeded); fetching a feed entry's zip into the library. |
+| Official Repository content | `repository/official.json`, `repository/packages/`, `repository/zips/` | The feed the game ships pointing at: the catalogue of official + example mods, regenerated by `make repository`. Fetched from GitHub at runtime; nothing here ships inside the game package. |
+| CLI | `tools/mod_tool.gd`, `make repository` / `mod-pack` / `mod-validate` | Validate and pack mods exactly as the game reads them; rebuild the repository catalogue. |
 
 Autoload order matters: `ContentRegistry` loads base content, then
 `ModManager` discovers and loads mods on top of it before anything else
@@ -221,15 +262,17 @@ reads content. Saves gain a `mods` section (API version, loaded
 ids+versions in order, per-mod data) via `SaveManager`; `GameManager`'s
 feature toggles are `per-save flag AND a loaded provider`.
 
-Bundled mod folders ship in exports via the `mods/**` include filter
-(alongside `data/buildings.json` / `data/decorations.json`) in
-`export_presets.cfg`.
+Exports carry no mods: the `mods/**` include filter is gone from
+`export_presets.cfg`, and players fill their libraries from the Official
+Repository (GitHub) and their own feeds.
 
 ### The Mod Shed layout
 
 The Mods screen uses a pixel-art workbench layout. Desktop and tablet widths
 show the searchable loadout and selected-mod inspector side by side; widths
-below 700 px use Library / Inspector tabs. Selecting a mod opens its inspector
+below 700 px use Library / Inspector tabs. The **Browse Mods** button sits
+in the top-right corner of the header, beside the title, on every window
+shape. Selecting a mod opens its inspector
 on narrow screens. Each pane scrolls independently, and short windows can scroll
 the workspace to keep installation reachable. The tool row scrolls sideways
 when the window is narrower than its buttons, so **Create New Mod**, **Install

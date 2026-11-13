@@ -3,14 +3,20 @@ extends Node
 ##
 ## Autoloaded as `ModManager`. At boot it discovers mods from four places:
 ##
-##   res://mods/            bundled with the game (the official mods and the
-##                          examples players can copy and learn from)
 ##   Steam Workshop items   subscribed items, through SteamWorkshopProvider
 ##                          when GodotSteam is present (silently absent
 ##                          otherwise - everything else keeps working)
 ##   user://mods/*.zip      zip files a player dropped in (installed on load)
 ##   user://mods/<folder>/  folder mods, including previously installed zips
-##                          under user://mods/installed/
+##                          under user://mods/installed/ - which is where
+##                          the Browse Mods screen lands a download, and
+##                          where "Install ZIP" unpacks
+##   res://mods/            mods bundled with the game package, if any (the
+##                          official and example mods are no longer shipped:
+##                          they are downloaded from a Mod Repository Feed
+##                          on the Browse Mods screen - but a publisher may
+##                          bundle content again, and the loader treats it
+##                          exactly the same)
 ##
 ## Which of those are on, and in what order, is the player's: an ordered list
 ## kept in user://mods/load_order.json and edited in the Mods screen.
@@ -18,9 +24,10 @@ extends Node
 ## resolved against that list (later in the order wins data conflicts and
 ## provider take-overs), and anything that cannot be satisfied is reported
 ## per mod instead of failing the whole load. On first run the list is
-## seeded with every bundled mod that asks to be on by default - which is
-## how Weather, Wind and Seasons, the three official feature mods, come to
-## be running out of the box.
+## seeded with every bundled mod that asks to be on by default - none today,
+## so a fresh install loads no mods until the player downloads some from
+## the Browse Mods screen (the Official Repository is on that screen's list
+## from the start, via ModRepositoryStore).
 ##
 ## That order is read off the one list the Mods screen shows, which has a
 ## place for every mod, enabled or not (user://mods/library_order.json).

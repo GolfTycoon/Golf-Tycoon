@@ -23,6 +23,14 @@ const PHONE := Vector2i(390, 720)
 const NARROW_PHONE := Vector2i(320, 720)
 const PHONE_SIDEWAYS := Vector2i(667, 375)
 
+## The library these tests run against is a player's after a Browse Mods
+## session: every published package downloaded into the library and waiting
+## (the game no longer bundles mods, so a fresh boot finds an empty library
+## and the screen tests need rows to tick, drag and filter). Installed the
+## same way the Browse screen installs - zips through ModPackage - and
+## removed again after the suite.
+const PACKAGES_ROOT := "res://repository/packages"
+
 const ALL := ModsScreen.Filter.ALL
 const ENABLED := ModsScreen.Filter.ENABLED
 const DISABLED := ModsScreen.Filter.DISABLED
@@ -35,6 +43,14 @@ var _listed_before: Array[String] = []
 var _loadout_before: Array[String] = []
 var _loadout_was_saved := false
 var _library_was_saved := false
+## What this suite installed into the real library, removed again after.
+var _fixture_ids: Array[String] = []
+
+func before_all() -> void:
+	_populate_library()
+
+func after_all() -> void:
+	_take_library_back()
 
 func before_each() -> void:
 	super()
@@ -48,6 +64,43 @@ func after_each() -> void:
 	_restore_library()
 	get_window().size = _window_before
 	super()
+
+## Install every repository package the player has not already got, as the
+## Browse Mods screen would: pack the package, unpack it into the library,
+## rescan. Idempotent, so a half-cleaned earlier run does not pile up.
+func _populate_library() -> void:
+	var dir := DirAccess.open(PACKAGES_ROOT)
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	var scratch := "user://ut_mods_screen_fixture.zip"
+	while entry != "":
+		if dir.current_is_dir() and not entry.begins_with(".") and not entry.begins_with("_"):
+			var packed: Dictionary = ModPackage.pack_folder(
+				PACKAGES_ROOT.path_join(entry), scratch)
+			if not bool(packed.get("ok", false)):
+				push_error("fixture pack failed for " + entry)
+			else:
+				var installed: Dictionary = ModPackage.install_zip(
+					scratch, ModManager.user_root.path_join("installed"))
+				if bool(installed.get("ok", false)):
+					_fixture_ids.append(str(installed.get("mod_id", "")))
+			DirAccess.remove_absolute(scratch)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	ModManager.discover()
+
+func _take_library_back() -> void:
+	# Unload the fixture set before its files go: deleting a loaded mod's
+	# folder would leave the manager holding a record it can never reload.
+	for mod_id in _fixture_ids:
+		ModManager.set_mod_enabled(mod_id, false)
+	ModManager.reload_mods()
+	for mod_id in _fixture_ids:
+		var installed_root := ModManager.user_root.path_join("installed").path_join(mod_id)
+		if DirAccess.dir_exists_absolute(installed_root):
+			ModPackage.remove_directory_recursive(installed_root)
+	_fixture_ids.clear()
+	ModManager.discover()
 
 ## The screen edits the real ModManager, so a test that ticks or moves a mod
 ## would leave it that way for every suite after this one. Put every mod
@@ -379,6 +432,21 @@ func test_the_header_carries_the_mods_title() -> void:
 		"the header contains only the screen title")
 
 
+func test_the_top_right_corner_opens_the_mod_repositories() -> void:
+	var screen := await _screen()
+	var header := screen.find_child("ScreenHeader", true, false)
+	var button := screen.find_child("BrowseModsButton", true, false) as Button
+	assert_not_null(button, "the header carries a Browse Mods button")
+	assert_true(button.text.contains("Browse Mods"))
+	assert_eq(button.get_index(), header.get_child_count() - 1,
+		"it is the header's last control: the top-right corner")
+	assert_false(button.tooltip_text.is_empty(), "and explains what it opens")
+	var calls := []
+	screen.browse_requested.connect(func() -> void: calls.append(true))
+	button.emit_signal("pressed")
+	assert_eq(calls, [true], "pressing it asks for the repositories screen")
+
+
 func test_the_screen_renders_the_live_library() -> void:
 	var screen := await _screen()
 	var rows := screen.find_child("ModRows", true, false)
@@ -386,9 +454,10 @@ func test_the_screen_renders_the_live_library() -> void:
 	assert_eq(rows.get_child_count(), ModManager.get_all_mod_infos().size(),
 		"one row per discovered mod")
 	var seasons_row := rows.get_node_or_null("ModRow_golf_tycoon_seasons")
-	assert_not_null(seasons_row, "the bundled Seasons mod is listed")
+	assert_not_null(seasons_row, "the Seasons mod is listed (the fixture library has it installed)")
 	var check := seasons_row.get_node_or_null("EnabledCheck") as CheckBox
-	assert_true(check.button_pressed, "and shows as enabled, as it ships")
+	assert_false(check.button_pressed,
+		"and shows as switched off: downloaded mods wait for their tick")
 	var details := screen.find_child("ModDetails", true, false) as RichTextLabel
 	var first: Dictionary = ModManager.get_all_mod_infos()[0]
 	assert_eq(screen._selected_id, str(first.get("id", "")))
@@ -1194,12 +1263,15 @@ func test_an_arrow_that_goes_out_keeps_the_focus_and_the_way_on_from_it() -> voi
 # ── filters ──────────────────────────────────────────────────────────────
 
 func test_the_filter_chips_show_all_enabled_or_disabled_mods() -> void:
+	# Both kinds, made here rather than assumed: nothing loads until the
+	# player ticks it, so this test ticks two of its own.
+	_tick_only([0, 1])
 	var screen := await _screen()
 	var loadout := ModManager.get_enabled_order()
 	var everything := _listed_ids(screen)
 	var ticked := _ids_where(true)
 	var unticked := _ids_where(false)
-	assert_false(ticked.is_empty() or unticked.is_empty(), "the shipped set has both kinds")
+	assert_false(ticked.is_empty() or unticked.is_empty(), "the ticked pair leaves both kinds")
 	var all_chip := _chip(screen, "All")
 	var enabled_chip := _chip(screen, "Enabled")
 	var disabled_chip := _chip(screen, "Disabled")
@@ -1233,6 +1305,7 @@ func test_the_filter_chips_show_all_enabled_or_disabled_mods() -> void:
 
 
 func test_the_filter_and_the_search_narrow_the_list_together() -> void:
+	_tick_only([0])
 	var screen := await _screen()
 	var ticked_id := str(_ids_where(true)[0])
 	var unticked_id := str(_ids_where(false)[0])
@@ -1326,6 +1399,8 @@ func test_a_new_mod_is_never_hidden_by_the_filter() -> void:
 
 
 func test_disable_all_leaves_the_enabled_filter_empty_and_says_so() -> void:
+	# One ticked mod of its own: nothing loads until a player ticks it.
+	_tick_only([0])
 	var screen := await _screen()
 	_press(_chip(screen, "Enabled"))
 	assert_false(_shown_ids(screen).is_empty())

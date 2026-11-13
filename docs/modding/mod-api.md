@@ -194,9 +194,10 @@ whichever loaded mod last registered them (load order decides):
 | Wind | `register_wind_factory(factory)` | `factory()` → a `WindSystem` instance | The neutral base: calm, zero displacement. |
 | Seasons | `register_season_provider(provider)` | a `SeasonProvider` object; `SeasonSystem` (the facade callers use) delegates its tables to it | The neutral provider: no seasonal modifiers, neutral weights, summer visuals all year. |
 
-The bundled `golf_tycoon.weather` / `golf_tycoon.wind` /
-`golf_tycoon.seasons` are the canonical implementations - copy one and
-change the numbers. Points of the contract worth knowing:
+The official `golf_tycoon.weather` / `golf_tycoon.wind` /
+`golf_tycoon.seasons` are the canonical implementations (download them
+from the Browse Mods screen, or read them in a source checkout under
+`repository/packages/`) - copy one and change the numbers. Points of the contract worth knowing:
 
 - The vocabulary lives in the **core** classes and stays fixed:
   `WeatherSystem.WeatherType` (SUNNY, PARTLY_CLOUDY, CLOUDY, LIGHT_RAIN, RAIN,

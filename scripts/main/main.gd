@@ -130,6 +130,9 @@ var world_milestones_screen: WorldMilestonesScreen = null
 var achievements_screen: AchievementsScreen = null
 ## The Mods screen opened from the title screen's Mods tile.
 var mods_screen: ModsScreen = null
+## The mod catalogue (repository feeds and their downloads), opened from the
+## Mods screen's Browse Mods button and stacked over it.
+var browse_mods_screen: BrowseModsScreen = null
 ## Standalone Tournament Mode setup screen opened from the title screen.
 var start_tournament_screen: StartTournamentScreen = null
 ## The Save Course / Save Golfer screens the pause menu's export cards open.
@@ -1191,10 +1194,38 @@ func _on_menu_mods() -> void:
 			mods_screen.queue_free()
 			mods_screen = null
 			_show_main_menu())
+	mods_screen.browse_requested.connect(_on_mods_browse)
 	$UI/HUD.add_child(mods_screen)
 	mods_screen.show()
 	mods_screen.refresh()
 	_set_gameplay_ui_visible(false)
+
+## The Mods screen's Browse Mods button: the mod repositories open over the
+## library (the library is kept, not rebuilt, so its selection and scroll
+## survive the trip). Downloading installs into the same library, so coming
+## back re-scans and repaints it; the scene is never reloaded here, because
+## downloading never changes what is loaded - only the Mods screen's own
+## tick-and-leave does.
+func _on_mods_browse() -> void:
+	if not is_instance_valid(mods_screen):
+		return
+	mods_screen.hide()
+	if is_instance_valid(browse_mods_screen):
+		browse_mods_screen.queue_free()
+	browse_mods_screen = BrowseModsScreen.new()
+	browse_mods_screen.name = "BrowseModsScreen"
+	browse_mods_screen.back_requested.connect(_on_mods_browse_closed)
+	$UI/HUD.add_child(browse_mods_screen)
+	browse_mods_screen.show()
+
+func _on_mods_browse_closed() -> void:
+	if is_instance_valid(browse_mods_screen):
+		browse_mods_screen.queue_free()
+	browse_mods_screen = null
+	if is_instance_valid(mods_screen):
+		ModManager.discover()
+		mods_screen.refresh()
+		mods_screen.show()
 
 func _on_menu_achievements() -> void:
 	_open_goal_screen(MenuScreenKit.GoalTrack.ACHIEVEMENTS, GoalScreenOrigin.TITLE_SCREEN)
@@ -1958,7 +1989,7 @@ func _disconnect_main_menu_load_signal() -> void:
 func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 	# Toggle visibility of gameplay HUD elements
 	# Exclude popup panels that should remain hidden until explicitly toggled
-	var popup_panels = ["MainMenu", "StartNewGameScreen", "StartTournamentScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
+	var popup_panels = ["MainMenu", "StartNewGameScreen", "StartTournamentScreen", "EditGolferSkinsScreen", "WorldMapScreen", "CourseMapScreen", "PauseMenu", "GameOverPanel", "SettingsMenu", "BenchmarkResultsScreen", "ModsScreen", "BrowseModsScreen", "CourseMilestonesScreen", "WorldMilestonesScreen", "AchievementsScreen", "SeasonalCalendarPanel", "TournamentPanel", "FinancialOverviewScreen", "FinancialPanel", "HoleStatsPanel", "SaveLoadPanel", "BuildingInfoPanel", "MarketingPanel", "HotkeyPanel", "WeatherDebugPanel", "SeasonDebugPanel", "AnalyticsPanel", "GolferInfoPopup", "TournamentResultsPopup", "CourseRatingOverlay", "EventFeedPanel", "TileInspector"]
 	var hud = $UI/HUD
 	# The notice band is a sibling of the HUD (see _setup_notification_toast), so
 	# it follows the gameplay UI explicitly: no toast or badge survives into a

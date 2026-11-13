@@ -15,7 +15,7 @@ const EASTWARD := Vector2(1, 0)
 
 ## The shipped wind simulation lives in the Wind mod; WindSystem itself is
 ## now the neutral base that runs when the mod is off.
-const WindImpl := preload("res://mods/golf_tycoon.wind/wind_system.gd")
+const WindImpl := preload("res://repository/packages/golf_tycoon.wind/wind_system.gd")
 
 var wind: WindSystem
 

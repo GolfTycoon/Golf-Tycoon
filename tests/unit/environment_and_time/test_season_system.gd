@@ -5,6 +5,15 @@ extends GameTest
 # Seasons are off by default on the Start New Game screen, so each test here
 # switches them on itself.
 
+func before_all() -> void:
+	# The four seasons - the calendar quarters, the theme tables, the lot -
+	# ship inside the Seasons mod: install the official set the way a
+	# player's Browse Mods session leaves the game.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
 func before_each() -> void:
 	super()
 	GameManager.set_seasons_enabled(true)

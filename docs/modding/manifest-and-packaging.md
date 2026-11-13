@@ -71,8 +71,8 @@ whether it wants to run code. The parser and validator live in
 | `dependencies` | array | no | See below. |
 | `conflicts` | string[] | no | Mod ids this mod cannot run alongside (either side declaring it is enough). |
 | `load_after` / `load_before` | string[] | no | Soft ordering hints honoured when both mods load. |
-| `enabled_by_default` | bool | no | **Bundled mods only:** seeds the player's first-run list. Ignored everywhere else - an installed mod always starts off. |
-| `load_priority` | int | no | Tie-breaker for that first-run seeding only (lower earlier). The player's order wins afterwards. |
+| `enabled_by_default` | bool | no | Legacy: only ever seeded the bundled mods of older game versions. Ignored now - an installed or downloaded mod always starts off. |
+| `load_priority` | int | no | Legacy tie-breaker for that old seeding (lower earlier). The player's order wins regardless. |
 | `content` | object | no | Declarative data the game merges for you; keys below. All values are mod-root-relative paths. |
 | `resource_packs` | string[] | no | Godot `.pck`/`.zip` resource packs to mount (`ProjectSettings.load_resource_pack`) before content/script loading - the escape hatch for shipping scenes and imported art. |
 | `config` | object | no | Per-key settings schema: `{key: {type, default, description}}`. Read with the Mod API's `get_config_value`; stored per mod outside saves. |
@@ -297,9 +297,12 @@ Resolution (`ModManager.resolve_load_order`, a pure function) then:
 
 The result is *the* order for everything: content merges, provider
 take-overs (the last registration wins) and hook chaining all run in it.
-First launch, the list is seeded with bundled mods that set
-`enabled_by_default`, by `load_priority` then id - that is the only time
-`load_priority` ever matters.
+Nothing ships inside the game any more, so a fresh library is empty until
+the player downloads from a repository feed (the Official one is on the
+list out of the box). `enabled_by_default` and `load_priority` remain in
+the manifest format for completeness - they only ever seeded the bundled
+mods of older versions - and an installed or downloaded mod always starts
+off.
 
 The order in `load_order.json` is the order the enabled mods stand in on
 the Mods screen, whose list has a place for every mod, enabled or not
@@ -310,7 +313,7 @@ list moves it in the load order.
 
 **Duplicate copies**: the same id discovered twice resolves by source
 precedence - folders in your library (including installed zips) > a loose
-zip in the library > a Workshop download > bundled - and within the same
+zip in the library > a Workshop download - and within the same
 source the higher `version` wins.
 
 **Folders starting with `_` or `.`** (like `_template`) are never
@@ -336,16 +339,16 @@ dropping it (or the bare folder) into the mods folder and hitting
 **Rescan**. Installing always lands the mod **disabled**. An installed
 copy is replaced wholesale when a newer zip of the same id installs, and
 user-provided mods (folder, zip, installed) can be **uninstalled** from
-the details pane - bundled and Workshop copies cannot (disable them or
+the details pane - Workshop copies cannot (disable them or
 manage the subscription on Steam).
 
 From a source checkout, the command-line tool does exactly what the game
 does (`tools/mod_tool.gd`, exit code 0/1 for CI):
 
 ```
-make mod-validate MOD=mods/example.jackpot     # or a .zip
-make mod-pack     MOD=mods/example.jackpot     # -> dist/mods/<id>-<version>.zip
-make mods                                       # validate + pack every bundled mod
+make mod-validate MOD=repository/packages/example.jackpot  # or a .zip
+make mod-pack     MOD=repository/packages/example.jackpot  # -> dist/mods/<id>-<version>.zip
+make repository                                 # validate + pack every package -> repository/zips/ + official.json
 godot --headless --path . --script tools/mod_tool.gd -- list some-mod.zip
 ```
 

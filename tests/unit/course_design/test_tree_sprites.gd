@@ -22,18 +22,30 @@ const FALL_DAY := 300
 const WINTER_DAY := 350
 
 ## Where the Seasons mod keeps the wardrobe it lends the trees.
-const SEASONS_MOD_ROOT := "res://mods/golf_tycoon.seasons"
+const SEASONS_MOD_ROOT := "res://repository/packages/golf_tycoon.seasons"
 const SEASONS_ART := SEASONS_MOD_ROOT + "/tree_art/"
-const USER_TREE_SPRITES_MOD_ROOT := "res://mods/example.tree_sprites"
+const USER_TREE_SPRITES_MOD_ROOT := "res://repository/packages/example.tree_sprites"
 const USER_TREE_SPRITES_ART := USER_TREE_SPRITES_MOD_ROOT + "/tree_art/"
 
 ## Throwaway art folders, for the registration tests (cleaned up after each).
 const TEMP_ART := "user://ut_tree_art"
 
 
+func before_all() -> void:
+	# The season lookup itself answers to the Seasons mod's provider, which
+	# only a loaded mod has: install the official set as a player's Browse
+	# Mods session leaves it.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
 func before_each() -> void:
 	super()
 	GameManager.set_seasons_enabled(true)
+	# The seasonal wardrobe comes from the Seasons mod; re-apply its package
+	# each test (the registration tests below reset the live registries).
+	apply_package_content(SEASONS_MOD_ROOT)
 
 
 func after_each() -> void:

@@ -1,0 +1,188 @@
+{
+	"description": "The official environment mods and every example, straight from the Golf Tycoon project.",
+	"format_version": 1,
+	"homepage": "https://github.com/GolfTycoon/Golf-Tycoon",
+	"mods": [
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A menu-background mod: two new pictures for Settings > Display > Background (Harbour Dusk and Moonlit Frost), two new overlays (Starfield and a gold club lattice), and a mod-declared overlay setting of its own. Everything is data - no script runs - and because the new pictures are tagged with a season and a course theme, Auto picks them by itself in the right place.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.backgrounds.zip",
+			"id": "example.backgrounds",
+			"name": "Example: Harbour Dusk & Starfield",
+			"size_bytes": 3336941,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A balance mod - no new content, just numbers. Fairways and greens get cheaper to run, bunkers cost nothing to keep, upkeep drops 10 percent, golfers arrive 10 percent keener, reputations fade 20 percent slower, and the Local tournament pays a bigger purse. Shows the three levers a balance mod has: terrain overrides, tuning values and tournament tier patches.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.balance.zip",
+			"id": "example.balance",
+			"name": "Example: Groundskeeper's Balance Pass",
+			"size_bytes": 1997,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A data-only mod: two new buildings (a Viewing Tower and a Festival Marquee) plus a price cut for the shipped Snack Bar. No code - everything is the buildings JSON the game itself ships.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.buildings.zip",
+			"id": "example.buildings",
+			"name": "Example: More Facilities",
+			"size_bytes": 2167,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A data-only mod adding three decorations (Topiary Arch, Bird Bath, Lantern Post) and making the shipped Park Bench cheaper. Decorations draw procedurally by category, so new ones appear on the course with no artwork to ship.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.decorations.zip",
+			"id": "example.decorations",
+			"name": "Example: Garden Ornaments",
+			"size_bytes": 1814,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A golfer-content mod: new names and professions in the pools random golfers are rolled from, and a new golfer skin - the High-Viz - in safety orange. Shows the two ways a mod dresses the crowd: wider name pools by JSON, and a whole skin folder in the same format the built-in skin studio edits.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.golfers.zip",
+			"id": "example.golfers",
+			"name": "Example: New Faces",
+			"size_bytes": 2176,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A GUI theme mod (data only, no code): the whole interface - HUD, menus, panels, popups, fields and scrollbars - re-dressed as modern frosted glass. Translucent blue-slate panes, ice-white text, a mint-cyan accent and wide soft corners. One JSON palette styles everything; copy this folder to start your own design.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.gui_glass.zip",
+			"id": "example.gui_glass",
+			"name": "Example: Modern Glass GUI",
+			"size_bytes": 41843,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A GUI theme mod (data only, no code): a synthwave night design for the whole interface - midnight-purple panes with sharp 6px corners and 2px cyan-glow borders, magenta primary buttons, electric-yellow focus rings. One JSON palette styles the HUD, menus, panels and popups; copy this folder to start your own design.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.gui_neon.zip",
+			"id": "example.gui_neon",
+			"name": "Example: Neon Fairway GUI",
+			"size_bytes": 2378,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A GUI theme mod (data only, no code): a light, vintage design for the whole interface - cream paper panes, sepia ink text, brass borders and highlights, near-square 4px corners. Proves a GUI theme can just as easily turn the dark stock interface light. One JSON palette; copy this folder to start your own design.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.gui_parchment.zip",
+			"id": "example.gui_parchment",
+			"name": "Example: Clubhouse Parchment GUI",
+			"size_bytes": 40339,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A GUI theme mod (data only, no code): a minimal light design for the whole interface - white panes, dark green-slate text, fairway-green primary buttons and restrained 10px corners. One JSON palette styles the HUD, menus, panels and popups; copy this folder to start your own design.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.gui_porcelain.zip",
+			"id": "example.gui_porcelain",
+			"name": "Example: Porcelain Fairway GUI",
+			"size_bytes": 2313,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A UI script mod: a small clock in the top-centre of the course HUD telling the date and the season at a glance. It registers one HUD widget through the Mod API and keeps it current off the day_changed and season_changed signals. Works without the Seasons mod - it just leaves the season out.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.hud_clock.zip",
+			"id": "example.hud_clock",
+			"name": "Example: Course Clock HUD",
+			"size_bytes": 2754,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A gameplay script mod. The course pays a jackpot bounty from the 'insurance fund' every time a visiting golfer aces a hole - and the story draws a crowd for the following week. Everything it uses is the public Mod API: EventBus signals, a value hook, per-mod config and its own slice of the save file. The payout and the crowd boost are configurable.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.jackpot.zip",
+			"id": "example.jackpot",
+			"name": "Example: Hole-in-One Jackpot",
+			"size_bytes": 2948,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "An add-on mod: four extra seasonal events for the calendar the Seasons mod provides - and a louder Spring Opening Week, by patching the Seasons mod's own event. It shows a hard dependency: enable it and the Seasons mod is pulled in and loaded first, disable Seasons and this one is reported unsatisfied rather than loading into nothing.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.more_seasons.zip",
+			"id": "example.more_seasons",
+			"name": "Example: Extra Seasonal Events",
+			"size_bytes": 2043,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A theme mod: Parkland repainted in late-afternoon gold - warmer grass, honey-coloured fairways - with slightly premium green fees to match. Shows how a mod restyles a shipped course theme (its colours and its gameplay modifiers) without touching theme ids, so every existing Parkland save simply changes clothes.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.theme.zip",
+			"id": "example.theme",
+			"name": "Example: Golden Hour Parkland",
+			"size_bytes": 1770,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A data-only visual mod that replaces every shipped tree sprite with a user-created four-view set: oak, pine, maple, birch, palm, dead tree, cactus, bush, fescue, cattails and heather. The flat tree_art folder makes these replacements apply in every season, while layout.json scales the supplied large images at draw time without altering the PNGs.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.tree_sprites.zip",
+			"id": "example.tree_sprites",
+			"name": "Example: User Tree Sprite Pack",
+			"size_bytes": 1190572,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon examples",
+			"description": "A world mod: two new course locations on the globe - a windswept Tasmanian links stocked with its own visiting golfers, and a big Alpine mountain site - buyable by any company launched while the mod is on. Shows how locations (and the golfers who visit them) are pure data: theme and size by name, a pin by latitude and longitude.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.world.zip",
+			"id": "example.world",
+			"name": "Example: Tasmania & the Alps",
+			"size_bytes": 2794,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon",
+			"description": "The shipped seasons: four theme-aware seasons over the calendar year. Golfer demand, upkeep, green-fee tolerance, tournament prestige and the weather all follow the season, eight seasonal events (Spring Opening Week, the Fall Classic...) punctuate the year, and the woodland turns with them - the spring, fall and winter tree art ships in this mod's own tree_art folder. Turn the feature on per company at Start New Game; disable this mod to remove seasons from the game entirely.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.seasons.zip",
+			"id": "golf_tycoon.seasons",
+			"name": "Seasons (Official)",
+			"size_bytes": 169552,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon",
+			"description": "The shipped weather: spells of sun, cloud and rain that last for days, move to a neighbouring kind and ease in over two days. Weather turns golfers away, makes aiming harder, dims the light and (when it rains) puts rain on the course. Works on its own; with the Seasons mod the rolls follow the time of year and the course theme. Disable this mod and every day is clear.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.weather.zip",
+			"id": "golf_tycoon.weather",
+			"name": "Weather (Official)",
+			"size_bytes": 8099,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon",
+			"description": "The shipped wind: a daily breeze that drifts a little from day to day and occasionally swings round entirely when a front passes. Crosswinds push shots downwind, headwinds hold them up and tailwinds send them on - less for lofted clubs, not at all for the putter. Disable this mod and the air is always dead calm.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.wind.zip",
+			"id": "golf_tycoon.wind",
+			"name": "Wind (Official)",
+			"size_bytes": 3496,
+			"version": "1.0.0"
+		}
+	],
+	"name": "Golf Tycoon Official Repository"
+}
