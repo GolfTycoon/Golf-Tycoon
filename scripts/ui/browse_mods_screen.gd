@@ -17,8 +17,10 @@ class_name BrowseModsScreen
 ##    Repository carries its own mark; removing it is allowed, and a
 ##    one-press restore puts it back. "Add feed" takes any http(s) URL.
 ##  * Available mods - every entry of every fetched feed, grouped under the
-##    feed that offers it, each with its state: Download, Installed, or
-##    Update (the feed's version is newer than the installed one).
+##    feed that offers it. Each row is a card naming the mod (its name
+##    and version over where it stands in the library) and a button with
+##    its state: Download, Installed, or Update (the feed's version is
+##    newer than the installed one).
 ##
 ## A download is the ordinary zip install (ModPackage.install_zip through
 ## ModRepositoryDownloader): the mod arrives switched OFF in the Mods
@@ -49,6 +51,9 @@ const SECTION_GAP := 14
 ## The picture inside a list row (the default mark; a downloaded mod's own
 ## icon shows once the Mods screen lists it).
 const ROW_ICON_SIZE := 44.0
+## Below this window width a row stacks its Download button under its card:
+## beside it, the button would leave the mod's name a word per line.
+const STACKED_ROW_BELOW_WIDTH := 440.0
 const MIN_REPOSITORIES_WIDTH := 340.0
 const MIN_AVAILABLE_WIDTH := 420.0
 
@@ -523,7 +528,7 @@ static func entry_state_detail(installed_version: String, feed_version: String, 
 		EntryState.INSTALLED:
 			return "installed %s" % installed_version if not installed_version.is_empty() else "installed"
 		EntryState.UPDATE:
-			return "installed %s  →  %s available" % [installed_version, feed_version]
+			return "installed %s · %s available" % [installed_version, feed_version]
 	return "not installed"
 
 
@@ -675,7 +680,10 @@ func _make_feed_section(record: Dictionary, feed: ModRepositoryFeed, index: int)
 	var section := VBoxContainer.new()
 	section.name = "FeedSection_%d" % index
 	section.set_meta("url", str(record.get("url", "")))
-	section.add_theme_constant_override("separation", ROW_GAP)
+	# Stacked rows sit further apart, so each Download button reads as
+	# belonging to the card above it.
+	section.add_theme_constant_override("separation",
+		SECTION_GAP if rows_stack_at(_built_size.x) else ROW_GAP)
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
@@ -700,18 +708,26 @@ func _make_feed_section(record: Dictionary, feed: ModRepositoryFeed, index: int)
 func _make_entry_row(entry: Dictionary) -> Control:
 	var mod_id := str(entry.get("id", ""))
 	var state := entry_state(installed_version_of(mod_id), str(entry.get("version", "")))
-	var row := HBoxContainer.new()
+	var stacked := rows_stack_at(_built_size.x)
+	var row := BoxContainer.new()
+	row.vertical = stacked
 	row.name = "ModRow_" + mod_id.replace(".", "_").replace("-", "_")
 	row.set_meta("mod_id", mod_id)
+	row.set_meta("stacked", stacked)
 	row.custom_minimum_size.y = ROW_HEIGHT
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", 4 if stacked else 6)
 
 	var card := Button.new()
 	card.name = "ModCard"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.custom_minimum_size.y = ROW_HEIGHT
+	# The card says which mod this is. A name too long for the card wraps
+	# (and the row grows with it) rather than pushing the Download button
+	# off a narrow window; the tooltip carries it in full either way.
+	card.custom_minimum_size = Vector2(40.0, ROW_HEIGHT)
 	card.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	card.clip_text = false
+	card.clip_text = true
+	card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.text = card_text(entry, installed_version_of(mod_id))
 	card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	card.add_theme_constant_override("icon_max_width", int(ROW_ICON_SIZE))
@@ -731,8 +747,33 @@ func _make_entry_row(entry: Dictionary) -> Control:
 	return row
 
 
+## What a catalogue card says, the way the Mods screen's rows say it: the
+## mod's name and the version on offer, over where it stands in the player's
+## library. Pure, unit-tested.
+static func card_text(entry: Dictionary, installed_version: String) -> String:
+	var feed_version := str(entry.get("version", ""))
+	var state := entry_state(installed_version, feed_version)
+	return card_title(entry) + "\n" \
+		+ entry_state_detail(installed_version, feed_version, state).to_upper()
+
+
+## A card's first line: the mod's name (its id when the feed gives none) and
+## the version the feed offers.
+static func card_title(entry: Dictionary) -> String:
+	var title := _entry_display_name(entry, str(entry.get("id", "?")))
+	var version := str(entry.get("version", "")).strip_edges()
+	return "%s  %s" % [title, version] if not version.is_empty() else title
+
+
+## Whether a window this wide stacks each row (card over Download button)
+## instead of laying the two side by side. Pure, unit-tested.
+static func rows_stack_at(window_width: float) -> bool:
+	return window_width < STACKED_ROW_BELOW_WIDTH
+
+
 static func _entry_tooltip(entry: Dictionary) -> String:
 	var lines: Array[String] = []
+	lines.append(_entry_display_name(entry, str(entry.get("id", "?"))))
 	var description := str(entry.get("description", ""))
 	if not description.is_empty():
 		lines.append(description)
