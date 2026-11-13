@@ -134,13 +134,21 @@ func test_dock_stays_on_screen_at_desktop_tablet_and_phone_widths() -> void:
 
 ## The dock used to grow a taller variant on compact/touch layouts, so the bar
 ## crept up the screen as the window narrowed. Every landscape window now keeps
-## the desktop footprint; only the portrait HUD swaps in its thumb rail.
+## the desktop footprint. The portrait composition is the one layout that
+## replaces it with its own thumb rail, so those windows are checked against
+## that rail's height instead.
 func test_the_dock_height_never_grows_as_the_window_narrows() -> void:
 	var desktop_height := float(UIConstants.BOTTOM_BAR_HEIGHT)
 	for window_size in [Vector2i(1600, 1000), Vector2i(1280, 800), Vector2i(1024, 768),
 			Vector2i(900, 700), Vector2i(899, 700), Vector2i(844, 390), Vector2i(700, 1000)]:
 		await set_window(window_size)
-		assert_false(Screen.uses_portrait_hud(), "%s is still the landscape dock" % window_size)
+		if Screen.uses_portrait_hud():
+			# A narrow portrait window is not the desktop dock at all: it wears
+			# the portrait thumb rail, whose height is its own (and the lower
+			# bounds of the rail are covered by test_portrait_hud.gd).
+			assert_almost_eq(main.left_controls.size.y, Screen.portrait_nav_height(), 0.01,
+				"%s wears the portrait thumb rail" % window_size)
+			continue
 		assert_almost_eq(main.left_controls.size.y, desktop_height, 0.01,
 			"%s keeps the desktop dock height" % window_size)
 		assert_almost_eq(main.terrain_toolbar.size.y, desktop_height, 0.01,
@@ -165,10 +173,14 @@ func test_the_dock_height_never_grows_as_the_window_narrows() -> void:
 ## dock height. The touch rail used to grow its medallions to 52px, which no
 ## longer fits (or would fit only by overlapping) now that the bar stops
 ## growing for it, so every landscape layout wears the same 44px medallions.
+## (The portrait tray lays its tabs out as full-width faces instead, which
+## test_portrait_hud.gd and test_portrait_shelf_tabs.gd cover.)
 func test_every_sections_tab_rail_fits_the_one_dock_height() -> void:
 	for window_size in [Vector2i(1600, 1000), Vector2i(1024, 768),
 			Vector2i(844, 390), Vector2i(700, 1000)]:
 		await set_window(window_size)
+		if Screen.uses_portrait_hud():
+			continue
 		var toolbar: TerrainToolbar = main.terrain_toolbar
 		for section in TerrainToolbar.SECTION_TABS:
 			toolbar.select_section(section)
