@@ -24,7 +24,7 @@ whether it wants to run code. The parser and validator live in
 	"description": "What players read before enabling it.",
 	"homepage": "https://example.org/my-mod",
 	"icon": "icon.png",
-	"min_game_version": "0.6.3",
+	"min_game_version": "0.6.4",
 	"max_game_version": "",
 	"types": ["gameplay"],
 	"entry_point": "mod_main.gd",
