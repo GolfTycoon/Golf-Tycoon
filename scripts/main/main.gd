@@ -532,7 +532,6 @@ func _startup_screens() -> void:
 	_setup_event_feed()
 	_setup_course_rating_overlay()
 	_setup_floating_text()
-	_setup_shot_trails()
 	_setup_shot_heatmap()
 	_setup_course_aura()
 	_setup_responsive_ui()
@@ -5477,34 +5476,6 @@ func _apply_responsive_layout() -> void:
 	elif bottom_bar and left_controls:
 		left_controls.size = left_controls.custom_minimum_size
 		bottom_bar.queue_sort()
-
-# --- Shot Trails ---
-
-func _setup_shot_trails() -> void:
-	EventBus.ball_shot_landed_precise.connect(_on_shot_for_trail)
-	EventBus.ball_putt_landed_precise.connect(_on_putt_for_trail)
-
-func _on_shot_for_trail(_golfer_id: int, from_screen: Vector2, to_screen: Vector2,
-		_distance_yards: int, carry_screen: Vector2) -> void:
-	if not _is_screen_visible(from_screen) and not _is_screen_visible(to_screen):
-		return
-	var landing_terrain = terrain_grid.get_tile(terrain_grid.screen_to_grid(to_screen))
-	ShotTrail.create($Entities, from_screen, to_screen, carry_screen, false, landing_terrain)
-
-func _on_putt_for_trail(_golfer_id: int, from_screen: Vector2, to_screen: Vector2,
-		_distance_yards: int) -> void:
-	if not _is_screen_visible(from_screen) and not _is_screen_visible(to_screen):
-		return
-	var terrain_types_ref = preload("res://scripts/terrain/terrain_types.gd")
-	ShotTrail.create($Entities, from_screen, to_screen, to_screen, true, terrain_types_ref.Type.GREEN)
-
-func _is_screen_visible(world_pos: Vector2) -> bool:
-	var vp_size = get_viewport().get_visible_rect().size
-	var cam_pos = camera.global_position
-	var cam_zoom = camera.zoom
-	var half_vp = vp_size / (2.0 * cam_zoom)
-	var margin = 100.0
-	return abs(world_pos.x - cam_pos.x) < half_vp.x + margin and abs(world_pos.y - cam_pos.y) < half_vp.y + margin
 
 func _exit_tree() -> void:
 	"""Disconnect all signals to prevent memory leaks on scene unload."""

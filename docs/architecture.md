@@ -29,7 +29,7 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 | `scripts/terrain/` | Course surface, grid, overlays and generation | 30 |
 | `scripts/course/` | Hole routes, routing overlay and entity layer | 9 |
 | `scripts/ui/` | Menus, panels, HUD and components | 53 |
-| `scripts/effects/` | Particles and cosmetic effects | 11 |
+| `scripts/effects/` | Particles and cosmetic effects | 9 |
 | `scripts/tools/` | Course-building tools such as hole creation | 5 |
 | `scripts/utils/` | Shared helpers | 5 |
 | `scripts/audio/` | Audio helpers | 1 |
@@ -143,7 +143,7 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 | 3 | Weeds |
 | 4-6 | Course-editing helpers drawn over the ground: elevation preview (4), land boundary (5), cup (6) |
 | 10 | Hole visuals (`hole_visualizer.gd`) and the routing overlay; a golfer's name label rides `+10` from its own band |
-| 50 | Flags and shot trails |
+| 50 | Flags |
 | 100 | The ball, floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
 | 150-300 | Impact and celebration effects |
 
