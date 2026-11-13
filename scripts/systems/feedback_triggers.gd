@@ -199,11 +199,17 @@ static func get_score_trigger(strokes: int, par: int, avg_skill: float = 0.5) ->
 	return TriggerType.NONE  # At or near expected — no trigger
 
 ## Determine price trigger based on total round cost and reputation
-static func get_price_trigger(total_round_cost: int, reputation: float) -> TriggerType:
+##
+## `membership_tier` widens the fair price the golfer compares against: club
+## members expect to pay more than the public fee, so the premium they agreed
+## to is not something they call overpriced.
+static func get_price_trigger(total_round_cost: int, reputation: float,
+		membership_tier: int = ClubMembership.Tier.NON_MEMBER) -> TriggerType:
 	# Price tolerance: at 50 reputation with 18 holes, $100 is fair.
 	# Scale by hole count so short courses feel overpriced at lower thresholds.
 	var hole_count = GameManager.get_open_hole_count()
 	var fair_price = CourseEconomy.fair_round_price(reputation, hole_count, GameManager.current_day, GameManager.current_theme)
+	fair_price *= ClubMembership.price_tolerance(membership_tier)
 	if total_round_cost > fair_price * 1.5:
 		return TriggerType.OVERPRICED
 	elif total_round_cost < fair_price * 0.6:

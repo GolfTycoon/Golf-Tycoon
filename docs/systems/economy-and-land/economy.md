@@ -13,7 +13,7 @@ You start with money on your books, and every day the course earns and spends. K
 
 ### Money in
 
-1. **Green fees.** The main income. Each golfer pays a fee for each open hole. You set the fee from **$1 to $200**, but the most you can charge is **$10 per open hole**. A 3-hole course can charge at most $30.
+1. **Green fees.** The main income. Each golfer pays a fee for each open hole. You set the fee from **$1 to $200**, but the most you can charge is **$10 per open hole**. A 3-hole course can charge at most $30. Club members pay a premium on top of your fee - 1.15x for a Bronze member, 1.30x for Silver, 1.50x for Gold - and a golfer who signs up pays a one-off joining fee (see [Club Membership](../golfers/club-membership.md)).
 2. **Buildings.** Amenities such as snack bars, pubs, pro shops and driving ranges earn money from golfers who use them. Use depends on how close the golfer is and on their need. Landmark facilities (the Airstrip, Castle, Casino and Theme Park) raise the green fee per hole instead.
 3. **Tournaments.** Hosting one brings in gate money and sponsorships. Tournaments mostly build reputation. Most tiers break even or lose money. See [Tournament System](../events/tournament-system.md).
 4. **Milestone rewards.** One-off rewards for building and operating. See [Milestones & Achievements](milestones-and-achievements.md).
@@ -111,7 +111,7 @@ The daily charges are applied in small steps across the day (`apply_daily_charge
 ### 5. Daily profit
 
 ```
-total_revenue = green_fees + building_revenue + tournament_revenue
+total_revenue = green_fees + building_revenue + tournament_revenue + membership_income
 daily_profit  = total_revenue − operating_costs − tournament_entry_fee
 ```
 

@@ -1083,6 +1083,8 @@ func _collect_golfer_rows() -> Array:
 			"hole": golfer.current_hole + 1,
 			"strokes": golfer.total_strokes + golfer.current_strokes,
 			"attitude": golfer.attitude,
+			"membership": golfer.membership_tier,
+			"membership_name": ClubMembership.tier_name(golfer.membership_tier),
 			"profile": _visitor_profile(golfer),
 			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
@@ -1104,6 +1106,15 @@ func _visitor_profile(golfer: Golfer) -> Array[Dictionary]:
 		"Age / Gender: %d / %s" % [attributes.age, attributes.gender_name()],
 		"Marital Status: " + attributes.marital_status_name(),
 		"Returning guest: " + ("Yes" if golfer.is_returning_guest else "No")]})
+	# Club membership: the tier they play this round at and what it costs.
+	var membership_lines := [
+		"Membership: " + ClubMembership.tier_name(golfer.membership_tier),
+		"Green fee: %d%% of the public fee" % int(round(
+			ClubMembership.fee_multiplier(golfer.membership_tier) * 100.0)),
+	]
+	if golfer.referred_by_member:
+		membership_lines.append("Referred by a club member")
+	sections.append({"title": "Club Membership", "lines": membership_lines})
 	var traits: Array[String] = []
 	for key in GolferAttributes.TRAIT_KEYS:
 		traits.append("%s: %s" % [GolferAttributes.TRAIT_NAMES[key], "On" if attributes.trait_on(key) else "Off"])
@@ -4711,18 +4722,29 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 			"par": golfer.total_par,
 			"day": GameManager.current_day,
 			"tier": golfer.golfer_tier,
+			"membership": golfer.membership_tier,
 			"owner": golfer.is_owner_round,
 			"profile": _visitor_profile(golfer),
 			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
 	if golfer.is_owner_round:
 		return
+	# The membership this round started at, so the summary can show a joining,
+	# upgrade or cancellation beside the score (see ClubMembership).
+	var membership_before := ClubMembership.clamp_tier(golfer.membership_tier)
+	for visit in FeedbackManager.visits:
+		if visit.get("key", "") == golfer.guest_key:
+			membership_before = membership_before - int(visit.get("membership_change", 0))
+			break
 	round_summary_popup.queue_notification({
 		"name": golfer.golfer_name,
 		"total_strokes": total_strokes,
 		"total_par": golfer.total_par,
 		"attitude": golfer.attitude,
 		"tier": golfer.golfer_tier,
+		"membership": golfer.membership_tier,
+		"membership_before": membership_before,
+		"membership_reason": FeedbackManager.membership_reason_for(golfer.guest_key),
 		"green_fee": GameManager.green_fee,
 		"holes_played": golfer.hole_scores.size(),
 		"total_holes": golfer._round_total_holes if golfer._round_total_holes > 0 else GameManager.get_open_hole_count(),

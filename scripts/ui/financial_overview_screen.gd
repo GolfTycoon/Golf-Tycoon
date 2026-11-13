@@ -499,6 +499,8 @@ func _build_statement_card(stats: GameManager.DailyStatistics, split_ledgers: bo
 	]
 	if stats.tournament_revenue > 0:
 		revenue_entries.append({"name": "Tournaments", "amount": stats.tournament_revenue})
+	if stats.membership_income > 0:
+		revenue_entries.append({"name": "Memberships", "amount": stats.membership_income})
 	var cost_entries: Array[Dictionary] = []
 	_add_positive_cost(cost_entries, "Terrain", stats.terrain_maintenance)
 	_add_positive_cost(cost_entries, "Base operations", stats.base_operating_cost)

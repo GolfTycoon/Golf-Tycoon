@@ -138,6 +138,21 @@ func _update_display() -> void:
 
 	_content_vbox.add_child(HSeparator.new())
 
+	# Club membership: the tier this golfer plays this round at, and what the
+	# tier is worth to the club (see ClubMembership).
+	_content_vbox.add_child(_create_section_label("Club Membership"))
+	_content_vbox.add_child(_create_stat_row("Membership",
+		ClubMembership.tier_name(_golfer.membership_tier),
+		ClubMembership.tier_color(_golfer.membership_tier)))
+	_content_vbox.add_child(_create_stat_row("Green fee",
+		"%.0f%% of the public fee" % (ClubMembership.fee_multiplier(_golfer.membership_tier) * 100.0),
+		UIConstants.COLOR_TEXT))
+	if _golfer.referred_by_member:
+		_content_vbox.add_child(_create_stat_row("Referred by",
+			"a club member", UIConstants.COLOR_SUCCESS_MUTED))
+
+	_content_vbox.add_child(HSeparator.new())
+
 	# Golfer Statuses - each starts the course at 50%
 	_content_vbox.add_child(_create_section_label("Golfer Statuses"))
 	_content_vbox.add_child(_create_need_bar("Fun", attributes.fun))

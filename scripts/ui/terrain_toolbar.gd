@@ -2754,6 +2754,13 @@ func _show_visitor(visitor_name: String, active: bool) -> void:
 	_visitor_detail.add_child(identity)
 	identity.add_child(_visitor_label(visitor_name, Color("e2c681")))
 	identity.add_child(_visitor_label(GolferTier.get_tier_name(data.get("tier", 1))))
+	# Club membership: who the golfer is to the club, and what they pay.
+	var membership := int(data.get("membership", ClubMembership.Tier.NON_MEMBER))
+	if ClubMembership.is_member(membership):
+		identity.add_child(_visitor_label(
+			"%s - %d%% green fee" % [ClubMembership.tier_name(membership),
+				int(round(ClubMembership.fee_multiplier(membership) * 100.0))],
+			ClubMembership.tier_color(membership)))
 	identity.add_child(_visitor_label("ON THE COURSE" if active else "PAST VISITOR", Color("83c9a4")))
 	identity.add_child(_visitor_label("Strokes: %d" % data.get("strokes", 0)))
 	if active:

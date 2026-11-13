@@ -244,7 +244,7 @@ typo can't void the chain.
 | Hook | Where | Value in | `context` keys |
 | --- | --- | --- | --- |
 | `golfer_spawn_rate` | `GolferManager.get_spawn_rate_modifier()`, after all built-in multipliers and the `golfers.spawn_multiplier` tuning | The golfer-arrival modifier | `day`, `theme`, `holes` (open holes) |
-| `green_fee_per_hole` | `GameManager.process_green_fee_payment()`, after fee bonus and the `economy.green_fee_multiplier` tuning | Dollars charged per hole (then rounded, clamped ≥ 0, × holes) | `day`, `holes`, `golfer_name` |
+| `green_fee_per_hole` | `GameManager.process_green_fee_payment()`, after the club member multiplier, fee bonus and the `economy.green_fee_multiplier` tuning | Dollars charged per hole (then rounded, clamped ≥ 0, × holes) | `day`, `holes`, `golfer_name`, `membership_tier` (0 Non-member, 1 Bronze, 2 Silver, 3 Gold - see `ClubMembership`) |
 | `terrain_maintenance_cost` | Daily statistics, after the seasonal modifier and the `economy.maintenance_multiplier` tuning | The day's terrain upkeep in dollars | `day`, `terrain_cost` (untuned base), `season` (int) |
 
 Hooks run where they sit in the chain - if you need "after every other

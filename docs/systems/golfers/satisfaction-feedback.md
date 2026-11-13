@@ -195,8 +195,15 @@ Daily reviews, service visits/income, incidents, return counts and customer prof
 
 ---
 
+## Club Membership
+
+The visit score is also the club's verdict on a golfer's **membership**. A round a guest loved signs them up (or moves them up a tier); an overpriced, slow or hungry round moves them down, and a Bronze member who has had enough cancels. Members pay a higher green fee and recruit other visiting golfers - see [Club Membership](club-membership.md).
+
+---
+
 ## Related
 
+- [Club Membership](club-membership.md) turns the visit score into tiers, fees and referrals.
 - [Course Aura](course-aura.md) keeps the same comments against the ground they were made on.
 - [Golfer Needs and Statuses](golfer-needs.md) supplies the statuses that shape the visit - Attitude above all.
 - [Golfer Attributes](golfer-attributes.md) is the full golfer record, comments included.

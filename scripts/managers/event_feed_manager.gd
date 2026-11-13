@@ -244,6 +244,30 @@ func clear_events() -> void:
 	_next_id = 0
 	unread_count_changed.emit(0)
 
+## A visiting golfer joined the club or moved up a tier (see ClubMembership).
+## Members are worth announcing: they pay more every round they play and they
+## bring other golfers with them.
+func announce_membership_change(golfer_name: String, old_tier: int, new_tier: int,
+		reason: String) -> void:
+	var suffix := (" - %s" % reason) if not reason.is_empty() else ""
+	if ClubMembership.is_member(new_tier) and not ClubMembership.is_member(old_tier):
+		add_event(Category.GOLFERS, Priority.NORMAL,
+			"%s joined as a %s%s" % [golfer_name,
+				ClubMembership.tier_name(new_tier).to_lower(), suffix])
+		return
+	if new_tier > old_tier:
+		add_event(Category.GOLFERS, Priority.NORMAL,
+			"%s upgraded to %s%s" % [golfer_name,
+				ClubMembership.tier_name(new_tier).to_lower(), suffix])
+		return
+	if new_tier == ClubMembership.Tier.NON_MEMBER:
+		add_event(Category.GOLFERS, Priority.INFO,
+			"%s cancelled their membership%s" % [golfer_name, suffix])
+		return
+	add_event(Category.GOLFERS, Priority.INFO,
+		"%s dropped to %s%s" % [golfer_name,
+			ClubMembership.tier_name(new_tier).to_lower(), suffix])
+
 # --- Signal handlers ---
 
 func _on_record_broken(record_type: String, golfer_name: String, value: int, hole_number: int) -> void:
