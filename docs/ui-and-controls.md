@@ -156,11 +156,12 @@ The pointer is the one shared implementation: `GamepadCursor` moves the real mou
 
 ### Portrait HUD (phones)
 
-Portrait windows narrower than 700 logical pixels use a dedicated thumb-first
-composition (`PortraitHUD`); wider portrait tablets and every landscape window
-keep the desktop fan/shelf. The coordinator **moves the live controls** into the
-new layout rather than duplicating them, so bindings, signals, badges, focus and
-tool state survive rotation. Rotating back restores the original parents/order.
+Portrait windows narrower than 900 logical pixels (the compact HUD breakpoint)
+use a dedicated thumb-first composition (`PortraitHUD`); wider portrait tablets
+and every landscape window keep the desktop fan/shelf. The coordinator **moves
+the live controls** into the new layout rather than duplicating them, so
+bindings, signals, badges, focus and tool state survive rotation. Rotating back
+restores the original parents/order.
 
 - **Clubhouse ledger (top).** Menu owns the top-left corner as a 44 px target;
   the course identity strip sits to its right, above one row of money / rating /

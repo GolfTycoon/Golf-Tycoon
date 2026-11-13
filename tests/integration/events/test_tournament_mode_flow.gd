@@ -16,6 +16,18 @@ const SCRATCH_ROOT := "user://test_tournament_mode_flow"
 const SCRATCH_SAVES := SCRATCH_ROOT + "/saves/"
 const SCRATCH_SETTINGS := SCRATCH_ROOT + "/settings.cfg"
 
+## The Start Tournament screen's Weather, Wind and Seasons switches, and the
+## systems behind them, come from the official environment mods: install them
+## the way a player's Browse Mods session does, before the scene is built so it
+## picks up the mods' factories.
+func before_all() -> void:
+	install_environment_mods()
+	await super()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+	super()
+
 func before_each() -> void:
 	super()
 	PlayerDataStore._remove_tree(SCRATCH_ROOT)
