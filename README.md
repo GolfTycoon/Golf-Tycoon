@@ -34,6 +34,7 @@ Golf Tycoon is a 2D isometric simulation written in **GDScript** for **Godot 4.6
 - **Ten themes.** Parkland, Desert, Links, Mountain, City, Resort, Heathland, Woodland, Tropical and Marshland each change the look, wind and costs.
 - **Business management.** Set green fees, manage costs and loans, hire staff, and watch the daily accounts.
 - **Star ratings.** Condition, design, value, pace and aesthetics combine into a five-star course rating that drives golfer demand.
+- **Club membership.** Visiting golfers sign up, move up from Bronze to Silver to Gold while they enjoy the course, and drop a tier - or leave - when they do not. Members pay a higher green fee on every round, earn the club joining fees, bring other golfers with them and make the course busier.
 - **Reputation and tournaments.** Host tournaments from local to championship level. Winning raises your reputation.
 - **World map.** Buy course locations across 27 destinations, each with its own theme, land and price.
 - **Milestones and achievements.** Course Location Milestones for every site and World Milestones for the company unlock again with each save; career Achievements stay unlocked forever between saves. Each track has its own fullscreen screen on the world map's backdrop.

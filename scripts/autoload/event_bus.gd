@@ -57,6 +57,10 @@ signal golfer_finished_hole(golfer_id: int, hole_number: int, strokes: int, par:
 signal golfer_finished_round(golfer_id: int, total_score: int, total_par: int)
 ## Full rounds only; departing golfers may have played a partial round.
 signal golfer_completed_round(golfer_id: int, total_score: int, total_par: int)
+## A visiting golfer's club membership moved after a round: they signed up,
+## moved up a tier, moved down one, or cancelled (see ClubMembership).
+signal membership_changed(golfer_id: int, golfer_name: String,
+		old_tier: int, new_tier: int, reason: String)
 signal golfer_attitude_changed(golfer_id: int, new_attitude: float)
 signal golfer_left_course(golfer_id: int)
 signal golfer_thought(golfer_id: int, trigger_type: int, sentiment: String)

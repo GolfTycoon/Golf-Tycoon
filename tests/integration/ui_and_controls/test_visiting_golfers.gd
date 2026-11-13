@@ -74,18 +74,26 @@ func test_course_click_opens_full_profile_without_popup() -> void:
 	var titles: Array = []
 	for section in sections:
 		titles.append(section.title)
-	for title in ["Identity", "Golfer Traits", "Golfer Skills", "Golf Skills", "Golfer Statuses", "Golfer Comments", "Course Experience", "Current Round", "Scorecard"]:
+	for title in ["Identity", "Club Membership", "Golfer Traits", "Golfer Skills", "Golf Skills", "Golfer Statuses", "Golfer Comments", "Course Experience", "Current Round", "Scorecard"]:
 		assert_has(titles, title)
 	assert_string_contains(sections[0].lines[0], "Architect")
-	assert_string_contains(sections[8].lines[0], "H3: 4 strokes / par 5")
+	assert_string_contains(_section(sections, "Scorecard").lines[0], "H3: 4 strokes / par 5")
 	golfer.attributes.energy = 0.25
 	toolbar._refresh_golfer_lists()
-	assert_eq(toolbar._visitor_archive[golfer.golfer_name].profile[4].meters.Energy, 0.25, "Active profile updates live")
+	assert_eq(_section(toolbar._visitor_archive[golfer.golfer_name].profile, "Golfer Statuses").meters.Energy, 0.25, "Active profile updates live")
 	# The archive remains readable after the golfer leaves and is freed.
 	toolbar.golfer_data_provider = func(): return []
 	golfer.free()
 	toolbar._refresh_golfer_lists()
-	assert_eq(toolbar._visitor_archive["Full Profile Visitor"].profile[4].meters.Energy, 0.25)
+	assert_eq(_section(toolbar._visitor_archive["Full Profile Visitor"].profile, "Golfer Statuses").meters.Energy, 0.25)
+
+## The profile section with this title (the sections are found by name, so a
+## new section does not shift the test's expectations).
+func _section(sections: Array, title: String) -> Dictionary:
+	for section in sections:
+		if str(section.title) == title:
+			return section
+	return {}
 
 func test_refresh_keeps_focus_on_the_focused_visitor() -> void:
 	var toolbar: TerrainToolbar = main.terrain_toolbar

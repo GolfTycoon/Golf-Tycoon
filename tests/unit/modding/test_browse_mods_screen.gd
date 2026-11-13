@@ -208,6 +208,11 @@ func _download_button(screen: BrowseModsScreen, section: int, mod_id: String) ->
 	return row.get_node("DownloadButton") as Button if row != null else null
 
 
+func _mod_card(screen: BrowseModsScreen, section: int, mod_id: String) -> Button:
+	var row := _mod_row(screen, section, mod_id)
+	return row.get_node("ModCard") as Button if row != null else null
+
+
 func _back_button(screen: BrowseModsScreen) -> Button:
 	var header := screen.find_child("ScreenHeader", true, false)
 	return header.get_node("BackButton") as Button
@@ -293,6 +298,90 @@ func test_every_official_row_carries_an_icon_and_a_download_button() -> void:
 	assert_eq(button.text, "Download")
 
 
+func test_every_row_says_which_mod_it_is() -> void:
+	_ensure_not_installed("golf_tycoon.seasons")
+	var screen := await _screen()
+	var section := screen._available_box.get_child(0)
+	var rows := 0
+	for child in section.get_children():
+		if not child.name.begins_with("ModRow_"):
+			continue
+		rows += 1
+		var mod_id := str(child.get_meta("mod_id", ""))
+		var entry := screen.entry_for(mod_id)
+		var card := child.get_node("ModCard") as Button
+		assert_true(card.text.begins_with(str(entry.get("name", ""))),
+			"the card for %s leads with the mod's name (%s)" % [mod_id, card.text])
+		assert_true(card.tooltip_text.contains(str(entry.get("name", ""))),
+			"and its tooltip carries the name in full")
+	assert_eq(rows, 18, "every official mod was checked")
+
+	var seasons := _mod_card(screen, 0, "golf_tycoon.seasons")
+	var offered := screen.entry_for("golf_tycoon.seasons")
+	assert_eq(seasons.text, "%s  %s\nNOT INSTALLED" % [offered["name"], offered["version"]],
+		"name and version on offer, over where the mod stands in the library")
+	assert_ne(seasons.get_theme_color("font_color").to_html(false),
+		MenuStyle.CARD_BG.to_html(false), "the words are not the colour of the card")
+
+
+func test_a_card_fits_its_words_at_every_window_shape() -> void:
+	for size in [DESKTOP, TABLET, PHONE, NARROW_PHONE]:
+		var screen := await _screen(size)
+		# On a phone held upright the catalogue is behind the Mods tab.
+		screen._repositories_shown = false
+		screen._sync_panes()
+		await process_frames(3)
+		var where := "at %dx%d" % [size.x, size.y]
+		assert_lte((screen.get_node("Frame") as Control).get_combined_minimum_size().x,
+			float(size.x), "the catalogue is no wider than the window " + where)
+		var section := screen._available_box.get_child(0)
+		for child in section.get_children():
+			if not child.name.begins_with("ModRow_"):
+				continue
+			var row := child as Control
+			var card := row.get_node("ModCard") as Button
+			var button := row.get_node("DownloadButton") as Button
+			assert_lte(row.size.x, float(size.x), "%s fits the window %s" % [row.name, where])
+			# The words wrap inside the card instead of being cut off, so
+			# the card must be given the height its wrapped text asks for
+			# and the width to keep whole words on a line.
+			assert_gte(card.size.y, card.get_combined_minimum_size().y,
+				"%s is as tall as its text %s" % [row.name, where])
+			var words_width := card.size.x - card.get_theme_stylebox("normal").get_minimum_size().x \
+				- BrowseModsScreen.ROW_ICON_SIZE - 10.0
+			assert_gte(words_width, 140.0,
+				"%s leaves the name room to read %s" % [row.name, where])
+			var line_height := card.get_theme_font("font").get_height(
+				card.get_theme_font_size("font_size"))
+			assert_lte(card.size.y,
+				card.get_theme_stylebox("normal").get_minimum_size().y + line_height * 4.0,
+				"%s wraps its name onto three lines at most %s" % [row.name, where])
+			assert_eq(row.get_meta("stacked", false), BrowseModsScreen.rows_stack_at(float(size.x)))
+			if BrowseModsScreen.rows_stack_at(float(size.x)):
+				assert_gte(button.position.y, card.position.y + card.size.y,
+					"the Download button sits under its card " + where)
+			else:
+				assert_gte(button.position.x, card.position.x + card.size.x,
+					"the Download button sits beside its card " + where)
+		screen.queue_free()
+		await process_frames(1)
+
+
+func test_card_text_names_the_mod_and_where_it_stands() -> void:
+	var entry := {"id": "tester.mod", "name": "Test Mod", "version": "1.2.0"}
+	assert_eq(BrowseModsScreen.card_title(entry), "Test Mod  1.2.0")
+	assert_eq(BrowseModsScreen.card_text(entry, ""), "Test Mod  1.2.0\nNOT INSTALLED")
+	assert_eq(BrowseModsScreen.card_text(entry, "1.2.0"), "Test Mod  1.2.0\nINSTALLED 1.2.0")
+	assert_eq(BrowseModsScreen.card_text(entry, "1.0.0"),
+		"Test Mod  1.2.0\nINSTALLED 1.0.0 · 1.2.0 AVAILABLE")
+	assert_eq(BrowseModsScreen.card_title({"id": "tester.bare"}), "tester.bare",
+		"a feed entry without a name or version still reads as something")
+	assert_eq(BrowseModsScreen.card_title({"id": "tester.bare", "name": "  "}), "tester.bare")
+	assert_eq(BrowseModsScreen.card_title({}), "?")
+	assert_true(BrowseModsScreen.rows_stack_at(390.0), "a phone held upright stacks its rows")
+	assert_false(BrowseModsScreen.rows_stack_at(820.0))
+
+
 # ── downloading ──────────────────────────────────────────────────────────
 
 func test_downloading_installs_the_mod_switched_off() -> void:
@@ -315,6 +404,8 @@ func test_downloading_installs_the_mod_switched_off() -> void:
 	assert_not_null(refreshed)
 	assert_true(refreshed.disabled, "an installed mod offers nothing more to download")
 	assert_eq(refreshed.text, "Installed")
+	assert_true(_mod_card(screen, 0, "example.theme").text.ends_with(
+		"INSTALLED " + str(info.get("version", ""))), "and its card says so too")
 	assert_true(screen._status.text.contains("switched off"),
 		"the status line says what to do next (%s)" % screen._status.text)
 	assert_false(ModManager.needs_reload, "and nothing is staged: downloads never change the loadout")
@@ -366,6 +457,9 @@ func test_a_feed_entry_older_than_the_offering_reads_as_an_update() -> void:
 	assert_not_null(update, "the fixture's row exists")
 	assert_eq(update.text, "Update")
 	assert_false(update.disabled)
+	assert_eq(_mod_card(screen, section, "tester.upgrade").text,
+		"Upgrade Me  2.0.0\nINSTALLED 0.1.0 · 2.0.0 AVAILABLE",
+		"the card names the installed version and the one on offer")
 	var fresh := _download_button(screen, section, "example.decorations")
 	assert_eq(fresh.text, "Download", "an uninstalled entry still reads as a download")
 	var installed := _download_button(screen, section, "golf_tycoon.seasons") if _mod_row(screen, section, "golf_tycoon.seasons") != null else null

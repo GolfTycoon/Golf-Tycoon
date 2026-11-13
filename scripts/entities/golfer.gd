@@ -188,6 +188,14 @@ var amenities_used := 0
 var guest_key := ""
 var is_returning_guest := false
 var paid_round_fee := 0
+## The club membership this golfer arrived with: a ClubMembership.Tier value.
+## Members pay a higher green fee for the round they are playing, and a golfer
+## whose round ends well can sign up or move up a tier (FeedbackManager
+## records the result on their customer profile; see ClubMembership).
+var membership_tier: int = ClubMembership.Tier.NON_MEMBER
+## A Non-member recruited by a member this round: they arrived because a member
+## talked the club up to them, which the club notices as a referral.
+var referred_by_member := false
 var activity_text := "Playing golf"
 ## Seconds before on-course staff may serve this golfer again. Prevents a single
 ## greeter/vendor/marshal from parking next to one golfer and spamming effects.
@@ -3720,6 +3728,9 @@ func _refresh_name_label() -> void:
 		var tier_name = GolferTier.TIER_DATA.get(golfer_tier, {}).get("name", "")
 		var stars = "★".repeat(golfer_tier + 1)
 		name_label.text = "%s %s %s" % [stars, tier_name, golfer_name]
+		# A club member wears their membership after their name.
+		if ClubMembership.is_member(membership_tier):
+			name_label.text += " (%s)" % ClubMembership.tier_name(membership_tier)
 	else:
 		name_label.text = golfer_name
 	name_label.visible = true
@@ -3848,7 +3859,7 @@ func _on_green_fee_paid(paid_golfer_id: int, _paid_golfer_name: String, amount: 
 		show_payment_notification(amount)
 
 		# Check price sensitivity and show thought
-		var price_trigger = FeedbackTriggers.get_price_trigger(amount, GameManager.reputation)
+		var price_trigger = FeedbackTriggers.get_price_trigger(amount, GameManager.reputation, membership_tier)
 		if price_trigger != FeedbackTriggers.TriggerType.NONE:
 			# Delay price feedback slightly so it doesn't overlap with payment notification
 			await Delay.seconds(self, 1.0)

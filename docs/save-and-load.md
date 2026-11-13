@@ -119,7 +119,7 @@ Terrain ids are stored raw and are only ever appended, never renumbered, so a sa
 
 ## Mods in a save
 
-Saves also carry `mods: {api_version, load_order: [{id, version}], data}`.
+Saves also carry `mods: {api_version, load_order: [{id, version}], data}`. The `guest_experience` block holds the customer register, and with it each regular's **club membership** (`membership` on every customer profile) plus the day's referrals. A customer profile saved before club membership existed loads as a Non-member.
 Each loaded script mod can return a JSON-shaped slice in `_mod_save` and
 restore it via `_mod_restore`. The enabled mod set is still the player's
 library preference, not automatically changed by loading a save. Missing

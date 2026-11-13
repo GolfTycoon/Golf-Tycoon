@@ -610,18 +610,23 @@ func clamp_green_fee_to_max() -> void:
 	if green_fee > effective_max:
 		set_green_fee(effective_max)
 
-func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
+func process_green_fee_payment(golfer_id: int, golfer_name: String,
+		membership_tier: int = ClubMembership.Tier.NON_MEMBER) -> bool:
 	"""Process a golfer's green fee payment and return success.
 	Revenue = per-hole fee x number of open holes, boosted by any landmark
-	facilities (Airstrip, Castle, Casino, Theme Park) the course owns."""
+	facilities (Airstrip, Castle, Casino, Theme Park) the course owns, and by
+	the golfer's club membership (see ClubMembership: members pay more)."""
 	var holes = get_open_hole_count()
 	var fee_bonus := get_green_fee_bonus()
+	# Members pay their tier's multiplier on the public fee.
+	var member_multiplier := ClubMembership.fee_multiplier(membership_tier)
 	# A balance mod can scale every green fee, and script mods can rewrite
 	# the per-hole charge (members' day, free Tuesdays...) via the hook.
-	var tuned_per_hole: float = float(green_fee) * (1.0 + fee_bonus) \
+	var tuned_per_hole: float = float(green_fee) * member_multiplier * (1.0 + fee_bonus) \
 		* ContentRegistry.get_tuning("economy.green_fee_multiplier", 1.0)
 	tuned_per_hole = ModManager.apply_hook("green_fee_per_hole", tuned_per_hole, {
-		"day": current_day, "holes": holes, "golfer_name": golfer_name})
+		"day": current_day, "holes": holes, "golfer_name": golfer_name,
+		"membership_tier": membership_tier})
 	var per_hole := maxi(0, int(round(tuned_per_hole)))
 	var total = per_hole * max(holes, 1)
 
@@ -629,11 +634,15 @@ func process_green_fee_payment(golfer_id: int, golfer_name: String) -> bool:
 		for hole in current_course.get_open_holes():
 			hole.total_revenue += per_hole
 	modify_money(total)
+	var member_label := ""
+	if ClubMembership.is_member(membership_tier):
+		member_label = ", %s" % ClubMembership.tier_name(membership_tier).to_lower()
 	if fee_bonus > 0.0:
-		EventBus.log_transaction("%s paid green fee (%d holes x $%d, +%d%% facilities)" % [
-			golfer_name, holes, per_hole, int(round(fee_bonus * 100.0))], total)
+		EventBus.log_transaction("%s paid green fee (%d holes x $%d, +%d%% facilities%s)" % [
+			golfer_name, holes, per_hole, int(round(fee_bonus * 100.0)), member_label], total)
 	else:
-		EventBus.log_transaction("%s paid green fee (%d holes x $%d)" % [golfer_name, holes, green_fee], total)
+		EventBus.log_transaction("%s paid green fee (%d holes x $%d%s)" % [
+			golfer_name, holes, per_hole, member_label], total)
 	EventBus.green_fee_paid.emit(golfer_id, golfer_name, total)
 	return true
 
@@ -1102,6 +1111,11 @@ class DailyStatistics:
 	var tournament_revenue: int = 0  # Spectator + sponsorship income
 	var tournament_entry_fee: int = 0  # Cost to host tournament
 
+	# Club membership income: joining fees paid when golfers sign up (see
+	# ClubMembership). Counted separately so the accounts can show it.
+	var membership_income: int = 0
+	var members_joined: int = 0
+
 	# Golfer tier counts
 	var tier_counts: Dictionary = {
 		GolferTier.Tier.BEGINNER: 0,
@@ -1124,6 +1138,8 @@ class DailyStatistics:
 		building_revenue = 0
 		tournament_revenue = 0
 		tournament_entry_fee = 0
+		membership_income = 0
+		members_joined = 0
 		total_strokes_today = 0
 		total_par_today = 0
 		operating_costs = 0
@@ -1206,7 +1222,11 @@ class DailyStatistics:
 			tier_counts[tier] += int(other.tier_counts.get(tier, 0))
 
 	func get_total_revenue() -> int:
-		return revenue + building_revenue + tournament_revenue
+		return revenue + building_revenue + tournament_revenue + membership_income
+
+	func record_membership_income(amount: int) -> void:
+		membership_income += amount
+		members_joined += 1
 
 	func get_average_score_to_par() -> float:
 		if total_par_today == 0:

@@ -91,6 +91,7 @@ Who visits the course and how they feel about it.
 | [Golfer Needs and Statuses](golfers/golfer-needs.md) | Fun, Attitude, Energy, Hunger, Thirst and how they decay |
 | [Golfer Spawning](golfers/golfer-spawning.md) | Arrival rate, tiers, group size and landing zones |
 | [Satisfaction and Feedback](golfers/satisfaction-feedback.md) | Thought bubbles, daily satisfaction and visitor return |
+| [Club Membership](golfers/club-membership.md) | Non-member to Gold: who joins, who leaves, and what members pay |
 | [Course Aura](golfers/course-aura.md) | Where golfers spoke up on the course, and how they felt |
 
 ## Ratings and Reputation

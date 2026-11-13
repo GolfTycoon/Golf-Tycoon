@@ -178,6 +178,12 @@ func _experience_card() -> Control:
 	lbl.tooltip_text = "Visit satisfaction combines needs, attitude and value at the end of the round. Return intent is a forecast, not a guaranteed booking."
 	body.add_child(lbl)
 
+	if int(experience_data.get("members", 0)) > 0:
+		var membership := FeedbackManager.membership_summary()
+		body.add_child(CourseMapStyle.label("%d club members (Gold %d | Silver %d | Bronze %d) | +%d%% member green fees | %d referrals" % [
+			membership.members, membership.gold, membership.silver, membership.bronze,
+			int(round((membership.average_fee_multiplier - 1.0) * 100.0)),
+			int(experience_data.get("referrals", 0))], 10, CourseMapStyle.TEXT_QUIET))
 	if experience_data.complaints > 0:
 		body.add_child(CourseMapStyle.label("%d complaints recorded today" % experience_data.complaints, 10, CourseMapStyle.TEXT_QUIET))
 
