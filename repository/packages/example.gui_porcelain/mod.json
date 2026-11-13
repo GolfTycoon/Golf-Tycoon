@@ -1,0 +1,14 @@
+{
+	"format_version": 1,
+	"id": "example.gui_porcelain",
+	"name": "Example: Porcelain Fairway GUI",
+	"icon": "icon.png",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A GUI theme mod (data only, no code): a minimal light design for the whole interface - white panes, dark green-slate text, fairway-green primary buttons and restrained 10px corners. One JSON palette styles the HUD, menus, panels and popups; copy this folder to start your own design.",
+	"types": ["data", "gui", "cosmetic"],
+	"content": {
+		"gui_theme": "data/gui_theme.json"
+	}
+}

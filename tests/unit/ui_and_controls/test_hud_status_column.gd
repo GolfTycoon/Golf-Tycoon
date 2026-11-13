@@ -11,6 +11,14 @@ const FEATURE_ROWS: Array[String] = ["_weather_row", "_wind_row", "_season_row"]
 const ROW_FIELDS: Array[String] = ["_funds_row", "_season_row",
 	"_reputation_row", "_rating_row", "_weather_row", "_wind_row"]
 
+func before_all() -> void:
+	# Weather and Seasons come from mods now - install the official pair and
+	# enable them the way a player's Browse Mods session leaves the game.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
 func before_each() -> void:
 	super()
 	# The column picks its compact width and starts collapsed on narrow

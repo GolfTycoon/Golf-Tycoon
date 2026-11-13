@@ -33,6 +33,9 @@ var api_version: int = 0
 var author: String = ""
 var description: String = ""
 var homepage: String = ""
+## Mod-root-relative path to the picture the Mods screen shows for the mod
+## (its `icon`), or "" for the default mark. PNG, JPG, WebP or BMP.
+var icon: String = ""
 var min_game_version: String = ""
 var max_game_version: String = ""
 var entry_point: String = ""
@@ -135,6 +138,7 @@ func _read_fields(data: Dictionary) -> void:
 	author = str(data.get("author", "")).strip_edges()
 	description = str(data.get("description", "")).strip_edges()
 	homepage = str(data.get("homepage", "")).strip_edges()
+	icon = str(data.get("icon", "")).strip_edges()
 	min_game_version = str(data.get("min_game_version", "")).strip_edges()
 	max_game_version = str(data.get("max_game_version", "")).strip_edges()
 	entry_point = str(data.get("entry_point", "")).strip_edges()
@@ -185,9 +189,18 @@ func _validate(data: Dictionary) -> void:
 		errors.append("min_game_version '%s' is not a version number." % min_game_version)
 	if not max_game_version.is_empty() and parse_version(max_game_version).is_empty():
 		errors.append("max_game_version '%s' is not a version number." % max_game_version)
+	# The icon is a file reference like the rest, and it must be one the
+	# game can actually display - a wrong extension warns, because the Mods
+	# screen falls back to the default mark rather than hiding the mod.
+	if not icon.is_empty():
+		var icon_extension: String = icon.get_extension().to_lower()
+		if not icon_extension in ["png", "jpg", "jpeg", "webp", "bmp"]:
+			warnings.append("Icon '%s' is not an image type the game can display (use PNG, JPG, WebP or BMP)." % icon)
 	# Declarative file references never escape the mod root. Script mods are
 	# trusted code, but data-only packages must not read arbitrary user files.
 	var declared_paths: Array = resource_packs.duplicate()
+	if not icon.is_empty():
+		declared_paths.append(icon)
 	if not entry_point.is_empty():
 		declared_paths.append(entry_point)
 	for declaration in content.values():
@@ -212,7 +225,7 @@ const KNOWN_CONTENT_KEYS: Array[String] = [
 	"buildings", "decorations", "terrain_overrides", "themes",
 	"world_locations", "visiting_golfers", "golfer_names",
 	"seasonal_events", "golfer_skins_root", "tree_art_root", "tournament_tiers",
-	"tuning", "menu_backdrops", "menu_overlays",
+	"tuning", "menu_backdrops", "menu_overlays", "gui_theme",
 ]
 
 

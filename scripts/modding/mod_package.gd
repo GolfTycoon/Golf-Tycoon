@@ -23,21 +23,20 @@ const SKIP_NAMES: Array[String] = [".DS_Store", "Thumbs.db"]
 
 ## The manifest inside `zip_path`, plus the prefix its files live under (""
 ## when the zip holds the mod at its root, "folder/" when one wrapper folder
-## encloses it). Result: {ok, manifest: ModManifest, root_prefix, errors}.
+## encloses it). `icon_present` says whether the manifest's declared icon is
+## in the zip too (meaningless - true - when it declares none).
+## Result: {ok, manifest: ModManifest, root_prefix, icon_present, errors}.
 static func read_manifest_from_zip(zip_path: String) -> Dictionary:
-	var result: Dictionary = {"ok": false, "manifest": null, "root_prefix": "", "errors": []}
+	var result: Dictionary = {
+		"ok": false, "manifest": null, "root_prefix": "", "icon_present": true,
+		"errors": [],
+	}
 	var reader := ZIPReader.new()
 	if reader.open(zip_path) != OK:
 		result["errors"] = ["Could not open '%s' as a zip file." % zip_path]
 		return result
 	var files := reader.get_files()
-	var manifest_entry: String = ""
-	for entry in files:
-		if entry == "mod.json":
-			manifest_entry = entry
-			break
-		if entry.ends_with("/mod.json") and entry.count("/") == 1:
-			manifest_entry = entry
+	var manifest_entry: String = _find_manifest_entry(files)
 	if manifest_entry.is_empty():
 		result["errors"] = ["No mod.json at the root of the zip (or inside one wrapper folder)."]
 		reader.close()
@@ -45,11 +44,46 @@ static func read_manifest_from_zip(zip_path: String) -> Dictionary:
 	var bytes := reader.read_file(manifest_entry)
 	reader.close()
 	var manifest := ModManifest.from_json_text(bytes.get_string_from_utf8(), zip_path)
+	if not manifest.icon.is_empty():
+		result["icon_present"] = (manifest_entry.trim_suffix("mod.json") + manifest.icon) in files
 	result["ok"] = manifest.is_valid()
 	result["manifest"] = manifest
 	result["root_prefix"] = manifest_entry.trim_suffix("mod.json")
 	result["errors"] = manifest.errors
 	return result
+
+
+## One file inside a mod zip, found the way the manifest is found: at the
+## zip root or under the single wrapper folder. Empty when the zip cannot be
+## opened, is not a mod zip, or holds no such file.
+static func read_file_from_zip(zip_path: String, relative: String) -> PackedByteArray:
+	if relative.is_empty() or not _entry_is_safe(relative):
+		return PackedByteArray()
+	var reader := ZIPReader.new()
+	if reader.open(zip_path) != OK:
+		return PackedByteArray()
+	var files := reader.get_files()
+	var manifest_entry: String = _find_manifest_entry(files)
+	if manifest_entry.is_empty():
+		reader.close()
+		return PackedByteArray()
+	var entry: String = manifest_entry.trim_suffix("mod.json") + relative
+	if not entry in files:
+		reader.close()
+		return PackedByteArray()
+	var bytes := reader.read_file(entry)
+	reader.close()
+	return bytes
+
+
+## The mod.json in `files`, at the root or one wrapper folder deep.
+static func _find_manifest_entry(files: PackedStringArray) -> String:
+	for entry in files:
+		if entry == "mod.json":
+			return entry
+		if entry.ends_with("/mod.json") and entry.count("/") == 1:
+			return entry
+	return ""
 
 
 ## Unpack a mod zip into `installed_root/<mod id>/`, replacing any older copy

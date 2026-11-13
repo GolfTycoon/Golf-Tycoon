@@ -6,6 +6,14 @@ extends GameTest
 # Seasons are off by default on the Start New Game screen; the seasonal upkeep
 # these books are checked against needs them on.
 
+func before_all() -> void:
+	# The seasonal upkeep table ships inside the Seasons mod - install the
+	# official set the way a player's Browse Mods session leaves the game.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
 func before_each() -> void:
 	super()
 	GameManager.set_seasons_enabled(true)

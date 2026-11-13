@@ -19,6 +19,14 @@ const SCRATCH_SETTINGS := SCRATCH_ROOT + "/settings.cfg"
 
 var _saved_mod_states: Dictionary = {}
 
+func before_all() -> void:
+	# Weather and Seasons come from mods now - install the official pair and
+	# enable them the way a player's Browse Mods session leaves the game.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
 func before_each() -> void:
 	super()
 	PlayerDataStore._remove_tree(SCRATCH_ROOT)

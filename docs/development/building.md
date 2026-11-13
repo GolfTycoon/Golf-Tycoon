@@ -68,6 +68,27 @@ make warnings
 
 Export from the Godot editor under **Project → Export**, or with the Godot command line and the preset name.
 
+### What the package leaves out
+
+Every preset exports `all_resources` and then excludes the folders that belong
+to working on the game rather than playing it. They are on disk in the checkout
+and in the `.pck` they would otherwise be dead weight (about 13 MB, near a
+quarter of the pack):
+
+| Excluded | Why it never ships |
+| --- | --- |
+| `docs/*` | The repository's documentation, including the version screenshots used by `README.md`. |
+| `tests/*` | The GUT suites, helpers and manual preview harnesses. |
+| `tools/*` | The command-line tools (`mod_tool.gd`, the warnings scan, the art generators). |
+| `repository/*` | The Official Repository's source packages and zips. The running game fetches `repository/official.json` and the zips over HTTP (see [Modding](../modding.md)); nothing there is read with `res://`. |
+| `addons/*` | GUT, the test framework — editor-and-CI only. |
+| `mods/*` | The modder templates (`_template`, `_gui_template`); `ModManager` only ever looks for real mods in `res://mods/`, and no mod is bundled with the game. |
+
+Templates in `mods/` and the tools are still in the checkout: create a new mod
+from the editor and it scaffolds a copy, and `make repository` packs the
+packages that live in `res://repository/`. To check the result, export to a
+pack (`--export-pack <preset> out.pck`) and run it with `--main-pack out.pck`.
+
 The Web preset wraps the build in `web/custom_shell.html`, which carries its own
 loading screen: artwork, a progress bar and a stage line over the canvas while
 `index.wasm` and the `.pck` download. That page is what the player looks at

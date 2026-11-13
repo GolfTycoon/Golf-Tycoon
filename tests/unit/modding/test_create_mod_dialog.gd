@@ -71,10 +71,33 @@ func test_a_valid_form_enables_create_and_previews_the_folder() -> void:
 	assert_true(dialog._feedback.text.contains("mods/tester.typed/"),
 		"the player sees where the mod will land")
 	assert_true(dialog._feedback.text.contains("mod_main.gd"))
+	assert_true(dialog._feedback.text.contains("icon.png"),
+		"every new mod is born with an icon")
 	dialog._script_check.button_pressed = false
 	dialog._update_state()
-	assert_true(dialog._feedback.text.contains("mod.json and README.md"),
+	assert_true(dialog._feedback.text.contains("mod.json, README.md and icon.png"),
 		"a data mod previews only the files it writes")
+
+
+func test_the_gui_theme_tick_previews_and_creates_a_theme_mod() -> void:
+	var dialog := await _open_dialog()
+	assert_not_null(dialog._gui_theme_check)
+	assert_false(dialog._gui_theme_check.button_pressed, "a script stays the default starter")
+	_fill(dialog, "tester.glassy", "Glassy")
+	dialog._gui_theme_check.button_pressed = true
+	dialog._update_state()
+	assert_true(dialog._script_check.disabled, "a GUI theme needs no code to offer")
+	assert_true(dialog._feedback.text.contains("data/gui_theme.json"),
+		"the preview names the palette file it will write")
+	dialog._create_button.emit_signal("pressed")
+	await process_frames(2)
+	var directory := ROOT.path_join("tester.glassy")
+	assert_true(FileAccess.file_exists(directory.path_join(ModScaffold.GUI_THEME_FILE)))
+	assert_false(FileAccess.file_exists(directory.path_join("mod_main.gd")))
+	var manifest := ModManifest.from_json_text(
+		FileAccess.get_file_as_string(directory.path_join("mod.json")))
+	assert_true(manifest.is_valid())
+	assert_eq(str(manifest.content.get("gui_theme", "")), ModScaffold.GUI_THEME_FILE)
 
 
 func test_an_unusable_id_keeps_create_disabled_and_explains_it() -> void:
@@ -112,6 +135,10 @@ func test_creating_writes_the_mod_and_reports_its_id() -> void:
 	assert_false(bool(info.get("enabled", true)), "it arrives switched off")
 	assert_true(FileAccess.file_exists(ROOT.path_join("tester.made_here/mod.json")))
 	assert_true(FileAccess.file_exists(ROOT.path_join("tester.made_here/README.md")))
+	assert_true(FileAccess.file_exists(ROOT.path_join("tester.made_here/icon.png")),
+		"the new mod wears a picture in the Mods screen")
+	assert_not_null(_manager.get_mod_icon_texture("tester.made_here"),
+		"and the manager resolves that picture")
 
 
 func test_a_folder_already_on_disk_keeps_the_form_open_with_the_reason() -> void:

@@ -55,6 +55,22 @@ func test_missing_description_is_only_a_warning() -> void:
 	assert_gt(manifest.warnings.size(), 0, "but the player is told")
 
 
+func test_an_icon_declaration_is_read_and_checked() -> void:
+	var manifest := _manifest({"icon": "icon.png"})
+	assert_true(manifest.is_valid(), "an icon is an ordinary declaration")
+	assert_eq(manifest.icon, "icon.png")
+	assert_false(_manifest({"icon": "../escape.png"}).is_valid(),
+		"an icon path that leaves the mod folder is an error, like any other path")
+	assert_eq(_manifest({}).icon, "", "no field, no icon")
+	var wrong_type := _manifest({"icon": "art/logo.gif"})
+	assert_true(wrong_type.is_valid(), "a wrong icon type still loads - the screen falls back")
+	assert_true(wrong_type.warnings.any(func(w): return w.contains("logo.gif")),
+		"but the player is told their picture will not show")
+	for good_type in ["art/logo.png", "art/logo.jpg", "art/logo.JPEG", "art/logo.webp", "art/logo.bmp"]:
+		var typed := _manifest({"icon": good_type})
+		assert_true(typed.is_valid() and typed.warnings.is_empty(), "%s is a displayable icon" % good_type)
+
+
 func test_unknown_content_keys_warn_instead_of_failing() -> void:
 	var manifest := _manifest({"content": {"moon_phases": "data/moon.json"}})
 	assert_true(manifest.is_valid())

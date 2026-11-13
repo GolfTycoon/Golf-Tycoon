@@ -26,20 +26,83 @@ func after_each() -> void:
 	GameState.restore(_saved_state)
 
 
-## Put the shipped mods' content back after a test pushed a throwaway
-## ContentRegistry over the live one (see tests/unit/modding/). The Seasons mod
-## is the only bundled mod that declares content, and this reads its manifest
-## rather than repeating the block, so a key the mod gains — its seasonal
-## events, its tree art — is restored by every test that calls this. Done by
-## hand rather than through ModManager.reload_mods() so the script set and its
-## safe-mode marker are never disturbed mid-run.
+## Put the live content back after a test pushed a throwaway ContentRegistry
+## over the real one (see tests/unit/modding/). The live state is the state
+## the game boots in: base data only, no mod content - the official and
+## example mods are no longer bundled, so nothing is loaded until the player
+## downloads some from the Browse Mods screen. A test that wants a mod's
+## content applies it itself (the repository packages under
+## res://repository/packages/ are its source), and this undoes exactly that.
 static func restore_live_content() -> void:
-	var root := "res://mods/golf_tycoon.seasons"
-	var manifest := ModManifest.from_json_text(
-			FileAccess.get_file_as_string(root.path_join("mod.json")), root)
 	ContentRegistry.reset_mod_content()
-	ContentRegistry.apply_mod_content(manifest.id, root, manifest.content)
 	ContentRegistry.refresh_live_libraries()
+
+
+## Apply a repository package's declared content to the live registry, the
+## way the loader would had the mod been downloaded and enabled. `root` is
+## the package folder under res://repository/packages/. Done by hand rather
+## than through ModManager so the script set and its safe-mode marker are
+## never disturbed mid-run.
+static func apply_package_content(package_folder: String) -> void:
+	var manifest := ModManifest.from_json_text(
+			FileAccess.get_file_as_string(package_folder.path_join("mod.json")),
+			package_folder)
+	ContentRegistry.apply_mod_content(manifest.id, package_folder, manifest.content)
+	ContentRegistry.refresh_live_libraries()
+
+
+## The official Weather, Wind and Seasons mods, installed and enabled through
+## the real pipeline - pack the repository package, unpack it into the
+## library, tick it, reload - exactly where a player ends up after a Browse
+## Mods session (the game no longer bundles them: even Wind's factory and
+## its Start New Game switch come from the wind mod). A suite whose subject
+## is one of those systems calls this in before_all() and
+## uninstall_environment_mods() in after_all(): GameState does not snapshot
+## ModManager, so the library must be put back by hand or the modding suites
+## after this one would find a polluted one.
+const _ENVIRONMENT_FIXTURE: Array[String] = [
+	"golf_tycoon.weather", "golf_tycoon.wind", "golf_tycoon.seasons",
+]
+
+func install_environment_mods() -> void:
+	# Start from a known library whatever an earlier suite left behind: a mod
+	# still marked loaded whose files that suite deleted would fail to reload
+	# and its stale record would then shadow the fresh install. Switch the
+	# pair off, reload so the manager drops what no longer exists on disk,
+	# and uninstall whatever files remain.
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		if not ModManager.get_mod_info(mod_id).is_empty():
+			ModManager.set_mod_enabled(mod_id, false)
+	ModManager.reload_mods()
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		if not ModManager.get_mod_info(mod_id).is_empty():
+			ModManager.uninstall_mod(mod_id)
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		_install_package_fixture(mod_id)
+	ModManager.discover()
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		ModManager.set_mod_enabled(mod_id, true)
+	ModManager.reload_mods()
+
+func uninstall_environment_mods() -> void:
+	# Switch off and reload first: uninstalling refuses a loaded mod.
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		ModManager.set_mod_enabled(mod_id, false)
+	ModManager.reload_mods()
+	for mod_id in _ENVIRONMENT_FIXTURE:
+		if not ModManager.get_mod_info(mod_id).is_empty():
+			ModManager.uninstall_mod(mod_id)
+
+## One package from the repository, into the library the Browse screen fills.
+func _install_package_fixture(mod_id: String) -> void:
+	var scratch := ModManager.user_root.path_join("fixture.zip")
+	var packed: Dictionary = ModPackage.pack_folder(
+			"res://repository/packages".path_join(mod_id), scratch)
+	if not bool(packed.get("ok", false)):
+		push_error("environment fixture: could not pack %s (%s)" % [mod_id, packed.get("errors", [])])
+		return
+	ModPackage.install_zip(scratch, ModManager.user_root.path_join("installed"))
+	DirAccess.remove_absolute(scratch)
 
 
 # ---------------------------------------------------------------------------

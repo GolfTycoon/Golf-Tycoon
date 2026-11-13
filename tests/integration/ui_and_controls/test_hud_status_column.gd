@@ -6,6 +6,20 @@ extends MainSceneTest
 ## refreshes it: starting the course is what announces the features the Start
 ## New Game screen (or a quick start, which turns all three off) chose.
 
+## All three rows read out a mod's system, so the official environment mods are
+## installed and enabled before the scene is built, the way a player's Browse
+## Mods session leaves the game: a course can only play with a feature whose
+## mod is there to provide it.
+func before_all() -> void:
+	install_environment_mods()
+	await super()
+
+
+func after_all() -> void:
+	uninstall_environment_mods()
+	super()
+
+
 ## Start a course the way the Start New Game screen does, with `features` as
 ## the player left the Weather, Wind and Seasons options.
 func _start_with_features(features: Dictionary) -> HUDStatusColumn:

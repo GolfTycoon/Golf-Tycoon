@@ -1,0 +1,39 @@
+{
+	"name": "Clubhouse Parchment",
+	"description": "A vintage members' clubhouse: cream paper panes, sepia ink text, brass highlights and an olive-green call to action, in near-square corners.",
+	"font": "fonts/PixelifySans-Bold.ttf",
+	"colors": {
+		"panel": "f3e6c8f2",
+		"inset": "e8d5aee6",
+		"deep": "cbb27f",
+		"button": "e9d9ae",
+		"button_hover": "f7ecc9",
+		"button_pressed": "dcc48f",
+		"button_disabled": "e3d3ab99",
+		"primary": "445c2e",
+		"primary_hover": "546f3a",
+		"border": "8a6b42b3",
+		"focus": "7a4a21",
+		"scrollbar": "b89a62",
+		"scrollbar_hover": "9a7c46",
+		"text": "2e2114",
+		"text_dim": "5c4630",
+		"text_muted": "8a7156",
+		"accent": "a97b12",
+		"accent_text": "fff6dd",
+		"success": "4d7c2e",
+		"warning": "b8860b",
+		"danger": "a33327",
+		"info": "33617a",
+		"tooltip": "2e2114f2",
+		"bottom_bar": "2e2015",
+		"bottom_bar_light": "453322"
+	},
+	"metrics": {
+		"panel_radius": 4,
+		"button_radius": 4,
+		"border_width": 1,
+		"font_size": 14,
+		"shadow_size": 3
+	}
+}

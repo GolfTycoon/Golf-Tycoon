@@ -1,0 +1,14 @@
+{
+	"format_version": 1,
+	"id": "example.gui_parchment",
+	"name": "Example: Clubhouse Parchment GUI",
+	"icon": "icon.png",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A GUI theme mod (data only, no code): a light, vintage design for the whole interface - cream paper panes, sepia ink text, brass borders and highlights, near-square 4px corners. Proves a GUI theme can just as easily turn the dark stock interface light. One JSON palette; copy this folder to start your own design.",
+	"types": ["data", "gui", "cosmetic"],
+	"content": {
+		"gui_theme": "data/gui_theme.json"
+	}
+}

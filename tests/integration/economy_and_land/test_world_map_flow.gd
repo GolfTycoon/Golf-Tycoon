@@ -18,9 +18,20 @@ const SECOND_SITE := "florida"
 const CHAMPIONSHIP_SITE := "rocky_mountains"
 
 
+## The Start New Game screen's Wind switch, and the wind system the new course
+## then runs, both come from the official Wind mod - so the company's road is
+## only offered them once that mod is installed, the way a player's Browse Mods
+## session leaves the game. The scene is built after the fixtures so its wind
+## system is the mod's factory, not the neutral base.
+func before_all() -> void:
+	install_environment_mods()
+	await super()
+
+
 func after_all() -> void:
 	SaveManager.delete_save(SAVE_NAME)
 	super()
+	uninstall_environment_mods()
 
 
 func _world_map_screen() -> Node:

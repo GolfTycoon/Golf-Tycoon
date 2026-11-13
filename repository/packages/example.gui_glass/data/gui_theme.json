@@ -1,0 +1,41 @@
+{
+	"name": "Modern Glass",
+	"description": "Frosted glass: translucent blue-slate panes, ice-white text and a mint-cyan accent, with wide soft corners and deep soft shadows.",
+	"font_bold": "fonts/PixelifySans-ExtraBold.ttf",
+	"colors": {
+		"panel": "16222ecc",
+		"inset": "0d1622d9",
+		"deep": "081018",
+		"button": "2b4258b3",
+		"button_hover": "3a5a7ad9",
+		"button_pressed": "1d3042e6",
+		"button_disabled": "22303d80",
+		"primary": "1f8a8c",
+		"primary_hover": "27a3a5",
+		"border": "9fd8e8a6",
+		"focus": "bffcff",
+		"scrollbar": "5b7d94",
+		"scrollbar_hover": "7fa3bd",
+		"text": "f2f8fc",
+		"text_dim": "bcd2e0",
+		"text_muted": "7e97a8",
+		"accent": "8be9e2",
+		"accent_text": "0a1c26",
+		"success": "5eeaa0",
+		"warning": "ffd166",
+		"danger": "ff7a7a",
+		"info": "6ec3ff",
+		"tooltip": "0a141ef2",
+		"bottom_bar": "0d1b28",
+		"bottom_bar_light": "16283a"
+	},
+	"metrics": {
+		"panel_radius": 20,
+		"button_radius": 16,
+		"border_width": 1,
+		"font_size": 14,
+		"shadow_size": 10,
+		"button_opacity": 0.82,
+		"panel_opacity": 0.88
+	}
+}

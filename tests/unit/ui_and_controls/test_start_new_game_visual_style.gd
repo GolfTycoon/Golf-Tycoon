@@ -9,6 +9,16 @@ const SUBTITLE_FONT_PATH := "res://assets/fonts/PixelifySans-SemiBold.ttf"
 const BODY_FONT_PATH := "res://assets/fonts/PixelifySans-Regular.ttf"
 
 
+func before_all() -> void:
+	# Weather and Seasons come from mods now - install the official pair and
+	# enable them the way a player's Browse Mods session leaves the game:
+	# their switches are part of the full setup menu counted below.
+	install_environment_mods()
+
+func after_all() -> void:
+	uninstall_environment_mods()
+
+
 func _screen() -> StartNewGameScreen:
 	var screen := autofree(StartNewGameScreen.new()) as StartNewGameScreen
 	add_child(screen)

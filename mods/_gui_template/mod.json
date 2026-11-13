@@ -1,0 +1,14 @@
+{
+	"format_version": 1,
+	"id": "yourname.my_gui",
+	"name": "My GUI Theme",
+	"icon": "icon.png",
+	"version": "0.1.0",
+	"api_version": 1,
+	"author": "Your Name",
+	"description": "One or two sentences players read in the Mods screen: what design this puts on the game's interface.",
+	"types": ["data", "gui", "cosmetic"],
+	"content": {
+		"gui_theme": "data/gui_theme.json"
+	}
+}

@@ -10,7 +10,7 @@ class_name CreateModDialog
 ## ModManager.create_mod().
 ##
 ## Creating never enables: the new folder is discovered switched off, and
-## the Mods screen's usual tick + Apply & Reload puts it into play. The
+## the usual tick, then leaving the Mods screen, puts it into play. The
 ## dialog closes itself after creating; `created` carries the new mod id so
 ## the screen can select and describe it.
 
@@ -39,6 +39,7 @@ var _name_field: LineEdit = null
 var _author_field: LineEdit = null
 var _description_field: LineEdit = null
 var _script_check: CheckBox = null
+var _gui_theme_check: CheckBox = null
 var _feedback: Label = null
 var _create_button: Button = null
 
@@ -111,7 +112,7 @@ func _build() -> void:
 	stack.add_child(title)
 
 	var blurb := Kit.make_label(
-		"Builds a folder in your mods library. It stays switched off until you tick it and Apply & Reload.",
+		"Builds a folder in your mods library. It stays switched off until you tick it - then it loads when you leave this screen.",
 		13, COLOR_TEXT_SECONDARY)
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(blurb)
@@ -134,6 +135,18 @@ func _build() -> void:
 	_script_check.add_theme_color_override("font_hover_color", COLOR_GOLD)
 	_script_check.toggled.connect(func(_on: bool) -> void: _update_state())
 	stack.add_child(_script_check)
+
+	_gui_theme_check = CheckBox.new()
+	_gui_theme_check.name = "GuiThemeCheck"
+	_gui_theme_check.text = "GUI theme starter (re-dresses the whole interface, no code)"
+	_gui_theme_check.button_pressed = false
+	_gui_theme_check.tooltip_text = "Creates a data-only mod whose data/gui_theme.json palette restyles the HUD, menus and panels. Ticking this turns the starter script off - a GUI theme needs no code."
+	_gui_theme_check.add_theme_font_override("font", SUBTITLE_FONT)
+	_gui_theme_check.add_theme_font_size_override("font_size", 13)
+	_gui_theme_check.add_theme_color_override("font_color", COLOR_TEXT_BRIGHT)
+	_gui_theme_check.add_theme_color_override("font_hover_color", COLOR_GOLD)
+	_gui_theme_check.toggled.connect(func(_on: bool) -> void: _update_state())
+	stack.add_child(_gui_theme_check)
 
 	_feedback = _label("", 12, COLOR_TEXT_QUIET)
 	_feedback.name = "Feedback"
@@ -201,6 +214,7 @@ func _fields() -> Dictionary:
 		"author": _text_of(_author_field),
 		"description": _text_of(_description_field),
 		"script": is_instance_valid(_script_check) and _script_check.button_pressed,
+		"gui_theme": is_instance_valid(_gui_theme_check) and _gui_theme_check.button_pressed,
 	}
 
 
@@ -224,9 +238,13 @@ func _update_state() -> void:
 		_feedback.text = errors[0]
 		_feedback.add_theme_color_override("font_color", UIConstants.COLOR_DANGER_MUTED)
 		return
+	# A GUI theme is data-only: its tick retires the starter script's.
+	if is_instance_valid(_script_check) and is_instance_valid(_gui_theme_check):
+		_script_check.disabled = _gui_theme_check.button_pressed
 	var mod_id: String = str(fields.get("id", "")).strip_edges()
-	var made: String = "mod.json, mod_main.gd and README.md" \
-		if ModScaffold.has_script(fields) else "mod.json and README.md"
+	var made: String = "mod.json, mod_main.gd, README.md and icon.png" \
+		if ModScaffold.has_script(fields) else ("mod.json, data/gui_theme.json, README.md and icon.png" \
+		if ModScaffold.has_gui_theme(fields) else "mod.json, README.md and icon.png")
 	_feedback.text = "Ready: mods/%s/ - %s." % [mod_id, made]
 	_feedback.add_theme_color_override("font_color", COLOR_MINT)
 

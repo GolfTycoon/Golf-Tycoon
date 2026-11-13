@@ -57,6 +57,7 @@ func test_a_scripted_scaffold_builds_a_valid_manifest() -> void:
 	assert_true(manifest.wants_script(), "the starter script carries the script permission")
 	assert_eq(manifest.entry_point, ModScaffold.SCRIPT_FILE)
 	assert_true("script" in manifest.types)
+	assert_eq(manifest.icon, ModScaffold.ICON_FILE, "the manifest points at the icon")
 
 
 func test_a_data_only_scaffold_declares_no_code() -> void:
@@ -119,6 +120,14 @@ func test_creating_writes_a_folder_the_loader_discovers_switched_off() -> void:
 	assert_true(manifest.wants_script())
 	assert_false(_read(directory.path_join("mod_main.gd")).contains("\nclass_name "),
 		"mod scripts never declare a class_name (the rule is in its comments)")
+	# The icon is a real, readable picture - the Mods screen shows it.
+	var icon_path := directory.path_join(ModScaffold.ICON_FILE)
+	assert_true(FileAccess.file_exists(icon_path), "the icon is written")
+	var icon := Image.new()
+	assert_eq(icon.load_png_from_buffer(FileAccess.get_file_as_bytes(icon_path)), OK,
+		"the icon decodes as a PNG")
+	assert_gt(icon.get_width(), 0)
+	assert_eq(icon.get_width(), icon.get_height(), "the placeholder is square")
 
 	var manager := _manager()
 	manager.discover()
@@ -141,6 +150,40 @@ func test_the_scaffolded_script_actually_loads_as_a_mod() -> void:
 	assert_eq(manager.get_load_order(), ["tester.scaffold"],
 		"the starter entry point compiles and runs")
 	assert_true(manager.is_mod_loaded("tester.scaffold"))
+
+
+func test_a_gui_theme_scaffold_is_a_valid_data_only_theme_mod() -> void:
+	var fields := _fields({"script": true, "gui_theme": true})
+	assert_true(ModScaffold.has_gui_theme(fields))
+	assert_false(ModScaffold.has_script(fields), "a GUI theme starter retires the script")
+	var manifest := ModManifest.from_dictionary(ModScaffold.manifest_for(fields))
+	assert_true(manifest.is_valid(), "the scaffold writes manifests the loader accepts")
+	assert_false(manifest.has_script())
+	assert_true("gui" in manifest.types)
+	assert_eq(str(manifest.content.get("gui_theme", "")), ModScaffold.GUI_THEME_FILE)
+	var theme := GuiTheme.from_dictionary(JSON.parse_string(
+		ModScaffold.starter_gui_theme("Scaffold Test")))
+	assert_eq(theme.theme_name, "Scaffold Test")
+	assert_eq(theme.warnings, [], "the starter palette only uses real roles")
+
+
+func test_creating_a_gui_theme_writes_its_palette_and_loads() -> void:
+	var result: Dictionary = ModScaffold.create(ROOT,
+		_fields({"script": true, "gui_theme": true}))
+	assert_true(bool(result.get("ok", false)), "; ".join(result.get("errors", [])))
+	var directory: String = ROOT.path_join("tester.scaffold")
+	assert_true(FileAccess.file_exists(directory.path_join(ModScaffold.GUI_THEME_FILE)),
+		"the palette is written beside the manifest")
+	assert_false(FileAccess.file_exists(directory.path_join("mod_main.gd")),
+		"and no starter script comes with it")
+	var manager := _manager()
+	manager.discover()
+	manager.set_mod_enabled("tester.scaffold", true)
+	manager.load_enabled_mods()
+	assert_true(manager.is_mod_loaded("tester.scaffold"))
+	assert_eq(manager.gui_theme_owner(), "tester.scaffold",
+		"the scaffolded design is the interface theme in force")
+	assert_not_null(manager.get_gui_theme())
 
 
 func test_a_data_only_create_writes_no_script_file() -> void:

@@ -11,6 +11,20 @@ extends MainSceneTest
 ## switch + random name + Back + Choose Location.
 const BUTTON_COUNT := 19
 const MIN_TARGET := 44.0
+## Weather, Wind and Seasons come from mods now, so their three switches only
+## exist once the official mods are installed and enabled the way a player's
+## Browse Mods session leaves the game. This covers every test in the script,
+## including the buttons each arrangement is counted against.
+func before_all() -> void:
+	install_environment_mods()
+	await super()
+
+
+func after_all() -> void:
+	uninstall_environment_mods()
+	super()
+
+
 const SIZES := [
 	[Vector2i(390, 844), StartNewGameScreen.Layout.PHONE, "phone portrait"],
 	[Vector2i(360, 640), StartNewGameScreen.Layout.PHONE, "small phone"],
@@ -370,6 +384,9 @@ func test_the_features_section_disappears_when_no_mod_offers_one() -> void:
 
 	ModManager.clear_feature_options()
 	for option in saved:
+		# `option` still carries the `mod_id` register_feature_option wrote into
+		# the copy it keeps, so the three switches go back to the mods that
+		# offered them (registering them all under one id would collide).
 		ModManager.register_feature_option(str(option.get("mod_id", "test.mod")), option)
 	_screen()._build()
 	await process_frames(2)

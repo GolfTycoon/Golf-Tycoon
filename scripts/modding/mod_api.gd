@@ -147,6 +147,19 @@ func add_hook(hook_name: String, callable: Callable) -> void:
 		_manager.add_hook(mod_id, hook_name, callable)
 
 
+## Dress the whole interface - HUD, menus, panels, popups - in one design
+## of yours: a GuiTheme palette and metrics dictionary (the same shape a
+## data mod's gui_theme file holds; see docs/modding/gui-themes.md). The
+## last mod in load order to provide a theme, by data or by this call,
+## wins; with none the game keeps its stock look. Most interface mods
+## need no code for this: declare `"gui_theme": "data/gui_theme.json"`
+## under `content` in mod.json instead, and call this only when the
+## design must be computed (from config, season, ...).
+func register_gui_theme(spec: Dictionary) -> void:
+	if _manager != null:
+		_manager.register_gui_theme(mod_id, spec)
+
+
 ## Add a widget to the course HUD. `factory` is called (with no arguments)
 ## when the main scene builds its HUD and must return a Control, which is
 ## added to the HUD layer. Position it with anchors/offsets as usual.

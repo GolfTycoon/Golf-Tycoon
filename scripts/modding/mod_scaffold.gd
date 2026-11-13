@@ -9,14 +9,16 @@ class_name ModScaffold
 ##
 ## Creating is not enabling. The folder is discovered by the rescan that
 ## follows, arrives switched off like an installed zip, and changes nothing
-## until the player ticks it and presses Apply & Reload.
+## until the player ticks it and leaves the Mods screen.
 ##
 ## Everything here is static and autoload-free (like ModPackage), so the
 ## rules can be tested - and reused by tools - without a running game.
 
 const DEFAULT_VERSION: String = "0.1.0"
 const SCRIPT_FILE: String = "mod_main.gd"
+const GUI_THEME_FILE: String = "data/gui_theme.json"
 const README_FILE: String = "README.md"
+const ICON_FILE: String = "icon.png"
 const DEFAULT_DESCRIPTION: String = "A new Golf Tycoon mod."
 ## Folder names the mod library keeps for itself. A mod created there would
 ## either be invisible to discovery (`config`) or break the install shelf
@@ -64,8 +66,17 @@ func _mod_restore(_data: Dictionary) -> void:
 
 ## True when the form asked for a starter script (and so for the "script"
 ## permission). The dialog defaults to a script, matching mods/_template.
+## A GUI theme starter is data-only by design - theming needs no code - so
+## it wins over the script tick.
 static func has_script(fields: Dictionary) -> bool:
-	return bool(fields.get("script", true))
+	return bool(fields.get("script", true)) and not has_gui_theme(fields)
+
+
+## True when the form asked for the GUI theme starter: a mod that
+## re-dresses the whole interface from one JSON palette (see
+## docs/modding/gui-themes.md). This is how a new GUI theme mod is born.
+static func has_gui_theme(fields: Dictionary) -> bool:
+	return bool(fields.get("gui_theme", false))
 
 
 ## The id as a safe folder/file token, trimmed. Callers validate it with
@@ -123,15 +134,57 @@ static func manifest_for(fields: Dictionary) -> Dictionary:
 		"author": str(fields.get("author", "")).strip_edges(),
 		"description": description,
 		"homepage": "",
-		"types": ["script", "gameplay"] if has_script(fields) else ["data"],
+		"icon": ICON_FILE,
+		"types": ["script", "gameplay"] if has_script(fields) \
+			else (["data", "gui", "cosmetic"] if has_gui_theme(fields) else ["data"]),
 		"dependencies": [],
-		"content": {},
+		"content": {"gui_theme": GUI_THEME_FILE} if has_gui_theme(fields) else {},
 		"workshop": {"published_file_id": 0, "tags": []},
 	}
 	if has_script(fields):
 		data["entry_point"] = SCRIPT_FILE
 		data["permissions"] = [ModManifest.PERMISSION_SCRIPT]
 	return data
+
+
+## The placeholder icon a new mod is born with: the same muted puzzle piece
+## the Mods screen falls back to, so the mod shows a picture of its own
+## before the modder has painted one. 64x64, the row size times two.
+static func icon_image() -> Image:
+	return PixelIcon.image(PixelIcon.Kind.PUZZLE, 64, MenuStyle.ACCENT_UTILITY, true)
+
+
+## The starter gui_theme.json for a GUI theme scaffold: the stock design
+## with a few clearly-marked colours changed, so the mod visibly dresses
+## the interface the first time it is enabled and every value it does not
+## mention demonstrates the stock fallback it inherits. Edit the colours,
+## keep the shape - docs/modding/gui-themes.md lists every role.
+static func starter_gui_theme(display_name: String) -> String:
+	var heading: String = _one_line(display_name)
+	if heading.is_empty():
+		heading = "My Interface"
+	var spec: Dictionary = {
+		"name": heading,
+		"description": "A new interface design. Edit the colours in this file, then tick the mod and leave the Mods screen.",
+		"colors": {
+			"accent": "8be9e2",
+			"panel": "16222ecc",
+			"button": "2b4258b3",
+			"text": "f2f8fc",
+			"bottom_bar": "0d1b28",
+		},
+		"metrics": {
+			"panel_radius": 18,
+			"button_radius": 14,
+		},
+		# One targeted rule as a worked example: only the Mods screen's
+		# buttons round over. Rules can aim at a screen, a control type or
+		# one named control - docs/modding/gui-themes.md has the list.
+		"rules": [
+			{"target": {"screen": "ModsScreen", "type": "Button"}, "radius": 18},
+		],
+	}
+	return JSON.stringify(spec, "\t") + "\n"
 
 
 ## The starter mod_main.gd for a scripted scaffold, or "" for a data mod.
@@ -158,17 +211,35 @@ static func readme_text(fields: Dictionary) -> String:
 	lines.append("")
 	lines.append("## Next steps")
 	lines.append("")
+	lines.append("The `icon.png` at the mod's root is the picture the Mods screen shows")
+	lines.append("next to its name - a placeholder until you replace it with your own")
+	lines.append("(PNG, JPG, WebP or BMP; a square reads best).")
+	lines.append("")
 	if has_script(fields):
 		lines.append("1. Open `%s` and write the mod." % SCRIPT_FILE)
 		lines.append("2. Describe it in `mod.json`; players read that description in the Mods screen.")
-		lines.append("3. In the game: Mods -> tick the mod -> Apply & Reload.")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen.")
+	elif has_gui_theme(fields):
+		lines.append("1. Open `%s` and make the design yours: every colour" % GUI_THEME_FILE)
+		lines.append("   is a named role (`panel`, `button`, `accent`, `text`, ...),")
+		lines.append("   and any role you delete simply keeps the stock look. The")
+		lines.append("   starter also carries one `rules` entry - a style aimed at")
+		lines.append("   one part of the interface (a screen, a control type, or one")
+		lines.append("   named control) instead of the whole game. The full role,")
+		lines.append("   metric and rule list is in docs/modding/gui-themes.md in")
+		lines.append("   the game repository; the bundled example.gui_* mods are")
+		lines.append("   complete designs to borrow from.")
+		lines.append("2. Describe it in `mod.json`; players read that description in the Mods screen.")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen. The")
+		lines.append("   whole interface - HUD, menus, panels - changes at once.")
+		lines.append("   With two GUI theme mods on, the lower one in the list wins.")
 	else:
 		lines.append("1. Add your JSON files beside this README.")
 		lines.append("2. Point the matching key in `mod.json`'s `content` at them.")
 		lines.append("   (Start with `content.buildings` or `content.tuning`; the")
 		lines.append("   bundled examples show every kind, and this is a data-only")
 		lines.append("   mod, so no code runs.)")
-		lines.append("3. In the game: Mods -> tick the mod -> Apply & Reload.")
+		lines.append("3. In the game: Mods -> tick the mod -> leave the screen.")
 	lines.append("4. Share it: zip this folder so `mod.json` is at the zip root,")
 	lines.append("   then install it from Mods -> Install ZIP on another machine.")
 	lines.append("")
@@ -205,11 +276,21 @@ static func create(user_root: String, fields: Dictionary, taken_ids: Array = [])
 	if has_script(fields):
 		contents[SCRIPT_FILE] = starter_script(str(fields.get("name", "")))
 		files.append(SCRIPT_FILE)
+	if has_gui_theme(fields):
+		DirAccess.make_dir_recursive_absolute(directory.path_join(GUI_THEME_FILE).get_base_dir())
+		contents[GUI_THEME_FILE] = starter_gui_theme(str(fields.get("name", "")))
+		files.append(GUI_THEME_FILE)
 	for relative in files:
 		if not _write_text(directory.path_join(relative), str(contents[relative])):
 			ModPackage.remove_directory_recursive(directory)
 			result["errors"] = ["Could not write '%s'. Check that the mods folder is writable." % directory.path_join(relative)]
 			return result
+	# The mod's own picture for the Mods screen, like every other mod's.
+	if icon_image().save_png(directory.path_join(ICON_FILE)) != OK:
+		ModPackage.remove_directory_recursive(directory)
+		result["errors"] = ["Could not write '%s'. Check that the mods folder is writable." % directory.path_join(ICON_FILE)]
+		return result
+	files.append(ICON_FILE)
 	result["ok"] = true
 	result["mod_id"] = mod_id
 	result["directory"] = directory

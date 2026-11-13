@@ -11,10 +11,14 @@ beginning with `_` are skipped) - copy it, rename the copy, and fill it in.
 2. Edit `mod.json`: pick a unique reverse-style `id`
    (`yourname.my_mod` - it namespaces everything you add and must never
    change once players have saves), a name, a version, a description.
+   The `icon` field points at `icon.png`, the picture the Mods screen
+   shows for the mod - swap in your own image (PNG, JPG, WebP or BMP) or
+   point it at another file in the folder.
 3. Decide what kind of mod it is (docs/modding.md walks through them):
    data only, scripted gameplay, a feature provider, UI... The bundled
    examples beside this template each do one kind end to end.
-4. Launch the game, open **Mods** on the main menu, enable yours, Apply.
+4. Launch the game, open **Mods** on the main menu and enable yours:
+   it loads as soon as you leave the screen.
 5. Share it: zip the folder (the Mods screen installs zips; or run
    `make mod-pack MOD=path/to/folder`), or upload it to the Steam
    Workshop from the same screen in a Steam build.

@@ -1,0 +1,14 @@
+{
+	"format_version": 1,
+	"id": "example.gui_neon",
+	"name": "Example: Neon Fairway GUI",
+	"icon": "icon.png",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon examples",
+	"description": "A GUI theme mod (data only, no code): a synthwave night design for the whole interface - midnight-purple panes with sharp 6px corners and 2px cyan-glow borders, magenta primary buttons, electric-yellow focus rings. One JSON palette styles the HUD, menus, panels and popups; copy this folder to start your own design.",
+	"types": ["data", "gui", "cosmetic"],
+	"content": {
+		"gui_theme": "data/gui_theme.json"
+	}
+}

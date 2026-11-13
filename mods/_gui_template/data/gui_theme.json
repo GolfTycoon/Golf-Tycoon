@@ -1,0 +1,21 @@
+{
+	"name": "My Interface",
+	"description": "Edit these colours, then tick the mod and leave the Mods screen. Any role you delete keeps the stock look.",
+	"colors": {
+		"accent": "8be9e2",
+		"panel": "16222ecc",
+		"button": "2b4258b3",
+		"text": "f2f8fc",
+		"bottom_bar": "0d1b28"
+	},
+	"metrics": {
+		"panel_radius": 18,
+		"button_radius": 14
+	},
+	"rules": [
+		{
+			"target": {"screen": "ModsScreen", "type": "Button"},
+			"radius": 18
+		}
+	]
+}

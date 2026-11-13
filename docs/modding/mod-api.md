@@ -87,6 +87,18 @@ undoes a mod cleanly and how the Mods screen can say who provides what.
   [providers](#providers-replacing-weather-wind-or-seasons).
 - `register_season_provider(provider)` - likewise.
 - `add_hook(name, callable)` - [value hooks](#value-hooks).
+- `register_gui_theme(spec)` - offer a design for the whole interface
+  (HUD, menus, panels, popups, the bottom bar) as a palette dictionary:
+  `{"name": "…", "colors": {role: "hex"}, "metrics": {…}}`, optionally
+  with `font` / `font_bold` (a path in your mod folder, or a loaded
+  `Font`) and `rules` (styles targeted at one screen, control type or
+  named control - including `icon` and `glyph`). Exactly one theme is in
+  force - the one registered **last** in the load order - so a script mod
+  that registers one in `on_load` takes the interface from any data-only
+  theme above it. Almost every mod wants the data-only form instead: the
+  `gui_theme` content key pointing at a JSON file. Roles, metrics,
+  derivation, fonts, rules and coverage are in
+  [gui-themes.md](gui-themes.md).
 - `register_hud_widget(factory)` - `factory()` is called when the main
   scene builds its HUD and must return a `Control`, added to the HUD
   layer; position it with anchors/offsets. Widgets are (re)created with
@@ -182,9 +194,10 @@ whichever loaded mod last registered them (load order decides):
 | Wind | `register_wind_factory(factory)` | `factory()` → a `WindSystem` instance | The neutral base: calm, zero displacement. |
 | Seasons | `register_season_provider(provider)` | a `SeasonProvider` object; `SeasonSystem` (the facade callers use) delegates its tables to it | The neutral provider: no seasonal modifiers, neutral weights, summer visuals all year. |
 
-The bundled `golf_tycoon.weather` / `golf_tycoon.wind` /
-`golf_tycoon.seasons` are the canonical implementations - copy one and
-change the numbers. Points of the contract worth knowing:
+The official `golf_tycoon.weather` / `golf_tycoon.wind` /
+`golf_tycoon.seasons` are the canonical implementations (download them
+from the Browse Mods screen, or read them in a source checkout under
+`repository/packages/`) - copy one and change the numbers. Points of the contract worth knowing:
 
 - The vocabulary lives in the **core** classes and stays fixed:
   `WeatherSystem.WeatherType` (SUNNY, PARTLY_CLOUDY, CLOUDY, LIGHT_RAIN, RAIN,

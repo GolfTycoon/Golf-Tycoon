@@ -149,6 +149,73 @@ func test_the_content_summary_counts_menu_styles() -> void:
 	assert_eq(int((summary["tester.a"] as Dictionary).get("overlays", 0)), 1)
 
 
+func test_the_manifest_knows_the_gui_theme_content_key() -> void:
+	assert_true("gui_theme" in ModManifest.KNOWN_CONTENT_KEYS)
+	var manifest := ModManifest.from_json_text(JSON.stringify({
+		"format_version": 1, "id": "tester.gui", "name": "Glass", "version": "1.0.0",
+		"api_version": 1, "description": "d",
+		"content": {"gui_theme": "data/gui_theme.json"},
+	}))
+	assert_true(manifest.is_valid(), "a GUI theme mod validates: %s" % str(manifest.errors))
+	assert_false(manifest.has_script(), "a GUI theme is data only")
+	for warning in manifest.warnings:
+		assert_false(str(warning).contains("gui_theme"), "the key is not reported as unknown")
+
+
+func test_gui_themes_register_last_wins_and_reset() -> void:
+	_write("mod_a", "gui.json", '{"name": "First", "colors": {"accent": "ff0000"}}')
+	_write("mod_b", "gui.json", '{"gui_theme": {"name": "Second", "colors": {"accent": "00ff00"}}}')
+	assert_null(registry.get_gui_theme(), "no mod, no theme: the stock look")
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"gui_theme": "gui.json"})
+	assert_eq(registry.get_gui_theme_source(), "tester.a")
+	assert_eq(registry.get_gui_theme().color("accent"), Color("ff0000"))
+	registry.apply_mod_content("tester.b", ROOT.path_join("mod_b"), {"gui_theme": "gui.json"})
+	assert_eq(registry.get_gui_theme_source(), "tester.b", "the later mod in load order wins")
+	assert_eq(registry.get_gui_theme().theme_name, "Second", "a wrapped file reads too")
+	assert_true(registry.get_conflicts().any(func(line: String) -> bool:
+		return line.contains("Interface theme")), "the takeover is reported, not silent")
+	registry.reset_mod_content()
+	assert_null(registry.get_gui_theme())
+	assert_eq(registry.get_gui_theme_source(), "")
+
+
+func test_a_gui_theme_loads_its_fonts_and_rule_icons_from_the_mod_folder() -> void:
+	# A real typeface file beside the palette (the game's own Regular,
+	# borrowed as bytes - an un-imported .ttf is what a mod ships).
+	var bytes := FileAccess.get_file_as_bytes("res://assets/fonts/PixelifySans-Regular.ttf")
+	var font_path := ROOT.path_join("mod_a/fonts/Body.ttf")
+	DirAccess.make_dir_recursive_absolute(font_path.get_base_dir())
+	var font_file := FileAccess.open(font_path, FileAccess.WRITE)
+	font_file.store_buffer(bytes)
+	font_file.close()
+	_write_png("mod_a", "icons/bolt.png")
+	_write("mod_a", "gui.json", '{"name": "Assets", "font": "fonts/Body.ttf",'
+		+ ' "rules": [{"target": {"type": "Button"}, "icon": "icons/bolt.png",'
+		+ ' "background": "223344"}]}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"gui_theme": "gui.json"})
+	var theme: GuiTheme = registry.get_gui_theme()
+	assert_not_null(theme)
+	assert_not_null(theme.font, "the palette's font file became a Font")
+	assert_eq(theme.rules.size(), 1)
+	assert_not_null(theme.rules[0].get("icon"), "the rule's icon file became a texture")
+	assert_eq(registry.get_warnings(), [], "a complete theme loads without a murmur")
+	_write("mod_b", "gui.json", '{"font": "fonts/Missing.ttf"}')
+	registry.apply_mod_content("tester.b", ROOT.path_join("mod_b"), {"gui_theme": "gui.json"})
+	assert_null(registry.get_gui_theme().font, "a missing font keeps the stock one")
+	assert_eq(registry.get_warnings().size(), 1, "and says so once: %s" % str(registry.get_warnings()))
+
+
+func test_a_broken_gui_theme_warns_and_keeps_the_stock_values() -> void:
+	_write("mod_a", "gui.json", '{"colors": {"accent": "not-a-colour", "panel": 42, "mystery": "ffffff"}}')
+	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"gui_theme": "gui.json"})
+	var warnings: Array = registry.get_warnings()
+	assert_eq(warnings.size(), 3, "each broken entry is told once: %s" % str(warnings))
+	var theme: GuiTheme = registry.get_gui_theme()
+	assert_not_null(theme, "a theme with warnings still applies")
+	assert_true(GuiTheme._same_color(theme.color("accent"), GuiTheme.default_colors()["accent"]),
+		"the unreadable accent keeps the stock gold")
+
+
 func test_the_manifest_knows_the_menu_content_keys() -> void:
 	assert_true("menu_backdrops" in ModManifest.KNOWN_CONTENT_KEYS)
 	assert_true("menu_overlays" in ModManifest.KNOWN_CONTENT_KEYS)

@@ -10,7 +10,7 @@ const KINDS := [WeatherSystem.WeatherType.SUNNY, WeatherSystem.WeatherType.PARTL
 
 ## The shipped weather simulation lives in the Weather mod; WeatherSystem
 ## itself is now the neutral base that runs when the mod is off.
-const WeatherImpl := preload("res://mods/golf_tycoon.weather/weather_system.gd")
+const WeatherImpl := preload("res://repository/packages/golf_tycoon.weather/weather_system.gd")
 
 var weather: WeatherSystem
 
