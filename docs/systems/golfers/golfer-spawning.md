@@ -55,6 +55,8 @@ Tee bookings are now player-controlled in Finance: Busy (60), Balanced (90), and
 
 Relaxed bookings additionally cap simultaneous guests at two per open hole (minimum four); other modes allow four per hole. This limits congestion when a popular course reaches its arrival cap.
 
+Club members shape who arrives. A returning member comes back with the membership they hold and pays its green fee; a contented member may recommend a golfer, who arrives as a referred guest; and the club's membership is a capped word-of-mouth lift on arrivals (2% per member, up to +20%). See [Club Membership](club-membership.md).
+
 
 ---
 

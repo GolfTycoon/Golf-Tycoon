@@ -130,6 +130,13 @@ func get_spawn_rate_modifier() -> float:
 	var fair := CourseEconomy.fair_round_price(GameManager.reputation, holes, GameManager.current_day, GameManager.current_theme)
 	base_modifier *= CourseEconomy.price_demand(GameManager.green_fee, holes, fair)
 
+	# Club members talk the course up: every member is a small word-of-mouth
+	# lift on arrivals, capped so a popular club never floods the first tee
+	# (see ClubMembership.demand_modifier).
+	if FeedbackManager != null:
+		base_modifier *= ClubMembership.demand_modifier(
+			int(FeedbackManager.membership_summary().members))
+
 	# Mods get the last word: a balance mod's flat tuning multiplier, then the
 	# script hooks in load order (see docs/modding/mod-api.md).
 	base_modifier *= ContentRegistry.get_tuning("golfers.spawn_multiplier", 1.0)
@@ -850,7 +857,8 @@ func _find_next_open_hole(from_index: int, course_data: GameManager.CourseData) 
 
 ## Spawn a new golfer
 func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int = -1,
-		defer_skin_setup: bool = false) -> Golfer:
+		defer_skin_setup: bool = false,
+		membership_tier: int = ClubMembership.Tier.NON_MEMBER) -> Golfer:
 	if not golfers_container:
 		push_error("No golfers container found")
 		return null
@@ -862,6 +870,8 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	golfer.golfer_name = golfer_name
 	golfer.guest_key = FeedbackManager.next_guest_key()
 	golfer.group_id = group_id
+	# Club members pay a higher green fee for this round (see ClubMembership).
+	golfer.membership_tier = ClubMembership.clamp_tier(membership_tier)
 
 	# Set miss tendency: lower skill = stronger bias, random hook vs slice
 	var tendency_magnitude = (1.0 - skill_level) * randf_range(0.2, 0.7)
@@ -886,8 +896,9 @@ func spawn_golfer(golfer_name: String, skill_level: float = 0.5, group_id: int =
 	# plays, and the arrival walk leaves them WALKING until they get there).
 	_send_golfer_in_from_clubhouse(golfer)
 
-	# Process green fee payment
-	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name)
+	# Process green fee payment - members pay their tier's premium.
+	GameManager.process_green_fee_payment(golfer.golfer_id, golfer_name,
+		golfer.membership_tier)
 
 	EventBus.golfer_spawned.emit(golfer.golfer_id, golfer_name)
 	golfer_spawned.emit(golfer)
@@ -938,7 +949,9 @@ func _send_golfer_in_from_clubhouse(golfer: Golfer) -> void:
 func spawn_random_golfer(group_id: int = -1) -> Golfer:
 	var returning := FeedbackManager.take_returning_guest()
 	if not returning.is_empty():
-		var regular := spawn_golfer(returning.name, .5, group_id, true)
+		# A returning guest keeps the club membership they hold (see ClubMembership).
+		var member_tier := int(returning.get("membership", ClubMembership.Tier.NON_MEMBER))
+		var regular := spawn_golfer(returning.name, .5, group_id, true, member_tier)
 		if regular:
 			regular.initialize_from_tier(int(returning.tier))
 			regular.guest_key = returning.key
@@ -977,6 +990,8 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 		golfer.attributes.age = identity.age
 		golfer.attributes.gender = identity.gender
 		golfer.attributes.marital_status = identity.marital_status
+		# A brand-new guest may be a walk-in a member recommended.
+		golfer.referred_by_member = FeedbackManager.consume_referral(identity.name)
 		golfer.finish_spawn_setup()
 		print("Spawned %s, %s (%s tier)" % [identity.name, identity.profession,
 			GolferTier.get_tier_name(tier)])
@@ -1006,9 +1021,14 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	var tier := int(visitor.get("tier", GolferTier.Tier.CASUAL))
 	var skin := str(visitor.get("skin_id", ""))
 	var group_colors := WorldLocations.parse_visitor_group_colors(visitor)
-	var golfer := spawn_golfer(visitor_name, 0.5, group_id, true)
+	# A known customer keeps the membership they hold, and pays its fee for
+	# this round too; a visitor card a member recruited arrives as a referral
+	# (see FeedbackManager and ClubMembership).
+	var membership := FeedbackManager.membership_for_guest(visitor_name)
+	var golfer := spawn_golfer(visitor_name, 0.5, group_id, true, membership)
 	if golfer == null:
 		return null
+	golfer.referred_by_member = FeedbackManager.consume_referral(visitor_name)
 	golfer.initialize_from_tier(tier)
 	# The visitor card carries the whole person: identity, Golfer Traits,
 	# Golfer Skills and Golf Skill points all come from the card. The tier has

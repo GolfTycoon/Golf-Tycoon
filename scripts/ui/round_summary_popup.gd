@@ -14,6 +14,7 @@ var _name_label: Label = null
 var _score_label: Label = null
 var _attitude_label: Label = null
 var _fee_label: Label = null
+var _membership_label: Label = null
 var _dismiss_timer: SceneTreeTimer = null
 var _is_showing: bool = false
 
@@ -71,6 +72,13 @@ func _build_panel() -> void:
 	_fee_label.add_theme_color_override("font_color", UIConstants.COLOR_SUCCESS_DIM)
 	vbox.add_child(_fee_label)
 
+	# Club membership: who joined, who moved up, who left (see ClubMembership).
+	_membership_label = Label.new()
+	_membership_label.add_theme_font_size_override("font_size", 11)
+	_membership_label.add_theme_color_override("font_color", UIConstants.COLOR_GOLD)
+	_membership_label.visible = false
+	vbox.add_child(_membership_label)
+
 	# Click to dismiss
 	_panel.gui_input.connect(_on_panel_input)
 
@@ -121,6 +129,18 @@ func _show_next() -> void:
 	else:
 		_fee_label.text = "Paid: $%d (%d holes)" % [fee, holes]
 
+	# Club membership news for this round, when there is any: a joining, an
+	# upgrade or a cancellation, with the reason the golfer gave.
+	var from_tier := int(data.get("membership_before", data.get("membership", 0)))
+	var to_tier := int(data.get("membership", 0))
+	var reason := str(data.get("membership_reason", ""))
+	_membership_label.visible = to_tier != from_tier
+	if to_tier != from_tier:
+		_membership_label.text = _membership_text(from_tier, to_tier, reason)
+		_membership_label.add_theme_color_override("font_color",
+			ClubMembership.tier_color(to_tier) if ClubMembership.is_member(to_tier)
+			else UIConstants.COLOR_DANGER_MUTED)
+
 	# Position bottom-right
 	_panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0)
 	_panel.show()
@@ -154,6 +174,18 @@ func _dismiss_current() -> void:
 func _on_panel_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_dismiss_current()
+
+## "Joined the club as a bronze member - enjoyed the round", or the same in
+## reverse for a downgrade.
+func _membership_text(from_tier: int, to_tier: int, reason: String) -> String:
+	var suffix := (" - " + reason) if not reason.is_empty() else ""
+	if ClubMembership.is_member(to_tier) and not ClubMembership.is_member(from_tier):
+		return "Joined as a %s%s" % [ClubMembership.tier_name(to_tier).to_lower(), suffix]
+	if to_tier > from_tier:
+		return "Upgraded to %s%s" % [ClubMembership.tier_name(to_tier).to_lower(), suffix]
+	if to_tier == ClubMembership.Tier.NON_MEMBER:
+		return "Cancelled their membership%s" % suffix
+	return "Dropped to %s%s" % [ClubMembership.tier_name(to_tier).to_lower(), suffix]
 
 func _get_score_color(diff: int) -> Color:
 	return UIConstants.get_score_color(diff)

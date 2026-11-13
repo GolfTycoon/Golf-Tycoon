@@ -103,6 +103,11 @@ func _build_sections(vbox: VBoxContainer, stats: GameManager.DailyStatistics, pr
 		var tourn_rev_row = _create_stat_row("  Tournament:", "$%d" % stats.tournament_revenue, dim_green)
 		vbox.add_child(tourn_rev_row)
 
+	# Show club membership income (joining fees) if any
+	if stats.membership_income > 0:
+		var member_row = _create_stat_row("  Memberships:", "$%d" % stats.membership_income, dim_green)
+		vbox.add_child(member_row)
+
 	# Total revenue
 	var total_rev = stats.get_total_revenue()
 	var total_rev_row = _create_stat_row("Total Revenue:", "$%d" % total_rev, UIConstants.COLOR_SUCCESS)
@@ -304,6 +309,14 @@ func _build_sections(vbox: VBoxContainer, stats: GameManager.DailyStatistics, pr
 		vbox.add_child(_create_stat_row("Return intent:", "%d%%" % int(experience.return_intent * 100), UIConstants.COLOR_TEXT))
 	vbox.add_child(_create_stat_row("Returning guests:", str(experience.returning), UIConstants.COLOR_TEXT))
 	vbox.add_child(_create_stat_row("Amenity visits:", str(experience.service_visits), UIConstants.COLOR_TEXT))
+	var membership := FeedbackManager.membership_summary()
+	if membership.members > 0:
+		vbox.add_child(_create_stat_row("Club members (Gold/Silver/Bronze):",
+			"%d (%d/%d/%d)" % [membership.members, membership.gold,
+				membership.silver, membership.bronze],
+			UIConstants.COLOR_GOLD))
+		vbox.add_child(_create_stat_row("Member referrals:",
+			str(experience.get("referrals", 0)), UIConstants.COLOR_SUCCESS_MUTED))
 
 	# Show top feedback if available
 	var feedback_summary = FeedbackManager.get_daily_summary()

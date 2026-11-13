@@ -131,6 +131,7 @@ func _update_rating() -> void:
 	var experience := FeedbackManager.visit_summary()
 	_experience_label.text = "%d completed-visit reviews | %d returning guests\nVisit satisfaction: %s | Return intent: %s\n%d amenity visits | $%d service income" % [experience.reviews,experience.returning, ("%d%%" % int(experience.satisfaction*100)) if experience.reviews else "awaiting rounds", ("%d%%" % int(experience.return_intent*100)) if experience.reviews else "awaiting rounds",experience.service_visits,experience.service_revenue]
 	_experience_label.tooltip_text = "Visit satisfaction combines needs, attitude and value at the end of the round. Return intent is a forecast, not a guaranteed booking."
+	_experience_label.text += "\n" + _membership_line()
 	var recent := FeedbackManager.recent_experience()
 	if recent.days > 0:
 		_experience_label.text += "\nPrevious %d days: %s satisfaction | $%d/day operating profit" % [recent.days,("%d%%" % int(recent.satisfaction*100)) if recent.reviews > 0 else "unrated",int(recent.profit)]
@@ -154,6 +155,18 @@ func _update_rating() -> void:
 		detail.add_theme_color_override("font_color", UIConstants.COLOR_TEXT_DIM)
 		_advice_box.add_child(detail)
 	rating_updated.emit(stars)
+
+## The club's membership line: who holds a membership, what each tier is worth
+## in green fees, and the best tier the club's standing can sell.
+func _membership_line() -> String:
+	var membership := FeedbackManager.membership_summary()
+	var counts: Dictionary = membership.counts
+	return "Club members: %d (Gold %d | Silver %d | Bronze %d)\nMember green fees: %d%% of public | Word of mouth: +%d%% arrivals | Top tier on sale: %s" % [
+		membership.members, int(counts[ClubMembership.Tier.GOLD]),
+		int(counts[ClubMembership.Tier.SILVER]), int(counts[ClubMembership.Tier.BRONZE]),
+		int(round(membership.average_fee_multiplier * 100.0)),
+		int(round((membership.demand_modifier - 1.0) * 100.0)),
+		ClubMembership.tier_name(int(membership.max_tier))]
 
 func _star_color(stars: float) -> Color:
 	if stars >= 4.0:
