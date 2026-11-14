@@ -48,8 +48,6 @@ const ROLL_WIDTH := 1.4
 const GROUND_WIDTH := 1.0
 const DOT_RADIUS := 1.1
 const BALL_RADIUS := 1.4
-const CARRY_RING_RADIUS := 2.4
-const CARRY_RING_SEGMENTS := 12
 ## Longest back arrowhead, and the share of a short roll one may take.
 const ARROW_HEAD := 3.2
 const ARROW_SHARE := 0.7
@@ -105,7 +103,7 @@ static func profile(shot: int) -> Dictionary:
 	var roll_length := absf(roll_ratio) / (1.0 + roll_ratio) * ROLL_GAIN
 	# The roll is measured back from the rest point, so a forward roll lands
 	# short of it and a reversed one lands past it — the way AimGuide places the
-	# carry ring it hands its rollout over to.
+	# carry point it hands its rollout over to.
 	var carry_length := 1.0 + roll_length if roll_ratio < 0.0 else 1.0 - roll_length
 	return {
 		"shape": shot,
@@ -242,7 +240,7 @@ static func _fit_points(points: PackedVector2Array, fit_scale: float, offset: Ve
 # COLOURS
 # ============================================================================
 
-## The guide's own hues: gold for the flight, violet for the backspin reversal
+## The guide's own hues: white for the flight, violet for the backspin reversal
 ## (see `AimGuide`). A shot the lie forbids — or a row waiting for its turn —
 ## draws the same picture in the UI's muted grey.
 static func line_color(shot: int, is_enabled: bool) -> Color:
@@ -250,10 +248,13 @@ static func line_color(shot: int, is_enabled: bool) -> Color:
 		return Color(UIConstants.COLOR_TEXT_MUTED, MUTED_ALPHA)
 	return AimGuide.BACKSPIN_COLOR if shot == 3 else AimGuide.SHOT_LINE_COLOR
 
-## The faint ground reference under the flight, in the same hue.
+## The ground shadow under the flight, matching the guide's black shadow when
+## live and the UI's muted grey when disabled.
 static func ground_color(is_enabled: bool) -> Color:
-	var base: Color = UIConstants.COLOR_TEXT_MUTED if not is_enabled else AimGuide.SHOT_LINE_COLOR
-	return Color(base.r, base.g, base.b, GROUND_ALPHA)
+	if not is_enabled:
+		var muted := UIConstants.COLOR_TEXT_MUTED
+		return Color(muted.r, muted.g, muted.b, GROUND_ALPHA)
+	return AimGuide.GROUND_COLOR
 
 static func ball_color(is_enabled: bool) -> Color:
 	return UIConstants.COLOR_TEXT if is_enabled else UIConstants.COLOR_TEXT_MUTED
@@ -278,7 +279,6 @@ func _paint(canvas) -> void:
 	var roll: PackedVector2Array = geometry["roll"]
 	var dots: PackedVector2Array = geometry["roll_dots"]
 	var arrow: PackedVector2Array = geometry["arrow"]
-	var carry: Vector2 = geometry["carry"]
 	var origin: Vector2 = geometry["origin"]
 	canvas.draw_polyline(ground, ground_color(enabled), GROUND_WIDTH, true)
 	canvas.draw_polyline(arc, line, ARC_WIDTH, true)
@@ -287,5 +287,6 @@ func _paint(canvas) -> void:
 		canvas.draw_circle(dot, DOT_RADIUS, line)
 	if arrow.size() >= 3:
 		canvas.draw_polyline(arrow, line, ROLL_WIDTH, true)
-	canvas.draw_arc(carry, CARRY_RING_RADIUS, 0.0, TAU, CARRY_RING_SEGMENTS, line, ROLL_WIDTH, true)
+	# No ring where the flight hands over to the roll, matching the guide on
+	# the course: the arc simply meets the dotted rollout at the carry point.
 	canvas.draw_circle(origin, BALL_RADIUS, ball_color(enabled))

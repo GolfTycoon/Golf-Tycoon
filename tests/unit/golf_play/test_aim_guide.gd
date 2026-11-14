@@ -261,3 +261,64 @@ func test_show_and_clear_hold_the_preview() -> void:
 	guide.show_preview(_preview())
 	guide.clear()
 	assert_true(guide.preview.is_empty(), "clear() removes the guide")
+
+func test_guide_paints_thin_white_line_over_black_shadow_with_no_shapes() -> void:
+	assert_almost_eq(AimGuide.SHOT_LINE_COLOR.r, 1.0, 0.001, "Aiming line is white")
+	assert_almost_eq(AimGuide.SHOT_LINE_COLOR.g, 1.0, 0.001)
+	assert_almost_eq(AimGuide.SHOT_LINE_COLOR.b, 1.0, 0.001)
+	assert_almost_eq(AimGuide.SHOT_LINE_SHADOW_COLOR.r, 0.0, 0.001, "Aiming line shadow is black")
+	assert_almost_eq(AimGuide.SHOT_LINE_SHADOW_COLOR.g, 0.0, 0.001)
+	assert_almost_eq(AimGuide.SHOT_LINE_SHADOW_COLOR.b, 0.0, 0.001)
+	assert_gt(AimGuide.SHOT_LINE_SHADOW_COLOR.a, 0.0)
+	assert_almost_eq(AimGuide.GROUND_COLOR.r, 0.0, 0.001, "Ground track shadow is black")
+	assert_almost_eq(AimGuide.GROUND_COLOR.g, 0.0, 0.001)
+	assert_almost_eq(AimGuide.GROUND_COLOR.b, 0.0, 0.001)
+	assert_gt(AimGuide.GROUND_COLOR.a, 0.0)
+	assert_lt(AimGuide.SHOT_LINE_WIDTH, 2.0, "Aiming line stroke is thin")
+	assert_gt(AimGuide.SHOT_SHADOW_WIDTH, AimGuide.SHOT_LINE_WIDTH, "Black shadow rims the white line")
+
+	var guide: AimGuide = add_child_autofree(AimGuide.new())
+	for anchor in ["center", "vertex"]:
+		var shot_preview := _preview({"anchor_type": anchor, "range_limited": true})
+		guide.show_preview(shot_preview)
+		var canvas := GuideRecordingCanvas.new()
+		guide._paint(canvas, grid)
+
+		assert_eq(canvas.count_polyline_color(AimGuide.GROUND_COLOR), 1,
+			"Paints the black shadow track on the ground (%s)" % anchor)
+		assert_eq(canvas.count_polyline_color(AimGuide.SHOT_LINE_SHADOW_COLOR), 1,
+			"Paints the black shadow under the aiming trajectory (%s)" % anchor)
+		assert_eq(canvas.count_polyline_color(AimGuide.SHOT_LINE_COLOR), 1,
+			"Paints the thin white aiming trajectory on top (%s)" % anchor)
+		assert_eq(canvas.circles, 0, "No dots or circles on the aiming line (%s)" % anchor)
+		assert_eq(canvas.arcs, 0, "No rings on the aiming line (%s)" % anchor)
+		assert_eq(canvas.lines, 0, "No diamonds, arrows or X shapes on the aiming line (%s)" % anchor)
+
+class GuideRecordingCanvas:
+	var polyline_colors: Array[Color] = []
+	var circles := 0
+	var arcs := 0
+	var lines := 0
+
+	func draw_polyline(_points: PackedVector2Array, color: Color, _width: float = -1.0,
+			_aa: bool = false) -> void:
+		polyline_colors.append(color)
+
+	func draw_circle(_position: Vector2, _radius: float, _color: Color, _filled: bool = true,
+			_width: float = -1.0, _aa: bool = false) -> void:
+		circles += 1
+
+	func draw_arc(_center: Vector2, _radius: float, _from: float, _to: float, _points: int,
+			_color: Color, _width: float = -1.0, _aa: bool = false) -> void:
+		arcs += 1
+
+	func draw_line(_from: Vector2, _to: Vector2, _color: Color, _width: float = -1.0,
+			_aa: bool = false) -> void:
+		lines += 1
+
+	func count_polyline_color(color: Color) -> int:
+		var count := 0
+		for seen in polyline_colors:
+			if seen.is_equal_approx(color):
+				count += 1
+		return count
