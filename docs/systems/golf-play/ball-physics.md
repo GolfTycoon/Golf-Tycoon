@@ -3,7 +3,7 @@
 > How the ball travels on screen: an arc through the air, then a roll that depends on the ground it lands on, the slope and any backspin.
 
 **Source:** `scripts/entities/ball.gd` (flight and rollout animation), `scripts/managers/ball_manager.gd` (`animate_shot()`, `_on_ball_shot_precise()`), `scripts/entities/golfer.gd` (`_calculate_rollout()`, `_estimate_flight_duration()`), `scripts/systems/golf_rules.gd` (`get_roll_multiplier()`, `stops_ball_on_landing()`, `catches_rolling_ball()`)
-**Tests:** `tests/unit/test_ball_and_hole_size.gd`, `tests/unit/test_aim_guide.gd`
+**Tests:** `tests/unit/golf_play/test_ball_and_hole_size.gd`, `tests/unit/golf_play/test_aim_guide.gd`
 
 ---
 
@@ -18,6 +18,8 @@ Full shots follow a **parabolic arc**. The ball rises to a peak mid-flight and c
 **Wind drift** is a bell curve of sideways displacement. The ball drifts most at mid-flight and returns to the landing point at the end. It is cosmetic, because wind has already been applied to the landing.
 
 The ball also grows slightly at the peak of its arc, which gives a sense of depth as it comes closer to the camera.
+
+Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 55% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Prop & ball shadows** setting: *Contact only* keeps it, *Off* drops it, and an already-placed ball obeys a change without being rebuilt.
 
 ### Rollout
 
@@ -60,7 +62,22 @@ if max_height > 0:
     scale = 1.0 + (arc_height / max_height) × 0.5   # 1.5× at the peak, 1.0× on the ground
 ```
 
-### 3. Flight duration
+### 3. Contact shadow
+
+```
+lift_ratio = arc_height / max_height                    # 0 on the ground, 1 at the peak
+
+shadow_position = ball_position + (0, arc_height)       # pushed back down to the ground
+                + SHADOW_OFFSET * BALL_RADIUS
+                  all divided by the depth scale
+
+shadow_scale    = lerp(1.0, 0.55, lift_ratio) / depth scale
+shadow_alpha    = lerp(0.30, 0.165, lift_ratio)
+```
+
+The depth scale is divided out because it enlarges everything under the ball with it; without that the shadow would swell exactly when it should read as distance. The shadow's centre sits `(0.2, 0.9)` ball radii from the ball - at its foot, a touch to the right - and its ellipse is `(1.0, 0.5)` ball radii: wider across the tile than up the screen, like every contact shadow in the isometric view, and a shade wider than the ball so a dark rim shows around its foot.
+
+### 4. Flight duration
 
 Full shots (`BallManager._on_ball_shot_precise()`, which uses the carry distance):
 
@@ -76,7 +93,7 @@ Putts (`BallManager.animate_shot()`):
 duration = clamp(0.3 + (yards / 100) × 0.7, 0.3, 1.5)
 ```
 
-### 4. Base rollout fractions
+### 5. Base rollout fractions
 
 Rollout is a fraction of carry distance:
 
@@ -90,7 +107,7 @@ Rollout is a fraction of carry distance:
 
 **Chip or full wedge:** `distance_ratio = carry / wedge_max_distance`. If the ratio is above **0.65** the shot is a full wedge and backspin is possible. Otherwise it is a chip.
 
-### 5. Backspin
+### 6. Backspin
 
 ```
 spin_skill = accuracy × 0.6 + recovery × 0.4
@@ -109,7 +126,7 @@ Backspin is only partly affected by the ground, because the spin is on the ball:
 terrain_mult = lerp(1.0, terrain_mult, 0.4)           # 40% of the terrain effect applies
 ```
 
-### 6. Terrain roll multiplier
+### 7. Terrain roll multiplier
 
 `GolfRules.get_roll_multiplier(terrain)` is the single table used for every roll.
 
@@ -129,7 +146,7 @@ terrain_mult = lerp(1.0, terrain_mult, 0.4)           # 40% of the terrain effec
 | Brush | 0.05× | Swallowed by the scrub |
 | Water, stream, out of bounds, bunker, pot bunker, flower bed | — | No roll |
 
-### 7. Slope
+### 8. Slope
 
 ```
 slope           = terrain.get_slope_direction(carry_position)
@@ -141,7 +158,7 @@ if slope_dot > 0:  rollout_distance *= 1.0 + slope_dot × 0.5     # downhill: up
 if slope_dot < 0:  rollout_distance *= max(0.2, 1.0 + slope_dot × 0.5)   # uphill: at least 20% kept
 ```
 
-### 8. Hazard check along the roll
+### 9. Hazard check along the roll
 
 The roll is checked every quarter tile (`steps = ceil(rollout × 4)`):
 
@@ -154,7 +171,7 @@ for each step:
 
 `catches_rolling_ball()` covers water, stream, out of bounds, bunkers, deep rough and brush.
 
-### 9. Rollout animation
+### 10. Rollout animation
 
 ```
 eased_t     = 1 − (1 − roll_progress)²                 # ease-out
@@ -164,7 +181,7 @@ duration    = clamp(0.3 + (screen_dist / 200) × 0.8, 0.2, 1.2)
 
 Rolls shorter than **0.15 tile** (about 3 yards) skip the animation.
 
-### 10. Landing effect
+### 11. Landing effect
 
 `Ball._spawn_landing_impact()` plays a radial burst of eight particles (`LandingImpactEffect`, 0.4 s) where the ball lands. The colour is chosen from the ground under the carry point:
 
