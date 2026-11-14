@@ -144,7 +144,7 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 | 4-6 | Course-editing helpers drawn over the ground: elevation preview (4), land boundary (5), cup (6) |
 | 10 | Hole visuals (`hole_visualizer.gd`) and the routing overlay; a golfer's name label rides `+10` from its own band |
 | 50 | Flags |
-| 100 | The ball, floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
+| 100 | The ball and the contact shadow it lays on the ground beneath it, floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
 | 150-300 | Impact and celebration effects |
 
 The UI is a `CanvasLayer`, so it always draws over the world whatever band it uses.
