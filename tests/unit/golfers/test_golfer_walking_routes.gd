@@ -26,6 +26,7 @@ func after_each() -> void:
 	var previous = GameManager.terrain_grid
 	if grid and is_instance_valid(grid) and previous == grid:
 		GameManager.terrain_grid = null
+	GameManager.entity_layer = null
 	super()
 
 ## A straight trail west to east across the middle of the plot.
@@ -215,3 +216,100 @@ func test_walking_the_trail_covers_more_ground_than_the_rough() -> void:
 	assert_almost_eq(rough_step, 10.0, 0.01, "Ten units of ground in a tenth of a second")
 	assert_almost_eq(trail_step, 12.5, 0.01, "The trail covers a quarter more ground")
 	assert_gt(trail_step, rough_step, "Golfers walk quicker on the path")
+
+
+func _building(pos: Vector2i, size: Vector2i) -> Building:
+	if GameManager.entity_layer == null:
+		var entities := EntityLayer.new()
+		add_child_autofree(entities)
+		GameManager.entity_layer = entities
+	var building: Building = autofree(Building.new())
+	building.grid_position = pos
+	building.width = size.x
+	building.height = size.y
+	GameManager.entity_layer.buildings[pos] = building
+	return building
+
+func _assert_route_clear(start: Vector2, route: Array[Vector2]) -> void:
+	var previous := start
+	for point in route:
+		assert_false(golfer._building_on_segment(previous, point), "Every segment must avoid the footprint")
+		previous = point
+
+func test_routes_around_multi_tile_building() -> void:
+	_building(Vector2i(18, 18), Vector2i(4, 5))
+	var start := Vector2i(14, 20)
+	var route := _route(start, Vector2i(26, 20))
+	assert_gt(route.size(), 1)
+	_assert_route_clear(_world(start), route)
+	assert_eq(route.back(), _world(Vector2i(26, 20)))
+
+func test_short_and_diagonal_walks_do_not_clip_buildings() -> void:
+	_building(Vector2i(11, 10), Vector2i.ONE)
+	var start := Vector2i(10, 10)
+	var route := _route(start, Vector2i(12, 10))
+	assert_gt(route.size(), 1)
+	_assert_route_clear(_world(start), route)
+	assert_true(golfer._building_on_segment(_world(Vector2i(10, 9)), _world(Vector2i(12, 11))))
+
+func test_trail_route_avoids_building() -> void:
+	_lay_trail(20, 5, 32)
+	_building(Vector2i(18, 19), Vector2i(3, 3))
+	var start := Vector2i(6, 20)
+	var route := _route(start, Vector2i(30, 20))
+	assert_gt(route.size(), 1)
+	_assert_route_clear(_world(start), route)
+
+func test_unreachable_destination_falls_back_through_building() -> void:
+	_building(Vector2i(20, 0), Vector2i(1, GRID))
+	var destination := Vector2i(30, 20)
+	golfer.global_position = _world(Vector2i(10, 20))
+	golfer.begin_walk_to(_world(destination), "Walking")
+	assert_true(golfer._walk_through_buildings)
+	for i in 200:
+		if golfer.current_state != Golfer.State.WALKING:
+			break
+		golfer._process_walking(0.1)
+	assert_eq(golfer.current_state, Golfer.State.IDLE)
+	assert_almost_eq(golfer.global_position.distance_to(_world(destination)), 0.0, 0.01)
+
+func test_fallback_still_avoids_water_when_possible() -> void:
+	_building(Vector2i(20, 0), Vector2i(1, GRID))
+	for y in range(15, 26):
+		grid.set_tile(Vector2i(15, y), TerrainTypes.Type.WATER)
+	var route := _route(Vector2i(10, 20), Vector2i(30, 20))
+	assert_true(golfer._walk_through_buildings)
+	assert_gt(route.size(), 1)
+	var previous := Vector2i(10, 20)
+	for point in route:
+		var tile := grid.screen_to_grid(point)
+		assert_false(golfer._path_crosses_obstacle(previous, tile, true, false))
+		previous = tile
+
+func test_destination_inside_building_is_reached() -> void:
+	_building(Vector2i(20, 20), Vector2i(2, 2))
+	var route := _route(Vector2i(15, 20), Vector2i(20, 20))
+	assert_true(golfer._walk_through_buildings)
+	assert_eq(route.back(), _world(Vector2i(20, 20)))
+
+func test_building_placed_during_walk_triggers_replan() -> void:
+	var start := Vector2i(10, 20)
+	var destination := Vector2i(25, 20)
+	golfer.global_position = _world(start)
+	golfer.begin_walk_to(_world(destination), "Walking")
+	_building(Vector2i(16, 19), Vector2i(3, 3))
+	golfer._process_walking(0.1)
+	assert_false(golfer._building_on_segment(_world(start), golfer.global_position))
+	_assert_route_clear(golfer.global_position, golfer.path.slice(golfer.path_index))
+
+func test_golfer_starting_inside_building_can_leave() -> void:
+	_building(Vector2i(10, 20), Vector2i(2, 2))
+	var destination := Vector2i(16, 20)
+	golfer.global_position = _world(Vector2i(10, 20))
+	golfer.begin_walk_to(_world(destination), "Walking")
+	for i in 100:
+		if golfer.current_state != Golfer.State.WALKING:
+			break
+		golfer._process_walking(0.1)
+	assert_eq(golfer.current_state, Golfer.State.IDLE)
+	assert_almost_eq(golfer.global_position.distance_to(_world(destination)), 0.0, 0.01)

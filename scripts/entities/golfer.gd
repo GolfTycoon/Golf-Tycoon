@@ -243,6 +243,7 @@ var previous_hole_strokes: int = 0  # Strokes on last completed hole (for honor 
 var ball_position: Vector2i = Vector2i.ZERO
 var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
+var _walk_through_buildings := false
 
 ## Shot preparation
 var preparation_time: float = 0.0
@@ -1143,7 +1144,20 @@ func _process(delta: float) -> void:
 			_process_swinging(delta)
 
 func _process_walking(delta: float) -> void:
-	if path.is_empty() or path_index >= path.size():
+	# Buildings can be placed or moved while a golfer is already walking.
+	# Replan before moving, unless this walk has no building-free route.
+	if not _walk_through_buildings and not path.is_empty() and path_index < path.size() and _building_on_segment(global_position, path[path_index]):
+		var destination: Vector2 = path.back()
+		var replacement := _find_path_to(destination)
+		if replacement.is_empty() or (not _walk_through_buildings and _building_on_segment(global_position, replacement[0])):
+			velocity = Vector2.ZERO
+			return
+		path = replacement
+		path_index = 0
+	if path.is_empty():
+		velocity = Vector2.ZERO
+		return
+	if path_index >= path.size():
 		_on_reached_destination()
 		return
 
@@ -3147,6 +3161,7 @@ func _walk_to_ball() -> void:
 ## a route over the trail network is taken whenever it beats walking straight,
 ## and never when it does not.
 func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
+	_walk_through_buildings = false
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		var result: Array[Vector2] = []
@@ -3157,16 +3172,22 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	var start_grid = terrain_grid.screen_to_grid(global_position)
 	var end_grid = terrain_grid.screen_to_grid(target_pos)
 
+	# Starting or ending inside a footprint cannot produce a building-free walk.
+	if GameManager.entity_layer and (GameManager.entity_layer.is_tile_occupied_by_building(start_grid) \
+			or GameManager.entity_layer.is_tile_occupied_by_building(end_grid)):
+		return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+
 	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
 
-	if path_distance < 2.5:
+	if path_distance < 2.5 and not _building_on_segment(global_position, target_pos) \
+			and not _path_crosses_obstacle(start_grid, end_grid, true):
 		# Very short distance - go direct
 		var result: Array[Vector2] = []
 		result.append(target_pos)
 		return result
 
 	# Check for obstacles first, then decide routing strategy
-	var direct_clear = not _path_crosses_obstacle(start_grid, end_grid, true)
+	var direct_clear = not _path_crosses_obstacle(start_grid, end_grid, true) and not _building_on_segment(global_position, target_pos)
 
 	if direct_clear and path_distance < MIN_ROUTE_DISTANCE:
 		# Nothing to plan over this short a walk.
@@ -3178,7 +3199,16 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	if path_distance >= MIN_ROUTE_DISTANCE:
 		var trail_route = _find_quickest_route(start_grid, end_grid, path_distance, direct_clear)
 		if not trail_route.is_empty():
-			trail_route[trail_route.size() - 1] = target_pos
+			var start_center: Vector2 = terrain_grid.grid_to_screen_center(start_grid)
+			if _building_on_segment(global_position, trail_route[0]) and not _building_on_segment(global_position, start_center):
+				trail_route.push_front(start_center)
+			# Keep the final tile centre if the precise endpoint would make the
+			# preceding segment clip a building corner.
+			var previous: Vector2 = global_position if trail_route.size() == 1 else trail_route[trail_route.size() - 2]
+			if _building_on_segment(previous, target_pos):
+				trail_route.append(target_pos)
+			else:
+				trail_route[trail_route.size() - 1] = target_pos
 			return trail_route
 
 	if direct_clear:
@@ -3186,17 +3216,82 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 		result.append(target_pos)
 		return result
 
-	# Obstacles detected — use A* to find path around water/OB
-	return _find_path_around_obstacles(start_grid, end_grid)
+	# Obstacles detected — use A* to find a safe route.
+	var route := _find_path_around_obstacles(start_grid, end_grid)
+	if not route.is_empty():
+		var start_center: Vector2 = terrain_grid.grid_to_screen_center(start_grid)
+		if _building_on_segment(global_position, route[0]):
+			if _building_on_segment(global_position, start_center):
+				return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+			route.push_front(start_center)
+		var last: Vector2 = route.back()
+		if not _building_on_segment(last, target_pos):
+			route.append(target_pos)
+	else:
+		return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+	return route
+
+## Only relax building avoidance when the normal search fails. Continue to
+## avoid water and out-of-bounds when a route around them exists.
+func _fallback_walk_through_buildings(start: Vector2i, end: Vector2i, target: Vector2) -> Array[Vector2]:
+	_walk_through_buildings = true
+	var route := _find_path_around_obstacles(start, end, false)
+	route.append(target)
+	return route
+
+## Test the actual segment in grid space, including tiles touched at corners.
+## Buildings are footprints on the ground, not the taller sprite artwork.
+func _building_on_segment(from: Vector2, to: Vector2) -> bool:
+	var grid = GameManager.terrain_grid
+	var entities = GameManager.entity_layer
+	if grid == null or entities == null or entities.buildings.is_empty():
+		return false
+	var a: Vector2 = grid.screen_to_grid_point(from)
+	var b: Vector2 = grid.screen_to_grid_point(to)
+	# Testing against each footprint also catches segments exactly on an edge.
+	for building in entities.buildings.values():
+		var rect := Rect2(Vector2(building.grid_position), Vector2(building.width, building.height))
+		# Liang-Barsky clipping against the closed footprint rectangle.
+		var d := b - a
+		var enter := 0.0
+		var exit := 1.0
+		var intersects := true
+		for axis in 2:
+			if absf(d[axis]) < 0.00001:
+				if a[axis] < rect.position[axis] or a[axis] > rect.end[axis]:
+					intersects = false
+					break
+			else:
+				var t1: float = (rect.position[axis] - a[axis]) / d[axis]
+				var t2: float = (rect.end[axis] - a[axis]) / d[axis]
+				enter = maxf(enter, minf(t1, t2))
+				exit = minf(exit, maxf(t1, t2))
+				if enter > exit:
+					intersects = false
+					break
+		if intersects:
+			return true
+	return false
+
+func _walking_tile_blocked(tile: Vector2i, avoid_buildings: bool = true) -> bool:
+	var grid = GameManager.terrain_grid
+	if not grid.is_valid_position(tile):
+		return true
+	if grid.get_tile(tile) in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
+		return true
+	return avoid_buildings and GameManager.entity_layer != null and GameManager.entity_layer.is_tile_occupied_by_building(tile)
 
 ## Check if path crosses obstacles (water/OB for walking, trees for flight)
 ## For ball flight, only trees block — and only when the ball is low
 ## (first/last 20% of flight). Water and OB are cleared by the airborne ball;
 ## landing penalties are handled separately by ShotAI._score_landing_zone.
-func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
+func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool, avoid_buildings: bool = true) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return false
+
+	if walking and avoid_buildings and _building_on_segment(terrain_grid.grid_to_screen_center(start), terrain_grid.grid_to_screen_center(end)):
+		return true
 
 	# Sample points along the line
 	var distance = Vector2(start).distance_to(Vector2(end))
@@ -3234,7 +3329,7 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 
 ## A* pathfinding on the terrain grid, avoiding water and OB.
 ## Returns simplified waypoints (not every grid cell).
-func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+func _find_path_around_obstacles(start: Vector2i, end: Vector2i, avoid_buildings: bool = true) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return [] as Array[Vector2]
@@ -3270,7 +3365,7 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 		if current == end:
 			# Reconstruct and simplify path into screen-space waypoints
 			var grid_path: Array[Vector2i] = _reconstruct_grid_path(came_from, end)
-			return _simplify_grid_path(grid_path)
+			return _simplify_grid_path(grid_path, avoid_buildings)
 
 		open_set.erase(current)
 		closed_set[current] = true
@@ -3283,8 +3378,9 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 			if not terrain_grid.is_valid_position(neighbor):
 				continue
 
-			var terrain_type = terrain_grid.get_tile(neighbor)
-			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
+			if _walking_tile_blocked(neighbor, avoid_buildings):
+				continue
+			if dir.x != 0 and dir.y != 0 and (_walking_tile_blocked(current + Vector2i(dir.x, 0), avoid_buildings) or _walking_tile_blocked(current + Vector2i(0, dir.y), avoid_buildings)):
 				continue
 
 			# Diagonal costs sqrt(2), cardinal costs 1
@@ -3296,10 +3392,8 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 				g_score[neighbor] = tentative_g
 				open_set[neighbor] = tentative_g + _astar_heuristic(neighbor, end)
 
-	# A* couldn't reach target (completely walled off) — go direct as last resort
-	var result: Array[Vector2] = []
-	result.append(terrain_grid.grid_to_screen_center(end))
-	return result
+	# No safe route: never fall back to walking through an obstacle.
+	return [] as Array[Vector2]
 
 ## A* heuristic: octile distance (consistent with 8-directional movement)
 func _astar_heuristic(a: Vector2i, b: Vector2i) -> float:
@@ -3319,7 +3413,7 @@ func _reconstruct_grid_path(came_from: Dictionary, end: Vector2i) -> Array[Vecto
 	return grid_path
 
 ## Simplify a grid-cell path into minimal screen-space waypoints using line-of-sight
-func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
+func _simplify_grid_path(grid_path: Array[Vector2i], avoid_buildings: bool = true) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	var result: Array[Vector2] = []
 
@@ -3332,7 +3426,7 @@ func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
 	while anchor_idx < grid_path.size() - 1:
 		var farthest_visible: int = anchor_idx + 1
 		for i in range(anchor_idx + 2, grid_path.size()):
-			if not _path_crosses_obstacle(grid_path[anchor_idx], grid_path[i], true):
+			if not _path_crosses_obstacle(grid_path[anchor_idx], grid_path[i], true, avoid_buildings):
 				farthest_visible = i
 			else:
 				break
@@ -3391,6 +3485,13 @@ func _find_quickest_route(start: Vector2i, end: Vector2i, direct_time: float,
 		return [] as Array[Vector2]
 	var time_per_tile: float = 1.0 / field.best
 	var rate := field.rate
+	var entities = GameManager.entity_layer
+	if entities:
+		for building in entities.buildings.values():
+			var footprint := Rect2i(building.grid_position, Vector2i(building.width, building.height)).intersection(area)
+			for y in range(footprint.position.y, footprint.end.y):
+				for x in range(footprint.position.x, footprint.end.x):
+					rate[(y - low.y) * field.width + x - low.x] = 0.0
 	# If even the best surface in the box cannot get the golfer there in time,
 	# there is no route worth planning.
 	var ideal: float = _route_estimate(start, end, time_per_tile)
@@ -4012,6 +4113,12 @@ func _process_amenity_visit(delta: float) -> void:
 			if is_instance_valid(_amenity_caption): _amenity_caption.queue_free()
 		return
 	var target := _amenity_destination if _amenity_phase == 1 else _amenity_origin
+	# The direct approach may have become blocked since the visit began.
+	if _building_on_segment(global_position, target):
+		_amenity_phase = 0
+		activity_text = "Playing golf"
+		velocity = Vector2.ZERO
+		return
 	var distance := global_position.distance_to(target)
 	velocity = global_position.direction_to(target) * walk_speed
 	move_and_collide(velocity.normalized() * minf(walk_speed * delta,distance))
