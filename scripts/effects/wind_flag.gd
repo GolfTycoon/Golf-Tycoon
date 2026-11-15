@@ -14,13 +14,16 @@ var _phase_offset: float = 0.0  # Per-flag variation
 var _is_web: bool = false
 var _redraw_timer: float = 0.0
 const WEB_FLAG_REDRAW_INTERVAL: float = 0.1  # 10 FPS for flag flutter on web
+## Entity band shared with golfers, trees, buildings, decorations, and balls so
+## flags Y-sort cleanly against nearby sprites.
+const ENTITY_Z_INDEX: int = 2
 
 func _ready() -> void:
 	_is_web = OS.get_name() == "Web"
 	EventBus.wind_changed.connect(_on_wind_changed)
 	PerformanceSettings.profile_changed.connect(_on_graphics_settings_changed)
 	_phase_offset = randf() * TAU  # Random phase so flags don't all flutter in sync
-	z_index = 5  # Above terrain, below golfers
+	z_index = ENTITY_Z_INDEX
 
 func _exit_tree() -> void:
 	if EventBus.wind_changed.is_connected(_on_wind_changed):

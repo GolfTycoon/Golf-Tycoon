@@ -29,8 +29,9 @@ class_name TeeAimOverlay
 const NO_TARGET := Vector2i(-1, -1)
 const EMPTY_ROUTE: Array[Vector2i] = []
 
-## Above the terrain surface, below the golfers and the ball.
-const Z_INDEX: int = 6
+## Ground-detail band: painted over the course surface, beneath standing
+## sprites (golfers, trees, buildings, decorations, flags, balls) and their shadows.
+const Z_INDEX: int = 1
 
 ## Length of the shaft, tail to tip, before the tile fit. Sized for the 64x32
 ## tile, whose diamond reaches 32 px sideways and 16 px up from its centre.

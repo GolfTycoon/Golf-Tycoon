@@ -8,6 +8,10 @@ var _flags: Array[WindFlag] = []
 
 func initialize(grid: TerrainGrid) -> void:
 	_terrain_grid = grid
+	# Flags stand upright on the green and share entity-band depth sorting with
+	# golfers, trees, buildings, decorations, and golf balls.
+	z_index = WindFlag.ENTITY_Z_INDEX
+	y_sort_enabled = true
 	EventBus.hole_created.connect(_on_hole_created)
 	EventBus.hole_deleted.connect(_on_hole_deleted)
 	EventBus.hole_updated.connect(_on_hole_updated)
@@ -68,4 +72,5 @@ func _rebuild_all_flags() -> void:
 		green_flag._flag_length = 18.0
 		green_flag.position = _terrain_grid.grid_to_screen_center(hole_data.hole_position)
 		add_child(green_flag)
+		green_flag.z_index = 0  # WindFlagOverlay already sits in WindFlag.ENTITY_Z_INDEX
 		_flags.append(green_flag)

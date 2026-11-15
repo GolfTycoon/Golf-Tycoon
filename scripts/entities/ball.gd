@@ -42,6 +42,11 @@ const SHADOW_ALPHA: float = 0.3
 ## top of the arc. Both settle back to 1 as the ball comes down.
 const SHADOW_AIRBORNE_SCALE: float = 0.55
 const SHADOW_AIRBORNE_ALPHA: float = 0.5
+## Entity band shared with golfers, trees, buildings, decorations, and flags.
+const ENTITY_Z_INDEX: int = 2
+## Relative offset placing the ball's contact shadow into the ground band (z 1),
+## over turf markings and beneath every standing sprite.
+const SHADOW_Z_INDEX: int = -1
 
 var golfer_id: int = -1
 var grid_position: Vector2i = Vector2i.ZERO
@@ -67,6 +72,7 @@ var _has_pending_rollout: bool = false
 ## ball, added before the visual, so every state keeps exactly one shadow and
 ## the ball always paints over it.
 var _ground_shadow: Polygon2D
+var _visual: Node2D = null
 ## How far the ball is lifted above its own ground track, in screen pixels. The
 ## flight arc moves the ball's node upward; its shadow ignores that offset so
 ## it stays on the ground the ball is flying over.
@@ -78,7 +84,8 @@ signal ball_landed_in_bunker(landing_pos: Vector2i)
 signal ball_landed_in_water(landing_pos: Vector2i)
 
 func _ready() -> void:
-	z_index = 100  # Render above terrain and entities
+	z_index = ENTITY_Z_INDEX
+	y_sort_enabled = true
 	_update_visual()  # Builds the ground shadow first, then the ball
 	# The Display page can switch contact shadows off, and the ball is already
 	# on the course, so follow the setting rather than deciding once at birth.
@@ -136,8 +143,11 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 		flight_max_height = min(distance * 0.3, 150.0)
 		wind_visual_offset = wind_offset
 
+	_shadow_lift = 0.0
+	scale = Vector2.ONE
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
+	_update_shadow()
 
 ## Start a flight animation using precise screen coordinates (for sub-tile putting)
 func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false) -> void:
@@ -153,8 +163,11 @@ func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: flo
 		var distance = flight_start_pos.distance_to(flight_end_pos)
 		flight_max_height = min(distance * 0.3, 150.0)
 
+	_shadow_lift = 0.0
+	scale = Vector2.ONE
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
+	_update_shadow()
 
 ## Start a flight animation with arc using precise screen coordinates (for sub-tile shots)
 func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, wind_offset: Vector2 = Vector2.ZERO) -> void:
@@ -167,8 +180,11 @@ func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, dura
 	flight_max_height = min(distance * 0.3, 150.0)
 	wind_visual_offset = wind_offset
 
+	_shadow_lift = 0.0
+	scale = Vector2.ONE
 	_change_state(BallState.IN_FLIGHT)
 	global_position = flight_start_pos
+	_update_shadow()
 
 func _process_flight(delta: float) -> void:
 	flight_progress += delta / flight_duration
@@ -184,6 +200,7 @@ func _process_flight(delta: float) -> void:
 
 		scale = Vector2.ONE  # Reset scale from flight
 		_shadow_lift = 0.0   # Back on the ground, under the ball again
+		_update_shadow()
 
 		# Spawn impact effect at the carry spot (where ball first hits ground)
 		_spawn_landing_impact()
@@ -303,6 +320,7 @@ func _change_state(new_state: BallState) -> void:
 	ball_state = new_state
 	if new_state != BallState.IN_FLIGHT:
 		_shadow_lift = 0.0
+		scale = Vector2.ONE
 	ball_state_changed.emit(old_state, new_state)
 	_update_visual()
 
@@ -311,13 +329,21 @@ func _update_visual() -> void:
 	# never rebuilt with the ball's shape and never paints over it.
 	_ensure_ground_shadow()
 
-	# Remove existing visual if it exists
-	if has_node("Visual"):
-		get_node("Visual").queue_free()
+	# Remove existing visual immediately so the new node keeps the "Visual" name
+	# without leaving detached nodes pending deletion at end-of-frame.
+	if _visual != null and is_instance_valid(_visual):
+		if _visual.get_parent() == self:
+			remove_child(_visual)
+		_visual.free()
+	elif has_node("Visual"):
+		var previous := get_node("Visual")
+		remove_child(previous)
+		previous.free()
 
 	var visual = Node2D.new()
 	visual.name = "Visual"
 	add_child(visual)
+	_visual = visual
 
 	# Draw ball based on state
 	match ball_state:
@@ -341,11 +367,26 @@ func _ensure_ground_shadow() -> void:
 
 	_ground_shadow = Polygon2D.new()
 	_ground_shadow.name = "GroundShadow"
+	_ground_shadow.z_index = SHADOW_Z_INDEX
 	_ground_shadow.polygon = ellipse_polygon(SHADOW_RADII * BALL_RADIUS)
 	_ground_shadow.color = Color(0, 0, 0, SHADOW_ALPHA)
 	_ground_shadow.visible = PerformanceSettings.contact_shadows_enabled()
 	add_child(_ground_shadow)
 	move_child(_ground_shadow, 0)
+
+## Anchor the ball's Visual node on the ground track directly beneath the ball
+## while shifting its polygons back up by the same amount, so world Y-sorting
+## orders an airborne ball by its true ground position without moving the drawn
+## arc or changing `global_position`.
+func _sync_visual_sort_anchor() -> void:
+	if _visual == null or not is_instance_valid(_visual):
+		return
+	var depth := maxf(scale.x, 0.001)
+	var ground_anchor := Vector2(0.0, _shadow_lift / depth)
+	_visual.position = ground_anchor
+	for child in _visual.get_children():
+		if child is Polygon2D:
+			(child as Polygon2D).offset = -ground_anchor
 
 ## Place the contact shadow on the ground under the ball.
 ##
@@ -355,6 +396,7 @@ func _ensure_ground_shadow() -> void:
 ## the ground beneath the ball's flight path at its normal size, tightening and
 ## fading as the ball rises instead of flying away with it.
 func _update_shadow() -> void:
+	_sync_visual_sort_anchor()
 	if _ground_shadow == null or not is_instance_valid(_ground_shadow):
 		return
 

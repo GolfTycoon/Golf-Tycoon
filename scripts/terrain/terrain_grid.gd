@@ -118,7 +118,7 @@ var _elevation_shader_rect: ColorRect = null
 ## entities with their shadows ride their own bands above.
 ## See docs/architecture.md, Draw Order.
 const GROUND_DETAIL_ORDER: Array[String] = [
-	"FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
+	"CupOverlay", "TeeAimOverlay", "FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
 ]
 
 ## Camera tracking for the viewport-culling overlays. A pan only changes what
@@ -140,6 +140,7 @@ var _last_camera_redraw_ms: int = 0
 var camera_repaint_count: int = 0
 
 func _ready() -> void:
+	y_sort_enabled = true
 	_init_projection()
 	_course_surface = CourseSurface.new()
 	_initialize_grid()

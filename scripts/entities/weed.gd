@@ -17,7 +17,7 @@ var _seed: int = 0
 
 func _ready() -> void:
 	add_to_group("weeds")
-	z_index = 3  # Above the terrain, below golfers/staff
+	z_index = 2  # Entity band: Y-sorted with golfers, staff, trees, and props
 	_seed = randi()
 	_build_visual()
 
