@@ -78,7 +78,7 @@ WalkingPathOverlay.speed_modifier_at(pos)      # 1.0 off the trail, 1.25 dirt, 1
 TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 ```
 
-`Golfer._process_walking()` reads it once per frame and multiplies `walk_speed` by it, so a golfer at 100 px/s covers 10 units in a tenth of a second on rough and 12.5 on a dirt trail — and the step is clamped to the distance left to the waypoint, so an accelerated frame cannot overshoot.
+`Golfer._process_walking()` reads it once per frame and multiplies `walk_speed` by it, so a golfer at the base pace of 75 px/s covers 7.5 units in a tenth of a second on rough and 9.4 on a dirt trail — and the step is clamped to the distance left to the waypoint, so an accelerated frame cannot overshoot.
 
 ### 5. Route planning
 
@@ -107,7 +107,7 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 | Trail preference | `golfer.gd` `TRAIL_PREFERENCE_TIME` | `1.0` tile-times | How much slower than the straight walk a trail route may be |
 | Search box | `golfer.gd` `ROUTE_SLACK_FRACTION`, `ROUTE_MIN_SLACK`, `ROUTE_MAX_SLACK`, `ROUTE_MAX_BOX` | `0.35`, `1`, `5`, `1200` tiles | How far a route may wander from the straight line |
 | Search budget | `golfer.gd` `ROUTE_NODE_BUDGET` | `2500` tiles | Caps the work one walk can cost |
-| Walk speed | `golfer.gd` `walk_speed` | `100` px/s | Base pace, before any surface multiplier |
+| Walk speed | `golfer.gd` `BASE_WALK_SPEED`, `walk_speed` | `75` px/s | Base pace, before any surface multiplier. `reset_walk_speed()` puts a golfer back on it, quickened by the Active trait |
 
 ## Related
 

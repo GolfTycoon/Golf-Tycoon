@@ -313,3 +313,58 @@ func test_golfer_starting_inside_building_can_leave() -> void:
 		golfer._process_walking(0.1)
 	assert_eq(golfer.current_state, Golfer.State.IDLE)
 	assert_almost_eq(golfer.global_position.distance_to(_world(destination)), 0.0, 0.01)
+
+
+# ---------------------------------------------------------------------------
+# The pace
+# ---------------------------------------------------------------------------
+
+func test_a_golfer_starts_at_the_base_walk() -> void:
+	var fresh: Golfer = add_child_autofree(Golfer.new())
+	assert_almost_eq(fresh.walk_speed, Golfer.BASE_WALK_SPEED, 0.001,
+		"A golfer walks at the base pace before any trait or surface quickens it")
+	assert_lt(Golfer.BASE_WALK_SPEED, 100.0,
+		"A stroll, not the old 100 px/s trot: a round is a walk between shots")
+
+func test_a_base_pace_step_covers_the_base_ground() -> void:
+	# The default walk speed reaches the movement itself, not just the property.
+	golfer.walk_speed = Golfer.BASE_WALK_SPEED
+	var waypoints: Array[Vector2] = [_world(Vector2i(30, 20))]
+	golfer.path = waypoints
+	golfer.path_index = 0
+	golfer.current_state = Golfer.State.WALKING
+	golfer.global_position = _world(Vector2i(10, 20))
+	grid.set_tile(Vector2i(10, 20), TerrainTypes.Type.ROUGH)
+	golfer._process_walking(0.1)
+	var expected: float = Golfer.BASE_WALK_SPEED * 0.1 \
+			* TerrainTypes.get_speed_modifier(TerrainTypes.Type.ROUGH)
+	assert_almost_eq(golfer.global_position.distance_to(_world(Vector2i(10, 20))),
+		expected, 0.01, "A tenth of a second covers the base pace times the ground rate")
+
+func test_reset_walk_speed_gives_the_active_trait_its_edge() -> void:
+	golfer.attributes.set_trait("active", true)
+	golfer.walk_speed = 999.0  # a cart rental, a test, anything that overwrote it
+	golfer.reset_walk_speed()
+	assert_almost_eq(golfer.walk_speed,
+		Golfer.BASE_WALK_SPEED * golfer.attributes.walk_speed_multiplier(), 0.001,
+		"The natural pace is the base walk, quickened by the Active trait")
+
+func test_the_legs_swing_in_step_with_the_ground_covered() -> void:
+	# The walk cycle is drawn for a stride, so a slower walker swings their
+	# legs less often instead of scurrying — the same ground per leg swap.
+	golfer._use_sprites = false
+	golfer._walk_frame = 0
+	golfer._walk_timer = 0.0
+	golfer.velocity = Vector2(100, 0)
+	golfer._animate_walking(0.2)
+	assert_eq(golfer._walk_frame, 0, "Most of a stride at 100 px/s is not a step yet")
+	golfer._animate_walking(0.1)
+	assert_eq(golfer._walk_frame, 1, "100 px/s swaps legs once a stride is covered")
+
+	golfer._walk_frame = 0
+	golfer._walk_timer = 0.0
+	golfer.velocity = Vector2(0, 50)
+	golfer._animate_walking(0.3)
+	assert_eq(golfer._walk_frame, 0, "The same ground at half the pace is only part of a stride")
+	golfer._animate_walking(0.3)
+	assert_eq(golfer._walk_frame, 1, "At half the pace the legs take twice as long to swap")

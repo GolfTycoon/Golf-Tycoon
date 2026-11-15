@@ -236,7 +236,7 @@ func test_a_spawned_visitor_is_the_person_on_their_card() -> void:
 		assert_eq(golfer.attributes.golf_points[index],
 			int(card["golf_skills"][skill_name]), "Golf skill %s follows the card" % skill_name)
 	assert_almost_eq(golfer.walk_speed,
-		100.0 * golfer.attributes.walk_speed_multiplier(), 0.001,
+		Golfer.BASE_WALK_SPEED * golfer.attributes.walk_speed_multiplier(), 0.001,
 		"Walk speed follows the card's Active trait")
 
 func test_the_same_visitor_is_not_spawned_twice() -> void:

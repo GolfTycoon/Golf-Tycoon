@@ -269,8 +269,16 @@ var _cached_shot_target_valid: bool = false
 ## Strategy chosen by ShotAI (normal/recovery/layup/attack) — for debug/feedback
 var _shot_strategy: String = "normal"
 
+## Every golfer's pace in pixels per second before anything quickens it: the
+## Active trait, the ground underfoot, a laid walking trail and a rented cart
+## all multiply it, and a fatigued golfer shuffles slower than this. A round is
+## a stroll between shots, so the base pace is a walk rather than a trot.
+## Every caller that puts a golfer back to their natural pace reads this one
+## constant (see reset_walk_speed()).
+const BASE_WALK_SPEED: float = 75.0
+
 ## Movement
-@export var walk_speed: float = 100.0
+@export var walk_speed: float = BASE_WALK_SPEED
 ## A Cart Garage visit rents this golfer a cart, boosting their walking speed
 ## for the rest of the round. One rental per golfer.
 var has_cart: bool = false
@@ -322,7 +330,12 @@ const POLYGON_FEET_Y_OFFSET: float = -14.0
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
 var _walk_timer: float = 0.0
-const WALK_FRAME_DURATION: float = 0.25  # seconds per frame
+## Ground a golfer covers per leg swap: at 100 px/s the legs swing every
+## 0.25 s, exactly the cycle the walk art was drawn for. Tying the cadence to
+## the distance walked rather than to the clock keeps the stride the same
+## length at every pace, so a golfer slowed by rough, fatigue or BASE_WALK_SPEED
+## swings their legs more slowly instead of scurrying.
+const WALK_STRIDE_PIXELS: float = 25.0
 
 ## Leg polygon data for walk animation frames
 ## Frame 0 = standing (matches scene default), Frame 1 = mid-stride
@@ -986,7 +999,7 @@ func initialize_from_tier(tier: int) -> void:
 	needs.setup(tier, patience)
 
 	# Active golfers walk the course faster
-	walk_speed = 100.0 * attributes.walk_speed_multiplier()
+	reset_walk_speed()
 
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
@@ -1143,6 +1156,12 @@ func _process(delta: float) -> void:
 		State.SWINGING:
 			_process_swinging(delta)
 
+## Put this golfer back on their natural pace: the base walk, quickened by the
+## Active trait. Spawners and anything that replaces a golfer's attributes call
+## it so no caller has to know the base pace itself.
+func reset_walk_speed() -> void:
+	walk_speed = BASE_WALK_SPEED * attributes.walk_speed_multiplier()
+
 func _process_walking(delta: float) -> void:
 	# Buildings can be placed or moved while a golfer is already walking.
 	# Replan before moving, unless this walk has no building-free route.
@@ -1205,7 +1224,16 @@ func _animate_walking(delta: float) -> void:
 	var is_fatigued = needs.energy < 0.3
 	var bob_max = 0.8 if is_fatigued else 1.5
 	var arm_swing_max = 0.08 if is_fatigued else 0.15
-	var frame_duration = WALK_FRAME_DURATION * 1.4 if is_fatigued else WALK_FRAME_DURATION
+	# Swing the legs in step with the ground being covered (velocity is what the
+	# walkers actually move by — a trail, a cart or a slow base pace all land
+	# here), so a slower walker takes the same length of stride, not a quicker
+	# shuffle. Callers that only set velocity (OwnerDuty) get this for free.
+	var pace := velocity.length()
+	if pace <= 0.0:
+		pace = walk_speed
+	var frame_duration := WALK_STRIDE_PIXELS / maxf(pace, 1.0)
+	if is_fatigued:
+		frame_duration *= 1.4
 
 	# Sprite-based walk animation
 	if _use_sprites and _animated_sprite:
