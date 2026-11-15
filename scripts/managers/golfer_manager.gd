@@ -372,9 +372,6 @@ func _update_golfers(delta: float) -> void:
 		_visual_offset_timer = 0.0
 		_update_visual_offsets()
 
-	# Update active golfer highlights
-	_update_active_golfer_highlights()
-
 func _update_group(group: Array) -> void:
 	"""Update a single group - determine and advance the next golfer to play."""
 	for golfer in group:
@@ -1396,25 +1393,3 @@ func _update_visual_offsets() -> void:
 			var angle = PI * 0.3 + (PI * 0.4 / max(count - 1, 1)) * idx
 			var offset = Vector2(cos(angle), sin(angle) * 0.5) * OFFSET_DISTANCE
 			cluster[idx].visual_offset = offset
-
-func _update_active_golfer_highlights() -> void:
-	"""Mark the golfer who is currently taking their shot so they get a highlight ring.
-	Also set ring_opacity for visual hierarchy: active=full, same group=1.0, other groups=0.6."""
-	# Find which group has an active golfer
-	var active_group_id: int = -1
-	for golfer in active_golfers:
-		var is_active = golfer.current_state in [
-			Golfer.State.PREPARING_SHOT,
-			Golfer.State.SWINGING,
-			Golfer.State.WATCHING
-		]
-		golfer.is_active_golfer = is_active
-		if is_active:
-			active_group_id = golfer.group_id
-
-	# Set ring opacity: full for active group, dimmed for others
-	for golfer in active_golfers:
-		if active_group_id >= 0 and golfer.group_id != active_group_id:
-			golfer.ring_opacity = 0.6
-		else:
-			golfer.ring_opacity = 1.0

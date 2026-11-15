@@ -288,22 +288,6 @@ var visual_offset: Vector2 = Vector2.ZERO
 var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
 
-## Active golfer highlight (shows who is currently taking their shot)
-var is_active_golfer: bool = false
-var _highlight_ring: Polygon2D = null
-
-## Tier-based visual ring (always visible beneath golfer)
-var _tier_ring: Polygon2D = null
-var ring_opacity: float = 1.0  # Controlled by GolferManager for highlight hierarchy
-
-## Tier ring colors: Green=Beginner, Blue=Casual, Red=Serious, Gold=Pro
-const TIER_RING_COLORS = {
-	GolferTier.Tier.BEGINNER: Color(0.298, 0.686, 0.314),
-	GolferTier.Tier.CASUAL: Color(0.129, 0.588, 0.953),
-	GolferTier.Tier.SERIOUS: Color(0.957, 0.263, 0.212),
-	GolferTier.Tier.PRO: Color(1.0, 0.843, 0.0),
-}
-
 ## Hover state for name label
 var _is_hovered: bool = false
 
@@ -429,12 +413,6 @@ func _ready() -> void:
 	if name_label:
 		_apply_tier_name_color()
 		_refresh_name_label()
-
-	# Create highlight ring for active golfer indication
-	_create_highlight_ring()
-
-	# Create tier-colored ring (always visible)
-	_create_tier_ring()
 
 	# Hovering the golfer adds their tier to the name label
 	mouse_entered.connect(_on_mouse_entered)
@@ -1016,9 +994,6 @@ func initialize_from_tier(tier: int) -> void:
 	# given their tier after they spawn, so dress them again here.
 	_apply_tier_skin()
 
-	# Update tier ring color to match new tier
-	_update_tier_ring_color()
-
 	# Re-colour the name label too: visitors are given their tier after _ready
 	_apply_tier_name_color()
 
@@ -1124,17 +1099,11 @@ func _process(delta: float) -> void:
 	if _amenity_phase > 0:
 		_process_amenity_visit(delta)
 		return
-	# Keep selection and tier rings attached to the moving golfer each frame;
-	# their pulsing colour and attitude tint are decorative and can update at a
-	# modest real-time cadence (4–15 Hz).
-	_update_highlight_ring()
-	if _tier_ring:
-		_tier_ring.position = visual_offset
+	# Attitude tint is decorative and can update at a modest real-time cadence (4–15 Hz).
 	_visual_refresh_elapsed += delta / maxf(Engine.time_scale, 0.01)
 	var visual_interval := PerformanceSettings.animation_redraw_interval()
 	if _visual_refresh_elapsed >= visual_interval:
 		_visual_refresh_elapsed = fposmod(_visual_refresh_elapsed, visual_interval)
-		_update_tier_ring()
 		_update_attitude_visuals()
 
 	# The owner's own golfer, working the course between rounds: their duty
@@ -3790,58 +3759,6 @@ func receive_drink(amount: float) -> void:
 	var boost := needs.restore_thirst(amount)
 	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
-
-## Create highlight ring node for active golfer indication
-func _create_highlight_ring() -> void:
-	_highlight_ring = Polygon2D.new()
-	_highlight_ring.name = "HighlightRing"
-	# Draw a larger ellipse at the golfer's feet (which now sit at the node
-	# origin after the feet-anchor fix, so no +12 body-local offset needed).
-	var points = PackedVector2Array()
-	for i in range(24):
-		var angle = (i / 24.0) * TAU
-		points.append(Vector2(cos(angle) * 16, sin(angle) * 8))
-	_highlight_ring.polygon = points
-	_highlight_ring.color = Color(1.0, 0.9, 0.2, 0.6)  # Brighter yellow, more opaque
-	_highlight_ring.z_index = -1  # Just below golfer body
-	_highlight_ring.visible = false
-	add_child(_highlight_ring)
-
-## Update highlight ring visibility based on active golfer state
-func _update_highlight_ring() -> void:
-	if _highlight_ring:
-		_highlight_ring.visible = is_active_golfer
-		_highlight_ring.position = visual_offset
-
-## Create tier-colored ring beneath golfer (always visible)
-func _create_tier_ring() -> void:
-	_tier_ring = Polygon2D.new()
-	_tier_ring.name = "TierRing"
-	# Centred at the node origin (the golfer's feet after the anchor fix).
-	var points = PackedVector2Array()
-	for i in range(24):
-		var angle = (i / 24.0) * TAU
-		points.append(Vector2(cos(angle) * 12, sin(angle) * 6))
-	_tier_ring.polygon = points
-	_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	_tier_ring.z_index = -2
-	add_child(_tier_ring)
-
-## Update tier ring position and pro pulse animation
-func _update_tier_ring() -> void:
-	if not _tier_ring:
-		return
-	var base_color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	if golfer_tier == GolferTier.Tier.PRO:
-		var pulse = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, pulse)
-	else:
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, ring_opacity)
-
-## Refresh tier ring color (called after tier changes, e.g. initialize_from_tier)
-func _update_tier_ring_color() -> void:
-	if _tier_ring:
-		_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
 
 ## Write the name label above the golfer: their name, always, plus their tier
 ## while the mouse is over them. The label is the only text a golfer carries —

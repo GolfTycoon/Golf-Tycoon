@@ -137,8 +137,8 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 
 | Band | What paints there |
 | --- | --- |
-| 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
-| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows, a ball's contact shadow (`-1`), and a golfer's shadow and active-shot highlight ring (`-1`) |
+| 0 | The course surface (`CourseSurface`): turf, sand, water, stones |
+| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows and a ball's contact shadow (`-1`) |
 | 2 | Entities and standing course objects: golfers (`scenes/entities/golfer.tscn`), golf balls (`scripts/entities/ball.gd`), pin flags (`WindFlagOverlay` and waiting pins in `CupOverlay`), trees (`TreeOverlay`), staff, weeds, and the buildings and decorations layer (`entity_layer.gd`) |
 | 4-5 | Course-editing helpers drawn over the ground: elevation preview (4) and land boundary (5) |
 | 10 | Hole visuals (`hole_visualizer.gd`), the aim guide, and the routing overlay; a golfer's name label rides `+10` from its own band |
@@ -166,7 +166,7 @@ while offsetting the drawn ball back to its lifted height. View rotation refresh
 the anchors along with the sprites. Tree materials additionally sample the same
 heightfield as the course surface: ground in front of a tree clips only the
 covered sprite pixels, leaving a crown that extends above or in front of a hill
-visible. Shadows, rings, labels, and gameplay overlays retain their separate
+visible. Shadows, labels, and gameplay overlays retain their separate
 relative bands.
 
 `tests/unit/golfers/test_golfer_draw_order.gd` protects ground visibility and

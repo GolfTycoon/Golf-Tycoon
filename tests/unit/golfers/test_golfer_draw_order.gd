@@ -4,16 +4,14 @@ extends GameTest
 ## The terrain grid paints the course surface at z 0 (turf, sand and the cart
 ## paths) and the detail it lays on that surface - the walking trail, trees,
 ## water, flowers - at z 1. A golfer used to sit at z 0 as well, the band of the
-## opaque surface, so a golfer on a trail was drawn UNDER the trail's ribbon (and
-## their shadow and tier ring under the surface itself, where they were never
-## seen at all). Golfers paint in the entity band now: z 2 on the scene root
-## (docs/architecture.md, Draw Order), with the shadow, the rings and the name
-## label as offsets of that one band.
+## opaque surface, so a golfer on a trail was drawn UNDER the trail's ribbon.
+## Golfers paint in the entity band now: z 2 on the scene root
+## (docs/architecture.md, Draw Order), with the name label as an offset of that
+## one band, and no ground shadow or coloured rings underneath the golfer.
 ##
 ## A band is only a number, so these tests hold the arrangement the game builds:
 ## the grid laid down first, the entity containers after it. Items sharing a band
-## are drawn in tree order, which is why the surface can be level with a golfer's
-## tier ring and still paint before it.
+## are drawn in tree order.
 
 const GOLFER_SCENE := preload("res://scenes/entities/golfer.tscn")
 
@@ -71,7 +69,7 @@ func test_the_golfer_is_drawn_in_the_entity_band() -> void:
 	assert_eq(_effective_z(golfer), ENTITY_BAND,
 			"a golfer belongs with the other entities, not with the ground (z %d)" % _effective_z(golfer))
 	assert_true(golfer.z_as_relative,
-			"the shadow, the rings and the label are offsets of that one band")
+			"the label is an offset of that one band")
 
 func test_the_walking_trail_is_ground_art() -> void:
 	var trail := grid.get_node_or_null("WalkingPathOverlay") as CanvasItem
@@ -96,16 +94,17 @@ func test_the_golfer_is_drawn_over_every_overlay_on_the_ground() -> void:
 						% [item.name, _effective_z(item)])
 	assert_true(trail_seen, "the walking trail is one of the overlays checked")
 
-func test_the_golfers_shadow_lies_on_the_ground_art() -> void:
-	# The Expression node owns the Visual subtree once the golfer is ready, so
-	# the shadow is looked up under the visual reference, not a fixed path.
-	var shadow := golfer.visual.get_node_or_null("Shadow") as CanvasItem
-	assert_not_null(shadow, "the golfer casts a shadow")
-	var trail := grid.get_node_or_null("WalkingPathOverlay") as CanvasItem
-	assert_gte(_effective_z(shadow), _effective_z(trail),
-			"a shadow on the trail still paints after it (same band, later tree order)")
-	assert_gt(_effective_z(sprite), _effective_z(shadow),
-			"the shadow stays under the golfer who casts it")
+func test_the_golfer_has_no_shadow_or_coloured_rings_underneath() -> void:
+	assert_null(golfer.find_child("Shadow", true, false),
+			"golfers do not draw a shadow underneath them")
+	assert_null(golfer.find_child("TierRing", true, false),
+			"golfers do not draw a coloured tier ring underneath them")
+	assert_null(golfer.find_child("HighlightRing", true, false),
+			"golfers do not draw a coloured highlight ring underneath them")
+	for item in _golfer_items():
+		assert_gte(_effective_z(item), ENTITY_BAND,
+				"%s draws at z %d, underneath the golfer body (z %d)"
+						% [item.name, _effective_z(item), ENTITY_BAND])
 
 func test_no_part_of_the_golfer_is_buried_under_the_course_surface() -> void:
 	var surface := grid.get_node_or_null("CourseSurface") as CanvasItem
@@ -144,7 +143,7 @@ func _ground_band_items() -> Array:
 	return items
 
 ## Every canvas item the golfer draws with - the sprite, the polygon art, the
-## shadow, the rings, the labels.
+## labels.
 func _golfer_items() -> Array:
 	var items: Array = []
 	_collect_canvas_items(golfer, items)
