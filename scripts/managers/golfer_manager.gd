@@ -962,7 +962,7 @@ func spawn_random_golfer(group_id: int = -1) -> Golfer:
 			if saved_attributes is Dictionary and not saved_attributes.is_empty():
 				regular.attributes = GolferAttributes.from_data(saved_attributes)
 			regular.needs.setup(regular.golfer_tier, regular.patience)
-			regular.walk_speed = 100.0 * regular.attributes.walk_speed_multiplier()
+			regular.reset_walk_speed()
 			regular.finish_spawn_setup()
 		return regular
 
@@ -1034,7 +1034,7 @@ func spawn_visiting_golfer(group_id: int = -1) -> Golfer:
 	golfer.golfer_name = golfer.attributes.name
 	# The card's Active trait decides how fast they walk, so walk speed is
 	# taken from the attributes again now they are the card's.
-	golfer.walk_speed = 100.0 * golfer.attributes.walk_speed_multiplier()
+	golfer.reset_walk_speed()
 	golfer.skin_id = skin
 	golfer.group_color_overrides = group_colors
 	golfer.finish_spawn_setup()

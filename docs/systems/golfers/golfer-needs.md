@@ -51,7 +51,7 @@ The golfer's patience (set by tier) directly affects how fast pace drops during 
 
 ### Walking at accelerated simulation speeds
 
-Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. The step is the golfer's walk speed times the ground rate underfoot (`TerrainGrid.walk_speed_modifier_at()`: dirt 1.25x, 1.5x once the trail reaches the clubhouse) and, for Active golfers, times their 1.15x walking multiplier.
+Walking uses `move_and_collide(direction * min(speed * delta, distance_to_waypoint))`. The step is the golfer's walk speed — `BASE_WALK_SPEED`, a stroll at 75 px/s, restored by `reset_walk_speed()` — times the ground rate underfoot (`TerrainGrid.walk_speed_modifier_at()`: dirt 1.25x, 1.5x once the trail reaches the clubhouse) and, for Active golfers, times their 1.15x walking multiplier.
 
 ### Amenities and traffic
 
