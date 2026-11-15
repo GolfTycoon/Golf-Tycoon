@@ -10,15 +10,13 @@ enum BallState {
 	OUT_OF_BOUNDS # Ball is OB
 }
 
-## The one size a golf ball is drawn at, in screen pixels. Every state (at rest,
-## in flight, in water, out of bounds) draws off this so the ball keeps a single
-## silhouette — and the cup cut under the flag is sized from it too, so the hole
-## in the ground is exactly as wide as the ball that drops into it
-## (see CupOverlay.hole_radius()).
-const BALL_RADIUS: float = 2.5
+## The ground-state golf ball radius, in screen pixels. The cup cut under the
+## flag is sized from it too, so the hole is exactly as wide as the ball that
+## drops into it (see CupOverlay.hole_radius()).
+const BALL_RADIUS: float = 1.75
 ## Airborne the ball is drawn a touch larger so it stays visible against the sky;
-## the flight depth scale multiplies this, never BALL_RADIUS.
-const FLIGHT_RADIUS: float = 3.2
+## the flight depth scale multiplies this. Keep it proportional to the ground ball.
+const FLIGHT_RADIUS: float = BALL_RADIUS * 1.28
 ## How many sides the ball's polygon gets. A dozen looked fine at the old size
 ## but reads as a chunky dodecagon once the ball is small.
 const BALL_SEGMENTS: int = 16

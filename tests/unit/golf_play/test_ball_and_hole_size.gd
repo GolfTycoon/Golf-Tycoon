@@ -1,7 +1,7 @@
 extends GameTest
 ## The size of a golf ball, and the hole cut under the flag that matches it.
 ##
-## Balls used to be drawn at a 4 px radius; they are smaller now. The hole under
+## Balls were drawn at a 2.5 px radius; they are smaller now. The hole under
 ## every flag is cut to exactly the ball's width, so the black disc a player
 ## putts into is as wide as the ball they are putting — under the gold pin of a
 ## cup still waiting for a tee box and under the red pin of an open hole alike.
@@ -12,7 +12,8 @@ const CUP := Vector2i(3, 3)
 const OPEN_HOLE_CUP := Vector2i(5, 5)
 
 ## What the ball was drawn at before it was shrunk.
-const OLD_BALL_RADIUS := 4.0
+const OLD_BALL_RADIUS := 2.5
+const OLD_FLIGHT_RADIUS := 3.2
 
 var grid: TerrainGrid
 var overlay: CupOverlay
@@ -103,16 +104,17 @@ func test_the_ball_is_drawn_smaller_than_it_used_to_be() -> void:
 	assert_lt(Ball.BALL_RADIUS, OLD_BALL_RADIUS,
 			"The ball used to be drawn at a %s px radius" % OLD_BALL_RADIUS)
 
-func test_every_ball_state_draws_a_ball_the_same_size() -> void:
+func test_every_ball_state_draws_a_smaller_ball() -> void:
 	var ball := _ball()
 	for state in [Ball.BallState.IN_FLIGHT, Ball.BallState.IN_WATER,
 			Ball.BallState.OUT_OF_BOUNDS, Ball.BallState.ROLLING, Ball.BallState.AT_REST]:
 		ball._change_state(state)
 		var expected := Ball.FLIGHT_RADIUS if state == Ball.BallState.IN_FLIGHT else Ball.BALL_RADIUS
 		assert_almost_eq(_widest(_drawn_ball(ball)), expected, 0.001,
-				"State %s keeps the one ball size" % Ball.BallState.keys()[state])
-		assert_lt(expected, OLD_BALL_RADIUS + 1.0,
-				"State %s is smaller than the old airborne ball" % Ball.BallState.keys()[state])
+				"State %s uses the appropriate ball size" % Ball.BallState.keys()[state])
+		var old_radius := OLD_FLIGHT_RADIUS if state == Ball.BallState.IN_FLIGHT else OLD_BALL_RADIUS
+		assert_lt(_widest(_drawn_ball(ball)), old_radius,
+				"State %s is smaller than before" % Ball.BallState.keys()[state])
 
 
 # ---------------------------------------------------------------------------

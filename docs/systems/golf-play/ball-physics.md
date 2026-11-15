@@ -17,9 +17,9 @@ Full shots follow a **parabolic arc**. The ball rises to a peak mid-flight and c
 
 **Wind drift** is a bell curve of sideways displacement. The ball drifts most at mid-flight and returns to the landing point at the end. It is cosmetic, because wind has already been applied to the landing.
 
-The ball also grows slightly at the peak of its arc, which gives a sense of depth as it comes closer to the camera.
+The ball is drawn with a 1.75 px radius on the ground and a slightly larger 2.24 px radius in flight for visibility. It also grows slightly at the peak of its arc, which gives a sense of depth as it comes closer to the camera. The visible cup and ball shadow scale with the ground ball size; this does not change the rules for holing a shot.
 
-Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 55% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Prop & ball shadows** setting: *Contact only* keeps it, *Off* drops it, and an already-placed ball obeys a change without being rebuilt.
+Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 50% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Prop & ball shadows** setting: *Contact only* keeps it, *Off* drops it, and an already-placed ball obeys a change without being rebuilt.
 
 ### Rollout
 
@@ -72,7 +72,7 @@ shadow_position = ball_position + (0, arc_height)       # pushed back down to th
                   all divided by the depth scale
 
 shadow_scale    = lerp(1.0, 0.55, lift_ratio) / depth scale
-shadow_alpha    = lerp(0.30, 0.165, lift_ratio)
+shadow_alpha    = lerp(0.30, 0.15, lift_ratio)
 ```
 
 The depth scale is divided out because it enlarges everything under the ball with it; without that the shadow would swell exactly when it should read as distance. The shadow's centre sits `(0.2, 0.9)` ball radii from the ball - at its foot, a touch to the right - and its ellipse is `(1.0, 0.5)` ball radii: wider across the tile than up the screen, like every contact shadow in the isometric view, and a shade wider than the ball so a dark rim shows around its foot.
@@ -201,6 +201,8 @@ The burst is skipped for putts and short chips (flight height 10 px or less), an
 
 | Lever | Where | Current value | Effect |
 | --- | --- | --- | --- |
+| Ground ball radius | `Ball.BALL_RADIUS` | `1.75` px | Sets the ball, cup and contact shadow size |
+| Flight ball radius | `Ball.FLIGHT_RADIUS` | `1.28 × BALL_RADIUS` | Keeps airborne shots visible while scaling with the ball |
 | Maximum arc height | `Ball.start_flight()` | `150.0` px | Higher gives a more dramatic arc |
 | Arc height ratio | `Ball.start_flight()` | `0.3` × distance in pixels | Higher gives higher shots |
 | Peak depth scale | `Ball._process_flight()` | `0.5` added (1.5× at peak) | Higher gives a stronger depth effect |
