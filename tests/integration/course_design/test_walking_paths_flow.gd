@@ -217,7 +217,10 @@ func test_a_golfer_on_the_trail_is_drawn_over_it() -> void:
 	var trail_z := _effective_z(_overlay())
 	assert_gt(sprite_z, _effective_z(surface), "The golfer is drawn over the course surface")
 	assert_gt(sprite_z, trail_z, "and over the walking trail")
-	var shadow_z := _effective_z(golfer.visual.get_node("Shadow") as CanvasItem)
+	# The shadow hangs off the golfer itself, on the ground at its origin, not
+	# off the Visual node the Expression layer lifts to the feet anchor
+	# (see scenes/entities/golfer.tscn).
+	var shadow_z := _effective_z(golfer.get_node("Shadow") as CanvasItem)
 	assert_gte(shadow_z, trail_z, "The shadow lies on the trail, not under it")
 	assert_gt(sprite_z, shadow_z, "and under the golfer who casts it")
 	var buried: Array[String] = []

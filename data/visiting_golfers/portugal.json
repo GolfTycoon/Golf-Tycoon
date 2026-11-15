@@ -20,7 +20,8 @@
    "Cap": "c0392b",
    "Hair": "b8860b",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Jasmine Santos",
@@ -43,7 +44,8 @@
    "Cap": "d9534f",
    "Hair": "704214",
    "Skin": "f0c8a0"
-  }
+  },
+  "favourite_colour": "27ae60"
  },
  {
   "name": "Cam Madeira",
@@ -66,7 +68,8 @@
    "Cap": "1b4f72",
    "Hair": "6b4423",
    "Skin": "a07850"
-  }
+  },
+  "favourite_colour": "f2b134"
  },
  {
   "name": "Luna Rocha",
@@ -89,7 +92,8 @@
    "Cap": "4a90d9",
    "Hair": "c0c0c0",
    "Skin": "7c5c3e"
-  }
+  },
+  "favourite_colour": "d94f7a"
  },
  {
   "name": "Linc Silva",
@@ -112,7 +116,8 @@
    "Cap": "e67e22",
    "Hair": "cd853f",
    "Skin": "8d6e4c"
-  }
+  },
+  "favourite_colour": "2980b9"
  },
  {
   "name": "Nick Amaral",
@@ -135,7 +140,8 @@
    "Cap": "4a90d9",
    "Hair": "a0522d",
    "Skin": "7c5c3e"
-  }
+  },
+  "favourite_colour": "7bc950"
  },
  {
   "name": "Zane Teixeira",
@@ -158,7 +164,8 @@
    "Cap": "292b2c",
    "Hair": "f5deb3",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "7bc950"
  },
  {
   "name": "Chelsea Gomes",
@@ -181,7 +188,8 @@
    "Cap": "1a1a2e",
    "Hair": "483c32",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "9b59b6"
  },
  {
   "name": "Rich Moreira",
@@ -204,7 +212,8 @@
    "Cap": "4a90d9",
    "Hair": "b8860b",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "8a7df2"
  },
  {
   "name": "Betsy Ferreira",
@@ -226,7 +235,8 @@
    "Cap": "ecf0f1",
    "Hair": "1a1a1a",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Colt Oliveira",
@@ -249,7 +259,8 @@
    "Cap": "1b4f72",
    "Hair": "1a1a1a",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "c0392b"
  },
  {
   "name": "Kit Mendes",
@@ -272,7 +283,8 @@
    "Cap": "2c3e50",
    "Hair": "1a1a1a",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "e94f37"
  },
  {
   "name": "Keith Pereira",
@@ -295,7 +307,8 @@
    "Cap": "292b2c",
    "Hair": "2c1a0e",
    "Skin": "9e7b5a"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Mandy Baptista",
@@ -318,7 +331,8 @@
    "Cap": "5cb85c",
    "Hair": "d2b48c",
    "Skin": "a07850"
-  }
+  },
+  "favourite_colour": "e67e22"
  },
  {
   "name": "Dana Lopes",
@@ -341,7 +355,8 @@
    "Cap": "ecf0f1",
    "Hair": "d2691e",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Monica Machado",
@@ -364,7 +379,8 @@
    "Cap": "2c3e50",
    "Hair": "2c1a0e",
    "Skin": "a07850"
-  }
+  },
+  "favourite_colour": "f2b134"
  },
  {
   "name": "Cal Nunes",
@@ -387,7 +403,8 @@
    "Cap": "d4ac0d",
    "Hair": "5c3a1e",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Eli Sousa",
@@ -410,7 +427,8 @@
    "Cap": "e67e22",
    "Hair": "cd853f",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "4ea5d9"
  },
  {
   "name": "Chris Rodrigues",
@@ -433,7 +451,8 @@
    "Cap": "ecf0f1",
    "Hair": "b8860b",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "7bc950"
  },
  {
   "name": "Cody Carvalho",
@@ -456,7 +475,8 @@
    "Cap": "5bc0de",
    "Hair": "1a1a1a",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Charlie Almeida",
@@ -479,7 +499,8 @@
    "Cap": "e8e8e8",
    "Hair": "5c3a1e",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Rocky Figueira",
@@ -502,7 +523,8 @@
    "Cap": "c0392b",
    "Hair": "8b7355",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "9b59b6"
  },
  {
   "name": "Grace Fonseca",
@@ -525,7 +547,8 @@
    "Cap": "5cb85c",
    "Hair": "2f1b0e",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "e94f37"
  },
  {
   "name": "Brent Costa",
@@ -548,7 +571,8 @@
    "Cap": "f0ad4e",
    "Hair": "bc8f8f",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "ef6f9b"
  },
  {
   "name": "Jodi Martins",
@@ -571,7 +595,8 @@
    "Cap": "5cb85c",
    "Hair": "6b4423",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "00b894"
  },
  {
   "name": "Liam Pereira",
@@ -594,7 +619,8 @@
    "Cap": "f0ad4e",
    "Hair": "1a1a1a",
    "Skin": "9e7b5a"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Crystal Madeira",
@@ -617,7 +643,8 @@
    "Cap": "f0ad4e",
    "Hair": "8b7355",
    "Skin": "c8a27c"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Sam Baptista",
@@ -640,7 +667,8 @@
    "Cap": "e67e22",
    "Hair": "f5deb3",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "f39c12"
  },
  {
   "name": "Mike Amaral",
@@ -663,7 +691,8 @@
    "Cap": "2c3e50",
    "Hair": "d2691e",
    "Skin": "f0c8a0"
-  }
+  },
+  "favourite_colour": "b06ab3"
  },
  {
   "name": "Zoe Machado",
@@ -686,7 +715,8 @@
    "Cap": "c0392b",
    "Hair": "8b7355",
    "Skin": "8d6e4c"
-  }
+  },
+  "favourite_colour": "1abc9c"
  },
  {
   "name": "Roy Gomes",
@@ -709,7 +739,8 @@
    "Cap": "c0392b",
    "Hair": "cd853f",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Jenna Rodrigues",
@@ -732,7 +763,8 @@
    "Cap": "27ae60",
    "Hair": "3b2f1a",
    "Skin": "c8a27c"
-  }
+  },
+  "favourite_colour": "2980b9"
  },
  {
   "name": "Ken Sousa",
@@ -754,7 +786,8 @@
    "Cap": "5cb85c",
    "Hair": "1a1a1a",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "1abc9c"
  },
  {
   "name": "Rose Figueira",
@@ -777,7 +810,8 @@
    "Cap": "1e8449",
    "Hair": "c0c0c0",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "e84393"
  },
  {
   "name": "Scott Carvalho",
@@ -800,7 +834,8 @@
    "Cap": "f0ad4e",
    "Hair": "2f1b0e",
    "Skin": "f5d6b8"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Pat Mendes",
@@ -823,7 +858,8 @@
    "Cap": "1e8449",
    "Hair": "a0522d",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "8a7df2"
  },
  {
   "name": "Marc Moreira",
@@ -845,7 +881,8 @@
    "Cap": "c0392b",
    "Hair": "f5deb3",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "0984e3"
  },
  {
   "name": "Molly Santos",
@@ -868,7 +905,8 @@
    "Cap": "1e8449",
    "Hair": "a0522d",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Grant Costa",
@@ -891,7 +929,8 @@
    "Cap": "cb4335",
    "Hair": "704214",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Lola Silva",
@@ -914,7 +953,8 @@
    "Cap": "5cb85c",
    "Hair": "c0c0c0",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Alex Rocha",
@@ -936,7 +976,8 @@
    "Cap": "d9534f",
    "Hair": "2f1b0e",
    "Skin": "a67c52"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Jess Fonseca",
@@ -959,7 +1000,8 @@
    "Cap": "b9770e",
    "Hair": "b8860b",
    "Skin": "deb887"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Donna Nunes",
@@ -982,7 +1024,8 @@
    "Cap": "27ae60",
    "Hair": "d2691e",
    "Skin": "7c5c3e"
-  }
+  },
+  "favourite_colour": "3d9be9"
  },
  {
   "name": "Lisa Almeida",
@@ -1005,7 +1048,8 @@
    "Cap": "d4ac0d",
    "Hair": "5c3a1e",
    "Skin": "a67c52"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Jesse Ferreira",
@@ -1027,7 +1071,8 @@
    "Cap": "5bc0de",
    "Hair": "1a1a1a",
    "Skin": "a07850"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Chloe Teixeira",
@@ -1050,7 +1095,8 @@
    "Cap": "5cb85c",
    "Hair": "3b2f1a",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "3d9be9"
  },
  {
   "name": "Nash Oliveira",
@@ -1073,7 +1119,8 @@
    "Cap": "1a1a2e",
    "Hair": "a0522d",
    "Skin": "f0c8a0"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Pete Lopes",
@@ -1096,7 +1143,8 @@
    "Cap": "6c3483",
    "Hair": "cd853f",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Connie Amaral",
@@ -1119,7 +1167,8 @@
    "Cap": "5cb85c",
    "Hair": "a9a9a9",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "c0392b"
  },
  {
   "name": "Jade Machado",
@@ -1142,6 +1191,7 @@
    "Cap": "5bc0de",
    "Hair": "483c32",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "c0392b"
  }
 ]

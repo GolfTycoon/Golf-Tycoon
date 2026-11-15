@@ -11,6 +11,9 @@ class_name GolferAttributes
 ##   Age            Number
 ##   Gender         Male or Female
 ##
+##   Favourite Colour  The colour the golfer picked, worn by the ring drawn on
+##                  the ground beneath them (see GolferFavouriteColour)
+##
 ##   Golfer Traits  Neat, Outgoing, Active, Playful, Nice - each On or Off
 ##   Golfer Skills  Length, Accuracy, Imagination - each On or Off
 ##
@@ -223,6 +226,13 @@ var profession: String = "Professional"
 var marital_status: int = MaritalStatus.SINGLE
 var age: int = 30
 var gender: int = Gender.MALE
+## The colour the golfer has picked for themselves, as a Color (see
+## GolferFavouriteColour, which owns the palette, the card field and the hex
+## form it is stored in). It is part of the person rather than of the kit: the
+## Golfer Skin dresses them while the ring drawn on the ground beneath them
+## wears this colour, so two golfers in the same kit are still told apart at a
+## glance. Rolled with the identity; a visitor card may name it.
+var favourite_colour: Color = Color.WHITE
 
 # ---------------------------------------------------------------------------
 # Golfer Traits (On / Off)
@@ -307,7 +317,8 @@ func generate_for_tier(tier: int) -> void:
 	randomize_golfer_skills(tier)
 	randomize_golf_points(tier)
 
-## Roll identity: gender, age, profession, marital status and a matching name.
+## Roll identity: gender, age, profession, marital status, a matching name and
+## a favourite colour.
 func randomize_identity(tier: int = GolferTier.Tier.CASUAL) -> void:
 	gender = Gender.MALE if randf() < 0.5 else Gender.FEMALE
 	var age_range: Array = TIER_AGE_RANGE.get(tier, [18, 80])
@@ -316,6 +327,14 @@ func randomize_identity(tier: int = GolferTier.Tier.CASUAL) -> void:
 	profession = str(pool[randi() % pool.size()])
 	marital_status = _roll_marital_status(age)
 	name = random_full_name(gender)
+	randomize_favourite_colour()
+
+## Pick a favourite colour for a golfer who has not chosen one: any colour of
+## the palette, so a course full of golfers rolled here is a course full of
+## different colours (see GolferFavouriteColour).
+func randomize_favourite_colour() -> void:
+	favourite_colour = GolferFavouriteColour.PALETTE[
+		randi() % GolferFavouriteColour.PALETTE.size()]
 
 ## Each Golfer Trait is On or Off - independent coin flips.
 func randomize_traits() -> void:
@@ -441,6 +460,12 @@ func apply_visitor_card(card: Dictionary) -> void:
 	_apply_switch_list(card.get("traits"), TRAIT_KEYS, traits)
 	_apply_switch_list(card.get("golfer_skills"), GOLFER_SKILL_KEYS, golfer_skills)
 	_apply_golf_skill_points(card.get("golf_skills"))
+	# The golfer's favourite colour is part of the person, like their name: a
+	# card that names one sets it, and a card that does not leaves the colour
+	# the roll gave them (see GolferFavouriteColour).
+	var colour_field := GolferFavouriteColour.field_in(card)
+	if not colour_field.is_empty():
+		favourite_colour = GolferFavouriteColour.parse(card[colour_field], favourite_colour)
 
 ## Switch every key off, then on for each key the card lists. A card that does
 ## not carry the switch list at all leaves the rolled switches standing.
@@ -986,6 +1011,7 @@ func serialize() -> Dictionary:
 		"patience": patience,
 		"golfer_tier": golfer_tier,
 		"energy_decay_modifier": energy_decay_modifier,
+		GolferFavouriteColour.FIELD: GolferFavouriteColour.to_field(favourite_colour),
 	}
 
 static func from_data(data: Dictionary) -> GolferAttributes:
@@ -1033,4 +1059,12 @@ static func from_data(data: Dictionary) -> GolferAttributes:
 	attributes.patience = clampf(float(data.get("patience", 0.5)), 0.0, 1.0)
 	attributes.golfer_tier = int(data.get("golfer_tier", 1))
 	attributes.energy_decay_modifier = clampf(float(data.get("energy_decay_modifier", 1.0)), 0.1, 1.0)
+	# A save written before golfers had a favourite colour carries none: roll
+	# one rather than leaving them with a ring nothing can see.
+	var colour_field := GolferFavouriteColour.field_in(data)
+	if colour_field.is_empty():
+		attributes.randomize_favourite_colour()
+	else:
+		attributes.favourite_colour = GolferFavouriteColour.parse(data[colour_field],
+			attributes.favourite_colour)
 	return attributes

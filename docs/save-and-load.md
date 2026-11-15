@@ -120,6 +120,8 @@ Terrain ids are stored raw and are only ever appended, never renumbered, so a sa
 ## Mods in a save
 
 Saves also carry `mods: {api_version, load_order: [{id, version}], data}`. The `guest_experience` block holds the customer register, and with it each regular's **club membership** (`membership` on every customer profile) plus the day's referrals. A customer profile saved before club membership existed loads as a Non-member.
+
+Every golfer on the course is saved with their **favourite colour** (`favourite_colour` in the golfer entry, and in its `attributes` block), which the ring drawn on the ground beneath them wears; the owner's is saved with their profile under `player_golfer`. A save written before golfers had one is read with a colour rolled for the golfer, so nothing loads with an invisible ring. See [Golfer Attributes](systems/golfers/golfer-attributes.md#favourite-colours).
 Each loaded script mod can return a JSON-shaped slice in `_mod_save` and
 restore it via `_mod_restore`. The enabled mod set is still the player's
 library preference, not automatically changed by loading a save. Missing

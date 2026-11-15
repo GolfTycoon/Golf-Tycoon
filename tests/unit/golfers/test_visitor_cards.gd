@@ -38,7 +38,7 @@ func test_every_card_carries_the_full_attribute_block() -> void:
 			var where := "%s / %s" % [id, card.get("name", "?")]
 			for field in ["name", "skin_id", "tier", "profession", "marital_status",
 					"age", "gender", "traits", "golfer_skills", "golf_skills",
-					"group_colors"]:
+					"group_colors", "favourite_colour"]:
 				assert_true(card.has(field), "%s carries %s" % [where, field])
 			assert_gt(str(card["name"]).length(), 0, "%s is named" % where)
 			assert_gt(str(card["profession"]).strip_edges().length(), 0,
@@ -62,6 +62,23 @@ func _switch_keys(switch_key: String) -> Array:
 	if switch_key == "traits":
 		return GolferAttributes.TRAIT_KEYS.duplicate()
 	return GolferAttributes.GOLFER_SKILL_KEYS.duplicate()
+
+## Every card names a favourite colour, and it is a colour: the card is the
+## whole person, and the ring on the ground beneath them wears it (see
+## GolferFavouriteColour).
+func test_every_card_carries_a_favourite_colour() -> void:
+	var pools := _pools()
+	for id in pools:
+		for card in pools[id]:
+			var where := "%s / %s" % [id, card.get("name", "?")]
+			var stored := str(card["favourite_colour"])
+			assert_true(Color.html_is_valid(stored),
+				"%s carries a real hex colour (%s)" % [where, stored])
+			assert_true(stored.length() == 6,
+				"%s stores it as rrggbb, with no # (%s)" % [where, stored])
+			var golfer := _golfer_with_card(card)
+			assert_eq(golfer.attributes.favourite_colour, Color(stored),
+				"%s spawns wearing the card's favourite colour" % where)
 
 func test_every_card_lists_real_golf_skill_points() -> void:
 	var pools := _pools()

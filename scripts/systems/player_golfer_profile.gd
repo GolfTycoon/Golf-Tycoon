@@ -14,6 +14,12 @@ var traits: Dictionary = {"neat": false, "outgoing": false, "active": false, "pl
 var golfer_skills: Dictionary = {"length": false, "accuracy": false, "imagination": false}
 var appearance: Dictionary = {"shirt_color": "e65959", "pants_color": "404059",
 	"cap_color": "3366b3", "hair_color": "4d331a", "skin_tone": "f2cca6"}
+## The owner's favourite colour, as the hex string their appearance uses. It is
+## worn by the ring drawn on the ground beneath their golfer, and it is the one
+## colour on the owner their Golfer Skin does not decide (see
+## GolferFavouriteColour). Empty until one is picked: an owner without one is
+## given the colour of their kit (see Golfer.favourite_colour()).
+var favourite_colour: String = ""
 var points: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 var initialized: bool = false
 
@@ -56,12 +62,24 @@ func putting_ability() -> float:
 func recovery_ability() -> float:
 	return normalized_skill(8)
 
+## The owner's favourite colour as a Color, or WHITE when they have not picked
+## one (see GolferFavouriteColour for what a golfer wears when nothing is
+## picked).
+func favourite_color() -> Color:
+	return GolferFavouriteColour.parse(favourite_colour, Color.WHITE)
+
+## Write the owner's favourite colour from a Color, the way the rest of their
+## appearance is stored (lowercase hex, no `#`).
+func set_favourite_colour(colour: Color) -> void:
+	favourite_colour = GolferFavouriteColour.to_field(colour)
+
 func serialize() -> Dictionary:
 	return {"name": golfer_name, "appearance": appearance.duplicate(),
 		"points": points.duplicate(), "initialized": initialized,
 		"profession": profession, "age": age, "gender": gender,
 		"marital_status": marital_status, "traits": traits.duplicate(),
-		"golfer_skills": golfer_skills.duplicate()}
+		"golfer_skills": golfer_skills.duplicate(),
+		GolferFavouriteColour.FIELD: favourite_colour}
 
 static func from_data(data: Dictionary) -> PlayerGolferProfile:
 	var profile := PlayerGolferProfile.new()
@@ -72,6 +90,8 @@ static func from_data(data: Dictionary) -> PlayerGolferProfile:
 	if colors is Dictionary:
 		for key in COLORS:
 			profile.appearance[key] = Color.from_string(str(colors.get(key, profile.appearance[key])), Color(profile.appearance[key])).to_html(false)
+	profile.favourite_colour = GolferFavouriteColour.serialize(
+		data.get(GolferFavouriteColour.FIELD, data.get(GolferFavouriteColour.AMERICAN_FIELD, "")))
 	var saved = data.get("points", [])
 	if saved is Array and saved.size() == SKILLS.size():
 		for i in SKILLS.size():

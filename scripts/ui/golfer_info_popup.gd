@@ -107,6 +107,12 @@ func _update_display() -> void:
 	_content_vbox.add_child(_create_stat_row("Age / Gender",
 		"%d · %s" % [attributes.age, attributes.gender_name()], UIConstants.COLOR_TEXT))
 	_content_vbox.add_child(_create_stat_row("Marital Status", attributes.marital_status_name(), UIConstants.COLOR_TEXT))
+	# The colour of the ring drawn on the ground beneath the golfer (see
+	# GolferFavouriteColour): the one colour on them that is theirs rather
+	# than their kit's, written in the same hex its swatch is drawn in.
+	var favourite := _golfer.favourite_colour()
+	_content_vbox.add_child(_create_stat_row("Favourite Colour",
+		GolferFavouriteColour.to_field(favourite), favourite))
 
 	_content_vbox.add_child(HSeparator.new())
 

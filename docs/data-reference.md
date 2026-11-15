@@ -167,6 +167,7 @@ Each visitor is a full golfer card:
 | `golfer_skills` | The Golfer Skills that are On (length, accuracy, imagination) |
 | `golf_skills` | The Golf Skill points, by the skill's name (1-99, each point +10%). Skills with no points are left out |
 | `group_colors` | Shirt, Pants, Cap, Hair and Skin hex colours for the group's kit |
+| `favourite_colour` | The golfer's favourite colour, lowercase hex with no `#`. Worn by the ring drawn on the ground beneath them; a card may omit it, and the golfer then takes the colour of their kit (`favourite_color` is accepted too) |
 
 `GolferAttributes.apply_visitor_card()` reads the card, and `GolferManager.spawn_visiting_golfer()` gives it to the golfer they spawn. A card is the whole person: a returning guest keeps this same block through their visits. See [Golfer Attributes](systems/golfers/golfer-attributes.md).
 

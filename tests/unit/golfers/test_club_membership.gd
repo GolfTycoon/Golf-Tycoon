@@ -300,6 +300,12 @@ func test_a_returning_member_arrives_as_a_member_and_pays_the_premium() -> void:
 	GameManager.green_fee = 10
 	GameManager.reputation = 50.0
 	var golfers := make_golfer_manager()
+	# The register is an autoload and GameState does not snapshot it, so put back
+	# what this test registers: an earlier test's customers would otherwise be
+	# asked to return instead of the member written below (the manager picks one
+	# eligible customer at random).
+	var registered: Array = FeedbackManager.customers
+	FeedbackManager.customers = []
 	# A Gold member who last played three days ago, and is certain to return.
 	FeedbackManager.customers = [{
 		"key": "regular", "name": "Regular Member", "tier": GolferTier.Tier.CASUAL,
@@ -308,6 +314,11 @@ func test_a_returning_member_arrives_as_a_member_and_pays_the_premium() -> void:
 		"membership": ClubMembership.Tier.GOLD, "attributes": {},
 	}]
 	var before := GameManager.money
+	# The register holding only this member still leaves the return roll to a
+	# coin toss - 55% at intent 1.0 - and the test must not fail on the other
+	# 45%. Seeded so the roll comes up, with the pick of a customer it makes
+	# first consumed. (What the odds are worth is the class-level tests' job.)
+	seed(1)
 	var golfer := golfers.spawn_random_golfer(1)
 	assert_not_null(golfer, "The member comes back")
 	if golfer == null:
@@ -318,6 +329,7 @@ func test_a_returning_member_arrives_as_a_member_and_pays_the_premium() -> void:
 	assert_eq(GameManager.money - before,
 		int(round(10.0 * ClubMembership.fee_multiplier(ClubMembership.Tier.GOLD))) * 9,
 		"...and pays the member's green fee")
+	FeedbackManager.customers = registered
 
 func test_a_card_holder_keeps_their_membership_across_rounds() -> void:
 	var golfers := make_golfer_manager()

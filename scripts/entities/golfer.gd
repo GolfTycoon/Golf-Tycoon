@@ -292,17 +292,16 @@ var _expression: GolferExpression
 var is_active_golfer: bool = false
 var _highlight_ring: Polygon2D = null
 
-## Tier-based visual ring (always visible beneath golfer)
-var _tier_ring: Polygon2D = null
+## The ring drawn on the ground beneath the golfer: always visible, in the
+## golfer's favourite colour (see GolferFavouriteColour). It replaces the ring
+## the golfer's tier used to colour, which said what the tier card in their
+## name label already says; the colour they picked says who they are, and two
+## golfers of one tier are told apart on the course by it.
+var _ground_ring: Polygon2D = null
+## The outer size of that ring, and how thick its band is.
+const GROUND_RING_RADIUS := Vector2(12.0, 6.0)
+const GROUND_RING_WIDTH: float = 2.0
 var ring_opacity: float = 1.0  # Controlled by GolferManager for highlight hierarchy
-
-## Tier ring colors: Green=Beginner, Blue=Casual, Red=Serious, Gold=Pro
-const TIER_RING_COLORS = {
-	GolferTier.Tier.BEGINNER: Color(0.298, 0.686, 0.314),
-	GolferTier.Tier.CASUAL: Color(0.129, 0.588, 0.953),
-	GolferTier.Tier.SERIOUS: Color(0.957, 0.263, 0.212),
-	GolferTier.Tier.PRO: Color(1.0, 0.843, 0.0),
-}
 
 ## Hover state for name label
 var _is_hovered: bool = false
@@ -433,8 +432,8 @@ func _ready() -> void:
 	# Create highlight ring for active golfer indication
 	_create_highlight_ring()
 
-	# Create tier-colored ring (always visible)
-	_create_tier_ring()
+	# Create the ground ring every golfer wears, in their favourite colour
+	_create_ground_ring()
 
 	# Hovering the golfer adds their tier to the name label
 	mouse_entered.connect(_on_mouse_entered)
@@ -742,6 +741,9 @@ func _randomize_appearance() -> void:
 	]
 	skin_tone = skin_tones[randi() % skin_tones.size()]
 
+	# Favourite colour: one they picked from the palette (GolferFavouriteColour)
+	attributes.randomize_favourite_colour()
+
 ## Apply appearance colors to visual components.
 ##
 ## The owner uses the same pixel-art frames as visiting golfers - the colours
@@ -766,6 +768,13 @@ func apply_player_appearance(profile: PlayerGolferProfile) -> void:
 		attributes.golfer_skills[gs_key] = bool(profile.golfer_skills.get(gs_key, false))
 	for i in range(mini(profile.points.size(), attributes.golf_points.size())):
 		attributes.golf_points[i] = profile.points[i]
+	# The owner's favourite colour is theirs to pick. A profile that names one
+	# writes it to the golfer; one that names none leaves the golfer to take
+	# the colour of the kit they are wearing (see _sync_favourite_colour, run
+	# after the sprite is dressed below).
+	attributes.favourite_colour = Color(0, 0, 0, 0)
+	if not profile.favourite_colour.strip_edges().is_empty():
+		attributes.favourite_colour = profile.favourite_color()
 	if GameManager != null and GameManager.is_tournament_mode and not GameManager.tournament_player_skin_colors.is_empty():
 		group_color_overrides.clear()
 		for grp_name in GameManager.tournament_player_skin_colors:
@@ -774,6 +783,7 @@ func apply_player_appearance(profile: PlayerGolferProfile) -> void:
 			skin_id = GameManager.player_skin_id
 	_apply_appearance()
 	refresh_skin_sprites()
+	_sync_favourite_colour()
 
 ## Apply a complete tournament golfer card (Name, Skin, Skin Colours,
 ## Profession, Age, Gender, Marital Status, Golfer Traits, Golfer Skills, and
@@ -813,11 +823,19 @@ func apply_golfer_card(card: Dictionary) -> void:
 		if app.has(key):
 			set(key, Color(app[key]))
 	group_color_overrides = TournamentLibrary.skin_color_overrides_from_entry(card)
+	# A saved golfer card may carry the golfer's favourite colour; one that
+	# does not takes the colour of the kit the card dresses them in.
+	attributes.favourite_colour = Color(0, 0, 0, 0)
+	var colour_field := GolferFavouriteColour.field_in(card)
+	if not colour_field.is_empty():
+		attributes.favourite_colour = GolferFavouriteColour.parse(card[colour_field],
+			Color(0, 0, 0, 0))
 	var chosen_skin := str(card.get("skin_id", "")).strip_edges()
 	if not chosen_skin.is_empty():
 		skin_id = chosen_skin
 	_apply_appearance()
 	refresh_skin_sprites()
+	_sync_favourite_colour()
 
 ## Dress the golfer in its Golfer Skin again: the frames of that skin, with the
 ## colours the skin carries (see GolferSkin). Visiting golfers carry
@@ -848,6 +866,9 @@ func refresh_skin_sprites() -> void:
 		_animated_sprite.play("idle_south")
 	if not was_playing:
 		_animated_sprite.pause()
+	# A golfer with no favourite colour of their own follows the kit they are
+	# drawn in; one who picked a colour keeps it.
+	_sync_favourite_colour()
 	# Defer the same way _setup_sprite_animations does: texture is populated
 	# asynchronously after play() so reading it here would get null.
 	call_deferred("_apply_sprite_feet_anchor")
@@ -1016,8 +1037,9 @@ func initialize_from_tier(tier: int) -> void:
 	# given their tier after they spawn, so dress them again here.
 	_apply_tier_skin()
 
-	# Update tier ring color to match new tier
-	_update_tier_ring_color()
+	# The favourite colour is part of the golfer, not of their tier, but a
+	# tier rolled after the golfer spawned may have given them a new one.
+	_sync_favourite_colour()
 
 	# Re-colour the name label too: visitors are given their tier after _ready
 	_apply_tier_name_color()
@@ -1124,17 +1146,17 @@ func _process(delta: float) -> void:
 	if _amenity_phase > 0:
 		_process_amenity_visit(delta)
 		return
-	# Keep selection and tier rings attached to the moving golfer each frame;
-	# their pulsing colour and attitude tint are decorative and can update at a
-	# modest real-time cadence (4–15 Hz).
+	# Keep the selection highlight and the favourite-colour ring attached to the
+	# moving golfer each frame; their pulsing colour and attitude tint are
+	# decorative and can update at a modest real-time cadence (4–15 Hz).
 	_update_highlight_ring()
-	if _tier_ring:
-		_tier_ring.position = visual_offset
+	if _ground_ring:
+		_ground_ring.position = visual_offset
 	_visual_refresh_elapsed += delta / maxf(Engine.time_scale, 0.01)
 	var visual_interval := PerformanceSettings.animation_redraw_interval()
 	if _visual_refresh_elapsed >= visual_interval:
 		_visual_refresh_elapsed = fposmod(_visual_refresh_elapsed, visual_interval)
-		_update_tier_ring()
+		_update_ground_ring()
 		_update_attitude_visuals()
 
 	# The owner's own golfer, working the course between rounds: their duty
@@ -3813,35 +3835,107 @@ func _update_highlight_ring() -> void:
 		_highlight_ring.visible = is_active_golfer
 		_highlight_ring.position = visual_offset
 
-## Create tier-colored ring beneath golfer (always visible)
-func _create_tier_ring() -> void:
-	_tier_ring = Polygon2D.new()
-	_tier_ring.name = "TierRing"
-	# Centred at the node origin (the golfer's feet after the anchor fix).
-	var points = PackedVector2Array()
-	for i in range(24):
-		var angle = (i / 24.0) * TAU
-		points.append(Vector2(cos(angle) * 12, sin(angle) * 6))
-	_tier_ring.polygon = points
-	_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	_tier_ring.z_index = -2
-	add_child(_tier_ring)
+## The colour the golfer has picked for themselves, worn by the ring on the
+## ground beneath them. It follows the attribute block, which is where the
+## person (rather than their kit) keeps it: a visitor card may name it, the
+## owner picks it on the Edit Player Golfer page, and a golfer with no colour
+## of their own is given one from the kit they are wearing, so the ring is
+## never invisible.
+func favourite_colour() -> Color:
+	if attributes == null:
+		return GolferFavouriteColour.PALETTE[0]
+	var picked := attributes.favourite_colour
+	if picked.a <= 0.0:
+		picked = _favourite_colour_from_kit()
+		attributes.favourite_colour = picked
+	return picked
 
-## Update tier ring position and pro pulse animation
-func _update_tier_ring() -> void:
-	if not _tier_ring:
+## Give the golfer a favourite colour. Writes the attribute block - and the
+## ring - so a visitor card, a save or the player profile sets it in one call.
+func set_favourite_colour(colour: Color) -> void:
+	if attributes == null:
 		return
-	var base_color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	if golfer_tier == GolferTier.Tier.PRO:
-		var pulse = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, pulse)
-	else:
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, ring_opacity)
+	attributes.favourite_colour = GolferFavouriteColour.parse(colour,
+		attributes.favourite_colour)
+	_update_ground_ring_color()
 
-## Refresh tier ring color (called after tier changes, e.g. initialize_from_tier)
-func _update_tier_ring_color() -> void:
-	if _tier_ring:
-		_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
+## The colour the golfer's own kit suggests, for a golfer who has not picked
+## one: the first of the Shirt, Cap, Pants or Hair colours they are drawn with
+## that reads as a ring on the ground (see GolferFavouriteColour.from_kit).
+## Stable per golfer across visits - it is derived from who they are, not from
+## when they spawned.
+func _favourite_colour_from_kit() -> Color:
+	var kit := {}
+	var worn := skin()
+	var table: Dictionary = worn.effective_colors(group_color_overrides) if worn != null else {}
+	for group_name in ["Shirt", "Cap", "Pants", "Hair"]:
+		var colour := Color(0, 0, 0, 0)
+		if not group_color_overrides.is_empty():
+			colour = group_color_overrides.get(group_name,
+				group_color_overrides.get(group_name.to_lower(), Color(0, 0, 0, 0)))
+		if colour.a <= 0.0 and worn != null:
+			colour = table.get(int(worn.group_by_name(group_name).get("id", 0)), Color(0, 0, 0, 0))
+		if colour.a <= 0.0:
+			# The polygon golfer's own colours (the fall-back with no skin art).
+			match group_name:
+				"Shirt": colour = shirt_color
+				"Cap": colour = cap_color
+				"Pants": colour = pants_color
+				"Hair": colour = hair_color
+		if colour.a > 0.0:
+			kit[group_name] = colour
+	return GolferFavouriteColour.from_kit(kit, golfer_id if golfer_id >= 0 else abs(hash(golfer_name)))
+
+## Create the ring drawn on the ground beneath the golfer (always visible).
+## The ring is a band with a hole in the middle - an outline around the shadow
+## under the golfer's feet, not a disc drawn over it - so its polygon is walked
+## around the outside and back around the inside.
+func _create_ground_ring() -> void:
+	if _ground_ring != null and is_instance_valid(_ground_ring):
+		return
+	_ground_ring = Polygon2D.new()
+	_ground_ring.name = "FavouriteRing"
+	var inner := GROUND_RING_RADIUS - Vector2(GROUND_RING_WIDTH, GROUND_RING_WIDTH * 0.5)
+	_ground_ring.polygon = _ring_band(GROUND_RING_RADIUS, inner)
+	_ground_ring.z_index = -1  # Over the shadow, under the body
+	add_child(_ground_ring)
+	_update_ground_ring_color()
+
+## The ring band's polygon: the ellipse between two radii, walked around the
+## outside and back around the inside, so the middle stays empty.
+static func _ring_band(outer: Vector2, inner: Vector2, steps: int = 28) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for i in range(steps):
+		var angle := (i / float(steps)) * TAU
+		points.append(Vector2(cos(angle) * outer.x, sin(angle) * outer.y))
+	for i in range(steps):
+		var angle := (i / float(steps)) * TAU
+		points.append(Vector2(cos(angle) * inner.x, sin(angle) * inner.y))
+	return points
+
+## Paint the ring in the golfer's favourite colour, showing how visible the
+## hierarchy says they are (see GolferManager: 1.0 in play, 0.6 for another
+## group). A pro's ring pulses, as their tier's ring always has.
+func _update_ground_ring_color() -> void:
+	if _ground_ring == null or not is_instance_valid(_ground_ring):
+		return
+	var colour := favourite_colour()
+	var alpha := ring_opacity
+	if golfer_tier == GolferTier.Tier.PRO:
+		alpha *= 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)
+	_ground_ring.color = Color(colour.r, colour.g, colour.b, alpha)
+
+## Keep the ring's colour on the golfer they are drawn as: called whenever the
+## colour, the visibility hierarchy or the golfer's appearance may have moved.
+func _update_ground_ring() -> void:
+	_update_ground_ring_color()
+
+## Give the golfer a favourite colour if they have none: a card, a save or a
+## profile that names one has already written it.
+func _sync_favourite_colour() -> void:
+	if attributes != null and attributes.favourite_colour.a <= 0.0:
+		attributes.favourite_colour = _favourite_colour_from_kit()
+	_update_ground_ring_color()
 
 ## Write the name label above the golfer: their name, always, plus their tier
 ## while the mouse is over them. The label is the only text a golfer carries —
@@ -4278,6 +4372,9 @@ func serialize() -> Dictionary:
 		"ball_position_precise": {"x": ball_position_precise.x, "y": ball_position_precise.y},
 		"position": {"x": global_position.x, "y": global_position.y},
 		"attributes": attributes.serialize(),
+		# The favourite colour, in the same field a visitor card names it in,
+		# so a save and a card carry a golfer's colour the same way.
+		GolferFavouriteColour.FIELD: GolferFavouriteColour.to_field(favourite_colour()),
 	}
 	if not skin_id.is_empty():
 		data["skin_id"] = skin_id
@@ -4311,6 +4408,14 @@ func deserialize(data: Dictionary) -> void:
 	attributes.golfer_tier = golfer_tier
 	attitude = data.get("attitude", data.get("current_mood", attributes.attitude))
 	skin_id = data.get("skin_id", "")
+	# The favourite colour is written in the entry, and by older builds (and
+	# every visitor card) inside the attribute block. Either one is the same
+	# colour; a golfer with neither is given one further down (see
+	# _sync_favourite_colour).
+	var saved_colour: Variant = data.get(GolferFavouriteColour.FIELD, null)
+	if saved_colour != null:
+		attributes.favourite_colour = GolferFavouriteColour.parse(saved_colour,
+			attributes.favourite_colour)
 	# Restore visiting golfer colour overrides.
 	var saved_overrides: Dictionary = data.get("group_color_overrides", {})
 	group_color_overrides.clear()
@@ -4336,3 +4441,4 @@ func deserialize(data: Dictionary) -> void:
 	# The saved tier decides the name colour
 	_apply_tier_name_color()
 	_refresh_name_label()
+	_sync_favourite_colour()

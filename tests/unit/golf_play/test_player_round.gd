@@ -1351,6 +1351,48 @@ func test_the_golfer_preview_leads_with_the_skin_button_beneath_it() -> void:
 	assert_lte(rounds._skin_picker.size.x, preview_column.size.x,
 		"The trimmed picker stays inside the column")
 
+## The owner picks the colour of the ring drawn on the ground beneath their
+## golfer from the Favourite Colour shelf: a plate carrying the colour they
+## wear now, a swatch per palette colour, and a picker for anything else.
+func test_edit_player_shelf_picks_the_favourite_colour() -> void:
+	var toolbar := _embedded_toolbar()
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var plate := _find_node(page, "FavouriteColourPlate") as SkinGroupColorButton
+	assert_not_null(plate, "The colour the ring wears is shown")
+	var palette := _find_node(page, "FavouriteColourPalette") as GridContainer
+	assert_not_null(palette, "The palette of favourite colours stands beside it")
+	assert_eq(palette.get_child_count(), GolferFavouriteColour.PALETTE.size(),
+		"Every palette colour is offered")
+	assert_not_null(_find_node(page, "FavouriteColourPicker"),
+		"and any colour outside the palette can be picked")
+	# Pressing a swatch makes that colour the owner's, and saves it at once.
+	var swatch := _find_node(page, "FavouriteColour2") as ColourSwatchButton
+	assert_not_null(swatch, "A palette swatch is a colour plate")
+	swatch.pressed.emit()
+	await process_frames(3)
+	assert_eq(GameManager.player_profile.favourite_colour,
+		GolferFavouriteColour.to_field(GolferFavouriteColour.PALETTE[2]),
+		"The swatch pressed is the colour the owner picked, saved straight away")
+	assert_eq(plate.color, GolferFavouriteColour.PALETTE[2],
+		"and the shelf now shows it as the colour they wear")
+
+## A palette swatch never widens the shelf's column: the page is a fixed-height
+## shelf, so the swatches are small enough to sit two rows deep in it.
+func test_the_favourite_colour_swatches_fit_their_shelf() -> void:
+	var toolbar := _embedded_toolbar()
+	var page := toolbar.player_tab.pages[PlayerTab.PAGE_EDIT]
+	var palette := _find_node(page, "FavouriteColourPalette") as GridContainer
+	assert_not_null(palette)
+	await process_frames(3)
+	assert_lte(palette.get_combined_minimum_size().y,
+		float(roundi(GolferFavouriteColour.PALETTE.size()
+			/ float(rounds.FAVOURITE_COLOUR_SWATCHES_PER_ROW) + 0.5)) \
+			* (ColourSwatchButton.BUTTON_SIZE.y + 3.0),
+		"The palette is no taller than its rows of swatches")
+	for child in palette.get_children():
+		assert_lte((child as Control).get_combined_minimum_size().x,
+			ColourSwatchButton.BUTTON_SIZE.x, "A swatch stays one plate wide")
+
 ## Edit Player keeps its controls without redundant section titles.
 func test_edit_player_shelf_has_no_section_titles() -> void:
 	var toolbar := _embedded_toolbar()

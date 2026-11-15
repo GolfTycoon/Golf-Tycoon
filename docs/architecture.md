@@ -137,7 +137,7 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 
 | Band | What paints there |
 | --- | --- |
-| 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
+| 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the favourite-colour ring, `-1` from the golfer's band, over the shadow it rings) |
 | 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows, a ball's contact shadow (`-1`), and a golfer's shadow and active-shot highlight ring (`-1`) |
 | 2 | Entities and standing course objects: golfers (`scenes/entities/golfer.tscn`), golf balls (`scripts/entities/ball.gd`), pin flags (`WindFlagOverlay` and waiting pins in `CupOverlay`), trees (`TreeOverlay`), staff, weeds, and the buildings and decorations layer (`entity_layer.gd`) |
 | 4-5 | Course-editing helpers drawn over the ground: elevation preview (4) and land boundary (5) |

@@ -329,6 +329,16 @@ A long group name is fitted to the plate rather than widening the column, and a
 skin carrying more groups than the column is tall continues in a second column to
 the right, where the shelf already scrolls. Like the skin picker, the plates stay
 reachable during a round: they only change how a golfer is drawn.
+The **Favourite Colour** shelf stands beside the Group Colour column, in the same
+Visiting Golfers card design. It carries the colour the ring drawn on the ground
+beneath your golfer wears (see [Golfer Attributes](systems/golfers/golfer-attributes.md#favourite-colours)):
+the swatch that is chosen now, beside a picker for any colour at all, and below
+them a two-row palette of the ten colours every golfer the game rolls is given one
+from, so your golfer can wear the colour of a guest you have seen on the course.
+A press writes the player profile at once - the owner's golfer on the course takes
+the new colour straight away - and the shelf stays reachable during a round, like
+the skin controls, because it only changes how a golfer is drawn.
+
 The **Golfer Skin** dropdown and **Move work area** action use the same
 pixel-font card frames as the Golfer Traits. They retain their dropdown/action
 behaviour rather than becoming On/Off toggles. **Move work area** stands in one

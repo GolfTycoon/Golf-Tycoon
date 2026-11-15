@@ -5,15 +5,15 @@ extends GameTest
 ## paths) and the detail it lays on that surface - the walking trail, trees,
 ## water, flowers - at z 1. A golfer used to sit at z 0 as well, the band of the
 ## opaque surface, so a golfer on a trail was drawn UNDER the trail's ribbon (and
-## their shadow and tier ring under the surface itself, where they were never
-## seen at all). Golfers paint in the entity band now: z 2 on the scene root
+## their shadow and the ring they wear under the surface itself, where they were
+## never seen at all). Golfers paint in the entity band now: z 2 on the scene root
 ## (docs/architecture.md, Draw Order), with the shadow, the rings and the name
 ## label as offsets of that one band.
 ##
 ## A band is only a number, so these tests hold the arrangement the game builds:
 ## the grid laid down first, the entity containers after it. Items sharing a band
 ## are drawn in tree order, which is why the surface can be level with a golfer's
-## tier ring and still paint before it.
+## favourite-colour ring and still paint before it.
 
 const GOLFER_SCENE := preload("res://scenes/entities/golfer.tscn")
 
@@ -97,9 +97,11 @@ func test_the_golfer_is_drawn_over_every_overlay_on_the_ground() -> void:
 	assert_true(trail_seen, "the walking trail is one of the overlays checked")
 
 func test_the_golfers_shadow_lies_on_the_ground_art() -> void:
-	# The Expression node owns the Visual subtree once the golfer is ready, so
-	# the shadow is looked up under the visual reference, not a fixed path.
-	var shadow := golfer.visual.get_node_or_null("Shadow") as CanvasItem
+	# The shadow is a child of the golfer itself, not of the Visual subtree
+	# (which the Expression node owns once the golfer is ready and which is
+	# lifted to the feet anchor): it stays on the ground at the node origin,
+	# so it is looked up on the golfer, not under the visual reference.
+	var shadow := golfer.get_node_or_null("Shadow") as CanvasItem
 	assert_not_null(shadow, "the golfer casts a shadow")
 	var trail := grid.get_node_or_null("WalkingPathOverlay") as CanvasItem
 	assert_gte(_effective_z(shadow), _effective_z(trail),

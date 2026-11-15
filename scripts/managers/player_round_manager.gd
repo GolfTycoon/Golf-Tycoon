@@ -36,6 +36,14 @@ const VISITOR_CARD_META := "golfer_skill_card"
 ## and their gaps (5 x 26 + 4 x 3 = 142) fit the room the bottom bar leaves, so
 ## the shipped skins' Shirt/Pants/Cap/Hair/Skin set reads as a single column.
 const GROUP_COLORS_PER_COLUMN := 5
+## Palette swatches to a row of the Favourite Colour shelf. The shelf's column
+## is 260px wide, which holds ten 24px swatches and their gaps in two rows of
+## five - the whole palette inside one plate row's height of the page.
+const FAVOURITE_COLOUR_SWATCHES_PER_ROW := 5
+## The height of the Favourite Colour shelf's own row (its plate and picker).
+## It matches the Group Colour plates, so the shelf reads as one more row of
+## them.
+const COLOUR_PLATE_HEIGHT := 26
 ## On/Off plates to a column on the owner's pages. The pages are horizontal
 ## shelves with no vertical scroll, so a section that runs longer than this
 ## carries on in the next column instead of growing past the bottom bar. Three
@@ -73,6 +81,10 @@ var _skin_controls: VBoxContainer = null
 ## right, so a custom skin never pushes the page past the bottom bar.
 var _skin_group_columns: HBoxContainer = null
 var _skin_picker: OptionButton = null
+## The Favourite Colour shelf's plate (the colour the owner wears now) and its
+## picker, kept so a pick can repaint both without searching the page.
+var _favourite_plate: SkinGroupColorButton = null
+var _favourite_picker: ColorPickerButton = null
 var _skin_preview: Golfer = null
 var _skin_preview_box: Control = null
 var mode_picker: OptionButton
@@ -675,6 +687,125 @@ func _on_profile_color_changed(color: Color, key: String) -> void:
 	_persist_player_profile()
 
 
+## The Favourite Colour shelf: the colour the golfer wears now, a swatch for
+## every palette colour, and a picker for any colour the palette does not carry.
+## A press writes the profile at once, as the other appearance colours do, and
+## the owner's golfer on the course takes the colour straight away (see
+## _persist_player_profile).
+##
+## The shelf is one column of the Edit Player page, which the bottom bar fixes
+## to a short height (see test_embedded_pages_fit_toolbar_and_overflow): the
+## plates are therefore laid out two rows deep, not one plate to a row, so the
+## whole palette fits beside the other columns rather than pushing the page
+## into a vertical scroll.
+func _build_favourite_colour_column() -> void:
+	content.add_child(_favourite_colour_label("Favourite Colour"))
+	var current := _current_favourite_colour()
+
+	# The colour as it stands, and the picker for anything outside the
+	# palette, share one row: one plate's height for both.
+	var top_row := HBoxContainer.new()
+	top_row.name = "FavouriteColourRow"
+	top_row.add_theme_constant_override("separation", 3)
+	content.add_child(top_row)
+	var chosen := SkinGroupColorButton.new()
+	_favourite_plate = chosen
+	chosen.name = "FavouriteColourPlate"
+	chosen.text = current.to_html(false)
+	chosen.color = current
+	chosen.tooltip_text = "The colour of the ring drawn beneath your golfer"
+	chosen.accessibility_name = "Favourite colour"
+	chosen.custom_minimum_size = Vector2(SkinGroupColorButton.BUTTON_SIZE.x, COLOUR_PLATE_HEIGHT)
+	chosen.set_meta(VISITOR_CARD_META, true)
+	# The ring is how a golfer is drawn, like the skin's colours: it stays
+	# reachable while a round runs.
+	chosen.set_meta("editable_while_playing", true)
+	chosen.color_changed.connect(_on_favourite_colour_changed)
+	top_row.add_child(chosen)
+	var picker := ColorPickerButton.new()
+	_favourite_picker = picker
+	picker.name = "FavouriteColourPicker"
+	picker.color = current
+	picker.edit_alpha = false
+	picker.custom_minimum_size = Vector2(80, COLOUR_PLATE_HEIGHT)
+	picker.tooltip_text = "Pick any favourite colour"
+	picker.set_meta(VISITOR_CARD_META, true)
+	picker.set_meta("editable_while_playing", true)
+	picker.color_changed.connect(_on_favourite_colour_changed)
+	top_row.add_child(picker)
+
+	# The palette every golfer the game rolls is given a colour from: picking
+	# one wears the colour an existing guest already wears.
+	var palette := GridContainer.new()
+	palette.name = "FavouriteColourPalette"
+	palette.columns = FAVOURITE_COLOUR_SWATCHES_PER_ROW
+	palette.add_theme_constant_override("h_separation", 3)
+	palette.add_theme_constant_override("v_separation", 3)
+	content.add_child(palette)
+	for index in GolferFavouriteColour.PALETTE.size():
+		var swatch := ColourSwatchButton.new()
+		swatch.name = "FavouriteColour%d" % index
+		swatch.color = GolferFavouriteColour.PALETTE[index]
+		var description := GolferFavouriteColour.describe(swatch.color)
+		swatch.tooltip_text = description
+		swatch.accessibility_name = description
+		swatch.set_meta(VISITOR_CARD_META, true)
+		swatch.set_meta("editable_while_playing", true)
+		swatch.chosen.connect(_on_favourite_colour_changed)
+		palette.add_child(swatch)
+
+
+## The caption over the Favourite Colour shelf. Built but not added: the caller
+## puts it on the column it belongs to.
+func _favourite_colour_label(text: String) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.custom_minimum_size.x = 140
+	if is_instance_valid(player_tab):
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+
+## The owner's favourite colour as it stands: the one they picked, or the one
+## their kit suggests while they have not picked one (as a golfer rolled by the
+## game is given theirs - see GolferFavouriteColour).
+func _current_favourite_colour() -> Color:
+	if draft == null:
+		return GolferFavouriteColour.PALETTE[0]
+	if not draft.favourite_colour.strip_edges().is_empty():
+		return draft.favourite_color()
+	var kit := {}
+	for key in PlayerGolferProfile.COLORS:
+		var group_name := str(TournamentLibrary.PROFILE_KEY_TO_SKIN_GROUP.get(key, ""))
+		if not group_name.is_empty():
+			kit[group_name] = Color(str(draft.appearance.get(key, "ffffff")))
+	return GolferFavouriteColour.from_kit(kit)
+
+
+## The owner picked a favourite colour: it is theirs, so it is written to the
+## profile and the golfer on the course wears it at once.
+func _on_favourite_colour_changed(color: Color) -> void:
+	if draft == null:
+		return
+	draft.set_favourite_colour(color)
+	_persist_player_profile()
+	# Redraw the colour plates, so a picker choice lights the current swatch.
+	_refresh_favourite_colour_plates()
+
+
+## Paint the plate and the picker with the colour that is chosen now, so a pick
+## lights the plate the way every other colour on the shelf reads.
+func _refresh_favourite_colour_plates() -> void:
+	var current := _current_favourite_colour()
+	if is_instance_valid(_favourite_plate):
+		_favourite_plate.color = current
+		_favourite_plate.text = current.to_html(false)
+	if is_instance_valid(_favourite_picker) and _favourite_picker.color != current:
+		_favourite_picker.set_block_signals(true)
+		_favourite_picker.color = current
+		_favourite_picker.set_block_signals(false)
+
+
 func _persist_player_profile() -> void:
 	if draft == null:
 		return
@@ -1022,6 +1153,8 @@ func _build_setup() -> void:
 	_pro_preview_nodes.clear()
 	_round_player_preview = null
 	_round_player_preview_box = null
+	_favourite_plate = null
+	_favourite_picker = null
 	draft = PlayerGolferProfile.from_data(GameManager.player_profile.serialize())
 	# A rebuilt page means no round is showing: drop whatever scores the last
 	# one left on the card.
@@ -1137,6 +1270,14 @@ func _build_setup() -> void:
 		content.name = "PlayerActionsColumn"
 		content.add_theme_constant_override("separation", 4)
 		_build_work_area_column()
+
+	# The owner's favourite colour: the ring drawn on the ground beneath their
+	# golfer, and the one colour on them their Golfer Skin does not decide. It
+	# is picked from the same palette every golfer's favourite comes from, with
+	# a picker for any colour outside it (see GolferFavouriteColour).
+	if is_instance_valid(player_tab):
+		content = PlayerTab.add_column(player_tab.pages[PlayerTab.PAGE_EDIT], 260)
+	_build_favourite_colour_column()
 
 	# The player's own colours. The five the Golfer Skins name - Shirt, Pants,
 	# Cap, Hair, Skin - are the colours of that skin's Re-color Groups and are

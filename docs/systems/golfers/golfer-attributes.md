@@ -8,6 +8,8 @@ Every golfer in Golf Tycoon - a visiting guest, a tournament player, or the cour
 
 **Name** and **Profession** are text. **Marital Status** is Single, Married, Divorced, or Widowed. **Age** is a number. **Gender** is Male or Female.
 
+**Favourite Colour** is the colour each golfer has picked for themselves. It is worn by the ring drawn on the ground beneath them, so two golfers wearing one Golfer Skin are still told apart at a glance. It is part of the person, not of the kit: re-colouring a skin never changes it.
+
 **Golfer Traits** are five personality switches, each either On or Off:
 
 - **Neat** — cares about upkeep. A tidy, weed-free course delights them; weeds sour the end of their round.
@@ -59,10 +61,23 @@ Random golfers roll identity when they spawn; visiting golfers arrive with their
 - **Profession** comes from a pool of common professions.
 - **Marital Status** odds shift with age: the young are mostly Single, mid-life mostly Married, and Widowed grows after 66.
 - **Name** is drawn from gendered first-name and surname pools, so the name matches the gender rolled.
+- **Favourite Colour** is one of the ten palette colours in `GolferFavouriteColour.PALETTE`, so every golfer the game rolls has a colour of their own.
+
+### Favourite colours
+
+Every golfer has a favourite colour - a visiting guest, a tournament player, or the course owner - and it is drawn as the ring on the ground beneath them (see the Draw Order section of [Architecture](../../architecture.md)).
+
+| Where the golfer came from | Where the colour comes from |
+| --- | --- |
+| A visitor card in `data/visiting_golfers/` | The card's `favourite_colour` (`favourite_color` is accepted too) |
+| The course owner | The colour picked on the **Favourite Colour** shelf of the Edit Player Golfer page, saved in the player profile |
+| Any other golfer the game rolls | `GolferFavouriteColour.PALETTE`; a golfer who has not picked one takes the first readable colour of their kit (Shirt, then Cap, Pants, Hair), so the ring is never invisible |
+
+The colour is stored as lowercase hex with no `#` (`"e94f37"`), the same way a kit colour is, in the `favourite_colour` field of the golfer's attribute block, their save entry, their visitor card and the player profile. A save written before golfers had a favourite colour is given one when it is read, so an old course never shows a golfer with an invisible ring. `scripts/systems/golfer_favourite_colour.gd` owns the palette, the field names and the parsing.
 
 ### Visiting golfer cards
 
-Every World Map location has a pool of 50 visiting golfers in `data/visiting_golfers/<location>.json` (see [Data Reference](../../data-reference.md)). Each visitor card carries the golfer's whole attribute block — Name, Profession, Marital Status, Age, Gender, Golfer Traits, Golfer Skills and Golf Skill points — and their shared look (`skin_id`, `tier`, `group_colors`), so the visitors of a location are 50 different people rather than 50 variations of one. Every name is unique, within a location and across the whole game.
+Every World Map location has a pool of 50 visiting golfers in `data/visiting_golfers/<location>.json` (see [Data Reference](../../data-reference.md)). Each visitor card carries the golfer's whole attribute block — Name, Profession, Marital Status, Age, Gender, Favourite Colour, Golfer Traits, Golfer Skills and Golf Skill points — and their shared look (`skin_id`, `tier`, `group_colors`), so the visitors of a location are 50 different people rather than 50 variations of one. Every name is unique, within a location and across the whole game.
 
 `GolferAttributes.apply_visitor_card()` writes the card over the block the tier rolled: identity, the five Golfer Traits, the three Golfer Skills and all ten Golf Skill points come from the card, while personality, patience, miss tendency and the statuses stay what the tier and the round give everyone. Golfer Skills the card does not list are Off and Golf Skills it does not list have no points, so a card only ever names what the golfer has.
 

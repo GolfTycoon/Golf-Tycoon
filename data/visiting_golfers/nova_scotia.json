@@ -20,7 +20,8 @@
    "Cap": "292b2c",
    "Hair": "2f1b0e",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "00b894"
  },
  {
   "name": "Crystal Pine",
@@ -43,7 +44,8 @@
    "Cap": "cb4335",
    "Hair": "8b7355",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "f2b134"
  },
  {
   "name": "Ty Bluenose",
@@ -66,7 +68,8 @@
    "Cap": "e67e22",
    "Hair": "bc8f8f",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Hank Fundy",
@@ -89,7 +92,8 @@
    "Cap": "cb4335",
    "Hair": "d2b48c",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "ef6f9b"
  },
  {
   "name": "Sally Granite",
@@ -112,7 +116,8 @@
    "Cap": "f0ad4e",
    "Hair": "1a1a1a",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "f2b134"
  },
  {
   "name": "Heath Halifax",
@@ -135,7 +140,8 @@
    "Cap": "1b4f72",
    "Hair": "704214",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Hope Digby",
@@ -158,7 +164,8 @@
    "Cap": "292b2c",
    "Hair": "483c32",
    "Skin": "f0c8a0"
-  }
+  },
+  "favourite_colour": "8a7df2"
  },
  {
   "name": "Dan Cabot",
@@ -181,7 +188,8 @@
    "Cap": "1a1a2e",
    "Hair": "d4a76a",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "ff8c42"
  },
  {
   "name": "Sue Kilt",
@@ -203,7 +211,8 @@
    "Cap": "c0392b",
    "Hair": "2c1a0e",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "00b894"
  },
  {
   "name": "Colt Beacon",
@@ -225,7 +234,8 @@
    "Cap": "e67e22",
    "Hair": "d2691e",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "d35400"
  },
  {
   "name": "Gwen Maple",
@@ -248,7 +258,8 @@
    "Cap": "ecf0f1",
    "Hair": "a9a9a9",
    "Skin": "9e7b5a"
-  }
+  },
+  "favourite_colour": "f4d03f"
  },
  {
   "name": "Beth Schooner",
@@ -271,7 +282,8 @@
    "Cap": "4a90d9",
    "Hair": "8b7355",
    "Skin": "deb887"
-  }
+  },
+  "favourite_colour": "00b894"
  },
  {
   "name": "Piper Ceilidh",
@@ -294,7 +306,8 @@
    "Cap": "8e44ad",
    "Hair": "a9a9a9",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Blake Tartan",
@@ -317,7 +330,8 @@
    "Cap": "1e8449",
    "Hair": "5c3a1e",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Paige Lobster",
@@ -340,7 +354,8 @@
    "Cap": "1e8449",
    "Hair": "f5deb3",
    "Skin": "dbb98f"
-  }
+  },
+  "favourite_colour": "3d9be9"
  },
  {
   "name": "Eve Tidal",
@@ -363,7 +378,8 @@
    "Cap": "cb4335",
    "Hair": "8b4513",
    "Skin": "7c5c3e"
-  }
+  },
+  "favourite_colour": "e94f37"
  },
  {
   "name": "Grant Fogbound",
@@ -386,7 +402,8 @@
    "Cap": "c0392b",
    "Hair": "2f1b0e",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "ff8c42"
  },
  {
   "name": "Holt Lunenburg",
@@ -409,7 +426,8 @@
    "Cap": "c0392b",
    "Hair": "8b4513",
    "Skin": "d2a67a"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Jeff Bay",
@@ -432,7 +450,8 @@
    "Cap": "b9770e",
    "Hair": "a9a9a9",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "ff8c42"
  },
  {
   "name": "Paul Sandbar",
@@ -455,7 +474,8 @@
    "Cap": "2c3e50",
    "Hair": "1a1a1a",
    "Skin": "c8a27c"
-  }
+  },
+  "favourite_colour": "8a7df2"
  },
  {
   "name": "Gina Fisherman",
@@ -478,7 +498,8 @@
    "Cap": "5bc0de",
    "Hair": "1a1a1a",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "00b894"
  },
  {
   "name": "Jed Acadian",
@@ -501,7 +522,8 @@
    "Cap": "c0392b",
    "Hair": "2f1b0e",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "2980b9"
  },
  {
   "name": "Greg Highland",
@@ -524,7 +546,8 @@
    "Cap": "5cb85c",
    "Hair": "d2691e",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Pat Kelp",
@@ -547,7 +570,8 @@
    "Cap": "27ae60",
    "Hair": "a9a9a9",
    "Skin": "f5d6b8"
-  }
+  },
+  "favourite_colour": "e67e22"
  },
  {
   "name": "Val Schooner",
@@ -570,7 +594,8 @@
    "Cap": "4a90d9",
    "Hair": "b8860b",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "8a7df2"
  },
  {
   "name": "Roy Kelp",
@@ -593,7 +618,8 @@
    "Cap": "8e44ad",
    "Hair": "d2691e",
    "Skin": "f2d5b0"
-  }
+  },
+  "favourite_colour": "8e44ad"
  },
  {
   "name": "Linc Maple",
@@ -616,7 +642,8 @@
    "Cap": "5cb85c",
    "Hair": "d4a76a",
    "Skin": "e5c9a3"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Anna Kilt",
@@ -639,7 +666,8 @@
    "Cap": "292b2c",
    "Hair": "b8860b",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "d94f7a"
  },
  {
   "name": "Josh Tartan",
@@ -662,7 +690,8 @@
    "Cap": "5bc0de",
    "Hair": "f5deb3",
    "Skin": "deb887"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Cayla Digby",
@@ -685,7 +714,8 @@
    "Cap": "4a90d9",
    "Hair": "1a1a1a",
    "Skin": "c68642"
-  }
+  },
+  "favourite_colour": "ff8c42"
  },
  {
   "name": "Henry Lunenburg",
@@ -708,7 +738,8 @@
    "Cap": "d9534f",
    "Hair": "c0c0c0",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "0984e3"
  },
  {
   "name": "Clay Fisherman",
@@ -731,7 +762,8 @@
    "Cap": "292b2c",
    "Hair": "a0522d",
    "Skin": "deb887"
-  }
+  },
+  "favourite_colour": "ef6f9b"
  },
  {
   "name": "Max Beacon",
@@ -753,7 +785,8 @@
    "Cap": "8e44ad",
    "Hair": "b8860b",
    "Skin": "f0c8a0"
-  }
+  },
+  "favourite_colour": "0984e3"
  },
  {
   "name": "Nina Sandbar",
@@ -776,7 +809,8 @@
    "Cap": "cb4335",
    "Hair": "2f1b0e",
    "Skin": "b5875a"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Carmen Acadian",
@@ -799,7 +833,8 @@
    "Cap": "e67e22",
    "Hair": "c0c0c0",
    "Skin": "c49a6c"
-  }
+  },
+  "favourite_colour": "f39c12"
  },
  {
   "name": "Casey Lobster",
@@ -822,7 +857,8 @@
    "Cap": "cb4335",
    "Hair": "cd853f",
    "Skin": "9e7b5a"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Shannon Halifax",
@@ -845,7 +881,8 @@
    "Cap": "1b4f72",
    "Hair": "1a1a1a",
    "Skin": "6b4423"
-  }
+  },
+  "favourite_colour": "c0392b"
  },
  {
   "name": "Tina Cabot",
@@ -868,7 +905,8 @@
    "Cap": "2c3e50",
    "Hair": "2f1b0e",
    "Skin": "e0b687"
-  }
+  },
+  "favourite_colour": "e84393"
  },
  {
   "name": "Joel Bluenose",
@@ -891,7 +929,8 @@
    "Cap": "6c3483",
    "Hair": "5c3a1e",
    "Skin": "7c5c3e"
-  }
+  },
+  "favourite_colour": "4ea5d9"
  },
  {
   "name": "Jake Tidal",
@@ -914,7 +953,8 @@
    "Cap": "b9770e",
    "Hair": "cd853f",
    "Skin": "f5d6b8"
-  }
+  },
+  "favourite_colour": "1abc9c"
  },
  {
   "name": "Polly Bay",
@@ -937,7 +977,8 @@
    "Cap": "cb4335",
    "Hair": "6b4423",
    "Skin": "a67c52"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Corey Fogbound",
@@ -960,7 +1001,8 @@
    "Cap": "d4ac0d",
    "Hair": "d4a76a",
    "Skin": "c8a27c"
-  }
+  },
+  "favourite_colour": "fd79a8"
  },
  {
   "name": "Brooke Fundy",
@@ -983,7 +1025,8 @@
    "Cap": "e8e8e8",
    "Hair": "bc8f8f",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "ff8c42"
  },
  {
   "name": "Gage Granite",
@@ -1006,7 +1049,8 @@
    "Cap": "1a1a2e",
    "Hair": "c0c0c0",
    "Skin": "e8be93"
-  }
+  },
+  "favourite_colour": "6c5ce7"
  },
  {
   "name": "Olive Pine",
@@ -1029,7 +1073,8 @@
    "Cap": "cb4335",
    "Hair": "d4a76a",
    "Skin": "c8a27c"
-  }
+  },
+  "favourite_colour": "4ea5d9"
  },
  {
   "name": "Ike Pirate",
@@ -1052,7 +1097,8 @@
    "Cap": "c0392b",
    "Hair": "8b7355",
    "Skin": "deb887"
-  }
+  },
+  "favourite_colour": "ef6f9b"
  },
  {
   "name": "Brooks Ceilidh",
@@ -1075,7 +1121,8 @@
    "Cap": "d9534f",
    "Hair": "5c3a1e",
    "Skin": "f5d6b8"
-  }
+  },
+  "favourite_colour": "16a085"
  },
  {
   "name": "Emmett Highland",
@@ -1098,7 +1145,8 @@
    "Cap": "292b2c",
    "Hair": "d2b48c",
    "Skin": "8b5e3c"
-  }
+  },
+  "favourite_colour": "e67e22"
  },
  {
   "name": "Bo Highland",
@@ -1121,7 +1169,8 @@
    "Cap": "f0ad4e",
    "Hair": "cd853f",
    "Skin": "9e7b5a"
-  }
+  },
+  "favourite_colour": "00a8a8"
  },
  {
   "name": "Ada Halifax",
@@ -1144,6 +1193,7 @@
    "Cap": "8e44ad",
    "Hair": "a9a9a9",
    "Skin": "6b4423"
-  }
+  },
+  "favourite_colour": "ff8c42"
  }
 ]
