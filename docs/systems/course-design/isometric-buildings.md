@@ -9,7 +9,7 @@
 
 ## Plain English
 
-Each facility is a small piece of pixel art drawn in isometric projection. Its walls run along the same 2:1 diamonds as the terrain, its roof slopes along the course's own isometric axes, and its door faces the edge golfers actually walk to. Nothing is a flat elevation laid over the grid.
+Each facility is a **true 3D model** baked into pixel art: walls, pitched roofs, awnings, chimneys, towers, fences and props are built from triangular solids, lit from the same sun, and rasterised through the course's own 2:1 isometric projection. The renderer keeps a z-buffer, so a porch really is in front of the wall behind it, a window reveal is recessed, and a clock tower rises through a roof instead of being pasted over it. Its door faces the edge golfers actually walk to. Nothing is a flat elevation laid over the grid.
 
 Three things use the same image, so they always match:
 
@@ -30,21 +30,28 @@ The park bench is not a building at all: it is a ground fixture on the Improveme
 `assets/sprites/buildings/` holds a PNG for every building, upgrade tier and view rotation (`clubhouse_2_n.png`, `casino_1_e.png`, …), plus `sprites.json`. The manifest records, for each image, the rectangle it covers in the **local draw space of the building node** — the same space `Building.set_position_in_grid()` anchors — in world pixels:
 
 ```json
-"clubhouse": {
-  "tiers": {
-    "1": {
-      "facings": [
-        { "file": "clubhouse_1_e.png", "rect": [7.0, 24.0, 242.0, 164.0] },
-        ...
-      ],
-      "height": 63.0
+{
+  "tile": [64, 32],
+  "pixel_scale": 2.5,
+  "buildings": {
+    "clubhouse": {
+      "tiers": {
+        "1": {
+          "facings": [
+            { "file": "clubhouse_1_e.png", "rect": [10.0, 17.31, 236.0, 171.6] },
+            { "file": "clubhouse_1_s.png", "rect": [ ... ] },
+            ...
+          ],
+          "height": 65.69
+        }
+      },
+      "sprite_height": 118.12
     }
-  },
-  "sprite_height": 115.0
+  }
 }
 ```
 
-`BuildingSprites.draw()` draws the texture into that rectangle 1:1: one drawn pixel is one world pixel, so a 4-tile-wide clubhouse is about 242 pixels across on screen. The **source PNG does not have to be that size**. The shipped sprites are higher-resolution art (roughly 600 x 460 pixels) so their roof tiles, windows and paving keep their detail; `BuildingSprites.texture()` resamples each PNG once, when it is first loaded, into the manifest rectangle with a Lanczos filter. That keeps the draw call a 1:1 blit — the GPU never has to minify a big texture with nearest filtering, which would alias and flicker as the camera zooms — and it means replacing the art does not move a building off its tiles. Textures are cached after the first load, so `_draw()` stays cheap.
+`BuildingSprites.draw()` draws the texture into that rectangle 1:1: one drawn pixel is one world pixel, so a 4-tile-wide clubhouse is about 236 pixels across on screen. The **source PNG does not have to be that size**. The shipped sprites are 2.5x art (roughly 600 x 500 pixels) so their roof tiles, windows and paving keep their detail; `pixel_scale` records that ratio. `BuildingSprites.texture()` resamples each PNG once, when it is first loaded, into the manifest rectangle with a Lanczos filter. That keeps the draw call a 1:1 blit — the GPU never has to minify a big texture with nearest filtering, which would alias and flicker as the camera zooms — and it means replacing the art does not move a building off its tiles. Textures are cached after the first load, so `_draw()` stays cheap.
 
 `BuildingSprites.painted_rect()` maps a texture's opaque pixels into the same local draw space (`rect.size / texture.size` world pixels per image pixel). Use it anywhere the *painted* bounds matter rather than assuming the source resolution; `source_texture()` returns the untouched PNG for tools and previews. Mods keep their registered texture and draw rect unchanged, and the same mapping applies to them.
 
@@ -54,7 +61,7 @@ The park bench is not a building at all: it is a ground fixture on the Improveme
 | --- | --- |
 | Tile | 64 x 32 world pixels |
 | Drawn pixel | 1 world pixel (1/64 of a tile across) |
-| Source art pixel | 1/2 to 1/5 world pixel in the current sprites (resampled at load) |
+| Source art pixel | 0.4 world pixel (the shipped sprites are baked at 2.5x, then resampled at load) |
 | Storey | about 46 world pixels |
 | Door | 26 world pixels tall, 14 wide |
 | Window | 13 world pixels tall, 10 wide |
@@ -82,6 +89,15 @@ Each facility has four pre-rendered images, one per compass quarter turn (`N`, `
 | `screen_delta(offset)` | Converts a grid offset to a screen offset, for extents and shadows. |
 | `footprint_corners(size, view_facing)` | The four tile corners of a footprint, in local draw space. |
 | `BuildingSprites.rect(kind, tier, facing)` | The rectangle a sprite covers in the same space. |
+
+### Why four facings?
+
+Four facings are a deliberate performance and art-budget choice, not a limitation of the pipeline:
+
+- **Draw cost is already minimal.** A placed building is one textured quad, so four or twenty-four facings cost the same per frame. The extra cost of more facings is in art data, load time, texture memory and click-silhouette tracing, not in drawing.
+- **Texture memory grows linearly.** The shipped 72 PNGs are 8.2 MB on disk. Each fitted texture is cached at roughly its manifest rectangle (about 150-250 KB of RGBA), so 24 facings would multiply that cache by six — roughly 50-60 MB if every facility and tier were on screen — which is a poor trade on low-end and web builds.
+- **The game's rotation is quarter-turn.** Classic rotation is exactly four views; Gradual View Rotation tweens the terrain at 15° steps while buildings take the nearest quarter turn, so extra facings would only smooth that snap. If that snap ever needs smoothing, **eight facings** (45°) is the sensible pixel-art step: twice the data for most of the visual gain. Twenty-four facings (15°) would cost six times the art and cache for a subtle improvement.
+- **A runtime 3D model is a different game.** Reusing the generator's meshes in Godot would give continuous rotation and cheap geometry reuse, but it would replace the baked pixel-art lighting, palette and outlines that the course is built around, and it would touch the placement ghost, catalogue preview, click silhouettes and every art test. The 3D pipeline is best kept offline as the authoring tool; the runtime stays 2D sprites.
 
 ### 5. Footprint anchor
 
@@ -114,20 +130,20 @@ reconstructed.
 
 | Building | Distinguishing features |
 | --- | --- |
-| Clubhouse | Paved terrace, cream hall, hipped tiled roof, chimney, a club plaque over the door and a flagpole. Tier 2 adds a pro-shop wing with a striped awning. Tier 3 adds a storey, a long front range whose awning carries a "CLUBHOUSE" sign, and a clock tower. |
-| Putting Green | Manicured practice green, fringe, cup with a flag, stray practice balls |
+| Clubhouse | Paved terrace, cream hall, hipped tiled roof, brick chimney, a club plaque over the door, planted urns and a flagpole. Tier 2 adds a pro-shop wing with a striped awning and dormers. Tier 3 adds a storey, a long front range whose awning carries a "CLUBHOUSE" sign, and a central clock tower with a clock face towards every rotation. |
+| Putting Green | Manicured practice green with mowing stripes, a flat sand bunker, cup with a flag, stray practice balls, bench and club rack |
 | Snack Bar | Serving hatch, striped awning, counter, menu board on a post |
 | Pub | Stone inn with a smoking chimney, hanging sign, lantern, barrel by the door |
 | Pro Shop | Display window with merchandise, striped awning, bag stand |
-| Driving Range | A row of covered bays with padded dividers and ball baskets |
-| Cart Garage | Open bays with parked carts, roof vent, wheel stops |
+| Driving Range | A long covered range with six open bays, padded dividers, ball baskets, range flags and roof vents |
+| Cart Garage | Open cart port under a three-bay canopy, two parked carts with seats, wheels and roofs, a third cart outside, roof vent and wheel stops |
 | Tennis Court | Blue hard court, white lines, net across the middle, corner fence posts |
 | Stable | Timber barn with split doors, hay-loft hatch, paddock fence |
-| Spa | Treatment hut beside a bathing pool ringed by loungers, palm |
-| Swim Club | Pink-roofed changing hut beside a bright pool with a diving board and ladder |
+| Spa | Thatched treatment hut beside a sunken tiled pool (coping, water surface and ripples), sun beds, umbrellas and palms |
+| Swim Club | Rose-roofed changing hut beside a bright lane pool with a diving board, ladder, lane ropes and sun beds |
 | Resort Hotel | Four storeys of guest-room windows, entrance canopy, red carpet, palms |
-| Airstrip | Tarmac strip with a dashed centreline, hangar, windsock and a parked light plane |
-| Castle | Stone keep with crenellated walls and corner towers, gate and pennant |
+| Airstrip | Tarmac strip with a dashed centreline, a green-roofed hangar with sliding doors, a fuel bowser, fuel drums, windsock and a parked light plane with tapered wings, canopy and tailplane |
+| Castle | Stone keep with crenellated walls and corner towers, an open gatehouse with a raised portcullis, drawbridge planks, torches and pennants |
 | Casino | Wide hall with lit windows, a marquee of chasing lights, gold columns, palms |
 | Theme Park | A ferris wheel over a midway, striped ticket tent and string lights |
 
@@ -135,20 +151,23 @@ reconstructed.
 
 ## How the art is made
 
-`tools/building_art/` is a small offline pipeline, run from the repository root:
+`tools/building_art/` is a small offline 3D pipeline, run from the repository root:
 
 ```bash
-python3 tools/building_art/generate.py            # write every sprite and sprites.json
-python3 tools/building_art/generate.py --preview  # also write contact sheets to tmp_preview/
+pip install -r tools/building_art/requirements.txt
+python3 tools/building_art/generate.py                  # every sprite and sprites.json
+python3 tools/building_art/generate.py --preview        # plus contact sheets in tmp_preview/
+python3 tools/building_art/generate.py --only castle,spa --jobs 4
 ```
 
 | File | Job |
 | --- | --- |
-| `render.py` | A z-buffered isometric pixel rasteriser. Faces are vertical walls, flat ground and slopes; every pixel solves the projection backwards to find the grid point it shows. |
-| `buildings.py` | The 16 facility designs, built from shared primitives (`box`, `gable`, `hip`, `pyramid`, `awning`, `fence`, …) and one palette. |
-| `generate.py` | Renders every tier at every rotation, writes the PNGs and the manifest, and can draw preview sheets. |
+| `render.py` | A z-buffered isometric rasteriser: projects triangles through the game's 2:1 axes, shades each face from its normal, bakes procedural plaster/brick/shingle/slate/grass/sand/water textures and texture decals, then supersamples 2x, outlines silhouette and face creases, and crops to the painted pixels. |
+| `buildings.py` | The 16 facility models, built from shared 3D primitives (`box`, `slab`, `roof_gable`, `roof_hip`, `roof_pyramid`, `roof_shed`, `cylinder`, `ellipsoid`, `awning`, `pool`, `golf_cart`, `plane`, `ferris_wheel`, …) in world-pixel space with one palette. |
+| `generate.py` | Builds and renders every tier and rotation, writes the PNGs and manifest, validates the manifest invariants, and draws preview sheets. |
+| `requirements.txt` | Pillow and NumPy, the only dependencies. |
 
-The generator is not part of the game build. The PNGs and `sprites.json` are committed, so the game and the tests need nothing but Godot. Regenerate and commit when a design changes; the shapes, palette and building list all live in `buildings.py`. Its PNGs happen to be written at one pixel per world pixel. Art replaced by hand at a higher resolution is equally valid: keep the file names and manifest rects, and `BuildingSprites.texture()` fits the new image to the rect at load time.
+The generator is offline and is not part of the game build. The PNGs and `sprites.json` are committed, so the game and the tests need nothing but Godot. Regenerate and commit all 72 PNGs and the manifest when a design changes; the geometry, palette and building list all live in `buildings.py`. The output is 2.5x art by default so the baked detail survives the game's 1:1 blit. Art replaced by hand at another resolution is equally valid: keep the file names and manifest rects, and `BuildingSprites.texture()` fits the new image to the rect at load time.
 
 ---
 
@@ -158,7 +177,7 @@ The generator is not part of the game build. The PNGs and `sprites.json` are com
 | --- | --- | --- | --- |
 | Footprint size | `data/buildings.json` `size` | Per building (clubhouse `[4, 4]`) | How many tiles a building covers |
 | Projection axes | `course_architecture.gd` `project_point()` | Terrain's 2:1 axes | Shape of the building on screen |
-| Pixel size | `tools/building_art/render.py` `ART_SCALE` | 1 world pixel per art pixel | Texture density; above 1 the art gets chunkier and the sprite grows |
+| Pixel scale | `tools/building_art/render.py` `OUTPUT_SCALE` (or `--scale`) | 2.5 art pixels per world pixel | Texture density in the source PNGs; the manifest rects stay in world pixels |
 | Palette | `tools/building_art/render.py` | Cream walls, red/brown/slate roofs, green trim | The course's look |
 | Catalogue scale | `building_tile_art.gd` `preview_transform()` | `min(0.34, 60 / width)`, tile/84 | How big a facility looks on its tab tile |
 
