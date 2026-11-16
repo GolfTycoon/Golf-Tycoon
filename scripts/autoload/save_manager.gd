@@ -332,7 +332,13 @@ func _build_save_data() -> Dictionary:
 		data["cup_tiles"] = terrain_grid.serialize_cup_tiles()
 		data["walking_paths"] = terrain_grid.serialize_walking_paths()
 		data["view"] = {
-			"orientation": terrain_grid.get_view_orientation(),
+			# The facing in eighth turns (45°), the count that means the
+			# same thing whichever step the player turns the view in.
+			"facing_eighths": terrain_grid.get_view_eighths(),
+			# The nearest quarter turn, so a save written facing a diagonal
+			# still opens on the right corner of the compass in a build
+			# that only knows the four cardinal facings.
+			"orientation": terrain_grid.get_view_facing(),
 			"isometric": terrain_grid.is_view_isometric(),
 		}
 
@@ -538,7 +544,13 @@ func _apply_save_data(data: Dictionary) -> void:
 		# aborted the whole load: the course, wind and tournament below it never
 		# got restored, and the Host Tournament button sat greyed out reading
 		# "No course data" on a course that plainly had one.
-		terrain_grid.set_view_orientation(int(view.get("orientation", 0)))
+		#
+		# The facing is stored in eighth turns; a save from before the view could
+		# rest on a diagonal names a quarter turn instead, and every quarter turn
+		# is two eighth turns.
+		var facing_eighths := int(view.get("facing_eighths",
+				int(view.get("orientation", 0)) * 2))
+		terrain_grid.set_view_eighths(facing_eighths)
 
 	# Entities
 	if entity_layer and data.has("entities"):
@@ -821,6 +833,9 @@ func _apply_camera_settings(config: ConfigFile) -> void:
 	# Older settings files have no edge-pan key: screen-edge panning stays on,
 	# which is how the camera behaved before the preference existed.
 	GameManager.set_edge_pan_enabled(bool(config.get_value("camera", "edge_pan_enabled", true)))
+	# ...and no fine-rotation key: the course turns in eighth turns, which is
+	# how the view has turned since the preference was added.
+	GameManager.set_fine_view_rotation(bool(config.get_value("camera", "fine_view_rotation", true)))
 
 
 ## Write one preference that belongs to the player rather than to a save -

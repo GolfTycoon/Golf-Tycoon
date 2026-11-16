@@ -95,7 +95,8 @@ func test_mouse_snap_chooses_the_nearest_centre_or_vertex() -> void:
 
 func test_mouse_snap_tracks_rotated_sculpted_tile_geometry() -> void:
 	grid.set_vertex_elevation(Vector2i(11, 10), grid.BASE_ELEVATION + 3)
-	grid.set_view_orientation(1)
+	# A quarter turn of the course, whichever step the player turns it in.
+	grid.set_view_eighths(2)
 	var vertex_grid_point := Vector2(11, 10)
 	var snapped_anchor := grid.snap_world_to_tile_anchor(grid.grid_point_to_screen(vertex_grid_point))
 	assert_false(snapped_anchor.is_empty())
@@ -120,14 +121,14 @@ func test_every_rim_vertex_and_centre_can_be_picked() -> void:
 
 func test_every_centre_and_vertex_snaps_to_itself_on_every_view() -> void:
 	# Hovering exactly on an anchor must always pick that anchor, flat or sculpted,
-	# in all four camera orientations.
+	# in every camera facing the course can rest at.
 	for x in range(grid.grid_width + 1):
 		for y in range(grid.grid_height + 1):
 			if (x + y) % 3 == 0:
 				grid.set_vertex_elevation(Vector2i(x, y), grid.BASE_ELEVATION + 1)
 			elif (x * 7 + y) % 5 == 0:
 				grid.set_vertex_elevation(Vector2i(x, y), grid.BASE_ELEVATION - 1)
-	for orientation in range(4):
+	for orientation in range(grid.get_view_step_count()):
 		grid.set_view_orientation(orientation)
 		var misses: Array[String] = []
 		for x in range(1, grid.grid_width - 1):

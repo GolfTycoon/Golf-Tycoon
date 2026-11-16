@@ -1,8 +1,8 @@
 extends Button
 class_name OrientationToggleButton
 ## The facing chip in the top-right corner of the location banner's details
-## card: a pixel arrow pointing the way the course faces, beside its N / E / S /
-## W letter. Pressing it folds the two Rotate arrows away and brings them back.
+## card: a pixel arrow pointing the way the course faces, beside its compass
+## letter. Pressing it folds the two Rotate arrows away and brings them back.
 ##
 ## The arrow is a 9x9 character grid painted from whole screen pixels, the same
 ## way the dock's medallions and the menu's sprites are drawn: the UI font
@@ -13,16 +13,29 @@ class_name OrientationToggleButton
 ## away - it is the only way back to them - so it carries the state as well as
 ## the facing: a gold rim and arrow while they are out, a muted one while they
 ## are stowed.
+##
+## How many facings there are to point at is the player's choice (Settings →
+## Controls → Camera → Fine Rotation): four, N / E / S / W, or eight, those
+## plus NE / SE / SW / NW. `orientation` counts in whichever of the two is in
+## force, so the chip is told the number of facings as well as the facing.
 
 const FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 
-## The compass has four facings; anything outside 0..3 wraps round them.
-const ORIENTATION_COUNT := 4
-## The letters the four facings read as, in orientation order.
-const LABELS: Array[String] = ["N", "E", "S", "W"]
+## Facings in a full turn: the classic compass, and the compass with its
+## diagonals. Both spellings come from GridProjection, which owns the step.
+const ORIENTATION_COUNT := GridProjection.ORIENTATION_COUNT
+const EIGHTH_TURN_COUNT := GridProjection.EIGHTH_TURN_COUNT
+## The letters the facings read as, in orientation order, per step: N, E, S and
+## W, or those with the diagonals between them.
+const LABELS := {
+	4: ["N", "E", "S", "W"],
+	8: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+}
 
-## Footprint per layout. The arrow and letter stay the same size; the chip only
-## gains padding, so a touch-friendly target never blurs the pixel art.
+## Footprint per layout, for a one-letter facing. The arrow and letter stay the
+## same size; the chip only gains padding, so a touch-friendly target never
+## blurs the pixel art — and a two-letter compass point ("NE") widens it by
+## just the room its extra letter needs.
 const SIZE_DESKTOP := Vector2(42, 26)
 const SIZE_TOUCH := Vector2(46, 32)
 
@@ -35,9 +48,11 @@ const LETTER_GAP := 3.0
 const FONT_SIZE := 12
 const RADIUS := 4
 
-## The four facing arrows, one 9-character row per row of source pixels.
-## Each is the last one turned a quarter turn round the compass.
+## The eight facing arrows, one 9-character row per row of source pixels,
+## indexed by eighth turn: 0 north, 1 north-east, 2 east, and so on round the
+## compass. Each is the last one turned an eighth of a turn clockwise.
 const ARROWS := {
+	# N
 	0: [
 		"....x....",
 		"...xxx...",
@@ -49,7 +64,20 @@ const ARROWS := {
 		"....x....",
 		"....x....",
 	],
+	# NE
 	1: [
+		"........x",
+		".......xx",
+		"......xxx",
+		".....xx..",
+		"....xx...",
+		"...xx....",
+		"..xx.....",
+		".xx......",
+		"xx.......",
+	],
+	# E
+	2: [
 		".........",
 		".....x...",
 		".....xx..",
@@ -60,7 +88,20 @@ const ARROWS := {
 		".....x...",
 		".........",
 	],
-	2: [
+	# SE
+	3: [
+		"x........",
+		"xx.......",
+		".xx......",
+		"..xx.....",
+		"...xx....",
+		"....xx...",
+		".....xx..",
+		"......xx.",
+		"......xxx",
+	],
+	# S
+	4: [
 		"....x....",
 		"....x....",
 		"....x....",
@@ -71,7 +112,20 @@ const ARROWS := {
 		"...xxx...",
 		"....x....",
 	],
-	3: [
+	# SW
+	5: [
+		".......xx",
+		"......xx.",
+		".....xx..",
+		"....xx...",
+		"...xx....",
+		"..xx.....",
+		"xxx......",
+		"xx.......",
+		"x........",
+	],
+	# W
+	6: [
 		".........",
 		"...x.....",
 		"..xx.....",
@@ -82,15 +136,42 @@ const ARROWS := {
 		"...x.....",
 		".........",
 	],
+	# NW
+	7: [
+		"xxx......",
+		".xx......",
+		"..xx.....",
+		"...xx....",
+		"....xx...",
+		".....xx..",
+		"......xx.",
+		".......xx",
+		"........x",
+	],
 }
 
-## View orientation 0..3 (N, E, S, W). Values outside the range wrap round.
+## View orientation, counted in the facings the chip was told about (0..3 for
+## quarter turns, 0..7 for eighth turns). Values outside the range wrap round.
 var orientation := 0:
 	set(value):
-		var next := wrapi(value, 0, ORIENTATION_COUNT)
+		var next := wrapi(value, 0, facings)
 		if orientation == next:
 			return
 		orientation = next
+		_apply_size()
+		queue_redraw()
+
+## How many facings there are to point at: ORIENTATION_COUNT (N, E, S, W) or
+## EIGHTH_TURN_COUNT (those and the four diagonals). Set by the banner from the
+## course's own step, so the chip and the course agree on what a facing is.
+var facings: int = ORIENTATION_COUNT:
+	set(value):
+		var next := EIGHTH_TURN_COUNT if value >= EIGHTH_TURN_COUNT else ORIENTATION_COUNT
+		if facings == next:
+			return
+		facings = next
+		orientation = wrapi(orientation, 0, facings)
+		_apply_size()
 		queue_redraw()
 
 ## True while the two Rotate arrows are out beside the card, so the chip can
@@ -102,10 +183,10 @@ var controls_shown := true:
 		controls_shown = value
 		queue_redraw()
 
-## The single letter the facing reads as.
+## The letters the facing reads as: "N", or "NE" on the finer step.
 var letter: String:
 	get:
-		return LABELS[orientation]
+		return letter_for(orientation, facings)
 
 
 func _init() -> void:
@@ -133,19 +214,49 @@ func _ready() -> void:
 ## Adopt the footprint of the current layout: desktops keep the compact chip,
 ## touch layouts grow it to a comfortable target.
 func apply_screen() -> void:
-	var touch := has_node("/root/Screen") and Screen.uses_touch_layout()
-	custom_minimum_size = SIZE_TOUCH if touch else SIZE_DESKTOP
+	_apply_size()
 	queue_redraw()
 
 
-## The arrow rows for `view_orientation`: N up, E right, S down, W left.
-static func arrow_rows(view_orientation: int) -> Array:
-	return ARROWS[wrapi(view_orientation, 0, ORIENTATION_COUNT)]
+func _apply_size() -> void:
+	var touch := has_node("/root/Screen") and Screen.uses_touch_layout()
+	var base := SIZE_TOUCH if touch else SIZE_DESKTOP
+	custom_minimum_size = base + Vector2(_extra_letter_width(), 0.0)
+
+
+## The room the letters past the first one need: "NE" is a wider facing than
+## "N", and the chip grows by exactly that much and no more.
+func _extra_letter_width() -> float:
+	return maxf(0.0, _text_width(letter) - _text_width("N"))
+
+
+static func _text_width(value: String) -> float:
+	return FONT.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x
+
+
+## The arrow rows for `view_orientation` counted in `facings_per_turn`: N up,
+## NE up and to the right, E right, and so on round the compass.
+static func arrow_rows(view_orientation: int, facings_per_turn: int = ORIENTATION_COUNT) -> Array:
+	return ARROWS[_eighths_for(view_orientation, facings_per_turn)]
 
 
 ## The letter for `view_orientation`, wrapping like the arrow.
-static func letter_for(view_orientation: int) -> String:
-	return LABELS[wrapi(view_orientation, 0, ORIENTATION_COUNT)]
+static func letter_for(view_orientation: int, facings_per_turn: int = ORIENTATION_COUNT) -> String:
+	var count := EIGHTH_TURN_COUNT if facings_per_turn >= EIGHTH_TURN_COUNT else ORIENTATION_COUNT
+	return LABELS[count][wrapi(view_orientation, 0, count)]
+
+
+## The facing as a whole number of eighth turns (0..7): the count the arrows
+## are indexed by, whichever step the view is turning in.
+static func _eighths_for(view_orientation: int, facings_per_turn: int) -> int:
+	var count := EIGHTH_TURN_COUNT if facings_per_turn >= EIGHTH_TURN_COUNT else ORIENTATION_COUNT
+	# Exact: the facings always divide the eight arrows whole.
+	@warning_ignore("integer_division")
+	return wrapi(view_orientation, 0, count) * EIGHTH_TURN_COUNT / count
+
+
+func _eighth_turns() -> int:
+	return _eighths_for(orientation, facings)
 
 
 func _draw() -> void:
@@ -153,7 +264,7 @@ func _draw() -> void:
 
 	# The arrow: one rect per lit source pixel, with the same ink drop shadow
 	# the dock's medallions carry (light comes from above).
-	var rows: Array = ARROWS[orientation]
+	var rows: Array = ARROWS[_eighth_turns()]
 	var arrow_side := ARROW_GRID * ARROW_PIXEL
 	var origin := Vector2(ARROW_INSET, floorf((size.y - arrow_side) * 0.5))
 	for y in ARROW_GRID:

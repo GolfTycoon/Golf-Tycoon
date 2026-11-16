@@ -1,9 +1,10 @@
 extends PixelCircleButton
 class_name RotateViewButton
-## The pair of arrows that turn the course a quarter turn each way. They stand
-## side by side at the top-left corner, on the right of the location banner's
-## details card, and the facing chip in that card's top-right corner folds them
-## away (see OrientationToggleButton).
+## The pair of arrows that turn the course one step each way — a quarter turn,
+## or an eighth turn (45°) when the player has chosen Fine Rotation in
+## Settings. They stand side by side at the top-left corner, on the right of the
+## location banner's details card, and the facing chip in that card's top-right
+## corner folds them away (see OrientationToggleButton).
 ##
 ## Drawn sprites never depend on the font having the Unicode rotation glyphs,
 ## and the two sweep arrows are mirror images of one another.

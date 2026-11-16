@@ -59,6 +59,20 @@ var edge_pan_enabled: bool = true:
 		edge_pan_enabled = value
 		if is_inside_tree():
 			EventBus.edge_pan_enabled_changed.emit(edge_pan_enabled)
+## Whether the course turns in eighth turns (45°) instead of quarter turns, so
+## it can rest facing a diagonal as well as north, east, south and west — the
+## "rotate gradually" preference (player preference, persisted in
+## settings.cfg). The course's projection follows this through
+## EventBus.fine_view_rotation_changed, and a course already on screen keeps
+## the angle it is on: a quarter turn is two eighth turns, so only a diagonal
+## facing moves, settling on its nearest cardinal facing.
+var fine_view_rotation: bool = true:
+	set(value):
+		if fine_view_rotation == value:
+			return
+		fine_view_rotation = value
+		if is_inside_tree():
+			EventBus.fine_view_rotation_changed.emit(fine_view_rotation)
 ## Camera zoom limits (player preference, persisted in settings.cfg).
 ## The defaults match the original IsometricCamera range so older installs are
 ## unchanged until the player opens Settings.
@@ -1023,6 +1037,10 @@ func set_minimap_enabled(enabled: bool) -> void:
 func set_edge_pan_enabled(enabled: bool) -> void:
 	"""Enable or disable screen-edge camera panning."""
 	edge_pan_enabled = enabled
+
+func set_fine_view_rotation(enabled: bool) -> void:
+	"""Turn the course in eighth turns (45°) instead of quarter turns."""
+	fine_view_rotation = enabled
 
 func _exit_tree() -> void:
 	# Disconnect signals to prevent memory leaks and double-callbacks on reload

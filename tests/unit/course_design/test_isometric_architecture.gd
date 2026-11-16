@@ -21,6 +21,10 @@ func before_all() -> void:
 
 func before_each() -> void:
 	super()
+	# Every facility is pre-rendered for the four cardinal facings, so these
+	# tests pin the course's quarter-turn step rather than the finer one the
+	# player can choose in Settings (see test_fine_view_rotation.gd).
+	GameManager.set_fine_view_rotation(false)
 	grid = TerrainGrid.new()
 	grid.grid_width = 40
 	grid.grid_height = 32

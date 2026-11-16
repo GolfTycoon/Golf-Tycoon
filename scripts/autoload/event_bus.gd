@@ -79,6 +79,9 @@ signal tooltip_hidden()
 signal minimap_enabled_changed(enabled: bool)
 ## Whether hovering the window edge pans the course camera (Settings).
 signal edge_pan_enabled_changed(enabled: bool)
+## Whether the course turns in eighth turns instead of quarter turns, so it can
+## rest facing a diagonal (Settings). A course on screen restates its view.
+signal fine_view_rotation_changed(enabled: bool)
 
 # Wind Signals
 signal wind_changed(direction: float, speed: float)

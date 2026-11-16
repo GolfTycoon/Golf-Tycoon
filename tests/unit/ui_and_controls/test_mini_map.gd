@@ -30,7 +30,7 @@ func test_map_is_a_two_to_one_diamond() -> void:
 	assert_false(mini_map._has_point(Vector2(181, 91)))
 
 func test_navigation_matches_projection_in_every_orientation() -> void:
-	for orientation in range(4):
+	for orientation in range(grid.get_view_step_count()):
 		grid.set_view_orientation(orientation)
 		assert_true(grid.is_view_isometric())
 		var point := Vector2(3.5, 8.5)

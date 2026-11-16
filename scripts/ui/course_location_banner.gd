@@ -345,9 +345,13 @@ func _update_date() -> void:
 # =============================================================================
 
 ## Point the facing chip's arrow and letter at the way the course faces.
-func set_orientation(view_orientation: int) -> void:
+## `facings` is how many facings the course is turning through — four or eight
+## (see OrientationToggleButton) — and is left as it is when it is not given.
+func set_orientation(view_orientation: int, facings: int = 0) -> void:
 	if orientation_toggle == null:
 		return
+	if facings > 0:
+		orientation_toggle.facings = facings
 	orientation_toggle.orientation = view_orientation
 	_sync_orientation_toggle()
 

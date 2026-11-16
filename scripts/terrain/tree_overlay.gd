@@ -63,10 +63,10 @@ const ART_LAYOUT_FILE := "layout.json"
 const MIN_ART_SCALE := 0.05
 const MAX_ART_SCALE := 4.0
 
-## The four angles a tree is drawn from, indexed by view orientation (see
-## TerrainGrid.get_view_orientation()): 0 is the course compass's north — the
-## default view, whose art is the authored drawing — then a quarter turn
-## clockwise per step through east and south to west.
+## The four angles a tree is drawn from, indexed by the quarter turn of art the
+## course wears (see TerrainGrid.get_view_facing()): 0 is the course compass's
+## north — the default view, whose art is the authored drawing — then a quarter
+## turn clockwise per step through east and south to west.
 const FACINGS: Array[String] = ["n", "e", "s", "w"]
 
 ## The angle drawn when nothing names one: the authored north view. It is
@@ -197,12 +197,14 @@ func rescan() -> void:
 					_tree_tiles[pos] = species_at(type, pos)
 	_sync_visuals(true)
 
-## The angle the course is viewed from: the grid's view orientation, so
-## rotating the course turns every tree with it, exactly as it turns the
-## buildings. A tree is drawn from `facing_at()` — this angle plus the tile's
-## own offset — so trees in the same wood face different ways.
+## The angle the course is viewed from: the quarter turn whose art the course
+## is drawn with, so rotating the course turns every tree with it, exactly as
+## it turns the buildings — and a course resting on a diagonal draws the wood
+## from the cardinal facing it sits nearest. A tree is drawn from `facing_at()`
+## — this angle plus the tile's own offset — so trees in the same wood face
+## different ways.
 func view_facing() -> int:
-	return terrain_grid.get_view_orientation() if terrain_grid else DEFAULT_FACING
+	return terrain_grid.get_view_facing() if terrain_grid else DEFAULT_FACING
 
 # =============================================================================
 # ART LOOKUP — the toolbar's tree tiles read their preview from here too

@@ -2734,10 +2734,12 @@ func _sync_camera_bounds_to_view() -> void:
 	camera.bounds_max = bounds.end
 
 func _sync_view_controls() -> void:
-	# The facing chip in the banner's details card takes the same quarter turn
-	# the course just took, so the corner reads as a compass.
+	# The facing chip in the banner's details card takes the same step the
+	# course just took, so the corner reads as a compass with as many points as
+	# the course has facings to rest on.
 	if terrain_grid and course_location_banner:
-		course_location_banner.set_orientation(terrain_grid.get_view_orientation())
+		course_location_banner.set_orientation(terrain_grid.get_view_orientation(),
+			terrain_grid.get_view_step_count())
 	# Keep toolbar in sync if it still has the deprecated method
 	if terrain_toolbar and terrain_grid and terrain_toolbar.has_method("set_view_state"):
 		terrain_toolbar.set_view_state(terrain_grid.get_view_orientation(), terrain_grid.is_view_isometric())
