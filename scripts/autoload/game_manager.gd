@@ -59,6 +59,15 @@ var edge_pan_enabled: bool = true:
 		edge_pan_enabled = value
 		if is_inside_tree():
 			EventBus.edge_pan_enabled_changed.emit(edge_pan_enabled)
+## Whether rotating the course turns in animated 15-degree steps instead of
+## snapping a quarter turn (player preference, persisted in settings.cfg).
+var gradual_view_rotation: bool = true:
+	set(value):
+		if gradual_view_rotation == value:
+			return
+		gradual_view_rotation = value
+		if is_inside_tree():
+			EventBus.gradual_view_rotation_changed.emit(gradual_view_rotation)
 ## Camera zoom limits (player preference, persisted in settings.cfg).
 ## The defaults match the original IsometricCamera range so older installs are
 ## unchanged until the player opens Settings.
@@ -1023,6 +1032,10 @@ func set_minimap_enabled(enabled: bool) -> void:
 func set_edge_pan_enabled(enabled: bool) -> void:
 	"""Enable or disable screen-edge camera panning."""
 	edge_pan_enabled = enabled
+
+func set_gradual_view_rotation(enabled: bool) -> void:
+	"""Enable or disable animated 15-degree view rotation."""
+	gradual_view_rotation = enabled
 
 func _exit_tree() -> void:
 	# Disconnect signals to prevent memory leaks and double-callbacks on reload

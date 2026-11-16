@@ -79,6 +79,8 @@ signal tooltip_hidden()
 signal minimap_enabled_changed(enabled: bool)
 ## Whether hovering the window edge pans the course camera (Settings).
 signal edge_pan_enabled_changed(enabled: bool)
+## Whether rotating the course steps smoothly in 15-degree increments (Settings).
+signal gradual_view_rotation_changed(enabled: bool)
 
 # Wind Signals
 signal wind_changed(direction: float, speed: float)

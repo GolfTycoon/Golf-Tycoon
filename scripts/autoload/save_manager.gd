@@ -333,6 +333,7 @@ func _build_save_data() -> Dictionary:
 		data["walking_paths"] = terrain_grid.serialize_walking_paths()
 		data["view"] = {
 			"orientation": terrain_grid.get_view_orientation(),
+			"angle": terrain_grid.get_view_angle(),
 			"isometric": terrain_grid.is_view_isometric(),
 		}
 
@@ -538,7 +539,14 @@ func _apply_save_data(data: Dictionary) -> void:
 		# aborted the whole load: the course, wind and tournament below it never
 		# got restored, and the Host Tournament button sat greyed out reading
 		# "No course data" on a course that plainly had one.
-		terrain_grid.set_view_orientation(int(view.get("orientation", 0)))
+		if view.has("angle"):
+			var saved_angle := float(view.get("angle", 0.0))
+			if GameManager.gradual_view_rotation:
+				terrain_grid.set_view_angle(saved_angle)
+			else:
+				terrain_grid.set_view_orientation(wrapi(roundi(saved_angle), 0, GridProjection.ORIENTATION_COUNT))
+		else:
+			terrain_grid.set_view_orientation(int(view.get("orientation", 0)))
 
 	# Entities
 	if entity_layer and data.has("entities"):
@@ -821,6 +829,7 @@ func _apply_camera_settings(config: ConfigFile) -> void:
 	# Older settings files have no edge-pan key: screen-edge panning stays on,
 	# which is how the camera behaved before the preference existed.
 	GameManager.set_edge_pan_enabled(bool(config.get_value("camera", "edge_pan_enabled", true)))
+	GameManager.set_gradual_view_rotation(bool(config.get_value("camera", "gradual_view_rotation", true)))
 
 
 ## Write one preference that belongs to the player rather than to a save -

@@ -59,8 +59,18 @@ var _measure_start: Vector2i = Vector2i.ZERO
 var _measure_end: Vector2i = Vector2i.ZERO
 var _measure_overlay: Node2D = null
 
-## Moving entities captured (in grid space) across a view projection change.
+## Moving entities and focus point captured (in grid space) across a view projection change.
 var _pending_moving_entities: Array = []
+var _pending_focus_entry: Dictionary = {}
+var _pending_view_restore: bool = false
+
+## Held-key / held-button cadence for gradual view rotation (wall-clock seconds).
+const ROTATE_HOLD_INITIAL_DELAY: float = 0.30
+const ROTATE_HOLD_REPEAT_INTERVAL: float = 0.14
+var _rotate_hold_direction: int = 0
+var _rotate_hold_elapsed: float = 0.0
+var _rotate_hold_repeating: bool = false
+var _last_rotate_hold_ms: int = 0
 
 var hole_tool: HoleCreationTool = HoleCreationTool.new()
 var placement_manager: PlacementManager = PlacementManager.new()
@@ -618,6 +628,7 @@ func _process(_delta: float) -> void:
 	# controls, the minimap and tile inspection on every frame while it is open.
 	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU and not _benchmark_tour_active:
 		return
+	_update_rotate_hold()
 	_update_ui()
 	_update_mini_map_camera()
 	_update_tile_inspector()
@@ -985,6 +996,7 @@ func _connect_signals() -> void:
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.new_game_started.connect(_on_new_game_started)
 	hole_manager.hole_selected.connect(_on_hole_flag_selected)
+	terrain_grid.view_rotation_will_change.connect(_on_terrain_view_rotation_will_change)
 	terrain_grid.view_rotated.connect(_on_terrain_view_rotated)
 	# Tee boxes, cups and holes decide what may be placed next and whether a hole
 	# is ready to open, so the toolbar re-reads the rules whenever they change.
@@ -2640,55 +2652,260 @@ func _on_view_rotate_ccw() -> void:
 	_change_view_projection(false)
 
 func _change_view_projection(clockwise: bool) -> void:
-	var focus_grid := _begin_view_change()
+	if not terrain_grid:
+		return
 	if clockwise:
 		terrain_grid.rotate_view_cw()
 	else:
 		terrain_grid.rotate_view_ccw()
-	_finish_view_change(focus_grid)
 
-func _begin_view_change() -> Vector2:
+func _held_rotate_direction() -> int:
+	if not GameManager.gradual_view_rotation:
+		return 0
+	if not _gameplay_input_active():
+		return 0
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused is LineEdit or focused is TextEdit:
+		return 0
+	var ccw := InputBindings.action_pressed("rotate_camera") \
+			or InputBindings.action_pressed("gamepad_rotate_ccw")
+	var cw := InputBindings.action_pressed("rotate_camera_cw") \
+			or InputBindings.action_pressed("gamepad_rotate_cw")
+	if ccw == cw:
+		return 0
+	return 1 if cw else -1
+
+func _update_rotate_hold() -> void:
+	var direction := _held_rotate_direction()
+	if direction == 0:
+		_rotate_hold_direction = 0
+		_rotate_hold_elapsed = 0.0
+		_rotate_hold_repeating = false
+		_last_rotate_hold_ms = 0
+		return
+	var now_ms := Time.get_ticks_msec()
+	if direction != _rotate_hold_direction:
+		_rotate_hold_direction = direction
+		_rotate_hold_elapsed = 0.0
+		_rotate_hold_repeating = false
+		_last_rotate_hold_ms = now_ms
+		return
+	if _last_rotate_hold_ms <= 0:
+		_last_rotate_hold_ms = now_ms
+	var real_delta := clampf(float(now_ms - _last_rotate_hold_ms) / 1000.0, 0.0, 0.1)
+	_last_rotate_hold_ms = now_ms
+	_rotate_hold_elapsed += real_delta
+	var threshold := ROTATE_HOLD_REPEAT_INTERVAL if _rotate_hold_repeating else ROTATE_HOLD_INITIAL_DELAY
+	if _rotate_hold_elapsed >= threshold:
+		_rotate_hold_elapsed -= threshold
+		_rotate_hold_repeating = true
+		_change_view_projection(_rotate_hold_direction > 0)
+
+func _world_to_precise_grid_or_flat(world_pos: Vector2) -> Dictionary:
+	var grid_point := terrain_grid.screen_to_grid_point(world_pos)
+	if grid_point != TerrainGrid.INVALID_GRID_POINT:
+		return {"pos": grid_point - Vector2(0.5, 0.5), "flat": false}
+	return {"pos": terrain_grid.projection.unproject(world_pos) - Vector2(0.5, 0.5), "flat": true}
+
+func _precise_grid_to_world(entry: Dictionary) -> Vector2:
+	var pos: Vector2 = entry.get("pos", Vector2.ZERO)
+	if bool(entry.get("flat", false)):
+		return terrain_grid.projection.project(pos + Vector2(0.5, 0.5))
+	return terrain_grid.grid_to_screen_precise(pos)
+
+func _on_terrain_view_rotation_will_change() -> void:
 	_pending_moving_entities = _snapshot_moving_entities()
 	if camera and terrain_grid:
-		return terrain_grid.screen_to_grid_precise(camera.global_position)
-	return Vector2.ZERO
-
-func _finish_view_change(focus_grid: Vector2) -> void:
-	_restore_moving_entities(_pending_moving_entities)
-	_pending_moving_entities = []
-	if camera and terrain_grid:
-		camera.focus_on(terrain_grid.grid_to_screen_precise(focus_grid), true)
+		_pending_focus_entry = _world_to_precise_grid_or_flat(camera.global_position)
+	else:
+		_pending_focus_entry = {}
+	_pending_view_restore = true
 
 func _on_terrain_view_rotated(_orientation: int, _isometric: bool) -> void:
+	if _pending_view_restore:
+		_pending_view_restore = false
+		_restore_moving_entities(_pending_moving_entities)
+		_pending_moving_entities = []
+		if camera and terrain_grid and not _pending_focus_entry.is_empty():
+			camera.focus_on(_precise_grid_to_world(_pending_focus_entry), true)
+		_pending_focus_entry = {}
 	_after_view_change()
+
+func _world_delta_to_grid(delta: Vector2) -> Vector2:
+	if delta == Vector2.ZERO:
+		return Vector2.ZERO
+	var g0 := terrain_grid.projection.unproject(Vector2.ZERO)
+	return terrain_grid.projection.unproject(delta) - g0
+
+func _grid_delta_to_world(delta: Vector2) -> Vector2:
+	if delta == Vector2.ZERO:
+		return Vector2.ZERO
+	var origin := terrain_grid.projection.project(Vector2.ZERO)
+	return terrain_grid.projection.project(delta) - origin
+
+func _collect_course_golfers() -> Array[Golfer]:
+	var golfers: Array[Golfer] = []
+	var seen: Dictionary = {}
+	if golfer_manager:
+		for golfer in golfer_manager.get_active_golfers():
+			if is_instance_valid(golfer) and not seen.has(golfer.get_instance_id()):
+				seen[golfer.get_instance_id()] = true
+				golfers.append(golfer)
+		if golfer_manager.golfers_container:
+			for child in golfer_manager.golfers_container.get_children():
+				if child is Golfer and is_instance_valid(child) and not seen.has(child.get_instance_id()):
+					seen[child.get_instance_id()] = true
+					golfers.append(child)
+	if player_golfer_manager and is_instance_valid(player_golfer_manager.golfer):
+		var owner_golfer := player_golfer_manager.golfer
+		if not seen.has(owner_golfer.get_instance_id()):
+			seen[owner_golfer.get_instance_id()] = true
+			golfers.append(owner_golfer)
+	return golfers
+
+func _collect_course_balls() -> Array[Ball]:
+	var balls: Array[Ball] = []
+	var seen: Dictionary = {}
+	if ball_manager:
+		for ball in ball_manager.get_all_balls():
+			if ball is Ball and is_instance_valid(ball) and not seen.has(ball.get_instance_id()):
+				seen[ball.get_instance_id()] = true
+				balls.append(ball)
+		if ball_manager.balls_container:
+			for child in ball_manager.balls_container.get_children():
+				if child is Ball and is_instance_valid(child) and not seen.has(child.get_instance_id()):
+					seen[child.get_instance_id()] = true
+					balls.append(child)
+	return balls
 
 func _snapshot_moving_entities() -> Array:
 	var snapshot: Array = []
 	if not terrain_grid:
 		return snapshot
-	if golfer_manager:
-		for golfer in golfer_manager.get_active_golfers():
-			if is_instance_valid(golfer):
-				snapshot.append([golfer, terrain_grid.screen_to_grid_precise(golfer.global_position)])
-	if ball_manager:
-		for ball in ball_manager.get_all_balls():
-			if is_instance_valid(ball):
-				snapshot.append([ball, terrain_grid.screen_to_grid_precise(ball.global_position)])
-	# Staff and weeds are live course objects too; a view rotation must carry
-	# them to their new projected positions.
-	for container in [staff_container, weed_container]:
-		if container == null:
-			continue
-		for child in container.get_children():
-			if child is Node2D and is_instance_valid(child):
-				snapshot.append([child, terrain_grid.screen_to_grid_precise(child.global_position)])
+	for golfer in _collect_course_golfers():
+		var path_entries: Array = []
+		for waypoint in golfer.path:
+			path_entries.append(_world_to_precise_grid_or_flat(waypoint))
+		var data := {
+			"kind": "golfer",
+			"node": golfer,
+			"pos": _world_to_precise_grid_or_flat(golfer.global_position),
+			"path": path_entries,
+		}
+		if golfer._amenity_phase > 0:
+			data["amenity_dest"] = _world_to_precise_grid_or_flat(golfer._amenity_destination)
+			data["amenity_origin"] = _world_to_precise_grid_or_flat(golfer._amenity_origin)
+		var duty := golfer.get_node_or_null("OwnerDuty") as OwnerDuty
+		if duty != null and is_instance_valid(duty) and duty.step != OwnerDuty.Step.IDLE:
+			data["duty"] = duty
+			data["duty_target"] = _world_to_precise_grid_or_flat(duty._target)
+		snapshot.append(data)
+	for ball in _collect_course_balls():
+		if ball.ball_state == Ball.BallState.IN_FLIGHT:
+			var flight_data := {
+				"kind": "ball_flight",
+				"node": ball,
+				"start": _world_to_precise_grid_or_flat(ball.flight_start_pos),
+				"end": _world_to_precise_grid_or_flat(ball.flight_end_pos),
+				"wind_delta": _world_delta_to_grid(ball.wind_visual_offset),
+			}
+			if ball._has_pending_rollout:
+				flight_data["roll_end"] = _world_to_precise_grid_or_flat(ball.roll_end_pos)
+			snapshot.append(flight_data)
+		elif ball.ball_state == Ball.BallState.ROLLING:
+			snapshot.append({
+				"kind": "ball_rolling",
+				"node": ball,
+				"roll_start": _world_to_precise_grid_or_flat(ball.roll_start_pos),
+				"roll_end": _world_to_precise_grid_or_flat(ball.roll_end_pos),
+			})
+		else:
+			snapshot.append({
+				"kind": "node",
+				"node": ball,
+				"pos": _world_to_precise_grid_or_flat(ball.global_position),
+			})
+	if staff_container != null:
+		for child in staff_container.get_children():
+			if child is StaffMember and is_instance_valid(child):
+				var staff := child as StaffMember
+				var staff_data := {
+					"kind": "staff",
+					"node": staff,
+					"pos": _world_to_precise_grid_or_flat(staff.global_position),
+				}
+				if staff._state != StaffMember.State.IDLE:
+					staff_data["target"] = _world_to_precise_grid_or_flat(staff._target_world)
+				snapshot.append(staff_data)
+			elif child is Node2D and is_instance_valid(child):
+				snapshot.append({
+					"kind": "node",
+					"node": child,
+					"pos": _world_to_precise_grid_or_flat(child.global_position),
+				})
+	if weed_container != null:
+		for child in weed_container.get_children():
+			if child is Weed and is_instance_valid(child):
+				snapshot.append({
+					"kind": "weed",
+					"node": child,
+				})
+			elif child is Node2D and is_instance_valid(child):
+				snapshot.append({
+					"kind": "node",
+					"node": child,
+					"pos": _world_to_precise_grid_or_flat(child.global_position),
+				})
 	return snapshot
 
 func _restore_moving_entities(snapshot: Array) -> void:
 	for entry in snapshot:
-		var entity: Node2D = entry[0]
-		if is_instance_valid(entity):
-			entity.global_position = terrain_grid.grid_to_screen_precise(entry[1])
+		var node: Variant = entry.get("node")
+		if not is_instance_valid(node):
+			continue
+		match str(entry.get("kind", "")):
+			"golfer":
+				var golfer := node as Golfer
+				golfer.global_position = _precise_grid_to_world(entry["pos"])
+				var restored_path: Array[Vector2] = []
+				for wp_entry in entry["path"]:
+					restored_path.append(_precise_grid_to_world(wp_entry))
+				golfer.path = restored_path
+				if entry.has("amenity_dest"):
+					golfer._amenity_destination = _precise_grid_to_world(entry["amenity_dest"])
+					golfer._amenity_origin = _precise_grid_to_world(entry["amenity_origin"])
+				if entry.has("duty_target"):
+					var duty := entry.get("duty") as OwnerDuty
+					if duty != null and is_instance_valid(duty):
+						duty._target = _precise_grid_to_world(entry["duty_target"])
+			"ball_flight":
+				var ball := node as Ball
+				ball.flight_start_pos = _precise_grid_to_world(entry["start"])
+				ball.flight_end_pos = _precise_grid_to_world(entry["end"])
+				ball.wind_visual_offset = _grid_delta_to_world(entry["wind_delta"])
+				if entry.has("roll_end"):
+					ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
+				var linear_pos := ball.flight_start_pos.lerp(ball.flight_end_pos, ball.flight_progress)
+				var arc_height := sin(ball.flight_progress * PI) * ball.flight_max_height
+				var wind_drift := ball.wind_visual_offset * sin(ball.flight_progress * PI)
+				ball.global_position = linear_pos - Vector2(0.0, arc_height) + wind_drift
+			"ball_rolling":
+				var ball := node as Ball
+				ball.roll_start_pos = _precise_grid_to_world(entry["roll_start"])
+				ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
+				var eased_t := 1.0 - pow(1.0 - ball.roll_progress, 2.0)
+				ball.global_position = ball.roll_start_pos.lerp(ball.roll_end_pos, eased_t)
+			"staff":
+				var staff := node as StaffMember
+				staff.global_position = _precise_grid_to_world(entry["pos"])
+				if entry.has("target"):
+					staff._target_world = _precise_grid_to_world(entry["target"])
+			"weed":
+				var weed := node as Weed
+				weed.set_position_in_grid(weed.grid_position)
+			_:
+				var entity := node as Node2D
+				entity.global_position = _precise_grid_to_world(entry["pos"])
 
 func _after_view_change() -> void:
 	_reposition_placed_entities()

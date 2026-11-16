@@ -323,6 +323,7 @@ func test_a_species_with_no_art_at_any_angle_has_no_sprite() -> void:
 
 
 func test_the_overlay_draws_the_angle_the_course_is_viewed_from() -> void:
+	GameManager.set_gradual_view_rotation(false)
 	var grid := make_grid(8, 8)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay
 	assert_eq(trees.view_facing(), 0, "a fresh course is viewed from the north")
@@ -336,7 +337,19 @@ func test_the_overlay_draws_the_angle_the_course_is_viewed_from() -> void:
 	assert_eq(trees.view_facing(), 3, "a loaded view orientation is honoured too")
 
 
+func test_fractional_view_angles_pick_the_nearest_four_way_tree_facing() -> void:
+	var grid := make_grid(8, 8)
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	grid.set_view_angle(0.25)
+	assert_eq(trees.view_facing(), 0, "angles under 45 degrees keep the north tree sprite")
+	grid.set_view_angle(0.6)
+	assert_eq(trees.view_facing(), 1, "crossing 45 degrees switches trees to the east sprite")
+	grid.set_view_angle(3.7)
+	assert_eq(trees.view_facing(), 0, "angles past 315 degrees wrap to north")
+
+
 func test_rotating_the_view_changes_the_texture_a_tree_is_drawn_with() -> void:
+	GameManager.set_gradual_view_rotation(false)
 	var grid := make_grid(8, 8)
 	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.PALM)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay

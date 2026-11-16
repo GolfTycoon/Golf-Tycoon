@@ -73,7 +73,7 @@ The art is authored in **grid space**:
 
 ### 4. Rotation
 
-The view can be rotated a quarter turn at a time, and buildings turn with it. Each rotation has its own pre-rendered image. After a rotation, `Building.set_position_in_grid()` passes the new `facing` to the architecture node, which swaps in that rotation's file.
+Each facility has four pre-rendered images, one per compass quarter turn (`N`, `E`, `S`, `W`). When **Gradual View Rotation** is on, the terrain turns to the exact 15°-stepped angle while buildings (like trees and the HUD facing chip) continue using the four-way art for the **nearest** compass direction (`TerrainGrid.get_view_orientation()`). After any view change — including intermediate tween frames — `Building.set_position_in_grid()` updates the building's anchor to the terrain's exact projected tile centre and passes that nearest four-way `facing` to the architecture node. Turning Gradual View Rotation off settles the view onto the nearest quarter turn and restores classic instant quarter-turn rotation.
 
 | Function | What it does |
 | --- | --- |

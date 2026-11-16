@@ -518,6 +518,36 @@ func test_the_edge_pan_setting_switches_the_live_camera() -> void:
 	menu._save_camera_settings()
 
 
+func test_the_gradual_view_rotation_setting_persists_and_settles_the_course() -> void:
+	var original_enabled := GameManager.gradual_view_rotation
+	main.terrain_grid.set_view_angle(2.0 / 6.0)
+	var menu: SettingsMenu = add_child_autofree(SettingsMenu.new())
+	await process_frames(6)
+	menu._select_category(SettingsMenu.Category.CONTROLS)
+	await process_frames(3)
+	var toggle := menu.find_child("Toggle_gradual_view_rotation", true, false) as CheckButton
+	assert_not_null(toggle, "The gradual-view-rotation toggle is on the Controls page")
+	if toggle == null:
+		return
+	assert_eq(toggle.button_pressed, original_enabled, "The toggle reflects the live preference")
+
+	toggle.button_pressed = false
+	await process_frames(2)
+	assert_false(GameManager.gradual_view_rotation, "Turning the toggle off disables gradual rotation")
+	assert_almost_eq(main.terrain_grid.get_view_angle(), 0.0, 0.001,
+		"and settles the live course onto the nearest quarter turn")
+	var saved := ConfigFile.new()
+	assert_eq(saved.load(SaveManager.SETTINGS_PATH), OK, "The setting saves to settings.cfg")
+	assert_false(bool(saved.get_value("camera", "gradual_view_rotation", true)),
+		"with gradual_view_rotation stored under [camera]")
+
+	toggle.button_pressed = original_enabled
+	await process_frames(2)
+	assert_eq(GameManager.gradual_view_rotation, original_enabled)
+	menu._save_camera_settings()
+	main.terrain_grid.set_view_angle(0.0)
+
+
 ## The UI scale control: automatic by default, following the detected display
 ## scale; moving the slider pins a manual size and saves both facts, and
 ## "Match this display" goes back to automatic.

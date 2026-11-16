@@ -721,12 +721,19 @@ func test_turning_the_course_drops_the_shelf() -> void:
 	var overlay := _overlay()
 	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.ROUGH)
 	grid.set_walking_path(Vector2i(3, 3), true)
-	overlay._commands_for(Vector2i(3, 3))
+	var before := overlay._commands_for(Vector2i(3, 3)).duplicate(true)
 	assert_false(overlay._command_cache.is_empty(), "precondition: the walk is cached")
 
-	grid.rotate_view_cw()
+	grid.set_view_angle(0.25)
 	assert_true(overlay._command_cache.is_empty(),
-		"a quarter turn reprojects every trail")
+		"turning the view drops the cached trail shelf immediately")
+
+	overlay._commands_for(Vector2i(3, 3))
+	grid.rotate_view_cw()
+	await wait_for_signal(grid.view_rotation_settled, 1.0)
+	var after := overlay._commands_for(Vector2i(3, 3))
+	assert_ne(after, before,
+		"and a gradual turn reprojects the trail to the new angle")
 
 func test_a_bulk_elevation_load_can_drop_the_shelf() -> void:
 	var overlay := _overlay()

@@ -106,12 +106,19 @@ func test_owned_land_is_never_tinted() -> void:
 # ---------------------------------------------------------------------------
 
 func test_turning_the_course_drops_the_projected_diamonds() -> void:
-	overlay._tile_polygon(Vector2i(30, 30))
+	var before := overlay._tile_polygon(Vector2i(30, 30)).duplicate()
 	assert_false(overlay._tile_polygons.is_empty(), "precondition: a diamond is cached")
 
-	grid.rotate_view_cw()
+	grid.set_view_angle(0.25)
 	assert_true(overlay._tile_polygons.is_empty(),
-		"a quarter turn reprojects every diamond")
+		"turning the view drops the cached diamonds immediately")
+
+	overlay._tile_polygon(Vector2i(30, 30))
+	grid.rotate_view_cw()
+	await wait_for_signal(grid.view_rotation_settled, 1.0)
+	var after := overlay._tile_polygon(Vector2i(30, 30))
+	assert_ne(after, before,
+		"and a gradual turn reprojects the diamond to the new angle")
 
 
 func test_sculpting_the_ground_drops_the_projected_diamonds() -> void:
