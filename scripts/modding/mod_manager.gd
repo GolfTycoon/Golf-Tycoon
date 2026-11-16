@@ -1145,6 +1145,25 @@ func load_mod_texture(mod_id: String, full_path: String) -> Texture2D:
 	return texture_value
 
 
+## A decoded mod texture already resized to `target`, cached under the path and
+## size. Art packs use this so a 2.5x source never lives in memory at full size.
+func load_mod_texture_fitted(mod_id: String, full_path: String,
+		target: Vector2i) -> Texture2D:
+	if target.x <= 0 or target.y <= 0:
+		return load_mod_texture(mod_id, full_path)
+	var cache_key: String = "%s|%s|%dx%d" % [mod_id, full_path, target.x, target.y]
+	if _texture_cache.has(cache_key):
+		return _texture_cache[cache_key]
+	var texture_value: Texture2D = null
+	var image := load_mod_image(full_path)
+	if image != null:
+		if image.get_width() != target.x or image.get_height() != target.y:
+			image.resize(target.x, target.y, Image.INTERPOLATE_LANCZOS)
+		texture_value = ImageTexture.create_from_image(image)
+	_texture_cache[cache_key] = texture_value
+	return texture_value
+
+
 ## An image from a mod file, decoded from the bytes the same way: no import
 ## step, and null when the file is missing or not a decodable picture.
 func load_mod_image(full_path: String) -> Image:

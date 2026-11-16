@@ -271,12 +271,12 @@ func test_the_official_feed_is_fetched_and_its_entries_listed() -> void:
 	var screen := await _screen()
 	var card := _repo_card(screen, OFFICIAL_URL)
 	var status := card.find_child("RepoStatus", true, false) as Label
-	assert_true(status.text.contains("18 mods on offer"),
+	assert_true(status.text.contains("19 mods on offer"),
 		"the whole official catalogue is on offer (%s)" % status.text)
 	assert_not_null(screen.feed_for(OFFICIAL_URL), "the feed itself is kept")
 	var section := screen._available_box.get_child(0)
 	assert_eq(str(section.get_meta("url", "")), OFFICIAL_URL)
-	assert_eq(section.get_child_count(), 19, "a header line and one row per mod")
+	assert_eq(section.get_child_count(), 20, "a header line and one row per mod")
 	var seasons_row := section.get_node_or_null("ModRow_golf_tycoon_seasons") as Control
 	assert_not_null(seasons_row, "the Seasons mod is on offer")
 	assert_eq(str(seasons_row.get_meta("mod_id", "")), "golf_tycoon.seasons")
@@ -314,7 +314,7 @@ func test_every_row_says_which_mod_it_is() -> void:
 			"the card for %s leads with the mod's name (%s)" % [mod_id, card.text])
 		assert_true(card.tooltip_text.contains(str(entry.get("name", ""))),
 			"and its tooltip carries the name in full")
-	assert_eq(rows, 18, "every official mod was checked")
+	assert_eq(rows, 19, "every official mod was checked")
 
 	var seasons := _mod_card(screen, 0, "golf_tycoon.seasons")
 	var offered := screen.entry_for("golf_tycoon.seasons")
@@ -669,4 +669,4 @@ func test_a_window_shape_rebuild_keeps_the_downloader_alive() -> void:
 	assert_eq(screen.downloader, downloader, "and is still the one the test holds")
 	var status := (screen.find_child("RepoStatus", true, false) as Label)
 	assert_not_null(status, "the rebuilt screen re-fetches nothing and still shows the feed")
-	assert_true(status.text.contains("18 mods on offer"))
+	assert_true(status.text.contains("19 mods on offer"))

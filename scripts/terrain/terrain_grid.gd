@@ -567,6 +567,14 @@ func get_view_angle() -> float:
 func get_view_orientation() -> int:
 	return projection.nearest_orientation()
 
+## The view rotation snapped to the nearest fifteen-degree building-art step,
+## in quarter turns. During a gradual turn the terrain interpolates smoothly but
+## building sprites only exist every 15 degrees; drawing the nearest one keeps
+## the art and its footprint on the same angle.
+func get_view_facing_angle() -> float:
+	var steps := roundi(get_view_angle() * 6.0)
+	return float(wrapi(steps, 0, 24)) / 6.0
+
 func set_view_orientation(orientation: int) -> void:
 	set_view_angle(float(wrapi(orientation, 0, GridProjection.ORIENTATION_COUNT)))
 

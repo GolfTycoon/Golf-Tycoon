@@ -50,7 +50,7 @@ func _official_feed() -> ModRepositoryFeed:
 
 func test_every_package_manifest_validates_and_references_real_files() -> void:
 	var folders := _package_folders()
-	assert_eq(folders.size(), 18, "three official mods and fifteen examples are published")
+	assert_eq(folders.size(), 19, "four official mods and fifteen examples are published")
 	for folder in folders:
 		var root := PACKAGES_ROOT.path_join(folder)
 		var manifest := _manifest_of(folder)
@@ -81,7 +81,8 @@ func test_package_ids_are_unique() -> void:
 		var manifest := _manifest_of(folder)
 		assert_false(ids.has(manifest.id), "%s reuses an id" % manifest.id)
 		ids[manifest.id] = true
-	for id in ["golf_tycoon.seasons", "golf_tycoon.weather", "golf_tycoon.wind"]:
+	for id in ["golf_tycoon.seasons", "golf_tycoon.weather", "golf_tycoon.wind",
+			"golf_tycoon.hd_building_art"]:
 		assert_true(ids.has(id), "the official %s is published" % id)
 
 
@@ -159,7 +160,11 @@ func test_every_package_has_a_zip_that_matches_it_file_for_file() -> void:
 		assert_eq(zip_relative, expected, "%s zip holds the package's files and nothing else" % manifest.id)
 		for relative in expected:
 			var in_zip := reader.read_file(prefix + relative)
-			assert_eq(in_zip, FileAccess.get_file_as_bytes(folder_root.path_join(relative)),
+			# Compare as a boolean rather than handing GUT two large
+			# PackedByteArrays: its failure formatting stringifies both,
+			# which exhausts memory on a multi-megabyte art pack.
+			var on_disk := FileAccess.get_file_as_bytes(folder_root.path_join(relative))
+			assert_true(in_zip == on_disk,
 				"%s/%s is identical in zip and package" % [manifest.id, relative])
 		reader.close()
 

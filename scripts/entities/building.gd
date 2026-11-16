@@ -12,9 +12,10 @@ var total_revenue: int = 0  # Lifetime revenue collected by this building
 var terrain_grid: TerrainGrid
 var building_data: Dictionary = {}
 
-## The architecture node's view rotation, so the sidewalk the drawing shows is
-## the side `CourseClubhouse.front_tile()` sends the golfers to.
-var _facing: int = 0
+## The architecture node's view rotation in quarter turns (fractional values are
+## 15-degree steps), so the sidewalk the drawing shows is the side
+## `CourseClubhouse.front_tile()` sends the golfers to.
+var _facing: float = 0.0
 
 signal building_selected(building: Building)
 signal building_destroyed(building: Building)
@@ -178,8 +179,8 @@ func destroy(force: bool = false) -> void:
 func _update_facing() -> void:
 	if terrain_grid == null:
 		return
-	var new_facing := terrain_grid.get_view_orientation()
-	if new_facing == _facing and get_node_or_null("ClickArea") != null:
+	var new_facing := terrain_grid.get_view_facing_angle()
+	if is_equal_approx(new_facing, _facing) and get_node_or_null("ClickArea") != null:
 		return
 	_facing = new_facing
 	var visual := get_node_or_null("Visual/Architecture") as CourseArchitecture
@@ -223,9 +224,37 @@ func _make_click_area() -> Area2D:
 	var footprint := Vector2(width * 64.0, height * 32.0)
 	for polygon in BuildingSprites.click_polygons(
 			building_type, upgrade_level, _facing, footprint):
-		var collision := CollisionPolygon2D.new()
-		collision.polygon = polygon
-		click_area.add_child(collision)
+		# CollisionPolygon2D decomposes concave outlines itself, but a traced
+		# silhouette with a thin overhang can defeat that decomposition and
+		# log an engine error. Split the outline here instead, keeping the few
+		# convex pieces when the contour is simple and falling back to its
+		# bounds only when it is not.
+		var pieces: Array = []
+		# Ear-clip the outline into triangles. The earlier code asked
+		# Geometry2D to decompose it into convex pieces first, but a traced
+		# 1:1 silhouette has thin roof edges and crenellations that make that
+		# decomposition fail (and log an engine error). Triangulation is exact,
+		# always succeeds on a simple contour, and every triangle is convex.
+		var triangles := Geometry2D.triangulate_polygon(polygon)
+		if not triangles.is_empty():
+			for i in range(0, triangles.size(), 3):
+				pieces.append(PackedVector2Array([
+					polygon[triangles[i]], polygon[triangles[i + 1]],
+					polygon[triangles[i + 2]]]))
+		else:
+			var lo: Vector2 = polygon[0]
+			var hi: Vector2 = polygon[0]
+			for point in polygon:
+				lo = Vector2(minf(lo.x, point.x), minf(lo.y, point.y))
+				hi = Vector2(maxf(hi.x, point.x), maxf(hi.y, point.y))
+			pieces = [PackedVector2Array([lo,
+				Vector2(hi.x, lo.y), hi, Vector2(lo.x, hi.y)])]
+		for piece in pieces:
+			if piece.size() < 3:
+				continue
+			var collision := CollisionPolygon2D.new()
+			collision.polygon = piece
+			click_area.add_child(collision)
 	click_area.input_event.connect(_on_click_area_input_event)
 	return click_area
 

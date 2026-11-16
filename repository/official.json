@@ -156,6 +156,16 @@
 		{
 			"api_version": 1,
 			"author": "Golf Tycoon",
+			"description": "The high-resolution building art pack: every facility and upgrade tier drawn at the original 2.5 pixels per world pixel, across all 24 view steps. The game ships smaller 1:1 sprites; enable this pack to restore the larger, finer-detailed source images. Purely cosmetic and safe to switch off at any time.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.hd_building_art.zip",
+			"id": "golf_tycoon.hd_building_art",
+			"name": "HD Building Art",
+			"size_bytes": 46248881,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon",
 			"description": "The shipped seasons: four theme-aware seasons over the calendar year. Golfer demand, upkeep, green-fee tolerance, tournament prestige and the weather all follow the season, eight seasonal events (Spring Opening Week, the Fall Classic...) punctuate the year, and the woodland turns with them - the spring, fall and winter tree art ships in this mod's own tree_art folder. Turn the feature on per company at Start New Game; disable this mod to remove seasons from the game entirely.",
 			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.seasons.zip",
 			"id": "golf_tycoon.seasons",
