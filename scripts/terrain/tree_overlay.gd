@@ -67,7 +67,7 @@ const MAX_ART_SCALE := 4.0
 ## TerrainGrid.get_view_orientation()): 0 is the course compass's north — the
 ## default view, whose art is the authored drawing — then a quarter turn
 ## clockwise per step through east and south to west.
-const FACINGS: Array[String] = ["n", "e", "s", "w"]
+const FACINGS: Array[String] = ["0", "1", "2", "3"]
 
 ## The angle drawn when nothing names one: the authored north view. It is
 ## what the toolbar's tree tiles preview, so a button never turns with the
