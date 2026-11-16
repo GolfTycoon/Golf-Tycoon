@@ -16,7 +16,7 @@ var hole_grid: GridContainer = null  # Lives in the toolbar's Holes tab (set up 
 @onready var left_controls: BottomControlDock = $UI/HUD/BottomBar/LeftControls
 ## The view controls ride on the top-left location banner (see
 ## _fill_view_controls): the two Rotate arrows on the right of its details
-## card, and the facing chip in the card's top-right corner.
+## card, and the borderless 24-way compass in the card's top-right corner.
 var rotate_view_controls: HBoxContainer = null
 var rotate_ccw_btn: Button = null
 var rotate_cw_btn: Button = null
@@ -2077,8 +2077,8 @@ func _setup_course_location_banner() -> void:
 	_dock_scores_below_banner()
 
 ## Take the banner's view controls: the two Rotate arrows on the right of its
-## details card, and the facing chip in the card's top-right corner that shows
-## the direction the course faces and folds the arrows away.
+## details card, and the 24-way compass in the card's top-right corner that
+## names the precise course heading and folds the arrows away.
 func _fill_view_controls() -> void:
 	rotate_view_controls = course_location_banner.rotate_controls
 	rotate_ccw_btn = course_location_banner.rotate_ccw_btn
@@ -2951,10 +2951,10 @@ func _sync_camera_bounds_to_view() -> void:
 	camera.bounds_max = bounds.end
 
 func _sync_view_controls() -> void:
-	# The facing chip in the banner's details card takes the same quarter turn
-	# the course just took, so the corner reads as a compass.
+	# The banner's borderless compass follows the nearest one of the 24 precise
+	# 15-degree course headings, including while a gradual turn is animating.
 	if terrain_grid and course_location_banner:
-		course_location_banner.set_orientation(terrain_grid.get_view_orientation())
+		course_location_banner.set_direction_step(terrain_grid.get_view_facing_step())
 	# Keep toolbar in sync if it still has the deprecated method
 	if terrain_toolbar and terrain_grid and terrain_toolbar.has_method("set_view_state"):
 		terrain_toolbar.set_view_state(terrain_grid.get_view_orientation(), terrain_grid.is_view_isometric())

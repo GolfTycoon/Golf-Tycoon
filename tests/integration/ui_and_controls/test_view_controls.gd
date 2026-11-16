@@ -52,8 +52,8 @@ func test_the_chip_shows_the_facing_in_the_card_s_top_right_corner() -> void:
 		"The chip lives inside the details card")
 	assert_gt(chip.get_global_rect().position.x, card_rect.get_center().x,
 		"on its right-hand side")
-	assert_lt(chip.get_global_rect().get_center().y, card_rect.get_center().y,
-		"and along its top edge")
+	assert_almost_eq(chip.get_global_rect().get_center().y, card_rect.get_center().y, 0.5,
+		"The larger compass is vertically centered in the details card")
 	assert_eq(chip.letter, OrientationToggleButton.letter_for(
 		main.terrain_grid.get_view_orientation()),
 		"The letter names the direction the course faces")
@@ -66,8 +66,14 @@ func test_clicking_an_arrow_turns_the_course_and_the_chip_follows() -> void:
 	await _wait_for_view_settled()
 	assert_almost_eq(main.terrain_grid.get_view_angle(), 1.0 / 6.0, 0.001,
 		"One clockwise arrow press turns the course 15 degrees")
+	assert_eq(_chip().direction_step, 1,
+		"The compass advances to its second 15-degree heading")
+	assert_string_contains(_chip().tooltip_text, "North 15 degrees east",
+		"The tooltip retains the precise heading without a face readout")
+	assert_false(_chip().tooltip_text.contains("of 24"),
+		"The button no longer displays a numbered direction readout")
 	assert_eq(_chip().letter, "N",
-		"and the facing chip stays on the nearest compass direction (N) under 45 degrees")
+		"The compatibility cardinal remains north until the course approaches east")
 
 	for _i in range(5):
 		await click(main.rotate_cw_btn)
@@ -75,7 +81,10 @@ func test_clicking_an_arrow_turns_the_course_and_the_chip_follows() -> void:
 	assert_eq(main.terrain_grid.get_view_orientation(), 1,
 		"Six clockwise presses reach a full quarter turn clockwise")
 	assert_almost_eq(main.terrain_grid.get_view_angle(), 1.0, 0.001)
-	assert_eq(_chip().letter, "E", "and the chip follows it to east")
+	assert_eq(_chip().direction_step, 6, "The compass has reached its east heading")
+	assert_string_contains(_chip().tooltip_text, "East",
+		"The tooltip follows the compass heading")
+	assert_eq(_chip().letter, "E", "The nearest-cardinal label agrees")
 
 	for _i in range(6):
 		await click(main.rotate_ccw_btn)
