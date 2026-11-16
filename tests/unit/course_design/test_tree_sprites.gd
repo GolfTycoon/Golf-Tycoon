@@ -402,21 +402,18 @@ func test_a_wood_is_drawn_from_every_angle_whichever_way_it_is_viewed() -> void:
 
 
 ## Turning the screen keeps the promise of the four views: every tree moves on
-## to its next angle — one step, not two, and never staying on the angle it was
-## just drawn from — and a full turn brings each one back to where it began.
-func test_rotating_the_course_steps_every_tree_to_its_next_angle() -> void:
+## Rotating the course keeps every tree on the same sprite image for every
+## direction, while still using all four directional sprites as per-tile
+## alternative sprite images.
+func test_rotating_the_course_keeps_every_tree_on_its_same_sprite() -> void:
 	var angles := TreeOverlay.FACINGS.size()
 	for x in range(6):
 		for y in range(6):
 			var pos := Vector2i(x, y)
+			var base := TreeOverlay.facing_at(pos, 0)
 			for view in range(angles):
-				var here := TreeOverlay.facing_at(pos, view)
-				var next := TreeOverlay.facing_at(pos, view + 1)
-				assert_eq(next, wrapi(here + 1, 0, angles),
-						"the tree on %s turns on to its next angle" % pos)
-				assert_ne(next, here, "and never stays at the angle it was drawn from")
-			assert_eq(TreeOverlay.facing_at(pos, angles), TreeOverlay.facing_at(pos, 0),
-					"a full turn brings the tree on %s back to its first angle" % pos)
+				assert_eq(TreeOverlay.facing_at(pos, view), base,
+						"the tree on %s keeps the same sprite at view %d" % [pos, view])
 
 
 ## The offset is the tile's own: fixed for the life of the course, so the wood
