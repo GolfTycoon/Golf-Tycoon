@@ -49,18 +49,21 @@ func test_the_chip_shows_the_facing_in_the_card_s_top_right_corner() -> void:
 	assert_lt(chip.get_global_rect().get_center().y, card_rect.get_center().y,
 		"and along its top edge")
 	assert_eq(chip.letter, OrientationToggleButton.letter_for(
-		main.terrain_grid.get_view_orientation()),
+		main.terrain_grid.get_view_orientation(),
+		main.terrain_grid.get_view_step_count()),
 		"The letter names the direction the course faces")
 
 func test_clicking_an_arrow_turns_the_course_and_the_chip_follows() -> void:
 	await _restore_orientation()
 	var start: int = main.terrain_grid.get_view_orientation()
+	var steps: int = main.terrain_grid.get_view_step_count()
 	assert_eq(_chip().letter, "N")
 
 	await click(main.rotate_cw_btn)
-	assert_eq(main.terrain_grid.get_view_orientation(), wrapi(start + 1, 0, 4),
-		"The clockwise arrow turns the course a quarter turn clockwise")
-	assert_eq(_chip().letter, "E", "and the chip follows it to east")
+	assert_eq(main.terrain_grid.get_view_orientation(), wrapi(start + 1, 0, steps),
+		"The clockwise arrow turns the course one step clockwise")
+	assert_eq(_chip().letter, OrientationToggleButton.letter_for(1, steps),
+		"and the chip follows it to the next point of the compass")
 
 	await click(main.rotate_ccw_btn)
 	assert_eq(main.terrain_grid.get_view_orientation(), start,
@@ -68,15 +71,38 @@ func test_clicking_an_arrow_turns_the_course_and_the_chip_follows() -> void:
 	assert_eq(_chip().letter, "N", "and the chip comes back to north")
 	await _restore_orientation()
 
+func test_one_step_round_the_compass_is_a_diagonal_by_default() -> void:
+	# Fine Rotation is on out of the box: one press is an eighth turn, so the
+	# course rests on a diagonal facing the four-facings compass cannot name.
+	await _restore_orientation()
+	assert_eq(main.terrain_grid.get_view_step_count(),
+		GridProjection.EIGHTH_TURN_COUNT, "precondition: the finer step is on")
+	await click(main.rotate_cw_btn)
+	assert_eq(main.terrain_grid.get_view_orientation(), 1)
+	assert_eq(_chip().letter, "NE", "the chip names the diagonal")
+	await click(main.rotate_cw_btn)
+	assert_eq(_chip().letter, "E", "and the next step is east, as it always was")
+	await _restore_orientation()
+
+func test_the_whole_compass_comes_back_to_north() -> void:
+	await _restore_orientation()
+	for step in range(main.terrain_grid.get_view_step_count()):
+		await click(main.rotate_cw_btn)
+	assert_eq(_chip().letter, "N",
+		"A full turn of the compass lands back on north")
+	await _restore_orientation()
+
 func test_q_and_e_turn_the_course_from_the_keyboard() -> void:
 	await _restore_orientation()
 	var start: int = main.terrain_grid.get_view_orientation()
+	var steps: int = main.terrain_grid.get_view_step_count()
 
 	press_key(KEY_Q)
 	await process_frames(2)
-	assert_eq(main.terrain_grid.get_view_orientation(), wrapi(start - 1, 0, 4),
-		"Q turns the course a quarter turn counter-clockwise")
-	assert_eq(_chip().letter, "W", "and the chip follows it to west")
+	assert_eq(main.terrain_grid.get_view_orientation(), wrapi(start - 1, 0, steps),
+		"Q turns the course one step counter-clockwise")
+	assert_eq(_chip().letter, OrientationToggleButton.letter_for(-1, steps),
+		"and the chip follows it round")
 
 	press_key(KEY_E)
 	await process_frames(2)

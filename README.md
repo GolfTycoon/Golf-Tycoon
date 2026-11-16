@@ -98,7 +98,7 @@ If the course runs slowly, **Settings → Display → Performance & Scale** has 
 | Move the pointer | `Shift` + arrow keys (with HUD unfocused), or the right stick |
 | Click at the pointer | `Enter`, or `A` |
 | Zoom | Mouse wheel, `[` and `]`, or `LT`/`RT` |
-| Rotate the view | `Q` and `E`, or `X`/`Y` |
+| Rotate the view | `Q` and `E`, or `X`/`Y` — one eighth turn (45°) by default, or a quarter turn with **Settings → Controls → Camera → Fine Rotation** off |
 | Pause or resume | `Space`, or `Start` |
 | Save | `Ctrl+S` |
 | Undo and redo | `Ctrl+Z` and `Ctrl+Shift+Z` |

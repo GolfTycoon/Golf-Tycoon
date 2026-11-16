@@ -91,7 +91,7 @@ func test_projected_tiles_keep_their_distinct_colours_in_every_orientation() -> 
 	for tile in painted:
 		grid.set_tile(tile, int(painted[tile]))
 	var corners := [Vector2.ZERO, Vector2(SIDE, 0), Vector2(SIDE, SIDE), Vector2(0, SIDE)]
-	for orientation in range(GridProjection.ORIENTATION_COUNT):
+	for orientation in range(grid.get_view_step_count()):
 		grid.set_view_orientation(orientation)
 		var quad := view._terrain_polygon()
 		for i in range(4):

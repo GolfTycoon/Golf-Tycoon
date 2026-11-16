@@ -178,7 +178,9 @@ func destroy(force: bool = false) -> void:
 func _update_facing() -> void:
 	if terrain_grid == null:
 		return
-	var new_facing := terrain_grid.get_view_orientation()
+	# The art is painted for the four cardinal facings, so a course resting on
+	# a diagonal wears the art of the cardinal facing it sits nearest.
+	var new_facing := terrain_grid.get_view_facing()
 	if new_facing == _facing and get_node_or_null("ClickArea") != null:
 		return
 	_facing = new_facing

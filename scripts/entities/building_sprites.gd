@@ -24,7 +24,8 @@ const MANIFEST_PATH := "res://assets/sprites/buildings/sprites.json"
 const SPRITE_DIR := "res://assets/sprites/buildings/"
 
 ## View rotations, in the order the manifest lists them. Matches
-## TerrainGrid.get_view_orientation().
+## TerrainGrid.get_view_facing() — the quarter turn of art the course wears,
+## wherever between two of them the player has turned the view to.
 const FACINGS := ["e", "s", "w", "n"]
 
 static var _manifest: Dictionary = {}

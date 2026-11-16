@@ -151,7 +151,7 @@ func test_extreme_peak_picking_survives_every_view_rotation() -> void:
 			grid.set_vertex_elevation(Vector2i(x, y), grid.MIN_ELEVATION)
 	grid.set_vertex_elevation(Vector2i(5, 5), grid.MAX_ELEVATION)
 	var near_peak := Vector2(5.01, 5.01)
-	for facing in range(4):
+	for facing in range(grid.get_view_step_count()):
 		grid.set_view_orientation(facing)
 		var screen := grid.grid_point_to_screen(near_peak)
 		var picked := grid.screen_to_grid_point(screen)

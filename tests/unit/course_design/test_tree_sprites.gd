@@ -42,6 +42,10 @@ func after_all() -> void:
 
 func before_each() -> void:
 	super()
+	# A tree is authored as four views (N / E / S / W), so the wood is turned
+	# through the cardinal facings here rather than through the finer step the
+	# player can choose in Settings (see test_fine_view_rotation.gd).
+	GameManager.set_fine_view_rotation(false)
 	GameManager.set_seasons_enabled(true)
 	# The seasonal wardrobe comes from the Seasons mod; re-apply its package
 	# each test (the registration tests below reset the live registries).

@@ -9,7 +9,10 @@ const DEFAULT_TILE_HEIGHT: int = 32
 @export var tile_width: int = DEFAULT_TILE_WIDTH
 @export var tile_height: int = DEFAULT_TILE_HEIGHT
 const view_isometric: bool = true
-@export_range(0, 3) var view_orientation: int = 0
+## Which facing the course is viewed from, counted in the step the player has
+## chosen: 0..3 for quarter turns, 0..7 for eighth turns (see
+## GridProjection.steps_per_turn). The eighth turn is the widest step there is.
+@export_range(0, 7) var view_orientation: int = 0
 
 ## Grid <-> world projection shared by every renderer and the input handlers.
 var projection: GridProjection = GridProjection.new()
@@ -141,6 +144,10 @@ var camera_repaint_count: int = 0
 
 func _ready() -> void:
 	y_sort_enabled = true
+	# The step the view turns in is a player preference, so the grid follows it
+	# as it is changed in Settings — even over a course already in progress.
+	if not EventBus.fine_view_rotation_changed.is_connected(_on_fine_view_rotation_changed):
+		EventBus.fine_view_rotation_changed.connect(_on_fine_view_rotation_changed)
 	_init_projection()
 	_course_surface = CourseSurface.new()
 	_initialize_grid()
@@ -286,8 +293,65 @@ func _initialize_grid() -> void:
 
 func _init_projection() -> void:
 	projection.configure(Vector2i(grid_width, grid_height), Vector2(tile_width, tile_height))
+	apply_view_step_count()
 	projection.set_orientation(view_orientation)
 	view_orientation = projection.orientation
+
+
+# =============================================================================
+# VIEW — the facings the course can be turned to
+# =============================================================================
+
+## How many facings the course can rest at in a full turn: four (N, E, S, W)
+## or eight (those plus the diagonals), the player's choice in Settings.
+func get_view_step_count() -> int:
+	return projection.steps_per_turn
+
+
+## Adopt the step the player has chosen. The facing the course is on is kept: a
+## quarter turn is two eighth turns, so a cardinal facing survives the change
+## untouched and a diagonal one settles on its nearest cardinal facing when the
+## finer step is switched off.
+func apply_view_step_count() -> void:
+	projection.set_steps_per_turn(
+			GridProjection.EIGHTH_TURN_COUNT if GameManager.fine_view_rotation
+			else GridProjection.ORIENTATION_COUNT)
+	view_orientation = projection.orientation
+
+
+## The facing the course rests at, counted in eighth turns (0..7): the one
+## count that means the same thing in either step, so it is what a save stores.
+func get_view_eighths() -> int:
+	return projection.eighth_turns
+
+
+## Turn the course to `facing`, counted in eighth turns (0..7). A facing the
+## current step cannot land on settles on the nearest one it can, and a turn
+## that stays where the course already is redraws nothing.
+func set_view_eighths(facing: int) -> void:
+	var before := projection.eighth_turns
+	projection.set_eighth_turns(facing)
+	if projection.eighth_turns == before:
+		return
+	_apply_view(projection.orientation)
+
+
+## The quarter turn (0..3) whose art the course is drawn with: the buildings,
+## the trees and the placement ghost are painted for the four cardinal facings,
+## so a diagonal wears the art of the cardinal facing it sits nearest.
+func get_view_facing() -> int:
+	return projection.art_facing()
+
+
+## The Settings preference changed under a course that is already on screen.
+## The angle only moves when the finer step is switched off from a diagonal,
+## but the view is restated either way so the facing chip and the art follow
+## the number of facings the course now has.
+func _on_fine_view_rotation_changed(_enabled: bool) -> void:
+	if not is_inside_tree():
+		return
+	apply_view_step_count()
+	_apply_view(projection.orientation)
 
 func get_elevation_displacement(grid_pos: Vector2) -> Vector2:
 	if not view_isometric or ELEVATION_STEP_Y == 0.0:
@@ -432,7 +496,14 @@ func screen_to_grid_point(screen_pos: Vector2) -> Vector2:
 
 		var middle_t := (current_t + next_t) * 0.5
 		var middle_point := flat_point + ray_direction * middle_t
-		var cell := Vector2i(floori(middle_point.x), floori(middle_point.y))
+		# A ray turned a diagonal step can run exactly along the map's rim
+		# (screen-down is a grid axis at those facings), where the point it
+		# samples sits on the boundary itself. The tile it grazes is the one
+		# inside the map — the heightfield is clamped there too — so the
+		# cell is taken from within the grid rather than left outside it.
+		var cell_x := clampi(floori(middle_point.x), 0, grid_width - 1)
+		var cell_y := clampi(floori(middle_point.y), 0, grid_height - 1)
+		var cell := Vector2i(cell_x, cell_y)
 		if is_valid_position(cell):
 			var root_t := _intersect_elevation_tile(flat_point, ray_direction, cell,
 					current_t, next_t, middle_t)
@@ -529,18 +600,25 @@ static func _apply_projection_uniforms(shader_material: ShaderMaterial, proj: Gr
 	shader_material.set_shader_parameter("grid_axis_y", proj.axis_y())
 	shader_material.set_shader_parameter("surface_origin", proj.world_bounds().position)
 
+## One step clockwise — a quarter turn, or an eighth turn when the player has
+## chosen the finer step in Settings.
 func rotate_view_cw() -> void:
 	_apply_view(projection.orientation + 1)
 
+## One step counter-clockwise (see rotate_view_cw).
 func rotate_view_ccw() -> void:
 	_apply_view(projection.orientation - 1)
 
 func is_view_isometric() -> bool:
 	return projection.isometric
 
+## Which facing the course rests at, counted in the step in force (see
+## get_view_step_count). Callers that need to know what the course *looks*
+## like — the art it is drawn with — ask for get_view_facing().
 func get_view_orientation() -> int:
 	return projection.orientation
 
+## Turn the course to `orientation`, counted in the step in force.
 func set_view_orientation(orientation: int) -> void:
 	_apply_view(orientation)
 
