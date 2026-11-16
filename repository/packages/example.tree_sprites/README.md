@@ -8,7 +8,7 @@ species; only the pictures change.
 ## What is in this pack
 
 `tree_art/` holds the supplied user art directly at its root. It includes all
-four views (`_n`, `_e`, `_s`, `_w`) for every shipped tree terrain species:
+four views (`_0`, `_1`, `_2`, `_3`) for every shipped tree terrain species:
 
 - oak, pine, maple, birch and palm;
 - dead tree, cactus and bush;
@@ -33,8 +33,8 @@ the filename pattern:
 ```text
 tree_art/
   layout.json
-  oak_n.png  oak_e.png  oak_s.png  oak_w.png
-  pine_n.png pine_e.png pine_s.png pine_w.png
+  oak_0.png  oak_1.png  oak_2.png  oak_3.png
+  pine_0.png pine_1.png pine_2.png pine_3.png
   ...
 ```
 
@@ -54,27 +54,29 @@ value, then refine a species or one facing only:
     "bush": {"scale": 0.32, "ground_y": 68}
   },
   "sprites": {
-    "oak_e": {"offset_y": 2}
+    "oak_1": {"offset_y": 2}
   }
 }
 ```
 
 The rules merge in this order: root defaults, the species (`oak`), then an
-exact sprite/view (`oak_e`). `offset_y: -8` moves a sprite eight pixels **up**;
+exact sprite/view (`oak_1`). `offset_y: -8` moves a sprite eight pixels **up**;
 a positive number moves it down. Omit `ground_y` to retain Golf Tycoon's normal
 anchor for that species, scaled with the image. This pack's own layout uses
 per-species scales and upward placement nudges because its supplied art has a
 variety of canvas sizes and ground-line crops.
 
 An unsuffixed `<species>.png` is allowed when the same drawing should answer
-for every facing, but a full set of four views produces the best result. To
+for every view, but a full set of four views produces the best result. A view
+can also keep the older compass spelling (`oak_n`, `oak_e`, `oak_s`, `oak_w`)
+that earlier packs used; the numbered file wins if a folder has both. To
 repaint just one species, include only that species' files; missing files fall
 back to the normal seasonal/base art. If two all-season sprite packs include
 the same species and view, the one lower in the Mods screen's enabled load
 order wins.
 
 Seasonal-only art still belongs in subfolders such as
-`tree_art/fall/oak_n.png`; see `golf_tycoon.seasons` for that wardrobe format.
+`tree_art/fall/oak_0.png`; see `golf_tycoon.seasons` for that wardrobe format.
 A root-level file deliberately wins over a seasonal file, so do not put both
 forms of the same species in one pack unless the all-season art is meant to
 win.

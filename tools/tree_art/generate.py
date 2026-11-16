@@ -8,28 +8,27 @@ Run from the repository root:
     python3 tools/tree_art/generate.py --check    # fail if a view is stale
 
 The core evergreen sprites in `assets/sprites/trees/` are independently
-provided `<species>_n/_e/_s/_w.png` images and are deliberately not processed
+provided `<species>_0/_1/_2/_3.png` images and are deliberately not processed
 here: their canvases can differ, with draw scales and normalized ground anchors
 in the neighboring `layout.json`. This tool handles unsuffixed source images
 inside bundled mods, including the Seasons mod's `spring/`, `fall/` and
 `winter/` tree-art folders (see `art_roots()`).
 
-For a source drawing, the tool derives the other angles as follows:
+For a source drawing, the tool derives the other views as follows:
 
-    _n  the authored drawing, copied unchanged;
-    _e  the east side: the crown foreshortened (squashed toward the trunk)
-        and leaned a few pixels, lit from the right;
-    _s  the south (back) side: mirrored, as a tree's east and west swap
-        places when it is seen from behind, and shaded as the side away
-        from the sun;
-    _w  the west side: mirrored and foreshortened like the east, leaned
-        and lit the opposite way.
+    _0  the authored drawing, copied unchanged;
+    _1  the crown foreshortened (squashed toward the trunk) and leaned a few
+        pixels, lit from the right;
+    _2  mirrored, as a tree's left and right swap places when it is seen from
+        behind, and shaded as the side away from the sun;
+    _3  mirrored and foreshortened like _1, leaned and lit the opposite way.
 
 Generated views keep their source's canvas size and ground line. Edit the
 unsuffixed source and re-run this tool rather than editing a generated view by
-hand. TreeOverlay draws each tile at the course's view orientation plus the
-tile's own quarter-turn offset (`facing_offset()`), so one wood shows all four
-angles at once and a turn of the course steps every tree on to its next view.
+hand. TreeOverlay gives each tile one of the four variants for the life of the
+course (`facing_offset()`), so one wood shows several drawings at once and
+turning the course never swaps the art under a canopy. Views may also keep the
+older `_n/_e/_s/_w` spelling; the numbered file wins when both are present.
 """
 
 from __future__ import annotations
@@ -50,13 +49,17 @@ PREVIEW_DIR = os.path.join(ROOT, "tmp_preview")
 # `tree_art_root` content key (see docs/modding/manifest-and-packaging.md).
 MOD_ART_DIR = "tree_art"
 
-# View orientations 0..3, in the order TreeOverlay.FACINGS lists them:
-# the course compass (main.gd's VIEW_ORIENTATION_LABELS).
-FACINGS = ("n", "e", "s", "w")
+# View variants 0..3, in the order TreeOverlay.FACINGS lists them.
+FACINGS = ("0", "1", "2", "3")
 
-# How each angle is derived from the authored north view:
-#   flip    mirror left-right (the back views: east and west swap places)
-#   squash  horizontal foreshortening toward the trunk (the side views)
+# The compass spelling earlier art packs used for the same four views. A
+# source file carrying one of these is a generated view, not a source, just
+# like the numbered spelling.
+LEGACY_FACINGS = ("n", "e", "s", "w")
+
+# How each view is derived from the authored first drawing:
+#   flip    mirror left-right (variants 2 and 3: left and right swap places)
+#   squash  horizontal foreshortening toward the trunk (variants 1 and 3)
 #   shear   crown lean in pixels at the crown's top for a 64px canvas,
 #           scaled by each sprite's width; 0 at the ground line so the
 #           trunk stays planted
@@ -65,10 +68,10 @@ FACINGS = ("n", "e", "s", "w")
 #           [-1, 1], quantised to 1/20 steps so the shading bands like
 #           pixel art instead of washing the palette out
 PROFILES = {
-    "n": {"flip": False, "squash": 1.0, "shear": 0.0, "light": (1.0, 0.0)},
-    "e": {"flip": False, "squash": 0.82, "shear": 3.0, "light": (0.98, 0.11)},
-    "s": {"flip": True, "squash": 1.0, "shear": 0.0, "light": (0.88, -0.05)},
-    "w": {"flip": True, "squash": 0.82, "shear": -3.0, "light": (0.98, -0.11)},
+    "0": {"flip": False, "squash": 1.0, "shear": 0.0, "light": (1.0, 0.0)},
+    "1": {"flip": False, "squash": 0.82, "shear": 3.0, "light": (0.98, 0.11)},
+    "2": {"flip": True, "squash": 1.0, "shear": 0.0, "light": (0.88, -0.05)},
+    "3": {"flip": True, "squash": 0.82, "shear": -3.0, "light": (0.98, -0.11)},
 }
 
 
@@ -96,7 +99,7 @@ def source_sprites() -> list[str]:
                 if not name.endswith(".png"):
                     continue
                 stem = name[:-len(".png")]
-                if any(stem.endswith("_" + facing) for facing in FACINGS):
+                if any(stem.endswith("_" + facing) for facing in FACINGS + LEGACY_FACINGS):
                     continue  # A generated view, not a source.
                 sources.append(os.path.join(dirpath, name))
     return sorted(sources)
@@ -160,8 +163,8 @@ def generate(preview: bool) -> None:
         image = Image.open(source)
         views = []
         for facing in FACINGS:
-            if facing == "n":
-                # The north view is the authored drawing itself, byte for
+            if facing == "0":
+                # The first variant is the authored drawing itself, byte for
                 # byte: the default view of the course must not change.
                 shutil.copyfile(source, view_path(source, facing))
                 views.append(Image.open(source).convert("RGBA"))
@@ -186,13 +189,13 @@ def check() -> int:
             if not os.path.exists(path):
                 stale.append(f"{path} is missing")
                 continue
-            expected = image if facing == "n" else render_view(image, facing)
+            expected = image if facing == "0" else render_view(image, facing)
             actual = Image.open(path).convert("RGBA")
             if actual.size != expected.size or actual.tobytes() != expected.tobytes():
                 stale.append(f"{path} does not match its source")
                 continue
-            if facing != "n" and actual.tobytes() == image.tobytes():
-                stale.append(f"{path} is only a copy of the north view")
+            if facing != "0" and actual.tobytes() == image.tobytes():
+                stale.append(f"{path} is only a copy of the first view")
     if stale:
         for problem in stale:
             print(f"STALE: {problem}", file=sys.stderr)

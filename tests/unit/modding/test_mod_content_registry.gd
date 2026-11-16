@@ -349,11 +349,11 @@ func test_seasonal_events_register_namespaced_and_replace_by_full_id() -> void:
 
 
 func test_tree_art_registers_with_the_overlay_and_a_reset_takes_it_away() -> void:
-	var east := _write_png("mod_a", "tree_art/spring/oak_e.png")
+	var second := _write_png("mod_a", "tree_art/spring/oak_1.png")
 	_write_png("mod_a", "tree_art/spring/oak.png")
 	registry.apply_mod_content("tester.a", ROOT.path_join("mod_a"), {"tree_art_root": "tree_art"})
-	assert_eq(TreeOverlay.art_file("spring/oak", 1), east,
-			"a mod's folder becomes that season's art, angled view and all")
+	assert_eq(TreeOverlay.art_file("spring/oak", 1), second,
+			"a mod's folder becomes that season's art, view variant and all")
 	registry.reset_mod_content()
 	assert_eq(TreeOverlay.art_file("spring/oak", 1), "",
 			"and a reset drops it, so a switched-off mod leaves no wardrobe behind")
