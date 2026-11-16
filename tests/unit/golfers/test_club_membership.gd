@@ -300,10 +300,11 @@ func test_a_returning_member_arrives_as_a_member_and_pays_the_premium() -> void:
 	GameManager.green_fee = 10
 	GameManager.reputation = 50.0
 	var golfers := make_golfer_manager()
-	# A Gold member who last played three days ago, and is certain to return.
+	# A Gold member who last played three days ago, and is certain to return
+	# (take_returning_guest scales intent by 0.5 * loyalty before rolling).
 	FeedbackManager.customers = [{
 		"key": "regular", "name": "Regular Member", "tier": GolferTier.Tier.CASUAL,
-		"last_day": GameManager.current_day - 3, "intent": 1.0,
+		"last_day": GameManager.current_day - 3, "intent": 10.0,
 		"patience": 0.5, "aggression": 0.5, "miss_tendency": 0.1,
 		"membership": ClubMembership.Tier.GOLD, "attributes": {},
 	}]

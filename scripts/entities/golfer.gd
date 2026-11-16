@@ -293,7 +293,12 @@ const BUILDING_CHECK_INTERVAL: float = 0.5
 ## Z-ordering: visual offset to prevent stacking when golfers share a tile.
 ## (The golfer's own draw band is the entity band - see the class doc - so the
 ## offset only shifts the art within it.)
-var visual_offset: Vector2 = Vector2.ZERO
+var visual_offset: Vector2 = Vector2.ZERO:
+	set(value):
+		if visual_offset == value:
+			return
+		visual_offset = value
+		_apply_visual_position()
 var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
 
@@ -311,13 +316,12 @@ var _use_sprites: bool = false
 var _swing_tween: Tween  # Active procedural swing tween (see _start_swing_tween)
 var _current_direction: String = "south"  # south, east, north, west + diagonals
 
-## Per-texture cache of how many pixels below the sprite image center the
-## golfer's feet sit. We anchor the sprite so its feet line up with the
-## Golfer node's origin (where the ball is placed at address), rather than
-## letting the image center sit on the origin — which puts the ball near
-## the golfer's waist. The cache is static (shared by every golfer) so each
-## sprite texture is scanned once across the whole session.
-static var _sprite_feet_offset_cache: Dictionary = {}
+## Per-texture cache of `{ "feet_y": float, "bounds": Rect2 }` for sprite
+## frames. `feet_y` shifts the centered sprite so its feet land at local y = 0
+## (where the ball sits), and `bounds` is the opaque pixel rectangle in
+## sprite-local space so the click area stays lined up with the drawn sprite.
+## The cache is static (shared by every golfer) so each texture is scanned once.
+static var _sprite_metrics_cache: Dictionary = {}
 
 ## How far the polygon golfer's feet sit below the node origin in the
 ## scene file (see scenes/entities/golfer.tscn: the Shoes polygon extends
@@ -326,6 +330,8 @@ static var _sprite_feet_offset_cache: Dictionary = {}
 ## origin, matching the sprite-golfer anchor and keeping the ball near
 ## the golfer's feet instead of at the chest/waist.
 const POLYGON_FEET_Y_OFFSET: float = -14.0
+## Bounding box of the polygon fallback golfer in Visual-local space.
+const POLYGON_CLICK_BOUNDS := Rect2(Vector2(-10.0, -15.0), Vector2(20.0, 29.0))
 
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
@@ -358,6 +364,7 @@ var SHOES_FRAME_1 := PackedVector2Array([
 
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
+@onready var _collision_shape: CollisionShape2D = $CollisionShape2D if has_node("CollisionShape2D") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
 @onready var head: Polygon2D = $Visual/Head if has_node("Visual/Head") else null
 @onready var body: Polygon2D = $Visual/Body if has_node("Visual/Body") else null
@@ -415,7 +422,10 @@ func _ready() -> void:
 	# Apply randomized colors to visual components
 	_apply_appearance()
 
-	# Enable click detection on the CharacterBody2D's own collision shape
+	# Enable click detection on the CharacterBody2D's own collision shape.
+	# Duplicate the scene subresource so each golfer owns its own bounds.
+	if _collision_shape and _collision_shape.shape:
+		_collision_shape.shape = _collision_shape.shape.duplicate()
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
@@ -448,6 +458,7 @@ func _ready() -> void:
 		_expression.name = "Expression"
 		add_child(_expression)
 		_expression.initialize(self, visual)
+	_sync_click_shape()
 
 
 ## Set up the AnimatedSprite2D the golfer is drawn with.
@@ -488,6 +499,8 @@ func _setup_sprite_animations() -> bool:
 	# all stay grounded on the origin instead of bobbing relative to it.
 	if not _animated_sprite.frame_changed.is_connected(_on_sprite_frame_changed):
 		_animated_sprite.frame_changed.connect(_on_sprite_frame_changed)
+	if not _animated_sprite.animation_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.animation_changed.connect(_on_sprite_frame_changed)
 
 	for child in visual.get_children():
 		if child != _animated_sprite:
@@ -497,10 +510,7 @@ func _setup_sprite_animations() -> bool:
 
 	if _animated_sprite.sprite_frames.has_animation("idle_south"):
 		_animated_sprite.play("idle_south")
-	# Defer the first anchor by one frame: AnimatedSprite2D populates its
-	# .texture property asynchronously after play() so it is still null
-	# on this line. frame_changed will keep the anchor correct on every
-	# subsequent frame, but the initial frame needs a kick too.
+	_apply_sprite_feet_anchor()
 	call_deferred("_apply_sprite_feet_anchor")
 	return true
 
@@ -533,83 +543,144 @@ func sprite_node() -> AnimatedSprite2D:
 func _on_sprite_frame_changed() -> void:
 	_apply_sprite_feet_anchor()
 
+## The currently displayed sprite frame texture, or null when not using sprites.
+func _current_sprite_frame_texture() -> Texture2D:
+	if _animated_sprite == null or not is_instance_valid(_animated_sprite):
+		return null
+	var frames := _animated_sprite.sprite_frames
+	if frames == null:
+		return null
+	var anim := _animated_sprite.animation
+	if not frames.has_animation(anim):
+		return null
+	var fidx := _animated_sprite.frame
+	if fidx < 0 or fidx >= frames.get_frame_count(anim):
+		return null
+	return frames.get_frame_texture(anim, fidx)
+
 ## Place the sprite so the bottom-most non-transparent pixel of the current
 ## frame lies on this node's local origin (y = 0). When the golfer walks to
 ## a ball their global_position is placed on the ball's screen location;
 ## without this anchor the image centers on the origin, putting the ball
 ## at the image midline (waist) instead of near the feet.
 func _apply_sprite_feet_anchor() -> void:
-	if _animated_sprite == null or not is_instance_valid(_animated_sprite):
-		return
-	# AnimatedSprite2D does not expose a public .texture property; the frame
-	# texture is fetched from its SpriteFrames by animation name and frame
-	# index. Use a null guard around both in case the animation/frame was
-	# just changed before this deferred call landed.
-	var frames := _animated_sprite.sprite_frames
-	if frames == null:
-		return
-	var anim := _animated_sprite.animation
-	if not frames.has_animation(anim):
-		return
-	var fidx := _animated_sprite.frame
-	if fidx < 0 or fidx >= frames.get_frame_count(anim):
-		return
-	var frame_texture: Texture2D = frames.get_frame_texture(anim, fidx)
+	var frame_texture := _current_sprite_frame_texture()
 	if frame_texture == null:
 		return
 	var feet_y := _sprite_feet_offset_for(frame_texture)
 	_animated_sprite.position = Vector2(0, feet_y)
+	_sync_click_shape()
+
+## Position `visual` according to `visual_offset` and the current renderer, and
+## keep the clickable shape lined up with it.
+func _apply_visual_position() -> void:
+	if visual == null or not is_instance_valid(visual):
+		return
+	if _use_sprites and _animated_sprite != null:
+		visual.position = visual_offset
+	else:
+		visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET)
+	_sync_click_shape()
+
+## The clickable rectangle in this golfer's local space: matches the opaque
+## pixels of the current skin sprite frame (shifted by the feet anchor and
+## visual offset) or the polygon fallback body when no skin sprite is active.
+func get_click_rect() -> Rect2:
+	var origin := Vector2.ZERO
+	if _expression != null and is_instance_valid(_expression):
+		origin += _expression.position
+	if visual != null and is_instance_valid(visual):
+		origin += visual.position
+	if _use_sprites and _animated_sprite != null and is_instance_valid(_animated_sprite):
+		var frame_texture := _current_sprite_frame_texture()
+		if frame_texture != null:
+			var metrics := _sprite_metrics_for(frame_texture)
+			var bounds: Rect2 = metrics["bounds"]
+			var feet_y: float = metrics["feet_y"]
+			return Rect2(origin + Vector2(0.0, feet_y) + bounds.position, bounds.size)
+		return Rect2(origin + Vector2(-7.0, -33.0), Vector2(14.0, 34.0))
+	return Rect2(origin + POLYGON_CLICK_BOUNDS.position, POLYGON_CLICK_BOUNDS.size)
+
+## Keep the CharacterBody2D's CollisionShape2D lined up with the visible sprite
+## (or polygon fallback) so hovering and clicking on any part of the golfer's
+## body hits, rather than only a small circle around the ground at their feet.
+func _sync_click_shape() -> void:
+	if _collision_shape == null or not is_instance_valid(_collision_shape):
+		return
+	var rect := get_click_rect()
+	var rect_shape := _collision_shape.shape as RectangleShape2D
+	if rect_shape == null:
+		rect_shape = RectangleShape2D.new()
+		_collision_shape.shape = rect_shape
+	var target_pos := rect.get_center()
+	if not _collision_shape.position.is_equal_approx(target_pos):
+		_collision_shape.position = target_pos
+	if not rect_shape.size.is_equal_approx(rect.size):
+		rect_shape.size = rect.size
 
 ## Number of pixels below (positive) the texture's centre that the golfer's
-## feet land, for a given sprite frame texture. Scanned once per texture
-## (keyed by resource path so edited/user sprites with identical content
-## still cache correctly) and shared across all golfers.
+## feet land, for a given sprite frame texture.
 static func _sprite_feet_offset_for(texture: Texture2D) -> float:
+	return float(_sprite_metrics_for(texture)["feet_y"])
+
+## Cached `{ "feet_y": float, "bounds": Rect2 }` for a sprite frame texture.
+## Scanned once per texture (keyed by resource path so edited/user sprites
+## still cache correctly, or RID for in-memory recoloured textures).
+static func _sprite_metrics_for(texture: Texture2D) -> Dictionary:
 	if texture == null:
-		return 0.0
-	# Prefer the resource path as the cache key when one exists (imported
-	# art on disk), falling back to the RID id for textures built in-memory
-	# (e.g. the recoloured ImageTextures the skin library produces).
+		return {"feet_y": 0.0, "bounds": Rect2()}
 	var cache_key := ""
 	var res_path := texture.resource_path
 	if not res_path.is_empty():
 		cache_key = "p:" + res_path
 	else:
 		cache_key = "r:" + str(texture.get_rid().get_id())
-	if _sprite_feet_offset_cache.has(cache_key):
-		return _sprite_feet_offset_cache[cache_key]
+	if _sprite_metrics_cache.has(cache_key):
+		return _sprite_metrics_cache[cache_key]
 	var image := texture.get_image()
 	if image == null or image.is_empty():
-		_sprite_feet_offset_cache[cache_key] = 0.0
-		return 0.0
+		var empty_metrics := {"feet_y": 0.0, "bounds": Rect2()}
+		_sprite_metrics_cache[cache_key] = empty_metrics
+		return empty_metrics
 	# Make sure we're reading the texture's pixels in an RGBA8 format we
 	# can index; convert a copy if needed so we never mutate the source.
 	var img := image
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img = image.duplicate()
 		img.convert(Image.FORMAT_RGBA8)
+	var w := img.get_width()
 	var h := img.get_height()
-	var bottom := -1
-	# Scan rows from the bottom up for the first pixel with non-zero alpha.
-	for y in range(h - 1, -1, -1):
-		var row_has_pixel := false
-		for x in range(img.get_width()):
+	var min_x := w
+	var max_x := -1
+	var min_y := h
+	var max_y := -1
+	for y in range(h):
+		for x in range(w):
 			if img.get_pixel(x, y).a > 0.0:
-				row_has_pixel = true
-				break
-		if row_has_pixel:
-			bottom = y
-			break
+				if x < min_x:
+					min_x = x
+				if x > max_x:
+					max_x = x
+				if y < min_y:
+					min_y = y
+				if y > max_y:
+					max_y = y
 	# With centered=true the image centre is drawn at sprite.position; the
-	# bottom-most opaque pixel is (bottom - h/2) pixels BELOW the centre in
+	# bottom-most opaque pixel is (max_y - h/2) pixels BELOW the centre in
 	# screen space (+y is down). To bring that pixel to the node's local
 	# origin (y = 0, where the ball sits) we shift the centre UP by that
-	# same distance, i.e. position.y = -(bottom - h/2).
-	var offset := 0.0
-	if bottom >= 0:
-		offset = -(float(bottom) - float(h) * 0.5)
-	_sprite_feet_offset_cache[cache_key] = offset
-	return offset
+	# same distance, i.e. position.y = -(max_y - h/2).
+	var feet_y := 0.0
+	var bounds := Rect2(Vector2(-float(w) * 0.5, -float(h) * 0.5), Vector2(float(w), float(h)))
+	if max_y >= 0:
+		feet_y = -(float(max_y) - float(h) * 0.5)
+		bounds = Rect2(
+			Vector2(float(min_x) - float(w) * 0.5, float(min_y) - float(h) * 0.5),
+			Vector2(float(max_x - min_x + 1), float(max_y - min_y + 1))
+		)
+	var metrics := {"feet_y": feet_y, "bounds": bounds}
+	_sprite_metrics_cache[cache_key] = metrics
+	return metrics
 
 ## Get direction from movement vector (8-direction when sprites support it)
 func _get_direction_from_velocity(vel: Vector2) -> String:
@@ -832,6 +903,8 @@ func refresh_skin_sprites() -> void:
 	# was rebuilt (it normally is attached in _setup_sprite_animations).
 	if not _animated_sprite.frame_changed.is_connected(_on_sprite_frame_changed):
 		_animated_sprite.frame_changed.connect(_on_sprite_frame_changed)
+	if not _animated_sprite.animation_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.animation_changed.connect(_on_sprite_frame_changed)
 	_animated_sprite.sprite_frames = frames
 	if frames.has_animation(old_animation):
 		_animated_sprite.play(old_animation)
@@ -840,8 +913,7 @@ func refresh_skin_sprites() -> void:
 		_animated_sprite.play("idle_south")
 	if not was_playing:
 		_animated_sprite.pause()
-	# Defer the same way _setup_sprite_animations does: texture is populated
-	# asynchronously after play() so reading it here would get null.
+	_apply_sprite_feet_anchor()
 	call_deferred("_apply_sprite_feet_anchor")
 
 ## The Golfer Skin this golfer is drawn in, if any.
@@ -1244,10 +1316,12 @@ func _animate_walking(delta: float) -> void:
 			if _current_direction != new_dir or _animated_sprite.animation != anim_name or not _animated_sprite.is_playing():
 				_current_direction = new_dir
 				_animated_sprite.play(anim_name)
+				_apply_sprite_feet_anchor()
 		# Subtle bob for sprite mode too
 		if visual:
 			var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max * 0.5
 			visual.position = visual_offset + Vector2(0, bob_amount)
+			_sync_click_shape()
 		return
 
 	# Polygon-based walking animation - bob + leg swap. Keep the feet anchor
@@ -1256,6 +1330,7 @@ func _animate_walking(delta: float) -> void:
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max
 		visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET + bob_amount)
+		_sync_click_shape()
 
 	# 2-frame walk cycle: alternate leg positions
 	_walk_timer += delta
@@ -1311,6 +1386,7 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 		var anim = "swing_%s" % _current_direction
 		if _animated_sprite.sprite_frames.has_animation(anim):
 			_animated_sprite.play(anim)
+			_apply_sprite_feet_anchor()
 			_swing_pending = true
 			await _animated_sprite.animation_finished
 			if not is_instance_valid(self):
@@ -1319,6 +1395,7 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 			var idle_anim = "idle_%s" % _current_direction
 			if _animated_sprite.sprite_frames.has_animation(idle_anim):
 				_animated_sprite.play(idle_anim)
+				_apply_sprite_feet_anchor()
 			swing_animation_playing = false
 			_end_swing_wait()
 			return
@@ -3963,6 +4040,8 @@ func _update_visual() -> void:
 				if _animated_sprite.sprite_frames.has_animation(anim):
 					_animated_sprite.play(anim)
 				_animated_sprite.modulate = _animated_sprite.modulate.darkened(0.15)
+		_apply_sprite_feet_anchor()
+		_sync_click_shape()
 		return
 
 	# --- Polygon-based visual update (fallback) ---
@@ -3972,6 +4051,7 @@ func _update_visual() -> void:
 	# this the image is centred waist-high on the origin, leaving the ball
 	# hovering near the chest.
 	visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET)
+	_sync_click_shape()
 	if arms:
 		arms.rotation = 0
 		arms.position = Vector2.ZERO
