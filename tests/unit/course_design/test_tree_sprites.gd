@@ -1,19 +1,20 @@
 extends GameTest
-## The four angles of a tree (TreeOverlay's N / E / S / W sprites).
+## The four view variants of a tree (TreeOverlay's `_0` to `_3` sprites).
 ##
-## Every core species ships four independently authored views —
-## `<species>_n.png` and its `_e`, `_s`, `_w` siblings — and the overlay paints
-## the matching facing on each tile. Their canvases may differ; `layout.json`
-## keeps each view scaled and anchored to its own dimensions. These tests pin
-## the lookup and stepping: every facing loads, the layout adapts to image size,
-## and per-tree angles stay mixed, fixed to the tile and rotated with the grid.
+## Every core species ships four independently authored variants —
+## `<species>_0.png` and its `_1`, `_2`, `_3` siblings — and each tile wears
+## one of them for the life of the course. Their canvases may differ;
+## `layout.json` keeps each view scaled and anchored to its own dimensions.
+## These tests pin the lookup and the mix: every variant loads, the layout
+## adapts to image size, and per-tree variants stay mixed, fixed to the tile
+## and unchanged as the grid turns.
 ##
 ## A season's drawings are not the core's: they ship inside the Seasons mod
-## (`mods/golf_tycoon.seasons/tree_art/<season>/`) and reach the lookup through
-## its manifest's `tree_art_root`, so the last section here pins that door too —
-## the mod's art is worn, a later mod's replaces it, art from outside the
-## imported project is decoded from its bytes, and a game without the mod stays
-## evergreen all year.
+## (`repository/packages/golf_tycoon.seasons/tree_art/<season>/`) and reach the
+## lookup through its manifest's `tree_art_root`, so the last section here pins
+## that door too — the mod's art is worn, a later mod's replaces it, art from
+## outside the imported project is decoded from its bytes, and a game without
+## the mod stays evergreen all year.
 
 # Mid-season days of the first year (see test_season_system.gd for the edges).
 const SPRING_DAY := 100
@@ -70,7 +71,7 @@ func _write_art(root: String, relative: String, color: Color) -> String:
 # Every independently-sized view exists, and the layout anchors it by its own dimensions
 # ---------------------------------------------------------------------------
 
-func test_every_species_has_a_sprite_from_each_angle() -> void:
+func test_every_species_has_a_sprite_for_each_view_variant() -> void:
 	for type in TerrainTypes.TREE_SPECIES_TILES:
 		var species := TerrainTypes.get_tree_species(type)
 		var seen: Dictionary = {}
@@ -78,8 +79,8 @@ func test_every_species_has_a_sprite_from_each_angle() -> void:
 			var path := TreeOverlay.sprite_path(species, SUMMER_DAY,
 					CourseTheme.Type.PARKLAND, facing)
 			assert_true(path.ends_with("_%s.png" % TreeOverlay.facing_name(facing)),
-					"%s has its %s view (%s)" % [species, TreeOverlay.facing_name(facing), path])
-			assert_false(seen.has(path), "and it is its own file, not a repeat of another angle")
+					"%s has its %s variant (%s)" % [species, TreeOverlay.facing_name(facing), path])
+			assert_false(seen.has(path), "and it is its own file, not a repeat of another variant")
 			assert_not_null(TreeOverlay.texture_at(path), "and the sprite loads")
 			seen[path] = true
 
@@ -90,7 +91,7 @@ func test_different_canvas_sizes_use_a_dimension_relative_ground_anchor() -> voi
 		var path := TreeOverlay.sprite_path("oak", SUMMER_DAY,
 				CourseTheme.Type.PARKLAND, facing)
 		var texture := TreeOverlay.texture_at(path)
-		assert_not_null(texture, "the oak's %s view loads" % TreeOverlay.facing_name(facing))
+		assert_not_null(texture, "the oak's %s variant loads" % TreeOverlay.facing_name(facing))
 		var source_size := texture.get_size()
 		var scale := TreeOverlay.art_scale(path)
 		var anchor := TreeOverlay.art_anchor_offset("oak", path, source_size)
@@ -102,14 +103,14 @@ func test_different_canvas_sizes_use_a_dimension_relative_ground_anchor() -> voi
 			"the supplied views have different canvas dimensions")
 
 
-func test_the_default_view_uses_the_authored_north_file() -> void:
-	var north_path := TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND,
+func test_the_default_variant_is_the_authored_first_file() -> void:
+	var first_path := TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND,
 			TreeOverlay.DEFAULT_FACING)
-	assert_eq(north_path, TreeOverlay.SPRITE_DIR + "oak_n.png",
-			"orientation zero wears the authored north sprite")
-	assert_not_null(TreeOverlay.texture_at(north_path))
+	assert_eq(first_path, TreeOverlay.SPRITE_DIR + "oak_0.png",
+			"variant zero wears the authored first sprite")
+	assert_not_null(TreeOverlay.texture_at(first_path))
 	assert_same(TreeOverlay.texture_for("oak"), TreeOverlay.texture_for("oak", 0),
-			"and naming no angle (the toolbar's preview) means the north view")
+			"and naming no variant (the toolbar's preview) means the first drawing")
 
 
 # ---------------------------------------------------------------------------
@@ -132,24 +133,24 @@ func test_the_seasonal_views_come_from_the_seasons_mod() -> void:
 	var seasons := {SPRING_DAY: "spring", FALL_DAY: "fall", WINTER_DAY: "winter"}
 	for day in seasons:
 		for facing in range(TreeOverlay.FACINGS.size()):
-			var angle := TreeOverlay.facing_name(facing)
-			var expected := "%s%s/oak_%s.png" % [SEASONS_ART, seasons[day], angle]
+			var variant := TreeOverlay.facing_name(facing)
+			var expected := "%s%s/oak_%s.png" % [SEASONS_ART, seasons[day], variant]
 			assert_eq(TreeOverlay.sprite_path("oak", day, CourseTheme.Type.PARKLAND, facing),
-					expected, "a %s oak viewed from %s wears the mod's %s art"
-					% [seasons[day], angle, seasons[day]])
+					expected, "a %s oak in its %s variant wears the mod's %s art"
+					% [seasons[day], variant, seasons[day]])
 			assert_not_null(TreeOverlay.texture_at(expected),
 					"and that file is readable from inside the mod")
 
 
-func test_a_snowy_pine_turns_with_the_view_and_a_desert_one_does_not_melt() -> void:
+func test_a_snowy_pine_wears_its_variant_and_a_desert_one_does_not_melt() -> void:
 	for facing in range(TreeOverlay.FACINGS.size()):
-		var angle := TreeOverlay.facing_name(facing)
+		var variant := TreeOverlay.facing_name(facing)
 		assert_eq(TreeOverlay.sprite_path("pine", WINTER_DAY, CourseTheme.Type.PARKLAND, facing),
-				"%swinter/pine_%s.png" % [SEASONS_ART, angle],
-				"a parkland pine keeps its snow from the %s" % angle)
+				"%swinter/pine_%s.png" % [SEASONS_ART, variant],
+				"a parkland pine keeps its snow in the %s variant" % variant)
 		assert_eq(TreeOverlay.sprite_path("pine", WINTER_DAY, CourseTheme.Type.DESERT, facing),
-				"%spine_%s.png" % [TreeOverlay.SPRITE_DIR, angle],
-				"a desert pine never held snow, from any angle")
+				"%spine_%s.png" % [TreeOverlay.SPRITE_DIR, variant],
+				"a desert pine never held snow, in any variant")
 
 
 func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> void:
@@ -175,8 +176,8 @@ func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> vo
 	for type in TerrainTypes.TREE_SPECIES_TILES:
 		var species := TerrainTypes.get_tree_species(type)
 		for facing in range(TreeOverlay.FACINGS.size()):
-			var angle := TreeOverlay.facing_name(facing)
-			var expected := "%s%s_%s.png" % [USER_TREE_SPRITES_ART, species, angle]
+			var variant := TreeOverlay.facing_name(facing)
+			var expected := "%s%s_%s.png" % [USER_TREE_SPRITES_ART, species, variant]
 			assert_true(FileAccess.file_exists(expected), "the pack ships %s" % expected)
 			assert_almost_eq(TreeOverlay.art_scale(expected), float(expected_scales[species]), 0.0001,
 					"the layout scales %s without changing its PNG" % species)
@@ -184,11 +185,11 @@ func test_the_user_tree_sprite_pack_replaces_every_species_view_all_year() -> vo
 					"the layout lifts %s onto its terrain ground line" % species)
 			for day in [SPRING_DAY, SUMMER_DAY, FALL_DAY, WINTER_DAY]:
 				assert_eq(TreeOverlay.sprite_path(species, day, CourseTheme.Type.PARKLAND, facing),
-						expected, "%s's %s view is replaced on day %d" % [species, angle, day])
+						expected, "%s's %s variant is replaced on day %d" % [species, variant, day])
 	# The pine rule normally keeps mild-weather pines on evergreen art; a full
 	# replacement is deliberately above that seasonal decision too.
 	assert_eq(TreeOverlay.sprite_path("pine", SPRING_DAY, CourseTheme.Type.DESERT, 0),
-			"%spine_n.png" % USER_TREE_SPRITES_ART)
+			"%spine_0.png" % USER_TREE_SPRITES_ART)
 
 
 # ---------------------------------------------------------------------------
@@ -217,35 +218,68 @@ func test_a_later_mod_wins_the_season_it_repeats() -> void:
 			"a folder that is not there registers nothing")
 
 
-func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_north_view() -> void:
+func test_a_season_the_mod_only_partly_drew_falls_back_to_its_own_first_view() -> void:
 	var root := TEMP_ART.path_join("partly")
 	var authored := _write_art(root, "fall/palm.png", Color.ORANGE)
 	TreeOverlay.register_mod_art("tester.early", root)
 	for facing in range(TreeOverlay.FACINGS.size()):
 		assert_eq(TreeOverlay.art_file("fall/palm", facing), authored,
-				"every angle wears the one drawing the mod shipped")
+				"every variant wears the one drawing the mod shipped")
 	TreeOverlay.unregister_mod_art("tester.early")
 
 
-func test_a_north_only_sprite_pack_fills_its_missing_angles() -> void:
-	var root := TEMP_ART.path_join("north_only")
+func test_a_first_view_only_sprite_pack_fills_its_missing_variants() -> void:
+	var root := TEMP_ART.path_join("first_only")
+	var first := _write_art(root, "palm_0.png", Color.GREEN)
+	TreeOverlay.register_mod_art("tester.first_only", root)
+	for facing in range(TreeOverlay.FACINGS.size()):
+		assert_eq(TreeOverlay.sprite_override_file("palm", facing), first,
+				"the first-view-only pack covers the %s variant" % TreeOverlay.facing_name(facing))
+	TreeOverlay.unregister_mod_art("tester.first_only")
+
+
+## Art published before the variants were numbered files them as `_n`..`_w`.
+## Those packs keep working, and a folder that carries both spellings draws the
+## numbered file.
+func test_the_old_compass_suffixes_still_answer_for_their_variants() -> void:
+	# A palm: no shipped mod dresses one, so the temp folders below are the
+	# only art this species has in either shelf.
+	var root := TEMP_ART.path_join("legacy")
+	var second := _write_art(root, "palm_e.png", Color.BLUE)
+	var seasonal := _write_art(root, "winter/palm_w.png", Color.AQUA)
+	TreeOverlay.register_mod_art("tester.legacy", root)
+	for facing in range(TreeOverlay.FACINGS.size()):
+		var expected := second if facing == 1 else ""
+		assert_eq(TreeOverlay.sprite_override_file("palm", facing), expected,
+				"the old `_e` file answers for variant 1 only")
+	assert_eq(TreeOverlay.art_file("winter/palm", 3), seasonal,
+			"and a seasonal wardrobe may use the old spelling too")
+	var numbered := _write_art(root, "palm_1.png", Color.RED)
+	TreeOverlay.register_mod_art("tester.legacy", root)
+	assert_eq(TreeOverlay.sprite_override_file("palm", 1), numbered,
+			"but a numbered file wins when a folder has both spellings")
+	TreeOverlay.unregister_mod_art("tester.legacy")
+
+
+func test_a_first_view_only_pack_of_the_old_spelling_fills_every_variant() -> void:
+	var root := TEMP_ART.path_join("legacy_first_only")
 	var north := _write_art(root, "palm_n.png", Color.GREEN)
-	TreeOverlay.register_mod_art("tester.north_only", root)
+	TreeOverlay.register_mod_art("tester.legacy_first_only", root)
 	for facing in range(TreeOverlay.FACINGS.size()):
 		assert_eq(TreeOverlay.sprite_override_file("palm", facing), north,
-				"the north-only pack covers the %s angle" % TreeOverlay.facing_name(facing))
-	TreeOverlay.unregister_mod_art("tester.north_only")
+				"an old `_n`-only pack covers the %s variant" % TreeOverlay.facing_name(facing))
+	TreeOverlay.unregister_mod_art("tester.legacy_first_only")
 
 
 func test_art_layout_can_scale_and_anchor_one_view_without_editing_its_png() -> void:
 	var root := TEMP_ART.path_join("layout")
-	var path := _write_art(root, "oak_n.png", Color.WHITE)
-	var seasonal_path := _write_art(root, "winter/oak_e.png", Color.WHITE)
+	var path := _write_art(root, "oak_0.png", Color.WHITE)
+	var seasonal_path := _write_art(root, "winter/oak_1.png", Color.WHITE)
 	var layout := FileAccess.open(root.path_join("layout.json"), FileAccess.WRITE)
 	layout.store_string("""{
 		"scale": 0.5,
 		"species": {"oak": {"scale": 0.4}},
-		"sprites": {"oak_n": {"scale": 0.3, "ground_x": 70, "ground_y": 150,
+		"sprites": {"oak_0": {"scale": 0.3, "ground_x": 70, "ground_y": 150,
 			"offset_x": 3, "offset_y": -7}}
 	}""")
 	layout.close()
@@ -278,7 +312,7 @@ func test_art_from_outside_the_imported_project_is_decoded_from_its_bytes() -> v
 	# art has to load from the file itself — the contract ModAPI.load_texture
 	# gives mods that read their own pictures. Root-level art takes the same path.
 	var root := TEMP_ART.path_join("raw")
-	var path := _write_art(root, "palm_e.png", Color.WHITE)
+	var path := _write_art(root, "palm_1.png", Color.WHITE)
 	assert_false(ResourceLoader.exists(path), "a file in user:// has no imported resource")
 	assert_eq(TreeOverlay.register_mod_art("tester.raw", root), 1, "and it still registers")
 	var texture := TreeOverlay.texture_at(TreeOverlay.sprite_path("palm", SPRING_DAY,
@@ -301,54 +335,71 @@ func test_a_game_without_the_seasons_mod_wears_evergreen_art_all_year() -> void:
 
 
 # ---------------------------------------------------------------------------
-# The angle itself: wrapping, the fallback, and following the course's view
+# The variant itself: wrapping, the fallback, and what the course's view does
 # ---------------------------------------------------------------------------
 
-func test_orientations_wrap_round_the_compass() -> void:
-	assert_eq(TreeOverlay.facing_name(0), "n")
-	assert_eq(TreeOverlay.facing_name(1), "e")
-	assert_eq(TreeOverlay.facing_name(2), "s")
-	assert_eq(TreeOverlay.facing_name(3), "w")
-	assert_eq(TreeOverlay.facing_name(4), "n", "a full turn is north again")
-	assert_eq(TreeOverlay.facing_name(-1), "w", "one turn back from north is west")
+func test_variant_names_wrap_round_the_four_drawings() -> void:
+	assert_eq(TreeOverlay.facing_name(0), "0")
+	assert_eq(TreeOverlay.facing_name(1), "1")
+	assert_eq(TreeOverlay.facing_name(2), "2")
+	assert_eq(TreeOverlay.facing_name(3), "3")
+	assert_eq(TreeOverlay.facing_name(4), "0", "a full turn of four wraps back to 0")
+	assert_eq(TreeOverlay.facing_name(-1), "3", "one step back from 0 wraps to 3")
 	assert_eq(TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND, -1),
 			TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND, 3),
 			"and the lookup wraps with the naming")
 
 
-func test_a_species_with_no_art_at_any_angle_has_no_sprite() -> void:
+func test_a_species_with_no_art_at_any_variant_has_no_sprite() -> void:
 	assert_eq(TreeOverlay.sprite_path("no_such_tree", SUMMER_DAY, CourseTheme.Type.PARKLAND, 1),
-			"", "so the tile falls back to its silhouette, turned the same way")
+			"", "so the tile falls back to its silhouette, shaped the same way")
 	assert_null(TreeOverlay.texture_for("no_such_tree", 1))
 
 
-func test_the_overlay_draws_the_angle_the_course_is_viewed_from() -> void:
+func test_the_overlay_follows_the_course_view_orientation() -> void:
+	GameManager.set_gradual_view_rotation(false)
 	var grid := make_grid(8, 8)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay
-	assert_eq(trees.view_facing(), 0, "a fresh course is viewed from the north")
+	assert_eq(trees.view_facing(), 0, "a fresh course is viewed from orientation 0")
 	grid.rotate_view_cw()
-	assert_eq(trees.view_facing(), 1, "one clockwise turn of the course turns the wood to its east view")
+	assert_eq(trees.view_facing(), 1, "one clockwise turn of the course moves to 1")
 	grid.rotate_view_cw()
-	assert_eq(trees.view_facing(), 2, "and again to its south view")
+	assert_eq(trees.view_facing(), 2, "and again to 2")
 	grid.rotate_view_ccw()
-	assert_eq(trees.view_facing(), 1, "turning back retraces the angles")
+	assert_eq(trees.view_facing(), 1, "turning back retraces the orientations")
 	grid.set_view_orientation(3)
 	assert_eq(trees.view_facing(), 3, "a loaded view orientation is honoured too")
 
 
-func test_rotating_the_view_changes_the_texture_a_tree_is_drawn_with() -> void:
+func test_fractional_view_angles_pick_the_nearest_quarter_turn() -> void:
 	var grid := make_grid(8, 8)
-	grid.set_tile(Vector2i(3, 3), TerrainTypes.Type.PALM)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	grid.set_view_angle(0.25)
+	assert_eq(trees.view_facing(), 0, "angles under 45 degrees keep orientation 0")
+	grid.set_view_angle(0.6)
+	assert_eq(trees.view_facing(), 1, "crossing 45 degrees moves to orientation 1")
+	grid.set_view_angle(3.7)
+	assert_eq(trees.view_facing(), 0, "angles past 315 degrees wrap to 0")
+
+
+func test_rotating_the_view_keeps_each_tree_on_its_own_texture() -> void:
+	GameManager.set_gradual_view_rotation(false)
+	var grid := make_grid(8, 8)
+	var tile := Vector2i(3, 3)
+	grid.set_tile(tile, TerrainTypes.Type.PALM)
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	var variant := trees.facing_for(tile)
+	var texture := TreeOverlay.texture_for("palm", variant)
+	assert_not_null(texture, "the palm has art in its variant")
 	var worn: Dictionary = {}
 	for step in range(4):
-		var texture := TreeOverlay.texture_for("palm", trees.view_facing())
-		assert_not_null(texture, "the palm has art at orientation %d" % trees.view_facing())
-		assert_false(worn.has(texture.resource_path),
-				"orientation %d draws a view the earlier orientations did not" % trees.view_facing())
-		worn[texture.resource_path] = true
+		assert_eq(trees.facing_for(tile), variant,
+				"orientation %d leaves the tile on its own variant" % trees.view_facing())
+		assert_eq(TreeOverlay.texture_for("palm", trees.facing_for(tile)), texture,
+				"and paints the same drawing it started with")
+		worn[variant] = true
 		grid.rotate_view_cw()
-	assert_eq(worn.size(), 4, "a full turn of the course walks the palm through all four angles")
+	assert_eq(worn.size(), 1, "a full turn of the course never swaps the art under the canopy")
 
 
 func test_repainting_a_tree_species_redraws_its_existing_sprite() -> void:
@@ -371,12 +422,12 @@ func test_repainting_a_tree_species_redraws_its_existing_sprite() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Every tree stands at its own angle
+# Every tree wears its own variant
 # ---------------------------------------------------------------------------
 
-## A wood is not a plantation all facing the camera: whichever way the course
-## is viewed, the trees on one screen are drawn from all four angles at once.
-func test_a_wood_is_drawn_from_every_angle_whichever_way_it_is_viewed() -> void:
+## A wood is not a plantation of identical canopies: whichever way the course
+## is viewed, the trees on one screen wear all four variants at once.
+func test_a_wood_shows_every_variant_whichever_way_it_is_viewed() -> void:
 	for view in range(TreeOverlay.FACINGS.size()):
 		var seen: Dictionary = {}
 		for x in range(8):
@@ -384,32 +435,26 @@ func test_a_wood_is_drawn_from_every_angle_whichever_way_it_is_viewed() -> void:
 				seen[TreeOverlay.facing_at(Vector2i(x, y), view)] = true
 		for facing in range(TreeOverlay.FACINGS.size()):
 			assert_true(seen.has(facing),
-					"viewed from the %s, a wood still shows trees from the %s"
-					% [TreeOverlay.facing_name(view), TreeOverlay.facing_name(facing)])
+					"viewed from orientation %s, a wood still shows variant %s"
+					% [view, TreeOverlay.facing_name(facing)])
 
 
-## Turning the screen keeps the promise of the four views: every tree moves on
-## to its next angle — one step, not two, and never staying on the angle it was
-## just drawn from — and a full turn brings each one back to where it began.
-func test_rotating_the_course_steps_every_tree_to_its_next_angle() -> void:
+## Rotating the course keeps every tree on the same sprite image for every
+## direction: the variants are per-tile alternatives, not a turning model.
+func test_rotating_the_course_keeps_every_tree_on_its_same_sprite() -> void:
 	var angles := TreeOverlay.FACINGS.size()
 	for x in range(6):
 		for y in range(6):
 			var pos := Vector2i(x, y)
+			var base := TreeOverlay.facing_at(pos, 0)
 			for view in range(angles):
-				var here := TreeOverlay.facing_at(pos, view)
-				var next := TreeOverlay.facing_at(pos, view + 1)
-				assert_eq(next, wrapi(here + 1, 0, angles),
-						"the tree on %s turns on to its next angle" % pos)
-				assert_ne(next, here, "and never stays at the angle it was drawn from")
-			assert_eq(TreeOverlay.facing_at(pos, angles), TreeOverlay.facing_at(pos, 0),
-					"a full turn brings the tree on %s back to its first angle" % pos)
+				assert_eq(TreeOverlay.facing_at(pos, view), base,
+						"the tree on %s keeps the same sprite at view %d" % [pos, view])
 
 
 ## The offset is the tile's own: fixed for the life of the course, so the wood
-## does not reshuffle between redraws, reloads or seasons — only the turn of the
-## course moves it.
-func test_a_trees_angle_belongs_to_its_tile() -> void:
+## does not reshuffle between redraws, reloads, seasons or turns of the course.
+func test_a_trees_variant_belongs_to_its_tile() -> void:
 	var grid := make_grid(8, 8)
 	for x in range(8):
 		for y in range(8):
@@ -420,15 +465,15 @@ func test_a_trees_angle_belongs_to_its_tile() -> void:
 	var first: Dictionary = {}
 	for pos in trees._tree_tiles:
 		first[pos] = trees.facing_for(pos)
-		# The sprite of that angle is the one it wears: the same tile asked
+		# The sprite of that variant is the one it wears: the same tile asked
 		# again (a redraw, a reload, a season change) answers the same.
 		assert_eq(TreeOverlay.facing_at(pos, trees.view_facing()), first[pos],
-				"the pine on %s keeps its angle" % pos)
+				"the pine on %s keeps its variant" % pos)
 		var path := TreeOverlay.sprite_path("pine", SUMMER_DAY, CourseTheme.Type.PARKLAND,
 				first[pos])
 		assert_true(path.ends_with("_%s.png" % TreeOverlay.facing_name(first[pos])),
 				"and wears its %s art (%s)" % [TreeOverlay.facing_name(first[pos]), path])
-	# A rescan rebuilds the wood from the tiles; the angles must survive it.
+	# A rescan rebuilds the wood from the tiles; the variants must survive it.
 	trees.rescan()
 	for pos in first:
 		assert_eq(trees.facing_for(pos), first[pos],
@@ -470,7 +515,7 @@ func test_only_visible_tree_tiles_have_nodes_and_pan_reuses_them() -> void:
 
 
 ## Neighbouring trees do not march in step: a plain linear seed would stripe the
-## wood with diagonals of identically turned trees, and one angle would cover a
+## wood with diagonals of identical drawings, and one variant would cover a
 ## corner of the course while another went unseen.
 func test_the_offsets_are_mixed_across_the_wood() -> void:
 	var counts: Dictionary = {0: 0, 1: 0, 2: 0, 3: 0}
@@ -487,7 +532,7 @@ func test_the_offsets_are_mixed_across_the_wood() -> void:
 	var tiles := 16 * 16
 	for facing in range(TreeOverlay.FACINGS.size()):
 		assert_gt(float(counts[facing]), tiles / 8.0,
-				"the %s angle covers a fair share of the wood"
+				"the %s variant covers a fair share of the wood"
 				% TreeOverlay.facing_name(facing))
 	assert_gt(float(turned), neighbours / 2.0,
-			"and neighbours face different ways rather than striping the wood")
+			"and neighbours wear different drawings rather than striping the wood")

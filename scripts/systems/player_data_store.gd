@@ -389,6 +389,7 @@ static func reset_live_preferences() -> void:
 	GameManager.set_minimap_enabled(true)
 	GameManager.set_colorblind_mode(ColorblindMode.Mode.OFF)
 	GameManager.set_edge_pan_enabled(true)
+	GameManager.set_gradual_view_rotation(true)
 	GameManager.invert_zoom_scroll = false
 	GameManager.set_camera_zoom_limits(
 		GameManager.CAMERA_MIN_ZOOM_DEFAULT, GameManager.CAMERA_MAX_ZOOM_DEFAULT)

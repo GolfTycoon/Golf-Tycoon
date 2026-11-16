@@ -310,7 +310,7 @@ func apply_mod_content(mod_id: String, mod_root: String, content: Dictionary) ->
 		if not DirAccess.dir_exists_absolute(art_root):
 			_warn(mod_id, "tree_art_root '%s' does not exist." % art_root)
 		elif TreeOverlay.register_mod_art(mod_id, art_root) == 0:
-			_warn(mod_id, "tree_art_root '%s' holds no <species>[_n/_e/_s/_w].png or seasonal tree art." % art_root)
+			_warn(mod_id, "tree_art_root '%s' holds no <species>[_0/_1/_2/_3].png or seasonal tree art." % art_root)
 	if content.has("tuning"):
 		_apply_tuning(mod_id, mod_root.path_join(str(content["tuning"])))
 	if content.has("menu_backdrops"):

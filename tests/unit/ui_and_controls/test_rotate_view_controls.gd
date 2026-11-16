@@ -65,54 +65,91 @@ func test_buttons_are_drawn_not_typed() -> void:
 	assert_eq(cw_button.text, "")
 
 # ---------------------------------------------------------------------------
-# The facing chip
+# The 24-point direction compass
 # ---------------------------------------------------------------------------
 
-func test_the_chip_points_the_way_the_course_faces() -> void:
-	assert_eq(OrientationToggleButton.letter_for(0), "N", "N is the first facing")
+func test_the_compass_rose_has_24_unique_heading_vectors() -> void:
+	assert_eq(OrientationToggleButton.letter_for(0), "N", "N is the first cardinal")
 	assert_eq(OrientationToggleButton.letter_for(1), "E")
 	assert_eq(OrientationToggleButton.letter_for(2), "S")
 	assert_eq(OrientationToggleButton.letter_for(3), "W")
-	# The arrows are all the same shape, each turned a quarter turn.
-	var north: Array = OrientationToggleButton.arrow_rows(0)
-	assert_eq(north.size(), OrientationToggleButton.ARROW_GRID)
-	for row in north:
-		assert_eq(String(row).length(), OrientationToggleButton.ARROW_GRID,
-			"Every arrow row is a full slice of the grid")
-	# The north arrow's tip is the top-middle pixel: an arrow, not a blob.
-	assert_eq(String(north[0])[4], "x", "The arrow points up from its top edge")
-	assert_eq(String(OrientationToggleButton.arrow_rows(2)[8])[4], "x",
-		"and down from its bottom edge when the course faces south")
-	assert_eq(String(OrientationToggleButton.arrow_rows(1)[4])[8], "x",
-		"the east arrow's tip points right")
-	assert_eq(String(OrientationToggleButton.arrow_rows(3)[4])[0], "x",
-		"and the west arrow's tip points left")
-	for orientation in OrientationToggleButton.ORIENTATION_COUNT:
-		assert_ne(OrientationToggleButton.arrow_rows(orientation),
-			OrientationToggleButton.arrow_rows(orientation + 1),
-			"Each quarter turn repaints the arrow")
+	assert_eq(OrientationToggleButton.DIRECTION_COUNT, 24)
 
-func test_the_chip_follows_its_orientation_and_wraps() -> void:
+	var vectors: Array[Vector2] = []
+	for step in OrientationToggleButton.DIRECTION_COUNT:
+		var direction := OrientationToggleButton.direction_vector_for_step(step)
+		assert_almost_eq(direction.length(), 1.0, 0.001,
+			"Every compass needle direction has unit length")
+		for previous in vectors:
+			assert_gt(direction.distance_to(previous), 0.25,
+				"Every 15-degree heading points somewhere distinct")
+		vectors.append(direction)
+	assert_eq(vectors.size(), 24)
+	assert_eq(OrientationToggleButton.direction_description_for_step(0), "North")
+	assert_eq(OrientationToggleButton.direction_description_for_step(1), "North 15 degrees east")
+	assert_eq(OrientationToggleButton.direction_description_for_step(23), "North 15 degrees west")
+	assert_eq(OrientationToggleButton.direction_description_for_step(24), "North",
+		"The spoken bearing wraps")
+
+	var north := OrientationToggleButton.direction_vector_for_step(0)
+	var east := OrientationToggleButton.direction_vector_for_step(6)
+	var south := OrientationToggleButton.direction_vector_for_step(12)
+	var west := OrientationToggleButton.direction_vector_for_step(18)
+	assert_almost_eq(north.x, 0.0, 0.001)
+	assert_almost_eq(north.y, -1.0, 0.001, "Step 01 points north")
+	assert_almost_eq(east.x, 1.0, 0.001, "Step 07 points east")
+	assert_almost_eq(east.y, 0.0, 0.001)
+	assert_almost_eq(south.y, 1.0, 0.001, "Step 13 points south")
+	assert_almost_eq(west.x, -1.0, 0.001, "Step 19 points west")
+
+func test_the_compass_follows_15_degree_steps_and_wraps() -> void:
 	var chip := OrientationToggleButton.new()
 	add_child_autofree(chip)
-	assert_eq(chip.orientation, 0, "A fresh chip faces north")
+	assert_eq(chip.orientation, 0, "A fresh compass faces north")
 	assert_eq(chip.letter, "N")
+	assert_eq(chip.direction_step, 0)
+
+	chip.direction_step = 1
+	assert_eq(OrientationToggleButton.direction_description_for_step(chip.direction_step),
+		"North 15 degrees east")
 	chip.orientation = 3
-	assert_eq(chip.letter, "W", "West")
+	assert_eq(chip.direction_step, 18, "A legacy west assignment selects the west heading")
+	assert_eq(chip.letter, "W")
 	chip.orientation = 4
 	assert_eq(chip.orientation, 0, "Four quarter turns come back to north")
-	assert_eq(OrientationToggleButton.letter_for(-1), "W", "Turning back from north faces west")
+	chip.direction_step = -1
+	assert_eq(chip.direction_step, 23, "Counter-clockwise past north wraps to the final heading")
+	assert_eq(OrientationToggleButton.letter_for(-1), "W",
+		"The cardinal compatibility helper wraps too")
 
-func test_the_chip_reads_as_a_switch_for_the_arrows() -> void:
+func test_the_compass_is_borderless_and_keeps_its_appearance_when_folded_or_disabled() -> void:
 	var chip := OrientationToggleButton.new()
 	add_child_autofree(chip)
-	assert_true(chip.controls_shown, "The arrows start out beside the card")
+	var states := ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]
+	for state in states:
+		assert_true(chip.get_theme_stylebox(state) is StyleBoxEmpty,
+			"The %s state has no frame or fill" % state)
+	for state in ["font_color", "font_hover_color", "font_pressed_color",
+			"font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
+		assert_eq(chip.get_theme_color(state), Color.TRANSPARENT,
+			"The %s font state cannot dim or restyle the custom compass" % state)
+
+	assert_true(chip.controls_shown, "The Rotate arrows start out beside the card")
 	chip.controls_shown = false
-	assert_false(chip.controls_shown, "Folding them away dims the chip")
-	# The chip itself is a real, focusable button: it is the way back.
+	assert_false(chip.controls_shown, "The arrows can fold away")
+	chip.disabled = true
+	assert_eq(chip.direction_step, 0, "Disabled state keeps the same compass heading")
+	chip.disabled = false
+	chip.controls_shown = true
+
+	# The button itself stays real and focusable: it is the way to bring the
+	# Rotate arrows back, without a frame around its larger compass face.
 	assert_eq(chip.focus_mode, Control.FOCUS_ALL)
 	assert_eq(chip.text, "", "Its face is drawn, not typed")
-	assert_gt(chip.custom_minimum_size.x, 0.0)
+	assert_eq(chip.custom_minimum_size, Vector2(42, 42))
+	assert_eq(OrientationToggleButton.SIZE_TOUCH, Vector2(48, 48))
+	assert_gt(OrientationToggleButton.DIAL_RADIUS, 10.0,
+		"The rose is substantially larger than the original 20-pixel dial")
 
 # ---------------------------------------------------------------------------
 # The banner's corner

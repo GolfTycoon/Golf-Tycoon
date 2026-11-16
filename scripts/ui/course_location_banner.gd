@@ -13,7 +13,7 @@ class_name CourseLocationBanner
 ##
 ## The view controls live in the same corner, to the right of both columns: the
 ## two Rotate arrows that turn the course, and - in the details card's own
-## top-right corner - the facing chip that names the direction the course faces
+## top-right corner - a borderless 24-way compass that names the course heading
 ## and folds the arrows away again when the corner should stay quiet.
 ##
 ## The banner follows the active WorldMap location: buying a site or swapping
@@ -33,7 +33,7 @@ const BODY_FONT: Font = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 const PICTURE_SCALE_DESKTOP := 2
 const PICTURE_SCALE_COMPACT := 1
 ## Fixed widths of the two columns per layout; the name ellipsises inside the
-## detail card. They carry the room the facing chip takes out of the card's
+## detail card. They carry the room the compass takes out of the card's
 ## top-right corner, so the name and date lose none of the width they had
 ## before it arrived.
 const WIDTH_DESKTOP := 320.0
@@ -45,8 +45,8 @@ const MIN_COLUMNS_WIDTH := 150.0
 const CARD_RADIUS := 6
 const FRAME_RADIUS := 4
 ## Reserve for the banner before its first layout pass: the square picture plus
-## its frame (desktop 64+6, compact 32+6). The facing chip and the Rotate arrows
-## can ask for a little more, and banner_height() takes whichever is tallest.
+## its frame (desktop 64+6, compact 32+6). The compass and the Rotate arrows can
+## ask for a little more, and banner_height() takes whichever is tallest.
 const HEIGHT_DESKTOP := 70.0
 const HEIGHT_COMPACT := 38.0
 
@@ -65,7 +65,7 @@ var _date_icon: TextureRect
 var _accent_strip: PanelContainer
 
 ## The view controls, to the right of the two columns. `orientation_toggle` is
-## the facing chip inside the details card; the two arrows stand beside it.
+## the 24-way compass inside the details card; the two arrows stand beside it.
 var rotate_controls: HBoxContainer
 var rotate_ccw_btn: RotateViewButton
 var rotate_cw_btn: RotateViewButton
@@ -87,7 +87,7 @@ func _ready() -> void:
 	_build_ui()
 	_connect_signals()
 	_apply_anchors()
-	# The details card can grow past the banner's reserve when the facing chip
+	# The details card can grow past the banner's reserve when the compass
 	# arrives or a layout change resizes its rows; the corner takes the new
 	# height at once rather than waiting for the next window resize.
 	_details_panel.minimum_size_changed.connect(_apply_anchors)
@@ -205,9 +205,9 @@ func _build_ui() -> void:
 	_date_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	date_row.add_child(_date_label)
 
-	# The facing chip rides in the card's own top-right corner: the arrow and
-	# the N / E / S / W letter, and the switch that folds the Rotate arrows
-	# away. It is the one part of the card that takes the mouse.
+	# The borderless 24-way compass rides in the card's own top-right corner.
+	# Its enlarged golf-flag needle also folds the Rotate arrows away; it is the
+	# one part of the card that takes the mouse.
 	orientation_toggle = OrientationToggleButton.new()
 	orientation_toggle.name = "OrientationToggleBtn"
 	orientation_toggle.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -344,7 +344,15 @@ func _update_date() -> void:
 # VIEW CONTROLS
 # =============================================================================
 
-## Point the facing chip's arrow and letter at the way the course faces.
+## Point the compass at one of the 24 available 15-degree course headings.
+func set_direction_step(step: int) -> void:
+	if orientation_toggle == null:
+		return
+	orientation_toggle.direction_step = step
+	_sync_orientation_toggle()
+
+
+## Compatibility helper for callers that set a whole cardinal quarter turn.
 func set_orientation(view_orientation: int) -> void:
 	if orientation_toggle == null:
 		return
@@ -352,7 +360,7 @@ func set_orientation(view_orientation: int) -> void:
 	_sync_orientation_toggle()
 
 
-## Show or fold away the two Rotate arrows beside the details card. The facing
+## Show or fold away the two Rotate arrows beside the details card. The compass
 ## chip stays either way, so the corner can always get them back; the card
 ## narrows back into the room they were using.
 func set_rotate_controls_visible(shown: bool) -> void:
@@ -370,7 +378,7 @@ func rotate_controls_visible() -> bool:
 	return _rotate_controls_shown
 
 
-## Flip the two Rotate arrows in or out, the way a press on the facing chip does.
+## Flip the two Rotate arrows in or out, the way a press on the compass does.
 func toggle_rotate_controls() -> void:
 	set_rotate_controls_visible(not _rotate_controls_shown)
 
@@ -404,17 +412,18 @@ func _on_bindings_reset() -> void:
 	_refresh_rotate_tooltips()
 
 
-## The chip reads as a switch as well as a compass: its rim and ink follow the
-## arrows' state, and so does what it says it will do.
+## The compass's heading and tooltip stay current while its appearance remains
+## the same whether the Rotate arrows are shown or folded away.
 func _sync_orientation_toggle() -> void:
 	if orientation_toggle == null:
 		return
 	orientation_toggle.controls_shown = _rotate_controls_shown
 	var action := "hide" if _rotate_controls_shown else "show"
-	var tip := "The course faces %s. Click to %s the rotate buttons" % [
-		orientation_toggle.letter, action]
+	var bearing := OrientationToggleButton.direction_description_for_step(
+		orientation_toggle.direction_step)
+	var tip := "Course faces %s. Click to %s the rotate buttons" % [bearing, action]
 	orientation_toggle.tooltip_text = tip
-	orientation_toggle.accessibility_name = "View direction and rotate buttons"
+	orientation_toggle.accessibility_name = "Course heading: %s" % bearing
 	orientation_toggle.accessibility_description = tip
 
 
@@ -465,7 +474,7 @@ func _banner_width() -> float:
 
 ## The banner's height for the current layout, used before the first layout
 ## pass (e.g. when the scores dock positions itself beneath the banner). The
-## Rotate arrows and the facing chip can stand taller than a compact card, and
+## Rotate arrows and the compass can stand taller than a compact card, and
 ## when they do the banner grows with them rather than letting them hang over
 ## the course.
 func banner_height() -> float:
@@ -520,9 +529,9 @@ func _apply_layout_sizes() -> void:
 	custom_minimum_size = Vector2(_banner_width(), 0)
 
 
-## Size the Rotate arrows and the facing chip for the current layout. Touch
-## layouts grow the arrows to the standard touch target; desktop keeps the
-## small medallion the dock used to carry.
+## Size the Rotate arrows and compass for the current layout. Touch layouts
+## grow the arrows and compass to comfortable targets; the desktop keeps their
+## compact HUD footprints.
 func _apply_view_control_sizes() -> void:
 	var touch := has_node("/root/Screen") and Screen.uses_touch_layout()
 	var target := Vector2.ONE * (float(UIConstants.TOUCH_TARGET_SIZE) if touch \

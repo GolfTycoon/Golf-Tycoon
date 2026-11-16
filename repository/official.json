@@ -140,7 +140,7 @@
 			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/example.tree_sprites.zip",
 			"id": "example.tree_sprites",
 			"name": "Example: User Tree Sprite Pack",
-			"size_bytes": 1190572,
+			"size_bytes": 1190645,
 			"version": "1.0.0"
 		},
 		{
@@ -151,6 +151,16 @@
 			"id": "example.world",
 			"name": "Example: Tasmania & the Alps",
 			"size_bytes": 2794,
+			"version": "1.0.0"
+		},
+		{
+			"api_version": 1,
+			"author": "Golf Tycoon",
+			"description": "The high-resolution building art pack: every facility and upgrade tier drawn at the original 2.5 pixels per world pixel, across all 24 view steps. The game ships smaller 1:1 sprites; enable this pack to restore the larger, finer-detailed source images. Purely cosmetic and safe to switch off at any time.",
+			"download_url": "https://raw.githubusercontent.com/GolfTycoon/Golf-Tycoon/main/repository/zips/golf_tycoon.hd_building_art.zip",
+			"id": "golf_tycoon.hd_building_art",
+			"name": "HD Building Art",
+			"size_bytes": 46248881,
 			"version": "1.0.0"
 		},
 		{

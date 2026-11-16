@@ -10,9 +10,16 @@ const DEFAULT_TILE_HEIGHT: int = 32
 @export var tile_height: int = DEFAULT_TILE_HEIGHT
 const view_isometric: bool = true
 @export_range(0, 3) var view_orientation: int = 0
+## One step of gradual view rotation in quarter-turns (15 degrees; 6 steps per
+## quarter turn, 24 rest angles around the compass).
+const GRADUAL_TURN_STEP: float = 1.0 / 6.0
+const GRADUAL_TURN_DURATION: float = 0.18
 
 ## Grid <-> world projection shared by every renderer and the input handlers.
 var projection: GridProjection = GridProjection.new()
+var _view_angle_unwrapped: float = 0.0
+var _view_target_angle_unwrapped: float = 0.0
+var _view_turn_tween: Tween = null
 
 ## Elevation levels run 0..10: 0 is the deepest a vertex can be dug down and
 ## 10 the highest it can be raised. Flat, untouched ground sits mid-range at
@@ -66,7 +73,9 @@ signal surface_refreshed
 signal tile_changed(position: Vector2i, old_type: int, new_type: int)
 signal elevation_changed(position: Vector2i, old_elevation: int, new_elevation: int)
 signal vertex_elevation_changed(vertex: Vector2i, old_elevation: int, new_elevation: int)
+signal view_rotation_will_change
 signal view_rotated(orientation: int, isometric: bool)
+signal view_rotation_settled
 ## Emitted whenever a "Green With Hole" (cup) marker is added or removed.
 signal cup_tiles_changed
 ## Emitted whenever the Path improvement (walking path) layer changes.
@@ -170,6 +179,15 @@ func _ready() -> void:
 	_wildlife.name = "CourseWildlife"
 	add_child(_wildlife)
 	_wildlife.initialize(self)
+	if is_instance_valid(EventBus) and EventBus.has_signal("gradual_view_rotation_changed") \
+			and not EventBus.gradual_view_rotation_changed.is_connected(_on_gradual_view_rotation_changed):
+		EventBus.gradual_view_rotation_changed.connect(_on_gradual_view_rotation_changed)
+
+func _exit_tree() -> void:
+	_kill_view_turn_tween()
+	if is_instance_valid(EventBus) and EventBus.has_signal("gradual_view_rotation_changed") \
+			and EventBus.gradual_view_rotation_changed.is_connected(_on_gradual_view_rotation_changed):
+		EventBus.gradual_view_rotation_changed.disconnect(_on_gradual_view_rotation_changed)
 
 func _process(_delta: float) -> void:
 	# Flush any pending heightmap blur + texture uploads (batched for performance)
@@ -286,8 +304,10 @@ func _initialize_grid() -> void:
 
 func _init_projection() -> void:
 	projection.configure(Vector2i(grid_width, grid_height), Vector2(tile_width, tile_height))
-	projection.set_orientation(view_orientation)
-	view_orientation = projection.orientation
+	projection.set_orientation(float(view_orientation))
+	_view_angle_unwrapped = projection.orientation
+	_view_target_angle_unwrapped = projection.orientation
+	view_orientation = projection.nearest_orientation()
 
 func get_elevation_displacement(grid_pos: Vector2) -> Vector2:
 	if not view_isometric or ELEVATION_STEP_Y == 0.0:
@@ -530,26 +550,121 @@ static func _apply_projection_uniforms(shader_material: ShaderMaterial, proj: Gr
 	shader_material.set_shader_parameter("surface_origin", proj.world_bounds().position)
 
 func rotate_view_cw() -> void:
-	_apply_view(projection.orientation + 1)
+	_step_view_rotation(1.0)
 
 func rotate_view_ccw() -> void:
-	_apply_view(projection.orientation - 1)
+	_step_view_rotation(-1.0)
 
 func is_view_isometric() -> bool:
 	return projection.isometric
 
-func get_view_orientation() -> int:
+func is_view_turning() -> bool:
+	return _view_turn_tween != null and _view_turn_tween.is_valid() and _view_turn_tween.is_running()
+
+func get_view_angle() -> float:
 	return projection.orientation
 
-func set_view_orientation(orientation: int) -> void:
-	_apply_view(orientation)
+func get_view_orientation() -> int:
+	return projection.nearest_orientation()
 
-func _apply_view(orientation: int) -> void:
-	projection.set_orientation(orientation)
-	view_orientation = projection.orientation
+## Index of the nearest fifteen-degree building-art heading, clockwise from
+## north. A gradual turn interpolates smoothly between these 24 rest headings.
+func get_view_facing_step() -> int:
+	return wrapi(roundi(get_view_angle() * 6.0), 0, 24)
+
+## The same snapped heading in quarter turns (N = 0, E = 1, S = 2, W = 3).
+func get_view_facing_angle() -> float:
+	return float(get_view_facing_step()) / 6.0
+
+func set_view_orientation(orientation: int) -> void:
+	set_view_angle(float(wrapi(orientation, 0, GridProjection.ORIENTATION_COUNT)))
+
+func set_view_angle(angle: float) -> void:
+	_kill_view_turn_tween()
+	var wrapped := GridProjection._wrap_angle(angle)
+	_view_angle_unwrapped = wrapped
+	_view_target_angle_unwrapped = wrapped
+	_apply_view(wrapped)
+	view_rotation_settled.emit()
+
+func _step_view_rotation(direction: float) -> void:
+	var gradual := is_instance_valid(GameManager) and GameManager.gradual_view_rotation
+	if not gradual:
+		_kill_view_turn_tween()
+		var next_quarter := float(wrapi(projection.nearest_orientation() + int(direction),
+				0, GridProjection.ORIENTATION_COUNT))
+		_view_angle_unwrapped = next_quarter
+		_view_target_angle_unwrapped = next_quarter
+		_apply_view(next_quarter)
+		view_rotation_settled.emit()
+		return
+
+	var base := _view_target_angle_unwrapped if is_view_turning() else _view_angle_unwrapped
+	var raw_target := base + direction * GRADUAL_TURN_STEP
+	var step_index := raw_target / GRADUAL_TURN_STEP
+	var rounded_index := roundf(step_index)
+	if absf(step_index - rounded_index) < 0.001:
+		_view_target_angle_unwrapped = rounded_index * GRADUAL_TURN_STEP
+	else:
+		_view_target_angle_unwrapped = raw_target
+
+	if not is_inside_tree():
+		_view_angle_unwrapped = GridProjection._wrap_angle(_view_target_angle_unwrapped)
+		_view_target_angle_unwrapped = _view_angle_unwrapped
+		_apply_view(_view_angle_unwrapped)
+		view_rotation_settled.emit()
+		return
+
+	_kill_view_turn_tween()
+	var start_angle := _view_angle_unwrapped
+	_view_turn_tween = create_tween()
+	_view_turn_tween.set_ignore_time_scale(true)
+	_view_turn_tween.set_trans(Tween.TRANS_CUBIC)
+	_view_turn_tween.set_ease(Tween.EASE_OUT)
+	_view_turn_tween.tween_method(_on_view_turn_tween_step, start_angle,
+			_view_target_angle_unwrapped, GRADUAL_TURN_DURATION)
+	_view_turn_tween.finished.connect(_on_view_turn_tween_finished)
+
+func _kill_view_turn_tween() -> void:
+	if _view_turn_tween and _view_turn_tween.is_valid():
+		_view_turn_tween.kill()
+	_view_turn_tween = null
+
+func _on_view_turn_tween_step(angle: float) -> void:
+	_view_angle_unwrapped = angle
+	_apply_view(angle)
+
+func _on_view_turn_tween_finished() -> void:
+	_view_turn_tween = null
+	var wrapped := GridProjection._wrap_angle(_view_target_angle_unwrapped)
+	_view_angle_unwrapped = wrapped
+	_view_target_angle_unwrapped = wrapped
+	if not is_equal_approx(projection.orientation, wrapped):
+		_apply_view(wrapped)
+	view_rotation_settled.emit()
+
+func _on_gradual_view_rotation_changed(enabled: bool) -> void:
+	if enabled:
+		return
+	var was_turning := is_view_turning()
+	_kill_view_turn_tween()
+	var settled := float(projection.nearest_orientation())
+	var needs_snap := not is_equal_approx(projection.orientation, settled)
+	_view_angle_unwrapped = settled
+	_view_target_angle_unwrapped = settled
+	if needs_snap:
+		_apply_view(settled)
+	if needs_snap or was_turning:
+		view_rotation_settled.emit()
+
+func _apply_view(angle: float) -> void:
+	view_rotation_will_change.emit()
+	projection.set_orientation(angle)
+	var nearest := projection.nearest_orientation()
+	view_orientation = nearest
 	_sync_projection_dependents()
-	view_rotated.emit(projection.orientation, projection.isometric)
-	EventBus.view_rotated.emit(projection.orientation, projection.isometric)
+	view_rotated.emit(nearest, projection.isometric)
+	EventBus.view_rotated.emit(nearest, projection.isometric)
 
 func _sync_projection_dependents() -> void:
 	var bounds := projection.world_bounds()

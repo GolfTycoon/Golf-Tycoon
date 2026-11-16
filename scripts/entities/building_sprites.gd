@@ -4,31 +4,44 @@ class_name BuildingSprites
 ##
 ## The images live in `assets/sprites/buildings/` next to a manifest
 ## (`sprites.json`) that the art pipeline (`tools/building_art/generate.py`)
-## writes. For every building, upgrade tier and view rotation the manifest
-## records the PNG and the rectangle it covers in the local draw space of the
-## building node, in world pixels — the same space `Building.set_position_in_grid()`
-## anchors. Drawing a sprite into that rectangle therefore places the pixel art
-## exactly on the tiles the building occupies, at every rotation.
+## writes. For every building, upgrade tier and one of the 24 fifteen-degree
+## view steps the manifest records the PNG and the rectangle it covers in the
+## local draw space of the building node, in world pixels — the same space
+## `Building.set_position_in_grid()` anchors. Drawing a sprite into that
+## rectangle therefore places the pixel art exactly on the tiles the building
+## occupies, at every rotation.
 ##
 ## Source PNGs do not have to be authored at that rectangle's resolution: the
-## current sprites are authored at roughly 600 x 460 pixels so their roofs,
-## windows and paving keep their detail, while a tile is 64 x 32 world pixels.
-## `texture()` resamples each source once, when it is first loaded, into its
-## manifest rectangle. That keeps the drawing 1:1 — one drawn pixel is one world
-## pixel — instead of asking the GPU to minify a large texture with nearest
-## filtering (which aliases badly and makes the pixel grid flicker at zoom).
-## `painted_rect()` maps any texture's opaque pixels into that same draw space,
-## so callers never have to assume a source resolution.
+## shipped sprites are baked at one source pixel per world pixel, while the
+## optional high-resolution art pack (a mod) supplies 2.5 times as many pixels
+## per world pixel. `texture()` resamples each source once, when it is first
+## loaded, into its manifest rectangle. That keeps the drawing 1:1 — one drawn
+## pixel is one world pixel — instead of asking the GPU to minify a large
+## texture with nearest filtering (which aliases badly and makes the pixel grid
+## flicker at zoom). `painted_rect()` maps any texture's opaque pixels into that
+## same draw space, so callers never have to assume a source resolution.
 
 const MANIFEST_PATH := "res://assets/sprites/buildings/sprites.json"
 const SPRITE_DIR := "res://assets/sprites/buildings/"
 
-## View rotations, in the order the manifest lists them. Matches
-## TerrainGrid.get_view_orientation().
-const FACINGS := ["e", "s", "w", "n"]
+## Fifteen-degree view steps around a full turn, in the order the manifest
+## lists them. Step 0 is east, 6 south, 12 west and 18 north, matching
+## TerrainGrid.get_view_orientation() at whole quarter turns.
+const FACING_COUNT := 24
+const FACINGS := [
+	"00", "01", "02", "03", "04", "05", "06", "07",
+	"08", "09", "10", "11", "12", "13", "14", "15",
+	"16", "17", "18", "19", "20", "21", "22", "23",
+]
 
 static var _manifest: Dictionary = {}
 static var _textures: Dictionary = {}
+
+## A view angle (quarter turns, as GridProjection and TerrainGrid carry it) to
+## the nearest fifteen-degree sprite index. Whole turns stay exactly on their
+## cardinal index, so the old four-way views keep the same art.
+static func facing_index(facing: float) -> int:
+	return wrapi(roundi(facing * (FACING_COUNT / 4.0)), 0, FACING_COUNT)
 
 ## The parsed manifest, loaded once. Keys: `pixel_scale`, `tile` and
 ## `buildings` -> kind -> `tiers` -> tier -> `facings` -> [{file, rect}].
@@ -52,10 +65,38 @@ static func manifest() -> Dictionary:
 ## is visible the day it is placed.
 static var _mod_sprites: Dictionary = {}
 
+## Per-facing mod art, kind -> tier -> facing index -> {rect, loader, texture}.
+## The loader is a Callable supplied by ModAPI: it decodes the PNG only when the
+## game first draws that view, so an art pack with hundreds of large PNGs costs
+## nothing until the player turns a building. `texture` caches the fitted result.
+static var _mod_frames: Dictionary = {}
+
 static func register_mod_sprite(kind: String, texture_value: Texture2D, draw_rect: Rect2) -> void:
 	if texture_value == null:
 		return
 	_mod_sprites[kind] = {"texture": texture_value, "rect": draw_rect}
+	_clear_click_cache(kind)
+
+## Register one fifteen-degree view of a building's art. `tier` defaults to 1;
+## a multi-tier building registers each tier separately. Later registrations for
+## the same kind, tier and view replace earlier ones. The loader must return the
+## source Texture2D (at any resolution) when called.
+static func register_mod_frame(kind: String, tier: int, facing: int,
+		draw_rect: Rect2, loader: Callable) -> void:
+	if not loader.is_valid() or draw_rect.size.x <= 0.0 or draw_rect.size.y <= 0.0:
+		return
+	var tiers: Dictionary = _mod_frames.get(kind, {})
+	var frames: Dictionary = tiers.get(str(tier), {})
+	# Registration takes the sprite index itself (0..23), not a view angle.
+	frames[str(wrapi(facing, 0, FACING_COUNT))] = {
+		"rect": draw_rect,
+		"loader": loader,
+	}
+	tiers[str(tier)] = frames
+	_mod_frames[kind] = tiers
+	_clear_click_cache(kind)
+
+static func _clear_click_cache(kind: String) -> void:
 	# A mod (re)registering art for this kind must not be served the
 	# silhouette traced from the art it replaced (see `click_polygons()`).
 	for cached_key in _click_polygons.keys():
@@ -64,10 +105,12 @@ static func register_mod_sprite(kind: String, texture_value: Texture2D, draw_rec
 
 static func clear_mod_sprites() -> void:
 	_mod_sprites.clear()
+	_mod_frames.clear()
 	_click_polygons.clear()
 
 static func has_sprite(kind: String) -> bool:
-	return _mod_sprites.has(kind) or manifest().get("buildings", {}).has(kind)
+	return _mod_sprites.has(kind) or _mod_frames.has(kind) \
+			or manifest().get("buildings", {}).has(kind)
 
 static func tier_count(kind: String) -> int:
 	var building: Dictionary = manifest().get("buildings", {}).get(kind, {})
@@ -82,18 +125,27 @@ static func tier_for(kind: String, level: int) -> int:
 
 ## `{file, rect}` for one building, tier and view rotation, or {} when there
 ## is no art for it.
-static func entry(kind: String, tier: int, facing: int) -> Dictionary:
+static func entry(kind: String, tier: int, facing: float) -> Dictionary:
 	var tiers: Dictionary = manifest().get("buildings", {}).get(kind, {}).get("tiers", {})
 	var faces: Array = tiers.get(str(tier_for(kind, tier)), {}).get("facings", [])
-	var index := wrapi(facing, 0, FACINGS.size())
+	var index := facing_index(facing)
 	if index < 0 or index >= faces.size():
 		return {}
 	return faces[index]
 
+## The mod frame registered for exactly this kind, tier and view, or {}.
+static func _mod_frame(kind: String, tier: int, facing: float) -> Dictionary:
+	var tiers: Dictionary = _mod_frames.get(kind, {})
+	var frames: Dictionary = tiers.get(str(tier), {})
+	return frames.get(str(facing_index(facing)), {})
+
 ## The texture for one building, tier and view rotation, resampled to the
 ## manifest rectangle so drawing stays 1:1. The result is cached: `_draw()` runs
 ## every frame, but a source PNG is decoded and resized only once.
-static func texture(kind: String, tier: int, facing: int) -> Texture2D:
+static func texture(kind: String, tier: int, facing: float) -> Texture2D:
+	var frame := _mod_frame(kind, tier, facing)
+	if not frame.is_empty():
+		return _mod_frame_texture(frame)
 	if _mod_sprites.has(kind):
 		return _mod_sprites[kind].get("texture", null)
 	var art := entry(kind, tier, facing)
@@ -113,7 +165,10 @@ static func texture(kind: String, tier: int, facing: int) -> Texture2D:
 
 ## The rectangle the sprite covers in the building node's local draw space
 ## (world pixels), or a zero rect when there is no art.
-static func rect(kind: String, tier: int, facing: int) -> Rect2:
+static func rect(kind: String, tier: int, facing: float) -> Rect2:
+	var frame := _mod_frame(kind, tier, facing)
+	if not frame.is_empty():
+		return frame.get("rect", Rect2())
 	if _mod_sprites.has(kind):
 		return _mod_sprites[kind].get("rect", Rect2())
 	var art := entry(kind, tier, facing)
@@ -133,6 +188,16 @@ static func _pixel_size(art_rect: Rect2) -> Vector2i:
 ## texture has one pixel per world pixel, so `draw_texture_rect()` is a 1:1 blit
 ## and the nearest filter has nothing to alias. Lanczos keeps the fine detail of
 ## the larger source (roof tiles, window frames, paving) when it is reduced.
+static func _mod_frame_texture(frame: Dictionary) -> Texture2D:
+	var cached: Variant = frame.get("texture", null)
+	if cached is Texture2D:
+		return cached
+	var loader: Callable = frame.get("loader", Callable())
+	var source: Texture2D = loader.call() if loader.is_valid() else null
+	var art_rect: Rect2 = frame.get("rect", Rect2())
+	frame["texture"] = _fit_to_rect(source, _pixel_size(art_rect))
+	return frame["texture"]
+
 static func _fit_to_rect(source: Texture2D, target: Vector2i) -> Texture2D:
 	if source == null or target.x <= 0 or target.y <= 0:
 		return source
@@ -147,7 +212,11 @@ static func _fit_to_rect(source: Texture2D, target: Vector2i) -> Texture2D:
 
 ## The source PNG as it ships, before resampling — for tools and tests that
 ## inspect the art rather than the texture the course draws.
-static func source_texture(kind: String, tier: int, facing: int) -> Texture2D:
+static func source_texture(kind: String, tier: int, facing: float) -> Texture2D:
+	var frame := _mod_frame(kind, tier, facing)
+	if not frame.is_empty():
+		var loader: Callable = frame.get("loader", Callable())
+		return loader.call() if loader.is_valid() else null
 	var art := entry(kind, tier, facing)
 	if art.is_empty():
 		return null
@@ -162,7 +231,7 @@ static func source_texture(kind: String, tier: int, facing: int) -> Texture2D:
 ## pixels is `rect.size / texture.size`, not a fixed `pixel_scale`: it works for
 ## resampled art, for a mod's arbitrary-resolution PNG, and for the 1:1 sprites
 ## the generator writes. This is the sprite's real footprint on the course.
-static func painted_rect(kind: String, tier: int, facing: int) -> Rect2:
+static func painted_rect(kind: String, tier: int, facing: float) -> Rect2:
 	var art_rect := rect(kind, tier, facing)
 	if art_rect.size.x <= 0.0 or art_rect.size.y <= 0.0:
 		return Rect2()
@@ -198,10 +267,10 @@ static var _click_polygons: Dictionary = {}
 ## A kind with no sprite gets the silhouette of the procedural stand-in
 ## `_draw_fallback()` paints: its footprint diamond extruded up by the
 ## stand-in's wall height.
-static func click_polygons(kind: String, tier: int, facing: int,
+static func click_polygons(kind: String, tier: int, facing: float,
 		footprint: Vector2) -> Array:
 	var key := "%s|%d|%d|%dx%d" % [kind, tier_for(kind, tier),
-			wrapi(facing, 0, FACINGS.size()), int(footprint.x), int(footprint.y)]
+			facing_index(facing), int(footprint.x), int(footprint.y)]
 	if _click_polygons.has(key):
 		return (_click_polygons[key] as Array).duplicate()
 	var polygons: Array = []
@@ -241,7 +310,7 @@ static func click_polygons(kind: String, tier: int, facing: int,
 ## The outline of the procedural stand-in: the footprint diamond (north,
 ## east, south, west corners) with its far edges lifted by the wall height
 ## `_draw_fallback()` gives it, walked around the outside.
-static func _fallback_silhouette(footprint: Vector2, facing: int) -> PackedVector2Array:
+static func _fallback_silhouette(footprint: Vector2, facing: float) -> PackedVector2Array:
 	if footprint.x <= 0.0 or footprint.y <= 0.0:
 		return PackedVector2Array()
 	var corners := CourseArchitecture.footprint_corners(footprint, facing)
@@ -263,7 +332,7 @@ static func height(kind: String) -> float:
 ## stands on, but the manifest rect already carries the artwork's placement — it
 ## was rendered in exactly that space. Returns the rectangle drawn.
 static func draw(canvas: CanvasItem, kind: String, footprint: Vector2, tier := 1,
-		facing := 0) -> Rect2:
+		facing := 0.0) -> Rect2:
 	var art_rect := rect(kind, tier, facing)
 	var tex := texture(kind, tier, facing)
 	if tex == null or art_rect.size.x <= 0.0:
@@ -276,7 +345,7 @@ static func draw(canvas: CanvasItem, kind: String, footprint: Vector2, tier := 1
 ## when the data names none). It keeps mod buildings - which can be pure
 ## JSON - visible and clickable without any art pipeline, and it is what a
 ## player sees until a mod registers a sprite for the kind.
-static func _draw_fallback(canvas: CanvasItem, kind: String, footprint: Vector2, facing: int) -> Rect2:
+static func _draw_fallback(canvas: CanvasItem, kind: String, footprint: Vector2, facing: float) -> Rect2:
 	if footprint.x <= 0.0 or footprint.y <= 0.0:
 		return Rect2()
 	var corners := CourseArchitecture.footprint_corners(footprint, facing)

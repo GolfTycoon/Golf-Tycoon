@@ -15,38 +15,41 @@ class_name TreeOverlay
 ## from the tile's coordinates so the mix is varied yet identical every time the
 ## course loads.
 ##
-## Each species can have four independently authored angles —
-## `<species>_n.png`, `_e`, `_s` and `_w` — and the overlay paints the matching
-## view as the course turns (see BuildingSprites). Views may have different
-## canvas dimensions: `layout.json` supplies their scale and normalized ground
-## anchor, while the renderer positions each texture from its own size. If a
-## view is missing, the unsuffixed drawing or north view is used as a fallback.
+## Each species can have four independently authored variants —
+## `<species>_0.png` through `<species>_3.png` — and each tile wears one of
+## them for its whole life (see `facing_at()`). The variants are alternatives,
+## not four sides of a turning model: a wood is drawn from several of them at
+## once, and turning the course never swaps the art under a canopy. Variants
+## may have different canvas dimensions: `layout.json` supplies their scale and
+## normalized ground anchor, while the renderer positions each texture from its
+## own size. A missing variant falls back to the unsuffixed drawing, then to
+## variant 0. Art packs published under the older compass spelling
+## (`_n/_e/_s/_w`) still load; `facing_suffixes()` maps the two spellings.
 ##
 ## A season's drawings of a species are not the core's to ship: the spring,
 ## fall and winter art travels inside the mod that provides the calendar —
-## `mods/golf_tycoon.seasons/tree_art/<season>/` — and reaches this lookup
-## through its manifest's `tree_art_root` (see `register_mod_art()`). With
-## that mod switched off the year never leaves summer, so the evergreen art in
-## `SPRITE_DIR` is all a tree ever wears and nothing misses the wardrobe.
+## `repository/packages/golf_tycoon.seasons/tree_art/<season>/` — and reaches
+## this lookup through its manifest's `tree_art_root` (see
+## `register_mod_art()`). With that mod switched off the year never leaves
+## summer, so the evergreen art in `SPRITE_DIR` is all a tree ever wears and
+## nothing misses the wardrobe.
 ##
-## A mod may also put `<species>[_n|_e|_s|_w].png` straight in that
+## A mod may also put `<species>[_0|_1|_2|_3].png` straight in that
 ## `tree_art_root`. Those are all-season sprite replacements: they are checked
 ## before both the seasonal wardrobe and the core art, so a sprite pack can
 ## repaint every tree without having to duplicate its files into four seasons.
 ##
-## A tree does not wear the view the course is seen from, though: each tile has
-## its own quarter-turn offset (see `facing_offset()`), fixed for the life of
-## the course, so a wood is drawn with canopies from all four sides at once
-## instead of a plantation whose every tree faces the camera. The offset is
-## added to the course's view orientation, so rotating the course still steps
-## every tree on to its next angle — one turn of the screen turns the whole
-## wood, and a tree is never seen twice from the same side in a row.
+## Which variant a tile wears is its own: a quarter-turn index (see
+## `facing_offset()`) fixed for the life of the course and mixed across the
+## wood, so one screen shows several drawings instead of a plantation of
+## identical canopies. It deliberately ignores the course's view orientation —
+## the same tree keeps the same sprite however the course is turned.
 
-## The evergreen art lives here as `<species>_n/_e/_s/_w.png`; each facing is
-## an independent source image, so its canvas can be sized to suit that view.
-## `layout.json` next to these files controls draw scale and the ground anchor.
-## This is the summer art of every species, and the only tree art the game
-## itself ships — a season's variants come from the mods (see
+## The evergreen art lives here as `<species>_0/_1/_2/_3.png`; each variant is
+## an independent source image, so its canvas can be sized to suit that
+## drawing. `layout.json` next to these files controls draw scale and the
+## ground anchor. This is the summer art of every species, and the only tree
+## art the game itself ships — a season's variants come from the mods (see
 ## `register_mod_art()`).
 const SPRITE_DIR := "res://assets/sprites/trees/"
 const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
@@ -63,15 +66,23 @@ const ART_LAYOUT_FILE := "layout.json"
 const MIN_ART_SCALE := 0.05
 const MAX_ART_SCALE := 4.0
 
-## The four angles a tree is drawn from, indexed by view orientation (see
-## TerrainGrid.get_view_orientation()): 0 is the course compass's north — the
-## default view, whose art is the authored drawing — then a quarter turn
-## clockwise per step through east and south to west.
-const FACINGS: Array[String] = ["n", "e", "s", "w"]
+## The four view variants a tree can wear, numbered in the order a course's
+## view turns (see TerrainGrid.get_view_orientation()): 0 is the default
+## screen, then one step per quarter turn. They are alternative drawings of
+## the same tree, not four sides of a turning model: every tree keeps the one
+## variant its tile picked (see `facing_at()`) whichever way the course is
+## viewed, so turning the screen never swaps the art under a canopy.
+const FACINGS: Array[String] = ["0", "1", "2", "3"]
 
-## The angle drawn when nothing names one: the authored north view. It is
-## what the toolbar's tree tiles preview, so a button never turns with the
-## course behind it.
+## The old 0..3 spelling of the same views, kept so art packs published under
+## it still load: suffix `_n` is variant 0, `_e` 1, `_s` 2, `_w` 3. A folder
+## may use either spelling (or an unsuffixed drawing that answers for every
+## view); the number is checked first when a file offers both.
+const LEGACY_FACING_SUFFIXES: Array[String] = ["_n", "_e", "_s", "_w"]
+
+## The variant drawn when nothing names one: the first drawing. It is what the
+## toolbar's tree tiles preview, so a button never turns with the course behind
+## it.
 const DEFAULT_FACING := 0
 
 ## Themes cold enough for snow to lie on a pine through winter. The rest of a
@@ -130,18 +141,19 @@ static var _core_layout_cache: Dictionary = {}  # sprite path -> Dictionary
 static var _core_layout_loaded := false
 
 ## An all-season replacement's art, registered from the files directly inside
-## a mod's `tree_art_root`: species -> facing suffix ("" for an authored
-## drawing, then "_n", "_e", "_s", "_w") -> file. This is deliberately a
-## different shelf from the seasonal wardrobe below: it is the first lookup so
-## a sprite-replacement pack keeps its promise across every day of the year.
+## a mod's `tree_art_root`: species -> view suffix ("" for an authored drawing,
+## then "_0", "_1", "_2", "_3" or their old `_n`/`_e`/`_s`/`_w` spellings) ->
+## file. This is deliberately a different shelf from the seasonal wardrobe
+## below: it is the first lookup so a sprite-replacement pack keeps its promise
+## across every day of the year.
 static var _sprite_overrides: Dictionary = {}
 ## Which mod supplied each all-season replacement file, so a user-library or
 ## Workshop copy can be decoded from its source bytes.
 static var _sprite_override_owners: Dictionary = {}  # file path -> mod id
 
 ## A season's tree art, registered by the mods that ship it: season folder name
-## ("spring") -> species -> facing suffix ("" for the authored drawing, then
-## "_n", "_e", "_s", "_w") -> the file to draw. Filled from the `tree_art_root`
+## ("spring") -> species -> view suffix ("" for the authored drawing, then
+## "_0", "_1", "_2", "_3") -> the file to draw. Filled from the `tree_art_root`
 ## content key by ContentRegistry, in load order, and dropped with the rest of
 ## a mod's content — so a game with the Seasons mod off holds no seasonal art,
 ## and never asks for any.
@@ -197,10 +209,10 @@ func rescan() -> void:
 					_tree_tiles[pos] = species_at(type, pos)
 	_sync_visuals(true)
 
-## The angle the course is viewed from: the grid's view orientation, so
-## rotating the course turns every tree with it, exactly as it turns the
-## buildings. A tree is drawn from `facing_at()` — this angle plus the tile's
-## own offset — so trees in the same wood face different ways.
+## The course's view orientation (0..3). Trees do not turn with the course —
+## each keeps the variant its tile picked — but a rotation is still the moment
+## the visible wood is re-synced, and the toolbar asks this to know which way
+## the course is facing.
 func view_facing() -> int:
 	return terrain_grid.get_view_orientation() if terrain_grid else DEFAULT_FACING
 
@@ -222,29 +234,34 @@ static func species_at(type: int, pos: Vector2i) -> String:
 	rng.seed = variation_seed(pos)
 	return TerrainTypes.get_tree_species(theme_trees[rng.randi_range(0, theme_trees.size() - 1)])
 
-## The file suffix of the angle at view orientation `facing` ("n", "e", "s"
-## or "w"). Orientations outside 0..3 wrap, as the view itself does.
+## The file suffix of the view variant `facing` ("0", "1", "2" or "3").
+## Orientations outside 0..3 wrap, as the view itself does.
 static func facing_name(facing: int) -> String:
 	return FACINGS[wrapi(facing, 0, FACINGS.size())]
 
-## The angle the tree on `pos` is drawn from when the course is viewed at
-## orientation `view`: the course's own angle, stepped by the tile's offset.
-## Everything turns together, so a quarter turn of the course always takes
-## every tree on to its next view and a full turn brings the wood back exactly
-## as it was.
-static func facing_at(pos: Vector2i, view: int = DEFAULT_FACING) -> int:
-	return wrapi(view + facing_offset(pos), 0, FACINGS.size())
+## Every suffix a view variant may be filed under, most current first: the
+## number, then the compass letter older art packs use. A lookup walks these
+## in order, so a folder carrying both spellings draws the numbered file.
+static func facing_suffixes(facing: int) -> Array[String]:
+	var index := wrapi(facing, 0, FACINGS.size())
+	return ["_" + FACINGS[index], LEGACY_FACING_SUFFIXES[index]]
 
-## How many quarter turns this tile's tree stands turned from the authored
-## north drawing: 0..3, one per tile, the same on every machine and every
-## reload. It is what lets one screen hold a wood of mixed angles rather than
-## a row of trees all facing the camera: about a quarter of the trees keep the
-## authored drawing, and the rest show their east, south or west side.
+## The variant index the tree on `pos` is drawn with, independent of course
+## view orientation: every tree keeps the same sprite image for every
+## direction, while the four variants (`_0` to `_3`, or the older
+## `_n`/`_e`/`_s`/`_w`) serve as per-tile alternative sprite images.
+static func facing_at(pos: Vector2i, _view: int = DEFAULT_FACING) -> int:
+	return facing_offset(pos)
+
+## How many variants this tile's tree stands apart from the first drawing:
+## 0..3, one per tile, the same on every machine and every reload. It is what
+## lets one screen hold a wood of mixed drawings rather than a row of trees
+## all identical: about a quarter of the trees wear each of the four.
 static func facing_offset(pos: Vector2i) -> int:
 	# A mixed hash rather than a cheap `x + y`: a linear seed sorts a wood into
-	# diagonal stripes of identically turned trees, which reads as a pattern
+	# diagonal stripes of identically drawn trees, which reads as a pattern
 	# instead of a plantation. (Deliberately not `variation_seed()`, so the
-	# angle a tree stands at is independent of the height and lean jitter it
+	# variant a tree stands at is independent of the height and lean jitter it
 	# also draws from that seed.)
 	var hash_value := (pos.x * 0x1f1f1f1f + pos.y * 0x27d4eb2d) & 0x7FFFFFFF
 	hash_value = ((hash_value ^ (hash_value >> 15)) * 0x85ebca6b) & 0x7FFFFFFF
@@ -252,10 +269,10 @@ static func facing_offset(pos: Vector2i) -> int:
 	hash_value = (hash_value ^ (hash_value >> 16)) & 0x7FFFFFFF
 	return hash_value % FACINGS.size()
 
-## The sprite a species wears right now, seen from view orientation `facing`,
-## or "" when it has no art and the tile falls back to its silhouette. A
-## dedicated facing is preferred; an unsuffixed drawing, then the north view,
-## fills any angle that has not been supplied.
+## The sprite a species wears right now, at view variant `facing`, or "" when
+## it has no art and the tile falls back to its silhouette. A dedicated file is
+## preferred; an unsuffixed drawing, then variant 0, fills any variant that has
+## not been supplied.
 static func sprite_path(species: String, day: int = -1, theme: int = -1,
 		facing: int = DEFAULT_FACING) -> String:
 	# A flat file inside a mod's tree_art_root means "replace this sprite", not
@@ -290,24 +307,35 @@ static func wears_season_art(species: String, season_name: String, theme: int) -
 		return true
 	return season_name == "winter" and theme in SNOWY_THEMES
 
+## The fallback suffixes that answer for any variant a pack did not draw: the
+## unsuffixed drawing, then variant 0 — which art published under the old
+## spelling files as `_n`, so both are tried.
+static func fallback_suffixes() -> Array[String]:
+	var suffixes: Array[String] = [""]
+	suffixes.append_array(facing_suffixes(DEFAULT_FACING))
+	return suffixes
+
 ## The file an all-season sprite pack supplies for `species` at `facing`, or
-## "" when no enabled mod replaces that particular view. An unsuffixed drawing
-## fills missing angles; if the pack has only a north view, that can fill them too.
+## "" when no enabled mod replaces that particular variant. An unsuffixed
+## drawing fills missing variants; if the pack has only one drawing, that can
+## fill them too.
 static func sprite_override_file(species: String, facing: int) -> String:
 	var faces: Dictionary = _sprite_overrides.get(species, {})
-	for suffix in ["_" + facing_name(facing), "", "_n"]:
+	var suffixes: Array[String] = facing_suffixes(facing)
+	suffixes.append_array(fallback_suffixes())
+	for suffix in suffixes:
 		var registered: String = str(faces.get(suffix, ""))
 		if not registered.is_empty():
 			return registered
 	return ""
 
 ## The file one art stem is drawn from at `facing`, or "" when there is none:
-## the angled view first, then the unsuffixed drawing, then north. A stem
-## carrying a season ("spring/oak") is looked up in the art the mods
+## the variant's own file first, then the unsuffixed drawing, then variant 0.
+## A stem carrying a season ("spring/oak") is looked up in the art the mods
 ## registered; a bare species is the core's own evergreen art.
 static func art_file(stem: String, facing: int) -> String:
-	var angle := "_" + facing_name(facing)
-	var suffixes: Array[String] = [angle, "", "_n"]
+	var suffixes: Array[String] = facing_suffixes(facing)
+	suffixes.append_array(fallback_suffixes())
 	if not stem.contains("/"):
 		for suffix in suffixes:
 			var core_path: String = SPRITE_DIR + stem + suffix + ".png"
@@ -322,8 +350,8 @@ static func art_file(stem: String, facing: int) -> String:
 			return registered
 	return ""
 
-## The loaded texture for a species at one angle, or null when it has no art
-## and the tile is drawn as a silhouette.
+## The loaded texture for a species at one view variant, or null when it has
+## no art and the tile is drawn as a silhouette.
 static func texture_for(species: String, facing: int = DEFAULT_FACING) -> Texture2D:
 	return texture_at(sprite_path(species, -1, -1, facing))
 
@@ -354,8 +382,9 @@ static func _load_art(path: String) -> Texture2D:
 # =============================================================================
 
 ## Add one mod's tree-art folder. Its root may hold all-season replacements
-## (`<root>/<species>[_n|_e|_s|_w].png`) and its season folders may hold a
-## wardrobe (`<root>/<season>/<species>[_n|_e|_s|_w].png`). A season is the
+## (`<root>/<species>[_0|_1|_2|_3].png`, or the older `_n|_e|_s|_w` spelling)
+## and its season folders may hold a wardrobe
+## (`<root>/<season>/<species>[_0|_1|_2|_3].png`). A season is the
 ## lower-cased result of SeasonSystem.get_season_name(): spring, summer, fall
 ## or winter. An optional `<root>/layout.json` gives the images a draw scale and
 ## ground point without modifying those images. ContentRegistry calls this for
@@ -423,18 +452,26 @@ static func _register_sprite_overrides(mod_id: String, root: String, layout: Dic
 		registered += 1
 	return registered
 
-## Split an art filename into the species key and optional facing suffix. The
-## loader accepts an unsuffixed authored drawing as the fallback for every view.
+## Split an art filename into the species key and optional view suffix, in
+## either spelling (`<species>_0` or the older `<species>_n`). An unsuffixed
+## authored drawing is the fallback for every view.
 static func _sprite_file_parts(file: String) -> Dictionary:
 	var stem := file.get_basename()
 	var species := stem
 	var suffix := ""
-	for facing in FACINGS:
-		if stem.length() > facing.length() + 1 and stem.ends_with("_" + facing):
-			species = stem.substr(0, stem.length() - facing.length() - 1)
-			suffix = "_" + facing
+	for candidate in _all_facing_suffixes():
+		if stem.length() > candidate.length() and stem.ends_with(candidate):
+			species = stem.substr(0, stem.length() - candidate.length())
+			suffix = candidate
 			break
 	return {"species": species, "suffix": suffix}
+
+## Every suffix an art file may be filed under, both spellings included.
+static func _all_facing_suffixes() -> Array[String]:
+	var suffixes: Array[String] = []
+	for facing in range(FACINGS.size()):
+		suffixes.append_array(facing_suffixes(facing))
+	return suffixes
 
 ## Read an art-layout sidecar once per root. It can set `scale`, source-pixel
 ## anchors (`ground_x`, `ground_y`), normalized anchors (`ground_x_ratio`,
@@ -810,16 +847,15 @@ func _configure_occlusion(tree: Node2D, pos: Vector2i) -> void:
 	terrain_grid._course_surface.configure_sprite_occlusion(
 			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
 
-## The angle this overlay paints the tree on `pos` from right now: the course's
-## view turned by the tile's own offset, so a wood holds several angles at once
-## and a rotation steps them all on together.
+## The view variant this overlay paints the tree on `pos` with: the tile's own
+## index, so a wood holds several variants at once and no rotation changes it.
 func facing_for(pos: Vector2i) -> int:
 	return facing_at(pos, view_facing())
 
-## One tree: the species' sprite from this tree's own angle at the current view
-## — or its silhouette, turned the same way, when the art is missing. The
-## sprite is drawn straight onto the turf its tile paints: a contact shadow
-## under it only muddied the ground art the tree already sits in.
+## One tree: the species' sprite for this tile's variant — or its silhouette,
+## shaped the same way, when the art is missing. The sprite is drawn straight
+## onto the turf its tile paints: a contact shadow under it only muddied the
+## ground art the tree already sits in.
 func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
 	var species: String = _tree_tiles[pos]
 	var rng := RandomNumberGenerator.new()
@@ -842,10 +878,9 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 
 ## Fallback art: a trunk and a crown in the species' color, sized by its shape,
 ## so an evergreen, a shrub and a clump of grass still tell each other apart.
-## It turns with its tree's angle like the generated views do (see PROFILES in
-## tools/tree_art/generate.py): the back angles mirror it, the side angles
-## foreshorten and lean it about its ground point, and the south angle is
-## the side away from the sun, so it sits darker.
+## It varies with the tree's variant like generated art does (see PROFILES in
+## tools/tree_art/generate.py): variants 2 and 3 mirror it, 1 and 3 foreshorten
+## and lean it about its ground point, and variant 2 sits darker.
 func _draw_silhouette(canvas: Node2D, center: Vector2, species: String, scale_v: float,
 		facing: int = DEFAULT_FACING) -> void:
 	var turned := wrapi(facing, 0, FACINGS.size())

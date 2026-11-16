@@ -201,6 +201,7 @@ or read it in a source checkout under `repository/packages/`:
 | New gameplay rules, reacting to game events | `entry_point` + `permissions: ["script"]` | GDScript | `example.jackpot` |
 | A switch under Game features on Start New Game | script + `register_feature_option` | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
 | A widget on the HUD | script + `register_hud_widget` | GDScript | `example.hud_clock` |
+| Higher-resolution building art | script + `register_building_sprite_frame` | GDScript | `golf_tycoon.hd_building_art` |
 | Replace weather / wind / seasons entirely | script + a provider registration | GDScript | `golf_tycoon.weather`, `.wind`, `.seasons` |
 
 The workflow is: edit in place (inside your `user://mods/` library, or a

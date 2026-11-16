@@ -74,7 +74,7 @@ no saves, no reports, no custom skins.
 | Area | Saved |
 | --- | --- |
 | Company | Money, reputation, calendar, the Course Location and World Milestones earned in this save, the unlimited-money flag, owned locations and unlocked land |
-| Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes |
+| Active site | Terrain tiles, the walking trails laid on them (`walking_paths`), elevation, cups waiting for holes, and the camera view angle (`view.angle`, with `view.orientation` kept for older saves) |
 | Entities | Buildings (including their original foundation terrain and vertex heights), decorations, path furniture; legacy tree entities are migrated |
 | Holes | Tee and cup positions, par, yardage, and the order they are played in (the saved list *is* the round) |
 | Course Aura | Where golfers spoke up: the newest comments kept, each with its cell, sentiment, trigger, hole and day |

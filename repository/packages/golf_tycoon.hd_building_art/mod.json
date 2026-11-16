@@ -1,0 +1,13 @@
+{
+	"format_version": 1,
+	"id": "golf_tycoon.hd_building_art",
+	"name": "HD Building Art",
+	"icon": "icon.png",
+	"version": "1.0.0",
+	"api_version": 1,
+	"author": "Golf Tycoon",
+	"description": "The high-resolution building art pack: every facility and upgrade tier drawn at the original 2.5 pixels per world pixel, across all 24 view steps. The game ships smaller 1:1 sprites; enable this pack to restore the larger, finer-detailed source images. Purely cosmetic and safe to switch off at any time.",
+	"types": ["art", "cosmetic", "buildings"],
+	"entry_point": "mod_main.gd",
+	"permissions": ["script"]
+}
