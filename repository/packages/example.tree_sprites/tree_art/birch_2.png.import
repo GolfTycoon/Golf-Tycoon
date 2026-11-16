@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://consq1f2ub5y1"
-path="res://.godot/imported/birch_s.png-7cc2c4bb903da1bf036e4cb67d90c763.ctex"
+path="res://.godot/imported/birch_2.png-169b399d8177b9bd9bcbec06d349d459.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/birch_2.png"
-dest_files=["res://.godot/imported/birch_s.png-7cc2c4bb903da1bf036e4cb67d90c763.ctex"]
+dest_files=["res://.godot/imported/birch_2.png-169b399d8177b9bd9bcbec06d349d459.ctex"]
 
 [params]
 

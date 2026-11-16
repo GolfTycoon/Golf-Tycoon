@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bx2rpwon5rk6o"
-path="res://.godot/imported/cattails_n.png-5c54fb1a6cc523daf56903bc328f2fd7.ctex"
+path="res://.godot/imported/cattails_0.png-b98d581e9e7b29d8322e403ce43eea73.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/cattails_0.png"
-dest_files=["res://.godot/imported/cattails_n.png-5c54fb1a6cc523daf56903bc328f2fd7.ctex"]
+dest_files=["res://.godot/imported/cattails_0.png-b98d581e9e7b29d8322e403ce43eea73.ctex"]
 
 [params]
 

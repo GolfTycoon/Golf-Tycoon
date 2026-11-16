@@ -424,11 +424,11 @@ standalone Tournament Mode the owner's round setup steps aside.
 
 ### Status column
 
-The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a rounded dark value background with a hairline sage border and a 32x32 pixel-art icon in a separate raised, accent-tinted circle on the right — so the cards themselves separate one row from the next. Each row hugs its value and icon and aligns to the right, rather than filling the column. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a rounded dark value background with a hairline sage border and a 32x32 pixel-art icon in a separate raised, accent-tinted circle on the right — so the cards themselves separate one row from the next. Every card shares the same uniform width and height, with values centered horizontally and vertically inside their pill alongside the medallion. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
 
 | Row | Icon | Shows |
 | --- | --- | --- |
-| Funds | Gold coin | The balance, with a `^` / `v` trend, clickable for the financial dashboard |
+| Funds | Gold coin | The balance (shortened with `K`, `M`, `B`, `T`, etc. when needed to fit the row, with the exact balance in the hover tooltip), clickable for the financial dashboard |
 | Season | Leaf in the season's colour | The current season |
 | Reputation | Heart | Course reputation, colour-coded, clickable for the rating details |
 | Rating | Gold star | Five faceted star icons (`CourseRatingStars`, with partial fill and recessed unlit sockets) inside the value pill; hovering shows the numeric rating in the tooltip, clickable for details |
@@ -437,7 +437,7 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 
 There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Value pills keep 20px of visible padding on each side and extend 20px behind their icon medallion. The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, and whenever the value font size gets smaller (such as in compact landscape or portrait conditions), row heights, medallions, icons, and pill padding scale down together while every card stays on screen. On desktop, value pills keep 20px of visible padding on each side and extend 20px behind their 40px icon medallion (scaling proportionally to 14px padding and 12px overlap behind a 24px medallion on compact windows). The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
 
 ### Course location banner
 

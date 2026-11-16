@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkpi00r4ho7my"
-path="res://.godot/imported/birch_w.png-af407dac59c6f867c5461c12c83e819d.ctex"
+path="res://.godot/imported/birch_3.png-430a3ffc4b0bff450644b405ecfeb313.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/golf_tycoon.seasons/tree_art/winter/birch_3.png"
-dest_files=["res://.godot/imported/birch_w.png-af407dac59c6f867c5461c12c83e819d.ctex"]
+dest_files=["res://.godot/imported/birch_3.png-430a3ffc4b0bff450644b405ecfeb313.ctex"]
 
 [params]
 

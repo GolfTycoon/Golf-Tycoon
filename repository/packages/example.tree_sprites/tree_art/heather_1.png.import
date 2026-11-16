@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwjixub764cam"
-path="res://.godot/imported/heather_e.png-beb02a948125eb04d3be6fdcf0e2a25d.ctex"
+path="res://.godot/imported/heather_1.png-141f0885fd75ba36a1a1c3ef5ee2d5e4.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/heather_1.png"
-dest_files=["res://.godot/imported/heather_e.png-beb02a948125eb04d3be6fdcf0e2a25d.ctex"]
+dest_files=["res://.godot/imported/heather_1.png-141f0885fd75ba36a1a1c3ef5ee2d5e4.ctex"]
 
 [params]
 

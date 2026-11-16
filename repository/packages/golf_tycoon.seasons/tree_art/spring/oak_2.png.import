@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5su6aarhlbyh"
-path="res://.godot/imported/oak_s.png-f6e6d6fa11cfc43ce406b3323d595e22.ctex"
+path="res://.godot/imported/oak_2.png-0183fb4a1010c6c80836d9469868effb.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/golf_tycoon.seasons/tree_art/spring/oak_2.png"
-dest_files=["res://.godot/imported/oak_s.png-f6e6d6fa11cfc43ce406b3323d595e22.ctex"]
+dest_files=["res://.godot/imported/oak_2.png-0183fb4a1010c6c80836d9469868effb.ctex"]
 
 [params]
 

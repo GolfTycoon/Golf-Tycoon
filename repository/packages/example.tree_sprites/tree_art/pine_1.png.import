@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dduun2obkcw2l"
-path="res://.godot/imported/pine_e.png-8702349c27edb3ba612aa6d6c5103996.ctex"
+path="res://.godot/imported/pine_1.png-fd0a02f74b85963e4402b1a8dd46497a.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/pine_1.png"
-dest_files=["res://.godot/imported/pine_e.png-8702349c27edb3ba612aa6d6c5103996.ctex"]
+dest_files=["res://.godot/imported/pine_1.png-fd0a02f74b85963e4402b1a8dd46497a.ctex"]
 
 [params]
 

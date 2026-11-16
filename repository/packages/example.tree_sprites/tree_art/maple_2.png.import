@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmn3nivehg0sx"
-path="res://.godot/imported/maple_s.png-e6137d3c58d0176afff904e95ef91fc6.ctex"
+path="res://.godot/imported/maple_2.png-7d603b734b91b04540ec65051e62d749.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/maple_2.png"
-dest_files=["res://.godot/imported/maple_s.png-e6137d3c58d0176afff904e95ef91fc6.ctex"]
+dest_files=["res://.godot/imported/maple_2.png-7d603b734b91b04540ec65051e62d749.ctex"]
 
 [params]
 

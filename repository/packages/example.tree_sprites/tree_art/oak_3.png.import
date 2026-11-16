@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ct8sjvsijpjwh"
-path="res://.godot/imported/oak_w.png-789609e03dfaf5982402c1f8d6440119.ctex"
+path="res://.godot/imported/oak_3.png-c083856f80c40ec90f957295ed345ce8.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/oak_3.png"
-dest_files=["res://.godot/imported/oak_w.png-789609e03dfaf5982402c1f8d6440119.ctex"]
+dest_files=["res://.godot/imported/oak_3.png-c083856f80c40ec90f957295ed345ce8.ctex"]
 
 [params]
 
