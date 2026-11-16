@@ -6,12 +6,13 @@ class_name SeasonalEvents
 ## demand. Events trigger on specific days within each season.
 ##
 ## The calendar itself is a *registry*: which events exist is decided by the
-## mods that are loaded. The bundled Seasons mod (`res://mods/golf_tycoon.seasons/`)
-## registers the eight shipped events from its data file, and any other mod
-## can add its own the same way (a `seasonal_events` content declaration, or
-## SeasonalEvents.register_event() from a script mod via the Mod API). With
-## no mod supplying events, the calendar is simply empty - the query methods
-## below stay safe to call either way.
+## mods that are loaded. The official Seasons mod (published from
+## `repository/packages/golf_tycoon.seasons/`) registers the eight shipped
+## events from its data file, and any other mod can add its own the same way (a
+## `seasonal_events` content declaration, or SeasonalEvents.register_event()
+## from a script mod via the Mod API). With no mod supplying events, the
+## calendar is simply empty - the query methods below stay safe to call either
+## way.
 
 class SeasonEvent:
 	var id: String

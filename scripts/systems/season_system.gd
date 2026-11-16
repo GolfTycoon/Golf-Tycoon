@@ -4,12 +4,12 @@ class_name SeasonSystem
 ##
 ## Which season a day falls in and what seasons *do* (golfer demand, upkeep,
 ## fee tolerance, tournament prestige, seasonal weather weights) is provided
-## by whichever SeasonProvider the loaded mods registered - the bundled
-## Seasons mod (`res://mods/golf_tycoon.seasons/`) ships the four temperate,
-## theme-aware seasons the game has always had. This facade stays in the
-## core game so every system that reads the calendar keeps working with or
-## without that mod: with no provider, a neutral SeasonProvider answers and
-## the year runs as one long, unmodified summer.
+## by whichever SeasonProvider the loaded mods registered - the official
+## Seasons mod (published from `repository/packages/golf_tycoon.seasons/`)
+## ships the four temperate, theme-aware seasons the game has always had. This
+## facade stays in the core game so every system that reads the calendar keeps
+## working with or without that mod: with no provider, a neutral
+## SeasonProvider answers and the year runs as one long, unmodified summer.
 ##
 ## Dates come from GameCalendar (day 1 = 1 Jan 2000); the season a month
 ## belongs to and the modifier tables come from the provider.

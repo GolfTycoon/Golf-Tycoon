@@ -109,7 +109,7 @@ screen reports every cross-mod overwrite by name.
 | `visiting_golfers` | `{location_id: path}` where each path holds a JSON **array** of golfer cards (same shape as `data/visiting_golfers/*.json`) | Cards are appended to that location's visitor pool; your own location may be named bare. |
 | `golfer_names` | `{"professions": [], "female_first_names": [], "male_first_names": [], "last_names": []}` | Strings are added to `GolferAttributes`' pools. |
 | `golfer_skins_root` | a **directory** of skin folders | Merged into `GolferSkinLibrary` - see [../golfer-skins.md](../golfer-skins.md) for the `skin.txt` format. A skin may ship no painted layers and just re-color a shipped sprite set's groups (see `example.golfers`). |
-| `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders and `layout.json` | A root-level `<species>[_n/_e/_s/_w].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/view, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_n/_e/_s/_w].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. Missing angles fall back to an unsuffixed drawing, then the north view. `layout.json` can scale or re-anchor differently-sized art at draw time. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
+| `tree_art_root` | a **directory** of tree sprites, optionally with `<season>/` subfolders and `layout.json` | A root-level `<species>[_0/_1/_2/_3].png` is an **all-season sprite replacement**: it takes priority over the base and seasonal art for that species/variant, so one flat folder can repaint every tree all year (see `example.tree_sprites`). A `<season>/<species>[_0/_1/_2/_3].png` is a seasonal wardrobe drawing, where `<season>` is a lower-cased `SeasonSystem.get_season_name()` (`spring`, `summer`, `fall`, `winter`); a species with no root-level replacement or current-season art keeps wearing its evergreen sprite. Missing variants fall back to an unsuffixed drawing, then variant 0; art published under the older `_n/_e/_s/_w` spelling still loads, and the numbered file wins when a folder carries both. `layout.json` can scale or re-anchor differently-sized art at draw time. Later enabled mods win a repeated file on the same shelf; root-level art always wins over seasonal art. The official Seasons mod ships the game's seasonal wardrobe (`golf_tycoon.seasons`). |
 | `seasonal_events` | `{"events": [{id, name, season, …}]}` | Registered whole into `SeasonalEvents` (full records only - no field-level merge). See namespacing below; painting-by-id is how `example.more_seasons` re-opens the Seasons mod's Spring event. |
 | `menu_backdrops` | `{"backdrops": {id: entry}}` - see [Menu backgrounds](#menu-backgrounds) | The pictures offered in **Settings → Display → Background**. An existing id (a shipped one such as `clubhouse`, or an earlier mod's) is patched; a new id is namespaced. Sparse entries are fine - the shipped picture fills every field you leave out. |
 | `menu_overlays` | `{"overlays": {id: entry}, "settings": {key: schema}}` | The overlay patterns drawn over those pictures, plus any per-overlay settings you want the Display card to offer. Same patch/namespace rules. |
@@ -133,14 +133,15 @@ format in `assets/sprites/trees/layout.json`:
     "pine": {"scale": 0.55, "offset_y": -2}
   },
   "sprites": {
-    "oak_e": {"ground_x": 64, "ground_y": 110}
+    "oak_1": {"ground_x": 64, "ground_y": 110}
   }
 }
 ```
 
 - `scale` is a number from `0.05` to `4.0`; `1.0` is native size. Root-level
   values apply to every image in the folder, `species.<name>` overrides a
-  species, and `sprites.<name>_<facing>` is the final per-view override.
+  species, and `sprites.<name>_<variant>` is the final per-view override
+  (`<variant>` is `0`..`3`, or the older `_n`..`_w` spelling).
 - `ground_x` and `ground_y` are exact source-image pixel coordinates, measured
   from the left and top edges. That point is placed on the terrain; use it when
   the trunk is not centered or the crop differs between views.
