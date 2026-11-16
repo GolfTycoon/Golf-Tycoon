@@ -105,7 +105,7 @@ func test_different_canvas_sizes_use_a_dimension_relative_ground_anchor() -> voi
 func test_the_default_view_uses_the_authored_north_file() -> void:
 	var north_path := TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND,
 			TreeOverlay.DEFAULT_FACING)
-	assert_eq(north_path, TreeOverlay.SPRITE_DIR + "oak_n.png",
+	assert_eq(north_path, TreeOverlay.SPRITE_DIR + "oak_0.png",
 			"orientation zero wears the authored north sprite")
 	assert_not_null(TreeOverlay.texture_at(north_path))
 	assert_same(TreeOverlay.texture_for("oak"), TreeOverlay.texture_for("oak", 0),
@@ -305,12 +305,12 @@ func test_a_game_without_the_seasons_mod_wears_evergreen_art_all_year() -> void:
 # ---------------------------------------------------------------------------
 
 func test_orientations_wrap_round_the_compass() -> void:
-	assert_eq(TreeOverlay.facing_name(0), "n")
-	assert_eq(TreeOverlay.facing_name(1), "e")
-	assert_eq(TreeOverlay.facing_name(2), "s")
-	assert_eq(TreeOverlay.facing_name(3), "w")
-	assert_eq(TreeOverlay.facing_name(4), "n", "a full turn is north again")
-	assert_eq(TreeOverlay.facing_name(-1), "w", "one turn back from north is west")
+	assert_eq(TreeOverlay.facing_name(0), "0")
+	assert_eq(TreeOverlay.facing_name(1), "1")
+	assert_eq(TreeOverlay.facing_name(2), "2")
+	assert_eq(TreeOverlay.facing_name(3), "3")
+	assert_eq(TreeOverlay.facing_name(4), "0", "a full turn wraps back to 0")
+	assert_eq(TreeOverlay.facing_name(-1), "3", "one turn back from 0 wraps to 3")
 	assert_eq(TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND, -1),
 			TreeOverlay.sprite_path("oak", SUMMER_DAY, CourseTheme.Type.PARKLAND, 3),
 			"and the lookup wraps with the naming")
