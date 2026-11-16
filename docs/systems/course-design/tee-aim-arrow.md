@@ -92,7 +92,7 @@ In these cases the marker may overlap a neighbouring tile by a pixel or two. Tha
 | `SAFE_INSET` | `tee_aim_overlay.gd` | `2.6` px | Gap kept between the paint and the tile edge |
 | `MIN_FIT_SCALE` | `tee_aim_overlay.gd` | `0.45` | Smallest size the marker is ever drawn at |
 | `PAINT_COLOR` / `BALL_COLOR` | `tee_aim_overlay.gd` | Off-white / red | Colours of the arrow and the tee markers |
-| `Z_INDEX` | `tee_aim_overlay.gd` | `6` | Draw order: terrain, then this overlay, then golfers and the ball |
+| `Z_INDEX` | `tee_aim_overlay.gd` | `1` | Ground-detail band: painted over the turf, under shadows, sprites and the ball |
 
 ---
 

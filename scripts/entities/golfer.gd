@@ -243,6 +243,7 @@ var previous_hole_strokes: int = 0  # Strokes on last completed hole (for honor 
 var ball_position: Vector2i = Vector2i.ZERO
 var ball_position_precise: Vector2 = Vector2.ZERO  # Sub-tile precision for putting
 var target_position: Vector2i = Vector2i.ZERO
+var _walk_through_buildings := false
 
 ## Shot preparation
 var preparation_time: float = 0.0
@@ -268,8 +269,16 @@ var _cached_shot_target_valid: bool = false
 ## Strategy chosen by ShotAI (normal/recovery/layup/attack) — for debug/feedback
 var _shot_strategy: String = "normal"
 
+## Every golfer's pace in pixels per second before anything quickens it: the
+## Active trait, the ground underfoot, a laid walking trail and a rented cart
+## all multiply it, and a fatigued golfer shuffles slower than this. A round is
+## a stroll between shots, so the base pace is a walk rather than a trot.
+## Every caller that puts a golfer back to their natural pace reads this one
+## constant (see reset_walk_speed()).
+const BASE_WALK_SPEED: float = 75.0
+
 ## Movement
-@export var walk_speed: float = 100.0
+@export var walk_speed: float = BASE_WALK_SPEED
 ## A Cart Garage visit rents this golfer a cart, boosting their walking speed
 ## for the rest of the round. One rental per golfer.
 var has_cart: bool = false
@@ -284,25 +293,14 @@ const BUILDING_CHECK_INTERVAL: float = 0.5
 ## Z-ordering: visual offset to prevent stacking when golfers share a tile.
 ## (The golfer's own draw band is the entity band - see the class doc - so the
 ## offset only shifts the art within it.)
-var visual_offset: Vector2 = Vector2.ZERO
+var visual_offset: Vector2 = Vector2.ZERO:
+	set(value):
+		if visual_offset == value:
+			return
+		visual_offset = value
+		_apply_visual_position()
 var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
-
-## Active golfer highlight (shows who is currently taking their shot)
-var is_active_golfer: bool = false
-var _highlight_ring: Polygon2D = null
-
-## Tier-based visual ring (always visible beneath golfer)
-var _tier_ring: Polygon2D = null
-var ring_opacity: float = 1.0  # Controlled by GolferManager for highlight hierarchy
-
-## Tier ring colors: Green=Beginner, Blue=Casual, Red=Serious, Gold=Pro
-const TIER_RING_COLORS = {
-	GolferTier.Tier.BEGINNER: Color(0.298, 0.686, 0.314),
-	GolferTier.Tier.CASUAL: Color(0.129, 0.588, 0.953),
-	GolferTier.Tier.SERIOUS: Color(0.957, 0.263, 0.212),
-	GolferTier.Tier.PRO: Color(1.0, 0.843, 0.0),
-}
 
 ## Hover state for name label
 var _is_hovered: bool = false
@@ -318,10 +316,32 @@ var _use_sprites: bool = false
 var _swing_tween: Tween  # Active procedural swing tween (see _start_swing_tween)
 var _current_direction: String = "south"  # south, east, north, west + diagonals
 
+## Per-texture cache of `{ "feet_y": float, "bounds": Rect2 }` for sprite
+## frames. `feet_y` shifts the centered sprite so its feet land at local y = 0
+## (where the ball sits), and `bounds` is the opaque pixel rectangle in
+## sprite-local space so the click area stays lined up with the drawn sprite.
+## The cache is static (shared by every golfer) so each texture is scanned once.
+static var _sprite_metrics_cache: Dictionary = {}
+
+## How far the polygon golfer's feet sit below the node origin in the
+## scene file (see scenes/entities/golfer.tscn: the Shoes polygon extends
+## down to y = 14 in Visual-local space). When we don't have skin sprites
+## we shift the Visual node up by this amount so the feet sit on the
+## origin, matching the sprite-golfer anchor and keeping the ball near
+## the golfer's feet instead of at the chest/waist.
+const POLYGON_FEET_Y_OFFSET: float = -14.0
+## Bounding box of the polygon fallback golfer in Visual-local space.
+const POLYGON_CLICK_BOUNDS := Rect2(Vector2(-10.0, -15.0), Vector2(20.0, 29.0))
+
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
 var _walk_timer: float = 0.0
-const WALK_FRAME_DURATION: float = 0.25  # seconds per frame
+## Ground a golfer covers per leg swap: at 100 px/s the legs swing every
+## 0.25 s, exactly the cycle the walk art was drawn for. Tying the cadence to
+## the distance walked rather than to the clock keeps the stride the same
+## length at every pace, so a golfer slowed by rough, fatigue or BASE_WALK_SPEED
+## swings their legs more slowly instead of scurrying.
+const WALK_STRIDE_PIXELS: float = 25.0
 
 ## Leg polygon data for walk animation frames
 ## Frame 0 = standing (matches scene default), Frame 1 = mid-stride
@@ -344,6 +364,7 @@ var SHOES_FRAME_1 := PackedVector2Array([
 
 ## Visual components
 @onready var visual: Node2D = $Visual if has_node("Visual") else null
+@onready var _collision_shape: CollisionShape2D = $CollisionShape2D if has_node("CollisionShape2D") else null
 @onready var name_label: Label = $InfoContainer/NameLabel if has_node("InfoContainer/NameLabel") else null
 @onready var head: Polygon2D = $Visual/Head if has_node("Visual/Head") else null
 @onready var body: Polygon2D = $Visual/Body if has_node("Visual/Body") else null
@@ -401,7 +422,10 @@ func _ready() -> void:
 	# Apply randomized colors to visual components
 	_apply_appearance()
 
-	# Enable click detection on the CharacterBody2D's own collision shape
+	# Enable click detection on the CharacterBody2D's own collision shape.
+	# Duplicate the scene subresource so each golfer owns its own bounds.
+	if _collision_shape and _collision_shape.shape:
+		_collision_shape.shape = _collision_shape.shape.duplicate()
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
@@ -413,12 +437,6 @@ func _ready() -> void:
 	if name_label:
 		_apply_tier_name_color()
 		_refresh_name_label()
-
-	# Create highlight ring for active golfer indication
-	_create_highlight_ring()
-
-	# Create tier-colored ring (always visible)
-	_create_tier_ring()
 
 	# Hovering the golfer adds their tier to the name label
 	mouse_entered.connect(_on_mouse_entered)
@@ -440,6 +458,7 @@ func _ready() -> void:
 		_expression.name = "Expression"
 		add_child(_expression)
 		_expression.initialize(self, visual)
+	_sync_click_shape()
 
 
 ## Set up the AnimatedSprite2D the golfer is drawn with.
@@ -468,8 +487,20 @@ func _setup_sprite_animations() -> bool:
 	_animated_sprite.sprite_frames = frames
 	_animated_sprite.centered = true
 	_animated_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_animated_sprite.position = Vector2(0, -8)
+	# Sprite position is applied in _apply_sprite_feet_anchor() so the
+	# feet of whichever frame is showing line up with the node origin
+	# (where the ball sits at address). A default is set first so the
+	# very first frame has a position before frame_changed fires.
+	_animated_sprite.position = Vector2(0, 0)
 	visual.add_child(_animated_sprite)
+
+	# Recompute the anchor every time the displayed frame changes, so
+	# walking/swing frames whose feet extend to different Y coordinates
+	# all stay grounded on the origin instead of bobbing relative to it.
+	if not _animated_sprite.frame_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.frame_changed.connect(_on_sprite_frame_changed)
+	if not _animated_sprite.animation_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.animation_changed.connect(_on_sprite_frame_changed)
 
 	for child in visual.get_children():
 		if child != _animated_sprite:
@@ -479,6 +510,8 @@ func _setup_sprite_animations() -> bool:
 
 	if _animated_sprite.sprite_frames.has_animation("idle_south"):
 		_animated_sprite.play("idle_south")
+	_apply_sprite_feet_anchor()
+	call_deferred("_apply_sprite_feet_anchor")
 	return true
 
 ## Finish sprite setup after a deferred spawn has received its final tier,
@@ -504,6 +537,150 @@ func use_skin_sprites() -> bool:
 ## The AnimatedSprite2D this golfer is drawn with, if any.
 func sprite_node() -> AnimatedSprite2D:
 	return _animated_sprite
+
+## React to a new animation frame by moving the sprite so the feet of the
+## frame just drawn sit on the golfer's node origin (where the ball is).
+func _on_sprite_frame_changed() -> void:
+	_apply_sprite_feet_anchor()
+
+## The currently displayed sprite frame texture, or null when not using sprites.
+func _current_sprite_frame_texture() -> Texture2D:
+	if _animated_sprite == null or not is_instance_valid(_animated_sprite):
+		return null
+	var frames := _animated_sprite.sprite_frames
+	if frames == null:
+		return null
+	var anim := _animated_sprite.animation
+	if not frames.has_animation(anim):
+		return null
+	var fidx := _animated_sprite.frame
+	if fidx < 0 or fidx >= frames.get_frame_count(anim):
+		return null
+	return frames.get_frame_texture(anim, fidx)
+
+## Place the sprite so the bottom-most non-transparent pixel of the current
+## frame lies on this node's local origin (y = 0). When the golfer walks to
+## a ball their global_position is placed on the ball's screen location;
+## without this anchor the image centers on the origin, putting the ball
+## at the image midline (waist) instead of near the feet.
+func _apply_sprite_feet_anchor() -> void:
+	var frame_texture := _current_sprite_frame_texture()
+	if frame_texture == null:
+		return
+	var feet_y := _sprite_feet_offset_for(frame_texture)
+	_animated_sprite.position = Vector2(0, feet_y)
+	_sync_click_shape()
+
+## Position `visual` according to `visual_offset` and the current renderer, and
+## keep the clickable shape lined up with it.
+func _apply_visual_position() -> void:
+	if visual == null or not is_instance_valid(visual):
+		return
+	if _use_sprites and _animated_sprite != null:
+		visual.position = visual_offset
+	else:
+		visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET)
+	_sync_click_shape()
+
+## The clickable rectangle in this golfer's local space: matches the opaque
+## pixels of the current skin sprite frame (shifted by the feet anchor and
+## visual offset) or the polygon fallback body when no skin sprite is active.
+func get_click_rect() -> Rect2:
+	var origin := Vector2.ZERO
+	if _expression != null and is_instance_valid(_expression):
+		origin += _expression.position
+	if visual != null and is_instance_valid(visual):
+		origin += visual.position
+	if _use_sprites and _animated_sprite != null and is_instance_valid(_animated_sprite):
+		var frame_texture := _current_sprite_frame_texture()
+		if frame_texture != null:
+			var metrics := _sprite_metrics_for(frame_texture)
+			var bounds: Rect2 = metrics["bounds"]
+			var feet_y: float = metrics["feet_y"]
+			return Rect2(origin + Vector2(0.0, feet_y) + bounds.position, bounds.size)
+		return Rect2(origin + Vector2(-7.0, -33.0), Vector2(14.0, 34.0))
+	return Rect2(origin + POLYGON_CLICK_BOUNDS.position, POLYGON_CLICK_BOUNDS.size)
+
+## Keep the CharacterBody2D's CollisionShape2D lined up with the visible sprite
+## (or polygon fallback) so hovering and clicking on any part of the golfer's
+## body hits, rather than only a small circle around the ground at their feet.
+func _sync_click_shape() -> void:
+	if _collision_shape == null or not is_instance_valid(_collision_shape):
+		return
+	var rect := get_click_rect()
+	var rect_shape := _collision_shape.shape as RectangleShape2D
+	if rect_shape == null:
+		rect_shape = RectangleShape2D.new()
+		_collision_shape.shape = rect_shape
+	var target_pos := rect.get_center()
+	if not _collision_shape.position.is_equal_approx(target_pos):
+		_collision_shape.position = target_pos
+	if not rect_shape.size.is_equal_approx(rect.size):
+		rect_shape.size = rect.size
+
+## Number of pixels below (positive) the texture's centre that the golfer's
+## feet land, for a given sprite frame texture.
+static func _sprite_feet_offset_for(texture: Texture2D) -> float:
+	return float(_sprite_metrics_for(texture)["feet_y"])
+
+## Cached `{ "feet_y": float, "bounds": Rect2 }` for a sprite frame texture.
+## Scanned once per texture (keyed by resource path so edited/user sprites
+## still cache correctly, or RID for in-memory recoloured textures).
+static func _sprite_metrics_for(texture: Texture2D) -> Dictionary:
+	if texture == null:
+		return {"feet_y": 0.0, "bounds": Rect2()}
+	var cache_key := ""
+	var res_path := texture.resource_path
+	if not res_path.is_empty():
+		cache_key = "p:" + res_path
+	else:
+		cache_key = "r:" + str(texture.get_rid().get_id())
+	if _sprite_metrics_cache.has(cache_key):
+		return _sprite_metrics_cache[cache_key]
+	var image := texture.get_image()
+	if image == null or image.is_empty():
+		var empty_metrics := {"feet_y": 0.0, "bounds": Rect2()}
+		_sprite_metrics_cache[cache_key] = empty_metrics
+		return empty_metrics
+	# Make sure we're reading the texture's pixels in an RGBA8 format we
+	# can index; convert a copy if needed so we never mutate the source.
+	var img := image
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img = image.duplicate()
+		img.convert(Image.FORMAT_RGBA8)
+	var w := img.get_width()
+	var h := img.get_height()
+	var min_x := w
+	var max_x := -1
+	var min_y := h
+	var max_y := -1
+	for y in range(h):
+		for x in range(w):
+			if img.get_pixel(x, y).a > 0.0:
+				if x < min_x:
+					min_x = x
+				if x > max_x:
+					max_x = x
+				if y < min_y:
+					min_y = y
+				if y > max_y:
+					max_y = y
+	# With centered=true the image centre is drawn at sprite.position; the
+	# bottom-most opaque pixel is (max_y - h/2) pixels BELOW the centre in
+	# screen space (+y is down). To bring that pixel to the node's local
+	# origin (y = 0, where the ball sits) we shift the centre UP by that
+	# same distance, i.e. position.y = -(max_y - h/2).
+	var feet_y := 0.0
+	var bounds := Rect2(Vector2(-float(w) * 0.5, -float(h) * 0.5), Vector2(float(w), float(h)))
+	if max_y >= 0:
+		feet_y = -(float(max_y) - float(h) * 0.5)
+		bounds = Rect2(
+			Vector2(float(min_x) - float(w) * 0.5, float(min_y) - float(h) * 0.5),
+			Vector2(float(max_x - min_x + 1), float(max_y - min_y + 1))
+		)
+	var metrics := {"feet_y": feet_y, "bounds": bounds}
+	_sprite_metrics_cache[cache_key] = metrics
+	return metrics
 
 ## Get direction from movement vector (8-direction when sprites support it)
 func _get_direction_from_velocity(vel: Vector2) -> String:
@@ -722,6 +899,12 @@ func refresh_skin_sprites() -> void:
 	var old_animation := _animated_sprite.animation
 	var old_frame := _animated_sprite.frame
 	var was_playing := _animated_sprite.is_playing()
+	# Make sure the feet-anchor handler is connected if the sprite node
+	# was rebuilt (it normally is attached in _setup_sprite_animations).
+	if not _animated_sprite.frame_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.frame_changed.connect(_on_sprite_frame_changed)
+	if not _animated_sprite.animation_changed.is_connected(_on_sprite_frame_changed):
+		_animated_sprite.animation_changed.connect(_on_sprite_frame_changed)
 	_animated_sprite.sprite_frames = frames
 	if frames.has_animation(old_animation):
 		_animated_sprite.play(old_animation)
@@ -730,6 +913,8 @@ func refresh_skin_sprites() -> void:
 		_animated_sprite.play("idle_south")
 	if not was_playing:
 		_animated_sprite.pause()
+	_apply_sprite_feet_anchor()
+	call_deferred("_apply_sprite_feet_anchor")
 
 ## The Golfer Skin this golfer is drawn in, if any.
 func skin() -> GolferSkin:
@@ -886,7 +1071,7 @@ func initialize_from_tier(tier: int) -> void:
 	needs.setup(tier, patience)
 
 	# Active golfers walk the course faster
-	walk_speed = 100.0 * attributes.walk_speed_multiplier()
+	reset_walk_speed()
 
 	# Apply tier-based visual differentiation
 	_apply_tier_visuals(tier)
@@ -894,9 +1079,6 @@ func initialize_from_tier(tier: int) -> void:
 	# A tier decides which Golfer Skin a golfer wears, and every visitor is
 	# given their tier after they spawn, so dress them again here.
 	_apply_tier_skin()
-
-	# Update tier ring color to match new tier
-	_update_tier_ring_color()
 
 	# Re-colour the name label too: visitors are given their tier after _ready
 	_apply_tier_name_color()
@@ -1003,17 +1185,11 @@ func _process(delta: float) -> void:
 	if _amenity_phase > 0:
 		_process_amenity_visit(delta)
 		return
-	# Keep selection and tier rings attached to the moving golfer each frame;
-	# their pulsing colour and attitude tint are decorative and can update at a
-	# modest real-time cadence (4–15 Hz).
-	_update_highlight_ring()
-	if _tier_ring:
-		_tier_ring.position = visual_offset
+	# Attitude tint is decorative and can update at a modest real-time cadence (4–15 Hz).
 	_visual_refresh_elapsed += delta / maxf(Engine.time_scale, 0.01)
 	var visual_interval := PerformanceSettings.animation_redraw_interval()
 	if _visual_refresh_elapsed >= visual_interval:
 		_visual_refresh_elapsed = fposmod(_visual_refresh_elapsed, visual_interval)
-		_update_tier_ring()
 		_update_attitude_visuals()
 
 	# The owner's own golfer, working the course between rounds: their duty
@@ -1052,8 +1228,27 @@ func _process(delta: float) -> void:
 		State.SWINGING:
 			_process_swinging(delta)
 
+## Put this golfer back on their natural pace: the base walk, quickened by the
+## Active trait. Spawners and anything that replaces a golfer's attributes call
+## it so no caller has to know the base pace itself.
+func reset_walk_speed() -> void:
+	walk_speed = BASE_WALK_SPEED * attributes.walk_speed_multiplier()
+
 func _process_walking(delta: float) -> void:
-	if path.is_empty() or path_index >= path.size():
+	# Buildings can be placed or moved while a golfer is already walking.
+	# Replan before moving, unless this walk has no building-free route.
+	if not _walk_through_buildings and not path.is_empty() and path_index < path.size() and _building_on_segment(global_position, path[path_index]):
+		var destination: Vector2 = path.back()
+		var replacement := _find_path_to(destination)
+		if replacement.is_empty() or (not _walk_through_buildings and _building_on_segment(global_position, replacement[0])):
+			velocity = Vector2.ZERO
+			return
+		path = replacement
+		path_index = 0
+	if path.is_empty():
+		velocity = Vector2.ZERO
+		return
+	if path_index >= path.size():
 		_on_reached_destination()
 		return
 
@@ -1101,7 +1296,16 @@ func _animate_walking(delta: float) -> void:
 	var is_fatigued = needs.energy < 0.3
 	var bob_max = 0.8 if is_fatigued else 1.5
 	var arm_swing_max = 0.08 if is_fatigued else 0.15
-	var frame_duration = WALK_FRAME_DURATION * 1.4 if is_fatigued else WALK_FRAME_DURATION
+	# Swing the legs in step with the ground being covered (velocity is what the
+	# walkers actually move by — a trail, a cart or a slow base pace all land
+	# here), so a slower walker takes the same length of stride, not a quicker
+	# shuffle. Callers that only set velocity (OwnerDuty) get this for free.
+	var pace := velocity.length()
+	if pace <= 0.0:
+		pace = walk_speed
+	var frame_duration := WALK_STRIDE_PIXELS / maxf(pace, 1.0)
+	if is_fatigued:
+		frame_duration *= 1.4
 
 	# Sprite-based walk animation
 	if _use_sprites and _animated_sprite:
@@ -1112,16 +1316,21 @@ func _animate_walking(delta: float) -> void:
 			if _current_direction != new_dir or _animated_sprite.animation != anim_name or not _animated_sprite.is_playing():
 				_current_direction = new_dir
 				_animated_sprite.play(anim_name)
+				_apply_sprite_feet_anchor()
 		# Subtle bob for sprite mode too
 		if visual:
 			var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max * 0.5
 			visual.position = visual_offset + Vector2(0, bob_amount)
+			_sync_click_shape()
 		return
 
-	# Polygon-based walking animation - bob + leg swap
+	# Polygon-based walking animation - bob + leg swap. Keep the feet anchor
+	# shift applied (see _update_visual) so the bob oscillates around the
+	# correct grounded position instead of around the waist origin.
 	if visual:
 		var bob_amount = sin(Time.get_ticks_msec() / 150.0) * bob_max
-		visual.position = visual_offset + Vector2(0, bob_amount)
+		visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET + bob_amount)
+		_sync_click_shape()
 
 	# 2-frame walk cycle: alternate leg positions
 	_walk_timer += delta
@@ -1177,6 +1386,7 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 		var anim = "swing_%s" % _current_direction
 		if _animated_sprite.sprite_frames.has_animation(anim):
 			_animated_sprite.play(anim)
+			_apply_sprite_feet_anchor()
 			_swing_pending = true
 			await _animated_sprite.animation_finished
 			if not is_instance_valid(self):
@@ -1185,6 +1395,7 @@ func _play_swing_animation(is_putt: bool = false) -> void:
 			var idle_anim = "idle_%s" % _current_direction
 			if _animated_sprite.sprite_frames.has_animation(idle_anim):
 				_animated_sprite.play(idle_anim)
+				_apply_sprite_feet_anchor()
 			swing_animation_playing = false
 			_end_swing_wait()
 			return
@@ -3055,6 +3266,7 @@ func _walk_to_ball() -> void:
 ## a route over the trail network is taken whenever it beats walking straight,
 ## and never when it does not.
 func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
+	_walk_through_buildings = false
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		var result: Array[Vector2] = []
@@ -3065,16 +3277,22 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	var start_grid = terrain_grid.screen_to_grid(global_position)
 	var end_grid = terrain_grid.screen_to_grid(target_pos)
 
+	# Starting or ending inside a footprint cannot produce a building-free walk.
+	if GameManager.entity_layer and (GameManager.entity_layer.is_tile_occupied_by_building(start_grid) \
+			or GameManager.entity_layer.is_tile_occupied_by_building(end_grid)):
+		return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+
 	var path_distance = Vector2(start_grid).distance_to(Vector2(end_grid))
 
-	if path_distance < 2.5:
+	if path_distance < 2.5 and not _building_on_segment(global_position, target_pos) \
+			and not _path_crosses_obstacle(start_grid, end_grid, true):
 		# Very short distance - go direct
 		var result: Array[Vector2] = []
 		result.append(target_pos)
 		return result
 
 	# Check for obstacles first, then decide routing strategy
-	var direct_clear = not _path_crosses_obstacle(start_grid, end_grid, true)
+	var direct_clear = not _path_crosses_obstacle(start_grid, end_grid, true) and not _building_on_segment(global_position, target_pos)
 
 	if direct_clear and path_distance < MIN_ROUTE_DISTANCE:
 		# Nothing to plan over this short a walk.
@@ -3086,7 +3304,16 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 	if path_distance >= MIN_ROUTE_DISTANCE:
 		var trail_route = _find_quickest_route(start_grid, end_grid, path_distance, direct_clear)
 		if not trail_route.is_empty():
-			trail_route[trail_route.size() - 1] = target_pos
+			var start_center: Vector2 = terrain_grid.grid_to_screen_center(start_grid)
+			if _building_on_segment(global_position, trail_route[0]) and not _building_on_segment(global_position, start_center):
+				trail_route.push_front(start_center)
+			# Keep the final tile centre if the precise endpoint would make the
+			# preceding segment clip a building corner.
+			var previous: Vector2 = global_position if trail_route.size() == 1 else trail_route[trail_route.size() - 2]
+			if _building_on_segment(previous, target_pos):
+				trail_route.append(target_pos)
+			else:
+				trail_route[trail_route.size() - 1] = target_pos
 			return trail_route
 
 	if direct_clear:
@@ -3094,17 +3321,82 @@ func _find_path_to(target_pos: Vector2) -> Array[Vector2]:
 		result.append(target_pos)
 		return result
 
-	# Obstacles detected — use A* to find path around water/OB
-	return _find_path_around_obstacles(start_grid, end_grid)
+	# Obstacles detected — use A* to find a safe route.
+	var route := _find_path_around_obstacles(start_grid, end_grid)
+	if not route.is_empty():
+		var start_center: Vector2 = terrain_grid.grid_to_screen_center(start_grid)
+		if _building_on_segment(global_position, route[0]):
+			if _building_on_segment(global_position, start_center):
+				return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+			route.push_front(start_center)
+		var last: Vector2 = route.back()
+		if not _building_on_segment(last, target_pos):
+			route.append(target_pos)
+	else:
+		return _fallback_walk_through_buildings(start_grid, end_grid, target_pos)
+	return route
+
+## Only relax building avoidance when the normal search fails. Continue to
+## avoid water and out-of-bounds when a route around them exists.
+func _fallback_walk_through_buildings(start: Vector2i, end: Vector2i, target: Vector2) -> Array[Vector2]:
+	_walk_through_buildings = true
+	var route := _find_path_around_obstacles(start, end, false)
+	route.append(target)
+	return route
+
+## Test the actual segment in grid space, including tiles touched at corners.
+## Buildings are footprints on the ground, not the taller sprite artwork.
+func _building_on_segment(from: Vector2, to: Vector2) -> bool:
+	var grid = GameManager.terrain_grid
+	var entities = GameManager.entity_layer
+	if grid == null or entities == null or entities.buildings.is_empty():
+		return false
+	var a: Vector2 = grid.screen_to_grid_point(from)
+	var b: Vector2 = grid.screen_to_grid_point(to)
+	# Testing against each footprint also catches segments exactly on an edge.
+	for building in entities.buildings.values():
+		var rect := Rect2(Vector2(building.grid_position), Vector2(building.width, building.height))
+		# Liang-Barsky clipping against the closed footprint rectangle.
+		var d := b - a
+		var enter := 0.0
+		var exit := 1.0
+		var intersects := true
+		for axis in 2:
+			if absf(d[axis]) < 0.00001:
+				if a[axis] < rect.position[axis] or a[axis] > rect.end[axis]:
+					intersects = false
+					break
+			else:
+				var t1: float = (rect.position[axis] - a[axis]) / d[axis]
+				var t2: float = (rect.end[axis] - a[axis]) / d[axis]
+				enter = maxf(enter, minf(t1, t2))
+				exit = minf(exit, maxf(t1, t2))
+				if enter > exit:
+					intersects = false
+					break
+		if intersects:
+			return true
+	return false
+
+func _walking_tile_blocked(tile: Vector2i, avoid_buildings: bool = true) -> bool:
+	var grid = GameManager.terrain_grid
+	if not grid.is_valid_position(tile):
+		return true
+	if grid.get_tile(tile) in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
+		return true
+	return avoid_buildings and GameManager.entity_layer != null and GameManager.entity_layer.is_tile_occupied_by_building(tile)
 
 ## Check if path crosses obstacles (water/OB for walking, trees for flight)
 ## For ball flight, only trees block — and only when the ball is low
 ## (first/last 20% of flight). Water and OB are cleared by the airborne ball;
 ## landing penalties are handled separately by ShotAI._score_landing_zone.
-func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bool:
+func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool, avoid_buildings: bool = true) -> bool:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return false
+
+	if walking and avoid_buildings and _building_on_segment(terrain_grid.grid_to_screen_center(start), terrain_grid.grid_to_screen_center(end)):
+		return true
 
 	# Sample points along the line
 	var distance = Vector2(start).distance_to(Vector2(end))
@@ -3142,7 +3434,7 @@ func _path_crosses_obstacle(start: Vector2i, end: Vector2i, walking: bool) -> bo
 
 ## A* pathfinding on the terrain grid, avoiding water and OB.
 ## Returns simplified waypoints (not every grid cell).
-func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector2]:
+func _find_path_around_obstacles(start: Vector2i, end: Vector2i, avoid_buildings: bool = true) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	if not terrain_grid:
 		return [] as Array[Vector2]
@@ -3178,7 +3470,7 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 		if current == end:
 			# Reconstruct and simplify path into screen-space waypoints
 			var grid_path: Array[Vector2i] = _reconstruct_grid_path(came_from, end)
-			return _simplify_grid_path(grid_path)
+			return _simplify_grid_path(grid_path, avoid_buildings)
 
 		open_set.erase(current)
 		closed_set[current] = true
@@ -3191,8 +3483,9 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 			if not terrain_grid.is_valid_position(neighbor):
 				continue
 
-			var terrain_type = terrain_grid.get_tile(neighbor)
-			if terrain_type in [TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.Type.EMPTY]:
+			if _walking_tile_blocked(neighbor, avoid_buildings):
+				continue
+			if dir.x != 0 and dir.y != 0 and (_walking_tile_blocked(current + Vector2i(dir.x, 0), avoid_buildings) or _walking_tile_blocked(current + Vector2i(0, dir.y), avoid_buildings)):
 				continue
 
 			# Diagonal costs sqrt(2), cardinal costs 1
@@ -3204,10 +3497,8 @@ func _find_path_around_obstacles(start: Vector2i, end: Vector2i) -> Array[Vector
 				g_score[neighbor] = tentative_g
 				open_set[neighbor] = tentative_g + _astar_heuristic(neighbor, end)
 
-	# A* couldn't reach target (completely walled off) — go direct as last resort
-	var result: Array[Vector2] = []
-	result.append(terrain_grid.grid_to_screen_center(end))
-	return result
+	# No safe route: never fall back to walking through an obstacle.
+	return [] as Array[Vector2]
 
 ## A* heuristic: octile distance (consistent with 8-directional movement)
 func _astar_heuristic(a: Vector2i, b: Vector2i) -> float:
@@ -3227,7 +3518,7 @@ func _reconstruct_grid_path(came_from: Dictionary, end: Vector2i) -> Array[Vecto
 	return grid_path
 
 ## Simplify a grid-cell path into minimal screen-space waypoints using line-of-sight
-func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
+func _simplify_grid_path(grid_path: Array[Vector2i], avoid_buildings: bool = true) -> Array[Vector2]:
 	var terrain_grid = GameManager.terrain_grid
 	var result: Array[Vector2] = []
 
@@ -3240,7 +3531,7 @@ func _simplify_grid_path(grid_path: Array[Vector2i]) -> Array[Vector2]:
 	while anchor_idx < grid_path.size() - 1:
 		var farthest_visible: int = anchor_idx + 1
 		for i in range(anchor_idx + 2, grid_path.size()):
-			if not _path_crosses_obstacle(grid_path[anchor_idx], grid_path[i], true):
+			if not _path_crosses_obstacle(grid_path[anchor_idx], grid_path[i], true, avoid_buildings):
 				farthest_visible = i
 			else:
 				break
@@ -3299,6 +3590,13 @@ func _find_quickest_route(start: Vector2i, end: Vector2i, direct_time: float,
 		return [] as Array[Vector2]
 	var time_per_tile: float = 1.0 / field.best
 	var rate := field.rate
+	var entities = GameManager.entity_layer
+	if entities:
+		for building in entities.buildings.values():
+			var footprint := Rect2i(building.grid_position, Vector2i(building.width, building.height)).intersection(area)
+			for y in range(footprint.position.y, footprint.end.y):
+				for x in range(footprint.position.x, footprint.end.x):
+					rate[(y - low.y) * field.width + x - low.x] = 0.0
 	# If even the best surface in the box cannot get the golfer there in time,
 	# there is no route worth planning.
 	var ideal: float = _route_estimate(start, end, time_per_tile)
@@ -3668,56 +3966,6 @@ func receive_drink(amount: float) -> void:
 	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
 
-## Create highlight ring node for active golfer indication
-func _create_highlight_ring() -> void:
-	_highlight_ring = Polygon2D.new()
-	_highlight_ring.name = "HighlightRing"
-	# Draw a larger ellipse at the golfer's feet for better visibility
-	var points = PackedVector2Array()
-	for i in range(24):
-		var angle = (i / 24.0) * TAU
-		points.append(Vector2(cos(angle) * 16, sin(angle) * 8 + 12))
-	_highlight_ring.polygon = points
-	_highlight_ring.color = Color(1.0, 0.9, 0.2, 0.6)  # Brighter yellow, more opaque
-	_highlight_ring.z_index = -1  # Just below golfer body
-	_highlight_ring.visible = false
-	add_child(_highlight_ring)
-
-## Update highlight ring visibility based on active golfer state
-func _update_highlight_ring() -> void:
-	if _highlight_ring:
-		_highlight_ring.visible = is_active_golfer
-		_highlight_ring.position = visual_offset
-
-## Create tier-colored ring beneath golfer (always visible)
-func _create_tier_ring() -> void:
-	_tier_ring = Polygon2D.new()
-	_tier_ring.name = "TierRing"
-	var points = PackedVector2Array()
-	for i in range(24):
-		var angle = (i / 24.0) * TAU
-		points.append(Vector2(cos(angle) * 12, sin(angle) * 6 + 12))
-	_tier_ring.polygon = points
-	_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	_tier_ring.z_index = -2
-	add_child(_tier_ring)
-
-## Update tier ring position and pro pulse animation
-func _update_tier_ring() -> void:
-	if not _tier_ring:
-		return
-	var base_color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-	if golfer_tier == GolferTier.Tier.PRO:
-		var pulse = 0.7 + 0.3 * sin(Time.get_ticks_msec() / 500.0)
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, pulse)
-	else:
-		_tier_ring.color = Color(base_color.r, base_color.g, base_color.b, ring_opacity)
-
-## Refresh tier ring color (called after tier changes, e.g. initialize_from_tier)
-func _update_tier_ring_color() -> void:
-	if _tier_ring:
-		_tier_ring.color = TIER_RING_COLORS.get(golfer_tier, Color(0.5, 0.5, 0.5))
-
 ## Write the name label above the golfer: their name, always, plus their tier
 ## while the mouse is over them. The label is the only text a golfer carries —
 ## score and hole live in the scorecard panels and the click-through popup.
@@ -3792,11 +4040,18 @@ func _update_visual() -> void:
 				if _animated_sprite.sprite_frames.has_animation(anim):
 					_animated_sprite.play(anim)
 				_animated_sprite.modulate = _animated_sprite.modulate.darkened(0.15)
+		_apply_sprite_feet_anchor()
+		_sync_click_shape()
 		return
 
 	# --- Polygon-based visual update (fallback) ---
-	# Reset to default pose — apply visual offset for co-location separation
-	visual.position = visual_offset
+	# Reset to default pose. Lift the whole polygon body up by the feet
+	# anchor so that, like the skin-sprite golfers, the golfer's feet sit
+	# on the node origin (where the ball is placed at address). Without
+	# this the image is centred waist-high on the origin, leaving the ball
+	# hovering near the chest.
+	visual.position = visual_offset + Vector2(0, POLYGON_FEET_Y_OFFSET)
+	_sync_click_shape()
 	if arms:
 		arms.rotation = 0
 		arms.position = Vector2.ZERO
@@ -3966,6 +4221,12 @@ func _process_amenity_visit(delta: float) -> void:
 			if is_instance_valid(_amenity_caption): _amenity_caption.queue_free()
 		return
 	var target := _amenity_destination if _amenity_phase == 1 else _amenity_origin
+	# The direct approach may have become blocked since the visit began.
+	if _building_on_segment(global_position, target):
+		_amenity_phase = 0
+		activity_text = "Playing golf"
+		velocity = Vector2.ZERO
+		return
 	var distance := global_position.distance_to(target)
 	velocity = global_position.direction_to(target) * walk_speed
 	move_and_collide(velocity.normalized() * minf(walk_speed * delta,distance))

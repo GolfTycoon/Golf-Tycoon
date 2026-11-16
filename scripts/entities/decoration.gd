@@ -73,6 +73,7 @@ const DECORATION_COLORS: Dictionary = {
 
 func _ready() -> void:
 	add_to_group("decorations")
+	y_sort_enabled = true
 	if terrain_grid:
 		terrain_grid.tile_changed.connect(_on_ground_changed)
 		terrain_grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)

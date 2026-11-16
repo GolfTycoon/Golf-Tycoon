@@ -173,7 +173,7 @@ func _clear_round(course_owner: Golfer) -> void:
 	course_owner.amenities_used = 0
 	course_owner.staff_help_cooldown = 0.0
 	course_owner.has_cart = false
-	course_owner.walk_speed = 100.0
+	course_owner.reset_walk_speed()
 	course_owner.round_complete = false
 
 ## Move the ground the owner works.

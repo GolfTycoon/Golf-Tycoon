@@ -208,13 +208,16 @@ func make_hole(number: int, tee: Vector2i, cup: Vector2i, par: int = 4) -> GameM
 func make_golfer_manager() -> GolferManager:
 	var root := Node2D.new()
 	root.name = "GolfFixture"
+	root.y_sort_enabled = true
 	add_child_autofree(root)
 	var entities := Node2D.new()
 	entities.name = "Entities"
+	entities.y_sort_enabled = true
 	root.add_child(entities)
 	for container_name in ["Golfers", "Balls"]:
 		var container := Node2D.new()
 		container.name = container_name
+		container.y_sort_enabled = true
 		entities.add_child(container)
 	var golfers := GolferManager.new()
 	golfers.name = "GolferManager"

@@ -12,8 +12,10 @@ class_name AimGuide
 ##
 ## Flight keeps the familiar bell curve and wind/shape bend. Straight, fade and
 ## draw share the standard profile; Backspin gets a higher arc and short reverse
-## roll; Punch gets a low arc and longer forward roll. The faint ground reference,
-## bright flight stroke, dotted rollout and carry marker all use one line color.
+## roll; Punch gets a low arc and longer forward roll. The flight and rollout are
+## drawn as one continuous thin white line over a black shadow, with a faint
+## black shadow track on the ground beneath the flight arc and no circles, dots,
+## diamonds or other shapes along the line.
 ##
 ## Those profile values are the guide's contract with the rest of the UI: the
 ## shot-type buttons' legends (`ShotShapeDiagram`) are built from the same roll
@@ -39,13 +41,18 @@ const PUNCH_ARC_SCALE := 0.3
 const MAX_BACKSPIN_ROLL_TILES := 1.5
 const ROLL_SAMPLE_SPACING_TILES := 0.5
 
-const SHOT_LINE_COLOR := Color(1.0, 0.92, 0.35, 0.95)
-const SHOT_LINE_GLOW_COLOR := Color(1.0, 0.92, 0.35, 0.28)
-const GROUND_COLOR := Color(1.0, 0.92, 0.35, 0.20)
+const SHOT_LINE_COLOR := Color(1.0, 1.0, 1.0, 0.95)
+const SHOT_LINE_SHADOW_COLOR := Color(0.0, 0.0, 0.0, 0.45)
+const SHOT_LINE_GLOW_COLOR := SHOT_LINE_SHADOW_COLOR
+const GROUND_COLOR := Color(0.0, 0.0, 0.0, 0.35)
 const BACKSPIN_COLOR := Color(0.95, 0.72, 1.0, 0.95)
 const BLOCKED_COLOR := Color(1.0, 0.42, 0.32, 0.95)
 const OUT_OF_RANGE_COLOR := Color(1.0, 0.55, 0.45, 0.85)
 const LABEL_SHADOW_COLOR := Color(0, 0, 0, 0.85)
+
+const SHOT_LINE_WIDTH := 1.4
+const SHOT_SHADOW_WIDTH := 2.8
+const GROUND_LINE_WIDTH := 1.0
 
 const ARC_STEPS := 28
 const LABEL_FONT_SIZE := 13
@@ -243,93 +250,33 @@ static func _wind_drift(grid: TerrainGrid, origin_screen: Vector2, carry_screen:
 	return displacement * grid.tile_width * 0.5
 
 func _draw() -> void:
+	_paint(self, GameManager.terrain_grid)
+
+## Everything the guide draws on `canvas` (`self` in the game, a recorder in a
+## test): black ground shadow first, then the aiming line's black shadow and
+## thin white stroke through flight and rollout, with no shapes on the line.
+func _paint(canvas, grid: TerrainGrid = GameManager.terrain_grid) -> void:
 	if preview.is_empty():
 		return
-	var grid: TerrainGrid = GameManager.terrain_grid
 	var geometry := build_geometry(grid, preview)
 	if geometry.is_empty():
 		return
 
 	var backspin: bool = geometry.get("guide_backspin", preview.get("is_backspin", false))
 	var blocked: bool = preview.get("blocked", false)
-	# Phase is shown by the dotted roll treatment, not by changing the shot-line
-	# hue. Only the endpoint marker/caption uses status colors.
-	var marker_color := BLOCKED_COLOR if blocked else (BACKSPIN_COLOR if backspin else SHOT_LINE_COLOR)
+	var status_color := BLOCKED_COLOR if blocked else (BACKSPIN_COLOR if backspin else SHOT_LINE_COLOR)
 
-	# Ground reference, soft halo and main stroke all share the same hue from
-	# take-off through rollout. Dots alone distinguish the ground-roll phase.
-	draw_polyline(_to_local_many(geometry.ground_track), GROUND_COLOR, 1.5, true)
-	draw_polyline(_to_local_many(geometry.trajectory), SHOT_LINE_GLOW_COLOR, 4.5, true)
-	draw_polyline(_to_local_many(geometry.trajectory), SHOT_LINE_COLOR, 2.5, true)
+	# Black shadow on the ground beneath the flight arc, then the aiming line's
+	# black shadow underlay and thin white stroke from take-off through rollout.
+	# No circles, dots, diamonds or other shapes are drawn on the line.
+	var ground_points := _to_local_many(geometry.ground_track)
+	var trajectory_points := _to_local_many(geometry.trajectory)
+	canvas.draw_polyline(ground_points, GROUND_COLOR, GROUND_LINE_WIDTH, true)
+	canvas.draw_polyline(trajectory_points, SHOT_LINE_SHADOW_COLOR, SHOT_SHADOW_WIDTH, true)
+	canvas.draw_polyline(trajectory_points, SHOT_LINE_COLOR, SHOT_LINE_WIDTH, true)
 
-	# The rest marker is the chosen centre/vertex. When the club cannot reach it,
-	# mark the requested anchor with an X while the range-limited path stays visible.
-	var range_limited: bool = preview.get("range_limited", preview.get("clamped", false))
-	if range_limited:
-		_draw_out_of_range(to_local(geometry.raw_target))
-
-	# Nominal carry point: ring where the guide's flight hands over to rollout.
-	var carry_point := to_local(geometry.carry)
-	draw_arc(carry_point, 8.0, 0.0, TAU, 24, SHOT_LINE_COLOR, 2.0, true)
-	draw_circle(carry_point, 2.0, SHOT_LINE_COLOR)
-
-	# Roll trail: the same line color, with dots as the sole phase distinction.
-	var roll_points := _to_local_many(geometry.roll)
-	if roll_points.size() >= 2:
-		draw_polyline(roll_points, SHOT_LINE_COLOR, 2.0, true)
-		_draw_dotted_trail(roll_points, SHOT_LINE_COLOR)
-	_draw_rest_marker(to_local(geometry.rest), marker_color, backspin, geometry.anchor_type)
-
-	_draw_labels(geometry, marker_color)
-
-## Faint X where the requested resting anchor is when the club cannot reach it.
-func _draw_out_of_range(raw_target: Vector2) -> void:
-	var size := 6.0
-	draw_line(raw_target - Vector2(size, size), raw_target + Vector2(size, size), OUT_OF_RANGE_COLOR, 2.0, true)
-	draw_line(raw_target + Vector2(size, -size), raw_target - Vector2(size, -size), OUT_OF_RANGE_COLOR, 2.0, true)
-
-## The end marker echoes the chosen snap (centre ring or vertex diamond);
-## backspin adds an arrow back toward the ball.
-func _draw_rest_marker(rest: Vector2, color: Color, backspin: bool, anchor_type: String = "center") -> void:
-	if anchor_type == "vertex" and not backspin:
-		var top := rest + Vector2(0.0, -7.0)
-		var right := rest + Vector2(7.0, 0.0)
-		var bottom := rest + Vector2(0.0, 7.0)
-		var left := rest + Vector2(-7.0, 0.0)
-		draw_line(top, right, color, 2.0, true)
-		draw_line(right, bottom, color, 2.0, true)
-		draw_line(bottom, left, color, 2.0, true)
-		draw_line(left, top, color, 2.0, true)
-		draw_circle(rest, 2.0, color)
-	else:
-		draw_arc(rest, 6.0, 0.0, TAU, 20, color, 2.0, true)
-	if backspin:
-		# Arrow points back toward the ball to communicate the reverse roll.
-		draw_line(rest + Vector2(-7.0, 0.0), rest + Vector2(7.0, 0.0), color, 2.0, true)
-		draw_line(rest + Vector2(7.0, 0.0), rest + Vector2(3.0, -4.0), color, 2.0, true)
-		draw_line(rest + Vector2(7.0, 0.0), rest + Vector2(3.0, 4.0), color, 2.0, true)
-	elif anchor_type != "vertex":
-		draw_circle(rest, 2.0, color)
-
-## Dotted trail along the roll polyline (dots spaced by arc length).
-func _draw_dotted_trail(points: PackedVector2Array, color: Color) -> void:
-	const DOT_SPACING := 9.0
-	const DOT_RADIUS := 2.4
-	var carry_over := 0.0
-	for i in range(points.size() - 1):
-		var from := points[i]
-		var to := points[i + 1]
-		var segment := from.distance_to(to)
-		if segment <= 0.001:
-			continue
-		var direction := (to - from) / segment
-		var distance := carry_over
-		while distance < segment:
-			draw_circle(from + direction * distance, DOT_RADIUS, color)
-			distance += DOT_SPACING
-		carry_over = distance - segment
-	# Always mark the trail's end so short rolls stay readable.
-	draw_circle(points[points.size() - 1], DOT_RADIUS, color)
+	if canvas == self:
+		_draw_labels(geometry, status_color)
 
 ## Approximate guide distances above the ball, plus rollout at the rest point.
 func _draw_labels(geometry: Dictionary, status_color: Color) -> void:

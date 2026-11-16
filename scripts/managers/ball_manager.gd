@@ -14,6 +14,8 @@ signal ball_landed(golfer_id: int, position: Vector2i)
 signal ball_in_hazard(golfer_id: int, hazard_type: String)
 
 func _ready() -> void:
+	if balls_container:
+		balls_container.y_sort_enabled = true
 	# Connect to EventBus for golfer shot events
 	EventBus.shot_taken.connect(_on_shot_taken)
 	EventBus.ball_putt_landed_precise.connect(_on_ball_putt_precise)

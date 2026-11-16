@@ -51,7 +51,7 @@
 | Terrain-aware tree occlusion | Off, On | The silhouette shader that hides a bare trunk behind a hill |
 | Water shimmer detail | Reduced, Full | The animated water detail and its redraws |
 | Wind flag outlines | Reduced, Full | The outlined flag outline pass |
-| Prop & ball shadows | Off, Contact only, Full | One polygon per prop for the contact blob, a second for the stretched sun shadow |
+| Prop & ball shadows | Off, Contact only, Full | One polygon per prop for the contact blob, a second for the stretched sun shadow. A ball carries one contact blob, which stays on the ground and tightens as the ball rises |
 | Course wildlife | Off, Reduced, Full | Duck families and butterflies: half the residents at Reduced, none at Off |
 | Impact particle effects | Off, Reduced, Full | The sand, water and landing bursts, and the nodes and tweens each one builds |
 | Decorative animation rate | Low, Standard, High (4, 15, 30 Hz) | How often flags, water, wildlife and golfer trims repaint |
@@ -60,7 +60,7 @@
 
 The **Performance** preset turns terrain rendering Fast, grass and tree occlusion off, water and wind flag detail reduced, prop and ball shadows off, wildlife off and impact bursts to half size, and all three rates to Low. **Balanced** and **High quality** keep every detail on, at Standard and High rates respectively.
 
-The decoration controls reach the running course as soon as they change, with no reload: existing props rebuild their shadow polygons, the wildlife overlay clears or restores its residents (the habitat cache is kept, so switching them back on costs one refresh), and each new particle burst is built to the chosen size - at Off the burst is never created at all. The three rates throttle repainting rather than simulation: golfers keep walking and shots keep resolving at the same speed.
+The decoration controls reach the running course as soon as they change, with no reload: existing props rebuild their shadow polygons, a ball on the course shows or drops its contact shadow, the wildlife overlay clears or restores its residents (the habitat cache is kept, so switching them back on costs one refresh), and each new particle burst is built to the chosen size - at Off the burst is never created at all. The three rates throttle repainting rather than simulation: golfers keep walking and shots keep resolving at the same speed.
 
 ## Menu background
 

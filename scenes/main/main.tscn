@@ -29,6 +29,7 @@ y_sort_enabled = true
 y_sort_enabled = true
 
 [node name="Balls" type="Node2D" parent="Entities" unique_id=879523313]
+y_sort_enabled = true
 
 [node name="Buildings" type="Node2D" parent="Entities" unique_id=1083729395]
 

@@ -198,7 +198,7 @@ func test_the_overlay_draws_dirt_and_paving_with_typed_commands() -> void:
 
 func test_a_golfer_on_the_trail_is_drawn_over_it() -> void:
 	# The sprite belongs to the entity band (z 2), over the surface and every
-	# overlay the grid paints on it; the shadow and rings ride that band.
+	# overlay the grid paints on it.
 	var tile := _near_clubhouse(Vector2i(-3, 5))
 	_prep(tile, TerrainTypes.Type.ROUGH)
 	grid.set_walking_path(tile, true)
@@ -217,9 +217,9 @@ func test_a_golfer_on_the_trail_is_drawn_over_it() -> void:
 	var trail_z := _effective_z(_overlay())
 	assert_gt(sprite_z, _effective_z(surface), "The golfer is drawn over the course surface")
 	assert_gt(sprite_z, trail_z, "and over the walking trail")
-	var shadow_z := _effective_z(golfer.visual.get_node("Shadow") as CanvasItem)
-	assert_gte(shadow_z, trail_z, "The shadow lies on the trail, not under it")
-	assert_gt(sprite_z, shadow_z, "and under the golfer who casts it")
+	assert_null(golfer.find_child("Shadow", true, false), "Golfers have no ground shadow")
+	assert_null(golfer.find_child("TierRing", true, false), "Golfers have no tier ring")
+	assert_null(golfer.find_child("HighlightRing", true, false), "Golfers have no highlight ring")
 	var buried: Array[String] = []
 	for item in _canvas_items(golfer):
 		if _effective_z(item) < _effective_z(surface):

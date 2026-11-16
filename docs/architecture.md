@@ -29,7 +29,7 @@ Systems announce what happened with signals on `EventBus`, so they do not need d
 | `scripts/terrain/` | Course surface, grid, overlays and generation | 30 |
 | `scripts/course/` | Hole routes, routing overlay and entity layer | 9 |
 | `scripts/ui/` | Menus, panels, HUD and components | 53 |
-| `scripts/effects/` | Particles and cosmetic effects | 11 |
+| `scripts/effects/` | Particles and cosmetic effects | 9 |
 | `scripts/tools/` | Course-building tools such as hole creation | 5 |
 | `scripts/utils/` | Shared helpers | 5 |
 | `scripts/audio/` | Audio helpers | 1 |
@@ -137,14 +137,12 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 
 | Band | What paints there |
 | --- | --- |
-| 0 | The course surface (`CourseSurface`): turf, sand, water, stones — and the ground decals a golfer wears (the tier ring, `-2` from the golfer's band) |
-| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: flowers, the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus a golfer's shadow and active-shot highlight ring (`-1`) |
-| 2 | Entities: golfers (`scenes/entities/golfer.tscn`) trees, staff, and the buildings and decorations layer (`entity_layer.gd`) |
-| 3 | Weeds |
-| 4-6 | Course-editing helpers drawn over the ground: elevation preview (4), land boundary (5), cup (6) |
-| 10 | Hole visuals (`hole_visualizer.gd`) and the routing overlay; a golfer's name label rides `+10` from its own band |
-| 50 | Flags and shot trails |
-| 100 | The ball, floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
+| 0 | The course surface (`CourseSurface`): turf, sand, water, stones |
+| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows and a ball's contact shadow (`-1`) |
+| 2 | Entities and standing course objects: golfers (`scenes/entities/golfer.tscn`), golf balls (`scripts/entities/ball.gd`), pin flags (`WindFlagOverlay` and waiting pins in `CupOverlay`), trees (`TreeOverlay`), staff, weeds, and the buildings and decorations layer (`entity_layer.gd`) |
+| 4-5 | Course-editing helpers drawn over the ground: elevation preview (4) and land boundary (5) |
+| 10 | Hole visuals (`hole_visualizer.gd`), the aim guide, and the routing overlay; a golfer's name label rides `+10` from its own band |
+| 100 | Floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
 | 150-300 | Impact and celebration effects |
 
 The UI is a `CanvasLayer`, so it always draws over the world whatever band it uses.
@@ -156,16 +154,20 @@ opening the Save Course, Save/Load or pause screen covers it. The tooltip,
 player-round, benchmark-tour and generating-course layers sit above both (15 to
 100) as before.
 
-Standing sprites share a Y-sort chain through Main, TerrainGrid/TreeOverlay,
-Entities/Golfers/Staff, and EntityLayer/Buildings/Decorations. All standing bodies
-resolve to z 2, allowing Godot to interleave them across containers. Higher screen
-Y draws in front. Trees have one CanvasItem per tile, anchored at ground level;
-building visuals sort at the footprint centre while their art keeps its original
-placement. View rotation refreshes the anchors along with the sprites. Tree
-materials additionally sample the same heightfield as the course surface: ground
-in front of a tree clips only the covered sprite pixels, leaving a crown that
-extends above or in front of a hill visible. Shadows, rings, labels, and gameplay
-overlays retain their separate relative bands.
+Standing sprites and course objects share a Y-sort chain through Main,
+TerrainGrid (`TreeOverlay`, `WindFlagOverlay`, and waiting pins in `CupOverlay`),
+Entities (`Golfers`, `Balls`, `Staff`, `Weeds`), and EntityLayer (`Buildings`,
+`Decorations`). All standing bodies resolve to z 2, allowing Godot to interleave
+them across containers. Higher screen Y draws in front. Trees and flags have one
+CanvasItem per tile, anchored at ground level; building visuals sort at the
+footprint centre while their art keeps its original placement; airborne golf balls
+keep their Visual sort anchor on the ground track directly beneath the flight arc
+while offsetting the drawn ball back to its lifted height. View rotation refreshes
+the anchors along with the sprites. Tree materials additionally sample the same
+heightfield as the course surface: ground in front of a tree clips only the
+covered sprite pixels, leaving a crown that extends above or in front of a hill
+visible. Shadows, labels, and gameplay overlays retain their separate
+relative bands.
 
 `tests/unit/golfers/test_golfer_draw_order.gd` protects ground visibility and
 `tests/unit/course_design/test_terrain_draw_order.gd` covers tree anchors and bands.

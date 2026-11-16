@@ -164,7 +164,7 @@ func test_the_legend_paints_flight_roll_and_markers() -> void:
 	var canvas := RecordingCanvas.new()
 	diagram._paint(canvas)
 	assert_gte(canvas.polylines, 3, "ground reference, flight and rollout")
-	assert_eq(canvas.arcs, 1, "the carry ring")
+	assert_eq(canvas.arcs, 0, "no carry ring where the flight hands over to the roll")
 	assert_gte(canvas.circles, 4, "the roll dots and the ball")
 	var backspin := _diagram(3)
 	var spin_canvas := RecordingCanvas.new()
@@ -177,12 +177,14 @@ func test_a_greyed_shot_keeps_its_picture_in_muted_grey() -> void:
 	var lit := RecordingCanvas.new()
 	diagram._paint(lit)
 	assert_gt(lit.count_color(ShotShapeDiagram.line_color(1, true)), 0,
-		"a live shot draws in the guide's gold")
+		"a live shot draws in the guide's white")
+	assert_gt(lit.count_color(ShotShapeDiagram.ground_color(true)), 0,
+		"over the guide's black ground shadow")
 	diagram.enabled = false
 	var muted := RecordingCanvas.new()
 	diagram._paint(muted)
 	assert_eq(muted.count_color(ShotShapeDiagram.line_color(1, true)), 0,
-		"the gold is gone")
+		"the white is gone")
 	assert_gt(muted.count_color(ShotShapeDiagram.line_color(1, false)), 0,
 		"and the muted grey is in")
 	var backspin := _diagram(3)

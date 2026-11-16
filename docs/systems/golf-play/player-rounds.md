@@ -112,11 +112,9 @@ Lie and terrain distance, wind, elevation, landing-terrain roll, slope pull, haz
 
 **What the guide draws**
 
-- **Arc:** a straight line from ball to carry point, with the ±8° shape bend (converted to screen space so it survives view rotation) and cosmetic wind drift. Both swell as `sin(πt)` and fade to zero at landing. Arc height is `min(carry_screen_distance × 0.3, 150px)`, scaled ×0.3 for punch and ×1.4 for backspin, matching `Ball._process_flight()`.
-- **Ground track:** a faint line under the arc that follows terrain elevation.
-- **Carry ring:** the landing point.
-- **Roll trail:** dotted, along the actual rollout. It turns red if the ball would finish in a hazard, and violet with a back arrow for backspin.
-- **Labels:** club, expected carry, shape, "out of range" (with a red X at the raw mouse target when the aim was reined in), roll distance and hazard caption.
+- **Arc and rollout:** a continuous thin white line (`AimGuide.SHOT_LINE_WIDTH`, 1.4 px) over a black shadow (`AimGuide.SHOT_SHADOW_WIDTH`, 2.8 px) from ball through carry to the resting point, with the ±8° shape bend (converted to screen space so it survives view rotation) and cosmetic wind drift. Both swell as `sin(πt)` and fade to zero at landing. Arc height is `min(carry_screen_distance × 0.3, 150px)`, scaled ×0.3 for punch and ×1.4 for backspin, matching `Ball._process_flight()`. There are no circles, dots, diamonds or other shapes drawn along the line.
+- **Ground track:** a thin black shadow line (`AimGuide.GROUND_LINE_WIDTH`, 1.0 px) on the ground beneath the flight arc.
+- **Labels:** club, expected carry, shape, "out of range" or "terrain limited", roll distance and hazard caption.
 
 The guide is deterministic, so it does not flicker, and it updates live when the shape, punch or wind changes.
 
@@ -162,7 +160,7 @@ Owner-round golfers use the tournament spawning path, which skips entrance fees 
 | Backspin distance | `Golfer._calculate_shot()` | 0.25–1.5 tiles |
 | Guide arc height ratio and cap | `AimGuide.ARC_HEIGHT_RATIO`, `AimGuide.MAX_ARC_HEIGHT` | 0.3, 150 px |
 | Guide bend factor | `AimGuide.BEND_FACTOR` (matches `BallManager`) | 0.06 |
-| Guide roll dot spacing and radius | `AimGuide._draw_dotted_trail()` | 9 px, 2.4 px |
+| Guide stroke and shadow widths | `AimGuide.SHOT_LINE_WIDTH`, `AimGuide.SHOT_SHADOW_WIDTH`, `AimGuide.GROUND_LINE_WIDTH` | 1.4 px, 2.8 px, 1.0 px |
 | Shortest captioned roll | `AimGuide._draw_labels()` | 5 yd |
 | Legend slot on a shot button, and the row's height | `ShotShapeDiagram.DIAGRAM_SIZE`, `ShotTypeBar.BUTTON_HEIGHT` | 44×26 px, 53 px |
 | Legend rollout and bend gains over the guide's | `ShotShapeDiagram.ROLL_GAIN`, `ShotShapeDiagram.BEND_GAIN` | 2.5, 3.0 |

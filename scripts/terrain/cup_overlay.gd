@@ -21,6 +21,7 @@ const WAITING_PIN_COLOR := Color(0.98, 0.83, 0.25)
 const WAITING_POLE_HEIGHT := 30.0
 const WAITING_FLAG_LENGTH := 14.0
 const SEGMENTS := 16
+const GROUND_Z_INDEX := 1
 
 var _terrain_grid: TerrainGrid = null
 var _pins: Array[WindFlag] = []
@@ -31,7 +32,10 @@ static func hole_radius() -> float:
 
 func initialize(grid: TerrainGrid) -> void:
 	_terrain_grid = grid
-	z_index = 6  # Above terrain, below golfers and ball
+	# The cup cut itself belongs in the ground band beneath sprites and balls,
+	# while child waiting pins rise into the entity band and Y-sort with sprites.
+	z_index = GROUND_Z_INDEX
+	y_sort_enabled = true
 	if _terrain_grid and not _terrain_grid.cup_tiles_changed.is_connected(_on_cup_tiles_changed):
 		_terrain_grid.cup_tiles_changed.connect(_on_cup_tiles_changed)
 	EventBus.load_completed.connect(_on_load_completed)
@@ -109,6 +113,7 @@ func _rebuild() -> void:
 		pin._flag_length = WAITING_FLAG_LENGTH
 		pin.position = _terrain_grid.grid_to_screen_center(cup_pos)
 		add_child(pin)
+		pin.z_index = WindFlag.ENTITY_Z_INDEX - z_index
 		_pins.append(pin)
 	queue_redraw()
 

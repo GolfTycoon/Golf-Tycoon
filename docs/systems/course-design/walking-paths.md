@@ -18,7 +18,7 @@ The **Path** leads the Improvements tab's honeycomb. It is a painting tool, not 
 - **Preferring the walk:** a planned walk steps onto the trail when that gets the golfer there no more than **a moment slower** than walking straight there, and never crosses the course to reach a distant trail. Water and out of bounds are still walked around.
 - **Nothing but the walk changes.** A trail is a flag on a tile, not a terrain: the ball lies on the ground underneath, rolls as it did, and the tile keeps its own build cost and upkeep. Painting the ground with a course tile that cannot host a trail — fairway, say — takes the trail with it.
 - **A generated course arrives with its trails already laid:** out of the clubhouse door, beside every fairway, from each green to the next tee and home again. They are laid by the same rule as a brush stroke, so a network that reaches the clubhouse is paved, and a trail the player paints onto it joins the same network and paves with it. See [Generated Walking Paths](generated-walking-paths.md), including where a course's walks stop short and stay dirt.
-- **Under the golfers, and under the trees:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, sprite, shadow and all, and a read of the walk never hides the players on it. A wood the walk crosses is the one thing painted over it: the trail ranks below the tree sprites in the ground band, so a trunk and its crown stand on the ribbon rather than being cut in half by it.
+- **Under the golfers, and under the trees:** the trail is ground art — it paints in the terrain's own band, under the entities (see [Draw Order](../../architecture.md)) — so a golfer walking the trail is drawn over it, and a read of the walk never hides the players on it. A wood the walk crosses is the one thing painted over it: the trail ranks below the tree sprites in the ground band, so a trunk and its crown stand on the ribbon rather than being cut in half by it.
 - The bulldozer removes a trail for **$5** a tile, leaving the ground it crossed untouched. Its tooltip says so, and undo and redo put the trail back.
 
 ## Algorithm
@@ -78,7 +78,7 @@ WalkingPathOverlay.speed_modifier_at(pos)      # 1.0 off the trail, 1.25 dirt, 1
 TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 ```
 
-`Golfer._process_walking()` reads it once per frame and multiplies `walk_speed` by it, so a golfer at 100 px/s covers 10 units in a tenth of a second on rough and 12.5 on a dirt trail — and the step is clamped to the distance left to the waypoint, so an accelerated frame cannot overshoot.
+`Golfer._process_walking()` reads it once per frame and multiplies `walk_speed` by it, so a golfer at the base pace of 75 px/s covers 7.5 units in a tenth of a second on rough and 9.4 on a dirt trail — and the step is clamped to the distance left to the waypoint, so an accelerated frame cannot overshoot.
 
 ### 5. Route planning
 
@@ -107,7 +107,7 @@ TerrainGrid.walk_speed_modifier_at(pos)        # the two multiplied
 | Trail preference | `golfer.gd` `TRAIL_PREFERENCE_TIME` | `1.0` tile-times | How much slower than the straight walk a trail route may be |
 | Search box | `golfer.gd` `ROUTE_SLACK_FRACTION`, `ROUTE_MIN_SLACK`, `ROUTE_MAX_SLACK`, `ROUTE_MAX_BOX` | `0.35`, `1`, `5`, `1200` tiles | How far a route may wander from the straight line |
 | Search budget | `golfer.gd` `ROUTE_NODE_BUDGET` | `2500` tiles | Caps the work one walk can cost |
-| Walk speed | `golfer.gd` `walk_speed` | `100` px/s | Base pace, before any surface multiplier |
+| Walk speed | `golfer.gd` `BASE_WALK_SPEED`, `walk_speed` | `75` px/s | Base pace, before any surface multiplier. `reset_walk_speed()` puts a golfer back on it, quickened by the Active trait |
 
 ## Related
 
