@@ -28,7 +28,7 @@ from render import (
     GOLD_DARK, GOLD_DARK_MAT, GOLD_MAT, GRAVEL, GRASS, GRASS_LIGHT, GRASS_LIGHT_MAT, GRASS_MAT,
     GREEN_MAT, HAY, HAY_MAT, HEDGE, HEDGE_DARK, HEDGE_LIGHT, INK, INK_MAT, KERB,
     LAMP, LAMP_MAT, LEAF, LEAF_DARK, LEAF_LIGHT, MAROON, MAROON_DARK, Model,
-    NEON_CYAN, NEON_PINK, PAVE, PAVE_DARK, PINK, PINK_MAT, PLASTER, PLASTER_PALE,
+    FACING_COUNT, NEON_CYAN, NEON_PINK, PAVE, PAVE_DARK, PINK, PINK_MAT, PLASTER, PLASTER_PALE,
     PLASTER_WARM, PLANK_WHITE, RED, RED_MAT, ROOF_BROWN, ROOF_BROWN_DARK,
     ROOF_BROWN_MAT, ROOF_GREEN, ROOF_GREEN_DARK, ROOF_GREEN_MAT, ROOF_RED,
     ROOF_RED_DARK, ROOF_RED_MAT, ROOF_SLATE, ROOF_SLATE_DARK, ROOF_SLATE_MAT,
@@ -1045,7 +1045,7 @@ class Builder:
         dy = base_y * 32.0 / length
         # Undo the view rotation to get the direction in model space.
         u, v = dx / 64.0, dy / 32.0
-        u, v = rotate_uv(u, v, (-facing) % 4)
+        u, v = rotate_uv(u, v, (-facing) % FACING_COUNT)
         dx, dy = u * 64.0, v * 32.0
         d = np.array([dx, dy, 0.0], dtype=float)
         d /= np.linalg.norm(d)

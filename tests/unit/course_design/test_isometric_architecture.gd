@@ -2,7 +2,7 @@ extends GameTest
 ## Buildings stand on the grid's own isometric diamonds — now as pixel art.
 ##
 ## Every facility is one pre-rendered isometric sprite per upgrade tier and per
-## quarter-turn of the view, projected in grid space (tiles across, tiles down,
+## fifteen-degree view step, projected in grid space (tiles across, tiles down,
 ## world pixels up) through the same 2:1 axes the terrain uses. These tests hold
 ## the renderer to that promise: the artwork covers the tiles the building
 ## occupies at every view rotation, every facility has its own image, and the
@@ -56,7 +56,7 @@ func _node_position(size: Vector2, tiles: Vector2) -> Vector2:
 ## the manifest rect trimmed to the image's opaque pixels. BuildingSprites owns
 ## the image-pixel -> world-pixel mapping, so this stays right whether the PNG
 ## is authored 1:1 or at the higher resolution the current sprites use.
-func _painted_rect(building_type: String, tier := 1, facing := 0) -> Rect2:
+func _painted_rect(building_type: String, tier := 1, facing := 0.0) -> Rect2:
 	return BuildingSprites.painted_rect(building_type, tier, facing)
 
 # ---------------------------------------------------------------------------
@@ -71,8 +71,9 @@ func test_the_art_covers_exactly_the_tiles_a_building_stands_on() -> void:
 	for building_type in registry:
 		var size := _size_of(building_type)
 		var tiles := _tiles_of(size)
-		for facing in range(4):
-			grid.set_view_orientation(facing)
+		for step in range(BuildingSprites.FACING_COUNT):
+			var facing := float(step) / 6.0
+			grid.set_view_angle(facing)
 			var node_pos := _node_position(size, tiles)
 			var origin := CourseArchitecture.grid_origin_offset(size, facing)
 			for corner in _corners(tiles):
@@ -100,8 +101,9 @@ func test_every_placed_building_lands_on_its_tile_corners() -> void:
 		var tiles := _tiles_of(size)
 		assert_eq(Vector2i(building.width, building.height), Vector2i(tiles),
 			"%s loads its registered footprint" % kind)
-		for facing in range(4):
-			grid.set_view_orientation(facing)
+		for step in range(BuildingSprites.FACING_COUNT):
+			var facing := float(step) / 6.0
+			grid.set_view_angle(facing)
 			building.set_position_in_grid(POS)
 			var origin := CourseArchitecture.grid_origin_offset(size, facing)
 			for corner in _corners(tiles):
@@ -121,8 +123,9 @@ func test_the_projection_matches_the_grids_own_away_from_the_corners() -> void:
 	# renderer was authored from — project through the same transform.
 	var tiles := Vector2(3, 2)
 	var size := Vector2(tiles.x * 64.0, tiles.y * 32.0)
-	for facing in range(4):
-		grid.set_view_orientation(facing)
+	for step in range(BuildingSprites.FACING_COUNT):
+		var facing := float(step) / 6.0
+		grid.set_view_angle(facing)
 		var node_pos := _node_position(size, tiles)
 		var origin := CourseArchitecture.grid_origin_offset(size, facing)
 		for point in [Vector3(0, 0, 0), Vector3(1.5, 0.5, 0), Vector3(3, 2, 0),
@@ -139,11 +142,12 @@ func test_the_projection_matches_the_grids_own_away_from_the_corners() -> void:
 func test_rotating_the_view_turns_the_building_with_the_course() -> void:
 	var building := entities.place_building("pub", POS, registry)
 	var architecture: CourseArchitecture = building.get_node("Visual/Architecture")
-	for facing in range(4):
-		grid.set_view_orientation(facing)
+	for step in range(BuildingSprites.FACING_COUNT):
+		var facing := float(step) / 6.0
+		grid.set_view_angle(facing)
 		building.set_position_in_grid(POS)
-		assert_eq(architecture.facing, facing,
-			"the drawing follows the course round to rotation %d" % facing)
+		assert_almost_eq(architecture.facing, facing, 0.0001,
+			"the drawing follows the course round to step %d" % step)
 
 # ---------------------------------------------------------------------------
 # Every facility is a pixel image on its own square
@@ -158,13 +162,14 @@ func test_every_facility_has_pixel_art_for_every_tier_and_rotation() -> void:
 			continue
 		assert_gte(BuildingSprites.tier_count(kind), 1, "%s has art tiers" % kind)
 		for tier in range(1, BuildingSprites.tier_count(kind) + 1):
-			for facing in range(4):
+			for step in range(BuildingSprites.FACING_COUNT):
+				var facing := float(step) / 6.0
 				var tex := BuildingSprites.texture(kind, tier, facing)
-				assert_not_null(tex, "%s tier %d rotation %d has an image"
-					% [kind, tier, facing])
+				assert_not_null(tex, "%s tier %d step %d has an image"
+					% [kind, tier, step])
 				var art := BuildingSprites.rect(kind, tier, facing)
-				assert_gt(art.size.x, 0.0, "%s tier %d rotation %d has a rect"
-					% [kind, tier, facing])
+				assert_gt(art.size.x, 0.0, "%s tier %d step %d has a rect"
+					% [kind, tier, step])
 
 func test_every_facility_is_drawn_with_its_own_architecture() -> void:
 	# Distinct files: a kind with no design of its own would silently share
@@ -179,9 +184,9 @@ func test_every_facility_is_drawn_with_its_own_architecture() -> void:
 		assert_false(seen.has(file), "%s has an image of its own" % building_type)
 		seen[file] = building_type
 		for tier in range(1, BuildingSprites.tier_count(building_type) + 1):
-			for facing in range(4):
-				assert_ne(BuildingSprites.texture(building_type, tier, facing),
-					null, "%s has every rotation" % building_type)
+			for step in range(BuildingSprites.FACING_COUNT):
+				assert_ne(BuildingSprites.texture(building_type, tier, float(step) / 6.0),
+					null, "%s has every view step" % building_type)
 
 func test_the_sprite_sits_on_the_buildings_own_tiles() -> void:
 	# The pixels, not just the maths: the sprite's bottom edge lands on the
@@ -234,6 +239,39 @@ func test_the_architecture_node_draws_the_sprite_with_nearest_filtering() -> voi
 		"the pixel art is drawn without smoothing")
 	assert_eq(architecture.kind, "pro_shop", "the node knows what it draws")
 	assert_eq(architecture.footprint, _size_of("pro_shop"), "and how big it is")
+
+func test_every_fifteen_degree_sprite_lands_on_its_tiles() -> void:
+	# The diagonal views overhang the footprint a little more than the four
+	# cardinal ones: the roof and props project further sideways. The picture
+	# must still sit on its square, not float over the grass, at all 24 steps.
+	for building_type in registry:
+		var kind := str(building_type)
+		var size := _size_of(kind)
+		for step in range(BuildingSprites.FACING_COUNT):
+			var facing := float(step) / 6.0
+			var painted := _painted_rect(kind, 1, facing)
+			assert_gt(painted.size.x, 0.0, "%s step %d paints nothing" % [kind, step])
+			if painted.size.x <= 0.0:
+				continue
+			var corners := CourseArchitecture.footprint_corners(size, facing)
+			var front := -INF
+			var back := INF
+			var left := INF
+			var right := -INF
+			for corner in corners:
+				front = maxf(front, corner.y)
+				back = minf(back, corner.y)
+				left = minf(left, corner.x)
+				right = maxf(right, corner.x)
+			assert_between(painted.end.y, front - 14.0, front + 6.0,
+				"%s step %d touches its front tiles" % [kind, step])
+			assert_between(painted.position.y, back - 145.0, back + 2.0,
+				"%s step %d rises over its own footprint" % [kind, step])
+			assert_between(painted.position.x, left - 20.0, left + 12.0,
+				"%s step %d stays on its west tiles" % [kind, step])
+			assert_between(painted.end.x, right - 12.0, right + 20.0,
+				"%s step %d stays on its east tiles" % [kind, step])
+
 
 func test_the_clubhouse_grows_without_leaving_its_square() -> void:
 	var tiles := _tiles_of(_size_of("clubhouse"))
@@ -345,18 +383,19 @@ func test_a_placed_buildings_click_area_matches_and_turns_with_its_sprite() -> v
 # ---------------------------------------------------------------------------
 
 func test_source_art_of_any_resolution_draws_one_pixel_per_world_pixel() -> void:
-	# The shipped PNGs are much larger than the rectangles they are drawn in —
-	# roughly 600px-wide art for a 120-280 world-pixel building. Loading one
-	# must fit it to the manifest rect, so the nearest filter has a 1:1 blit and
-	# the footprint maths above still describes what the player sees.
+	# The shipped PNGs are baked at one pixel per world pixel, while the HD art
+	# pack supplies roughly 2.5 times as many. Loading either must fit it to the
+	# manifest rect, so the nearest filter has a 1:1 blit and the footprint maths
+	# above still describes what the player sees.
 	var checked := 0
 	for building_type in registry:
 		var kind := str(building_type)
 		for tier in range(1, BuildingSprites.tier_count(kind) + 1):
-			for facing in range(4):
+			for step in range(BuildingSprites.FACING_COUNT):
+				var facing := float(step) / 6.0
 				var art := BuildingSprites.rect(kind, tier, facing)
 				assert_gt(art.size.x, 0.0,
-					"%s tier %d rotation %d has a draw rect" % [kind, tier, facing])
+					"%s tier %d step %d has a draw rect" % [kind, tier, step])
 				if art.size.x <= 0.0:
 					continue
 				var source := BuildingSprites.source_texture(kind, tier, facing)
@@ -381,7 +420,8 @@ func test_source_art_of_any_resolution_draws_one_pixel_per_world_pixel() -> void
 				assert_true(art.grow(0.01).encloses(painted),
 					"%s tier %d rotation %d paints inside its draw rect" % [kind, tier, facing])
 				checked += 1
-	assert_gte(checked, registry.size() * 4, "Every sprite, tier and rotation was checked")
+	assert_gte(checked, registry.size() * BuildingSprites.FACING_COUNT,
+		"Every sprite, tier and view step was checked")
 
 func test_painted_rect_maps_a_high_resolution_texture_onto_its_draw_rect() -> void:
 	# A mod's PNG can be any resolution; its opaque pixels still land on the
@@ -400,6 +440,20 @@ func test_painted_rect_maps_a_high_resolution_texture_onto_its_draw_rect() -> vo
 	assert_eq(BuildingSprites.painted_rect("test_high_res", 1, 0),
 		Rect2(120.0, 65.0, 40.0, 30.0),
 		"the opaque quarter of the image covers the matching quarter of the rect")
+
+	# A view registered on its own replaces only that 15-degree step; the
+	# others keep the shipped art. This is how an art pack layers over a
+	# building one frame at a time.
+	var frame_image := Image.create_empty(4, 4, false, Image.FORMAT_RGBA8)
+	frame_image.fill(Color.WHITE)
+	var frame_texture := ImageTexture.create_from_image(frame_image)
+	var frame_rect := Rect2(7.0, 9.0, 33.0, 21.0)
+	BuildingSprites.register_mod_frame("clubhouse", 1, 3, frame_rect,
+		func() -> Texture2D: return frame_texture)
+	assert_eq(BuildingSprites.rect("clubhouse", 1, 0.5), frame_rect,
+		"a frame registered for step 3 serves the 15-degree angle")
+	assert_ne(BuildingSprites.rect("clubhouse", 1, 4.0 / 6.0), frame_rect,
+		"and leaves the next step on the shipped art")
 
 	# A texture already authored at the rect's resolution needs no scaling.
 	var native := Image.create_empty(80, 60, false, Image.FORMAT_RGBA8)

@@ -6,6 +6,7 @@ Run from the repository root:
     python3 tools/building_art/generate.py            # write every sprite
     python3 tools/building_art/generate.py --preview  # also draw contact sheets
     python3 tools/building_art/generate.py --only clubhouse,castle --preview
+    python3 tools/building_art/generate.py --scale 2.5 --out-dir /tmp/hd
 
 Every facility is a real 3D model (see ``buildings.py``).  The renderer bakes
 each model through the game's 2:1 isometric projection for all four view
@@ -39,14 +40,15 @@ from PIL import Image, ImageDraw
 
 from buildings import BUILDINGS, Builder
 from render import (
-    OUTPUT_SCALE, Model, grid_origin_offset, footprint_corners, project, render,
+    FACING_COUNT, OUTPUT_SCALE, Model, grid_origin_offset, footprint_corners,
+    project, render,
 )
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT_DIR = os.path.join(ROOT, "assets", "sprites", "buildings")
 PREVIEW_DIR = os.path.join(ROOT, "tmp_preview")
 
-FACINGS = ("e", "s", "w", "n")
+FACINGS = tuple(f"{i:02d}" for i in range(FACING_COUNT))
 
 
 # ---------------------------------------------------------------------------
@@ -63,11 +65,11 @@ def build_model(kind: str, tier: int, facing: int) -> Model:
 
 
 def render_one(args) -> dict:
-    kind, tier, facing, scale = args
+    kind, tier, facing, scale, out_dir = args
     model = build_model(kind, tier, facing)
     image, rect = render(model, facing, scale=scale)
     name = f"{kind}_{tier}_{FACINGS[facing]}.png"
-    image.save(os.path.join(OUT_DIR, name), optimize=True)
+    image.save(os.path.join(out_dir, name), optimize=True)
     return {
         "kind": kind,
         "tier": tier,
@@ -87,6 +89,14 @@ def render_one(args) -> dict:
 TILE = (120.0, 60.0)
 TILE_V_SEPARATION = 20.0
 BELOW_TILE_ALLOWANCE = 8.0
+
+# A building turned 15 degrees projects its roof and props a little further
+# sideways/up than the cardinal views the first four-facing art was checked
+# against. These stay tight enough to catch art floating off its footprint
+# while accepting that legitimate diagonal overhang.
+TOP_ALLOWANCE = 145.0
+BOTTOM_ALLOWANCE = 6.0
+SIDE_ALLOWANCE = 20.0
 
 
 def validate(manifest: dict) -> list[str]:
@@ -108,14 +118,14 @@ def validate(manifest: dict) -> list[str]:
                 back = min(p[1] for p in corners)
                 front = max(p[1] for p in corners)
                 where = f"{kind} tier {tier} facing {FACINGS[facing]}"
-                if not (back - 120.0 <= y <= back + 2.0):
-                    problems.append(f"{where}: top {y:.1f} outside {back - 120.0:.1f}..{back + 2.0:.1f}")
-                if not (front - 14.0 <= bottom <= front + 2.0):
-                    problems.append(f"{where}: bottom {bottom:.1f} outside {front - 14.0:.1f}..{front + 2.0:.1f}")
-                if not (left - 10.0 <= x <= left + 12.0):
-                    problems.append(f"{where}: left {x:.1f} outside {left - 10.0:.1f}..{left + 12.0:.1f}")
-                if not (east - 12.0 <= right <= east + 10.0):
-                    problems.append(f"{where}: right {right:.1f} outside {east - 12.0:.1f}..{east + 10.0:.1f}")
+                if not (back - TOP_ALLOWANCE <= y <= back + 2.0):
+                    problems.append(f"{where}: top {y:.1f} outside {back - TOP_ALLOWANCE:.1f}..{back + 2.0:.1f}")
+                if not (front - 14.0 <= bottom <= front + BOTTOM_ALLOWANCE):
+                    problems.append(f"{where}: bottom {bottom:.1f} outside {front - 14.0:.1f}..{front + BOTTOM_ALLOWANCE:.1f}")
+                if not (left - SIDE_ALLOWANCE <= x <= left + 12.0):
+                    problems.append(f"{where}: left {x:.1f} outside {left - SIDE_ALLOWANCE:.1f}..{left + 12.0:.1f}")
+                if not (east - 12.0 <= right <= east + SIDE_ALLOWANCE):
+                    problems.append(f"{where}: right {right:.1f} outside {east - 12.0:.1f}..{east + SIDE_ALLOWANCE:.1f}")
                 centre = project(size_x * 0.5, size_y * 0.5, 0.0, facing)
                 origin = grid_origin_offset(tiles[0], tiles[1], facing)
                 cx, cy = origin[0] + centre[0], origin[1] + centre[1]
@@ -148,7 +158,7 @@ def _tile_diamond(draw, cx, cy, w, h, fill):
                   (cx, cy + h / 2), (cx - w / 2, cy)], fill=fill)
 
 
-def draw_preview(manifest: dict) -> None:
+def draw_preview(manifest: dict, out_dir: str = OUT_DIR) -> None:
     os.makedirs(PREVIEW_DIR, exist_ok=True)
     # One contact sheet of every facility's default angle on the course grass.
     cell_w, cell_h = 360, 300
@@ -164,7 +174,8 @@ def draw_preview(manifest: dict) -> None:
                      fill=(46, 78, 42, 255))
         info = BUILDINGS[kind]
         tiles = info["tiles"]
-        image = Image.open(os.path.join(OUT_DIR, f"{kind}_1_e.png")).convert("RGBA")
+        image = Image.open(os.path.join(
+            out_dir, manifest["buildings"][kind]["tiers"]["1"]["facings"][0]["file"])).convert("RGBA")
         scale = min(300.0 / image.width, 226.0 / image.height)
         if scale < 1.0:
             image = image.resize((max(1, int(image.width * scale)),
@@ -179,14 +190,14 @@ def draw_preview(manifest: dict) -> None:
         draw.text((cx - tw / 2, cy + 106), label, fill=(240, 240, 220))
     sheet.convert("RGB").save(os.path.join(PREVIEW_DIR, "buildings_sheet.png"))
 
-    # A clean turntable for the landmark buildings: all four angles in a row.
+    # A clean turntable for the landmark buildings: every third 15-degree step.
     for kind in ("clubhouse", "resort_hotel", "castle", "theme_park"):
         entry = manifest["buildings"][kind]
         tier = max(int(t) for t in entry["tiers"])
         images = []
-        for facing in range(4):
+        for facing in range(0, FACING_COUNT, 3):
             name = entry["tiers"][str(tier)]["facings"][facing]["file"]
-            images.append(Image.open(os.path.join(OUT_DIR, name)))
+            images.append(Image.open(os.path.join(out_dir, name)))
         width = sum(im.width for im in images) + 50
         height = max(im.height for im in images) + 30
         strip = Image.new("RGBA", (width, height), (60, 96, 52, 255))
@@ -209,6 +220,8 @@ def main() -> int:
                         help="comma-separated building ids to render")
     parser.add_argument("--scale", type=float, default=OUTPUT_SCALE,
                         help="source-art pixels per world pixel")
+    parser.add_argument("--out-dir", default=OUT_DIR,
+                        help="directory for the PNGs and sprites.json")
     parser.add_argument("--jobs", type=int, default=1,
                         help="parallel render workers")
     parser.add_argument("--no-validate", action="store_true",
@@ -220,7 +233,8 @@ def main() -> int:
     if missing:
         parser.error(f"unknown buildings: {', '.join(missing)}")
 
-    os.makedirs(OUT_DIR, exist_ok=True)
+    out_dir = os.path.abspath(args.out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     manifest = {"tile": [64, 32], "pixel_scale": round(args.scale, 3),
                 "buildings": {}}
 
@@ -229,8 +243,8 @@ def main() -> int:
         manifest["buildings"][kind] = {"tiers": {}}
         for tier in range(1, BUILDINGS[kind]["tiers"] + 1):
             manifest["buildings"][kind]["tiers"][str(tier)] = {"facings": []}
-            for facing in range(4):
-                jobs.append((kind, tier, facing, args.scale))
+            for facing in range(FACING_COUNT):
+                jobs.append((kind, tier, facing, args.scale, out_dir))
 
     if args.jobs > 1:
         with ProcessPoolExecutor(max_workers=args.jobs) as pool:
@@ -245,7 +259,7 @@ def main() -> int:
         for tier in range(1, info["tiers"] + 1):
             tier_entry = manifest["buildings"][kind]["tiers"][str(tier)]
             tier_heights = []
-            for facing in range(4):
+            for facing in range(FACING_COUNT):
                 result = by_key[(kind, tier, facing)]
                 tier_entry["facings"].append({
                     "file": result["file"],
@@ -258,7 +272,7 @@ def main() -> int:
         manifest["buildings"][kind]["sprite_height"] = round(max(heights), 2)
 
     # Keep entries for buildings not re-rendered by --only.
-    manifest_path = os.path.join(OUT_DIR, "sprites.json")
+    manifest_path = os.path.join(out_dir, "sprites.json")
     if os.path.exists(manifest_path) and len(kinds) != len(BUILDINGS):
         with open(manifest_path) as handle:
             old = json.load(handle)
@@ -285,7 +299,7 @@ def main() -> int:
         print("Manifest invariants: OK")
 
     if args.preview:
-        draw_preview(manifest)
+        draw_preview(manifest, out_dir)
         print(f"Previews written to {os.path.relpath(PREVIEW_DIR, ROOT)}/")
     return 0
 

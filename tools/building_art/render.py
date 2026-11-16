@@ -35,22 +35,39 @@ TILE_H = 32.0
 HALF_W = TILE_W * 0.5
 HALF_H = TILE_H * 0.5
 
-#: Source-art pixels per world pixel.  The game fits each PNG into its manifest
-#: rectangle at load time, so this only controls how much detail survives.
-OUTPUT_SCALE = 2.5
+#: Source-art pixels per world pixel.  Since the game now ships one sprite per
+#: 15-degree view step, the committed art is baked 1:1 and the game draws it at
+#: its native size.  ``--scale`` raises this for the optional high-resolution
+#: art pack, whose PNGs use the old 2.5 px/world-pixel density.
+OUTPUT_SCALE = 1.0
+#: View steps around a full turn: 24 at 15 degrees, so a sprite exists for
+#: every angle a building can face.
+FACING_COUNT = 24
 #: Sub-samples per source pixel, averaged down for clean pixel-art edges.
 SUPERSAMPLE = 2
 
 
 def rotate_uv(u: float, v: float, facing: int):
-    facing %= 4
-    if facing == 1:
-        return (-v, u)
-    if facing == 2:
-        return (-u, -v)
-    if facing == 3:
-        return (v, -u)
-    return (u, v)
+    """Rotate grid coordinates into the view at a 1/24-turn facing index.
+
+    Quarter turns keep the exact integer forms the old four-facing art used;
+    everything between them rotates by the same cosine/sine transform as
+    ``GridProjection``, so sprites and footprint stay on the terrain at 15
+    degree steps.
+    """
+    facing %= FACING_COUNT
+    if facing % (FACING_COUNT // 4) == 0:
+        quarter = facing // (FACING_COUNT // 4)
+        if quarter == 1:
+            return (-v, u)
+        if quarter == 2:
+            return (-u, -v)
+        if quarter == 3:
+            return (v, -u)
+        return (u, v)
+    angle = math.tau * facing / FACING_COUNT
+    c, s = math.cos(angle), math.sin(angle)
+    return (u * c - v * s, u * s + v * c)
 
 
 def project(x: float, y: float, z: float, facing: int):

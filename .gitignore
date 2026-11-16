@@ -16,6 +16,7 @@ addons/godot_mcp/
 # so the import metadata Godot generates for art inside mods/ is never part of
 # a mod - and ModPackage strips it from every packed zip anyway.
 mods/**/*.import
+repository/packages/*/art/*.import
 
 # Build and export
 /build/
@@ -41,6 +42,10 @@ Thumbs.db
 # Backup files
 *.bak
 *.backup
+
+# Local Python environment for the offline art tools
+.venv/
+__pycache__/
 
 # Harness renders
 tmp_preview/

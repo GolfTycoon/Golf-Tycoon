@@ -45,14 +45,16 @@ func test_the_drawing_turns_with_the_view() -> void:
 		var architecture = clubhouse.get_node_or_null("Visual/Architecture")
 		assert_not_null(architecture, "Turn %d keeps the drawing" % turn)
 		if architecture:
-			assert_eq(architecture.facing, grid.get_view_orientation(), "Turn %d moved the drawing" % turn)
+			assert_almost_eq(architecture.facing, grid.get_view_facing_angle(), 0.0001,
+				"Turn %d moved the drawing to the terrain's 15-degree step" % turn)
 
 
 func test_the_ghost_and_the_catalogue_use_the_same_drawing() -> void:
 	var preview: PlacementPreview = main.placement_preview
 	preview._draw_building_ghost_shape(Vector2i(10, 10), "resort_hotel", Vector2i(4, 4), Color(0.3, 0.9, 0.3, 0.6))
 	assert_true(preview._building_ghost.visible, "The ghost is visible")
-	assert_eq(preview._building_ghost.facing, main.terrain_grid.get_view_orientation(), "The ghost follows the view")
+	assert_almost_eq(preview._building_ghost.facing,
+		main.terrain_grid.get_view_facing_angle(), 0.0001, "The ghost follows the view")
 	await process_frames(2)
 
 	# Every catalogue tile, drawn the way the Buildings tab draws it.

@@ -74,6 +74,9 @@ undoes a mod cleanly and how the Mods screen can say who provides what.
 - `read_text(relative) -> String`, `read_json(relative) -> Variant`
 - `load_texture(relative) -> Texture2D` - decodes a raw PNG/JPG directly;
   mods never need Godot's import pipeline (results are cached per mod).
+- `load_texture_fitted(relative, size: Vector2i) -> Texture2D` - the same,
+  decoded straight to `size` and cached per mod, path and size. Art packs use
+  this so a 2.5x source never stays in memory at full size.
 
 **Logging and player messages**
 
@@ -119,6 +122,14 @@ undoes a mod cleanly and how the Mods screen can say who provides what.
   `assets/sprites/buildings/sprites.json` for existing buildings'
   rects). Without it, your building draws the procedural fallback in its
   data's `color`.
+- `register_building_sprite_frame(building_id, relative_png, draw_rect,
+  facing, tier = 1) -> bool` - one 15-degree view of a building's art.
+  `facing` is 0..23 (0 east, 6 south, 12 west, 18 north) and `tier` the
+  upgrade tier. Register every step for a fully turning building; a step with
+  no frame keeps the shipped art. The PNG is decoded lazily at `draw_rect`'s
+  size the first time that view is drawn, so an art pack can ship hundreds of
+  large PNGs cheaply. The official `golf_tycoon.hd_building_art` package is
+  the worked example.
 
 **Content and config**
 

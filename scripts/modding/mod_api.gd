@@ -86,6 +86,15 @@ func load_texture(relative: String) -> Texture2D:
 	return null
 
 
+## A mod image decoded straight into `target` pixels. Art packs use this to
+## hand the game a screen-ready texture instead of keeping a multi-megapixel
+## source in memory; the result is cached per size.
+func load_texture_fitted(relative: String, target: Vector2i) -> Texture2D:
+	if _manager != null:
+		return _manager.load_mod_texture_fitted(mod_id, path(relative), target)
+	return null
+
+
 # =============================================================================
 # LOGGING AND PLAYER-FACING MESSAGES
 # =============================================================================
@@ -191,6 +200,33 @@ func register_building_sprite(building_id: String, relative_png: String, draw_re
 	if content != null and not building_id.contains(":") and not content.has_building(building_id):
 		full_id = content.resolve_new_id(mod_id, building_id)
 	BuildingSprites.register_mod_sprite(full_id, texture_value, draw_rect)
+	return true
+
+
+## Give one fifteen-degree view of a building's art. `facing` is the view step
+## 0..23 (0 is east, 6 south, 12 west, 18 north), `tier` the upgrade tier, and
+## `draw_rect` the rectangle in the building node's local draw space. Register
+## every step for a fully turning building; a step with no frame falls back to
+## the shipped art. Unlike `register_building_sprite`, the PNG is decoded only
+## when that view is first drawn, at the size of `draw_rect`, so a high
+## resolution art pack costs nothing until it is seen.
+func register_building_sprite_frame(building_id: String, relative_png: String,
+		draw_rect: Rect2, facing: int, tier: int = 1) -> bool:
+	if facing < 0 or facing >= BuildingSprites.FACING_COUNT:
+		log_warning("Facing %d is outside 0..%d for building '%s'." % [
+				facing, BuildingSprites.FACING_COUNT - 1, building_id])
+		return false
+	if not file_exists(relative_png):
+		log_warning("No image at '%s' for building '%s'." % [relative_png, building_id])
+		return false
+	var target := Vector2i(
+			maxi(1, roundi(draw_rect.size.x)), maxi(1, roundi(draw_rect.size.y)))
+	var loader := func() -> Texture2D: return load_texture_fitted(relative_png, target)
+	var content: Node = get_content_registry()
+	var full_id: String = building_id
+	if content != null and not building_id.contains(":") and not content.has_building(building_id):
+		full_id = content.resolve_new_id(mod_id, building_id)
+	BuildingSprites.register_mod_frame(full_id, tier, facing, draw_rect, loader)
 	return true
 
 

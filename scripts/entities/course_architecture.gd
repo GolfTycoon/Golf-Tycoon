@@ -4,9 +4,9 @@ class_name CourseArchitecture
 ##
 ## Every facility is a pixel image: a pre-rendered isometric sprite from
 ## `assets/sprites/buildings/` (see BuildingSprites and the art pipeline in
-## `tools/building_art/`). One image exists per upgrade tier and per quarter-turn
-## of the view, so the same picture is used by the placed building, the
-## placement ghost and the Buildings tab.
+## `tools/building_art/`). One image exists per upgrade tier and per
+## fifteen-degree step of the view, so the same picture is used by the placed
+## building, the placement ghost and the Buildings tab.
 ##
 ## Geometry is still authored in grid space — x across the footprint, y down it,
 ## z in world pixels above the ground — and projected through the same 2:1
@@ -21,7 +21,8 @@ class_name CourseArchitecture
 var kind := "clubhouse"
 var footprint := Vector2(256, 128)
 var level := 1
-var facing := 0
+## View rotation in quarter turns; fractional values are 15-degree steps.
+var facing := 0.0
 
 func _ready() -> void:
 	add_to_group("course_architecture")
@@ -42,19 +43,30 @@ func _draw() -> void:
 const TILE_W := 64.0
 const TILE_H := 32.0
 
-## Quarter-turn a grid-space offset the way GridProjection rotates the course.
+## Rotate a grid-space offset the way GridProjection rotates the course, for a
+## view rotation in quarter turns. Whole turns use the exact integer forms, so
+## classic views stay bit-identical; 15-degree steps use cos/sin, exactly as
+## GridProjection._rotate() does.
+##
 ## The parameter is named `view_facing` rather than `facing` so that a static
 ## helper does not shadow the view rotation a placed node keeps in `facing`.
-static func rotate_uv(offset: Vector2, view_facing: int) -> Vector2:
-	match wrapi(view_facing, 0, 4):
-		1:
-			return Vector2(-offset.y, offset.x)
-		2:
-			return -offset
-		3:
-			return Vector2(offset.y, -offset.x)
-		_:
-			return offset
+static func rotate_uv(offset: Vector2, view_facing: float) -> Vector2:
+	var wrapped := wrapf(view_facing, 0.0, 4.0)
+	var nearest := roundi(wrapped)
+	if absf(wrapped - float(nearest)) <= 0.00001:
+		match nearest % 4:
+			1:
+				return Vector2(-offset.y, offset.x)
+			2:
+				return -offset
+			3:
+				return Vector2(offset.y, -offset.x)
+			_:
+				return offset
+	var radians := wrapped * PI * 0.5
+	var c := cos(radians)
+	var s := sin(radians)
+	return Vector2(offset.x * c - offset.y * s, offset.x * s + offset.y * c)
 
 ## A grid-space offset projected onto the screen's 2:1 isometric axes.
 static func screen_delta(offset: Vector2) -> Vector2:
@@ -69,19 +81,19 @@ static func screen_delta(offset: Vector2) -> Vector2:
 ## the footprint's projected centre swings around it as the view turns. This is
 ## the offset that reconciles the two, and it is what keeps the pixels on the
 ## tiles at every rotation.
-static func grid_origin_offset(size: Vector2, view_facing: int) -> Vector2:
+static func grid_origin_offset(size: Vector2, view_facing: float) -> Vector2:
 	var tiles := Vector2(size.x / TILE_W, size.y / TILE_H)
 	var anchor := Vector2(size.x * 0.5, size.y)
 	return anchor - screen_delta(rotate_uv(tiles * 0.5, view_facing))
 
 ## Grid point (u across, v down, z up) to local draw space.
-static func project_point(origin: Vector2, p: Vector3, view_facing: int) -> Vector2:
+static func project_point(origin: Vector2, p: Vector3, view_facing: float) -> Vector2:
 	var r := rotate_uv(Vector2(p.x, p.y), view_facing)
 	return origin + Vector2((r.x - r.y) * TILE_W * 0.5, (r.x + r.y) * TILE_H * 0.5 - p.z)
 
 ## Painter's-algorithm key: how near the viewer a plan position sits. Bigger
 ## draws later, on top.
-static func depth_of(u: float, v: float, view_facing: int) -> float:
+static func depth_of(u: float, v: float, view_facing: float) -> float:
 	var r := rotate_uv(Vector2(u, v), view_facing)
 	return r.x + r.y
 
@@ -91,7 +103,7 @@ static func tiles_of(size: Vector2) -> Vector2:
 
 ## The four footprint corners of a building node, in its local draw space — the
 ## terrain's own tile corners for the rotation it is drawn at.
-static func footprint_corners(size: Vector2, view_facing: int) -> PackedVector2Array:
+static func footprint_corners(size: Vector2, view_facing: float) -> PackedVector2Array:
 	var origin := grid_origin_offset(size, view_facing)
 	var tiles := tiles_of(size)
 	return PackedVector2Array([
@@ -109,7 +121,7 @@ static func footprint_corners(size: Vector2, view_facing: int) -> PackedVector2A
 ## drawing routine this replaced: pixel art does not animate, so they are
 ## unused.
 static func draw_building(c: CanvasItem, kind_name: String, size: Vector2,
-		tier := 1, _time := 0.0, _gloomy := false, view_facing := 0) -> Rect2:
+		tier := 1, _time := 0.0, _gloomy := false, view_facing := 0.0) -> Rect2:
 	if kind_name == "bench":
 		# The bench is a ground fixture, not a facility (see PathFurniture).
 		var origin := grid_origin_offset(size, view_facing)
