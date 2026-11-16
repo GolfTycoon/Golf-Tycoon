@@ -945,9 +945,9 @@ def render(model: Model, facing: int, scale: float = OUTPUT_SCALE,
         height, width = h2, w2
 
     opaque = alpha > 0.45
+    painted = alpha > 0.002
     rgb = np.zeros((height, width, 3), dtype=np.float32)
-    safe = np.maximum(alpha, 1e-4)
-    rgb[opaque] = np.clip(premult[opaque] / safe[opaque, None], 0, 1)
+    rgb[painted] = np.clip(premult[painted] / alpha[painted, None], 0, 1)
 
     # -- pixel-art outlining ---------------------------------------------
     if outline and opaque.any():
@@ -974,14 +974,14 @@ def render(model: Model, facing: int, scale: float = OUTPUT_SCALE,
         rgb[edge] = rgb[edge] * 0.50 + ink * 0.50
 
     # -- crop to painted pixels ------------------------------------------
-    rows = np.where(opaque.any(axis=1))[0]
-    cols = np.where(opaque.any(axis=0))[0]
+    rows = np.where(painted.any(axis=1))[0]
+    cols = np.where(painted.any(axis=0))[0]
     if rows.size == 0 or cols.size == 0:
         raise ValueError("model drew nothing")
     r0, r1 = int(rows[0]), int(rows[-1]) + 1
     c0, c1 = int(cols[0]), int(cols[-1]) + 1
     rgb = rgb[r0:r1, c0:c1]
-    out_alpha = np.where(opaque[r0:r1, c0:c1], 255, 0).astype(np.uint8)
+    out_alpha = np.clip(np.round(alpha[r0:r1, c0:c1] * 255), 0, 255).astype(np.uint8)
 
     image = Image.fromarray(
         np.dstack([np.clip(rgb * 255, 0, 255).astype(np.uint8), out_alpha]),

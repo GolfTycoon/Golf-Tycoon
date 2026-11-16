@@ -227,13 +227,12 @@ static func species_at(type: int, pos: Vector2i) -> String:
 static func facing_name(facing: int) -> String:
 	return FACINGS[wrapi(facing, 0, FACINGS.size())]
 
-## The angle the tree on `pos` is drawn from when the course is viewed at
-## orientation `view`: the course's own angle, stepped by the tile's offset.
-## Everything turns together, so a quarter turn of the course always takes
-## every tree on to its next view and a full turn brings the wood back exactly
-## as it was.
-static func facing_at(pos: Vector2i, view: int = DEFAULT_FACING) -> int:
-	return wrapi(view + facing_offset(pos), 0, FACINGS.size())
+## The variant index the tree on `pos` is drawn with, independent of course
+## view orientation: every tree keeps the same sprite image for every
+## direction, while the four directional sprites (`_n`, `_e`, `_s`, `_w`) serve
+## as per-tile alternative sprite images.
+static func facing_at(pos: Vector2i, _view: int = DEFAULT_FACING) -> int:
+	return facing_offset(pos)
 
 ## How many quarter turns this tile's tree stands turned from the authored
 ## north drawing: 0..3, one per tile, the same on every machine and every
