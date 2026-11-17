@@ -7,7 +7,8 @@ size = Vector2(14, 33)
 
 ; Standing sprites share band 2 and world Y-sorting: trees and buildings
 ; occlude golfers behind them, while golfers in front occlude those sprites.
-; Labels remain above bodies.
+; The name tag under the golfer's feet belongs to that same band too, so it
+; y-sorts with the body instead of floating over every other sprite.
 [node name="Golfer" type="CharacterBody2D"]
 z_index = 2
 collision_layer = 4
@@ -73,9 +74,9 @@ polygon = PackedVector2Array(-3, 24, 3, 24, 4, 28, -2, 28)
 
 [node name="InfoContainer" type="VBoxContainer" parent="."]
 offset_left = -40.0
-offset_top = -44.0
+offset_top = 3.0
 offset_right = 40.0
-offset_bottom = -28.0
+offset_bottom = 19.0
 grow_horizontal = 2
 mouse_filter = 2
 
