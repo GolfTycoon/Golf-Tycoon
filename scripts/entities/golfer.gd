@@ -3964,24 +3964,16 @@ func receive_drink(amount: float) -> void:
 	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
 
-## Write the name tag under the golfer's feet: their name, always, plus their
-## tier while the mouse is over them. The tag is the only text a golfer carries
-## — score and hole live in the scorecard panels and the click-through popup.
+## Write the name tag under the golfer's feet: their name, always.
+## The tag is the only text a golfer carries — score and hole live in the
+## scorecard panels and the click-through popup.
 func _refresh_name_label() -> void:
 	if not name_label:
 		return
-	if _is_hovered:
-		var tier_name = GolferTier.TIER_DATA.get(golfer_tier, {}).get("name", "")
-		var stars = "★".repeat(golfer_tier + 1)
-		name_label.text = "%s %s %s" % [stars, tier_name, golfer_name]
-		# A club member wears their membership after their name.
-		if ClubMembership.is_member(membership_tier):
-			name_label.text += " (%s)" % ClubMembership.tier_name(membership_tier)
-	else:
-		name_label.text = golfer_name
+	name_label.text = golfer_name
 	name_label.visible = true
 
-## Hover detection — add the golfer's tier to the name tag they always wear
+## Hover detection — the name tag always shows only the golfer's name
 func _on_mouse_entered() -> void:
 	_is_hovered = true
 	_refresh_name_label()
