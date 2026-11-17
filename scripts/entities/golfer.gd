@@ -87,9 +87,9 @@ const REST_SOLVE_BISECTIONS: int = 14
 ## this much closer to it (tiles).
 const CLUB_SWITCH_MARGIN: float = 0.05
 
-## Golfer identification. The setter keeps the name label above the golfer in
-## step with renames that happen after spawn (the owner round renames its
-## participants once they exist).
+## Golfer identification. The setter keeps the name tag under the golfer's
+## feet in step with renames that happen after spawn (the owner round renames
+## its participants once they exist).
 @export var golfer_name: String = "Golfer":
 	set(value):
 		golfer_name = value
@@ -302,7 +302,7 @@ var visual_offset: Vector2 = Vector2.ZERO:
 var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
 
-## Hover state for name label
+## Hover state for the name tag under the golfer's feet
 var _is_hovered: bool = false
 
 ## Sprite-based rendering (replaces polygon visuals when available)
@@ -332,6 +332,14 @@ static var _sprite_metrics_cache: Dictionary = {}
 const POLYGON_FEET_Y_OFFSET: float = -14.0
 ## Bounding box of the polygon fallback golfer in Visual-local space.
 const POLYGON_CLICK_BOUNDS := Rect2(Vector2(-10.0, -15.0), Vector2(20.0, 29.0))
+
+## The name tag worn under a golfer's feet: plain white lettering with a dark
+## outline, so it reads on turf, sand, water and the walking trail alike. The
+## tag is a child of the golfer, in the golfer's own band (see
+## scenes/entities/golfer.tscn), so it y-sorts with every other standing sprite
+## rather than floating over them.
+const NAMETAG_COLOR := Color.WHITE
+const NAMETAG_OUTLINE_COLOR := Color(0, 0, 0, 0.8)
 
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
@@ -429,16 +437,14 @@ func _ready() -> void:
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
-	# Set up the name label above the golfer (always visible, tier-colored),
-	# and make sure it renders above trees
-	var info_container = get_node_or_null("InfoContainer")
-	if info_container:
-		info_container.z_index = 10
+	# The name tag under the golfer's feet: always visible, white, and drawn in
+	# the golfer's own band so it y-sorts with every other standing sprite
+	# instead of floating over them.
 	if name_label:
-		_apply_tier_name_color()
+		_apply_name_style()
 		_refresh_name_label()
 
-	# Hovering the golfer adds their tier to the name label
+	# Hovering the golfer adds their tier to the name tag
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 
@@ -1080,8 +1086,9 @@ func initialize_from_tier(tier: int) -> void:
 	# given their tier after they spawn, so dress them again here.
 	_apply_tier_skin()
 
-	# Re-colour the name label too: visitors are given their tier after _ready
-	_apply_tier_name_color()
+	# The name tag keeps its white lettering whatever tier the golfer turned
+	# out to be; only its copy changes.
+	_apply_name_style()
 
 ## Dress a golfer in the skin their new tier calls for. Golfers wearing a skin
 ## picked by name, or playing as the owner, keep the one they have.
@@ -1158,25 +1165,16 @@ func _apply_tier_visuals(tier: int) -> void:
 			])
 			visual.add_child(buckle)
 
-## Color the floating name label by tier for at-a-glance identification
-func _apply_tier_name_color() -> void:
+## Colour the name tag under the golfer's feet: white lettering with a dark
+## outline, so it stays readable on turf, sand, water and the walking trail
+## alike. The tier a golfer belongs to is still told apart by their skin and by
+## the label's hover copy, not by the colour of their name.
+func _apply_name_style() -> void:
 	if not name_label:
 		return
-	var tier_color: Color
-	match golfer_tier:
-		GolferTier.Tier.BEGINNER:
-			tier_color = Color(0.7, 1.0, 0.7)   # Bright green
-		GolferTier.Tier.CASUAL:
-			tier_color = Color(0.7, 0.7, 1.0)   # Bright blue
-		GolferTier.Tier.SERIOUS:
-			tier_color = Color(1.0, 0.85, 0.4)  # Bright gold
-		GolferTier.Tier.PRO:
-			tier_color = Color(1.0, 0.5, 1.0)   # Bright purple
-		_:
-			tier_color = Color.WHITE
-	name_label.add_theme_color_override("font_color", tier_color)
+	name_label.add_theme_color_override("font_color", NAMETAG_COLOR)
 	name_label.add_theme_constant_override("outline_size", 3)
-	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	name_label.add_theme_color_override("font_outline_color", NAMETAG_OUTLINE_COLOR)
 
 func _process(delta: float) -> void:
 	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
@@ -3966,9 +3964,9 @@ func receive_drink(amount: float) -> void:
 	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
 
-## Write the name label above the golfer: their name, always, plus their tier
-## while the mouse is over them. The label is the only text a golfer carries —
-## score and hole live in the scorecard panels and the click-through popup.
+## Write the name tag under the golfer's feet: their name, always, plus their
+## tier while the mouse is over them. The tag is the only text a golfer carries
+## — score and hole live in the scorecard panels and the click-through popup.
 func _refresh_name_label() -> void:
 	if not name_label:
 		return
@@ -3983,7 +3981,7 @@ func _refresh_name_label() -> void:
 		name_label.text = golfer_name
 	name_label.visible = true
 
-## Hover detection — add the golfer's tier to the name label they always wear
+## Hover detection — add the golfer's tier to the name tag they always wear
 func _on_mouse_entered() -> void:
 	_is_hovered = true
 	_refresh_name_label()
@@ -4465,6 +4463,5 @@ func deserialize(data: Dictionary) -> void:
 		global_position = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
 
 	_update_visual()
-	# The saved tier decides the name colour
-	_apply_tier_name_color()
+	_apply_name_style()
 	_refresh_name_label()

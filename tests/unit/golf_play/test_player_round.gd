@@ -268,7 +268,7 @@ func test_name_labels_on_player_group() -> void:
 	assert_not_null(label_p, "Player has a name label node")
 	assert_not_null(label_pro, "Pro has a name label node")
 
-	# Every golfer wears their name above them, and it is always on screen.
+	# Every golfer wears their name under their feet, and it is always on screen.
 	assert_true(label_p.visible, "Player name is visible without hovering")
 	assert_true(label_pro.visible, "Pro name is visible without hovering")
 	assert_eq(label_p.text, "Test Owner", "Player label shows the owner's name")
@@ -277,8 +277,8 @@ func test_name_labels_on_player_group() -> void:
 
 	# Group, score and hole are gone from above the golfers: the scorecard
 	# panels and the click-through popup carry them now.
-	assert_null(p.get_node_or_null("InfoContainer/ScoreLabel"), "No score/hole label above the golfer")
-	assert_null(p.get_node_or_null("InfoContainer/GroupBadge"), "No group badge above the golfer")
+	assert_null(p.get_node_or_null("InfoContainer/ScoreLabel"), "No score/hole label rides with the golfer")
+	assert_null(p.get_node_or_null("InfoContainer/GroupBadge"), "No group badge rides with the golfer")
 	assert_false(label_p.text.contains("Group"), "Name label carries no group number")
 	assert_false(label_p.text.contains("Hole"), "Name label carries no hole number")
 
@@ -289,11 +289,15 @@ func test_name_labels_on_player_group() -> void:
 	p._on_mouse_exited()
 	assert_eq(label_p.text, "Test Owner", "Leaving the golfer restores the plain name")
 
-	# It is drawn above the golfer's head, centred on them.
+	# It is drawn under the golfer's feet, centred on them.
 	await process_frames(1)
 	var rect := label_p.get_global_rect()
 	assert_almost_eq(rect.get_center().x, p.global_position.x, 1.0, "Name label is centred on the golfer")
-	assert_lt(rect.get_center().y, p.global_position.y - 20.0, "Name label sits above the golfer")
+	assert_gt(rect.get_center().y, p.global_position.y + 4.0, "Name label sits below the golfer's feet")
+
+	# The tag is written in white so it reads the same on every golfer.
+	assert_eq(label_p.get_theme_color("font_color"), Color.WHITE,
+		"the name tag is white whatever tier the golfer is")
 
 	# Renaming a golfer after they spawn follows them, and a name too long for
 	# the label's box grows it both ways so it stays centred on the golfer.
