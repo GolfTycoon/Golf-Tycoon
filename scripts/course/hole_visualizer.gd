@@ -46,10 +46,11 @@ func _create_connection_line() -> void:
 
 	line = Line2D.new()
 	line.name = "ConnectionLine"
-	line.width = 1.0
-	line.default_color = Color(0.96, 0.91, 0.70, 0.24)  # Semi-transparent white
+	line.width = 3.0 if _highlighted else 1.0
+	line.default_color = Color(1, 1, 0, 0.7) if _highlighted else Color(0.96, 0.91, 0.70, 0.24)
 	line.antialiased = true
 	line.z_index = -1  # Behind everything else
+	line.visible = _highlighted
 	add_child(line)
 
 	_update_line()
@@ -61,11 +62,12 @@ func _update_line() -> void:
 	# Calculate shot path waypoints using golfer AI logic
 	var waypoints: Array[Vector2i] = ShotPathCalculator.calculate_waypoints(hole_data, terrain_grid)
 
-	# Draw line through all waypoints
+	# Draw line through all waypoints (only shown while the hole is selected)
 	line.clear_points()
 	for wp in waypoints:
 		var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(wp)
 		line.add_point(to_local(screen_pos))
+	line.visible = _highlighted
 
 	# Update landing zone markers at intermediate waypoints
 	_update_waypoint_markers(waypoints)
@@ -88,6 +90,7 @@ func _update_waypoint_markers(waypoints: Array[Vector2i]) -> void:
 			marker = _create_waypoint_marker(waypoints[i + 1])
 			add_child(marker)
 			waypoint_markers.append(marker)
+		marker.visible = _highlighted
 		var inner: Polygon2D = marker.get_child(1)
 		inner.color = Color(1.0, 1.0, 0.3, 0.8) if _highlighted else Color(0.5, 0.85, 1.0, 0.7)
 
@@ -96,6 +99,7 @@ func _create_waypoint_marker(grid_pos: Vector2i) -> Node2D:
 	var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(grid_pos)
 	marker.position = to_local(screen_pos)
 	marker.z_index = -1
+	marker.visible = _highlighted
 
 	# Outer ring (dark outline for contrast)
 	var outer_ring := Polygon2D.new()
@@ -181,11 +185,13 @@ func highlight(enabled: bool) -> void:
 	if not line:
 		return
 
+	line.visible = enabled
 	if enabled:
 		line.default_color = Color(1, 1, 0, 0.7)  # Yellow when highlighted
 		line.width = 3.0
 		for marker in waypoint_markers:
 			if is_instance_valid(marker):
+				marker.visible = true
 				var inner: Polygon2D = marker.get_child(1) if marker.get_child_count() > 1 else null
 				if inner:
 					inner.color = Color(1.0, 1.0, 0.3, 0.8)  # Yellow to match line
@@ -194,6 +200,7 @@ func highlight(enabled: bool) -> void:
 		line.width = 1.0
 		for marker in waypoint_markers:
 			if is_instance_valid(marker):
+				marker.visible = false
 				var inner: Polygon2D = marker.get_child(1) if marker.get_child_count() > 1 else null
 				if inner:
 					inner.color = Color(0.5, 0.85, 1.0, 0.7)  # Normal light blue

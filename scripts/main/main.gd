@@ -3145,7 +3145,11 @@ func _on_hole_button_pressed(hole_number: int) -> void:
 
 func _on_hole_detail_changed(hole_number: int) -> void:
 	if _highlighted_hole_number > 0 and _highlighted_hole_number != hole_number:
-		hole_manager.highlight_hole(_highlighted_hole_number, false)
+		var moving_this_hole: bool = _hole_move_mode != HoleMoveMode.NONE \
+			and _hole_move_data != null \
+			and _hole_move_data.hole_number == _highlighted_hole_number
+		if not moving_this_hole:
+			hole_manager.highlight_hole(_highlighted_hole_number, false)
 	_highlighted_hole_number = hole_number
 	if _highlighted_hole_number > 0:
 		hole_manager.highlight_hole(_highlighted_hole_number, true)

@@ -911,6 +911,8 @@ func collapse_section() -> void:
 	section_collapsed = true
 	visible = false
 	section_visibility_changed.emit(false)
+	if current_tab == Tab.HOLES and _selected_hole > 0:
+		hole_detail_changed.emit(0)
 
 func expand_section() -> void:
 	if not section_collapsed:
@@ -918,6 +920,8 @@ func expand_section() -> void:
 	section_collapsed = false
 	visible = true
 	section_visibility_changed.emit(true)
+	if current_tab == Tab.HOLES and _selected_hole > 0:
+		hole_detail_changed.emit(_selected_hole)
 
 func _sync_navigation(tab_index: int) -> void:
 	for section in SECTION_TABS:
@@ -2179,8 +2183,8 @@ func _show_page(tab_index: int) -> void:
 
 func select_tab(tab_index: int) -> void:
 	if tab_index >= 0 and tab_index < _pages.size():
-		expand_section()
 		current_tab = tab_index
+		expand_section()
 		_sync_navigation(tab_index)
 		_sync_header_row_content()
 		_show_page(tab_index)
@@ -2290,7 +2294,7 @@ func _refresh_holes_tab() -> void:
 		_show_hole(_selected_hole)
 	else:
 		_clear_shelf(_hole_detail)
-	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES else 0)
+	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES and not section_collapsed else 0)
 
 func _show_hole(hole_number: int) -> void:
 	_clear_shelf(_hole_detail)
