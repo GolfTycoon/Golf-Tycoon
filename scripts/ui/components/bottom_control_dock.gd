@@ -15,6 +15,7 @@ class_name BottomControlDock
 const WIDTH := 218.0
 const SECTION_SIZES := [84.0, 74.0, 64.0]
 const SECTION_POSITIONS := [Vector2(8, 0), Vector2(99, 18), Vector2(144, 104)]
+const SECTION_GLYPHS := ["hud_build", "hud_manage", "hud_golfers"]
 const UTILITY_SIZE := 52.0
 const UTILITY_SIZE_STEP := 4.0
 const UTILITY_POSITIONS := [Vector2(8, 88), Vector2(70, 96), Vector2(92, 144)]
@@ -37,14 +38,15 @@ func setup(toolbar: TerrainToolbar) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in TerrainToolbar.SECTION_TITLES.size():
 		var button := PixelCircleButton.new()
-		button.name = TerrainToolbar.SECTION_TITLES[i] + "Button"
+		var title: String = TerrainToolbar.SECTION_TITLES[i]
+		button.name = title + "Button"
 		button.diameter = SECTION_SIZES[i]
 		button.toggle_mode = true
-		button.caption = TerrainToolbar.SECTION_TITLES[i]
-		button.glyph = button.caption.to_lower()
+		button.caption = ""
+		button.glyph = SECTION_GLYPHS[i]
 		button.accent = TerrainToolbar.SECTION_COLORS[i]
-		button.accessibility_name = button.caption
-		button.tooltip_text = "Open %s tools" % button.caption
+		button.accessibility_name = title
+		button.tooltip_text = "Open %s tools" % title
 		button.position = SECTION_POSITIONS[i]
 		button.pressed.connect(toolbar.toggle_section.bind(i))
 		add_child(button)
@@ -65,13 +67,16 @@ func setup(toolbar: TerrainToolbar) -> void:
 ## the bar giving up height. Only the portrait HUD re-composes these controls
 ## into its thumb rail. Nothing is squeezed or hidden.
 func apply_screen() -> void:
+	# These destinations are deliberately icon-only in both the desktop dock
+	# and the portrait thumb rail; their tooltip and accessible name retain the
+	# labels without putting text on the controls.
+	for button in section_buttons:
+		button.caption = ""
 	if Screen.uses_portrait_hud():
 		_apply_portrait()
 		return
 	if _backdrop:
 		_backdrop.visible = true
-	for button in section_buttons:
-		button.caption = TerrainToolbar.SECTION_TITLES[section_buttons.find(button)]
 	for path in ["MenuBtn", "SpeedControls/PauseBtn", "SpeedControls/SpeedBtn"]:
 		var utility := get_node_or_null(path) as PixelCircleButton
 		if utility:

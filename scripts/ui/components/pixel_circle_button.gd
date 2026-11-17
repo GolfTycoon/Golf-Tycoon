@@ -1,12 +1,33 @@
 extends Button
 class_name PixelCircleButton
-## Crisp, two-pixel medallions shared by dock navigation and utility controls.
-## Native Button input, focus, tooltips and accessibility stay intact. Icons are
-## bitmaps rather than font glyphs, so they also work with the pixel font.
+## Crisp medallions shared by dock navigation and utility controls. Native
+## Button input, focus, tooltips and accessibility stay intact. Most glyphs are
+## bitmaps rather than font characters; the primary HUD destinations and shelf
+## tabs use bespoke vector illustrations that stay smooth at their face sizes.
 
 const FONT = preload("res://assets/fonts/PixelifySans-SemiBold.ttf")
 const INK := Color("081812")
 const CREAM := Color("f4ecd0")
+## The dock's three section controls use standalone golf illustrations.
+const SECTION_ART := {
+	"hud_build": preload("res://assets/ui/icons/hud_build.svg"),
+	"hud_manage": preload("res://assets/ui/icons/hud_manage.svg"),
+	"hud_golfers": preload("res://assets/ui/icons/hud_golfers.svg"),
+}
+## The shelf tabs share that transparent, detailed style.
+const SHELF_ART := {
+	"shelf_terrain": preload("res://assets/ui/icons/shelf_terrain.svg"),
+	"shelf_improvements": preload("res://assets/ui/icons/shelf_improvements.svg"),
+	"shelf_buildings": preload("res://assets/ui/icons/shelf_buildings.svg"),
+	"shelf_elevation": preload("res://assets/ui/icons/shelf_elevation.svg"),
+	"shelf_holes": preload("res://assets/ui/icons/shelf_holes.svg"),
+	"shelf_golfers": preload("res://assets/ui/icons/shelf_golfers.svg"),
+	"shelf_play": preload("res://assets/ui/icons/shelf_play.svg"),
+	"shelf_club": preload("res://assets/ui/icons/shelf_club.svg"),
+	"shelf_staff": preload("res://assets/ui/icons/shelf_staff.svg"),
+	"shelf_edit": preload("res://assets/ui/icons/shelf_edit.svg"),
+	"shelf_skills": preload("res://assets/ui/icons/shelf_skills.svg"),
+}
 const ICONS := {
 	"menu": [".........", ".xxxxxxx.", ".xxxxxxx.", ".........", ".xxxxxxx.", ".xxxxxxx.", ".........", ".xxxxxxx.", ".xxxxxxx."],
 	"feed": [".xxxxxxx.", ".x.....x.", ".x.xxx.x.", ".x.....x.", ".x.xxx.x.", ".x.....x.", ".xxxxxxx.", "...xx....", "..xx....."],
@@ -66,6 +87,7 @@ const CAP_HEIGHT_RATIO := 0.7
 		if glyph != value:
 			glyph = value
 			if is_inside_tree():
+				texture_filter = _filter_for_glyph(glyph)
 				queue_redraw()
 ## Portrait navigation can stretch into a full-width touch tab.
 var wide_face := false:
@@ -114,7 +136,7 @@ static var _faces: Dictionary = {}
 
 func _ready() -> void:
 	custom_minimum_size = Vector2.ONE * diameter
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_filter = _filter_for_glyph(glyph)
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		add_theme_stylebox_override(state, StyleBoxEmpty.new())
@@ -126,6 +148,12 @@ func _ready() -> void:
 			event.connect(func(_pressed: bool): queue_redraw())
 		else:
 			event.connect(queue_redraw)
+
+static func _filter_for_glyph(icon_glyph: String) -> CanvasItem.TextureFilter:
+	# The HUD and shelf illustrations are vector textures and should stay
+	# smooth as their faces resize; the small bitmap glyphs retain crisp pixels.
+	var is_illustrated := SECTION_ART.has(icon_glyph) or SHELF_ART.has(icon_glyph)
+	return CanvasItem.TEXTURE_FILTER_LINEAR if is_illustrated else CanvasItem.TEXTURE_FILTER_NEAREST
 
 func _has_point(point: Vector2) -> bool:
 	if wide_face:
@@ -142,7 +170,8 @@ static func _caption_font_size(d: int) -> int:
 
 ## True while this face draws its caption under its icon.
 func is_stacked() -> bool:
-	return wide_face and stacked_caption and not caption.is_empty() and ICONS.has(glyph)
+	var has_icon := ICONS.has(glyph) or SECTION_ART.has(glyph) or SHELF_ART.has(glyph)
+	return wide_face and stacked_caption and not caption.is_empty() and has_icon
 
 ## Where a stacked face seats its icon, before the two-pixel nudge of a press:
 ## centred across the face, at the top of the block it forms with the caption.
@@ -187,7 +216,28 @@ func _draw() -> void:
 			_faces[key] = _make_face(d, selected, lit)
 		draw_texture_rect(_faces[key], Rect2(origin, Vector2.ONE * d), false)
 	var stacked := is_stacked()
-	if ICONS.has(glyph):
+	var illustrated := SECTION_ART.has(glyph) or SHELF_ART.has(glyph)
+	if illustrated:
+		# The illustrations have transparent edges and no backing plate, so the
+		# button's own face remains their only background. On the landscape shelf
+		# they nearly fill the circle; portrait tabs keep the compact icon slot
+		# above their caption.
+		var art_size := float(d) * 0.90
+		var art_center := size * 0.5
+		if stacked:
+			var icon_slot := stacked_icon_rect()
+			art_size = minf(icon_slot.size.x, icon_slot.size.y)
+			art_center = icon_slot.get_center()
+		if lit:
+			art_size *= 1.025
+		if is_pressed():
+			art_center.y += 2.0
+		var art_rect := Rect2((art_center - Vector2.ONE * art_size * 0.5).floor(),
+				Vector2.ONE * art_size)
+		var art_tint := Color(1, 1, 1, 0.55) if disabled else Color.WHITE
+		var art_texture: Texture2D = SECTION_ART.get(glyph, SHELF_ART.get(glyph))
+		draw_texture_rect(art_texture, art_rect, false, art_tint)
+	elif ICONS.has(glyph):
 		var pixels: Array = ICONS[glyph]
 		var pixel := _icon_pixel(d)
 		var offset := origin + Vector2(floorf((d - 9 * pixel) * 0.5), floorf((d - 9 * pixel) * 0.5))

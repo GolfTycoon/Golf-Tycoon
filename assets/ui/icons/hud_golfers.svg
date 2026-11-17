@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="shirt-main" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#9bd5bd"/>
+      <stop offset="1" stop-color="#428d7e"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#f5d6a7"/>
+      <stop offset="1" stop-color="#ce9668"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(64 64) scale(1.16) translate(-64 -64)">
+    <path d="M27 52c-4-9 1-16 10-16 8 0 13 7 11 15l-1 9H30z" fill="url(#skin)" stroke="#12271f" stroke-width="3"/>
+    <path d="M26 49c1-9 6-14 13-14 7 0 11 4 12 11-7-3-14-3-25 3z" fill="#d9935a" stroke="#12271f" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M26 48c8-5 17-6 26-3l1 4c-9-1-18 0-27 4z" fill="#f1c875" stroke="#12271f" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M19 93c1-17 6-24 16-27l6 5 7-5c9 3 13 10 14 27z" fill="#d58c68" stroke="#12271f" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M32 69l9 6 8-6" fill="none" stroke="#f3c7a0" stroke-width="2" stroke-linecap="round"/>
+    <path d="M78 51c-3-8 1-15 9-15 8 0 13 6 11 15l-1 9H81z" fill="url(#skin)" stroke="#12271f" stroke-width="3"/>
+    <path d="M77 48c1-8 6-13 13-13 7 0 11 4 12 10-8-3-16-2-25 3z" fill="#394d4c" stroke="#12271f" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M77 47c8-5 17-5 26-2l1 4c-9-1-18 0-27 4z" fill="#e99477" stroke="#12271f" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M68 94c1-17 6-23 16-26l6 5 7-5c9 3 13 10 14 26z" fill="#648f9d" stroke="#12271f" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M82 69l8 6 8-6" fill="none" stroke="#b7d9d8" stroke-width="2" stroke-linecap="round"/>
+    <path d="M49 54c-3-11 3-20 15-20s19 8 17 20l-2 13H52z" fill="url(#skin)" stroke="#10241d" stroke-width="3.5"/>
+    <path d="M47 51c1-12 7-19 17-19 10 0 16 6 18 16-11-4-22-3-35 3z" fill="#233b35" stroke="#10241d" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M47 49c12-5 24-6 37-2l2 5c-14-2-27 0-39 5z" fill="#e5bd66" stroke="#10241d" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M44 96c1-19 7-27 18-30l8 6 8-6c11 3 17 11 18 30z" fill="url(#shirt-main)" stroke="#10241d" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="m61 68 6 6 6-6M67 75v18" fill="none" stroke="#d8f0d4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="60" cy="56" r="1.5" fill="#513a2c"/>
+    <circle cx="72" cy="56" r="1.5" fill="#513a2c"/>
+    <path d="M61 62c3 2 7 2 10 0" fill="none" stroke="#9d604b" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M102 58l-10 28" stroke="#101f1a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M102 58l-10 28" stroke="#f4ecd0" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M91 86l-5 4 9 2z" fill="#d8bb71" stroke="#102219" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="103" cy="96" r="7" fill="#f4ecd0" stroke="#102219" stroke-width="2.3"/>
+    <circle cx="100.5" cy="94" r="1" fill="#a8b4a1"/>
+    <circle cx="105" cy="94" r="1" fill="#a8b4a1"/>
+    <circle cx="102.5" cy="98" r="1" fill="#a8b4a1"/>
+    <path d="M34 30l1.5 3.5L39 35l-3.5 1.5L34 40l-1.5-3.5L29 35l3.5-1.5z" fill="#f4ecd0"/>
+  </g>
+</svg>

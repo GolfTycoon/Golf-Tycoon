@@ -249,7 +249,7 @@ func test_toolbar_has_eleven_tabs_in_three_sections() -> void:
 		"and into Manage")
 	for index in TerrainToolbar.TAB_TITLES:
 		assert_eq(toolbar._tab_buttons[index].accessibility_name, TerrainToolbar.TAB_TITLES[index])
-		assert_true(PixelCircleButton.ICONS.has(toolbar._tab_buttons[index].glyph))
+		assert_true(PixelCircleButton.SHELF_ART.has(toolbar._tab_buttons[index].glyph))
 
 func test_all_pages_scroll_horizontally_behind_fixed_chrome() -> void:
 	for i in toolbar._pages.size():

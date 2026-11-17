@@ -213,7 +213,10 @@ Medallion glyphs you can name: `menu`, `feed`, `inspect`, `build`,
 `elevation`, `holes`, `flag`, `maps`, `club`, `review`, `milestone`,
 `world`, `achievement`, `marketing`, `staff`, `edit`, `skills`, `pause`,
 `play`, `fast`, `ultra`, `rotate_ccw`, `rotate_cw`, `finance`,
-`bulldozer`, `brush_round`, `brush_square`, `minus`, `plus`.
+`bulldozer`, `brush_round`, `brush_square`, `minus`, `plus`, `hud_build`,
+`hud_manage`, `hud_golfers`, `shelf_terrain`, `shelf_improvements`,
+`shelf_buildings`, `shelf_elevation`, `shelf_holes`, `shelf_golfers`,
+`shelf_play`, `shelf_club`, `shelf_staff`, `shelf_edit`, `shelf_skills`.
 
 ### How rules combine
 

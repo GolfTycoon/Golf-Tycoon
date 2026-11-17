@@ -79,8 +79,8 @@ const TAB_TITLES := {
 	Tab.STAFF: "Staff", Tab.EDIT_PLAYER: "Edit Player Golfer",
 	Tab.PLAYER_SKILLS: "Player Golfer Skills",
 }
-const TAB_ICONS := ["terrain", "improvements", "buildings", "elevation", "holes",
-	"golfers", "play", "club", "staff", "edit", "skills"]
+const TAB_ICONS := ["shelf_terrain", "shelf_improvements", "shelf_buildings", "shelf_elevation", "shelf_holes",
+	"shelf_golfers", "shelf_play", "shelf_club", "shelf_staff", "shelf_edit", "shelf_skills"]
 const PLAYER_TABS := [Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]
 const HEADER_HEIGHT := 28.0
 ## The tabs occupy a mirrored arc to the left of the scrolling pages, and the

@@ -5,6 +5,23 @@ func before_all() -> void:
 	await super()
 	await new_game()
 
+func test_section_buttons_are_icon_only_illustrated_and_accessible() -> void:
+	var expected_glyphs := ["hud_build", "hud_manage", "hud_golfers"]
+	for i in main.left_controls.section_buttons.size():
+		var button: PixelCircleButton = main.left_controls.section_buttons[i]
+		var title: String = TerrainToolbar.SECTION_TITLES[i]
+		assert_eq(button.caption, "", "%s has no visible text label" % title)
+		assert_eq(button.glyph, expected_glyphs[i], "%s wears its bespoke icon" % title)
+		assert_true(PixelCircleButton.SECTION_ART.has(button.glyph),
+			"%s resolves to a registered illustrated asset" % title)
+		assert_eq(button.accessibility_name, title, "%s remains screen-reader named" % title)
+		assert_string_contains(button.tooltip_text, title,
+			"%s keeps its explanatory tooltip" % title)
+	main.left_controls.section_buttons[0].caption = "Temporary"
+	main.left_controls.apply_screen()
+	assert_eq(main.left_controls.section_buttons[0].caption, "",
+		"A responsive layout never restores the removed caption")
+
 func test_primary_circles_are_ordered_and_open_their_sections() -> void:
 	var buttons: Array = main.left_controls.section_buttons
 	assert_gt(buttons[0].size.x, buttons[1].size.x)

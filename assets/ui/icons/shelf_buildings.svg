@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="brick" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#fff0c5"/>
+      <stop offset="1" stop-color="#c8c8a5"/>
+    </linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edaa75"/>
+      <stop offset="1" stop-color="#bc654b"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(64 64) scale(1.05) translate(-64 -64)" stroke="#10251c" stroke-linejoin="round">
+    <path d="M23 101h82" fill="none" stroke="#10251c" stroke-width="6" stroke-linecap="round"/>
+    <path d="M31 58h29v42H31z" fill="#d4b975" stroke-width="4"/>
+    <path d="M27 58 45 41l19 17z" fill="url(#roof)" stroke-width="4"/>
+    <path d="M37 69h7v9h-7zM49 69h7v9h-7z" fill="#77a8a0" stroke-width="2.5"/>
+    <path d="M42 87h9v13h-9z" fill="#875946" stroke-width="2.5"/>
+    <path d="M63 47h33v53H63z" fill="url(#brick)" stroke-width="4"/>
+    <path d="m58 48 21-20 22 20z" fill="url(#roof)" stroke-width="4"/>
+    <path d="M70 58h9v11h-9zM84 58h8v11h-8z" fill="#78b5b6" stroke-width="2.5"/>
+    <path d="M74 80h12v20H74z" fill="#8c5d43" stroke-width="3"/>
+    <circle cx="83" cy="90" r="1.2" fill="#f4ecd0" stroke="none"/>
+    <path d="M79 28V17" fill="none" stroke="#10251c" stroke-width="3.5" stroke-linecap="round"/>
+    <path d="M81 18c6-2 12-1 17 2l-16 8z" fill="#e5bd66" stroke-width="2.5"/>
+    <path d="M65 51h29M34 62h24" fill="none" stroke="#fff4d6" stroke-width="2" opacity="0.85"/>
+    <path d="M24 105h80" fill="none" stroke="#74a96a" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

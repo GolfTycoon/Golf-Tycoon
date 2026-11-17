@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="fairway" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bce28a"/>
+      <stop offset="1" stop-color="#478b61"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(64 64) scale(1.08) translate(-64 -64)" stroke="#10251c" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 88c13-11 23-16 36-13 15 3 25-2 49-16 7 9 8 20 2 28-11 15-28 21-49 19-16-2-28-8-38-18z" fill="url(#fairway)" stroke="#225c43" stroke-width="4"/>
+    <path d="M30 86c11-7 20-9 29-7 12 3 22-2 37-10" fill="none" stroke="#e4efb4" stroke-width="2.5"/>
+    <path d="M32 93c13-7 24-5 32-3 10 2 19 0 29-5" fill="none" stroke="#77ae68" stroke-width="2.5"/>
+    <path d="M42 84c14-6 23-2 34-4 7-1 14-4 20-8" fill="none" stroke="#efc66e" stroke-width="2.5" stroke-dasharray="3 6"/>
+    <circle cx="43" cy="84" r="4" fill="#f4ecd0" stroke-width="2"/>
+    <circle cx="69" cy="80" r="4" fill="#f4ecd0" stroke-width="2"/>
+    <ellipse cx="93" cy="71" rx="6" ry="3" fill="#10251c" stroke="#f4ecd0" stroke-width="2"/>
+    <path d="M92 69V31" fill="none" stroke-width="5"/>
+    <path d="M94 33c8-3 15-1 22 3l-20 12z" fill="#e5bd66" stroke-width="2.8"/>
+    <path d="M96 36l12 1" fill="none" stroke="#fff3c7" stroke-width="1.8"/>
+    <circle cx="31" cy="57" r="3" fill="#f4ecd0" stroke-width="1.5"/>
+    <path d="M27 48h8M31 44v8" fill="none" stroke="#d8bb71" stroke-width="2.3"/>
+  </g>
+</svg>
