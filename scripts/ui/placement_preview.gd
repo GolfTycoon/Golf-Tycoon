@@ -3,6 +3,7 @@ class_name PlacementPreview
 ## PlacementPreview - Enhanced placement preview with ghost sprites and validity indication
 
 signal placement_confirmed(grid_pos: Vector2i, placement_type: String)
+signal open_hole_pressed
 
 var terrain_grid: TerrainGrid
 var placement_manager: PlacementManager
@@ -49,6 +50,9 @@ const HOLE_PATH_WIDTH := 2.0
 const HOLE_PATH_DASH := 8.0
 const HOLE_PATH_FONT_SIZE := 13
 const HOLE_PATH_NOTE_FONT_SIZE := 11
+const HOLE_LABEL_PADDING := Vector2(8.0, 4.0)
+const HOLE_LABEL_OFFSET_Y := 6.0
+const HOLE_BUTTON_PLAQUE_GAP := 6.0
 
 ## The potential hole under the cursor (HoleLayout.potential_hole()), {} when hidden.
 var potential_hole: Dictionary = {}
@@ -58,6 +62,14 @@ var potential_hole_route: Array[Vector2i] = []
 var waiting_hole: Dictionary = {}
 var waiting_hole_route: Array[Vector2i] = []
 var _hole_path_planner := HolePathPlanner.new()
+
+## Inline Open Hole button mounted in the HUD over the waiting tee-to-cup line.
+var open_hole_button: WaitingHoleOpenButton = null
+## Optional main-scene gates: whether the course allows the inline button right
+## now, and whether an active stroke/inspect should pass straight through it.
+var button_allowed_provider: Callable = Callable()
+var passthrough_input_provider: Callable = Callable()
+var _hud_visible: bool = true
 
 # Animation state
 var _building_ghost: CourseArchitecture
@@ -73,8 +85,12 @@ func _ready() -> void:
 	_building_ghost.visible = false
 	add_child(_building_ghost)
 	set_process(true)
+	# Sync the HUD Open Hole button after IsometricCamera finishes moving for
+	# this frame so panning and zooming never lag by a frame.
+	process_priority = 10
 	z_index = 100  # Render above terrain
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_connect_event_bus()
 
 func _process(_delta: float) -> void:
 	# The player keeps building while the game is paused (Engine.time_scale = 0)
@@ -107,12 +123,7 @@ func _process(_delta: float) -> void:
 			queue_redraw()
 
 	# This overlay belongs to the course, not the cursor or selected tool.
-	waiting_hole = HoleLayout.waiting_hole(terrain_grid, GameManager.current_course)
-	waiting_hole_route = []
-	if not waiting_hole.is_empty():
-		waiting_hole_route = _hole_path_planner.route_for(terrain_grid, waiting_hole.tee,
-				waiting_hole.cup, waiting_hole.par)
-		queue_redraw()
+	sync_waiting_hole()
 
 	# Smooth alpha transition. The frame on which the fade crosses zero still
 	# needs a redraw to wipe the last translucent footprint off this node's
@@ -131,7 +142,41 @@ func _real_delta() -> float:
 	return minf(elapsed, 0.1)  # Guard against huge jumps (minimized window, debugger).
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
+	_disconnect_terrain_grid()
 	terrain_grid = grid
+	_connect_terrain_grid()
+	sync_waiting_hole()
+
+## Mount the inline Open Hole button inside `hud` at child index 0 so it sits
+## over the course route while remaining behind every HUD bar, panel and screen.
+func attach_hud(hud: Control) -> WaitingHoleOpenButton:
+	_detach_open_hole_button()
+	if not is_instance_valid(hud):
+		return null
+	open_hole_button = WaitingHoleOpenButton.new()
+	open_hole_button.name = "WaitingHoleOpenButton"
+	open_hole_button.visible = false
+	open_hole_button.pressed.connect(_on_open_hole_button_pressed)
+	hud.add_child(open_hole_button)
+	hud.move_child(open_hole_button, 0)
+	sync_waiting_hole()
+	return open_hole_button
+
+## Mirror the gameplay HUD visibility flag without ever showing the button
+## while no tee/cup pair is waiting.
+func set_hud_visible(visible_flag: bool) -> void:
+	_hud_visible = visible_flag
+	_sync_open_hole_button()
+
+## Update whether clicks pass through the inline Open Hole button right now
+## (used during active paint strokes, measurement drags and tile inspection).
+func refresh_input_filter() -> void:
+	if not is_instance_valid(open_hole_button):
+		return
+	var passthrough := passthrough_input_provider.is_valid() \
+			and bool(passthrough_input_provider.call())
+	open_hole_button.mouse_filter = Control.MOUSE_FILTER_IGNORE if passthrough \
+			else Control.MOUSE_FILTER_STOP
 
 func set_placement_manager(manager: PlacementManager) -> void:
 	if is_instance_valid(placement_manager) and placement_manager.placement_mode_changed.is_connected(_on_placement_mode_changed):
@@ -172,6 +217,7 @@ func set_hole_move_mode(mode: int) -> void:
 	_hole_move_mode = mode
 	if was_active and mode == 0:
 		_clear_preview_state()
+	_sync_open_hole_button()
 
 ## Carry `building` with the cursor (null ends the move). The ghost shows where
 ## the footprint would land and turns red where placement is refused.
@@ -180,6 +226,7 @@ func set_building_move_target(building: Building) -> void:
 	_move_building = building if is_instance_valid(building) else null
 	if was_carrying and _move_building == null:
 		_clear_preview_state()
+	_sync_open_hole_button()
 
 ## A placement just ended (or changed to a different catalogue item). Forget
 ## the old footprint and put the ghost away *now*, rather than waiting for the
@@ -209,11 +256,139 @@ func _hide_building_ghost() -> bool:
 func _exit_tree() -> void:
 	# A running route task reads a terrain copy the planner owns: let it finish.
 	_hole_path_planner.shutdown()
+	_disconnect_terrain_grid()
+	_disconnect_event_bus()
+	_detach_open_hole_button()
 	if is_instance_valid(placement_manager) and placement_manager.placement_mode_changed.is_connected(_on_placement_mode_changed):
 		placement_manager.placement_mode_changed.disconnect(_on_placement_mode_changed)
 
+func _connect_terrain_grid() -> void:
+	if not is_instance_valid(terrain_grid):
+		return
+	if not terrain_grid.tile_changed.is_connected(_on_terrain_tile_changed):
+		terrain_grid.tile_changed.connect(_on_terrain_tile_changed)
+	if not terrain_grid.cup_tiles_changed.is_connected(sync_waiting_hole):
+		terrain_grid.cup_tiles_changed.connect(sync_waiting_hole)
+	if not terrain_grid.view_rotated.is_connected(_on_terrain_view_rotated):
+		terrain_grid.view_rotated.connect(_on_terrain_view_rotated)
+
+func _disconnect_terrain_grid() -> void:
+	if not is_instance_valid(terrain_grid):
+		return
+	if terrain_grid.tile_changed.is_connected(_on_terrain_tile_changed):
+		terrain_grid.tile_changed.disconnect(_on_terrain_tile_changed)
+	if terrain_grid.cup_tiles_changed.is_connected(sync_waiting_hole):
+		terrain_grid.cup_tiles_changed.disconnect(sync_waiting_hole)
+	if terrain_grid.view_rotated.is_connected(_on_terrain_view_rotated):
+		terrain_grid.view_rotated.disconnect(_on_terrain_view_rotated)
+
+func _connect_event_bus() -> void:
+	if not has_node("/root/EventBus"):
+		return
+	if not EventBus.hole_created.is_connected(_on_hole_created):
+		EventBus.hole_created.connect(_on_hole_created)
+	if not EventBus.hole_deleted.is_connected(_on_hole_deleted):
+		EventBus.hole_deleted.connect(_on_hole_deleted)
+	if not EventBus.holes_reordered.is_connected(_on_holes_reordered):
+		EventBus.holes_reordered.connect(_on_holes_reordered)
+	if not EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.connect(_on_load_completed)
+	if not EventBus.new_game_started.is_connected(sync_waiting_hole):
+		EventBus.new_game_started.connect(sync_waiting_hole)
+	if has_node("/root/Screen"):
+		if not Screen.changed.is_connected(_on_screen_changed):
+			Screen.changed.connect(_on_screen_changed)
+		if not Screen.ui_scale_changed.is_connected(_on_ui_scale_changed):
+			Screen.ui_scale_changed.connect(_on_ui_scale_changed)
+
+func _disconnect_event_bus() -> void:
+	if has_node("/root/Screen"):
+		if Screen.changed.is_connected(_on_screen_changed):
+			Screen.changed.disconnect(_on_screen_changed)
+		if Screen.ui_scale_changed.is_connected(_on_ui_scale_changed):
+			Screen.ui_scale_changed.disconnect(_on_ui_scale_changed)
+	if not has_node("/root/EventBus"):
+		return
+	if EventBus.hole_created.is_connected(_on_hole_created):
+		EventBus.hole_created.disconnect(_on_hole_created)
+	if EventBus.hole_deleted.is_connected(_on_hole_deleted):
+		EventBus.hole_deleted.disconnect(_on_hole_deleted)
+	if EventBus.holes_reordered.is_connected(_on_holes_reordered):
+		EventBus.holes_reordered.disconnect(_on_holes_reordered)
+	if EventBus.load_completed.is_connected(_on_load_completed):
+		EventBus.load_completed.disconnect(_on_load_completed)
+	if EventBus.new_game_started.is_connected(sync_waiting_hole):
+		EventBus.new_game_started.disconnect(sync_waiting_hole)
+
+func _detach_open_hole_button() -> void:
+	if not is_instance_valid(open_hole_button):
+		open_hole_button = null
+		return
+	var btn := open_hole_button
+	open_hole_button = null
+	if btn.pressed.is_connected(_on_open_hole_button_pressed):
+		btn.pressed.disconnect(_on_open_hole_button_pressed)
+	btn.visible = false
+	if not btn.is_queued_for_deletion():
+		if btn.get_parent() == null:
+			btn.free()
+		else:
+			btn.queue_free()
+
+func _on_terrain_tile_changed(_pos: Vector2i, old_type: int, new_type: int) -> void:
+	if old_type == TerrainTypes.Type.TEE_BOX or new_type == TerrainTypes.Type.TEE_BOX \
+			or old_type == TerrainTypes.Type.GREEN or new_type == TerrainTypes.Type.GREEN:
+		sync_waiting_hole()
+
+func _on_terrain_view_rotated(_orientation: int, _isometric: bool) -> void:
+	_sync_open_hole_button()
+	if not waiting_hole.is_empty():
+		queue_redraw()
+
+func _on_screen_changed(_window_size: Vector2, _world_scale: float) -> void:
+	_sync_open_hole_button()
+
+func _on_ui_scale_changed(_scale: float, _mode: int) -> void:
+	_sync_open_hole_button()
+
+func _on_hole_created(_hole_number: int, _par: int, _distance_yards: int) -> void:
+	sync_waiting_hole()
+
+func _on_hole_deleted(_hole_number: int) -> void:
+	sync_waiting_hole()
+
+func _on_holes_reordered(_order: Array) -> void:
+	sync_waiting_hole()
+
+func _on_load_completed(_success: bool) -> void:
+	sync_waiting_hole()
+
+func _on_open_hole_button_pressed() -> void:
+	if has_node("/root/SoundManager"):
+		SoundManager.play_ui_click()
+	open_hole_pressed.emit()
+
+## Recompute the waiting tee-to-cup pair, update its planned route, and keep
+## the inline Open Hole button anchored on the connecting line.
+func sync_waiting_hole() -> void:
+	var had_waiting_hole := not waiting_hole.is_empty() or not waiting_hole_route.is_empty()
+	waiting_hole = HoleLayout.waiting_hole(terrain_grid, GameManager.current_course)
+	waiting_hole_route = []
+	if not waiting_hole.is_empty():
+		waiting_hole_route = _hole_path_planner.route_for(terrain_grid, waiting_hole.tee,
+				waiting_hole.cup, waiting_hole.par)
+		queue_redraw()
+	elif had_waiting_hole:
+		queue_redraw()
+	_sync_open_hole_button()
+
 func _update_preview(delta: float) -> void:
 	if not terrain_grid or not camera:
+		return
+	# Clicking the inline Open Hole pill commits the hole instead of painting or
+	# placing on the tile beneath it, so hide the tool ghost while hovering it.
+	if _is_open_hole_button_hovered():
+		_clear_preview_state()
 		return
 
 	var mouse_world = camera.get_mouse_world_position()
@@ -333,7 +508,7 @@ func _draw() -> void:
 		return
 
 	if not waiting_hole.is_empty():
-		_draw_potential_hole(1.0, waiting_hole, waiting_hole_route)
+		_draw_potential_hole(1.0, waiting_hole, waiting_hole_route, true)
 
 	if _current_alpha < 0.01:
 		return
@@ -714,7 +889,8 @@ func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 ## Draw the hole the hovered tile would make: the waiting tee, the expected shot
 ## route (dashed; a straight provisional line while a par 4/5 route is planned),
 ## the landing zones, the cup-to-be and a "Hole N · Par P · Y yds" plaque.
-func _draw_potential_hole(alpha: float, hole: Dictionary, route: Array[Vector2i]) -> void:
+func _draw_potential_hole(alpha: float, hole: Dictionary, route: Array[Vector2i],
+		is_waiting: bool = false) -> void:
 	var tee: Vector2i = hole.tee
 	var cup: Vector2i = hole.cup
 	var hole_ready: bool = hole.ready
@@ -745,6 +921,21 @@ func _draw_potential_hole(alpha: float, hole: Dictionary, route: Array[Vector2i]
 			draw_dashed_line(points[i], points[i + 1], line_color, HOLE_PATH_WIDTH,
 					HOLE_PATH_DASH, true, true)
 
+	# When extreme zoom-out or a very short pair steps the inline Open Hole
+	# button away from the line to keep clear of the cup's plaque, tether it
+	# back to the route midpoint so its bond with the line stays obvious.
+	if is_waiting and is_instance_valid(open_hole_button) and open_hole_button.visible:
+		var screen_points := waiting_hole_screen_points()
+		var btn_center := open_hole_button.position + open_hole_button.size * 0.5
+		if screen_points.size() >= 2 and distance_to_polyline(btn_center, screen_points) > 2.0:
+			var inv := _world_to_screen_transform().affine_inverse()
+			var from_pt := polyline_point_at(points, 0.5)
+			var to_pt := to_local(inv * btn_center)
+			draw_line(from_pt, to_pt, Color(HOLE_PATH_SHADOW, HOLE_PATH_SHADOW.a * alpha),
+					HOLE_PATH_WIDTH + 2.0, true)
+			draw_dashed_line(from_pt, to_pt, line_color, HOLE_PATH_WIDTH,
+					HOLE_PATH_DASH * 0.6, true, true)
+
 	# Landing zones, styled like the markers HoleVisualizer draws once the hole opens.
 	for i in range(1, points.size() - 1):
 		draw_circle(points[i], 5.0, Color(0.0, 0.0, 0.0, 0.5 * alpha))
@@ -770,19 +961,35 @@ func _draw_potential_cup(cup: Vector2i, alpha: float, hole_ready: bool) -> Vecto
 	]), Color(pin_color, alpha))
 	return pole_top
 
-## "Hole N · Par P · Y yds", plus why the pair can't open yet. Drawn at a constant
-## on-screen size so it stays legible however far the camera is zoomed out.
-func _draw_potential_hole_label(hole: Dictionary, anchor: Vector2, alpha: float) -> void:
+## Local screen-sized bounding box of a hole plaque relative to its pin top.
+static func _hole_label_box(hole: Dictionary) -> Dictionary:
 	var font: Font = ThemeDB.fallback_font
 	var title := "Hole %d · Par %d · %d yds" % [hole.hole_number, hole.par, hole.distance_yards]
-	var note: String = hole.reason
+	var note: String = str(hole.get("reason", ""))
 	var title_size := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, HOLE_PATH_FONT_SIZE)
 	var note_size := Vector2.ZERO
 	if not note.is_empty():
 		note_size = font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, HOLE_PATH_NOTE_FONT_SIZE)
-	var padding := Vector2(8.0, 4.0)
-	var box_size := Vector2(maxf(title_size.x, note_size.x), title_size.y + note_size.y) + padding * 2.0
-	var box := Rect2(Vector2(-box_size.x * 0.5, -box_size.y - 6.0), box_size)
+	var box_size := Vector2(maxf(title_size.x, note_size.x), title_size.y + note_size.y) \
+			+ HOLE_LABEL_PADDING * 2.0
+	var rect := Rect2(Vector2(-box_size.x * 0.5, -box_size.y - HOLE_LABEL_OFFSET_Y), box_size)
+	return {
+		"font": font,
+		"title": title,
+		"note": note,
+		"title_size": title_size,
+		"rect": rect,
+	}
+
+## "Hole N · Par P · Y yds", plus why the pair can't open yet. Drawn at a constant
+## on-screen size so it stays legible however far the camera is zoomed out.
+func _draw_potential_hole_label(hole: Dictionary, anchor: Vector2, alpha: float) -> void:
+	var layout := _hole_label_box(hole)
+	var font: Font = layout["font"]
+	var title: String = layout["title"]
+	var note: String = layout["note"]
+	var title_size: Vector2 = layout["title_size"]
+	var box: Rect2 = layout["rect"]
 
 	if _label_style == null:
 		_label_style = StyleBoxFlat.new()
@@ -794,15 +1001,173 @@ func _draw_potential_hole_label(hole: Dictionary, anchor: Vector2, alpha: float)
 	var screen_scale := 1.0 / camera.zoom.x if camera and camera.zoom.x > 0.0 else 1.0
 	draw_set_transform(anchor, 0.0, Vector2(screen_scale, screen_scale))
 	draw_style_box(_label_style, box)
-	var baseline := box.position.y + padding.y + font.get_ascent(HOLE_PATH_FONT_SIZE)
-	draw_string(font, Vector2(box.position.x + padding.x, baseline), title,
+	var baseline := box.position.y + HOLE_LABEL_PADDING.y + font.get_ascent(HOLE_PATH_FONT_SIZE)
+	draw_string(font, Vector2(box.position.x + HOLE_LABEL_PADDING.x, baseline), title,
 			HORIZONTAL_ALIGNMENT_LEFT, -1, HOLE_PATH_FONT_SIZE, Color(UIConstants.COLOR_TEXT, alpha))
 	if not note.is_empty():
 		baseline += title_size.y
-		draw_string(font, Vector2(box.position.x + padding.x, baseline), note,
+		draw_string(font, Vector2(box.position.x + HOLE_LABEL_PADDING.x, baseline), note,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, HOLE_PATH_NOTE_FONT_SIZE,
 				Color(1.0, 0.72, 0.68, alpha))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## Position and show/hide the inline Open Hole button on the waiting route.
+func _sync_open_hole_button() -> void:
+	if not is_instance_valid(open_hole_button):
+		return
+	if not _should_show_open_hole_button():
+		if open_hole_button.visible:
+			open_hole_button.visible = false
+		return
+
+	var screen_points := waiting_hole_screen_points()
+	if screen_points.size() < 2 or screen_points[0].distance_to(screen_points[screen_points.size() - 1]) < 1.0:
+		if open_hole_button.visible:
+			open_hole_button.visible = false
+		return
+
+	open_hole_button.set_waiting_hole(waiting_hole)
+	open_hole_button.update_layout_metrics()
+	var btn_size := open_hole_button.size
+	var plaque_rect := waiting_hole_plaque_rect()
+	var center := line_button_center(screen_points, btn_size, plaque_rect)
+	var btn_pos := (center - btn_size * 0.5).round()
+	var btn_rect := Rect2(btn_pos, btn_size)
+
+	# Hide when the camera has panned completely away from the button's seat.
+	if is_instance_valid(camera) and is_inside_tree():
+		var view_rect := get_viewport_rect()
+		if view_rect.has_area() and not view_rect.intersects(btn_rect):
+			if open_hole_button.visible:
+				open_hole_button.visible = false
+			return
+
+	open_hole_button.position = btn_pos
+	refresh_input_filter()
+	if not open_hole_button.visible:
+		open_hole_button.visible = true
+
+func _is_open_hole_button_hovered() -> bool:
+	if not is_instance_valid(open_hole_button) or not open_hole_button.visible:
+		return false
+	if open_hole_button.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+		return false
+	if not is_inside_tree() or get_viewport() == null:
+		return false
+	return get_viewport().gui_get_hovered_control() == open_hole_button
+
+func _should_show_open_hole_button() -> bool:
+	if not _hud_visible or not is_instance_valid(terrain_grid):
+		return false
+	if waiting_hole.is_empty():
+		return false
+	# Matches _draw(): moving a hole end or carrying the clubhouse replaces the
+	# waiting-hole route with the move preview until the move ends.
+	if _hole_move_mode != 0 or _move_building != null:
+		return false
+	if button_allowed_provider.is_valid() and not bool(button_allowed_provider.call()):
+		return false
+	return true
+
+func _world_to_screen_transform() -> Transform2D:
+	if is_instance_valid(camera) and camera.is_inside_tree():
+		return camera.get_canvas_transform()
+	if is_inside_tree() and get_viewport() != null:
+		return get_viewport().get_canvas_transform()
+	return Transform2D.IDENTITY
+
+## World-space polyline of the waiting tee-to-cup route ([] when none waits).
+func waiting_hole_world_points() -> PackedVector2Array:
+	var points := PackedVector2Array()
+	if not is_instance_valid(terrain_grid) or waiting_hole.is_empty():
+		return points
+	if not waiting_hole_route.is_empty():
+		for waypoint in waiting_hole_route:
+			points.append(terrain_grid.grid_to_screen_center(waypoint))
+	else:
+		points.append(terrain_grid.grid_to_screen_center(waiting_hole.tee))
+		points.append(terrain_grid.grid_to_screen_center(waiting_hole.cup))
+	return points
+
+## Screen-space polyline of the waiting tee-to-cup route, in HUD coordinates.
+func waiting_hole_screen_points() -> PackedVector2Array:
+	var world_points := waiting_hole_world_points()
+	if world_points.is_empty():
+		return world_points
+	var xform := _world_to_screen_transform()
+	var out := PackedVector2Array()
+	out.resize(world_points.size())
+	for i in range(world_points.size()):
+		out[i] = xform * world_points[i]
+	return out
+
+## Screen-space bounding box of the waiting cup's "Hole N · Par P · Y yds" plaque.
+func waiting_hole_plaque_rect() -> Rect2:
+	if not is_instance_valid(terrain_grid) or waiting_hole.is_empty():
+		return Rect2()
+	var cup_world := terrain_grid.grid_to_screen_center(waiting_hole.cup)
+	var pin_top_world := cup_world - Vector2(0.0, CupOverlay.WAITING_POLE_HEIGHT * 0.75)
+	var pin_top_screen := _world_to_screen_transform() * pin_top_world
+	var box: Rect2 = _hole_label_box(waiting_hole)["rect"]
+	return Rect2(pin_top_screen + box.position, box.size)
+
+## Point `fraction` (0 = start, 1 = end) of the total arc length along `points`.
+static func polyline_point_at(points: PackedVector2Array, fraction: float) -> Vector2:
+	if points.is_empty():
+		return Vector2.ZERO
+	if points.size() == 1:
+		return points[0]
+	var total := 0.0
+	for i in range(1, points.size()):
+		total += points[i - 1].distance_to(points[i])
+	if total <= 0.001:
+		return points[0]
+	var target := total * clampf(fraction, 0.0, 1.0)
+	var walked := 0.0
+	for i in range(1, points.size()):
+		var seg_start := points[i - 1]
+		var seg_end := points[i]
+		var seg_len := seg_start.distance_to(seg_end)
+		if walked + seg_len >= target:
+			var t := 0.0 if seg_len <= 0.001 else (target - walked) / seg_len
+			return seg_start.lerp(seg_end, t)
+		walked += seg_len
+	return points[points.size() - 1]
+
+## Shortest distance from `point` to any segment of `points`.
+static func distance_to_polyline(point: Vector2, points: PackedVector2Array) -> float:
+	if points.is_empty():
+		return INF
+	if points.size() == 1:
+		return point.distance_to(points[0])
+	var best := INF
+	for i in range(1, points.size()):
+		var closest := Geometry2D.get_closest_point_to_segment(point, points[i - 1], points[i])
+		best = minf(best, point.distance_to(closest))
+	return best
+
+## Screen-space centre for the inline Open Hole button: directly on the route's
+## midpoint whenever clear of the cup plaque, sliding toward the tee along the
+## route when the plaque encroaches, and stepping below/above the plaque only
+## when the whole route is shorter than the plaque itself (deep zoom-out or a
+## very short pair).
+static func line_button_center(points: PackedVector2Array, button_size: Vector2,
+		plaque_rect: Rect2 = Rect2()) -> Vector2:
+	var midpoint := polyline_point_at(points, 0.5)
+	if points.size() < 2 or button_size == Vector2.ZERO or not plaque_rect.has_area():
+		return midpoint
+	var padded_plaque := plaque_rect.grow(HOLE_BUTTON_PLAQUE_GAP)
+	if not Rect2(midpoint - button_size * 0.5, button_size).intersects(padded_plaque):
+		return midpoint
+	for step in range(1, 7):
+		var fraction := 0.5 - float(step) * 0.05
+		var candidate := polyline_point_at(points, fraction)
+		if not Rect2(candidate - button_size * 0.5, button_size).intersects(padded_plaque):
+			return candidate
+	var half_h := button_size.y * 0.5
+	var below := Vector2(midpoint.x, padded_plaque.end.y + half_h)
+	var above := Vector2(midpoint.x, padded_plaque.position.y - half_h)
+	return below if absf(below.y - midpoint.y) <= absf(above.y - midpoint.y) else above
 
 func _draw_hole_move_preview() -> void:
 	if not camera or not terrain_grid:

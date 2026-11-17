@@ -946,9 +946,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_measure_start = terrain_grid.screen_to_grid(mouse_world)
 				_measure_end = _measure_start
 				_measuring = true
+				if placement_preview:
+					placement_preview.refresh_input_filter()
 				_update_measure_overlay()
 			else:
 				_measuring = false
+				if placement_preview:
+					placement_preview.refresh_input_filter()
 				_update_measure_overlay()
 			get_viewport().set_input_as_handled()
 			return
@@ -2022,6 +2026,8 @@ func _set_gameplay_ui_visible(visible_flag: bool) -> void:
 			mini_map.hud_visible = visible_flag
 		elif child == portrait_hud:
 			portrait_hud.set_hud_visible(visible_flag)
+		elif placement_preview and child == placement_preview.open_hole_button:
+			placement_preview.set_hud_visible(visible_flag)
 		elif child.name not in popup_panels:
 			child.visible = visible_flag
 	if bottom_bar:
@@ -2134,9 +2140,13 @@ func _setup_placement_preview() -> void:
 	"""Create placement preview overlay for building and decoration placement"""
 	placement_preview = PlacementPreview.new()
 	placement_preview.name = "PlacementPreview"
+	placement_preview.button_allowed_provider = _waiting_hole_button_allowed
+	placement_preview.passthrough_input_provider = _waiting_hole_button_passthrough
 	placement_preview.set_terrain_grid(terrain_grid)
 	placement_preview.set_placement_manager(placement_manager)
 	placement_preview.set_camera(camera)
+	placement_preview.attach_hud($UI/HUD)
+	placement_preview.open_hole_pressed.connect(_on_open_hole_pressed)
 	# Add as child of main scene so it renders above terrain
 	add_child(placement_preview)
 
@@ -2145,6 +2155,35 @@ func _setup_placement_preview() -> void:
 	_measure_overlay.name = "MeasureOverlay"
 	_measure_overlay.terrain_grid = terrain_grid
 	add_child(_measure_overlay)
+
+## Show the inline Open Hole pill on the waiting tee-to-cup route whenever the
+## player is free to edit the live course (including while the sim clock is
+## paused), and tuck it away on title/map/modal screens, during the owner's
+## round, and while picking a work area on the turf.
+func _waiting_hole_button_allowed() -> bool:
+	if not _startup_complete or _benchmark_tour_active:
+		return false
+	if is_instance_valid(_generating_course_screen):
+		return false
+	if GameManager.current_mode == GameManager.GameMode.MAIN_MENU:
+		return false
+	if GameManager.is_tournament_mode or GameManager.is_paused:
+		return false
+	if _staff_area_mode_index >= 0 or _owner_area_mode:
+		return false
+	if is_instance_valid(player_round) and player_round.active:
+		return false
+	if is_instance_valid(financial_panel) and financial_panel.visible:
+		return false
+	var game_over := $UI/HUD.get_node_or_null("GameOverPanel") as Control
+	if game_over and game_over.visible:
+		return false
+	return true
+
+## Let ongoing brush strokes, yardage measurements and read-only tile inspection
+## sweep right across the inline Open Hole pill without skipping tiles.
+func _waiting_hole_button_passthrough() -> bool:
+	return is_painting or _measuring or inspect_mode
 
 func _setup_bottom_bar() -> void:
 	# Each side paints its own curved backdrop. The container itself must not
@@ -2234,6 +2273,8 @@ func _start_painting() -> void:
 	# Check if we're in bulldozer mode — supports click-and-drag
 	if bulldozer_mode:
 		is_painting = true
+		if placement_preview:
+			placement_preview.refresh_input_filter()
 		_bulldoze_drag_count = 0
 		_bulldoze_drag_cost = 0
 		_bulldoze_at_mouse()
@@ -2248,6 +2289,8 @@ func _start_painting() -> void:
 		return
 
 	is_painting = true
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	_tee_block_notified = false
 	_path_block_notified = false
 	undo_manager.begin_stroke()
@@ -2262,6 +2305,8 @@ func _stop_painting() -> void:
 		_stop_elevation_painting()
 		return
 	is_painting = false
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	_tee_block_notified = false
 	_path_block_notified = false
 	last_paint_pos = Vector2i(-1, -1)
@@ -3572,6 +3617,8 @@ func _start_elevation_painting(raising: bool) -> void:
 		return
 	elevation_tool.set_mode(raising)
 	is_painting = true
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	_paint_elevation_at_mouse()
 
 ## End the current elevation stroke; the selector tool stays selected.
@@ -3579,6 +3626,8 @@ func _stop_elevation_painting() -> void:
 	if not is_painting:
 		return
 	is_painting = false
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	last_paint_anchor = Vector2i(-1, -1)
 	if elevation_tool.is_active():
 		elevation_tool.stop_stroke()
@@ -3958,11 +4007,15 @@ func _on_inspect_toggled(enabled: bool) -> void:
 		terrain_toolbar.clear_selection()
 	_disable_terrain_painting_preview()
 	inspect_mode = true
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	if terrain_toolbar:
 		terrain_toolbar.set_inspect_active(true)
 
 func _cancel_inspect_mode() -> void:
 	inspect_mode = false
+	if placement_preview:
+		placement_preview.refresh_input_filter()
 	if terrain_toolbar:
 		terrain_toolbar.set_inspect_active(false)
 	if tile_inspector:
@@ -5641,6 +5694,8 @@ func _setup_responsive_ui() -> void:
 	portrait_hud = PortraitHUD.new()
 	$UI/HUD.add_child(portrait_hud)
 	$UI/HUD.move_child(portrait_hud, 0)
+	if placement_preview and is_instance_valid(placement_preview.open_hole_button):
+		$UI/HUD.move_child(placement_preview.open_hole_button, 0)
 	portrait_hud.setup(self)
 	EventBus.new_game_started.connect(func(): _apply_responsive_layout.call_deferred())
 	EventBus.load_completed.connect(func(_success: bool): _apply_responsive_layout.call_deferred())

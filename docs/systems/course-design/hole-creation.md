@@ -2,8 +2,8 @@
 
 > A hole is built by painting a tee box and a green cup on the map, then pressing **Open Hole**. The rules keep at most one unused tee and one unused cup waiting at a time.
 
-**Source:** `scripts/tools/hole_layout.gd` (`open_hole_request()`, `potential_hole()`, `max_brush_size()`, `used_tee_tiles()`, `unused_cups()`), `scripts/tools/hole_creation_tool.gd` (`open_hole()`, `create_generated_hole()`), `scripts/course/hole_path_planner.gd` (background route planning and cache), `scripts/terrain/terrain_grid.gd` (tee and cup indexes, `reset_for_new_course()`, `create_analysis_copy()`), `scripts/terrain/cup_overlay.gd`, `scripts/ui/placement_preview.gd` (potential hole preview), `scripts/main/main.gd` (`_paint_terrain_stamp()`, `_on_new_game_started()`)
-**Tests:** `tests/unit/test_hole_layout.gd`, `tests/unit/test_hole_creation_tool.gd`, `tests/unit/test_potential_hole.gd`, `tests/unit/test_hole_path_planner.gd`, `tests/unit/test_cup_tiles.gd`, `tests/integration/hole_creation_flow.gd`, `tests/integration/hole_path_preview.gd`, `tests/integration/new_game_resets_course.gd`
+**Source:** `scripts/tools/hole_layout.gd` (`open_hole_request()`, `waiting_hole()`, `potential_hole()`, `max_brush_size()`, `used_tee_tiles()`, `unused_cups()`), `scripts/tools/hole_creation_tool.gd` (`open_hole()`, `create_generated_hole()`), `scripts/course/hole_path_planner.gd` (background route planning and cache), `scripts/terrain/terrain_grid.gd` (tee and cup indexes, `reset_for_new_course()`, `create_analysis_copy()`), `scripts/terrain/cup_overlay.gd`, `scripts/ui/placement_preview.gd` (potential and waiting hole route, inline button placement), `scripts/ui/components/waiting_hole_open_button.gd` (`WaitingHoleOpenButton`), `scripts/main/main.gd` (`_paint_terrain_stamp()`, `_on_open_hole_pressed()`, `_on_new_game_started()`)
+**Tests:** `tests/unit/course_design/test_hole_layout.gd`, `tests/unit/course_design/test_hole_creation_tool.gd`, `tests/unit/course_design/test_potential_hole.gd`, `tests/unit/course_design/test_hole_path_planner.gd`, `tests/unit/course_design/test_waiting_hole_open_button.gd`, `tests/unit/terrain_and_grid/test_cup_tiles.gd`, `tests/integration/course_design/test_hole_creation_flow.gd`, `tests/integration/course_design/test_hole_path_preview.gd`, `tests/integration/course_design/test_waiting_hole_open_button.gd`, `tests/integration/course_design/test_new_game_resets_course.gd`
 
 ---
 
@@ -13,7 +13,7 @@ A hole is built from its two ends with the ordinary terrain brushes, then opened
 
 1. **Tee Box** paints one tile. While a tee box is waiting, no second one can be placed. At most one tee waits on the course at a time.
 2. **Green** paints a **Green With Hole** when no cup is waiting. This is a single tile with a cup cut into it, shown with a **gold pin** so it stands apart from the red pins of open holes. Once a cup is waiting, the Green tool switches to a normal green brush, so you can widen the putting surface around the cup.
-3. **Open Hole** (`H`, or the tile between the tee and green tools on the Course Terrain tab) pairs the waiting tee with the waiting cup and creates the hole. It is enabled only when there is exactly one tee and one cup ready.
+3. **Open Hole** — clicked directly on the dashed line connecting the waiting tee and cup, clicked on the `[H]` notch between the tee and green tools, or triggered with `H` — pairs the waiting tee with the waiting cup and creates the hole. It is enabled only when there is exactly one tee and one cup ready.
 
 Opening a hole sets its yardage, par, and difficulty rating. The cup stays on its tile for the life of the hole. It moves only when you move the whole green. Opening a hole also clears the waiting cup, so the next green you paint starts the next hole.
 
@@ -33,7 +33,7 @@ The route comes from the same shot planner that draws an open hole's path, so th
 - a building or decoration is in the way;
 - more than one tee box is waiting.
 
-The preview disappears when the cup is cut, when you switch tool, or when no tee is waiting.
+The hover preview switches off when the cup is cut, when you switch tool, or when no tee is waiting. Once both a waiting tee and a waiting cup are painted on the course, the same dashed route, gold pin and plaque stay anchored between them until the hole is opened, with an **Open Hole** pill centered right on the route's midpoint so you can shape fairway, bunkers or greens on any tab and commit the hole in place. Active paint strokes, yardage drags and tile inspection pass straight through the button so it never interrupts sculpting, and if the pair is shorter than the minimum hole length the button stays visible in a disabled state explaining why.
 
 ### Other rules
 
