@@ -1100,6 +1100,8 @@ func _collect_golfer_rows() -> Array:
 			"attitude": golfer.attitude,
 			"membership": golfer.membership_tier,
 			"membership_name": ClubMembership.tier_name(golfer.membership_tier),
+			"returning": golfer.is_returning_guest,
+			"owner": golfer.is_owner_round,
 			"profile": _visitor_profile(golfer),
 			"portrait": VisitorPortrait.for_golfer(golfer),
 		})
@@ -4996,6 +4998,7 @@ func _on_golfer_round_for_summary(golfer_id: int, total_strokes: int, _total_par
 			"day": GameManager.current_day,
 			"tier": golfer.golfer_tier,
 			"membership": golfer.membership_tier,
+			"returning": golfer.is_returning_guest,
 			"owner": golfer.is_owner_round,
 			"profile": _visitor_profile(golfer),
 			"portrait": VisitorPortrait.for_golfer(golfer),
