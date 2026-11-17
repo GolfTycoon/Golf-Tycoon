@@ -139,3 +139,69 @@ func test_refresh_keeps_focus_inside_the_open_profile() -> void:
 	assert_not_null(focus_owner, "The refresh restores the dropped focus")
 	assert_true(focus_owner == toolbar._visitor_detail.get_child(0),
 		"and it sits on the rebuilt way-back button")
+
+## The profile follows a live round without being torn down when nothing
+## moved: a quiet refresh leaves the same card row standing, while a golfer
+## who moved on is drawn again with their new numbers.
+func test_a_quiet_refresh_leaves_the_open_profile_standing() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar._visitor_archive.clear()
+	toolbar._selected_visitor = ""
+	toolbar.golfer_data_provider = func(): return [{"id": 21, "name": "Cleo Tee",
+		"tier": 1, "hole": 2, "strokes": 5, "attitude": 0.5}]
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	var plate := toolbar._visitor_shelf.get_child(0).get_child(0).get_child(0) as Button
+	plate.pressed.emit()
+	var identity := toolbar._visitor_detail.get_child(1) as VisitorIdentityCard
+	assert_not_null(identity, "The identity card opened")
+
+	toolbar._refresh_golfer_lists()
+	assert_eq(toolbar._visitor_detail.get_child(1), identity,
+		"A refresh with nothing new leaves the same cards in place")
+
+	toolbar.golfer_data_provider = func(): return [{"id": 21, "name": "Cleo Tee",
+		"tier": 1, "hole": 6, "strokes": 21, "attitude": 0.9}]
+	toolbar._refresh_golfer_lists()
+	var rebuilt := toolbar._visitor_detail.get_child(1) as VisitorIdentityCard
+	assert_not_null(rebuilt, "A golfer who moved on is drawn again")
+	assert_ne(rebuilt, identity, "with a fresh card row")
+	assert_true(_has_label_text(rebuilt, "90%") or _has_label_text(toolbar._visitor_detail, "90%"),
+		"and the new attitude is on it")
+
+## The Locate chip floats over the golfer's portrait in the identity card and
+## is a separate action from the profile: pressing it moves the camera and
+## leaves the profile open.
+func test_the_profile_locate_chip_is_a_separate_action() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar._visitor_archive.clear()
+	toolbar._selected_visitor = ""
+	toolbar.golfer_data_provider = func(): return [{"id": 22, "name": "Dana Drive",
+		"tier": 1, "hole": 3, "strokes": 7, "attitude": 0.5}]
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	(toolbar._visitor_shelf.get_child(0).get_child(0).get_child(0) as Button).pressed.emit()
+	var locate := _profile_locate(toolbar._visitor_detail)
+	assert_not_null(locate, "An on-course golfer's profile carries a Locate chip")
+	watch_signals(toolbar)
+	locate.pressed.emit()
+	assert_signal_emitted_with_parameters(toolbar, "golfer_row_clicked", [22])
+	assert_eq(toolbar._selected_visitor, "Dana Drive",
+		"Locating from the profile leaves the profile open")
+
+## The Locate chip inside an open profile, if there is one.
+func _profile_locate(root: Node) -> Button:
+	for child in root.get_children():
+		if child is Button and (child as Button).tooltip_text.begins_with("Center the camera on "):
+			return child as Button
+		var found := _profile_locate(child)
+		if found != null:
+			return found
+	return null
+
+## Whether any label under `root` reads `text`.
+func _has_label_text(root: Node, text: String) -> bool:
+	for child in root.get_children():
+		if child is Label and (child as Label).text == text:
+			return true
+		if _has_label_text(child, text):
+			return true
+	return false

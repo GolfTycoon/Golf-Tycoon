@@ -312,6 +312,34 @@ its Routing Holes and Staff modes. Shelves scroll horizontally while the circle 
 Hover/focus states, tooltips and accessible names identify every icon; Tab and
 Enter can navigate the dock.
 
+**A visitor's profile** opens over the register as one row of fixed-height
+dossier cards, so the shelf keeps the height of a full column of visitor plates
+however much the profile holds. The row starts with a tall **Guest register**
+tab - a pixel arrow, the words GUEST and REGISTER, and how many visitors the
+book holds - then the golfer's own identity card. Their skin snapshot stands at
+twice its plate size in a recessed well; their name, tier, membership plate and
+whether they are on the course or a past visitor sit beside it, with three
+round readings along the card's foot (hole, strokes and attitude on the course;
+to par, strokes and par for a past round). A golfer still out there carries a
+**Locate** chip floating over the portrait's corner, and it is the same separate
+camera action the register's Locate button is.
+
+Each profile section follows as its own card in reading order: Identity, Club
+Membership, Current Round, Scorecard, Golf Skills, Golfer Traits, Golfer
+Skills, Golfer Statuses, Golfer Comments and Course Experience; any section a
+mod adds follows them. A card holds five rows (six scorecard holes, three
+comments), and a longer section continues in the next card to its right, where
+the shelf already scrolls - the row never grows downwards. Every card wears the
+visitor green (on the course) or tan (past visitor) rim and the dock's glass
+frame, with a section-coloured spine, pixel gem, uppercase pixel title and
+hairline rule. On/Off traits and golfer skills are lit pixel switches, golf
+skills are segmented bars with their reading, the golfer's needs are wide
+segmented meters, comments are quoted beside a sentiment gem with the tally in
+the header, and scorecard rows give each hole's par, strokes and score in the
+game's score colours. The one-second refresh redraws the row only when the
+golfer's data moves, so a profile stands still while it is read and still
+follows a live round.
+
 The **Edit Player Golfer** page leads with your own golfer: an animated sprite
 standing in the first column, with the skin they wear chosen directly beneath it.
 The picker has no title of its own — the golfer above it says what it dresses, its
