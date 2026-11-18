@@ -306,6 +306,40 @@ def pattern_rgb(m: Material, u: np.ndarray, v: np.ndarray) -> np.ndarray:
         out = color * (0.96 + grain[:, None] + tone * 0.05)
         return np.where(edge[:, None], color * 0.78, out)
 
+    if name == "bark":
+        # Vertical ridges, long dark cracks and sparse flecks: tree trunks.
+        ridge = np.sin(u * 1.9) * 0.5 + np.sin(u * 4.3 + v * 0.21) * 0.35
+        tone = _hash01(np.floor(u / 2.5).astype(np.int64),
+                       np.floor(v / 9.0).astype(np.int64))
+        fleck = _hash01(np.floor(u / 5.0).astype(np.int64),
+                        np.floor(v / 13.0).astype(np.int64))
+        crack = _hash01(np.floor(u / 6.0).astype(np.int64),
+                        np.floor(v / 24.0).astype(np.int64))
+        out = color * (0.92 + ridge[:, None] * 0.09 + tone[:, None] * 0.13)
+        out = np.where((fleck < 0.14)[:, None], out * 0.72, out)
+        out = np.where((crack < 0.12)[:, None], out * 0.6, out)
+        return np.where((np.sin(u * 1.9) > 0.82)[:, None], out * 1.07, out)
+
+    if name == "birch":
+        # Pale paper bark with dark horizontal lenticel dashes.
+        dash = _hash01(np.floor(u / 7.0).astype(np.int64),
+                       np.floor(v / 6.0).astype(np.int64))
+        shade = _hash01(np.floor(u / 3.0).astype(np.int64),
+                        np.floor(v / 20.0).astype(np.int64))
+        out = color * (0.96 + shade[:, None] * 0.06)
+        return np.where((dash < 0.22)[:, None], out * 0.42, out)
+
+    if name == "leaf":
+        # Dappled foliage: soft flecks of light and shade at leaf scale, so a
+        # canopy clump reads as leaves rather than a smooth ball - kept gentle
+        # enough to stay one mass up close.
+        fine = _hash01(np.floor(u / 4.0).astype(np.int64),
+                       np.floor(v / 4.0).astype(np.int64))
+        coarse = _hash01(np.floor(u / 9.0).astype(np.int64),
+                         np.floor(v / 9.0).astype(np.int64))
+        out = color * (0.90 + fine[:, None] * 0.14 + coarse[:, None] * 0.10)
+        return np.clip(out, 0, 1)
+
     if name == "shingle":
         row = np.floor(v / 4.0).astype(np.int64)
         x = u + np.where(row % 2 == 0, 0.0, 4.0)

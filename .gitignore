@@ -32,6 +32,10 @@ Thumbs.db
 *.swo
 *~
 
+# Python tooling (tools/building_art, tools/tree_art)
+.venv/
+__pycache__/
+
 # VSCode
 .vscode/
 
