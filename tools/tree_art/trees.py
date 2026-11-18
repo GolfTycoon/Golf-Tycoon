@@ -788,9 +788,9 @@ def draw_birch(builder: TreeBuilder, rng) -> None:
     birch_tones = (BIRCH_LEAF_DARK, BIRCH_LEAF, BIRCH_LEAF_LIGHT,
                    BIRCH_LEAF_SUN)
     for cx, cy, cz, rx, ry, rz, count, tips, fill in (
-            (33.0, 16.0, 56.0, 29.0, 15.5, 10.5, 58, 22, 1),
-            (10.5, 13.0, 48.0, 14.5, 9.0, 8.5, 22, 10, 1),
-            (55.0, 19.0, 50.0, 16.0, 10.0, 9.0, 24, 11, 1),
+            (33.0, 16.0, 56.0, 30.0, 18.0, 10.5, 58, 22, 1),
+            (10.0, 11.5, 48.0, 15.0, 10.0, 8.5, 22, 10, 1),
+            (55.5, 17.5, 50.0, 16.5, 10.5, 9.0, 24, 11, 1),
             (36.0, 15.0, 60.5, 13.0, 7.5, 7.0, 14, 7, 0)):
         shrub_canopy(builder, (cx, cy, cz), (rx, ry, rz), birch_tones,
                      rng, group=crown, count=count, cluster=2.95,
@@ -982,6 +982,18 @@ def draw_palm(builder: TreeBuilder, rng) -> None:
                     rng.uniform(5.0, 7.5), rng.uniform(7.0, 10.0), 2.0,
                     PALM_FROND_LIGHT if i % 2 else PALM_FROND,
                     leaflets=2, width=3.8)
+    # A tight green heart at the growth point covers the brown boot.
+    for i in range(4):
+        a = math.tau * i / 4 + 0.5
+        builder.blob(top[0] + math.cos(a) * 1.1,
+                     top[1] + math.sin(a) * 0.9, top[2] + 1.0,
+                     2.0, 1.9, 2.0,
+                     PALM_FROND_DARK if i % 2 else PALM_FROND,
+                     ao_base=0.94, segments=6, rings=4, group=boot,
+                     wobble=0.26, phase=a * 1.7)
+    builder.blob(top[0], top[1], top[2] + 2.6, 1.7, 1.6, 2.1,
+                 PALM_FROND_LIGHT, ao_base=0.96, segments=6, rings=4,
+                 group=boot, wobble=0.24, phase=1.1)
     for i in range(2):
         yaw = yaw0 + math.tau * i / 2 + 0.8
         _palm_frond(builder, top[0], top[1], top[2] + 2.2, yaw,
