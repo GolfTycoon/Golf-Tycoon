@@ -10,7 +10,8 @@ clusters rather than smooth balls.  Every species obeys the same rules:
 
 * **Silhouette before surface.**  A species is recognisable as a solid black
   shape at one pixel per world pixel - the oak's broad goblet, the pine's
-  scalloped spire, the birch's airy clump, the palm's radial crown.
+  scalloped spire, the birch's airy clump, the palm's wheel of notched
+  fronds, the dead tree's splintered crown.
 * **One light.**  The renderer's sun (``render.SUN``, +x / -y / up) is the only
   light.  Foliage is chosen in four tones - deep shadow, mass, lit face and a
   warm sun rim - by where a cluster sits on the crown, so the canopy shades
@@ -18,14 +19,26 @@ clusters rather than smooth balls.  Every species obeys the same rules:
 * **Leaf-scale detail.**  Crowns are clouds of small clusters (2-7 world px),
   each dappled with the ``leaf_fine`` surface pattern; a scalloped ring of
   little leaf tufts breaks every silhouette.  The cluster, not the species,
-  sets the detail scale, so a 20 px heather cushion and a 75 px oak carry the
+  sets the detail scale, so a 24 px heather cushion and a 70 px oak carry the
   same visual grain.
 * **Wood shows.**  A root-flared, tapered trunk and real forking limbs carry the
-  canopy.  Bark is bark, not a brown post: vertical ridges, warm lit side,
-  shadowed lee.
+  canopy.  Bark is bark, not a brown post: the ``bark`` pattern cuts
+  vertical ridges into a warm lit side and a shadowed lee, and buttress roots
+  spread the load into the turf.
 * **Four drawings, one tree.**  The four view variants are independent seeded
   drawings of the species (``variant_seed()``), not rotations: a wood wears
   several different trees at once and they share one sun.
+
+Species notes
+-------------
+Silhouettes are species-specific rather than one cloud on a stick.  Oaks fork
+into three shoulders; maples keep two low boughs visible under a broad ember
+crown; birches are a clump of paper trunks; pines stack needle boughs with
+drooping tips; palms carry a curved, ringed trunk, a green crownshaft, coconuts
+and ranks of solid, notched fronds; dead trees grow hair-fine second-generation
+twigs around a hollow; cacti are a ribbed, domed column with curved arms;
+shrubs are thin woody stems with separate leaf clouds; fescue, heather and
+cattails are ground-layer plants with their own bloom or seed heads.
 
 Model space
 -----------
@@ -69,17 +82,20 @@ BARK = mat(C("7b5334"), "bark")
 BARK_DARK = mat(C("54351d"), "bark")
 BARK_LIGHT = mat(C("a2744a"), "bark")
 BARK_WARM = mat(C("b98a58"), "bark")
-BIRCH_BARK = mat(C("f4f3e7"), "birch", emissive=0.12)
-BIRCH_BARK_SHADE = mat(C("d2d0bc"), "birch", emissive=0.06)
-DEAD_BARK = mat(C("9a8a78"), "bark")
-DEAD_BARK_DARK = mat(C("74685a"), "bark")
-DEAD_BARK_LIGHT = mat(C("c2b29c"), "bark")
+MAPLE_BARK = mat(C("6c4b36"), "bark")
+MAPLE_BARK_DARK = mat(C("4c3324"), "bark")
+MAPLE_BARK_LIGHT = mat(C("8d674a"), "bark")
+BIRCH_BARK = mat(C("fffdf2"), "birch", emissive=0.30)
+BIRCH_BARK_SHADE = mat(C("cfcdb8"), "birch", emissive=0.16)
+DEAD_BARK = mat(C("a08f7c"), "bark", emissive=0.06)
+DEAD_BARK_DARK = mat(C("7d6f5e"), "bark", emissive=0.05)
+DEAD_BARK_LIGHT = mat(C("c6b49a"), "bark")
 PALM_BARK = mat(C("b18e5f"), "bark")
 PALM_BARK_DARK = mat(C("86653d"), "bark")
 PALM_BARK_LIGHT = mat(C("d2b181"), "bark")
-CACTUS_SKIN = mat(C("5b8a4e"), "bark")
-CACTUS_SKIN_DARK = mat(C("3f6b3c"), "bark")
-CACTUS_SKIN_LIGHT = mat(C("77a862"), "bark")
+CACTUS_SKIN = mat(C("4d7f4e"), "bark")
+CACTUS_SKIN_DARK = mat(C("2f5a3a"), "bark")
+CACTUS_SKIN_LIGHT = mat(C("6fa25f"), "bark")
 
 # Foliage: (deep shadow, mass, lit face, warm sun rim).  The rim is the tone
 # that touches the sky on the sun side; it is what makes a wood glow.
@@ -91,22 +107,24 @@ OAK_LEAF_SUN = mat(C("8bc25d"), "leaf_fine")
 MAPLE_LEAF_DARK = mat(C("74281d"), "leaf_fine")
 MAPLE_LEAF = mat(C("a83a24"), "leaf_fine")
 MAPLE_LEAF_LIGHT = mat(C("d2662b"), "leaf_fine")
-MAPLE_LEAF_SUN = mat(C("d97a34"), "leaf_fine")
+MAPLE_LEAF_SUN = mat(C("e39a48"), "leaf_fine")
 
 BIRCH_LEAF_DARK = mat(C("466d35"), "leaf_fine")
 BIRCH_LEAF = mat(C("63954a"), "leaf_fine")
 BIRCH_LEAF_LIGHT = mat(C("88bb5d"), "leaf_fine")
 BIRCH_LEAF_SUN = mat(C("a6d07a"), "leaf_fine")
 
-PINE_NEEDLE_DARK = mat(C("1c3a2e"), "needle")
-PINE_NEEDLE = mat(C("2b5440"), "needle")
-PINE_NEEDLE_LIGHT = mat(C("3d7552"), "needle")
-PINE_NEEDLE_SUN = mat(C("619a68"), "needle")
+PINE_NEEDLE_DARK = mat(C("2b5238"), "needle", emissive=0.07)
+PINE_NEEDLE = mat(C("3f7850"), "needle", emissive=0.07)
+PINE_NEEDLE_LIGHT = mat(C("5a9463"), "needle", emissive=0.07)
+PINE_NEEDLE_SUN = mat(C("88b47b"), "needle", emissive=0.09)
+PINE_BARK = mat(C("3b3d31"), "bark")
+PINE_BARK_DARK = mat(C("282a22"), "bark")
 
-PALM_FROND_DARK = mat(C("3a6b3a"), "leaf_fine", emissive=0.08)
-PALM_FROND = mat(C("579348"), "leaf_fine", emissive=0.08)
-PALM_FROND_LIGHT = mat(C("74b05a"), "leaf_fine", emissive=0.08)
-PALM_FROND_SUN = mat(C("a0d37c"), "leaf_fine", emissive=0.08)
+PALM_FROND_DARK = mat(C("477a41"), "leaf_fine", emissive=0.13)
+PALM_FROND = mat(C("4f8a46"), "leaf_fine", emissive=0.10)
+PALM_FROND_LIGHT = mat(C("70a854"), "leaf_fine", emissive=0.10)
+PALM_FROND_SUN = mat(C("9aca70"), "leaf_fine", emissive=0.10)
 DEAD_FROND = mat(C("8f6f3f"), "reed")
 DEAD_FROND_DARK = mat(C("6f5230"), "reed")
 
@@ -117,32 +135,32 @@ BUSH_LEAF_SUN = mat(C("8ec36c"), "leaf_fine")
 BUSH_BERRY = mat(C("b34a58"), "flat")
 BUSH_BERRY_LIGHT = mat(C("d8737c"), "flat")
 
-GRASS_DARK = mat(C("6f7f33"), "reed")
-GRASS = mat(C("94a544"), "reed")
-GRASS_LIGHT = mat(C("bcc75e"), "reed")
-GRASS_SUN = mat(C("deda84"), "reed")
-STRAW = mat(C("c9b56f"), "reed")
-STRAW_LIGHT = mat(C("e2d493"), "reed")
+GRASS_DARK = mat(C("56774a"), "reed", emissive=0.12)
+GRASS = mat(C("7a9c58"), "reed", emissive=0.12)
+GRASS_LIGHT = mat(C("9dbb6c"), "reed", emissive=0.12)
+GRASS_SUN = mat(C("c5d98a"), "reed", emissive=0.14)
+STRAW = mat(C("c9b56f"), "reed", emissive=0.06)
+STRAW_LIGHT = mat(C("e2d493"), "reed", emissive=0.06)
 
-HEATHER_LEAF_DARK = mat(C("2b3d29"), "leaf_fine")
-HEATHER_LEAF = mat(C("405634"), "leaf_fine")
-HEATHER_LEAF_LIGHT = mat(C("566f42"), "leaf_fine")
+HEATHER_LEAF_DARK = mat(C("34472f"), "leaf_fine")
+HEATHER_LEAF = mat(C("4c6439"), "leaf_fine")
+HEATHER_LEAF_LIGHT = mat(C("647d48"), "leaf_fine")
 HEATHER_BLOOM_DARK = mat(C("783770"), "bloom")
 HEATHER_BLOOM = mat(C("a64f91"), "bloom")
 HEATHER_BLOOM_LIGHT = mat(C("c96eae"), "bloom")
 HEATHER_BLOOM_SUN = mat(C("e79bc8"), "bloom")
 
-CATTAIL_LEAF_DARK = mat(C("365c33"), "reed")
-CATTAIL_LEAF = mat(C("4f7c40"), "reed")
-CATTAIL_LEAF_LIGHT = mat(C("6f9f55"), "reed")
-CATTAIL_LEAF_SUN = mat(C("93bd6d"), "reed")
-CATTAIL_HEAD_DARK = mat(C("5a3a1d"), "reed")
-CATTAIL_HEAD = mat(C("7d5228"), "reed")
-CATTAIL_HEAD_LIGHT = mat(C("a06d36"), "reed")
+CATTAIL_LEAF_DARK = mat(C("3f6a3a"), "reed", emissive=0.07)
+CATTAIL_LEAF = mat(C("55864a"), "reed", emissive=0.07)
+CATTAIL_LEAF_LIGHT = mat(C("6f9f55"), "reed", emissive=0.07)
+CATTAIL_LEAF_SUN = mat(C("8fbd6e"), "reed", emissive=0.07)
+CATTAIL_HEAD_DARK = mat(C("5a3a1d"), "reed", emissive=0.04)
+CATTAIL_HEAD = mat(C("7d5228"), "reed", emissive=0.04)
+CATTAIL_HEAD_LIGHT = mat(C("a06d36"), "reed", emissive=0.04)
 
 FLOWER_PINK = mat(C("d95f8c"), "bloom")
 FLOWER_PINK_LIGHT = mat(C("f095b5"), "bloom")
-CACTUS_SPINE = mat(C("e8e2b8"), "flat")
+CACTUS_SPINE = mat(C("f0e8c0"), "flat")
 STONE_PEBBLE = mat(C("a89c88"), "gravel")
 STONE_PEBBLE_DARK = mat(C("8b8070"), "gravel")
 COCONUT = mat(C("6e4a26"), "flat")
@@ -380,21 +398,33 @@ class TreeBuilder(Builder):
 
     # -- roots and branches ----------------------------------------------
     def roots(self, x, y, z, radius, material, rng, count=4, group=None,
-              dark=None) -> None:
-        """The root flare: a widened collar and toes reaching into the turf."""
+              dark=None, spread=1.0) -> None:
+        """The root flare: a buttressed collar and toes that grip the turf.
+
+        Each toe leaves the trunk high, bows outward and dives into the ground,
+        so the flare reads as roots prising the soil apart rather than as a
+        wider cylinder.  Alternating tones break the ring into separate roots.
+        """
         gid = self.m.group() if group is None else group
         dark = material if dark is None else dark
-        self.limb((x, y, z - 2.0), (x, y, z + radius * 1.15),
-                  radius * 1.4, radius * 0.9, material, segments=9,
-                  group=gid)
+        self.limb((x, y, z - 1.8), (x, y, z + radius * 1.18),
+                  radius * 1.26, radius * 0.95, material, segments=10,
+                  group=gid, ao0=0.72, ao1=0.98)
         for i in range(count):
-            yaw = math.tau * i / count + rng.uniform(-0.4, 0.4)
-            reach = radius * rng.uniform(1.25, 1.9)
-            tip = (x + math.cos(yaw) * reach,
-                   y + math.sin(yaw) * reach * 0.8, z - 1.8)
-            self.limb((x, y, z + radius * 0.7), tip,
-                      radius * 0.55, radius * 0.12,
-                      dark if i % 2 else material, segments=5, group=gid)
+            yaw = math.tau * i / count + rng.uniform(-0.26, 0.26)
+            reach = radius * rng.uniform(2.0, 2.8) * spread
+            sx, sy = math.cos(yaw), math.sin(yaw) * 0.86
+            base = (x + sx * radius * 0.55, y + sy * radius * 0.55,
+                    z + radius * 0.95)
+            mid = (x + sx * reach * 0.58, y + sy * reach * 0.58,
+                   z + radius * 0.52)
+            tip = (x + sx * reach, y + sy * reach, z - 1.3)
+            self.limb(base, mid, radius * 0.62, radius * 0.42,
+                      material if i % 2 else dark, segments=6, group=gid,
+                      ao0=0.86, ao1=0.99)
+            self.limb(mid, tip, radius * 0.42, radius * 0.10,
+                      dark if i % 2 else material, segments=5, group=gid,
+                      ao0=0.99, ao1=0.84, cap=False)
 
     def gnarl(self, p0, yaw, pitch, length, r, material, depth, rng,
               group=None, wander=0.55, light=None):
@@ -429,35 +459,42 @@ class TreeBuilder(Builder):
 
     def ribbed_column(self, x, y, z0, z1, radius, dark, mid, light,
                       ribs=9, group=None, rng=None, spines=0,
-                      spine_mat=None) -> None:
+                      spine_mat=None, dome=True) -> None:
         """A cactus column: a shaded core with raised, sun-caught ribs."""
         gid = self.m.group() if group is None else group
-        self.cylinder(x, y, z0, z1, radius * 0.88, mid, segments=12,
+        self.cylinder(x, y, z0, z1, radius * 0.88, mid, segments=16,
                       cap=False, group=gid)
         for i in range(ribs):
             yaw = math.tau * i / ribs
             dx, dy = math.cos(yaw), math.sin(yaw)
             band = tone_for((dark, mid, light, light), dx, dy, 0.0,
                             rng or _NullRng(), jitter=0.0)
-            rx, ry = x + dx * radius * 0.78, y + dy * radius * 0.78
-            self.limb((rx, ry, z0), (rx, ry, z1), radius * 0.26,
-                      radius * 0.21, band, segments=4, group=gid,
+            rx, ry = x + dx * radius * 0.80, y + dy * radius * 0.80
+            self.limb((rx, ry, z0), (rx, ry, z1), radius * 0.24,
+                      radius * 0.20, band, segments=4, group=gid,
                       cap=False)
-        self.blob(x, y, z1, radius, radius * 0.98, radius * 0.8,
-                  light, ao_base=0.86, segments=9, rings=4, group=gid,
-                  wobble=0.05)
+            if dome:
+                # The ribs carry over the rounded top instead of stopping at
+                # a flat lid.
+                self.limb((rx, ry, z1),
+                          (x + dx * radius * 0.40, y + dy * radius * 0.34,
+                           z1 + radius * 0.52), radius * 0.20,
+                          radius * 0.08, band, segments=3, group=gid,
+                          cap=False)
+        if dome:
+            self.blob(x, y, z1, radius * 0.92, radius * 0.88,
+                      radius * 0.62, light, ao_base=0.88, segments=12,
+                      rings=5, group=gid, wobble=0.03)
         if spines and rng is not None:
-            # Pale spines stand along the rib crests in short rows - the
-            # detail that makes a cactus read as a cactus at 1 px.
             spine_mat = light if spine_mat is None else spine_mat
             for rib in range(ribs):
                 yaw = math.tau * rib / ribs
                 for k in range(spines):
-                    z = z0 + (z1 - z0) * (0.12 + 0.76 * k / max(1, spines - 1))
-                    z += rng.uniform(-0.8, 0.8)
-                    self.blob(x + math.cos(yaw) * radius * 0.94,
-                              y + math.sin(yaw) * radius * 0.94, z,
-                              0.8, 0.8, 0.55, spine_mat, ao_base=0.97,
+                    z = z0 + (z1 - z0) * (0.10 + 0.80 * k / max(1, spines - 1))
+                    z += rng.uniform(-0.7, 0.7)
+                    self.blob(x + math.cos(yaw) * radius * 0.98,
+                              y + math.sin(yaw) * radius * 0.98, z,
+                              0.62, 0.62, 0.45, spine_mat, ao_base=0.98,
                               segments=5, rings=3, group=gid)
 
 
@@ -474,7 +511,8 @@ class _NullRng:
 
 def canopy(builder: TreeBuilder, centre, radii, tones, rng, group=None,
            count=30, cluster=5.0, tips=16, underside=3, ao=0.72,
-           shell=0.9, tip_size=1.35, bias=0.0, spread=1.0) -> None:
+           shell=0.9, tip_size=1.35, bias=0.0, spread=1.0,
+           fillers=3, shoulders=True) -> None:
     """One crown, assembled the way a canopy catches the light.
 
     A dark under-mass holds the silhouette, leaf clusters are distributed over
@@ -525,7 +563,8 @@ def canopy(builder: TreeBuilder, centre, radii, tones, rng, group=None,
         ox = cx + dx * rx * f * spread
         oy = cy + dy * ry * f * spread
         oz = cz + dz * rz * f
-        rad = cluster * rng.uniform(0.70, 1.12)
+        rad = cluster * (rng.uniform(0.72, 1.12) if rng.random() < 0.80
+                         else rng.uniform(1.32, 1.72))
         if abs(dz) < 0.35:
             rad *= 1.08
         tone = tone_for(tones, dx, dy, dz, rng,
@@ -535,7 +574,7 @@ def canopy(builder: TreeBuilder, centre, radii, tones, rng, group=None,
                      rad * rng.uniform(0.72, 0.94), tone,
                      ao_base=ao, segments=8, rings=5, group=gid,
                      wobble=0.12, phase=a * 1.7)
-        if dz > 0.32:
+        if dz > 0.32 and shoulders:
             # Shoulders under a high cluster: the top of a crown is the
             # easiest place for a leaf ball to look detached, so each high
             # cluster hangs two overlapping masses beneath it.
@@ -562,7 +601,7 @@ def canopy(builder: TreeBuilder, centre, radii, tones, rng, group=None,
     # a leaf floating free of the crown.
     for fx, fy, fz, rr in ((0.0, 0.0, 0.64, 0.96),
                            (0.42, 0.12, 0.40, 0.84),
-                           (-0.42, -0.10, 0.36, 0.80)):
+                           (-0.42, -0.10, 0.36, 0.80))[:fillers]:
         builder.blob(cx + fx * rx, cy + fy * ry, cz + fz * rz,
                      cluster * rr, cluster * rr * 0.9,
                      cluster * rr * 0.76,
@@ -609,391 +648,439 @@ def shrub_canopy(builder: TreeBuilder, centre, radii, tones, rng,
 def draw_oak(builder: TreeBuilder, rng) -> None:
     """A broadleaf oak: a goblet of gnarled boughs under a wide, clouded crown."""
     trunk = builder.group()
-    lean = rng.uniform(-2.2, 2.2)
-    builder.roots(32, 16, 0.0, 5.4, BARK, rng, count=4,
-                  group=trunk, dark=BARK_DARK)
-    fork = (32 + lean * 0.5, 16, rng.uniform(21.0, 25.0))
-    builder.taper_path([(32, 16, 0.5), (32 + lean * 0.25, 16, fork[2] * 0.55),
-                        fork], 6.2, 4.5, BARK, group=trunk, segments=9,
-                       ao0=0.78, ao1=0.94)
+    lean = rng.uniform(-2.4, 2.4)
+    builder.roots(32, 16, 0.0, 5.6, BARK, rng, count=5,
+                  group=trunk, dark=BARK_DARK, spread=1.04)
+    fork = (32 + lean * 0.55, 16, rng.uniform(21.0, 25.0))
+    builder.taper_path([(32, 16, 0.4),
+                        (32 + lean * 0.10, 16, fork[2] * 0.30),
+                        (32 + lean * 0.46, 16, fork[2] * 0.68),
+                        fork], 7.8, 4.3, BARK, group=trunk, segments=11,
+                       ao0=0.76, ao1=0.94)
     # Four heavy boughs, two reaching wide and two lifting into the crown.
-    boughs = ((-0.95, 0.55, 17.0, 13.0), (0.98, 0.45, 18.0, 12.0),
-              (-0.35, -0.9, 14.0, 16.0), (0.55, -0.75, 15.0, 15.0))
+    # Their twigs stay short so no bare spike escapes the leaf mass.
+    boughs = ((-0.95, 0.55, 15.0, 12.0), (0.98, 0.45, 15.0, 11.0),
+              (-0.35, -0.9, 12.0, 14.0), (0.55, -0.75, 13.0, 13.0))
     for bx, by, reach, lift in boughs:
         end = (fork[0] + bx * reach, fork[1] + by * reach * 0.7,
                fork[2] + lift)
-        builder.limb(fork, end, 3.4, 1.5, BARK, segments=6, group=trunk)
-        builder.gnarl(end, math.atan2(by, bx), rng.uniform(0.7, 1.0),
-                      rng.uniform(8.0, 12.0), 1.5, BARK_LIGHT, 1, rng,
+        builder.limb(fork, end, 3.6, 1.6, BARK, segments=6, group=trunk)
+        builder.gnarl(end, math.atan2(by, bx), rng.uniform(0.7, 0.95),
+                      rng.uniform(6.5, 8.0), 1.5, BARK_LIGHT, 1, rng,
                       group=trunk, light=BARK_WARM)
-    # One old oak is three cloud-lobes: a high dome and two lower shoulders.
-    # Each variant stands a little differently, so the four drawings are
-    # independently sized as well as independently shaped.
+    # One old oak is a broad, lobed crown: a high dome with shoulders that
+    # break the outline into clouds.  All four lobes share one crease group so
+    # the canopy reads as one mass of leaves, and each lobe is built from
+    # small clusters rather than broad grape-like balls.
     lift = (0.0, 1.5, 0.7, 2.2)[getattr(builder, "variant", 0) % 4]
+    oak_tones = (OAK_LEAF_DARK, OAK_LEAF, OAK_LEAF_LIGHT, OAK_LEAF_SUN)
     crown = builder.group()
-    shrub_canopy(builder, (31.0 + lean, 16.0, 53.0 + lift), (46.0, 21.0, 13.5),
-                 (OAK_LEAF_DARK, OAK_LEAF, OAK_LEAF_LIGHT, OAK_LEAF_SUN),
-                 rng, group=crown, count=48, cluster=5.8, tips=24,
-                 ao=0.70)
-    shoulder_a = builder.group()
-    shrub_canopy(builder, (9.0, 14.0, 43.5 + lift), (18.0, 10.0, 10.0),
-                 (OAK_LEAF_DARK, OAK_LEAF, OAK_LEAF_LIGHT, OAK_LEAF_SUN),
-                 rng, group=shoulder_a, count=18, cluster=4.7, tips=11,
-                 ao=0.68, underside=2)
-    shoulder_b = builder.group()
-    shrub_canopy(builder, (53.0, 17.0, 45.0 + lift), (19.0, 10.5, 10.5),
-                 (OAK_LEAF_DARK, OAK_LEAF, OAK_LEAF_LIGHT, OAK_LEAF_SUN),
-                 rng, group=shoulder_b, count=19, cluster=4.7, tips=12,
-                 ao=0.68, underside=2)
+    shrub_canopy(builder, (31.0 + lean, 16.0, 54.0 + lift),
+                 (46.0, 21.0, 13.0), oak_tones, rng, group=crown,
+                 count=150, cluster=3.9, tips=46, tip_size=1.6,
+                 ao=0.66, underside=4, shell=0.92)
+    for cx, cy, cz, rx, ry, rz, count in (
+            (9.0, 14.5, 44.5 + lift, 17.0, 10.0, 9.5, 32),
+            (53.0, 16.5, 45.5 + lift, 18.0, 10.5, 10.0, 34)):
+        shrub_canopy(builder, (cx, cy, cz), (rx, ry, rz), oak_tones,
+                     rng, group=crown, count=count, cluster=3.6, tips=15,
+                     tip_size=1.5, ao=0.66, underside=2, shell=0.94)
 
 
 def draw_maple(builder: TreeBuilder, rng) -> None:
-    """A maple: a slim upright trunk under a rounded crown of ember lobes."""
+    """A maple: a slender forked trunk under a broad crown of ember lobes."""
     trunk = builder.group()
-    lean = rng.uniform(-1.5, 1.5)
-    builder.roots(32, 16, 0.0, 4.3, BARK_DARK, rng, count=3,
-                  group=trunk, dark=BARK_DARK)
-    fork = (32 + lean, 16, rng.uniform(25.0, 29.0))
-    builder.taper_path([(32, 16, 0.5), (32 + lean * 0.4, 16, 13.0), fork],
-                       4.5, 3.1, BARK_DARK, group=trunk, segments=8,
-                       ao0=0.78, ao1=0.92)
-    for i in range(4):
-        yaw = math.tau * i / 4 + rng.uniform(-0.45, 0.45)
-        end = (fork[0] + math.cos(yaw) * rng.uniform(7.0, 10.5),
-               fork[1] + math.sin(yaw) * rng.uniform(5.5, 8.0),
-               fork[2] + rng.uniform(6.0, 11.0))
-        builder.limb(fork, end, 2.2, 1.1, BARK_DARK, segments=5,
+    lean = rng.uniform(-2.2, 2.2)
+    builder.roots(32, 16, 0.0, 4.6, MAPLE_BARK_DARK, rng, count=4,
+                  group=trunk, dark=MAPLE_BARK_DARK, spread=0.92)
+    fork = (32 + lean * 0.6, 16, rng.uniform(26.0, 30.0))
+    builder.taper_path([(32, 16, 0.4),
+                        (32 + lean * 0.08, 16, fork[2] * 0.34),
+                        (32 + lean * 0.44, 16, fork[2] * 0.70),
+                        fork], 5.8, 2.9, MAPLE_BARK, group=trunk,
+                       segments=11, ao0=0.78, ao1=0.94)
+    # Five limbs fan out of the fork; two low ones stay visible beneath the
+    # crown, so the maple does not read as a ball balanced on a stick.
+    for i in range(5):
+        yaw = math.tau * i / 5 + rng.uniform(-0.34, 0.34)
+        low = i < 2
+        reach = rng.uniform(11.0, 14.0) if low else rng.uniform(8.0, 11.0)
+        lift = rng.uniform(-1.0, 2.0) if low else rng.uniform(7.0, 12.0)
+        end = (fork[0] + math.cos(yaw) * reach,
+               fork[1] + math.sin(yaw) * reach * 0.8, fork[2] + lift)
+        builder.limb(fork, end, 2.6, 1.15, MAPLE_BARK, segments=6,
                      group=trunk)
-        builder.gnarl(end, yaw, rng.uniform(0.8, 1.05),
-                      rng.uniform(5.0, 7.5), 1.0, BARK_DARK, 1, rng,
-                      group=trunk, light=BARK_LIGHT)
+        builder.gnarl(end, yaw, rng.uniform(0.55, 0.9) if low
+                      else rng.uniform(0.75, 1.0),
+                      rng.uniform(5.0, 7.0), 1.0, MAPLE_BARK_LIGHT, 1, rng,
+                      group=trunk, light=MAPLE_BARK_LIGHT)
+    maple_tones = (MAPLE_LEAF_DARK, MAPLE_LEAF, MAPLE_LEAF_LIGHT,
+                   MAPLE_LEAF_SUN)
     crown = builder.group()
-    shrub_canopy(builder, (32 + lean, 16, 50.0), (36.0, 16.5, 18.5),
-                 (MAPLE_LEAF_DARK, MAPLE_LEAF, MAPLE_LEAF_LIGHT,
-                  MAPLE_LEAF_SUN), rng, group=crown, count=52, cluster=4.5,
-                 tips=26, ao=0.70)
-    # Two lower side lobes tucked under the main crown give the maple its
-    # broad, rounded-in-shoulders look without breaking into separate balls.
+    main_z = rng.uniform(48.0, 51.0)
+    shrub_canopy(builder, (32.0 + lean, 16.0, main_z),
+                 (38.0, 18.0, 16.0), maple_tones, rng, group=crown,
+                 count=132, cluster=3.6, tips=40, tip_size=1.45,
+                 ao=0.66, underside=3, fillers=2, shell=0.92)
     for side in (-1.0, 1.0):
-        lobe = builder.group()
-        shrub_canopy(builder, (32 + lean + side * 17.0, 16 + side * 2.0,
-                               43.5), (14.0, 8.0, 9.5),
-                     (MAPLE_LEAF_DARK, MAPLE_LEAF, MAPLE_LEAF_LIGHT,
-                      MAPLE_LEAF_SUN), rng, group=lobe, count=14,
-                     cluster=4.0, tips=8, ao=0.68, underside=2)
+        cx = 32.0 + lean + side * rng.uniform(16.0, 19.5)
+        cy = 16.0 + side * rng.uniform(0.0, 3.0)
+        cz = main_z - rng.uniform(4.5, 7.0)
+        shrub_canopy(builder, (cx, cy, cz),
+                     (rng.uniform(15.0, 18.0), rng.uniform(9.5, 11.0),
+                      rng.uniform(9.5, 11.5)), maple_tones, rng,
+                     group=crown, count=30, cluster=3.3, tips=14,
+                     tip_size=1.35, ao=0.66, underside=2, fillers=1,
+                     shell=0.93)
 
 
 def draw_birch(builder: TreeBuilder, rng) -> None:
     """A birch: a clump of white paper trunks under an airy, broken crown."""
-    stems = 3
-    crown_groups = []
-    for stem in range(stems):
+    stems = ((-8.0, -1.5, -3.6, 46.0, 2.45),
+             (0.5, 2.8, 1.2, 41.0, 2.00),
+             (8.5, -0.8, 5.4, 37.0, 1.55))
+    for stem, (dx, dy, lean, height, thick) in enumerate(stems):
         trunk = builder.group()
-        base_x = 32 + (stem - 1) * 6.0 + rng.uniform(-2.0, 2.0)
-        base_y = 16 - (stem - 1) * 4.0 + rng.uniform(-1.6, 1.6)
-        lean = (stem - 1) * rng.uniform(3.0, 6.5) + rng.uniform(-1.5, 1.5)
-        height = rng.uniform(37.0, 45.0)
-        builder.roots(base_x, base_y, 0.0, 2.3, BIRCH_BARK, rng, count=3,
-                      group=trunk, dark=BIRCH_BARK_SHADE)
-        top = (base_x + lean, base_y + rng.uniform(-1.5, 1.5), height)
-        points = [(base_x, base_y, 0.5),
-                  (base_x + lean * 0.25, base_y + lean * 0.05,
+        base_x, base_y = 32 + dx, 16 + dy
+        builder.roots(base_x, base_y, 0.0, thick, BIRCH_BARK, rng,
+                      count=3, group=trunk, dark=BIRCH_BARK_SHADE,
+                      spread=0.62)
+        top = (base_x + lean, base_y + rng.uniform(-0.9, 0.9), height)
+        points = [(base_x, base_y, 0.4),
+                  (base_x + lean * 0.22, base_y + lean * 0.05,
                    height * 0.36),
-                  (base_x + lean * 0.62, base_y + lean * 0.1,
+                  (base_x + lean * 0.60, base_y + lean * 0.1,
                    height * 0.72),
                   top]
-        builder.taper_path(points, 2.5, 0.75, BIRCH_BARK, group=trunk,
-                           segments=7, ao0=0.8, ao1=0.95)
-        # The birch pattern paints the dark lenticel bars; a couple of small
-        # branch scars add depth without fighting those markings.
+        builder.taper_path(points, thick, 0.42, BIRCH_BARK, group=trunk,
+                           segments=8, ao0=0.80, ao1=0.96)
+        # A couple of small branch scars add depth without fighting the
+        # lenticel bars painted by the bark pattern.
         for _ in range(2):
             z = rng.uniform(height * 0.25, height * 0.7)
             a = rng.uniform(0, math.tau)
-            rr = 2.0 * (1.0 - 0.55 * z / height)
+            rr = thick * (1.0 - 0.45 * z / height)
             builder.blob(base_x + lean * (z / height) + math.cos(a) * rr,
-                         base_y + math.sin(a) * rr, z, 0.8, 0.7, 0.5,
+                         base_y + math.sin(a) * rr, z, 0.72, 0.62, 0.48,
                          BIRCH_BARK_SHADE, ao_base=0.95, segments=5,
                          rings=3, group=trunk)
-        # Thin, upward branches reaching into the crown.
-        for k in range(3):
-            yaw = math.tau * k / 3 + rng.uniform(-0.5, 0.5)
-            start_z = height * rng.uniform(0.55, 0.82)
+        # Two thin branches per stem, kept inside the crown so the clump reads
+        # as one tree rather than a bundle of poles.
+        for k in range(2):
+            yaw = math.tau * k / 2 + rng.uniform(-0.5, 0.5) + stem * 0.8
+            start_z = height * rng.uniform(0.60, 0.84)
             start = (base_x + lean * (start_z / height),
                      base_y + rng.uniform(-0.6, 0.6), start_z)
-            end = (start[0] + math.cos(yaw) * rng.uniform(7.0, 11.0),
-                   start[1] + math.sin(yaw) * rng.uniform(5.0, 8.0),
-                   start_z + rng.uniform(12.0, 19.0))
-            builder.limb(start, end, 1.0, 0.3, BIRCH_BARK_SHADE,
-                         segments=4, group=trunk)
-            # One thinner fork per branch, so the crown is held by twigs.
-            fork_yaw = yaw + rng.choice((-0.6, 0.6))
-            builder.limb(end, (end[0] + math.cos(fork_yaw) * rng.uniform(4.0, 7.0),
-                               end[1] + math.sin(fork_yaw) * rng.uniform(3.0, 5.0),
-                               end[2] + rng.uniform(3.0, 6.0)),
-                         0.45, 0.16, BIRCH_BARK_SHADE, segments=3,
-                         group=trunk, cap=False)
-        # The crown is three loose clouds, with sky between their edges: that
-        # airiness is what makes a birch a birch.
-        crown = builder.group()
-        crown_groups.append(crown)
-        shrub_canopy(builder, (top[0], top[1], height + 15.0),
-                     (17.0, 9.5, 12.0),
-                     (BIRCH_LEAF_DARK, BIRCH_LEAF, BIRCH_LEAF_LIGHT,
-                      BIRCH_LEAF_SUN), rng, group=crown, count=20,
-                     cluster=3.9, tips=12, ao=0.72, underside=2)
-        side = rng.choice((-1.0, 1.0))
-        lobe = builder.group()
-        crown_groups.append(lobe)
-        shrub_canopy(builder, (top[0] + side * rng.uniform(8.0, 13.0),
-                               top[1] + rng.uniform(-3.0, 3.0),
-                               height + rng.uniform(8.0, 14.0)),
-                     (10.0, 7.0, 8.5),
-                     (BIRCH_LEAF_DARK, BIRCH_LEAF, BIRCH_LEAF_LIGHT,
-                      BIRCH_LEAF_SUN), rng, group=lobe, count=11,
-                     cluster=3.4, tips=7, ao=0.72, underside=1)
+            end = (start[0] + math.cos(yaw) * rng.uniform(6.0, 9.5),
+                   start[1] + math.sin(yaw) * rng.uniform(4.0, 7.0),
+                   start_z + rng.uniform(8.0, 13.0))
+            builder.limb(start, end, 0.78, 0.26, BIRCH_BARK, segments=4,
+                         group=trunk)
+            fork_yaw = yaw + rng.choice((-0.55, 0.55))
+            tip = (end[0] + math.cos(fork_yaw) * rng.uniform(3.0, 5.5),
+                   end[1] + math.sin(fork_yaw) * rng.uniform(2.0, 4.0),
+                   end[2] + rng.uniform(2.0, 4.0))
+            builder.limb(end, tip, 0.28, 0.09, BIRCH_BARK_SHADE,
+                         segments=3, group=trunk, cap=False)
+    # One loose, rounded crown over the whole clump, built from overlapping
+    # clouds so the clump shares a single canopy with sky between the edges.
+    crown = builder.group()
+    birch_tones = (BIRCH_LEAF_DARK, BIRCH_LEAF, BIRCH_LEAF_LIGHT,
+                   BIRCH_LEAF_SUN)
+    for cx, cy, cz, rx, ry, rz, count, tips, fill in (
+            (33.0, 16.0, 56.0, 29.0, 15.5, 10.5, 58, 22, 1),
+            (10.5, 13.0, 48.0, 14.5, 9.0, 8.5, 22, 10, 1),
+            (55.0, 19.0, 50.0, 16.0, 10.0, 9.0, 24, 11, 1),
+            (36.0, 15.0, 60.5, 13.0, 7.5, 7.0, 14, 7, 0)):
+        shrub_canopy(builder, (cx, cy, cz), (rx, ry, rz), birch_tones,
+                     rng, group=crown, count=count, cluster=2.95,
+                     tips=tips, tip_size=1.2, ao=0.68, underside=1,
+                     shell=0.94, fillers=fill, shoulders=False)
 
 
 def draw_pine(builder: TreeBuilder, rng) -> None:
-    """A conifer: a straight bole under scalloped tiers of drooping boughs."""
+    """A conifer: a visible bole under spiralling tiers of feathered boughs."""
     trunk = builder.group()
-    builder.roots(32, 16, 0.0, 4.2, BARK_DARK, rng, count=3,
-                  group=trunk, dark=BARK_DARK)
-    builder.taper_path([(32, 16, 0.5), (32, 16, 24.0), (32, 16, 60.0)],
-                       4.6, 0.9, BARK_DARK, group=trunk, segments=8,
-                       ao0=0.76, ao1=0.95)
+    builder.roots(32, 16, 0.0, 4.3, PINE_BARK_DARK, rng, count=4,
+                  group=trunk, dark=PINE_BARK_DARK, spread=0.85)
+    builder.taper_path([(32, 16, 0.3), (32, 16, 18.0), (32, 16, 42.0),
+                        (32, 16, 64.0)], 4.9, 0.7, PINE_BARK, group=trunk,
+                       segments=9, ao0=0.76, ao1=0.96)
     tones = (PINE_NEEDLE_DARK, PINE_NEEDLE, PINE_NEEDLE_LIGHT,
              PINE_NEEDLE_SUN)
-    tiers = 4
-    base_z = 12.0
+
+    def needle_pad(px, py, pz, wide, deep, thick, yaw, material, tilt=-0.35,
+                   wobble=0.16, ao=0.74):
+        builder.blob(px, py, pz, wide, deep, thick, material, ao_base=ao,
+                     segments=7, rings=4, yaw=yaw, tilt=tilt,
+                     wobble=wobble, phase=yaw * 2.3 + pz * 0.17)
+
+    tiers = 6
     for tier in range(tiers):
         t = tier / (tiers - 1.0)
-        radius = 21.0 * (1.0 - 0.58 * t) * rng.uniform(0.96, 1.04)
-        z0 = base_z + tier * 11.0
-        layer = builder.group()
-        boughs = 6
-        for k in range(boughs):
-            yaw = math.tau * k / boughs + rng.uniform(-0.18, 0.18) \
-                + tier * 0.30
+        z0 = 14.0 + t * 39.0
+        radius = 25.5 * (1.0 - 0.62 * t) * rng.uniform(0.94, 1.06)
+        count = 6 if tier < 3 else (5 if tier < 5 else 4)
+        for k in range(count):
+            yaw = (math.tau * k / count + tier * 0.82
+                   + getattr(builder, "variant", 0) * 0.42
+                   + rng.uniform(-0.12, 0.12))
             dx, dy = math.cos(yaw), math.sin(yaw)
-            tone = tone_for(tones, dx, dy, 0.2 if tier > 1 else 0.0,
-                            rng, jitter=0.04)
-            lit = tone_for(tones, dx, dy, 0.8, rng, jitter=0.03)
-            # A bough is a run of overlapping, flattened leaf pads stepping
-            # outward and drooping at the tip, so each tier ends in a
-            # continuous scalloped edge rather than a string of beads.
-            for step in range(3):
-                q = (step + 1) / 3.0
-                dist = radius * (0.22 + 0.78 * q)
-                pad_w = radius * (0.48 - 0.17 * q)
-                pad_r = radius * (0.32 - 0.09 * q)
-                builder.blob(32 + dx * dist, 16 + dy * dist,
-                             z0 - 2.8 * q * q + rng.uniform(-0.3, 0.3),
-                             pad_w, pad_r, radius * 0.15,
-                             tone, ao_base=0.70, segments=7, rings=4,
-                             group=layer, yaw=yaw, tilt=-0.42,
-                             wobble=0.12, phase=yaw + step)
-                builder.blob(32 + dx * dist, 16 + dy * dist,
-                             z0 + 1.1 - 2.8 * q * q,
-                             pad_w * 0.62, pad_r * 0.52,
-                             radius * 0.10, PINE_NEEDLE_LIGHT,
-                             ao_base=0.80,
-                             segments=6, rings=3, group=layer,
-                             yaw=yaw, tilt=-0.28, wobble=0.14,
-                             phase=yaw * 2.0 + step)
-            # A dark needle pad under the bough gives it depth.
-            builder.blob(32 + dx * radius * 0.62,
-                         16 + dy * radius * 0.62, z0 - 3.6,
-                         radius * 0.32, radius * 0.26, radius * 0.10,
-                         PINE_NEEDLE_DARK, ao_base=0.68, segments=6,
-                         rings=3, group=layer, yaw=yaw, tilt=-0.36,
-                         wobble=0.16, phase=yaw * 3.0)
-            # Needle tips hanging off the bough's rim.
-            for _ in range(2):
-                d = radius * rng.uniform(0.92, 1.05)
-                builder.blob(32 + dx * d + rng.uniform(-0.8, 0.8),
-                             16 + dy * d + rng.uniform(-0.8, 0.8),
-                             z0 - rng.uniform(2.2, 3.8),
-                             radius * 0.13, radius * 0.12,
-                             radius * 0.09, tone, ao_base=0.84,
-                             segments=5, rings=3, group=layer,
-                             wobble=0.28, phase=yaw * 3.0)
-        # A broad central pad closes the middle of each tier.
-        builder.blob(32, 16, z0 + radius * 0.06, radius * 0.60,
-                     radius * 0.54, radius * 0.24,
-                     tone_for(tones, 0.0, -0.2, 0.8, rng, jitter=0.02),
-                     ao_base=0.78, segments=8, rings=4, group=layer,
-                     wobble=0.1, phase=tier)
-    # The leader: one tapered spire, its edge broken by small needle tufts.
-    top = builder.group()
-    builder.cone(32, 16, 46.5, 69.5, 6.2, PINE_NEEDLE_LIGHT,
-                 segments=9, cap=False, group=top)
+            droop = 2.2 + 2.6 * t
+            # The woody bough: a gentle lift off the trunk, then a droop.
+            p0 = (32, 16, z0)
+            p1 = (32 + dx * radius * 0.52, 16 + dy * radius * 0.46,
+                  z0 + 0.7)
+            p2 = (32 + dx * radius, 16 + dy * radius * 0.82,
+                  z0 - droop)
+            # Bough wood is dark green: anything visible between the pads
+            # must read as shadowed needle, never as a red-brown plank.
+            builder.limb(p0, p1, 1.65, 1.05, PINE_NEEDLE_DARK, segments=6,
+                         group=trunk)
+            builder.limb(p1, p2, 1.05, 0.26, PINE_NEEDLE_DARK, segments=6,
+                         group=trunk, cap=False)
+            tone = tone_for(tones, dx, dy, 0.16, rng, jitter=0.05)
+            top_tone = tone_for(tones, dx, dy, 0.55, rng, bias=0.20,
+                                jitter=0.06)
+            # A dark collar hides the naked bough base, so no warm trunk
+            # shows through the needle mass as a red-brown hole.
+            needle_pad(32 + dx * radius * 0.10,
+                       16 + dy * radius * 0.08, z0 + 0.4,
+                       radius * 0.34, radius * 0.27, 2.0, yaw,
+                       PINE_NEEDLE_DARK, ao=0.60)
+            # Four overlapping needle pads down the bough, shrinking outward;
+            # a lit top pad and a dark underside give each bough a feathered
+            # edge rather than one flat pancake.
+            for step in range(4):
+                q = 0.24 + 0.24 * step
+                px = 32 + dx * radius * q
+                py = 16 + dy * radius * q * 0.82
+                pz = z0 - droop * q * q + 0.7
+                wide = radius * (0.31 - 0.045 * q)
+                deep = radius * (0.24 - 0.035 * q)
+                needle_pad(px, py, pz, wide, deep, 1.9, yaw, tone)
+                needle_pad(px, py, pz + 1.0, wide * 0.52, deep * 0.48,
+                           1.1, yaw, top_tone, tilt=-0.22,
+                           wobble=0.2, ao=0.84)
+                needle_pad(px, py, pz - 1.5, wide * 0.62, deep * 0.52,
+                           1.0, yaw, PINE_NEEDLE_DARK, tilt=-0.5,
+                           wobble=0.18, ao=0.66)
+            # Needle tips hang below the end of the bough.
+            for j in range(2):
+                ox = rng.uniform(-1.2, 1.2)
+                oy = rng.uniform(-1.0, 1.0)
+                needle_pad(p2[0] + ox, p2[1] + oy, p2[2] - 1.6 - j * 1.3,
+                           radius * 0.11, radius * 0.09, 2.6, yaw, tone,
+                           tilt=-0.55, wobble=0.24, ao=0.76)
+
+    # The leader: a slim spire of small needle whorls, not a smooth cone.
+    builder.limb((32, 16, 52.0), (32, 16, 68.0), 1.4, 0.25,
+                 PINE_NEEDLE_DARK, segments=6, group=trunk, cap=False)
     for i in range(7):
         t = i / 6.0
-        z = 48.0 + 19.0 * t
-        a = math.tau * i * 0.37 + 0.4
-        reach = (5.6 * (1.0 - t) + 0.8) * 0.8
-        builder.blob(32 + math.cos(a) * reach,
-                     16 + math.sin(a) * reach * 0.85, z,
-                     1.9 * (1.0 - 0.5 * t) + 0.5,
-                     1.7 * (1.0 - 0.5 * t) + 0.5,
-                     2.1 * (1.0 - 0.5 * t) + 0.4,
-                     PINE_NEEDLE_SUN if i % 2 else PINE_NEEDLE_LIGHT,
-                     ao_base=0.85, segments=6, rings=3, group=top,
-                     wobble=0.18, phase=i * 1.4)
-    for i in range(3):
-        yaw = rng.uniform(0, math.tau)
-        builder.limb((32, 16, 2.0),
-                     (32 + math.cos(yaw) * 6.0,
-                      16 + math.sin(yaw) * 6.0, -0.8),
-                     2.2, 1.0, BARK_DARK, segments=5, group=trunk)
+        z = 53.0 + 14.0 * t
+        reach = (4.2 * (1.0 - t) + 0.5) * 0.9
+        a = i * 1.9 + 0.4
+        for side in (-1.0, 1.0):
+            yaw = a + (0.0 if side > 0 else math.pi)
+            needle_pad(32 + math.cos(yaw) * reach,
+                       16 + math.sin(yaw) * reach * 0.8, z,
+                       (2.1 * (1.0 - 0.55 * t) + 0.5),
+                       (1.7 * (1.0 - 0.55 * t) + 0.4),
+                       (2.2 * (1.0 - 0.5 * t) + 0.5), yaw,
+                       PINE_NEEDLE_SUN if i % 2 else PINE_NEEDLE_LIGHT,
+                       tilt=-0.2, wobble=0.22, ao=0.86)
+    builder.blob(32, 16, 69.0, 1.0, 0.9, 1.6, PINE_NEEDLE_SUN,
+                 ao_base=0.9, segments=6, rings=3, group=trunk,
+                 wobble=0.2)
 
 
 def draw_palm(builder: TreeBuilder, rng) -> None:
-    """A coconut palm: a ringed leaning trunk under a radial feathered crown."""
+    """A coconut palm: a leaning ringed trunk under a radial crown of feathers."""
     trunk = builder.group()
-    lean = rng.uniform(-5.0, 5.0)
-    height = rng.uniform(43.0, 48.0)
-    builder.roots(32, 16, 0.0, 3.8, PALM_BARK_DARK, rng, count=3,
-                  group=trunk, dark=PALM_BARK_DARK)
-    points = [(32, 16, -0.5),
-              (32 + lean * 0.10, 16, height * 0.28),
-              (32 + lean * 0.38, 16, height * 0.56),
-              (32 + lean * 0.78, 16, height * 0.82),
+    lean = rng.uniform(-9.0, 9.0)
+    height = rng.uniform(44.0, 48.0)
+    builder.roots(32, 16, 0.0, 4.4, PALM_BARK_DARK, rng, count=4,
+                  group=trunk, dark=PALM_BARK_DARK, spread=0.78)
+    points = [(32, 16, 0.2),
+              (32 + lean * 0.04, 16, height * 0.24),
+              (32 + lean * 0.20, 16, height * 0.50),
+              (32 + lean * 0.52, 16, height * 0.76),
               (32 + lean, 16, height)]
     for i in range(len(points) - 1):
         t0 = i / (len(points) - 1)
         t1 = (i + 1) / (len(points) - 1)
-        builder.limb(points[i], points[i + 1], 4.3 * (1.0 - 0.55 * t0),
-                     4.3 * (1.0 - 0.55 * t1), PALM_BARK,
-                     segments=8, group=trunk)
-        joint = points[i + 1]
-        # The raised leaf-scar ring that runs round a palm's trunk: a thin
-        # darker band, not a bamboo joint.
-        builder.limb((joint[0], joint[1], joint[2] - 0.55),
-                     (joint[0], joint[1], joint[2] + 0.55),
-                     4.3 * (1.0 - 0.55 * t1) * 1.06,
-                     4.3 * (1.0 - 0.55 * t1) * 1.06,
-                     PALM_BARK_DARK, segments=8, group=trunk)
-    top = points[-1]
-    # The crown is three ranks of fronds: steep young feathers above, a broad
-    # middle umbrella, and older feathers arching down.  Each rank is spaced
-    # so sky shows between the fronds - a palm is a wheel, not a bush.
+        builder.limb(points[i], points[i + 1],
+                     4.6 * (1.0 - 0.40 * t0), 4.6 * (1.0 - 0.40 * t1),
+                     PALM_BARK, segments=10, group=trunk, ao0=0.8, ao1=0.98)
+    # Leaf-scar rings: thin raised bands, slightly proud of the bark.
+    for k in range(1, 14):
+        t = k / 14.0
+        z = height * t
+        x = 32 + lean * (math.pow(t, 1.8) * 0.9 + t * 0.1)
+        r = 4.6 * (1.0 - 0.40 * t) * 1.04
+        builder.limb((x, 16, z - 0.28), (x, 16, z + 0.28),
+                     r, r, PALM_BARK_DARK, segments=10, group=trunk,
+                     cap=False, ao0=1.0, ao1=1.0)
+    # The green crownshaft where the trunk ends and the fronds begin.
+    top_x = 32 + lean * 0.985
+    builder.limb((top_x, 16, height - 5.5), (top_x, 16, height + 1.0),
+                 3.5, 2.9, PALM_FROND_DARK, segments=10, group=trunk,
+                 ao0=0.92, ao1=1.0)
+    top = (32 + lean, 16, height)
+    # The fibrous boot where the fronds spring, with a few hanging fibres.
+    boot = builder.group()
+    builder.limb((top[0], top[1], top[2] - 4.2),
+                 (top[0], top[1], top[2] + 0.4), 3.3, 2.6,
+                 PALM_BARK_DARK, segments=8, group=boot)
+    for i in range(7):
+        a = math.tau * i / 7 + rng.uniform(-0.2, 0.2)
+        builder.limb((top[0] + math.cos(a) * 2.7,
+                      top[1] + math.sin(a) * 2.2, top[2] - 1.0),
+                     (top[0] + math.cos(a) * 3.1,
+                      top[1] + math.sin(a) * 2.5, top[2] - rng.uniform(4.0, 7.0)),
+                     0.45, 0.12, DEAD_FROND_DARK, segments=3, group=boot,
+                     cap=False)
+    # Three coconuts tucked under the crown, on the camera side where they
+    # read as the palm's fruit rather than a brown knot.
+    for i in range(3):
+        x = top[0] + (i - 1) * 2.2 + rng.uniform(-0.3, 0.3)
+        y = top[1] + 2.8 + rng.uniform(-0.3, 0.4)
+        z = top[2] - 3.2 + (0.5 if i == 1 else 0.0)
+        builder.blob(x, y, z, 2.1, 2.0, 2.2,
+                     COCONUT_LIGHT if i % 2 else COCONUT,
+                     ao_base=0.84, segments=7, rings=4, group=boot,
+                     wobble=0.1, phase=i * 1.7)
+    # Nine feathers make the wheel: three uplifted, four spreading, two
+    # drooping, plus two young spears and one spent brown frond.
     tones = (PALM_FROND_DARK, PALM_FROND, PALM_FROND_LIGHT,
              PALM_FROND_SUN)
-    ranks = (
-        (3, 17.0, 20.0, 16.0, 20.0, 4.0, 6.0, 5, 4.2, 2.6),
-        (5, 20.0, 24.0, 11.0, 15.0, 8.0, 11.0, 6, 4.8, 1.7),
-        (4, 18.0, 22.0, 6.0, 9.0, 12.0, 16.0, 5, 4.4, 1.0),
-    )
     yaw0 = rng.uniform(0, math.tau)
+    ranks = ((3, 21.0, 25.0, 14.0, 18.0, 3.0, 5.0, 4, 7.2, 2.4),
+             (4, 24.0, 29.0, 6.0, 9.0, 8.0, 11.0, 5, 8.2, 1.4),
+             (3, 16.0, 20.0, 9.0, 12.0, 5.0, 7.0, 3, 6.2, 1.9))
     for rank, (count, len0, len1, lift0, lift1, droop0, droop1,
                leaflets, width, tone_index) in enumerate(ranks):
         for i in range(count):
-            yaw = yaw0 + math.tau * i / count + rank * 0.55 \
-                + rng.uniform(-0.16, 0.16)
-            tone = tones[min(3, int(tone_index + rng.uniform(0, 0.9)))]
-            _palm_frond(builder, top[0], top[1], top[2] + 1.0, yaw,
+            yaw = yaw0 + math.tau * i / count + rank * 0.50 \
+                + rng.uniform(-0.08, 0.08)
+            tone = tones[min(3, int(tone_index + rng.uniform(0, 1.0)))]
+            # Each rank springs from a slightly different point on the
+            # crownshaft, so the fronds do not all knot at one pixel.
+            sx = top[0] + math.cos(yaw) * (1.0 + rank * 0.8)
+            sy = top[1] + math.sin(yaw) * (0.8 + rank * 0.6)
+            _palm_frond(builder, sx, sy, top[2] + 1.0 - rank * 1.2, yaw,
                         rng.uniform(len0, len1), rng.uniform(lift0, lift1),
-                        rng.uniform(droop0, droop1), tone, rng,
-                        leaflets=leaflets, width=rng.uniform(width, width + 0.6),
-                        tones=tones, bias=0.25 - rank * 0.08)
-    # A couple of spear feathers fill the very centre of the wheel.
+                        rng.uniform(droop0, droop1), tone,
+                        leaflets=leaflets,
+                        width=rng.uniform(width, width + 0.6))
+    # A young heart of short, broad fronds closes the top of the crown and
+    # hides the dark boot between the longer ranks.
+    for i in range(5):
+        yaw = yaw0 + math.tau * i / 5 + 0.3
+        _palm_frond(builder, top[0], top[1], top[2] + 1.6, yaw,
+                    rng.uniform(5.0, 7.5), rng.uniform(7.0, 10.0), 2.0,
+                    PALM_FROND_LIGHT if i % 2 else PALM_FROND,
+                    leaflets=2, width=3.8)
     for i in range(2):
-        yaw = yaw0 + math.tau * i / 2 + rng.uniform(-0.3, 0.3)
-        _palm_frond(builder, top[0], top[1], top[2] + 2.0, yaw,
-                    rng.uniform(11.0, 14.0), rng.uniform(12.0, 15.0),
-                    rng.uniform(2.0, 3.5), PALM_FROND_SUN, rng,
-                    leaflets=4, width=3.8, tones=tones, bias=0.4)
-    # One spent frond hangs brown and close to the trunk.
-    _palm_frond(builder, top[0], top[1], top[2] - 1.2,
-                yaw0 + math.pi * 0.55, 10.0, 1.0, 9.0,
-                DEAD_FROND, rng, leaflets=3, width=2.0,
-                tones=(DEAD_FROND_DARK, DEAD_FROND, DEAD_FROND,
-                       DEAD_FROND))
-    # Coconuts nestle where the fronds spring.
-    for i in range(4):
-        a = math.tau * i / 4 + rng.uniform(-0.3, 0.3)
-        builder.blob(top[0] + math.cos(a) * 3.0,
-                     top[1] + math.sin(a) * 2.4, top[2] - 3.0,
-                     2.1, 2.1, 2.2, COCONUT if i % 2 else COCONUT_LIGHT,
-                     ao_base=0.82, segments=6, rings=4, group=trunk,
-                     wobble=0.1, phase=a)
-    builder.blob(top[0], top[1], top[2] + 0.6, 3.4, 3.2, 2.4,
-                 PALM_FROND_DARK, ao_base=0.72, segments=7, rings=4,
-                 group=trunk, wobble=0.1)
+        yaw = yaw0 + math.tau * i / 2 + 0.8
+        _palm_frond(builder, top[0], top[1], top[2] + 2.2, yaw,
+                    rng.uniform(9.0, 12.0), rng.uniform(13.0, 16.0), 2.0,
+                    PALM_FROND_SUN, leaflets=3, width=5.0)
+    _palm_frond(builder, top[0], top[1], top[2] - 2.2,
+                yaw0 + math.pi * 0.4, 12.0, 2.0, 12.0, DEAD_FROND,
+                leaflets=5, width=2.4)
 
 
 def _palm_frond(builder: TreeBuilder, x, y, z, yaw, length, lift, droop,
-                tone, rng, leaflets=9, width=3.6, tones=None,
-                bias=0.0) -> None:
-    """One feather: an arching rib combed with paired leaflet vanes.
+                tone, leaflets=5, width=5.0) -> None:
+    """One feather: a solid, notched lance with a lit rim and a dark underside.
 
-    A palm leaflet is a small vertical fin, not a flat ribbon on the ground:
-    the vane stands in the plane of its direction and the sky, so it catches
-    the isometric light as a visible blade and the crown reads as feathers.
+    A palm frond at pixel-art scale reads as one broad leaf with a handful of
+    deep notches along its edge.  The rim catches the sun, the rib runs down
+    the middle, and the shaded underside stops the crown looking like a paper
+    cut-out.
     """
     gid = builder.group()
     dx, dy = math.cos(yaw), math.sin(yaw)
     px, py = -dy, dx
-    tones = tones or (tone, tone, tone, tone)
-
     def spine(t):
         return (x + dx * length * t, y + dy * length * t,
-                z + lift * math.sin(min(1.0, t * 1.2) * math.pi * 0.72)
+                z + lift * math.sin(min(1.0, t * 1.25) * math.pi * 0.55)
                 - droop * t * t)
 
+    # The rib.
     previous = spine(0.0)
-    for i in range(4):
-        t = (i + 1) / 4.0
+    for i in range(6):
+        t = (i + 1) / 6.0
         point = spine(t)
-        builder.limb(previous, point, 0.62 * (1.0 - i * 0.16),
-                     0.62 * (1.0 - (i + 1) * 0.16),
-                     tone, segments=4, group=gid, cap=False,
-                     ao0=0.9, ao1=1.0)
+        builder.limb(previous, point, 0.64 * (1.0 - i * 0.11),
+                     0.64 * (1.0 - (i + 1) * 0.11), tone, segments=4,
+                     group=gid, cap=False, ao0=0.9, ao1=1.0)
         previous = point
-    for i in range(leaflets):
-        t = 0.14 + 0.80 * i / max(1, leaflets - 1)
-        bx, by, bz = spine(t)
-        reach = (6.8 - 2.2 * t) * rng.uniform(0.9, 1.05)
+
+    def half_width(t):
+        w = width * 0.55 * math.sin(math.pi * (0.07 + 0.88 * t)) ** 0.70
+        for notch in (0.22, 0.42, 0.62, 0.80):
+            w *= 1.0 - 0.34 * math.exp(-((t - notch) / 0.05) ** 2)
+        return max(0.0, w)
+
+    segments = 12
+    for i in range(segments):
+        t0, t1 = i / segments, (i + 1) / segments
+        a, b = spine(t0), spine(t1)
+        w0, w1 = half_width(t0), half_width(t1)
         for side in (-1.0, 1.0):
-            wyaw = math.atan2(dy * 0.5 + side * py, dx * 0.5 + side * px)
-            leaf_tone = tone_for(tones, math.cos(wyaw), math.sin(wyaw),
-                                 0.25, rng, jitter=0.08,
-                                 bias=bias + 0.18)
-            _palm_leaflet(builder, bx, by, bz - 0.4, wyaw, reach,
-                          width * (1.0 - 0.20 * t), leaf_tone, gid,
-                          rise=rng.uniform(0.4, 1.4),
-                          droop=rng.uniform(0.8, 2.0))
+            edge_a = (a[0] + px * side * w0, a[1] + py * side * w0,
+                      a[2] - w0 * 0.22)
+            edge_b = (b[0] + px * side * w1, b[1] + py * side * w1,
+                      b[2] - w1 * 0.22)
+            _leaf_quad(builder, a, edge_a, edge_b, b, tone, gid)
+            # A one-pixel lit rim along the edge, brighter on the sun side.
+            rim = PALM_FROND_LIGHT if (dx * -side < 0.2) else PALM_FROND
+            inset_a = (a[0] + px * side * w0 * 0.72,
+                       a[1] + py * side * w0 * 0.72, a[2] - w0 * 0.10)
+            inset_b = (b[0] + px * side * w1 * 0.72,
+                       b[1] + py * side * w1 * 0.72, b[2] - w1 * 0.10)
+            _leaf_quad(builder, edge_a, inset_a, inset_b, edge_b, rim, gid)
+            # Shaded underside.
+            builder.m.quad((a[0], a[1], a[2] - 0.42),
+                           (b[0], b[1], b[2] - 0.42),
+                           (edge_b[0], edge_b[1], edge_b[2] - 0.42),
+                           (edge_a[0], edge_a[1], edge_a[2] - 0.42),
+                           PALM_FROND_DARK,
+                           uvs=((0, 0), (1, 0), (1, 1), (0, 1)),
+                           ao=(0.9, 0.9, 0.9, 0.9), group=gid)
     terminal = spine(1.0)
-    tip_yaw = math.atan2(dy, dx)
-    _palm_leaflet(builder, terminal[0], terminal[1], terminal[2], tip_yaw,
-                  length * 0.20, width * 0.85, tone, gid, rise=0.3,
-                  droop=1.0)
+    _leaf_quad(builder, spine(0.92), terminal,
+               (terminal[0] + px * 0.6, terminal[1] + py * 0.6,
+                terminal[2] - 0.4),
+               (terminal[0] + dx * 2.8, terminal[1] + dy * 2.8,
+                terminal[2] - 1.4), tone, gid)
 
 
-def _palm_leaflet(builder: TreeBuilder, x, y, z, yaw, length, depth, tone,
-                  group, rise=0.5, droop=1.2) -> None:
-    """A pointed leaf vane standing in the vertical plane of its direction."""
-    dx, dy = math.cos(yaw), math.sin(yaw)
-    belly_x, belly_y = x + dx * length * 0.45, y + dy * length * 0.45
-    top = (belly_x, belly_y, z + rise + depth * 0.55)
-    bottom = (belly_x, belly_y, z + rise - depth * 0.45)
-    tip = (x + dx * length, y + dy * length, z + rise - droop)
-    builder.m.quad((x, y, z), top, tip, bottom, tone,
-                   uvs=((0.0, 0.0), (depth, length * 0.45),
-                        (depth * 0.2, length), (0.0, length * 0.45)),
-                   ao=(0.9, 1.0, 1.0, 0.82), group=group)
+def _leaf_quad(builder: TreeBuilder, a, b, c, d, material, group) -> None:
+    """A leaf quad, wound so its face looks at the sky and catches the sun."""
+    # Newell's normal for the quad; flip the winding if it faces down.
+    nx = (a[1] - c[1]) * (b[2] + d[2]) + (b[1] - d[1]) * (c[2] + a[2])
+    ny = (a[2] - c[2]) * (b[0] + d[0]) + (b[2] - d[2]) * (c[0] + a[0])
+    nz = (a[0] - c[0]) * (b[1] + d[1]) + (b[0] - d[0]) * (c[1] + a[1])
+    if nz < 0.0:
+        b, d = d, b
+    builder.m.quad(a, b, c, d, material, uvs=((0, 0), (1, 0), (1, 1), (0, 1)),
+                   ao=(1.0, 1.0, 1.0, 1.0), group=group)
 
 
 def draw_dead_tree(builder: TreeBuilder, rng) -> None:
     """A dead tree: a forked skeleton, twisted limbs and fine bare twigs."""
     trunk = builder.group()
     lean = rng.uniform(-2.5, 2.5)
-    builder.roots(32, 16, 0.0, 5.4, DEAD_BARK_DARK, rng, count=4,
-                  group=trunk, dark=DEAD_BARK_DARK)
+    builder.roots(32, 16, 0.0, 5.6, DEAD_BARK_DARK, rng, count=5,
+                  group=trunk, dark=DEAD_BARK_DARK, spread=1.0)
     fork = (32 + lean, 16, rng.uniform(13.0, 16.0))
-    builder.taper_path([(32, 16, 0.5), (32 + lean * 0.4, 16, fork[2] * 0.5),
-                        fork], 6.4, 4.4,
+    builder.taper_path([(32, 16, 0.4), (32 + lean * 0.18, 16, fork[2] * 0.35),
+                        (32 + lean * 0.55, 16, fork[2] * 0.7),
+                        fork], 7.0, 4.2,
                        DEAD_BARK, group=trunk, segments=8,
                        ao0=0.76, ao1=0.9)
     # A codominant second stem splits off low on the trunk: the old tree is
@@ -1015,18 +1102,26 @@ def draw_dead_tree(builder: TreeBuilder, rng) -> None:
             for tip in tips:
                 for _ in range(2):
                     twig_yaw = yaw + rng.uniform(-1.2, 1.2)
-                    builder.limb(tip, (tip[0] + math.cos(twig_yaw)
-                                       * rng.uniform(4.0, 7.0),
-                                       tip[1] + math.sin(twig_yaw)
-                                       * rng.uniform(3.0, 5.5),
-                                       tip[2] + rng.uniform(1.0, 5.0)),
-                                 0.9, 0.24, DEAD_BARK_LIGHT if rng.random()
-                                 < 0.4 else DEAD_BARK, segments=4,
+                    end = (tip[0] + math.cos(twig_yaw) * rng.uniform(4.0, 7.0),
+                           tip[1] + math.sin(twig_yaw) * rng.uniform(3.0, 5.5),
+                           tip[2] + rng.uniform(1.0, 5.0))
+                    builder.limb(tip, end, 0.9, 0.24,
+                                 DEAD_BARK_LIGHT if rng.random() < 0.4
+                                 else DEAD_BARK, segments=4,
                                  group=trunk, cap=False)
+                    # A last generation of hair-fine twigs frays the silhouette.
+                    fine_yaw = twig_yaw + rng.uniform(-0.8, 0.8)
+                    builder.limb(end, (end[0] + math.cos(fine_yaw)
+                                       * rng.uniform(2.0, 4.0),
+                                       end[1] + math.sin(fine_yaw)
+                                       * rng.uniform(1.5, 3.2),
+                                       end[2] + rng.uniform(0.5, 2.5)),
+                                 0.30, 0.07, DEAD_BARK_LIGHT,
+                                 segments=3, group=trunk, cap=False)
     # A low limb reaches out sideways, dead before it ever carried a crown.
     low_yaw = split_yaw + math.pi * 0.5 + rng.uniform(-0.4, 0.4)
-    low_end = (fork[0] + math.cos(low_yaw) * rng.uniform(13.0, 17.0),
-               fork[1] + math.sin(low_yaw) * rng.uniform(10.0, 13.0),
+    low_end = (fork[0] + math.cos(low_yaw) * rng.uniform(11.0, 14.0),
+               fork[1] + math.sin(low_yaw) * rng.uniform(8.0, 11.0),
                fork[2] - rng.uniform(3.0, 6.0))
     builder.limb(fork, low_end, 2.8, 1.0, DEAD_BARK, segments=5,
                  group=trunk)
@@ -1044,6 +1139,10 @@ def draw_dead_tree(builder: TreeBuilder, rng) -> None:
     builder.blob(stub_end[0], stub_end[1], stub_end[2], 2.0, 1.9, 1.4,
                  DEAD_BARK_LIGHT, ao_base=0.86, segments=6, rings=4,
                  group=trunk, wobble=0.2, phase=stub_yaw)
+    # The hollow where the two leaders split: a dark mouth with a pale lip.
+    builder.blob(fork[0] - 0.8, fork[1] - 3.2, fork[2] + 3.0,
+                 2.6, 1.6, 3.0, DEAD_BARK_DARK, ao_base=0.42,
+                 segments=7, rings=4, group=trunk, wobble=0.12)
     # Knots and old wounds on the trunk, dark as a hollow.
     for _ in range(2):
         z = rng.uniform(4.0, fork[2] - 2.0)
@@ -1054,98 +1153,149 @@ def draw_dead_tree(builder: TreeBuilder, rng) -> None:
 
 
 def draw_cactus(builder: TreeBuilder, rng) -> None:
-    """A saguaro: a ribbed column, raised arms, and a crown of pink bloom."""
+    """A saguaro: a ribbed column, curved raised arms, and pink bloom."""
     trunk = builder.group()
-    builder.roots(32, 16, 0.0, 5.4, CACTUS_SKIN_DARK, rng, count=3,
-                  group=trunk, dark=CACTUS_SKIN_DARK)
-    column_top = rng.uniform(43.0, 47.0)
-    builder.ribbed_column(32, 16, -1.0, column_top, 7.0,
+    builder.roots(32, 16, 0.0, 6.0, CACTUS_SKIN_DARK, rng, count=4,
+                  group=trunk, dark=CACTUS_SKIN_DARK, spread=0.75)
+    column_top = rng.uniform(44.0, 48.0)
+    builder.ribbed_column(32, 16, -1.0, column_top, 7.2,
                           CACTUS_SKIN_DARK, CACTUS_SKIN,
-                          CACTUS_SKIN_LIGHT, ribs=9, group=trunk,
-                          rng=rng, spines=6, spine_mat=CACTUS_SPINE)
+                          CACTUS_SKIN_LIGHT, ribs=10, group=trunk,
+                          rng=rng, spines=11, spine_mat=CACTUS_SPINE)
     arm_count = rng.randint(2, 3)
     arm_yaws = (-0.62, 2.42, 1.15)
     for arm_index in range(arm_count):
-        height = rng.uniform(16.0, 30.0)
-        yaw = arm_yaws[arm_index] + rng.uniform(-0.18, 0.18)
-        reach = rng.uniform(11.0, 14.5)
-        elbow = (32 + math.cos(yaw) * reach,
-                 16 + math.sin(yaw) * reach * 0.8, height)
+        height = rng.uniform(17.0, 31.0)
+        yaw = arm_yaws[arm_index] + rng.uniform(-0.20, 0.20)
+        reach = rng.uniform(11.0, 14.0)
         up = rng.uniform(12.0, 17.0)
-        tip = (elbow[0] + math.cos(yaw) * 1.4,
-               elbow[1] + math.sin(yaw) * 1.4, height + up)
+        dx, dy = math.cos(yaw), math.sin(yaw)
         arm = builder.group()
-        builder.limb((32, 16, height), elbow, 4.3, 3.9,
-                     CACTUS_SKIN, segments=8, group=arm, cap=False)
-        builder.limb(elbow, tip, 3.9, 3.4, CACTUS_SKIN, segments=8,
-                     group=arm, cap=False)
-        builder.ribbed_column(tip[0], tip[1], tip[2] - 2.5,
-                              tip[2] + 2.0, 3.8, CACTUS_SKIN_DARK,
-                              CACTUS_SKIN, CACTUS_SKIN_LIGHT, ribs=7,
-                              group=arm, rng=rng, spines=4,
-                              spine_mat=CACTUS_SPINE)
-        # A little bloom at the arm's tip, as saguaros wear after rain.
-        if rng.random() < 0.8:
+        # A smooth elbow: shoulder, out, curve, then up.  One hard corner is
+        # what makes a cactus look like a plumbing fitting.
+        p0 = (32, 16, height)
+        p1 = (32 + dx * reach * 0.55, 16 + dy * reach * 0.44, height - 0.6)
+        p2 = (32 + dx * reach, 16 + dy * reach * 0.80, height + 1.8)
+        p3 = (p2[0] + dx * 1.2, p2[1] + dy * 1.0, height + up * 0.45)
+        p4 = (p3[0] + dx * 0.8, p3[1] + dy * 0.7, height + up)
+        path = (p0, p1, p2, p3, p4)
+        for i in range(4):
+            builder.limb(path[i], path[i + 1],
+                         4.2 - i * 0.20, 4.0 - i * 0.20,
+                         CACTUS_SKIN, segments=12, group=arm, cap=False,
+                         ao0=0.82, ao1=0.98)
+        # Rib lines along the raised part of the arm, plus its pale spines.
+        for rib in range(6):
+            a = math.tau * rib / 6
+            ox, oy = math.cos(a) * 3.1, math.sin(a) * 2.7
+            builder.limb((p2[0] + ox, p2[1] + oy, p2[2]),
+                         (p4[0] + ox, p4[1] + oy, p4[2]),
+                         0.55, 0.42,
+                         CACTUS_SKIN_LIGHT if rib % 3 else CACTUS_SKIN_DARK,
+                         segments=4, group=arm, cap=False)
+        builder.blob(p4[0], p4[1], p4[2] + 0.4, 3.4, 3.1, 2.4,
+                     CACTUS_SKIN_LIGHT, ao_base=0.9, segments=12, rings=5,
+                     group=arm, wobble=0.04)
+        for rib in range(6):
+            a = math.tau * rib / 6
+            for k in range(4):
+                z = p2[2] + (p4[2] - p2[2]) * (0.1 + 0.8 * k / 3)
+                builder.blob(p2[0] + math.cos(a) * 3.3,
+                             p2[1] + math.sin(a) * 2.9, z,
+                             0.55, 0.55, 0.4, CACTUS_SPINE, ao_base=0.98,
+                             segments=4, rings=3, group=arm)
+        if rng.random() < 0.9:
             for k in range(3):
                 a = math.tau * k / 3 + rng.uniform(-0.2, 0.2)
-                builder.blob(tip[0] + math.cos(a) * 1.8,
-                             tip[1] + math.sin(a) * 1.6,
-                             tip[2] + 2.6, 1.5, 1.5, 1.2,
+                builder.blob(p4[0] + math.cos(a) * 1.7,
+                             p4[1] + math.sin(a) * 1.5,
+                             p4[2] + 3.0, 1.4, 1.4, 1.2,
                              FLOWER_PINK if k % 2 else FLOWER_PINK_LIGHT,
-                             ao_base=0.92, segments=5, rings=3, group=arm)
-    # The crown flower: a small rose of pink petals on the column's apex.
-    for i in range(6):
-        a = math.tau * i / 6 + rng.uniform(-0.12, 0.12)
-        builder.blob(32 + math.cos(a) * 2.8, 16 + math.sin(a) * 2.6,
-                     column_top + 1.8, 2.4, 2.3, 1.8,
+                             ao_base=0.92, segments=6, rings=3, group=arm)
+    # The crown flower: a ring of petals round a warm heart.
+    for i in range(7):
+        a = math.tau * i / 7 + rng.uniform(-0.10, 0.10)
+        builder.blob(32 + math.cos(a) * 2.9, 16 + math.sin(a) * 2.7,
+                     column_top + 2.2, 2.2, 2.1, 1.7,
                      FLOWER_PINK_LIGHT if i % 2 else FLOWER_PINK,
-                     ao_base=0.92, segments=5, rings=3, group=trunk)
-    builder.blob(32, 16, column_top + 3.0, 2.2, 2.1, 1.8,
-                 FLOWER_PINK, ao_base=0.94, segments=5, rings=3,
+                     ao_base=0.92, segments=6, rings=3, group=trunk)
+    builder.blob(32, 16, column_top + 3.3, 1.9, 1.8, 1.5,
+                 FLOWER_PINK, ao_base=0.94, segments=6, rings=3,
                  group=trunk)
-    # Desert gravel at the foot, tying the cactus to the ground.
-    for _ in range(3):
+    builder.blob(32, 16, column_top + 3.9, 0.8, 0.8, 0.7,
+                 STRAW_LIGHT, ao_base=0.98, segments=5, rings=3,
+                 group=trunk)
+    # Desert gravel and a young bud at the foot.
+    for _ in range(4):
         a = rng.uniform(0, math.tau)
-        builder.pebble(32 + math.cos(a) * rng.uniform(7.0, 10.0),
-                       16 + math.sin(a) * rng.uniform(4.5, 7.5), 0.0,
+        builder.pebble(32 + math.cos(a) * rng.uniform(8.0, 11.0),
+                       16 + math.sin(a) * rng.uniform(5.0, 8.0), 0.0,
                        rng.uniform(1.8, 2.8), STONE_PEBBLE)
+    builder.blob(32 + rng.uniform(-8.0, 8.0), 16 + rng.uniform(-5.0, 5.0),
+                 2.0, 1.6, 1.5, 3.6, CACTUS_SKIN, ao_base=0.86,
+                 segments=10, rings=4, group=trunk, wobble=0.05)
 
 
 def draw_bush(builder: TreeBuilder, rng) -> None:
-    """A garden shrub: a scalloped mound of leaves, wide and low."""
+    """A garden shrub: woody stems carrying separate clouds of leaves."""
     twig = builder.group()
-    builder.roots(32, 16, 0.0, 2.2, BARK_DARK, rng, count=3, group=twig,
-                  dark=BARK_DARK)
+    builder.roots(32, 16, 0.0, 1.5, BARK_DARK, rng, count=2, group=twig,
+                  dark=BARK_DARK, spread=0.5)
+    tips = []
     for i in range(4):
-        yaw = rng.uniform(0, math.tau)
-        reach = rng.uniform(2.0, 6.0)
-        builder.limb((32, 16, 0.0),
-                     (32 + math.cos(yaw) * reach,
-                      16 + math.sin(yaw) * reach, rng.uniform(4.0, 8.5)),
-                     1.6, 0.7, BARK_DARK, segments=4, group=twig)
+        yaw = math.tau * i / 4 + rng.uniform(-0.35, 0.35)
+        reach = rng.uniform(4.0, 7.0)
+        base = (32 + math.cos(yaw) * 1.5,
+                16 + math.sin(yaw) * 1.2, 0.2)
+        top = (32 + math.cos(yaw) * reach,
+               16 + math.sin(yaw) * reach * 0.8, rng.uniform(9.0, 14.0))
+        builder.limb(base, top, 1.05, 0.45, BARK,
+                     segments=5, group=twig)
+        # Two twigs fork from each stem; their tips carry the leaf clouds.
+        for side in (-0.55, 0.55):
+            tyaw = yaw + side + rng.uniform(-0.15, 0.15)
+            tip = (top[0] + math.cos(tyaw) * rng.uniform(3.5, 6.0),
+                   top[1] + math.sin(tyaw) * rng.uniform(2.5, 4.5),
+                   top[2] + rng.uniform(1.0, 3.0))
+            builder.limb(top, tip, 0.62, 0.22, BARK_DARK, segments=4,
+                         group=twig, cap=False)
+            tips.append(tip)
+    bush_tones = (BUSH_LEAF_DARK, BUSH_LEAF, BUSH_LEAF_LIGHT,
+                  BUSH_LEAF_SUN)
     crown = builder.group()
-    shrub_canopy(builder, (32, 16, 13.0), (18.0, 14.0, 11.0),
-                 (BUSH_LEAF_DARK, BUSH_LEAF, BUSH_LEAF_LIGHT,
-                  BUSH_LEAF_SUN), rng, group=crown, count=30, cluster=4.3,
-                 tips=20, ao=0.70, underside=2)
-    # A few low leaf sprays trail onto the turf, so the mound is rooted.
-    for _ in range(5):
+    # A low central cushion, then one cloud at each branch tip: separate
+    # masses with stems showing between them, not one green boulder.
+    shrub_canopy(builder, (32, 16, 16.0), (15.0, 12.0, 5.8), bush_tones,
+                 rng, group=crown, count=28, cluster=3.0, tips=12,
+                 tip_size=1.2, ao=0.66, underside=2, fillers=1,
+                 shoulders=False)
+    for index, (tx, ty, tz) in enumerate(tips):
+        shrub_canopy(builder, (tx, ty, tz + 1.6),
+                     (rng.uniform(9.0, 11.5), rng.uniform(7.0, 8.5),
+                      rng.uniform(4.0, 5.5)), bush_tones, rng,
+                     group=crown, count=17, cluster=2.8, tips=8,
+                     tip_size=1.1, ao=0.68, underside=1, fillers=1,
+                     shoulders=False)
+    # A few low sprays trail onto the turf, so the shrub is rooted.
+    for _ in range(4):
         a = rng.uniform(0, math.tau)
         builder.leaf_tuft(32 + math.cos(a) * rng.uniform(11.0, 15.0),
                           16 + math.sin(a) * rng.uniform(8.0, 11.0),
-                          rng.uniform(3.0, 6.5), BUSH_LEAF, rng,
-                          size=2.2, spread=1.1, group=crown, count=2)
-    # One variant in three carries a handful of berries.
-    if rng.random() < 0.45:
-        for _ in range(7):
-            a = rng.uniform(0, math.tau)
-            d = rng.uniform(5.0, 12.0)
-            builder.blob(32 + math.cos(a) * d,
-                         16 + math.sin(a) * d * 0.8,
-                         rng.uniform(12.0, 19.0), 1.1, 1.1, 1.1,
-                         BUSH_BERRY_LIGHT if rng.random() < 0.4
-                         else BUSH_BERRY, ao_base=0.94, segments=5,
-                         rings=3, group=crown)
+                          rng.uniform(2.0, 5.0), BUSH_LEAF, rng,
+                          size=1.9, spread=1.1, group=crown, count=3)
+    # Berries hang in little clusters, mostly on the sun side.
+    if rng.random() < 0.55:
+        for cluster in range(2):
+            cx = 32 + rng.uniform(4.0, 12.0)
+            cy = 16 + rng.uniform(-6.0, 3.0)
+            cz = rng.uniform(12.0, 20.0)
+            for _ in range(4):
+                builder.blob(cx + rng.uniform(-1.6, 1.6),
+                             cy + rng.uniform(-1.3, 1.3),
+                             cz + rng.uniform(-1.6, 1.2), 0.95, 0.95, 0.95,
+                             BUSH_BERRY_LIGHT if rng.random() < 0.4
+                             else BUSH_BERRY, ao_base=0.94,
+                             segments=5, rings=3, group=crown)
 
 
 def draw_fescue(builder: TreeBuilder, rng) -> None:
@@ -1155,53 +1305,76 @@ def draw_fescue(builder: TreeBuilder, rng) -> None:
 
     def blade(x, y, yaw, length, width, rise, droop, tone, phase):
         builder.blade(x, y, rng.uniform(-0.6, 1.0), yaw, length, width,
-                      tone, rise=rise, droop=droop, width_end=0.14,
+                      tone, rise=rise, droop=droop, width_end=0.28,
                       segments=3, group=clump, phase=phase, cross=True)
 
+    # A dense, low button of broad blades gives the tuft a solid centre
+    # before the longer arcs open out of it.
+    for _ in range(9):
+        yaw = rng.uniform(0, math.tau)
+        reach = rng.uniform(0.4, 2.4)
+        blade(32 + math.cos(yaw) * reach,
+              16 + math.sin(yaw) * reach * 0.72, yaw,
+              rng.uniform(8.0, 12.0), rng.uniform(3.4, 4.4),
+              rng.uniform(3.0, 8.0), rng.uniform(1.0, 3.5),
+              rng.choice((GRASS, GRASS_LIGHT)),
+              rng.uniform(0, math.tau))
+
     # The low skirt: wide blades that fall away from the tuft's crown.
-    for i in range(16):
-        yaw = math.tau * i / 16 + rng.uniform(-0.16, 0.16)
+    for i in range(20):
+        yaw = math.tau * i / 20 + rng.uniform(-0.16, 0.16)
         reach = rng.uniform(1.8, 4.6)
         dx, dy = math.cos(yaw), math.sin(yaw)
         tone = tone_for(tones, dx, dy, -0.1, rng, jitter=0.16)
         blade(32 + dx * reach, 16 + dy * reach * 0.72, yaw,
-              rng.uniform(14.0, 21.0), rng.uniform(2.4, 3.2),
-              rng.uniform(13.0, 19.0), rng.uniform(7.0, 13.0), tone,
+              rng.uniform(12.0, 18.0), rng.uniform(3.0, 4.0),
+              rng.uniform(14.0, 19.0), rng.uniform(5.0, 9.0), tone,
               rng.uniform(0, math.tau))
 
     # The heart of the tuft: short upright blades that close the gap between
     # the spreading skirt and keep the tussock from reading as loose wires.
-    for _ in range(12):
+    for _ in range(16):
         yaw = rng.uniform(0, math.tau)
         reach = rng.uniform(0.2, 2.0)
         dx, dy = math.cos(yaw), math.sin(yaw)
-        tone = tone_for(tones, dx, dy, 0.1, rng, jitter=0.14)
+        tone = (GRASS_LIGHT if rng.random() < 0.55 else GRASS_SUN)
         blade(32 + dx * reach, 16 + dy * reach * 0.72, yaw,
-              rng.uniform(6.0, 11.0), rng.uniform(2.6, 3.4),
+              rng.uniform(6.0, 11.0), rng.uniform(2.8, 3.6),
               rng.uniform(4.0, 12.0), rng.uniform(2.0, 5.0), tone,
               rng.uniform(0, math.tau))
 
     # The fountain: tall arcs rising between the skirt blades.
-    for i in range(14):
-        yaw = math.tau * i / 14 * 1.7 + 0.5 + rng.uniform(-0.2, 0.2)
+    for i in range(18):
+        yaw = math.tau * i / 18 * 1.7 + 0.5 + rng.uniform(-0.2, 0.2)
         reach = rng.uniform(0.6, 2.6)
         dx, dy = math.cos(yaw), math.sin(yaw)
         tone = tone_for(tones, dx, dy, 0.35, rng, jitter=0.16)
         if rng.random() < 0.18:
             tone = STRAW_LIGHT if rng.random() < 0.5 else STRAW
         blade(32 + dx * reach, 16 + dy * reach * 0.72, yaw,
-              rng.uniform(11.0, 17.0), rng.uniform(2.2, 3.0),
-              rng.uniform(25.0, 33.0), rng.uniform(13.0, 20.0), tone,
+              rng.uniform(10.0, 15.0), rng.uniform(2.6, 3.4),
+              rng.uniform(26.0, 32.0), rng.uniform(10.0, 15.0), tone,
               rng.uniform(0, math.tau))
 
     # A few tall flag blades lift the crown of the tussock.
-    for _ in range(5):
+    for _ in range(6):
         yaw = rng.uniform(0, math.tau)
         blade(32 + math.cos(yaw) * rng.uniform(0.4, 1.6),
               16 + math.sin(yaw) * rng.uniform(0.4, 1.2), yaw,
-              rng.uniform(10.0, 15.0), rng.uniform(2.0, 2.8),
-              rng.uniform(34.0, 41.0), rng.uniform(20.0, 28.0),
+              rng.uniform(9.0, 13.0), rng.uniform(2.4, 3.0),
+              rng.uniform(32.0, 38.0), rng.uniform(16.0, 22.0),
               rng.choice((GRASS_LIGHT, GRASS_SUN)),
+              rng.uniform(0, math.tau))
+
+    # A bright apron of short blades at the front hides the shadowed base.
+    for _ in range(8):
+        yaw = math.pi * 0.5 + rng.uniform(-1.2, 1.2)
+        reach = rng.uniform(2.0, 4.5)
+        dx, dy = math.cos(yaw), math.sin(yaw)
+        blade(32 + dx * reach, 16 + dy * reach * 0.8, yaw,
+              rng.uniform(5.0, 9.0), rng.uniform(2.8, 3.6),
+              rng.uniform(3.0, 7.0), rng.uniform(1.0, 3.0),
+              GRASS_LIGHT if rng.random() < 0.5 else GRASS_SUN,
               rng.uniform(0, math.tau))
 
     # Seed stalks: fine stems with a slim, beaded head that catches the sun.
@@ -1227,48 +1400,71 @@ def draw_fescue(builder: TreeBuilder, rng) -> None:
 
 
 def draw_heather(builder: TreeBuilder, rng) -> None:
-    """A heather cushion: fine dark foliage smothered in purple bloom."""
+    """A heather cushion: fine dark foliage under a haze of purple spikes."""
     cushion = builder.group()
-    shrub_canopy(builder, (32, 16, 7.5), (15.0, 12.0, 7.0),
-                 (HEATHER_LEAF_DARK, HEATHER_LEAF, HEATHER_LEAF_LIGHT,
-                  HEATHER_LEAF_LIGHT), rng, group=cushion, count=24,
-                 cluster=3.4, tips=12, ao=0.68, underside=2, bias=-0.2)
+    heather_tones = (HEATHER_LEAF_DARK, HEATHER_LEAF, HEATHER_LEAF_LIGHT,
+                     HEATHER_LEAF_LIGHT)
+    shrub_canopy(builder, (32, 16, 7.0), (15.0, 12.0, 6.5),
+                 heather_tones, rng, group=cushion, count=42,
+                 cluster=2.6, tips=16, tip_size=1.05, ao=0.64,
+                 underside=2, bias=-0.10, fillers=2)
+    # Two low shoulders break the cushion into an irregular mound.
+    for sx, sy, sz, rx, ry, rz in ((-8.5, 3.0, 6.0, 7.5, 5.5, 4.5),
+                                   (8.0, -2.5, 6.5, 7.0, 5.0, 4.0)):
+        shrub_canopy(builder, (32 + sx, 16 + sy, sz), (rx, ry, rz),
+                     heather_tones, rng, group=cushion, count=14,
+                     cluster=2.4, tips=6, tip_size=1.0, ao=0.66,
+                     underside=1, bias=-0.08, fillers=1)
     tones = (HEATHER_BLOOM_DARK, HEATHER_BLOOM, HEATHER_BLOOM_LIGHT,
              HEATHER_BLOOM_SUN)
-    # Bloom spikes: short stems carrying little clusters of bell flowers.
-    sprays = 40
+    # Bloom spikes: a stem carries a ladder of little bells, pale at the tip.
+    sprays = 24
     for i in range(sprays):
-        yaw = math.tau * i / sprays * 3.3 + rng.uniform(-0.25, 0.25)
-        reach = rng.uniform(0.8, 11.0)
+        yaw = math.tau * i / sprays * 3.7 + rng.uniform(-0.30, 0.30)
+        reach = rng.uniform(0.5, 11.5)
         x = 32 + math.cos(yaw) * reach
         y = 16 + math.sin(yaw) * reach * 0.78
-        base_z = rng.uniform(6.0, 10.5)
-        height = rng.uniform(3.0, 9.0)
-        builder.limb((x, y, base_z), (x + math.cos(yaw) * 0.8,
-                                      y + math.sin(yaw) * 0.8,
-                                      base_z + height),
-                     0.34, 0.24, HEATHER_LEAF_DARK, segments=3,
+        base_z = rng.uniform(6.0, 10.0)
+        height = rng.uniform(4.0, 10.0)
+        tip_x = x + math.cos(yaw) * rng.uniform(0.2, 1.2)
+        tip_y = y + math.sin(yaw) * rng.uniform(0.2, 1.2)
+        builder.limb((x, y, base_z), (tip_x, tip_y, base_z + height),
+                     0.28, 0.16, HEATHER_LEAF_DARK, segments=3,
                      group=cushion, cap=False)
-        tone = tone_for(tones, math.cos(yaw), math.sin(yaw), 0.4, rng,
-                        jitter=0.2)
-        for k in range(rng.randint(2, 3)):
-            t = 0.42 + 0.58 * k / 2.0
-            builder.blob(x + math.cos(yaw) * (0.8 * t + rng.uniform(-0.5, 0.5)),
-                         y + math.sin(yaw) * (0.8 * t + rng.uniform(-0.5, 0.5)),
-                         base_z + height * t + rng.uniform(-0.3, 0.4),
-                         rng.uniform(1.1, 1.9), rng.uniform(1.1, 1.8),
-                         rng.uniform(0.9, 1.5), tone if k < 2 else
-                         HEATHER_BLOOM_SUN, ao_base=0.92, segments=5,
-                         rings=3, group=cushion, wobble=0.2,
-                         phase=yaw * 2.0 + k)
-    # A few taller sprigs lift the silhouette out of a flat dome.
+        count = 4
+        for k in range(count):
+            t = 0.35 + 0.65 * (k + 1) / count
+            bx = x + (tip_x - x) * t + rng.uniform(-0.35, 0.35)
+            by = y + (tip_y - y) * t + rng.uniform(-0.30, 0.30)
+            bz = base_z + height * t + rng.uniform(-0.2, 0.3)
+            tone = tones[min(3, int(t * 2.4 + rng.uniform(0, 0.9)))]
+            builder.blob(bx, by, bz, rng.uniform(0.95, 1.30),
+                         rng.uniform(0.90, 1.20), rng.uniform(0.75, 1.05),
+                         tone, ao_base=0.94, segments=5, rings=3,
+                         group=cushion, wobble=0.2, phase=yaw * 2.0 + k)
+    # Low sprays fray the rim into individual shoots.
+    for _ in range(7):
+        a = rng.uniform(0, math.tau)
+        builder.leaf_tuft(32 + math.cos(a) * rng.uniform(10.0, 14.0),
+                          16 + math.sin(a) * rng.uniform(8.0, 11.0),
+                          rng.uniform(1.5, 4.0), HEATHER_LEAF_LIGHT, rng,
+                          size=1.3, spread=1.0, group=cushion, count=2)
+    # A handful of taller sprigs lift the silhouette out of a flat dome.
     for _ in range(6):
         yaw = rng.uniform(0, math.tau)
         x = 32 + math.cos(yaw) * rng.uniform(2.0, 9.0)
         y = 16 + math.sin(yaw) * rng.uniform(1.5, 7.0)
-        builder.blob(x, y, rng.uniform(15.0, 19.0), 1.5, 1.4, 1.9,
-                     HEATHER_BLOOM_LIGHT, ao_base=0.94, segments=5,
-                     rings=3, group=cushion, wobble=0.2)
+        builder.limb((x, y, 10.0), (x, y, rng.uniform(15.0, 19.0)),
+                     0.24, 0.12, HEATHER_LEAF_DARK, segments=3,
+                     group=cushion, cap=False)
+        for k in range(2):
+            builder.blob(x + rng.uniform(-0.3, 0.3),
+                         y + rng.uniform(-0.3, 0.3),
+                         rng.uniform(14.5, 18.0) + k * 0.5,
+                         rng.uniform(1.0, 1.4), rng.uniform(1.0, 1.4),
+                         rng.uniform(0.8, 1.1), HEATHER_BLOOM_LIGHT,
+                         ao_base=0.96, segments=5, rings=3,
+                         group=cushion, wobble=0.2)
 
 
 def draw_cattails(builder: TreeBuilder, rng) -> None:
@@ -1278,8 +1474,8 @@ def draw_cattails(builder: TreeBuilder, rng) -> None:
                   CATTAIL_LEAF_SUN)
 
     # Back leaves first: tall ribbons that make the clump's frame.
-    for i in range(7):
-        yaw = math.tau * i / 7 + rng.uniform(-0.2, 0.2)
+    for i in range(9):
+        yaw = math.tau * i / 9 + rng.uniform(-0.2, 0.2)
         reach = rng.uniform(0.8, 3.2)
         dx, dy = math.cos(yaw), math.sin(yaw)
         tone = tone_for(leaf_tones, dx, dy, 0.45, rng, jitter=0.14)
@@ -1291,8 +1487,8 @@ def draw_cattails(builder: TreeBuilder, rng) -> None:
                       segments=3, group=clump,
                       phase=rng.uniform(0, math.tau), cross=True)
     # Front leaves: shorter and wider, arching away over the waterline.
-    for i in range(5):
-        yaw = math.tau * i / 5 + 0.4 + rng.uniform(-0.3, 0.3)
+    for i in range(7):
+        yaw = math.tau * i / 7 + 0.4 + rng.uniform(-0.3, 0.3)
         reach = rng.uniform(2.0, 5.0)
         dx, dy = math.cos(yaw), math.sin(yaw)
         tone = tone_for(leaf_tones, dx, dy, 0.1, rng, jitter=0.16)
@@ -1306,8 +1502,8 @@ def draw_cattails(builder: TreeBuilder, rng) -> None:
                       segments=3, group=clump,
                       phase=rng.uniform(0, math.tau), cross=True)
     # The heads: slender cigars on fine stalks, fanned apart above the leaves.
-    for i in range(5):
-        yaw = math.tau * i / 5 + rng.uniform(-0.45, 0.45) + 0.4
+    for i in range(6):
+        yaw = math.tau * i / 6 + rng.uniform(-0.45, 0.45) + 0.4
         reach = rng.uniform(2.2, 5.6)
         x = 32 + math.cos(yaw) * reach
         y = 16 + math.sin(yaw) * reach * 0.8
@@ -1319,7 +1515,7 @@ def draw_cattails(builder: TreeBuilder, rng) -> None:
         builder.limb((x, y, 0.0), (x + lean_x, y + lean_y, top_z),
                      0.55, 0.32, stalk_material, segments=4, group=clump,
                      cap=False)
-        builder.cylinder(x + lean_x, y + lean_y, top_z - head, top_z, 1.15,
+        builder.cylinder(x + lean_x, y + lean_y, top_z - head, top_z, 1.25,
                          CATTAIL_HEAD, segments=7, cap=True, group=clump)
         builder.blob(x + lean_x, y + lean_y, top_z - 0.2, 1.2, 1.2, 0.8,
                      CATTAIL_HEAD_LIGHT, ao_base=0.94, segments=5,

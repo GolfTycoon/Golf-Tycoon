@@ -307,34 +307,48 @@ def pattern_rgb(m: Material, u: np.ndarray, v: np.ndarray) -> np.ndarray:
         return np.where(edge[:, None], color * 0.78, out)
 
     if name == "bark":
-        # Vertical ridges, long dark cracks and sparse flecks: tree trunks.
-        ridge = np.sin(u * 1.9) * 0.5 + np.sin(u * 4.3 + v * 0.21) * 0.35
-        tone = _hash01(np.floor(u / 2.5).astype(np.int64),
-                       np.floor(v / 9.0).astype(np.int64))
-        fleck = _hash01(np.floor(u / 5.0).astype(np.int64),
-                        np.floor(v / 13.0).astype(np.int64))
-        crack = _hash01(np.floor(u / 6.0).astype(np.int64),
-                        np.floor(v / 24.0).astype(np.int64))
-        out = color * (0.92 + ridge[:, None] * 0.09 + tone[:, None] * 0.13)
-        out = np.where((fleck < 0.14)[:, None], out * 0.72, out)
-        out = np.where((crack < 0.12)[:, None], out * 0.6, out)
-        return np.where((np.sin(u * 1.9) > 0.82)[:, None], out * 1.07, out)
+        # Deep vertical grooves that meander only slightly, crossed by short
+        # horizontal checks and a fine grain: oak and pine bark, not a snake.
+        warp = np.sin(v * 0.16 + np.sin(v * 0.05) * 1.3) * 0.07
+        groove = np.sin(u * 1.55 + warp) * 0.65 \
+            + np.sin(u * 3.30 + 0.7) * 0.35
+        grain = _hash01(np.floor(u / 1.3).astype(np.int64),
+                        np.floor(v / 2.8).astype(np.int64))
+        check = _hash01(np.floor(u / 2.5).astype(np.int64),
+                        np.floor(v / 7.0).astype(np.int64))
+        fleck = _hash01(np.floor(u / 4.0).astype(np.int64),
+                        np.floor(v / 11.0).astype(np.int64))
+        out = color * (0.93 + groove[:, None] * 0.07
+                       + grain[:, None] * 0.08)
+        out = np.where((groove > 0.80)[:, None], out * 0.68, out)
+        out = np.where((groove < -0.86)[:, None], out * 1.07, out)
+        out = np.where((check < 0.10)[:, None], out * 0.82, out)
+        out = np.where((fleck > 0.992)[:, None],
+                       _mix(out, np.clip(color * 1.30 + 0.05, 0, 1), 0.3), out)
+        return np.clip(out, 0, 1)
 
     if name == "birch":
-        # Pale paper bark with bold horizontal lenticel dashes.  A birch's
-        # markings are its signature, so they stay readable at 1 px per world
-        # pixel: broken dark bars a few pixels long, on a band every 4 px,
-        # with a fine paper grain underneath.
-        band = np.floor(v / 4.0).astype(np.int64)
-        carry = _hash01(band, np.zeros_like(band))
-        start = _hash01(band + 17, np.zeros_like(band)) * 11.0
-        length = 2.5 + _hash01(band + 41, np.zeros_like(band)) * 5.0
-        x = np.mod(u - start, 11.0)
-        dash = (x < length) & (carry > 0.24)
-        grain = _hash01(np.floor(u / 2.0).astype(np.int64), band)
-        out = color * (0.93 + grain[:, None] * 0.09)
-        out = np.where((carry > 0.82)[:, None], out * 1.06, out)
-        return np.where(dash[:, None], out * 0.30, out)
+        # White paper bark with lenticels scattered over the surface, not laid
+        # out in rings: each 2.6 px cell has a chance of carrying one short
+        # dark dash, so the marks wander the way real birch markings do.
+        cell = 2.6
+        cu = np.floor(u / cell).astype(np.int64)
+        cv = np.floor(v / cell).astype(np.int64)
+        present = _hash01(cu * 7 + 3, cv * 11 + 5) > 0.66
+        du = np.mod(u, cell)
+        dv = np.mod(v, cell)
+        dash_w = 1.2 + _hash01(cu * 13 + 1, cv * 3 + 9) * 1.6
+        dash = present & (dv < 1.0) & (du < dash_w)
+        # A few longer peeled scars, also laid across the grain.
+        scar = ((_hash01(np.floor(u / 7.0).astype(np.int64) * 5 + 2,
+                         np.floor(v / 13.0).astype(np.int64) * 3 + 7) > 0.88)
+                & (np.mod(v, 13.0) < 1.2))
+        grain = _hash01(np.floor(u / 1.6).astype(np.int64),
+                        np.floor(v / 2.4).astype(np.int64))
+        out = color * (0.955 + grain[:, None] * 0.06)
+        out = np.where(dash[:, None], out * 0.18, out)
+        out = np.where(scar[:, None], out * 0.40, out)
+        return np.clip(out, 0, 1)
 
     if name == "leaf":
         # Dappled foliage: soft flecks of light and shade at leaf scale, so a
