@@ -321,13 +321,20 @@ def pattern_rgb(m: Material, u: np.ndarray, v: np.ndarray) -> np.ndarray:
         return np.where((np.sin(u * 1.9) > 0.82)[:, None], out * 1.07, out)
 
     if name == "birch":
-        # Pale paper bark with dark horizontal lenticel dashes.
-        dash = _hash01(np.floor(u / 7.0).astype(np.int64),
-                       np.floor(v / 6.0).astype(np.int64))
-        shade = _hash01(np.floor(u / 3.0).astype(np.int64),
-                        np.floor(v / 20.0).astype(np.int64))
-        out = color * (0.96 + shade[:, None] * 0.06)
-        return np.where((dash < 0.22)[:, None], out * 0.42, out)
+        # Pale paper bark with bold horizontal lenticel dashes.  A birch's
+        # markings are its signature, so they stay readable at 1 px per world
+        # pixel: broken dark bars a few pixels long, on a band every 4 px,
+        # with a fine paper grain underneath.
+        band = np.floor(v / 4.0).astype(np.int64)
+        carry = _hash01(band, np.zeros_like(band))
+        start = _hash01(band + 17, np.zeros_like(band)) * 11.0
+        length = 2.5 + _hash01(band + 41, np.zeros_like(band)) * 5.0
+        x = np.mod(u - start, 11.0)
+        dash = (x < length) & (carry > 0.24)
+        grain = _hash01(np.floor(u / 2.0).astype(np.int64), band)
+        out = color * (0.93 + grain[:, None] * 0.09)
+        out = np.where((carry > 0.82)[:, None], out * 1.06, out)
+        return np.where(dash[:, None], out * 0.30, out)
 
     if name == "leaf":
         # Dappled foliage: soft flecks of light and shade at leaf scale, so a
@@ -338,6 +345,55 @@ def pattern_rgb(m: Material, u: np.ndarray, v: np.ndarray) -> np.ndarray:
         coarse = _hash01(np.floor(u / 9.0).astype(np.int64),
                          np.floor(v / 9.0).astype(np.int64))
         out = color * (0.90 + fine[:, None] * 0.14 + coarse[:, None] * 0.10)
+        return np.clip(out, 0, 1)
+
+    if name == "leaf_fine":
+        # The tree art's foliage surface: leaf-scale dapple with a little
+        # sparkle where the sun catches an upper leaf.  Two fleck scales keep
+        # a clump reading as a cluster of leaves instead of a shaded ball, and
+        # the sparse glints give the canopy its sunlit, hand-painted feel.
+        fine = _hash01(np.floor(u / 2.5).astype(np.int64),
+                       np.floor(v / 2.5).astype(np.int64))
+        flake = _hash01(np.floor(u / 6.0).astype(np.int64),
+                        np.floor(v / 5.0).astype(np.int64))
+        depth = _hash01(np.floor(u / 11.0).astype(np.int64),
+                        np.floor(v / 13.0).astype(np.int64))
+        out = color * (0.86 + fine[:, None] * 0.12
+                       + flake[:, None] * 0.09 + depth[:, None] * 0.05)
+        glint = (fine > 0.88) & (flake > 0.52) & (depth > 0.35)
+        sunlit = np.clip(color * 1.18 + 0.03, 0, 1)
+        out = np.where(glint[:, None], _mix(out, sunlit, 0.55), out)
+        return np.clip(out, 0, 1)
+
+    if name == "needle":
+        # Conifer needles: short diagonal strokes rather than round leaves,
+        # so a pine's pads and boughs read as brush, not broccoli.
+        stroke = (np.sin(u * 1.35 + v * 2.10) * 0.5
+                  + np.sin(u * 2.05 - v * 0.65) * 0.5)
+        fleck = _hash01(np.floor(u / 2.0).astype(np.int64),
+                        np.floor(v / 2.0).astype(np.int64))
+        out = color * (0.89 + stroke[:, None] * 0.07 + fleck[:, None] * 0.09)
+        return np.clip(out, 0, 1)
+
+    if name == "bloom":
+        # Heather and flower heads: dense little baubles, with brighter tips.
+        bauble = _hash01(np.floor(u / 1.5).astype(np.int64),
+                         np.floor(v / 1.5).astype(np.int64))
+        patch = _hash01(np.floor(u / 4.0).astype(np.int64),
+                        np.floor(v / 4.0).astype(np.int64))
+        out = color * (0.86 + bauble[:, None] * 0.18 + patch[:, None] * 0.10)
+        bright = (bauble > 0.76) & (patch > 0.42)
+        lifted = np.clip(color * 1.22 + 0.02, 0, 1)
+        out = np.where(bright[:, None], _mix(out, lifted, 0.5), out)
+        return np.clip(out, 0, 1)
+
+    if name == "reed":
+        # Grass and reed blades: long vertical fibres with a pale edge.
+        fibre = (np.sin(u * 2.6 + v * 0.06) * 0.5
+                 + np.sin(u * 5.1 + v * 0.03) * 0.5)
+        fleck = _hash01(np.floor(u / 2.0).astype(np.int64),
+                        np.floor(v / 3.0).astype(np.int64))
+        out = color * (0.90 + fibre[:, None] * 0.09 + fleck[:, None] * 0.07)
         return np.clip(out, 0, 1)
 
     if name == "shingle":
