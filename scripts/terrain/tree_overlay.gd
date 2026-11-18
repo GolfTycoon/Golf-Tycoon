@@ -46,9 +46,10 @@ class_name TreeOverlay
 ## the same tree keeps the same sprite however the course is turned.
 
 ## The evergreen art lives here as `<species>_0/_1/_2/_3.png`; each variant is
-## its own drawing - a seeded 3D model baked through the building art's
-## renderer (see `tools/tree_art/generate.py`) - so its canvas can be sized to
-## suit that drawing. `layout.json` next to these files, written by the same
+## its own drawing - a designed 3D model baked through the building art's
+## renderer, posed for the one angle it will ever be viewed from (see
+## `tools/tree_art/generate.py`) - so its canvas can be sized to suit that
+## drawing. `layout.json` next to these files, written by the same
 ## generator, controls draw scale and the ground anchor. This is the summer art
 ## of every species, and the only tree art the game itself ships — a season's
 ## variants come from the mods (see `register_mod_art()`).

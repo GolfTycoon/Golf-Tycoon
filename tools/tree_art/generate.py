@@ -15,12 +15,14 @@ sprites are baked with.  One PNG per species and view variant is written to
 ``assets/sprites/trees/`` as ``<species>_<variant>.png``, matching the files
 ``TreeOverlay`` loads.
 
-Each variant is its own seeded drawing of the species, not a rotation of one
+Each variant is its own designed model, not a rotation or a jitter of one
 model: a woodland tile wears one variant for the life of the course
-(``TreeOverlay.facing_at()``), so the four drawings are alternatives shown side
-by side in one wood and they share one sun direction.  Every sprite is cropped
-so the trunk's ground point sits at the bottom-centre of its canvas, which is
-what the layout anchors assume.
+(``TreeOverlay.facing_at()``), so the four drawings are alternatives shown
+side by side in one wood, they share one sun direction, and each is posed
+for the single angle it will ever be seen from (``screen_shift()`` in
+``trees.py`` composes leans and crown offsets in screen pixels).  Every
+sprite is cropped so the trunk's ground point sits at the bottom-centre of
+its canvas, which is what the layout anchors assume.
 
 ``layout.json`` is written next to the PNGs and records, per species, the draw
 scale (``1 / --scale``) under the normalized ground anchor the renderer
@@ -74,11 +76,18 @@ BASE_X, BASE_Y, BASE_Z = 32.0, 16.0, 0.0
 # ---------------------------------------------------------------------------
 
 def build_model(species: str, variant: int) -> Model:
-    """One seeded drawing of the species, standing at the tile's centre."""
+    """One variant of the species: its own designed model, seeded per variant.
+
+    Every variant is a distinct design (see ``TREES[species]["designs"]``) -
+    posed for the single angle the game will always view it from - with the
+    seed adding the small jitter that keeps two runs identical and two trees
+    from looking stamped.
+    """
     model = Model(TILES_X, TILES_Y)
     builder = TreeBuilder(model)
     rng = random.Random(variant_seed(species, variant))
-    TREES[species]["draw"](builder, rng)
+    designs = TREES[species]["designs"]
+    TREES[species]["draw"](builder, rng, designs[variant % len(designs)])
     return model
 
 
