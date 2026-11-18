@@ -288,7 +288,8 @@ func _on_ball_putt_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	ball.visible = true
 	var duration = 0.3 + (distance_yards / 100.0) * 0.7
 	duration = clamp(duration, 0.3, 1.5)
-	ball.start_flight_screen(from_screen, to_screen, duration, true)
+	var ground := _shot_ground(golfer_id, from_screen, to_screen, to_screen)
+	ball.start_flight_screen(from_screen, to_screen, duration, true, ground[0], ground[2])
 
 func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int, carry_screen: Vector2) -> void:
 	# Handle precise sub-tile shot animation (non-putt shots with arc)
@@ -337,15 +338,16 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 		wind_offset = wind_tile_disp * terrain_grid.tile_width * 0.5
 
 	# Configure rollout if carry and final positions differ
+	var ground := _shot_ground(golfer_id, from_screen, carry_screen, to_screen)
 	if carry_screen.distance_to(to_screen) > 1.0:
 		var rollout_screen_dist = carry_screen.distance_to(to_screen)
 		# Rollout duration: ~0.3s base + scaled by distance, feels natural
 		var roll_dur = 0.3 + (rollout_screen_dist / 200.0) * 0.8
 		roll_dur = clamp(roll_dur, 0.2, 1.2)
-		ball.set_rollout(to_screen, roll_dur)
+		ball.set_rollout(to_screen, roll_dur, ground[2])
 
 	# Flight goes to the carry position (where ball first hits ground)
-	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset)
+	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset, ground[0], ground[1])
 	var golfer_manager = get_parent().get_node_or_null("GolferManager")
 	if golfer_manager:
 		var golfer: Golfer = golfer_manager.get_golfer(golfer_id)
@@ -360,6 +362,36 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 				var grid_delta := Vector2(terrain_grid.screen_to_grid(carry_screen) - terrain_grid.screen_to_grid(from_screen))
 				var bend := Vector2(-grid_delta.y, grid_delta.x) * sign_value * 0.06
 				ball.wind_visual_offset += terrain_grid.grid_to_screen_precise(bend) - terrain_grid.grid_to_screen_precise(Vector2.ZERO)
+
+## The grid points under a shot's screen positions - where it is struck from,
+## where it first comes down and where it comes to rest - from the shooter's
+## own record of the shot (Golfer.shot_ground_from), where that projects onto
+## them: the screen positions cannot say whether a spot behind a hill is on the
+## hill or behind it. INVALID for any the record does not give; the ball works
+## those out for itself.
+func _shot_ground(golfer_id: int, from_screen: Vector2, carry_screen: Vector2,
+		rest_screen: Vector2) -> PackedVector2Array:
+	var invalid := TerrainGrid.INVALID_GRID_POINT
+	var ground := PackedVector2Array([invalid, invalid, invalid])
+	var golfer := _golfer_for(golfer_id)
+	if golfer == null or not is_instance_valid(terrain_grid):
+		return ground
+	var recorded := [golfer.shot_ground_from, golfer.shot_ground_carry, golfer.shot_ground_rest]
+	var screens := [from_screen, carry_screen, rest_screen]
+	for i in range(3):
+		var point: Vector2 = recorded[i]
+		if point != invalid and terrain_grid.grid_point_to_screen(point).distance_to(screens[i]) \
+				<= Ball.GROUND_MATCH_PX:
+			ground[i] = point
+	return ground
+
+func _golfer_for(golfer_id: int) -> Golfer:
+	var golfer_manager: Node = get_parent().get_node_or_null("GolferManager") if get_parent() else null
+	if golfer_manager == null and is_instance_valid(GameManager.golfer_manager):
+		golfer_manager = GameManager.golfer_manager
+	if golfer_manager == null or not golfer_manager.has_method("get_golfer"):
+		return null
+	return golfer_manager.get_golfer(golfer_id) as Golfer
 
 func _on_golfer_finished_round(golfer_id: int, _total_strokes: int, _total_par: int) -> void:
 	# Remove ball when golfer finishes their round

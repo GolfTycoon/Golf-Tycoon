@@ -91,7 +91,7 @@ A course with no owner manager — a tool running the game on its own — falls 
 
 `PlayerRoundManager` gives the **Edit Player** page an **On the course** column. It names the tile the owner works and the width of the ground, and its button asks `main.gd` for a click on the course. `main.gd` then puts the game into a click-on-the-course mode: the next click on the terrain moves the ground, and any other tool, right-click or Esc cancels the mode.
 
-`StaffAreaOverlay` draws the ground as a ring, in the owner's gold rather than the green used for hired staff, and redraws when the ground moves.
+`StaffAreaOverlay` draws the ground as a ring, in the owner's gold rather than the green used for hired staff, and redraws when the ground moves. It is laid over the hills like an employee's ring and hidden where a nearer hill covers it (see [Staff and Weeds](../economy-and-land/staff-and-weeds.md)).
 
 ### Saving
 

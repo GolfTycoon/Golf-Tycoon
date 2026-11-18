@@ -95,6 +95,10 @@ var fps_counter_refresh: int = FpsCounterRefresh.NORMAL
 var graphics_preset: int = GraphicsPreset.AUTO
 var terrain_quality: int = TerrainQuality.FULL
 var grass_quality: int = GrassQuality.FULL
+## "Terrain-aware occlusion": a hill nearer the camera hides the trees, the
+## walking trail, the buildings, the golfers and the golf balls behind it, pixel
+## by pixel. The name predates all but the trees and is kept so saved settings
+## still load.
 var tree_occlusion_enabled: bool = true
 var water_quality: int = WaterQuality.FULL
 var wind_flag_quality: int = WindFlagQuality.FULL

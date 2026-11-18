@@ -202,6 +202,140 @@ func test_walking_golfer_stays_on_course_route_when_rotated_while_moving() -> vo
 	main.golfer_manager.clear_all_golfers()
 	await _restore_orientation()
 
+func test_a_golfer_behind_a_hill_stays_behind_it_when_the_view_turns() -> void:
+	await _restore_orientation()
+	var grid: TerrainGrid = main.terrain_grid
+	var saved_elevation := grid.serialize_elevation()
+	# Auto turns terrain occlusion off on small machines: pin a preset that has
+	# it on, and put the player's settings back afterwards.
+	var saved_preset := PerformanceSettings.graphics_preset
+	var saved_settings := {}
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		saved_settings[setting] = PerformanceSettings.get_graphics_setting(setting)
+	PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.HIGH)
+	# A hollow along vertex rows 55-56 behind a full-height ridge along rows
+	# 57-58: nearer the camera than the hollow facing north and facing west.
+	for x in range(40, 81):
+		grid.set_vertex_elevation(Vector2i(x, 55), TerrainGrid.MIN_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 56), TerrainGrid.MIN_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 57), TerrainGrid.MAX_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 58), TerrainGrid.MAX_ELEVATION)
+	var hollow := Vector2(60.5, 55.5)
+	var golfer: Golfer = main.golfer_manager.spawn_golfer("Hidden walker")
+	golfer.global_position = grid.grid_to_screen_center(Vector2i(60, 55))
+	golfer.begin_walk_to(grid.grid_to_screen_center(Vector2i(63, 55)), "Walking along the hollow")
+	assert_gt(golfer.path.size(), 0, "precondition: the golfer has a walk ahead")
+	assert_eq(golfer.ground_point(), hollow, "precondition: the golfer stands in the hollow")
+	assert_true(golfer.terrain_hides_point(golfer.global_position - Vector2(0.0, 12.0)),
+		"precondition: the ridge hides them")
+	# Their ball lies in the hollow too, and another is on its way down into it.
+	main.ball_manager.place_ball_at_rest(golfer.golfer_id, Vector2i(61, 55))
+	var resting: Ball = main.ball_manager.get_ball(golfer.golfer_id)
+	var lie := Vector2(61.5, 55.5)
+	assert_true(resting.terrain_hides_point(resting.global_position), "precondition: the ridge hides the ball")
+	var flying: Ball = main.ball_manager.get_or_create_ball(golfer.golfer_id + 1000)
+	var struck := Vector2(62.5, 62.5)
+	var carry := Vector2(62.25, 55.75)
+	flying.start_flight_screen_with_arc(grid.grid_point_to_screen(struck), grid.grid_point_to_screen(carry), 3.0,
+		Vector2.ZERO, struck, carry)
+
+	# A quarter turn to the west: main.gd carries every moving figure across it.
+	grid.set_view_orientation(3)
+	assert_eq(golfer.ground_point(), hollow, "the golfer is still in the hollow after the turn")
+	assert_almost_eq(golfer.global_position, grid.grid_point_to_screen(hollow), Vector2(0.01, 0.01),
+		"drawn where the hollow is drawn now, not on the ridge drawn over it")
+	assert_true(golfer.terrain_hides_point(golfer.global_position - Vector2(0.0, 12.0)),
+		"so the ridge still hides them")
+	assert_almost_eq(golfer.path.back(), grid.grid_to_screen_center(Vector2i(63, 55)), Vector2(0.01, 0.01),
+		"and their walk still ends in the hollow")
+	assert_eq(resting.rest_ground, lie, "the ball still lies in the hollow")
+	assert_almost_eq(resting.global_position, grid.grid_point_to_screen(lie), Vector2(0.01, 0.01),
+		"drawn where the hollow is drawn now")
+	var resting_mask := resting.material as ShaderMaterial
+	assert_eq(resting_mask.get_shader_parameter("ground_grid"), lie, "the shader stands it there")
+	assert_almost_eq(resting_mask.get_shader_parameter("ground_offset"),
+		Vector2(0.0, TerrainOcclusion.contact_reach(grid, lie, Ball.OCCLUSION_FOOT)), Vector2(0.001, 0.001),
+		"measured from where it lies now, not from where it was drawn before the turn")
+	assert_true(resting.terrain_hides_point(resting.global_position), "so the ridge still hides it")
+	assert_eq(flying.ball_state, Ball.BallState.IN_FLIGHT, "precondition: the other ball is still in the air")
+	assert_almost_eq(flying.flight_end_pos, grid.grid_point_to_screen(carry), Vector2(0.01, 0.01),
+		"and comes down in the hollow, not on the ridge drawn over it")
+
+	main.ball_manager.remove_ball(golfer.golfer_id + 1000)
+	main.golfer_manager.clear_all_golfers()
+	grid.deserialize_elevation(saved_elevation)
+	if saved_preset == PerformanceSettings.GraphicsPreset.CUSTOM:
+		PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+		for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+			PerformanceSettings.set_graphics_setting(setting, saved_settings[setting])
+	else:
+		PerformanceSettings.set_graphics_preset(saved_preset)
+	await _restore_orientation()
+
+func test_a_decoration_and_an_area_ring_behind_a_hill_stay_behind_it_when_the_view_turns() -> void:
+	await _restore_orientation()
+	var grid: TerrainGrid = main.terrain_grid
+	var saved_elevation := grid.serialize_elevation()
+	var saved_preset := PerformanceSettings.graphics_preset
+	var saved_settings := {}
+	for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+		saved_settings[setting] = PerformanceSettings.get_graphics_setting(setting)
+	PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.HIGH)
+	# The hollow and the ridge of the golfer test above.
+	for x in range(40, 81):
+		grid.set_vertex_elevation(Vector2i(x, 55), TerrainGrid.MIN_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 56), TerrainGrid.MIN_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 57), TerrainGrid.MAX_ELEVATION)
+		grid.set_vertex_elevation(Vector2i(x, 58), TerrainGrid.MAX_ELEVATION)
+	var catalogue: Dictionary = JSON.parse_string(
+			FileAccess.get_file_as_string("res://data/decorations.json"))["decorations"]
+	var statue: Decoration = main.entity_layer.place_decoration("golfer_statue", Vector2i(58, 55), catalogue)
+	assert_not_null(statue, "precondition: the statue stands in the hollow")
+	if statue == null:
+		return
+	await process_frames(1)
+	var rings: StaffAreaOverlay = main.staff_area_overlay
+	assert_true(statue.terrain_hides_point(statue.global_position - Vector2(0.0, 12.0)),
+		"precondition: the ridge hides the statue")
+	assert_eq(_hidden_ring_vertices(rings, Vector2(52, 55.5)), [true, true], "precondition: and a ring in the hollow")
+
+	# A quarter turn to the west: main.gd sets every placed prop down again.
+	grid.set_view_orientation(3)
+	var art := statue.get_node("Visual").material as ShaderMaterial
+	assert_eq(art.get_shader_parameter("grid_origin"), grid.projection.grid_origin(), "the statue's mask turns with the view")
+	assert_almost_eq(statue.global_position, grid.grid_to_screen_center(Vector2i(58, 55)), Vector2(0.01, 0.01),
+		"and it stands where the hollow is drawn now")
+	assert_true(statue.terrain_hides_point(statue.global_position - Vector2(0.0, 12.0)), "so the ridge still hides it")
+	assert_eq((rings.material as ShaderMaterial).get_shader_parameter("grid_origin"), grid.projection.grid_origin(),
+		"the rings' mask turns with the view")
+	assert_eq(_hidden_ring_vertices(rings, Vector2(52, 55.5)), [true, true], "and the ring stays behind the ridge")
+
+	main.entity_layer.remove_decoration(Vector2i(58, 55))
+	grid.deserialize_elevation(saved_elevation)
+	if saved_preset == PerformanceSettings.GraphicsPreset.CUSTOM:
+		PerformanceSettings.set_graphics_preset(PerformanceSettings.GraphicsPreset.CUSTOM)
+		for setting in PerformanceSettings.GRAPHICS_SETTINGS:
+			PerformanceSettings.set_graphics_setting(setting, saved_settings[setting])
+	else:
+		PerformanceSettings.set_graphics_preset(saved_preset)
+	await _restore_orientation()
+
+## Whether every vertex of a small area's disc, and of its rim, is hidden.
+func _hidden_ring_vertices(rings: StaffAreaOverlay, centre: Vector2) -> Array:
+	var geometry := rings.ring_geometry(centre, 0.5)
+	var fill_points: PackedVector2Array = geometry.fill_points
+	var fill_grounds: PackedVector2Array = geometry.fill_grounds
+	var rim: GroundDecal = geometry.rim
+	var fill_hidden := fill_points.size() > 0
+	for i in fill_points.size():
+		fill_hidden = fill_hidden and TerrainOcclusion.hides_decal(main.terrain_grid, fill_grounds[i],
+				rings.to_global(fill_points[i]))
+	var rim_hidden := rim.points.size() > 0
+	for i in rim.points.size():
+		rim_hidden = rim_hidden and TerrainOcclusion.hides_decal(main.terrain_grid, rim.uvs[i],
+				rings.to_global(rim.points[i]))
+	return [fill_hidden, rim_hidden]
+
 func test_flying_and_rolling_ball_lands_on_target_when_rotated_in_flight() -> void:
 	await _restore_orientation()
 	var from_precise := Vector2(45.0, 48.0)

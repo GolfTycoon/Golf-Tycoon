@@ -2,6 +2,11 @@ shader_type canvas_item;
 
 // Heightfield data shared with CourseSurface. Sprite pixels stay in the normal
 // entity Y-sort, but a terrain surface nearer the camera clips them per pixel.
+// Trees, golfers and golf balls wear it: each is a billboard standing on one
+// ground point (a golfer's is tracked as they walk - see
+// Golfer.refresh_terrain_occlusion(); a ball's follows its shot's ground track,
+// with ground_offset.y lifting it to the foot of its contact shadow and over
+// the ground under its flight - see Ball.refresh_terrain_occlusion()).
 uniform sampler2D vertex_elevation : filter_linear, repeat_disable;
 uniform vec2 vertex_grid_size = vec2(129.0);
 uniform vec2 grid_size = vec2(128.0);
@@ -27,8 +32,11 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 sprite_color = texture(TEXTURE, UV) * COLOR;
-
+	// Only whether the pixel is drawn is decided here. Godot 4 has already
+	// multiplied the texture into the colour this function receives, so the
+	// sprite is left exactly as drawn: sampling the texture again would square
+	// every channel and darken it.
+	//
 	// A vertical sprite pixel above its ground anchor raises its position along
 	// the same screen-space ray parameter used by the terrain intersection.
 	float ground_t = elevation_at_grid(ground_grid) * elevation_step_y;
@@ -45,5 +53,4 @@ void fragment() {
 			discard;
 		}
 	}
-	COLOR = sprite_color;
 }

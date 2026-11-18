@@ -17,6 +17,14 @@ var building_data: Dictionary = {}
 ## `CourseClubhouse.front_tile()` sends the golfers to.
 var _facing: float = 0.0
 
+## Clips the art where nearer terrain covers it, measured against the footprint
+## (see `refresh_terrain_occlusion()`).
+const TERRAIN_FOOTPRINT_OCCLUSION: Shader = preload("res://shaders/terrain_footprint_occlusion.gdshader")
+## This building's occlusion material: created the first time the course has
+## relief, kept while the building stands, and only worn while occlusion is on.
+var _occlusion_material: ShaderMaterial = null
+var _occlusion_active := false
+
 signal building_selected(building: Building)
 signal building_destroyed(building: Building)
 
@@ -43,16 +51,44 @@ func _ready() -> void:
 	set_position_in_grid(grid_position)
 	_update_visuals()
 
+func _enter_tree() -> void:
+	_watch_terrain_occlusion(true)
+
+func _exit_tree() -> void:
+	_watch_terrain_occlusion(false)
+
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# A hill drawn over part of the building is the hill, not the building:
+		# only the pixels the player can see answer to a click.
+		if _occlusion_active:
+			var local_event := make_input_local(event) as InputEventMouseButton
+			if terrain_hides_point(to_global(local_event.position)):
+				return
 		building_selected.emit(self)
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
+	if is_inside_tree():
+		_watch_terrain_occlusion(false)
 	terrain_grid = grid
+	if is_inside_tree():
+		_watch_terrain_occlusion(true)
+
+## Follow the course's terrain occlusion switch while in the scene tree.
+func _watch_terrain_occlusion(watch: bool) -> void:
+	if not is_instance_valid(terrain_grid):
+		return
+	var connected := terrain_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed)
+	if watch and not connected:
+		terrain_grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
+	elif not watch and connected:
+		terrain_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
 
 func set_position_in_grid(pos: Vector2i) -> void:
 	grid_position = pos
 	_update_facing()
+	# A move, a new foundation or a turn of the view all come through here.
+	refresh_terrain_occlusion()
 	# Calculate world position from grid position
 	if terrain_grid:
 		if terrain_grid.is_view_isometric():
@@ -63,6 +99,40 @@ func set_position_in_grid(pos: Vector2i) -> void:
 			global_position = center - Vector2(width * tile_w * 0.5, height * tile_h)
 		else:
 			global_position = terrain_grid.grid_to_screen(pos)
+
+## The tiles the building stands on, in grid units: the corner of its origin
+## tile and its size in tiles.
+func get_footprint_rect() -> Rect2:
+	return Rect2(Vector2(grid_position), Vector2(width, height))
+
+## Clip the art wherever nearer terrain covers it, as trees are clipped, while
+## the course has relief and the graphics setting allows it (see
+## TerrainGrid.terrain_occlusion_enabled()). The shader compares the terrain in
+## front with the front face of the footprint's column, so the building's own
+## level foundation never cuts into it. The heightfield is shared with the
+## surface; the footprint and the projection are set here, so this runs again
+## whenever the building moves or the view turns.
+func refresh_terrain_occlusion() -> void:
+	_occlusion_active = terrain_grid != null and terrain_grid.terrain_occlusion_enabled()
+	if _occlusion_active:
+		if _occlusion_material == null:
+			_occlusion_material = ShaderMaterial.new()
+			_occlusion_material.shader = TERRAIN_FOOTPRINT_OCCLUSION
+		_occlusion_active = terrain_grid.configure_footprint_occlusion(
+				_occlusion_material, get_footprint_rect())
+	var architecture := get_node_or_null("Visual/Architecture") as CanvasItem
+	if architecture:
+		architecture.material = _occlusion_material if _occlusion_active else null
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	refresh_terrain_occlusion()
+
+## Whether the terrain covers this building's art at a world point: the same
+## test its occlusion shader runs, so a click lands on what is drawn there.
+func terrain_hides_point(world: Vector2) -> bool:
+	if not _occlusion_active or terrain_grid == null:
+		return false
+	return TerrainOcclusion.hides_footprint(terrain_grid, get_footprint_rect(), world)
 
 func get_footprint() -> Array:
 	"""Returns array of grid positions occupied by this building"""
@@ -289,6 +359,7 @@ func _update_visuals() -> void:
 	# top-left corner of its art canvas. Keep the drawing in the same place.
 	visual.position = Vector2(size_x * 0.5, size_y)
 	architecture.position = -visual.position
+	refresh_terrain_occlusion()
 
 	# Add click detection area, shaped to the sprite's silhouette.
 	add_child(_make_click_area())

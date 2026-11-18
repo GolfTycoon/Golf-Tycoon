@@ -89,17 +89,14 @@ float intersect_elevation_tile(vec2 flat_point, vec2 ray_direction, vec2 cell,
 	return best_q > -1.0e19 ? middle_t + best_q : ELEVATION_RAY_NO_ROOT;
 }
 
-// Inverse of grid_point_to_screen(): intersect the screen pixel's vertical ray
-// with the heightfield. Fixed-point iteration oscillates on cliffs and can select
-// a hidden surface; exact tile intersections find the front-most surface instead.
-vec2 surface_grid_at_world(vec2 world, out bool hit) {
-	vec2 flat_point = world_to_grid(world);
-	hit = true;
-	if (!is_isometric || elevation_step_y <= 0.0) {
-		return flat_point;
-	}
-	vec2 ray_direction = world_to_grid(world + vec2(0.0, 1.0)) - flat_point;
-	float lower_t = -5.0 * elevation_step_y;
+// The greatest ray parameter in [min_t, the highest course level] at which this
+// pixel's vertical screen ray meets the heightfield: the front-most surface at or
+// in front of `min_t`. `hit` is false when the ray misses the course there. A
+// caller that only asks whether anything stands in front of a point passes that
+// point's own parameter, so the walk never visits the tiles behind it.
+float surface_t_on_ray(vec2 flat_point, vec2 ray_direction, float min_t, out bool hit) {
+	hit = false;
+	float lower_t = max(-5.0 * elevation_step_y, min_t);
 	float upper_t = 5.0 * elevation_step_y;
 	for (int axis = 0; axis < 2; axis++) {
 		float start = flat_point[axis];
@@ -107,8 +104,7 @@ vec2 surface_grid_at_world(vec2 world, out bool hit) {
 		float extent = grid_size[axis];
 		if (abs(direction) < 0.000001) {
 			if (start < 0.0 || start > extent) {
-				hit = false;
-				return vec2(-1.0);
+				return ELEVATION_RAY_NO_ROOT;
 			}
 			continue;
 		}
@@ -118,16 +114,12 @@ vec2 surface_grid_at_world(vec2 world, out bool hit) {
 		upper_t = min(upper_t, max(edge_a, edge_b));
 	}
 	if (lower_t > upper_t) {
-		hit = false;
-		return vec2(-1.0);
+		return ELEVATION_RAY_NO_ROOT;
 	}
 	if (abs(upper_t - lower_t) <= ELEVATION_RAY_EPSILON) {
 		vec2 rim_point = flat_point + ray_direction * upper_t;
-		if (abs(elevation_ray_value(upper_t, rim_point)) <= ELEVATION_RAY_EPSILON) {
-			return clamp(rim_point, vec2(0.0), grid_size);
-		}
-		hit = false;
-		return vec2(-1.0);
+		hit = abs(elevation_ray_value(upper_t, rim_point)) <= ELEVATION_RAY_EPSILON;
+		return hit ? upper_t : ELEVATION_RAY_NO_ROOT;
 	}
 
 	// Walk only crossed tiles. Unlike a raymarch, this cannot skip a narrow peak
@@ -159,7 +151,8 @@ vec2 surface_grid_at_world(vec2 world, out bool hit) {
 			float root_t = intersect_elevation_tile(flat_point, ray_direction, cell,
 				current_t, next_t, middle_t);
 			if (root_t < ELEVATION_RAY_NO_ROOT) {
-				return clamp(flat_point + ray_direction * root_t, vec2(0.0), grid_size);
+				hit = true;
+				return root_t;
 			}
 		}
 		if (next_t <= lower_t + ELEVATION_RAY_EPSILON) {
@@ -167,7 +160,38 @@ vec2 surface_grid_at_world(vec2 world, out bool hit) {
 		}
 		current_t = next_t;
 	}
-	hit = false;
-	return vec2(-1.0);
+	return ELEVATION_RAY_NO_ROOT;
 }
 
+// Inverse of grid_point_to_screen(): intersect the screen pixel's vertical ray
+// with the heightfield. Fixed-point iteration oscillates on cliffs and can select
+// a hidden surface; exact tile intersections find the front-most surface instead.
+vec2 surface_grid_at_world(vec2 world, out bool hit) {
+	vec2 flat_point = world_to_grid(world);
+	hit = true;
+	if (!is_isometric || elevation_step_y <= 0.0) {
+		return flat_point;
+	}
+	vec2 ray_direction = world_to_grid(world + vec2(0.0, 1.0)) - flat_point;
+	float root_t = surface_t_on_ray(flat_point, ray_direction, -ELEVATION_RAY_NO_ROOT, hit);
+	if (!hit) {
+		return vec2(-1.0);
+	}
+	return clamp(flat_point + ray_direction * root_t, vec2(0.0), grid_size);
+}
+
+// Whether the course surface crosses this pixel's ray nearer the camera than the
+// ray parameter `point_t`, i.e. whether a hill hides the point drawn there. Along
+// a pixel's ray the parameter is the height the point is drawn at, so a larger
+// value is nearer the viewer. This is the one depth test every occluded overlay
+// (trail, building) shares with the ground it stands on.
+bool terrain_hides(vec2 world, float point_t) {
+	if (!is_isometric || elevation_step_y <= 0.0) {
+		return false;
+	}
+	vec2 flat_point = world_to_grid(world);
+	vec2 ray_direction = world_to_grid(world + vec2(0.0, 1.0)) - flat_point;
+	bool hit;
+	float front_t = surface_t_on_ray(flat_point, ray_direction, point_t, hit);
+	return hit && front_t > point_t;
+}

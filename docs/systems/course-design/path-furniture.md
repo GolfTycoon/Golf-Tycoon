@@ -2,8 +2,8 @@
 
 > Benches and ball washers are drawn on the ground plane and turned to face the walk they sit beside. Their placement never changes pathfinding or terrain.
 
-**Source:** `scripts/entities/path_furniture.gd` (`layout()`, `draw_item()`, `SMALL_FIXTURES`, `EDGE_ORDER`), `scripts/entities/decoration.gd`, `scripts/terrain/terrain_grid.gd` (`surface_refreshed`), `scripts/terrain/walking_path_overlay.gd`
-**Tests:** `tests/unit/test_path_furniture.gd`
+**Source:** `scripts/entities/path_furniture.gd` (`layout()`, `draw_item()`, `ground_reach()`, `SMALL_FIXTURES`, `EDGE_ORDER`), `scripts/entities/decoration.gd` (`refresh_terrain_occlusion()`, `art_reach()`), `scripts/terrain/terrain_grid.gd` (`surface_refreshed`), `scripts/terrain/walking_path_overlay.gd`
+**Tests:** `tests/unit/test_path_furniture.gd`, `tests/unit/course_design/test_terrain_occlusion.gd`
 
 ---
 
@@ -43,6 +43,7 @@ Plaza and intersection tiles, which are surrounded on every side, keep the tile 
 - **Benches** project their length and depth onto the grid, with height drawn upward. A horizontal walk gets a horizontal bench. A vertical walk gets a bench that recedes at half scale. The legs and contact marks share the same foot coordinates. The backrest stays visible when seen edge-on.
 - **Foot anchor:** decorations use the visible bottom of their artwork as the foot, which corrects for transparent padding. The fountain's animated droplets use the same correction.
 - **Built fixtures** stay upright. **Natural plantings** keep their deterministic variation. Ghosts use the same anchor and variation as placed sprites.
+- **Behind a hill:** a nearer hill hides furniture and every other decoration pixel by pixel. Each stands on its tile's centre and is measured from the lowest pixel of its art: a sprite's foot, or a bench's front feet and their contact marks (`ground_reach()`), so the ground it stands on never cuts into it. Its shadows lie on the ground. Ghosts are never clipped.
 
 ### 3. Refresh
 

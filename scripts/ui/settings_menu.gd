@@ -548,7 +548,7 @@ func _build_display_cards(mode: int) -> Array[Control]:
 			{"label": "Off", "value": PerformanceSettings.GrassQuality.OFF},
 			{"label": "Full", "value": PerformanceSettings.GrassQuality.FULL},
 		])
-	_add_graphics_setting(performance_body, "Terrain-aware tree occlusion", "TreeOcclusion",
+	_add_graphics_setting(performance_body, "Terrain-aware occlusion", "TreeOcclusion",
 		PerformanceSettings.GraphicsSetting.TREE_OCCLUSION, [
 			{"label": "Off", "value": 0}, {"label": "On", "value": 1},
 		])

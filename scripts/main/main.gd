@@ -2754,6 +2754,38 @@ func _world_to_precise_grid_or_flat(world_pos: Vector2) -> Dictionary:
 		return {"pos": grid_point - Vector2(0.5, 0.5), "flat": false}
 	return {"pos": terrain_grid.projection.unproject(world_pos) - Vector2(0.5, 0.5), "flat": true}
 
+## Where a golfer stands, for a view turn. While terrain occlusion tracks it,
+## that is the ground they stand on (Golfer.ground_point()) rather than the
+## front-most surface on their pixel, so a golfer behind a hill is still behind
+## it after the turn.
+func _golfer_position_entry(golfer: Golfer) -> Dictionary:
+	var ground := golfer.ground_point()
+	if ground != TerrainGrid.INVALID_GRID_POINT:
+		return {"pos": ground - Vector2(0.5, 0.5), "flat": false}
+	return _world_to_precise_grid_or_flat(golfer.global_position)
+
+## A point on a tracked golfer's way - a path waypoint, an amenity stop, a duty
+## target - for a view turn: the ground it was laid on, a tile centre for every
+## waypoint but a walk's precise last one (TerrainOcclusion.standing_point()),
+## rather than the front-most surface on its pixel, so a walk behind a hill
+## carries on behind it after the turn.
+func _golfer_waypoint_entry(world_pos: Vector2, tracked: bool) -> Dictionary:
+	if tracked:
+		var ground := TerrainOcclusion.standing_point(terrain_grid, world_pos)
+		if ground != TerrainGrid.INVALID_GRID_POINT:
+			return {"pos": ground - Vector2(0.5, 0.5), "flat": false}
+	return _world_to_precise_grid_or_flat(world_pos)
+
+## A point on a ball's way, for a view turn: the grid point the ball knows is
+## under it there (Ball.rest_ground and the ends of its track), where that still
+## projects onto the point, rather than the front-most surface on its pixel - so
+## a ball behind a hill is still behind it after the turn.
+func _ball_point_entry(ground: Vector2, world_pos: Vector2) -> Dictionary:
+	if ground != TerrainGrid.INVALID_GRID_POINT \
+			and terrain_grid.grid_point_to_screen(ground).distance_to(world_pos) <= 1.0:
+		return {"pos": ground - Vector2(0.5, 0.5), "flat": false}
+	return _world_to_precise_grid_or_flat(world_pos)
+
 func _precise_grid_to_world(entry: Dictionary) -> Vector2:
 	var pos: Vector2 = entry.get("pos", Vector2.ZERO)
 	if bool(entry.get("flat", false)):
@@ -2830,47 +2862,49 @@ func _snapshot_moving_entities() -> Array:
 	if not terrain_grid:
 		return snapshot
 	for golfer in _collect_course_golfers():
+		var position_entry := _golfer_position_entry(golfer)
+		var tracked := golfer.ground_point() != TerrainGrid.INVALID_GRID_POINT
 		var path_entries: Array = []
 		for waypoint in golfer.path:
-			path_entries.append(_world_to_precise_grid_or_flat(waypoint))
+			path_entries.append(_golfer_waypoint_entry(waypoint, tracked))
 		var data := {
 			"kind": "golfer",
 			"node": golfer,
-			"pos": _world_to_precise_grid_or_flat(golfer.global_position),
+			"pos": position_entry,
 			"path": path_entries,
 		}
 		if golfer._amenity_phase > 0:
-			data["amenity_dest"] = _world_to_precise_grid_or_flat(golfer._amenity_destination)
-			data["amenity_origin"] = _world_to_precise_grid_or_flat(golfer._amenity_origin)
+			data["amenity_dest"] = _golfer_waypoint_entry(golfer._amenity_destination, tracked)
+			data["amenity_origin"] = _golfer_waypoint_entry(golfer._amenity_origin, tracked)
 		var duty := golfer.get_node_or_null("OwnerDuty") as OwnerDuty
 		if duty != null and is_instance_valid(duty) and duty.step != OwnerDuty.Step.IDLE:
 			data["duty"] = duty
-			data["duty_target"] = _world_to_precise_grid_or_flat(duty._target)
+			data["duty_target"] = _golfer_waypoint_entry(duty._target, tracked)
 		snapshot.append(data)
 	for ball in _collect_course_balls():
 		if ball.ball_state == Ball.BallState.IN_FLIGHT:
 			var flight_data := {
 				"kind": "ball_flight",
 				"node": ball,
-				"start": _world_to_precise_grid_or_flat(ball.flight_start_pos),
-				"end": _world_to_precise_grid_or_flat(ball.flight_end_pos),
+				"start": _ball_point_entry(ball.flight_start_ground, ball.flight_start_pos),
+				"end": _ball_point_entry(ball.flight_end_ground, ball.flight_end_pos),
 				"wind_delta": _world_delta_to_grid(ball.wind_visual_offset),
 			}
 			if ball._has_pending_rollout:
-				flight_data["roll_end"] = _world_to_precise_grid_or_flat(ball.roll_end_pos)
+				flight_data["roll_end"] = _ball_point_entry(ball.roll_end_ground, ball.roll_end_pos)
 			snapshot.append(flight_data)
 		elif ball.ball_state == Ball.BallState.ROLLING:
 			snapshot.append({
 				"kind": "ball_rolling",
 				"node": ball,
-				"roll_start": _world_to_precise_grid_or_flat(ball.roll_start_pos),
-				"roll_end": _world_to_precise_grid_or_flat(ball.roll_end_pos),
+				"roll_start": _ball_point_entry(ball.roll_start_ground, ball.roll_start_pos),
+				"roll_end": _ball_point_entry(ball.roll_end_ground, ball.roll_end_pos),
 			})
 		else:
 			snapshot.append({
 				"kind": "node",
 				"node": ball,
-				"pos": _world_to_precise_grid_or_flat(ball.global_position),
+				"pos": _ball_point_entry(ball.rest_ground, ball.global_position),
 			})
 	if staff_container != null:
 		for child in staff_container.get_children():
@@ -2932,16 +2966,12 @@ func _restore_moving_entities(snapshot: Array) -> void:
 				ball.wind_visual_offset = _grid_delta_to_world(entry["wind_delta"])
 				if entry.has("roll_end"):
 					ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
-				var linear_pos := ball.flight_start_pos.lerp(ball.flight_end_pos, ball.flight_progress)
-				var arc_height := sin(ball.flight_progress * PI) * ball.flight_max_height
-				var wind_drift := ball.wind_visual_offset * sin(ball.flight_progress * PI)
-				ball.global_position = linear_pos - Vector2(0.0, arc_height) + wind_drift
+				ball.place_on_track()
 			"ball_rolling":
 				var ball := node as Ball
 				ball.roll_start_pos = _precise_grid_to_world(entry["roll_start"])
 				ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
-				var eased_t := 1.0 - pow(1.0 - ball.roll_progress, 2.0)
-				ball.global_position = ball.roll_start_pos.lerp(ball.roll_end_pos, eased_t)
+				ball.place_on_track()
 			"staff":
 				var staff := node as StaffMember
 				staff.global_position = _precise_grid_to_world(entry["pos"])

@@ -24,6 +24,12 @@ class_name TeeAimOverlay
 ##
 ## Like CupOverlay this is a terrain overlay: it redraws when the view rotates or
 ## the camera moves, and rebuilds when the terrain or the holes change.
+##
+## The marker is paint on the turf. Each tee's is laid out once as a triangle
+## mesh whose vertices carry the grid point of the ground under them (see
+## `marker_mesh()`), so a nearer hill hides it as it hides the walking trail
+## (terrain_decal_occlusion.gdshader); a camera pan reuses the meshes, and a
+## change of the ground, the view or the holes lays them out again.
 
 ## Nothing to aim at (grid coordinates are never negative).
 const NO_TARGET := Vector2i(-1, -1)
@@ -71,10 +77,20 @@ const SAFE_INSET: float = 2.6
 const MIN_FIT_SCALE: float = 0.45
 const MIN_SEGMENT: float = 0.25
 
+## Clips the markers where nearer terrain covers them (see
+## TerrainGrid.terrain_occlusion_enabled()).
+const TERRAIN_DECAL_OCCLUSION: Shader = preload("res://shaders/terrain_decal_occlusion.gdshader")
+
 var terrain_grid: TerrainGrid = null
 ## Vector2i tee tile -> Array[Vector2i] route to aim along (see TeeAimRoute).
 var _markers: Dictionary = {}
 var _rebuild_pending: bool = false
+## Vector2i tee tile -> its marker's GroundDecal, laid out for the ground and the
+## view recorded in `_mesh_stamp`.
+var _mesh_cache: Dictionary = {}
+var _mesh_stamp: Array = []
+## The overlay's material while terrain occlusion is on; null on a flat course.
+var _occlusion_material: ShaderMaterial = null
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -88,10 +104,15 @@ func initialize(grid: TerrainGrid) -> void:
 			terrain_grid.vertex_elevation_changed.connect(_on_ground_changed)
 		if not terrain_grid.elevation_changed.is_connected(_on_ground_changed):
 			terrain_grid.elevation_changed.connect(_on_ground_changed)
+		if not terrain_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+			terrain_grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
+		if not terrain_grid.view_rotated.is_connected(_on_view_rotated):
+			terrain_grid.view_rotated.connect(_on_view_rotated)
 	EventBus.hole_created.connect(_on_holes_changed)
 	EventBus.hole_deleted.connect(_on_holes_changed)
 	EventBus.hole_updated.connect(_on_hole_updated)
 	EventBus.load_completed.connect(_on_load_completed)
+	_refresh_occlusion()
 	rebuild()
 
 func _exit_tree() -> void:
@@ -104,6 +125,10 @@ func _exit_tree() -> void:
 			terrain_grid.vertex_elevation_changed.disconnect(_on_ground_changed)
 		if terrain_grid.elevation_changed.is_connected(_on_ground_changed):
 			terrain_grid.elevation_changed.disconnect(_on_ground_changed)
+		if terrain_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+			terrain_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
+		if terrain_grid.view_rotated.is_connected(_on_view_rotated):
+			terrain_grid.view_rotated.disconnect(_on_view_rotated)
 	if EventBus.hole_created.is_connected(_on_holes_changed):
 		EventBus.hole_created.disconnect(_on_holes_changed)
 	if EventBus.hole_deleted.is_connected(_on_holes_changed):
@@ -120,9 +145,33 @@ func _on_cup_tiles_changed() -> void:
 	_schedule_rebuild()
 
 ## Raising or lowering the ground reshapes the tile and so the marker that fits in
-## it — but not the route, so a redraw is enough.
+## it — but not the route, so laying the meshes out again is enough.
 func _on_ground_changed(_a = null, _b = null, _c = null) -> void:
+	_mesh_cache.clear()
 	queue_redraw()
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	_refresh_occlusion()
+
+## A turn gives the occlusion shader the new projection; the meshes, laid out
+## for the old one, are dropped when the overlay next draws (`_mesh_stamp`).
+func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
+	_refresh_occlusion()
+
+## Clip the markers behind nearer terrain while the course has relief and the
+## graphics setting allows it; a flat course draws them with no material at
+## all. The heightfield is shared with the surface and updated in place, so
+## only a turn of the view (the projection) needs this again.
+func _refresh_occlusion() -> void:
+	var surface: CourseSurface = terrain_grid._course_surface if terrain_grid else null
+	if surface == null or not terrain_grid.terrain_occlusion_enabled():
+		material = null
+		return
+	if _occlusion_material == null:
+		_occlusion_material = ShaderMaterial.new()
+		_occlusion_material.shader = TERRAIN_DECAL_OCCLUSION
+	surface.configure_terrain_occlusion(_occlusion_material)
+	material = _occlusion_material
 
 func _on_holes_changed(_a = null, _b = null, _c = null) -> void:
 	_schedule_rebuild()
@@ -144,6 +193,7 @@ func _schedule_rebuild() -> void:
 func rebuild() -> void:
 	_rebuild_pending = false
 	_markers.clear()
+	_mesh_cache.clear()
 	if not terrain_grid:
 		queue_redraw()
 		return
@@ -302,33 +352,60 @@ func _draw() -> void:
 		return
 	var visible_rect := terrain_grid.get_visible_world_rect()
 	visible_rect = visible_rect.grow(maxf(terrain_grid.tile_width, terrain_grid.tile_height))
+	var canvas_item := get_canvas_item()
 	for tee in _markers:
 		if not visible_rect.has_point(terrain_grid.grid_to_screen_center(tee)):
 			continue
-		var layout := marker_layout(tee)
-		if layout.is_empty():
-			continue
-		var marker_scale: float = layout.scale
-		var shaft: PackedVector2Array = layout.shaft
-		var head: PackedVector2Array = layout.head
-		draw_polyline(shaft, PAINT_EDGE_COLOR, EDGE_WIDTH * marker_scale, true)
-		draw_polyline(shaft, PAINT_COLOR, SHAFT_WIDTH * marker_scale, true)
-		draw_colored_polygon(head, PAINT_COLOR)
-		draw_polyline(_closed(head), PAINT_EDGE_COLOR, 2.0 * marker_scale, true)
-		for ball in layout.balls:
-			_draw_tee_marker(ball, BALL_RADIUS * marker_scale)
+		mesh_for(tee).draw_on(canvas_item)
+
+## A tee tile's marker mesh, from the shelf while the ground and the view it was
+## laid out for still hold.
+func mesh_for(tee: Vector2i) -> GroundDecal:
+	var stamp := [terrain_grid.terrain_revision, terrain_grid.projection.orientation,
+			terrain_grid.projection.isometric, get_global_transform()]
+	if stamp != _mesh_stamp:
+		_mesh_cache.clear()
+		_mesh_stamp = stamp
+	if not _mesh_cache.has(tee):
+		_mesh_cache[tee] = marker_mesh(tee)
+	return _mesh_cache[tee]
+
+## One tee tile's marker as paint on its turf, in this overlay's local space:
+## the arrow's dark rim and white paint, its head, and the two red balls, in
+## that order and shaped as draw_polyline() and draw_circle() drew them. The
+## marker is a sign planted on the tile's centre (GroundDecal.stand_on()): a
+## hill in front of the tee hides it pixel by pixel, as it hides a tree, and the
+## tee's own ground never does - however steep, and wherever a floored marker
+## overhangs the sliver a steep tile is squeezed to. Empty when the tile has no
+## arrow.
+func marker_mesh(tee: Vector2i) -> GroundDecal:
+	var decal := GroundDecal.new()
+	var layout := marker_layout(tee)
+	if layout.is_empty():
+		return decal
+	var marker_scale: float = layout.scale
+	var shaft: PackedVector2Array = layout.shaft
+	var head: PackedVector2Array = layout.head
+	decal.add_polyline(shaft, PAINT_EDGE_COLOR, EDGE_WIDTH * marker_scale, true)
+	decal.add_polyline(shaft, PAINT_COLOR, SHAFT_WIDTH * marker_scale, true)
+	decal.add_convex(head, PAINT_COLOR)
+	decal.add_polyline(_closed(head), PAINT_EDGE_COLOR, 2.0 * marker_scale, true)
+	for ball in layout.balls:
+		_add_tee_marker(decal, ball, BALL_RADIUS * marker_scale)
+	decal.stand_on(terrain_grid, Vector2(tee) + Vector2(0.5, 0.5), get_global_transform())
+	return decal
 
 ## A red tee marker ball: shadow on the grass, dark rim, red body, highlight.
-func _draw_tee_marker(centre: Vector2, radius: float) -> void:
+func _add_tee_marker(decal: GroundDecal, centre: Vector2, radius: float) -> void:
 	var shadow := PackedVector2Array()
 	for i in range(8):
 		var angle := TAU * float(i) / 8.0
 		shadow.append(centre + Vector2(cos(angle) * radius * 0.95,
 				sin(angle) * radius * 0.55 + radius * 0.4))
-	draw_colored_polygon(shadow, Color(0.0, 0.0, 0.0, 0.22))
-	draw_circle(centre, radius + 0.35 * radius, BALL_EDGE_COLOR)
-	draw_circle(centre, radius, BALL_COLOR)
-	draw_circle(centre - Vector2(radius * 0.32, radius * 0.38), radius * 0.34, BALL_HIGHLIGHT)
+	decal.add_convex(shadow, Color(0.0, 0.0, 0.0, 0.22))
+	decal.add_circle(centre, radius + 0.35 * radius, BALL_EDGE_COLOR)
+	decal.add_circle(centre, radius, BALL_COLOR)
+	decal.add_circle(centre - Vector2(radius * 0.32, radius * 0.38), radius * 0.34, BALL_HIGHLIGHT)
 
 ## The painted shaft, centred on the tile: a straight arrow when the hole plays
 ## straight, and otherwise the arc that leaves the tee pointing down the drive

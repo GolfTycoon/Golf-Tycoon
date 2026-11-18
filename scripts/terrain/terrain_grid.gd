@@ -49,6 +49,8 @@ var _vertex_stride: int = 0  # Row length of _vertex_elevation (grid_width + 1)
 ## Maintained as heights are edited/loaded so flat courses can skip the shader's
 ## per-pixel heightfield ray intersection and relief-normal sampling entirely.
 var _non_base_vertex_count: int = 0
+## The last value `terrain_occlusion_changed` reported.
+var _terrain_occlusion_enabled := false
 var _player_placed_tiles: Dictionary = {}  # Vector2i -> true for tiles player placed (for maintenance)
 ## Green tiles carrying a cup that is not yet part of a hole — a "Green With Hole" tile
 ## waiting to be paired with a tee box. Once a hole is opened the marker is consumed and
@@ -80,6 +82,12 @@ signal view_rotation_settled
 signal cup_tiles_changed
 ## Emitted whenever the Path improvement (walking path) layer changes.
 signal walking_paths_changed
+## Emitted when terrain occlusion turns on or off: the walking trail and the
+## buildings are then clipped where a nearer hill covers them (trees follow the
+## same rule in TreeOverlay). It turns on with the first sculpted vertex and off
+## with the last, on a load, and with the graphics setting. See
+## `terrain_occlusion_enabled()`.
+signal terrain_occlusion_changed(enabled: bool)
 
 ## Bumped on every terrain type or elevation write — including the quiet bulk
 ## paths (load, generation) that emit no per-tile signals — so caches of
@@ -182,9 +190,14 @@ func _ready() -> void:
 	if is_instance_valid(EventBus) and EventBus.has_signal("gradual_view_rotation_changed") \
 			and not EventBus.gradual_view_rotation_changed.is_connected(_on_gradual_view_rotation_changed):
 		EventBus.gradual_view_rotation_changed.connect(_on_gradual_view_rotation_changed)
+	_terrain_occlusion_enabled = terrain_occlusion_enabled()
+	if not PerformanceSettings.profile_changed.is_connected(_on_graphics_profile_changed):
+		PerformanceSettings.profile_changed.connect(_on_graphics_profile_changed)
 
 func _exit_tree() -> void:
 	_kill_view_turn_tween()
+	if PerformanceSettings.profile_changed.is_connected(_on_graphics_profile_changed):
+		PerformanceSettings.profile_changed.disconnect(_on_graphics_profile_changed)
 	if is_instance_valid(EventBus) and EventBus.has_signal("gradual_view_rotation_changed") \
 			and EventBus.gradual_view_rotation_changed.is_connected(_on_gradual_view_rotation_changed):
 		EventBus.gradual_view_rotation_changed.disconnect(_on_gradual_view_rotation_changed)
@@ -1325,6 +1338,33 @@ func vertex_grid_size() -> Vector2i:
 func has_relief() -> bool:
 	return _non_base_vertex_count > 0
 
+## Whether nearer terrain clips the trail and the buildings drawn over it (as it
+## clips the trees). A flat course has nothing to hide anything behind, so it
+## skips the per-pixel heightfield test entirely; the player can also turn the
+## effect off with the "Terrain-aware occlusion" graphics setting.
+func terrain_occlusion_enabled() -> bool:
+	return has_relief() and PerformanceSettings.tree_occlusion_enabled
+
+## Point a building's footprint occlusion material at the course's shared
+## heightfield and current projection (see Building.refresh_terrain_occlusion()).
+## False when there is no course surface to share them from yet.
+func configure_footprint_occlusion(building_material: ShaderMaterial, footprint: Rect2) -> bool:
+	if _course_surface == null:
+		return false
+	_course_surface.configure_footprint_occlusion(building_material, footprint)
+	return true
+
+## Tell the occluded overlays when `terrain_occlusion_enabled()` changes.
+func _refresh_terrain_occlusion() -> void:
+	var enabled := terrain_occlusion_enabled()
+	if enabled == _terrain_occlusion_enabled:
+		return
+	_terrain_occlusion_enabled = enabled
+	terrain_occlusion_changed.emit(enabled)
+
+func _on_graphics_profile_changed(_terrain_fast: bool) -> void:
+	_refresh_terrain_occlusion()
+
 func is_valid_vertex(vertex: Vector2i) -> bool:
 	return vertex.x >= 0 and vertex.x <= grid_width \
 		and vertex.y >= 0 and vertex.y <= grid_height
@@ -1395,6 +1435,7 @@ func set_vertex_elevation(vertex: Vector2i, height: int) -> void:
 	terrain_revision += 1
 	vertex_elevation_changed.emit(vertex, old_height, new_height)
 	_queue_elevation_refresh(vertex, affected)
+	_refresh_terrain_occlusion()
 
 	for tile in affected:
 		var after: int = get_elevation(tile)
@@ -1750,3 +1791,4 @@ func _after_elevation_bulk_load() -> void:
 	_refresh_elevation_visuals()
 	if _tree_overlay:
 		_tree_overlay.refresh_elevation_visuals()
+	_refresh_terrain_occlusion()

@@ -1,6 +1,9 @@
 extends Node2D
 class_name Ball
 ## Ball - Represents a golf ball in flight or at rest
+##
+## A hill nearer the camera hides the ball, pixel by pixel, as it hides a tree
+## or a golfer (see refresh_terrain_occlusion()).
 
 enum BallState {
 	AT_REST,      # Ball is sitting still
@@ -76,6 +79,44 @@ var _visual: Node2D = null
 ## it stays on the ground the ball is flying over.
 var _shadow_lift: float = 0.0
 
+## Clips the ball where nearer terrain covers it, as trees and golfers are
+## clipped: a billboard over the grid point under the ball.
+const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
+## How far under its ground point's screen position the ball's art reaches: the
+## foot of its contact shadow. The occlusion test measures the ball from the
+## ground drawn there (TerrainOcclusion.contact_reach()), so the lower half of a
+## ball drawn centred on its ground point, and the shadow under it, are not taken
+## to be underground, and cut by the ground just in front of the ball - even on a
+## slope rising toward the camera.
+const OCCLUSION_FOOT: float = (SHADOW_OFFSET.y + SHADOW_RADII.y) * BALL_RADIUS
+## How close, in screen pixels, a grid point must project to a screen position
+## to be taken as the ground there.
+const GROUND_MATCH_PX: float = 0.5
+
+## The ground under the ball, as grid points (tile centres at .5): the point it
+## rests on, and the ends of the straight ground track a flight or a roll runs
+## along. The screen positions above do not say which of the surfaces drawn at
+## a spot - a hill, or the hollow behind it - the spot is on; these do. INVALID
+## where not known.
+var rest_ground := TerrainGrid.INVALID_GRID_POINT
+var flight_start_ground := TerrainGrid.INVALID_GRID_POINT
+var flight_end_ground := TerrainGrid.INVALID_GRID_POINT
+var roll_start_ground := TerrainGrid.INVALID_GRID_POINT
+var roll_end_ground := TerrainGrid.INVALID_GRID_POINT
+
+## The course grid whose terrain-occlusion switch, sculpting and turns are followed.
+var _occlusion_grid: TerrainGrid = null
+## This ball's occlusion material: made the first time the course has relief,
+## kept for the ball's life, and only worn while occlusion is on.
+var _occlusion_material: ShaderMaterial = null
+var _occlusion_active := false
+## The grid point the shader stands the ball on, the lift it measures the ball
+## from (its ground_offset.y), and the position they were found for.
+var _occlusion_anchor := TerrainGrid.INVALID_GRID_POINT
+var _occlusion_lift := 0.0
+var _occlusion_position := Vector2(INF, INF)
+var _occlusion_refresh_queued := false
+
 signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
 signal ball_landed_in_bunker(landing_pos: Vector2i)
@@ -90,7 +131,13 @@ func _ready() -> void:
 	if not PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
 		PerformanceSettings.profile_changed.connect(_on_graphics_settings_changed)
 
+func _enter_tree() -> void:
+	# A ball moved from outside is followed as it is moved (see _notification()).
+	set_notify_local_transform(true)
+	_watch_terrain_occlusion(true)
+
 func _exit_tree() -> void:
+	_watch_terrain_occlusion(false)
 	if PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
 		PerformanceSettings.profile_changed.disconnect(_on_graphics_settings_changed)
 
@@ -105,9 +152,11 @@ func _process(delta: float) -> void:
 
 func set_terrain_grid(grid: TerrainGrid) -> void:
 	terrain_grid = grid
+	_watch_terrain_occlusion(is_inside_tree())
 
 func set_position_in_grid(pos: Vector2i) -> void:
 	grid_position = pos
+	rest_ground = Vector2(pos) + Vector2(0.5, 0.5)
 	if terrain_grid:
 		var world_pos = terrain_grid.grid_to_screen_center(pos)
 		global_position = world_pos
@@ -115,10 +164,13 @@ func set_position_in_grid(pos: Vector2i) -> void:
 
 ## Configure rollout to play after the current flight lands.
 ## carry_screen is where the ball first hits ground (should match flight_end_pos).
-## final_screen is where it comes to rest after rolling.
-func set_rollout(final_screen: Vector2, duration: float) -> void:
+## final_screen is where it comes to rest after rolling; `final_ground` is the
+## grid point there, when the caller knows it (see rest_ground).
+func set_rollout(final_screen: Vector2, duration: float,
+		final_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
 	roll_end_pos = final_screen
 	roll_duration = duration
+	roll_end_ground = final_ground
 	_has_pending_rollout = true
 
 ## Start a flight animation from one position to another
@@ -129,6 +181,8 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 	grid_position = from_grid
 	flight_start_pos = terrain_grid.grid_to_screen_center(from_grid)
 	flight_end_pos = terrain_grid.grid_to_screen_center(to_grid)
+	flight_start_ground = Vector2(from_grid) + Vector2(0.5, 0.5)
+	flight_end_ground = Vector2(to_grid) + Vector2(0.5, 0.5)
 	flight_progress = 0.0
 	flight_duration = duration
 
@@ -147,10 +201,15 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 	global_position = flight_start_pos
 	_update_shadow()
 
-## Start a flight animation using precise screen coordinates (for sub-tile putting)
-func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false) -> void:
+## Start a flight animation using precise screen coordinates (for sub-tile putting).
+## `from_ground` and `to_ground` are the grid points under them, when the caller
+## knows them (see rest_ground); otherwise the ball works them out.
+func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false,
+		from_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT,
+		to_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
 	flight_start_pos = from_screen
 	flight_end_pos = to_screen
+	_set_flight_ground(from_ground, to_ground)
 	flight_progress = 0.0
 	flight_duration = duration
 
@@ -167,10 +226,16 @@ func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: flo
 	global_position = flight_start_pos
 	_update_shadow()
 
-## Start a flight animation with arc using precise screen coordinates (for sub-tile shots)
-func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, wind_offset: Vector2 = Vector2.ZERO) -> void:
+## Start a flight animation with arc using precise screen coordinates (for sub-tile shots).
+## `from_ground` and `to_ground` are the grid points under them, when the caller
+## knows them (see rest_ground); otherwise the ball works them out.
+func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5,
+		wind_offset: Vector2 = Vector2.ZERO,
+		from_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT,
+		to_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
 	flight_start_pos = from_screen
 	flight_end_pos = to_screen
+	_set_flight_ground(from_ground, to_ground)
 	flight_progress = 0.0
 	flight_duration = duration
 
@@ -194,7 +259,7 @@ func _process_flight(delta: float) -> void:
 
 		# Update grid position to carry spot
 		if terrain_grid:
-			grid_position = terrain_grid.screen_to_grid(flight_end_pos)
+			grid_position = _tile_under(flight_end_ground, flight_end_pos)
 
 		scale = Vector2.ONE  # Reset scale from flight
 		_shadow_lift = 0.0   # Back on the ground, under the ball again
@@ -209,32 +274,63 @@ func _process_flight(delta: float) -> void:
 			_start_rollout()
 		else:
 			_has_pending_rollout = false
+			rest_ground = flight_end_ground
 			_land_ball()
 		return
 
-	# Parabolic arc animation
-	var linear_pos = flight_start_pos.lerp(flight_end_pos, flight_progress)
-	var arc_height = sin(flight_progress * PI) * flight_max_height
-
-	# Apply wind visual drift as a bell curve: peaks at mid-flight, smoothly
-	# returns to zero at landing so the ball arrives at the correct position
-	var wind_drift = wind_visual_offset * sin(flight_progress * PI)
-
-	global_position = linear_pos - Vector2(0, arc_height) + wind_drift
-
 	# Update visual scale for depth perception (skip for putts rolling on ground)
 	if flight_max_height > 0.0:
+		var arc_height = sin(flight_progress * PI) * flight_max_height
 		var scale_factor = 1.0 + (arc_height / flight_max_height) * 0.5
 		scale = Vector2(scale_factor, scale_factor)
 
-	# The ball's node has climbed with the arc; the shadow is pushed back down
-	# by the same amount so it stays on the ground the ball is flying over.
-	_shadow_lift = arc_height
+	place_on_track()
+
+## Put the ball where its flight or roll has got to, and its contact shadow on
+## the ground under it.
+##
+## A flight follows a parabolic arc over the straight track between the screen
+## positions of its ends, drifted by the wind. A putt or a roll rolls on the
+## ground itself where the ground under it is known (ground_point()): over a
+## crowned green, not through it - on flat ground the two are the same line.
+## main.gd calls this after a view turn has moved the ends.
+func place_on_track() -> void:
+	var ground := ground_point()
+	var knows_ground := ground != TerrainGrid.INVALID_GRID_POINT and is_instance_valid(terrain_grid)
+	match ball_state:
+		BallState.IN_FLIGHT:
+			var arc_height := sin(flight_progress * PI) * flight_max_height
+			# Apply wind visual drift as a bell curve: peaks at mid-flight,
+			# smoothly returns to zero at landing so the ball arrives at the
+			# correct position.
+			var track := flight_start_pos.lerp(flight_end_pos, flight_progress) \
+					+ wind_visual_offset * sin(flight_progress * PI)
+			var under := terrain_grid.grid_point_to_screen(ground) if knows_ground else track
+			if flight_max_height <= 0.0 and knows_ground:
+				global_position = under
+			else:
+				global_position = track - Vector2(0.0, arc_height)
+			# The ball's node has climbed with the arc; the shadow is pushed
+			# back down onto the ground the ball is flying over.
+			_shadow_lift = maxf(under.y - global_position.y, 0.0)
+		BallState.ROLLING:
+			global_position = terrain_grid.grid_point_to_screen(ground) if knows_ground \
+					else roll_start_pos.lerp(roll_end_pos, _roll_eased())
+			_shadow_lift = 0.0
+		_:
+			return
 	_update_shadow()
+
+## How far along its roll the ball has got: eased out, so it slows as it rolls.
+func _roll_eased() -> float:
+	return 1.0 - pow(1.0 - roll_progress, 2.0)
 
 ## Begin rollout animation from current position to roll_end_pos
 func _start_rollout() -> void:
 	roll_start_pos = global_position
+	roll_start_ground = flight_end_ground
+	if roll_end_ground == TerrainGrid.INVALID_GRID_POINT:
+		roll_end_ground = _resolve_ground(roll_end_pos, roll_start_ground)
 	roll_progress = 0.0
 	_change_state(BallState.ROLLING)
 
@@ -251,14 +347,14 @@ func _process_rolling(delta: float) -> void:
 		_finish_rollout()
 		return
 
-	# Ease-out deceleration: ball slows down as it rolls
-	var eased_t = 1.0 - pow(1.0 - roll_progress, 2.0)
-	global_position = roll_start_pos.lerp(roll_end_pos, eased_t)
+	# Ease-out deceleration: ball slows down as it rolls (see _roll_eased())
+	place_on_track()
 
 func _finish_rollout() -> void:
 	global_position = roll_end_pos
+	rest_ground = roll_end_ground
 	if terrain_grid:
-		grid_position = terrain_grid.screen_to_grid(roll_end_pos)
+		grid_position = _tile_under(roll_end_ground, roll_end_pos)
 	_land_ball()
 
 ## Spawn landing impact effect at the carry spot (where ball first hits ground)
@@ -354,6 +450,7 @@ func _update_visual() -> void:
 		BallState.OUT_OF_BOUNDS:
 			_draw_ball_out_of_bounds(visual)
 
+	_apply_occlusion_material()
 	_update_shadow()
 
 ## Build the ball's one contact shadow. It is the same kind of ground contact
@@ -395,6 +492,9 @@ func _sync_visual_sort_anchor() -> void:
 ## fading as the ball rises instead of flying away with it.
 func _update_shadow() -> void:
 	_sync_visual_sort_anchor()
+	# Every step of a flight or a roll, and every new state, passes through
+	# here; other moves are followed as they are made (_notification()).
+	_refresh_occlusion()
 	if _ground_shadow == null or not is_instance_valid(_ground_shadow):
 		return
 
@@ -480,6 +580,184 @@ func _draw_ball_out_of_bounds(visual: Node2D) -> void:
 	ball.color = Color.GRAY
 	ball.polygon = ball_polygon(BALL_RADIUS)
 	visual.add_child(ball)
+
+# =============================================================================
+# HILLS IN FRONT OF THE BALL
+# =============================================================================
+
+## The grid point directly under the ball: where it rests, or how far along its
+## straight ground track a flight or a roll has got (the track's ends lerped, as
+## the screen positions are, with a flight's wind drift taken as a drift over
+## the ground); INVALID where the ground is not known.
+func ground_point() -> Vector2:
+	match ball_state:
+		BallState.IN_FLIGHT:
+			if flight_start_ground == TerrainGrid.INVALID_GRID_POINT \
+					or flight_end_ground == TerrainGrid.INVALID_GRID_POINT:
+				return TerrainGrid.INVALID_GRID_POINT
+			var ground := flight_start_ground.lerp(flight_end_ground, flight_progress)
+			if wind_visual_offset != Vector2.ZERO and is_instance_valid(terrain_grid):
+				var drift := wind_visual_offset * sin(flight_progress * PI)
+				ground += terrain_grid.projection.unproject(drift) \
+						- terrain_grid.projection.unproject(Vector2.ZERO)
+			return ground
+		BallState.ROLLING:
+			if roll_start_ground == TerrainGrid.INVALID_GRID_POINT \
+					or roll_end_ground == TerrainGrid.INVALID_GRID_POINT:
+				return TerrainGrid.INVALID_GRID_POINT
+			return roll_start_ground.lerp(roll_end_ground, _roll_eased())
+		_:
+			return rest_ground
+
+## A new flight's ground track: the grid points the caller gave, or else the
+## ground under the screen positions - the ball's own resting point for where
+## it is struck from.
+func _set_flight_ground(from_ground: Vector2, to_ground: Vector2) -> void:
+	flight_start_ground = from_ground if from_ground != TerrainGrid.INVALID_GRID_POINT \
+			else _resolve_ground(flight_start_pos, rest_ground)
+	flight_end_ground = to_ground if to_ground != TerrainGrid.INVALID_GRID_POINT \
+			else _resolve_ground(flight_end_pos, TerrainGrid.INVALID_GRID_POINT)
+
+## The grid point under a screen position the caller gave no ground for: `hint`
+## where it projects there, else the surface crossing nearest `hint`, a tile
+## centre, or the surface the pixel shows (TerrainOcclusion.standing_point()).
+func _resolve_ground(screen: Vector2, hint: Vector2) -> Vector2:
+	if not is_instance_valid(terrain_grid):
+		return TerrainGrid.INVALID_GRID_POINT
+	if hint != TerrainGrid.INVALID_GRID_POINT \
+			and terrain_grid.grid_point_to_screen(hint).distance_to(screen) <= GROUND_MATCH_PX:
+		return hint
+	return TerrainOcclusion.standing_point(terrain_grid, screen, hint, false)
+
+## The tile a landing spot is on: the one under its ground point, where known -
+## the front-most surface on its pixel can be a hill the ball came down behind.
+func _tile_under(ground: Vector2, screen: Vector2) -> Vector2i:
+	if ground != TerrainGrid.INVALID_GRID_POINT:
+		return Vector2i(floori(ground.x), floori(ground.y))
+	return terrain_grid.screen_to_grid(screen)
+
+## Follow a move no flight or roll of the ball's own is making - main.gd
+## carrying a resting ball across a view turn, a placement - as it is made, so
+## the clip never waits for the next shot to catch up. Every step of a flight or
+## a roll refreshes it already (_update_shadow()).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _occlusion_active \
+			and ball_state != BallState.IN_FLIGHT and ball_state != BallState.ROLLING \
+			and global_position != _occlusion_position:
+		_refresh_occlusion()
+
+## Whether the shader is clipping this ball, against a grid that still exists.
+func _occlusion_tracking() -> bool:
+	return _occlusion_active and _occlusion_material != null and is_instance_valid(_occlusion_grid)
+
+## Follow the course's terrain-occlusion switch, its sculpting and its view
+## turns while in the scene tree.
+func _watch_terrain_occlusion(watch: bool) -> void:
+	var grid: TerrainGrid = null
+	if watch and is_instance_valid(terrain_grid):
+		grid = terrain_grid
+	if not is_instance_valid(_occlusion_grid):
+		_occlusion_grid = null  # Freed: its connections went with it.
+	if grid != _occlusion_grid:
+		if _occlusion_grid != null:
+			if _occlusion_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+				_occlusion_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
+			if _occlusion_grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
+				_occlusion_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
+		_occlusion_grid = grid
+		if grid != null:
+			grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
+			grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
+	var rotating := EventBus.view_rotated.is_connected(_on_view_rotated_for_occlusion)
+	if grid != null and not rotating:
+		EventBus.view_rotated.connect(_on_view_rotated_for_occlusion)
+	elif grid == null and rotating:
+		EventBus.view_rotated.disconnect(_on_view_rotated_for_occlusion)
+	refresh_terrain_occlusion()
+
+## Clip the ball wherever a nearer hill covers it, as trees and golfers are
+## clipped, while the course has relief and the graphics setting allows it (see
+## TerrainGrid.terrain_occlusion_enabled()). Only a ball on the course's own
+## canvas is clipped.
+func refresh_terrain_occlusion() -> void:
+	if not is_instance_valid(_occlusion_grid):
+		_occlusion_grid = null
+	var grid := _occlusion_grid
+	_occlusion_active = is_inside_tree() and grid != null and grid.is_inside_tree() \
+			and grid._course_surface != null and grid.terrain_occlusion_enabled() \
+			and get_canvas() == grid.get_canvas()
+	if _occlusion_active:
+		if _occlusion_material == null:
+			_occlusion_material = ShaderMaterial.new()
+			_occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
+			_occlusion_material.set_shader_parameter("occlusion_epsilon", TerrainOcclusion.BALL_EPSILON)
+		grid._course_surface.configure_terrain_occlusion(_occlusion_material)
+		_refresh_occlusion()
+	_apply_occlusion_material()
+
+## Wear the occlusion material on the whole ball: its polygons, a flight's
+## motion blur, a splash, and the contact shadow on the ground under it.
+func _apply_occlusion_material() -> void:
+	material = _occlusion_material if _occlusion_active else null
+	_use_parent_material_below(self)
+
+static func _use_parent_material_below(node: Node) -> void:
+	for child in node.get_children():
+		if child is CanvasItem:
+			(child as CanvasItem).use_parent_material = true
+			_use_parent_material_below(child)
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	refresh_terrain_occlusion()
+
+## A sculpt can raise the ground under a straight track (see _refresh_occlusion()).
+func _on_vertex_elevation_changed(_vertex: Vector2i, _old: int, _new: int) -> void:
+	if _occlusion_tracking() and not _occlusion_refresh_queued:
+		_occlusion_refresh_queued = true
+		call_deferred("_refresh_occlusion")
+
+## A turn changes the projection, not the ground under the ball; main.gd moves
+## the ball to where that ground is drawn now (_notification()).
+func _on_view_rotated_for_occlusion(_orientation: int, _isometric: bool) -> void:
+	if _occlusion_tracking():
+		_occlusion_grid._course_surface.configure_terrain_occlusion(_occlusion_material)
+		_refresh_occlusion()
+
+## Stand the shader's ball on the grid point under it (ground_point()),
+## measured from the ground under its contact shadow's foot (OCCLUSION_FOOT). A
+## flight's arc is drawn over a straight track between its ends, and the
+## ground can rise above that track in between, so the ball is measured from
+## the higher of the two: it flies over a hill, never through it. (A roll is
+## drawn on the ground already - see place_on_track().)
+func _refresh_occlusion() -> void:
+	_occlusion_refresh_queued = false
+	_occlusion_position = global_position
+	if not _occlusion_tracking():
+		return
+	var grid := _occlusion_grid
+	var anchor := ground_point()
+	var lift := 0.0
+	if anchor == TerrainGrid.INVALID_GRID_POINT:
+		# No known ground: nothing is taken to be in front of the ball.
+		anchor = TerrainOcclusion.point_on_ray(grid, global_position, TerrainOcclusion.UNHIDDEN_T)
+	else:
+		lift = TerrainOcclusion.contact_reach(grid, anchor, OCCLUSION_FOOT)
+		var arc := sin(flight_progress * PI) * flight_max_height if ball_state == BallState.IN_FLIGHT else 0.0
+		var track_t := grid.projection.project(anchor).y - (global_position.y + arc)
+		lift += maxf(0.0, TerrainOcclusion.ground_t(grid, anchor) - track_t)
+	_occlusion_anchor = anchor
+	_occlusion_lift = lift
+	_occlusion_material.set_shader_parameter("ground_grid", anchor)
+	_occlusion_material.set_shader_parameter("ground_offset", Vector2(0.0, lift))
+
+## Whether the terrain covers this ball's art at a world point: the test its
+## occlusion shader runs.
+func terrain_hides_point(world: Vector2) -> bool:
+	if not _occlusion_tracking():
+		return false
+	if _occlusion_refresh_queued or global_position != _occlusion_position:
+		_refresh_occlusion()
+	return TerrainOcclusion.hides_ball(_occlusion_grid, _occlusion_anchor, _occlusion_lift, world)
 
 func get_ball_info() -> Dictionary:
 	return {

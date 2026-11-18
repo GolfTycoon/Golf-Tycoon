@@ -97,6 +97,25 @@ func apply_projection(proj: GridProjection) -> void:
 		mat.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
 		mat.set_shader_parameter("is_isometric", _grid.view_isometric)
 
+## Give a terrain-occlusion material the ground's heightfield and the current
+## projection: the uniforms `terrain_heightfield.gdshaderinc` reads. The
+## elevation texture is the surface's own, updated in place, so a sculpt reaches
+## every occluded sprite, trail and building with no further call; the projection
+## must be applied again after the view turns.
+func configure_terrain_occlusion(occlusion_material: ShaderMaterial) -> void:
+	if occlusion_material == null or _grid == null:
+		return
+	occlusion_material.set_shader_parameter("vertex_elevation", _elevation_texture)
+	occlusion_material.set_shader_parameter("vertex_grid_size", Vector2(_grid.grid_width + 1, _grid.grid_height + 1))
+	occlusion_material.set_shader_parameter("grid_size", Vector2(_grid.grid_width, _grid.grid_height))
+	occlusion_material.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
+	occlusion_material.set_shader_parameter("elevation_texture_zero", ELEVATION_TEXTURE_ZERO)
+	occlusion_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
+	occlusion_material.set_shader_parameter("is_isometric", _grid.view_isometric)
+	occlusion_material.set_shader_parameter("grid_origin", _grid.projection.grid_origin())
+	occlusion_material.set_shader_parameter("grid_axis_x", _grid.projection.axis_x())
+	occlusion_material.set_shader_parameter("grid_axis_y", _grid.projection.axis_y())
+
 ## Give a standing terrain sprite the same heightfield and projection as the
 ## ground. Its shader compares the front terrain surface with each sprite pixel,
 ## so a nearer hill can hide the trunk without erasing a crown above the hill.
@@ -104,18 +123,19 @@ func configure_sprite_occlusion(sprite_material: ShaderMaterial, ground_grid: Ve
 		ground_offset: Vector2) -> void:
 	if sprite_material == null or _grid == null:
 		return
-	sprite_material.set_shader_parameter("vertex_elevation", _elevation_texture)
-	sprite_material.set_shader_parameter("vertex_grid_size", Vector2(_grid.grid_width + 1, _grid.grid_height + 1))
-	sprite_material.set_shader_parameter("grid_size", Vector2(_grid.grid_width, _grid.grid_height))
-	sprite_material.set_shader_parameter("elevation_step_y", _grid.ELEVATION_STEP_Y)
-	sprite_material.set_shader_parameter("elevation_texture_zero", ELEVATION_TEXTURE_ZERO)
-	sprite_material.set_shader_parameter("elevation_texture_scale", ELEVATION_TEXTURE_SCALE)
-	sprite_material.set_shader_parameter("is_isometric", _grid.view_isometric)
-	sprite_material.set_shader_parameter("grid_origin", _grid.projection.grid_origin())
-	sprite_material.set_shader_parameter("grid_axis_x", _grid.projection.axis_x())
-	sprite_material.set_shader_parameter("grid_axis_y", _grid.projection.axis_y())
+	configure_terrain_occlusion(sprite_material)
 	sprite_material.set_shader_parameter("ground_grid", ground_grid)
 	sprite_material.set_shader_parameter("ground_offset", ground_offset)
+
+## Give a building's art the heightfield, the projection and the tiles it stands
+## on (`footprint` in grid units: origin tile corner and size). Its shader hides
+## the pixels a nearer hill covers, measured against the footprint's front face.
+func configure_footprint_occlusion(building_material: ShaderMaterial, footprint: Rect2) -> void:
+	if building_material == null or _grid == null:
+		return
+	configure_terrain_occlusion(building_material)
+	building_material.set_shader_parameter("footprint_position", footprint.position)
+	building_material.set_shader_parameter("footprint_size", footprint.size)
 
 ## The theme colour key one terrain id is painted with, or "" for an id the
 ## palette has no slot for.

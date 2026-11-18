@@ -10,6 +10,23 @@ var facing := Vector2i.DOWN
 static func has_art(type: String) -> bool:
 	return type in ["park_bench", "ball_washer"]
 
+## How far below its anchor the fixture's drawing reaches down the screen, in
+## pixels: a bench's front feet with the contact marks drawn under them, or the
+## washer's base mark. Its terrain clip is measured from there (see
+## Decoration.art_reach()), so the ground it stands on never cuts into it.
+static func ground_reach(type: String, front: Vector2i) -> float:
+	match type:
+		"park_bench":
+			var lowest := 0.0
+			for x in [-14, 14]:
+				for y in [-4, 4]:
+					lowest = maxf(lowest, _p(x, y, 0, front).y)
+			# A foot's contact mark runs a pixel under it, two pixels thick.
+			return lowest + 2.0
+		"ball_washer":
+			return 2.0
+	return 0.0
+
 static func layout(grid: TerrainGrid, pos: Vector2i, type: String) -> Dictionary:
 	var result := {"offset": Vector2.ZERO, "facing": Vector2i.DOWN}
 	if not grid or type not in SMALL_FIXTURES:
