@@ -85,8 +85,10 @@ BARK_WARM = mat(C("b98a58"), "bark")
 MAPLE_BARK = mat(C("6c4b36"), "bark")
 MAPLE_BARK_DARK = mat(C("4c3324"), "bark")
 MAPLE_BARK_LIGHT = mat(C("8d674a"), "bark")
-BIRCH_BARK = mat(C("fffdf2"), "birch", emissive=0.30)
-BIRCH_BARK_SHADE = mat(C("cfcdb8"), "birch", emissive=0.16)
+BIRCH_BARK = mat(C("fffdf2"), "birch", emissive=0.38)
+BIRCH_BARK_SHADE = mat(C("e3dfcf"), "birch", emissive=0.24)
+BIRCH_BRANCH = mat(C("b0a892"), "bark")
+BIRCH_TWIG = mat(C("8a8270"), "bark")
 DEAD_BARK = mat(C("a08f7c"), "bark", emissive=0.06)
 DEAD_BARK_DARK = mat(C("7d6f5e"), "bark", emissive=0.05)
 DEAD_BARK_LIGHT = mat(C("c6b49a"), "bark")
@@ -774,13 +776,13 @@ def draw_birch(builder: TreeBuilder, rng) -> None:
             end = (start[0] + math.cos(yaw) * rng.uniform(6.0, 9.5),
                    start[1] + math.sin(yaw) * rng.uniform(4.0, 7.0),
                    start_z + rng.uniform(8.0, 13.0))
-            builder.limb(start, end, 0.78, 0.26, BIRCH_BARK, segments=4,
+            builder.limb(start, end, 0.78, 0.26, BIRCH_BRANCH, segments=4,
                          group=trunk)
             fork_yaw = yaw + rng.choice((-0.55, 0.55))
             tip = (end[0] + math.cos(fork_yaw) * rng.uniform(3.0, 5.5),
                    end[1] + math.sin(fork_yaw) * rng.uniform(2.0, 4.0),
                    end[2] + rng.uniform(2.0, 4.0))
-            builder.limb(end, tip, 0.28, 0.09, BIRCH_BARK_SHADE,
+            builder.limb(end, tip, 0.28, 0.09, BIRCH_TWIG,
                          segments=3, group=trunk, cap=False)
     # One loose, rounded crown over the whole clump, built from overlapping
     # clouds so the clump shares a single canopy with sky between the edges.
@@ -788,14 +790,24 @@ def draw_birch(builder: TreeBuilder, rng) -> None:
     birch_tones = (BIRCH_LEAF_DARK, BIRCH_LEAF, BIRCH_LEAF_LIGHT,
                    BIRCH_LEAF_SUN)
     for cx, cy, cz, rx, ry, rz, count, tips, fill in (
-            (33.0, 16.0, 56.0, 30.0, 18.0, 10.5, 58, 22, 1),
-            (10.0, 11.5, 48.0, 15.0, 10.0, 8.5, 22, 10, 1),
-            (55.5, 17.5, 50.0, 16.5, 10.5, 9.0, 24, 11, 1),
-            (36.0, 15.0, 60.5, 13.0, 7.5, 7.0, 14, 7, 0)):
+            (33.0, 16.0, 56.0, 27.0, 16.5, 13.0, 54, 22, 0),
+            (11.5, 12.0, 47.5, 14.0, 9.5, 9.0, 22, 10, 1),
+            (54.5, 18.0, 49.5, 15.0, 10.0, 9.5, 24, 11, 1),
+            (36.0, 15.0, 60.0, 13.0, 8.0, 8.0, 14, 7, 0)):
         shrub_canopy(builder, (cx, cy, cz), (rx, ry, rz), birch_tones,
                      rng, group=crown, count=count, cluster=2.95,
                      tips=tips, tip_size=1.2, ao=0.68, underside=1,
                      shell=0.94, fillers=fill, shoulders=False)
+    # A few loose clusters hang below the crown and break its flat hem.
+    for _ in range(7):
+        a = rng.uniform(0, math.tau)
+        rr = rng.uniform(9.0, 15.0)
+        builder.blob(33.0 + math.cos(a) * rr,
+                     16.0 + math.sin(a) * rr * 0.5,
+                     rng.uniform(41.5, 45.0), 2.4, 2.2, 2.0,
+                     rng.choice((BIRCH_LEAF_DARK, BIRCH_LEAF)),
+                     ao_base=0.86, segments=6, rings=4, group=crown,
+                     wobble=0.25, phase=a * 1.3)
 
 
 def draw_pine(builder: TreeBuilder, rng) -> None:
@@ -1319,6 +1331,19 @@ def draw_fescue(builder: TreeBuilder, rng) -> None:
         builder.blade(x, y, rng.uniform(-0.6, 1.0), yaw, length, width,
                       tone, rise=rise, droop=droop, width_end=0.28,
                       segments=3, group=clump, phase=phase, cross=True)
+
+    # A low mound of leaf clusters gives the tussock a solid green core at
+    # one pixel per world pixel, where thin blades alone disappear.
+    for _ in range(10):
+        a = rng.uniform(0, math.tau)
+        rr = rng.uniform(0.3, 3.2)
+        builder.blob(32 + math.cos(a) * rr,
+                     16 + math.sin(a) * rr * 0.72,
+                     rng.uniform(2.0, 5.0), rng.uniform(2.0, 3.0),
+                     rng.uniform(1.8, 2.6), rng.uniform(1.2, 1.8),
+                     rng.choice((GRASS, GRASS_LIGHT)), ao_base=0.90,
+                     segments=6, rings=4, group=clump, wobble=0.26,
+                     phase=a * 1.7)
 
     # A dense, low button of broad blades gives the tuft a solid centre
     # before the longer arcs open out of it.
