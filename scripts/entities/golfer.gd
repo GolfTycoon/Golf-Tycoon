@@ -6,7 +6,9 @@ class_name Golfer
 ## offset children): over the course surface and over every detail the terrain
 ## grid paints on it - the walking trail, water, trees - so the
 ## ground art never hides a golfer standing on it. See scenes/entities/golfer.tscn
-## and the Draw Order section of docs/architecture.md.
+## and the Draw Order section of docs/architecture.md. A hill nearer the camera
+## does hide them, pixel by pixel, as it hides a tree (see
+## refresh_terrain_occlusion()).
 
 enum State {
 	IDLE,           # Waiting to start or for turn
@@ -87,9 +89,9 @@ const REST_SOLVE_BISECTIONS: int = 14
 ## this much closer to it (tiles).
 const CLUB_SWITCH_MARGIN: float = 0.05
 
-## Golfer identification. The setter keeps the name label above the golfer in
-## step with renames that happen after spawn (the owner round renames its
-## participants once they exist).
+## Golfer identification. The setter keeps the name tag under the golfer's
+## feet in step with renames that happen after spawn (the owner round renames
+## its participants once they exist).
 @export var golfer_name: String = "Golfer":
 	set(value):
 		golfer_name = value
@@ -299,10 +301,12 @@ var visual_offset: Vector2 = Vector2.ZERO:
 			return
 		visual_offset = value
 		_apply_visual_position()
+		# The sprite's feet moved, and the hills hiding them are measured there.
+		_queue_ground_refresh()
 var _visual_refresh_elapsed: float = 0.0
 var _expression: GolferExpression
 
-## Hover state for name label
+## Hover state for the name tag under the golfer's feet
 var _is_hovered: bool = false
 
 ## Sprite-based rendering (replaces polygon visuals when available)
@@ -315,6 +319,34 @@ var _base_sprite_frames: SpriteFrames = null
 var _use_sprites: bool = false
 var _swing_tween: Tween  # Active procedural swing tween (see _start_swing_tween)
 var _current_direction: String = "south"  # south, east, north, west + diagonals
+
+## The ground the ball of this golfer's latest shot travels over, as grid points
+## (a precise position + 0.5): where it was struck, where it first came down and
+## where it came to rest. BallManager animates the ball from screen positions,
+## and a screen position cannot say which of the surfaces drawn there - a hill,
+## or the hollow behind it - a spot is on.
+var shot_ground_from := TerrainGrid.INVALID_GRID_POINT
+var shot_ground_carry := TerrainGrid.INVALID_GRID_POINT
+var shot_ground_rest := TerrainGrid.INVALID_GRID_POINT
+
+## Clips the golfer where nearer terrain covers them, exactly as a tree is
+## clipped: the sprite is a billboard on the ground point they stand on.
+const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
+## The course grid whose terrain-occlusion switch, sculpting and turns are followed.
+var _occlusion_grid: TerrainGrid = null
+## This golfer's occlusion material: created the first time the course has
+## relief, kept for the golfer's life, and only worn while occlusion is on.
+var _occlusion_material: ShaderMaterial = null
+var _occlusion_active := false
+## The grid point the golfer's node stands on while occlusion is on - one of the
+## surface crossings of the ray through it, tracked from move to move (see
+## TerrainOcclusion.standing_point()) - and the point the drawn feet stand on,
+## `visual_offset` away, which the shader is anchored to.
+var _ground_point := TerrainGrid.INVALID_GRID_POINT
+var _ground_anchor := TerrainGrid.INVALID_GRID_POINT
+## The node position `_ground_point` was found for.
+var _ground_position := Vector2(INF, INF)
+var _ground_refresh_queued := false
 
 ## Per-texture cache of `{ "feet_y": float, "bounds": Rect2 }` for sprite
 ## frames. `feet_y` shifts the centered sprite so its feet land at local y = 0
@@ -332,6 +364,14 @@ static var _sprite_metrics_cache: Dictionary = {}
 const POLYGON_FEET_Y_OFFSET: float = -14.0
 ## Bounding box of the polygon fallback golfer in Visual-local space.
 const POLYGON_CLICK_BOUNDS := Rect2(Vector2(-10.0, -15.0), Vector2(20.0, 29.0))
+
+## The name tag worn under a golfer's feet: plain white lettering with a dark
+## outline, so it reads on turf, sand, water and the walking trail alike. The
+## tag is a child of the golfer, in the golfer's own band (see
+## scenes/entities/golfer.tscn), so it y-sorts with every other standing sprite
+## rather than floating over them.
+const NAMETAG_COLOR := Color.WHITE
+const NAMETAG_OUTLINE_COLOR := Color(0, 0, 0, 0.8)
 
 ## Walk animation state
 var _walk_frame: int = 0  # 0 or 1, alternates for leg swap
@@ -429,16 +469,14 @@ func _ready() -> void:
 	input_pickable = true
 	input_event.connect(_on_click_area_input_event)
 
-	# Set up the name label above the golfer (always visible, tier-colored),
-	# and make sure it renders above trees
-	var info_container = get_node_or_null("InfoContainer")
-	if info_container:
-		info_container.z_index = 10
+	# The name tag under the golfer's feet: always visible, white, and drawn in
+	# the golfer's own band so it y-sorts with every other standing sprite
+	# instead of floating over them.
 	if name_label:
-		_apply_tier_name_color()
+		_apply_name_style()
 		_refresh_name_label()
 
-	# Hovering the golfer adds their tier to the name label
+	# Hovering the golfer adds their tier to the name tag
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 
@@ -459,6 +497,8 @@ func _ready() -> void:
 		add_child(_expression)
 		_expression.initialize(self, visual)
 	_sync_click_shape()
+	# `visual` did not exist yet when the golfer entered the tree.
+	_apply_occlusion_material()
 
 
 ## Set up the AnimatedSprite2D the golfer is drawn with.
@@ -512,6 +552,7 @@ func _setup_sprite_animations() -> bool:
 		_animated_sprite.play("idle_south")
 	_apply_sprite_feet_anchor()
 	call_deferred("_apply_sprite_feet_anchor")
+	_apply_occlusion_material()
 	return true
 
 ## Finish sprite setup after a deferred spawn has received its final tier,
@@ -1038,7 +1079,13 @@ func _add_body_shading() -> void:
 	])
 	visual.add_child(shoe_sole)
 
+func _enter_tree() -> void:
+	# Every placement and step, as it happens (see _notification()).
+	set_notify_local_transform(true)
+	_watch_terrain_occlusion(true)
+
 func _exit_tree() -> void:
+	_watch_terrain_occlusion(false)
 	if EventBus.green_fee_paid.is_connected(_on_green_fee_paid):
 		EventBus.green_fee_paid.disconnect(_on_green_fee_paid)
 	# Kill an in-progress swing tween explicitly: a tween still animating when
@@ -1046,6 +1093,190 @@ func _exit_tree() -> void:
 	if _swing_tween != null and _swing_tween.is_valid():
 		_swing_tween.kill()
 	_swing_tween = null
+
+# =============================================================================
+# HILLS IN FRONT OF THE GOLFER
+# =============================================================================
+
+## Find the golfer's footing after every move, as it is made. The once-a-frame
+## NOTIFICATION_TRANSFORM_CHANGED would only report where a frame left them:
+## a golfer put on a tile and stepped off it in the same frame would never be
+## seen on the tile, and could be taken to stand on a hill drawn over it.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _occlusion_active:
+		_follow_ground()
+
+## Whether the shader is clipping this golfer, against a grid that still exists
+## (tests free a course's grid while its golfers wait to be freed).
+func _occlusion_tracking() -> bool:
+	return _occlusion_active and _occlusion_material != null and is_instance_valid(_occlusion_grid)
+
+## Follow the course's terrain-occlusion switch, its sculpting and its view
+## turns while in the scene tree.
+func _watch_terrain_occlusion(watch: bool) -> void:
+	var grid: TerrainGrid = null
+	if watch and is_instance_valid(GameManager.terrain_grid):
+		grid = GameManager.terrain_grid
+	if not is_instance_valid(_occlusion_grid):
+		_occlusion_grid = null  # Freed: its connections went with it.
+	if grid != _occlusion_grid:
+		if _occlusion_grid != null:
+			if _occlusion_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+				_occlusion_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
+			if _occlusion_grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
+				_occlusion_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
+		_occlusion_grid = grid
+		if grid != null:
+			grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
+			grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
+	var rotating := EventBus.view_rotated.is_connected(_on_view_rotated_for_occlusion)
+	if watch and not rotating:
+		EventBus.view_rotated.connect(_on_view_rotated_for_occlusion)
+	elif not watch and rotating:
+		EventBus.view_rotated.disconnect(_on_view_rotated_for_occlusion)
+	refresh_terrain_occlusion()
+
+## Clip the golfer wherever a nearer hill covers them, as trees are clipped,
+## while the course has relief and the graphics setting allows it (see
+## TerrainGrid.terrain_occlusion_enabled()). Only a golfer drawn on the course's
+## own canvas is clipped: the skin editor's preview and the round screen's
+## portrait golfer are drawn on canvases of their own.
+func refresh_terrain_occlusion() -> void:
+	if not is_instance_valid(_occlusion_grid):
+		_occlusion_grid = null
+	var grid := _occlusion_grid
+	_occlusion_active = is_inside_tree() and grid != null and grid.is_inside_tree() \
+			and grid._course_surface != null and grid.terrain_occlusion_enabled() \
+			and get_canvas() == grid.get_canvas()
+	if _occlusion_active:
+		if _occlusion_material == null:
+			_occlusion_material = ShaderMaterial.new()
+			_occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
+			_occlusion_material.set_shader_parameter("occlusion_epsilon", TerrainOcclusion.GOLFER_EPSILON)
+			_occlusion_material.set_shader_parameter("ground_offset", Vector2.ZERO)
+		grid._course_surface.configure_terrain_occlusion(_occlusion_material)
+		_follow_ground()
+	else:
+		_hide_name_tag(false)
+	_apply_occlusion_material()
+
+## Wear the occlusion material on the whole drawn golfer: the skin sprite, or
+## every part of the polygon golfer, and the glints of a celebration. The name
+## tag is hidden whole with the feet instead (_hide_name_tag()); captions and
+## thought bubbles are overlays over the world, as they are over trees.
+func _apply_occlusion_material() -> void:
+	var mat: ShaderMaterial = _occlusion_material if _occlusion_active else null
+	if is_instance_valid(_expression):
+		_expression.material = mat
+	if visual == null or not is_instance_valid(visual):
+		return
+	visual.material = mat
+	_use_parent_material_below(visual)
+	if not visual.child_entered_tree.is_connected(_on_visual_child_entered_tree):
+		visual.child_entered_tree.connect(_on_visual_child_entered_tree)
+
+## Parts dressed on later - a tier's trim, the body shading, a new skin's
+## sprite - are clipped with the rest of the golfer.
+func _on_visual_child_entered_tree(child: Node) -> void:
+	if child is CanvasItem:
+		(child as CanvasItem).use_parent_material = true
+		_use_parent_material_below(child)
+
+## The name tag hangs under the feet in the golfer's own band (the Draw Order
+## section of docs/architecture.md): a hill that hides the feet hides the tag
+## too - whole, as a tag clipped pixel by pixel would be cut by any slope rising
+## in front of the golfer, which is drawn where it hangs.
+func _hide_name_tag(hide_tag: bool) -> void:
+	var tag := get_node_or_null("InfoContainer") as CanvasItem
+	if tag != null and tag.visible == hide_tag:
+		tag.visible = not hide_tag
+
+static func _use_parent_material_below(node: Node) -> void:
+	for child in node.get_children():
+		if child is CanvasItem:
+			(child as CanvasItem).use_parent_material = true
+			_use_parent_material_below(child)
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	refresh_terrain_occlusion()
+
+## A sculpt moves the ground under the golfer, who stays where they are drawn.
+func _on_vertex_elevation_changed(_vertex: Vector2i, _old: int, _new: int) -> void:
+	_queue_ground_refresh()
+
+## A turn changes the projection, not where the golfer stands (the grid point the
+## shader is anchored to). Their new screen position arrives as a transform
+## change of its own once main.gd has moved them.
+func _on_view_rotated_for_occlusion(_orientation: int, _isometric: bool) -> void:
+	if _occlusion_tracking():
+		_occlusion_grid._course_surface.configure_terrain_occlusion(_occlusion_material)
+
+## Find the golfer's footing again before the frame is drawn, once however many
+## vertices a brush stroke moved.
+func _queue_ground_refresh() -> void:
+	if _occlusion_tracking() and not _ground_refresh_queued:
+		_ground_refresh_queued = true
+		call_deferred("_follow_ground")
+
+## Find the ground the golfer stands on and anchor the shader to it. The node
+## is tracked from move to move, so a golfer walking behind a hill stays behind
+## it (TerrainOcclusion.standing_point()); the sprite's feet are drawn
+## `visual_offset` away, on the crossing of their own ray nearest the node's.
+func _follow_ground() -> void:
+	_ground_refresh_queued = false
+	if not _occlusion_tracking():
+		return
+	var grid := _occlusion_grid
+	_ground_position = global_position
+	var crossings := TerrainOcclusion.ray_crossings(grid, _ground_position)
+	_ground_point = TerrainOcclusion.standing_point_among(grid, _ground_position, crossings, _ground_point)
+	# The pixel under the node shows crossings[0]: a nearer surface than the
+	# ground they stand on hides their feet, and the name tag hung under them.
+	_hide_name_tag(_ground_point != TerrainGrid.INVALID_GRID_POINT and crossings[0]
+			> TerrainOcclusion.ground_t(grid, _ground_point) + TerrainOcclusion.GOLFER_EPSILON)
+	var feet := _ground_position + visual_offset
+	_ground_anchor = _ground_point
+	if visual_offset != Vector2.ZERO:
+		_ground_anchor = TerrainOcclusion.standing_point(grid, feet, _ground_point)
+	if _ground_anchor == TerrainGrid.INVALID_GRID_POINT:
+		# Off the course: there is no ground to stand on, and nothing in front.
+		_ground_anchor = TerrainOcclusion.point_on_ray(grid, feet, TerrainOcclusion.UNHIDDEN_T)
+	_occlusion_material.set_shader_parameter("ground_grid", _ground_anchor)
+
+## The grid point the golfer stands on - where the game has placed them, the
+## sprite being drawn `visual_offset` from it - while terrain occlusion tracks
+## it; INVALID_GRID_POINT otherwise, or off the course. A golfer behind a hill
+## stands behind it, where the front-most surface on their pixel would put them
+## on the hill.
+func ground_point() -> Vector2:
+	if not _occlusion_tracking():
+		return TerrainGrid.INVALID_GRID_POINT
+	_refresh_ground_if_stale()
+	return _ground_point
+
+## Whether the terrain covers this golfer's art at a world point: the test their
+## occlusion shader runs, so a click lands on what is drawn there.
+func terrain_hides_point(world: Vector2) -> bool:
+	if not _occlusion_tracking():
+		return false
+	_refresh_ground_if_stale()
+	if _ground_anchor == TerrainGrid.INVALID_GRID_POINT:
+		return false
+	return TerrainOcclusion.hides_standing(_occlusion_grid, _ground_anchor, world)
+
+## Bring the footing up to date before answering from it: a parent has moved
+## the golfer, or a refresh queued by a sculpt or a new visual offset has not
+## run yet.
+func _refresh_ground_if_stale() -> void:
+	if _ground_refresh_queued or global_position != _ground_position:
+		_follow_ground()
+
+## Note the ground under a shot's ball before it is announced (see shot_ground_from).
+func _record_shot_ground(from_precise: Vector2, carry_precise: Vector2, rest_precise: Vector2) -> void:
+	var to_ground := Vector2(0.5, 0.5)
+	shot_ground_from = from_precise + to_ground
+	shot_ground_carry = carry_precise + to_ground
+	shot_ground_rest = rest_precise + to_ground
 
 ## Initialize golfer from a tier (attributes and personality)
 func initialize_from_tier(tier: int) -> void:
@@ -1080,8 +1311,9 @@ func initialize_from_tier(tier: int) -> void:
 	# given their tier after they spawn, so dress them again here.
 	_apply_tier_skin()
 
-	# Re-colour the name label too: visitors are given their tier after _ready
-	_apply_tier_name_color()
+	# The name tag keeps its white lettering whatever tier the golfer turned
+	# out to be; only its copy changes.
+	_apply_name_style()
 
 ## Dress a golfer in the skin their new tier calls for. Golfers wearing a skin
 ## picked by name, or playing as the owner, keep the one they have.
@@ -1158,25 +1390,16 @@ func _apply_tier_visuals(tier: int) -> void:
 			])
 			visual.add_child(buckle)
 
-## Color the floating name label by tier for at-a-glance identification
-func _apply_tier_name_color() -> void:
+## Colour the name tag under the golfer's feet: white lettering with a dark
+## outline, so it stays readable on turf, sand, water and the walking trail
+## alike. The tier a golfer belongs to is still told apart by their skin and by
+## the label's hover copy, not by the colour of their name.
+func _apply_name_style() -> void:
 	if not name_label:
 		return
-	var tier_color: Color
-	match golfer_tier:
-		GolferTier.Tier.BEGINNER:
-			tier_color = Color(0.7, 1.0, 0.7)   # Bright green
-		GolferTier.Tier.CASUAL:
-			tier_color = Color(0.7, 0.7, 1.0)   # Bright blue
-		GolferTier.Tier.SERIOUS:
-			tier_color = Color(1.0, 0.85, 0.4)  # Bright gold
-		GolferTier.Tier.PRO:
-			tier_color = Color(1.0, 0.5, 1.0)   # Bright purple
-		_:
-			tier_color = Color.WHITE
-	name_label.add_theme_color_override("font_color", tier_color)
+	name_label.add_theme_color_override("font_color", NAMETAG_COLOR)
 	name_label.add_theme_constant_override("outline_size", 3)
-	name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	name_label.add_theme_color_override("font_outline_color", NAMETAG_OUTLINE_COLOR)
 
 func _process(delta: float) -> void:
 	if GameManager.is_paused or GameManager.current_speed == GameManager.GameSpeed.PAUSED: return
@@ -1567,6 +1790,8 @@ func start_hole(hole_number: int, tee_position: Vector2i) -> void:
 		_round_total_holes = GameManager.get_open_hole_count()
 
 	var screen_pos = GameManager.terrain_grid.grid_to_screen_center(tee_position) if GameManager.terrain_grid else Vector2.ZERO
+	# The tee is the ground they stand on, even where a hill hides it.
+	_ground_point = Vector2(tee_position) + Vector2(0.5, 0.5)
 	global_position = screen_pos
 
 	EventBus.golfer_started_hole.emit(golfer_id, hole_number)
@@ -1983,6 +2208,7 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(shot_result.from_precise)
 			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_precise)
+			_record_shot_ground(shot_result.from_precise, shot_result.landing_precise, shot_result.landing_precise)
 			EventBus.ball_putt_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 	else:
 		# Standard shot calculation
@@ -2013,9 +2239,12 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 			if is_chip_in:
 				carry_screen = terrain_grid.grid_to_screen_precise(hole_pos_vec)
 				to_screen = carry_screen
+				_record_shot_ground(from_precise, hole_pos_vec, hole_pos_vec)
 			else:
 				carry_screen = terrain_grid.grid_to_screen_precise(shot_result.carry_position_precise)
 				to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_position_precise)
+				_record_shot_ground(from_precise, shot_result.carry_position_precise,
+						shot_result.landing_position_precise)
 			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance, carry_screen)
 
 	# Debug output
@@ -3792,6 +4021,7 @@ func begin_arrival_from_clubhouse(door: Vector2i, tee: Vector2i) -> void:
 	# the group-ahead safety checks read ball positions.
 	ball_position = tee
 	ball_position_precise = Vector2(tee)
+	_ground_point = Vector2(door) + Vector2(0.5, 0.5)
 	global_position = terrain_grid.grid_to_screen_center(door)
 	path = _find_path_to(terrain_grid.grid_to_screen_center(tee))
 	path_index = 0
@@ -3966,24 +4196,16 @@ func receive_drink(amount: float) -> void:
 	_adjust_attitude(0.02 + boost)
 	show_thought(FeedbackTriggers.TriggerType.REFRESHED)
 
-## Write the name label above the golfer: their name, always, plus their tier
-## while the mouse is over them. The label is the only text a golfer carries —
-## score and hole live in the scorecard panels and the click-through popup.
+## Write the name tag under the golfer's feet: their name, always.
+## The tag is the only text a golfer carries — score and hole live in the
+## scorecard panels and the click-through popup.
 func _refresh_name_label() -> void:
 	if not name_label:
 		return
-	if _is_hovered:
-		var tier_name = GolferTier.TIER_DATA.get(golfer_tier, {}).get("name", "")
-		var stars = "★".repeat(golfer_tier + 1)
-		name_label.text = "%s %s %s" % [stars, tier_name, golfer_name]
-		# A club member wears their membership after their name.
-		if ClubMembership.is_member(membership_tier):
-			name_label.text += " (%s)" % ClubMembership.tier_name(membership_tier)
-	else:
-		name_label.text = golfer_name
+	name_label.text = golfer_name
 	name_label.visible = true
 
-## Hover detection — add the golfer's tier to the name label they always wear
+## Hover detection — the name tag always shows only the golfer's name
 func _on_mouse_entered() -> void:
 	_is_hovered = true
 	_refresh_name_label()
@@ -4387,6 +4609,12 @@ func show_thought(trigger_type: int) -> void:
 ## Click detection handler (mirrors Building pattern)
 func _on_click_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		# A hill drawn over the golfer is the hill: only what the player can see
+		# answers to a click.
+		if _occlusion_tracking():
+			var local_event := make_input_local(event) as InputEventMouseButton
+			if terrain_hides_point(to_global(local_event.position)):
+				return
 		golfer_selected.emit(self)
 
 ## Serialize golfer state
@@ -4465,6 +4693,5 @@ func deserialize(data: Dictionary) -> void:
 		global_position = Vector2(pos_data.get("x", 0), pos_data.get("y", 0))
 
 	_update_visual()
-	# The saved tier decides the name colour
-	_apply_tier_name_color()
+	_apply_name_style()
 	_refresh_name_label()

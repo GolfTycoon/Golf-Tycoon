@@ -48,19 +48,19 @@
 | --- | --- | --- |
 | Terrain rendering | Fast, Full | The surface shader's heightfield ray and relief lighting |
 | Grass blades | Off, Full | The per-tile grass overlay and its redraws |
-| Terrain-aware tree occlusion | Off, On | The silhouette shader that hides a bare trunk behind a hill |
+| Terrain-aware occlusion | Off, On | The depth shaders that hide trees, walking trails, buildings, golfers, golf balls, tee markers, cups and their pins, staff and owner area rings, and decorations where a nearer hill covers them |
 | Water shimmer detail | Reduced, Full | The animated water detail and its redraws |
 | Wind flag outlines | Reduced, Full | The outlined flag outline pass |
-| Prop & ball shadows | Off, Contact only, Full | One polygon per prop for the contact blob, a second for the stretched sun shadow. A ball carries one contact blob, which stays on the ground and tightens as the ball rises |
+| Ball shadow | Off, On | The ball's contact shadow stays on the ground and tightens as the ball rises |
 | Course wildlife | Off, Reduced, Full | Duck families and butterflies: half the residents at Reduced, none at Off |
 | Impact particle effects | Off, Reduced, Full | The sand, water and landing bursts, and the nodes and tweens each one builds |
 | Decorative animation rate | Low, Standard, High (4, 15, 30 Hz) | How often flags, water, wildlife and golfer trims repaint |
 | Camera redraw rate | Low, Standard, High (15, 30, 60 Hz) | How often the ground overlays repaint while the camera reaches new tiles (a pan inside one tile window repaints nothing) |
 | Golfer coordination rate | Low, Standard, High (15, 30, 60 Hz) | How often the course-wide golfer group scheduling runs |
 
-The **Performance** preset turns terrain rendering Fast, grass and tree occlusion off, water and wind flag detail reduced, prop and ball shadows off, wildlife off and impact bursts to half size, and all three rates to Low. **Balanced** and **High quality** keep every detail on, at Standard and High rates respectively.
+The **Performance** preset turns terrain rendering Fast, grass and terrain-aware occlusion off, water and wind flag detail reduced, the ball shadow off, wildlife off and impact bursts to half size, and all three rates to Low. **Balanced** and **High quality** keep every detail on, at Standard and High rates respectively.
 
-The decoration controls reach the running course as soon as they change, with no reload: existing props rebuild their shadow polygons, a ball on the course shows or drops its contact shadow, the wildlife overlay clears or restores its residents (the habitat cache is kept, so switching them back on costs one refresh), and each new particle burst is built to the chosen size - at Off the burst is never created at all. The three rates throttle repainting rather than simulation: golfers keep walking and shots keep resolving at the same speed.
+The decoration controls reach the running course as soon as they change, with no reload: a ball on the course shows or drops its contact shadow, the wildlife overlay clears or restores its residents (the habitat cache is kept, so switching them back on costs one refresh), and each new particle burst is built to the chosen size - at Off the burst is never created at all. The three rates throttle repainting rather than simulation: golfers keep walking and shots keep resolving at the same speed.
 
 ## Menu background
 
@@ -312,6 +312,34 @@ its Routing Holes and Staff modes. Shelves scroll horizontally while the circle 
 Hover/focus states, tooltips and accessible names identify every icon; Tab and
 Enter can navigate the dock.
 
+**A visitor's profile** opens over the register as one row of fixed-height
+dossier cards, so the shelf keeps the height of a full column of visitor plates
+however much the profile holds. The row starts with a tall **Guest register**
+tab - a pixel arrow, the words GUEST and REGISTER, and how many visitors the
+book holds - then the golfer's own identity card. Their skin snapshot stands at
+twice its plate size in a recessed well; their name, tier, membership plate and
+whether they are on the course or a past visitor sit beside it, with three
+round readings along the card's foot (hole, strokes and attitude on the course;
+to par, strokes and par for a past round). A golfer still out there carries a
+**Locate** chip floating over the portrait's corner, and it is the same separate
+camera action the register's Locate button is.
+
+Each profile section follows as its own card in reading order: Identity, Club
+Membership, Current Round, Scorecard, Golf Skills, Golfer Traits, Golfer
+Skills, Golfer Statuses, Golfer Comments and Course Experience; any section a
+mod adds follows them. A card holds five rows (six scorecard holes, three
+comments), and a longer section continues in the next card to its right, where
+the shelf already scrolls - the row never grows downwards. Every card wears the
+visitor green (on the course) or tan (past visitor) rim and the dock's glass
+frame, with a section-coloured spine, pixel gem, uppercase pixel title and
+hairline rule. On/Off traits and golfer skills are lit pixel switches, golf
+skills are segmented bars with their reading, the golfer's needs are wide
+segmented meters, comments are quoted beside a sentiment gem with the tally in
+the header, and scorecard rows give each hole's par, strokes and score in the
+game's score colours. The one-second refresh redraws the row only when the
+golfer's data moves, so a profile stands still while it is read and still
+follows a live round.
+
 The **Edit Player Golfer** page leads with your own golfer: an animated sprite
 standing in the first column, with the skin they wear chosen directly beneath it.
 The picker has no title of its own — the golfer above it says what it dresses, its
@@ -424,11 +452,11 @@ standalone Tournament Mode the owner's round setup steps aside.
 
 ### Status column
 
-The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a rounded dark value background with a hairline sage border and a 32x32 pixel-art icon in a separate raised, accent-tinted circle on the right — so the cards themselves separate one row from the next. Each row hugs its value and icon and aligns to the right, rather than filling the column. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
+The top-right corner carries a compact status column (`HUDStatusColumn`) instead of a full-width top bar, so the whole top edge stays free for the course view. Every stat is its own card — a rounded dark value background with a hairline sage border and a 32x32 pixel-art icon in a separate raised, accent-tinted circle on the right — so the cards themselves separate one row from the next. Every card shares the same uniform width and height, with values centered horizontally and vertically inside their pill alongside the medallion. The column has no panel or backdrop of its own: the cards float over the course, and the gaps between them are course view, where clicks reach the course. Its rows, top to bottom:
 
 | Row | Icon | Shows |
 | --- | --- | --- |
-| Funds | Gold coin | The balance, with a `^` / `v` trend, clickable for the financial dashboard |
+| Funds | Gold coin | The balance (shortened with `K`, `M`, `B`, `T`, etc. when needed to fit the row, with the exact balance in the hover tooltip), clickable for the financial dashboard |
 | Season | Leaf in the season's colour | The current season |
 | Reputation | Heart | Course reputation, colour-coded, clickable for the rating details |
 | Rating | Gold star | Five faceted star icons (`CourseRatingStars`, with partial fill and recessed unlit sockets) inside the value pill; hovering shows the numeric rating in the tooltip, clickable for details |
@@ -437,7 +465,7 @@ The top-right corner carries a compact status column (`HUDStatusColumn`) instead
 
 There is no game-mode (`PLAYING` / `PAUSED`) row: the bottom dock's pause and speed controls already show and set the running state. There is no collapse handle either, so every card is always shown.
 
-The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, but every card stays on screen. Value pills keep 20px of visible padding on each side and extend 20px behind their icon medallion. The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
+The Weather, Wind and Seasons rows appear only while their feature is on: with a feature off (the Start New Game options — all three start off on a quick start) that row is left out of the column rather than shown reading "Off" or "Year-round", and the weather/wind block leaves with the last of the two cards. On compact windows the column narrows, and whenever the value font size gets smaller (such as in compact landscape or portrait conditions), row heights, medallions, icons, and pill padding scale down together while every card stays on screen. On desktop, value pills keep 20px of visible padding on each side and extend 20px behind their 40px icon medallion (scaling proportionally to 14px padding and 12px overlap behind a 24px medallion on compact windows). The compact rating strip packs its five 15x15 stars closer together by overlapping only their transparent texture edges, so it fits the narrower pill without shrinking or cropping the stars. Every card that opens a panel is a normal keyboard-focusable control.
 
 ### Course location banner
 

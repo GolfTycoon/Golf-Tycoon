@@ -472,6 +472,8 @@ func test_rules_set_button_icons_and_medallion_glyphs() -> void:
 	spec["rules"] = [
 		{"target": {"name": "IconButton"}, "icon": icon},
 		{"target": {"name": "MenuBtn"}, "glyph": "flag", "background": "334455"},
+		{"target": {"name": "BuildButton"}, "glyph": "hud_build"},
+		{"target": {"name": "TerrainTab"}, "glyph": "shelf_terrain"},
 	]
 	var root := Panel.new()
 	var button := Button.new()
@@ -481,6 +483,12 @@ func test_rules_set_button_icons_and_medallion_glyphs() -> void:
 	var medallion := PixelCircleButton.new()
 	medallion.name = "MenuBtn"
 	root.add_child(medallion)
+	var illustrated_medallion := PixelCircleButton.new()
+	illustrated_medallion.name = "BuildButton"
+	root.add_child(illustrated_medallion)
+	var shelf_medallion := PixelCircleButton.new()
+	shelf_medallion.name = "TerrainTab"
+	root.add_child(shelf_medallion)
 	add_child_autofree(root)
 	var applier := GuiThemeApplier.new()
 	add_child_autofree(applier)
@@ -489,6 +497,10 @@ func test_rules_set_button_icons_and_medallion_glyphs() -> void:
 	assert_eq(medallion.glyph, "flag", "a medallion swaps its pictogram")
 	assert_eq(medallion.accent, Color("334455"),
 		"and a medallion's background is its face colour")
+	assert_eq(illustrated_medallion.glyph, "hud_build",
+		"a theme rule can select one of the illustrated dock glyphs")
+	assert_eq(shelf_medallion.glyph, "shelf_terrain",
+		"a theme rule can select one of the illustrated shelf glyphs")
 
 
 func test_a_rule_can_fade_a_panel_without_repainting_it() -> void:

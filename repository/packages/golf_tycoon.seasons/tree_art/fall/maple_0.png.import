@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b7ns3h4gsuph6"
-path="res://.godot/imported/maple_n.png-154b1a3fba5f578767b68cdec582e51a.ctex"
+path="res://.godot/imported/maple_0.png-7e627d19423180269c93bcb40db05af1.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/golf_tycoon.seasons/tree_art/fall/maple_0.png"
-dest_files=["res://.godot/imported/maple_n.png-154b1a3fba5f578767b68cdec582e51a.ctex"]
+dest_files=["res://.godot/imported/maple_0.png-7e627d19423180269c93bcb40db05af1.ctex"]
 
 [params]
 

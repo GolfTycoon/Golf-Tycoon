@@ -14,6 +14,11 @@ class_name WalkingPathOverlay
 ## building. A tile beside a footprint lays its arm right up to the shared edge
 ## and broadens into a swept threshold there, so a trail comes up to the
 ## clubhouse door, the shop and the cart barn instead of stopping short of them.
+##
+## The trail paints over the surface in a band of its own, so on sculpted ground
+## it is clipped wherever a nearer hill covers it (terrain_decal_occlusion
+## .gdshader): every vertex carries, as its UV, the grid point of the ground it is
+## painted on, and the shader hides the pixels behind the terrain in front.
 
 ## Orthogonal sides, also used by the component search below.
 const SIDES := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
@@ -82,6 +87,10 @@ const PAVED_APRON_W := 0.175
 const DIRT_SPEED_MODIFIER := 1.25
 const PAVED_SPEED_MODIFIER := 1.5
 
+## Clips the trail where nearer terrain covers it (see TerrainGrid.
+## terrain_occlusion_enabled()).
+const TERRAIN_DECAL_OCCLUSION: Shader = preload("res://shaders/terrain_decal_occlusion.gdshader")
+
 var terrain_grid: TerrainGrid
 ## Tiles with the walking-path flag, the subset rendered as paved stone, and
 ## every tile a building stands on (a walk runs up to a wall it comes against).
@@ -96,7 +105,12 @@ var _is_web: bool = false
 ## session panning over a large course keeps at most `MAX_CACHED_TILES` of
 ## them; past that the shelf is dropped and rebuilt from the visible tiles.
 var _command_cache: Dictionary = {}  # Vector2i -> Array[DrawCommand]
+## The same commands per tile as the one triangle list a repaint submits (see
+## `build_tile_mesh()`), on the same shelf and dropped with it.
+var _mesh_cache: Dictionary = {}  # Vector2i -> TileMesh
 const MAX_CACHED_TILES: int = 2048
+## The overlay's material while terrain occlusion is on; null on a flat course.
+var _occlusion_material: ShaderMaterial = null
 
 func initialize(grid: TerrainGrid) -> void:
 	terrain_grid = grid
@@ -109,8 +123,10 @@ func initialize(grid: TerrainGrid) -> void:
 	if grid:
 		grid.walking_paths_changed.connect(rebuild)
 		grid.elevation_changed.connect(_on_elevation_changed)
+		grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
 	EventBus.load_completed.connect(_on_load_completed)
 	EventBus.view_rotated.connect(_on_view_rotated)
+	_refresh_occlusion()
 	rebuild()
 
 func _exit_tree() -> void:
@@ -119,6 +135,8 @@ func _exit_tree() -> void:
 			terrain_grid.walking_paths_changed.disconnect(rebuild)
 		if terrain_grid.elevation_changed.is_connected(_on_elevation_changed):
 			terrain_grid.elevation_changed.disconnect(_on_elevation_changed)
+		if terrain_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+			terrain_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
 	if GameManager and GameManager.entity_layer:
 		var el: Node = GameManager.entity_layer
 		if el.has_signal("building_removed") and el.building_removed.is_connected(_on_entity_building_changed):
@@ -136,18 +154,43 @@ func _on_load_completed(_success: bool) -> void:
 ## Trails follow the ground, so sculpted elevation must reproject them. A lift
 ## reaches the tiles whose shared corners it moved, so the whole shelf goes.
 func _on_elevation_changed(_pos: Vector2i, _old: int, _new: int) -> void:
-	_command_cache.clear()
+	_clear_shelf()
 	queue_redraw()
 
-## A quarter turn changes every projected point, so the commands are rebuilt.
+## A quarter turn changes every projected point, so the commands are rebuilt,
+## and the occlusion shader is given the new projection.
 func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
-	_command_cache.clear()
+	_clear_shelf()
+	_refresh_occlusion()
 	queue_redraw()
 
 ## Drop the cached geometry after a bulk elevation load, which writes the
 ## heightfield without a per-vertex signal (see TerrainGrid).
 func invalidate_ground() -> void:
+	_clear_shelf()
+
+## Forget every tile's projected commands and the meshes built from them.
+func _clear_shelf() -> void:
 	_command_cache.clear()
+	_mesh_cache.clear()
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	_refresh_occlusion()
+
+## Clip the trail behind nearer terrain while the course has relief and the
+## graphics setting allows it; a flat course draws it with no material at all.
+## The heightfield texture is shared with the surface and updated in place, so
+## only turning the view (the projection) needs this again.
+func _refresh_occlusion() -> void:
+	var surface: CourseSurface = terrain_grid._course_surface if terrain_grid else null
+	if surface == null or not terrain_grid.terrain_occlusion_enabled():
+		material = null
+		return
+	if _occlusion_material == null:
+		_occlusion_material = ShaderMaterial.new()
+		_occlusion_material.shader = TERRAIN_DECAL_OCCLUSION
+	surface.configure_terrain_occlusion(_occlusion_material)
+	material = _occlusion_material
 
 ## The entity layer is created after the grid, so hook its building signals
 ## lazily: a placed or removed clubhouse changes which trails are paved.
@@ -178,7 +221,7 @@ func _on_entity_building_moved(_building, _from_pos: Vector2i, _to_pos: Vector2i
 ## few of them.
 func rebuild() -> void:
 	_ensure_entity_connections()
-	_command_cache.clear()
+	_clear_shelf()
 	_path_tiles.clear()
 	_upgraded_tiles.clear()
 	_building_tiles = _occupied_tiles()
@@ -282,20 +325,18 @@ func _draw() -> void:
 	visible_rect = visible_rect.grow_individual(
 			terrain_grid.tile_width, terrain_grid.tile_height,
 			terrain_grid.tile_width, terrain_grid.tile_height)
+	var canvas_item := get_canvas_item()
 	for pos in _path_tiles.keys():
 		var center := to_local(terrain_grid.grid_to_screen_center(pos))
 		if not visible_rect.has_point(center):
 			continue
-		for cmd in _commands_for(pos):
-			match cmd.kind:
-				"polygon":
-					_draw_outline(cmd.points, cmd.color)
-				"line":
-					draw_line(cmd.a, cmd.b, cmd.color, cmd.width)
-				"polyline":
-					draw_polyline(cmd.points, cmd.color, cmd.width)
-				"circle":
-					draw_circle(cmd.center, cmd.radius, cmd.color)
+		# One canvas command per tile, its triangles in the commands' order, so
+		# the verges still lie under the trail and the detail over it.
+		var mesh := _mesh_for(pos)
+		if mesh.indices.is_empty():
+			continue
+		RenderingServer.canvas_item_add_triangle_array(canvas_item, mesh.indices,
+				mesh.points, mesh.colors, mesh.uvs)
 
 ## The draw commands for one trail tile, from the shelf when it is already
 ## there. `tile_draw_commands()` measures and allocates every band, pebble and
@@ -309,18 +350,117 @@ func _commands_for(pos: Vector2i) -> Array:
 	_command_cache[pos] = commands
 	return commands
 
+## One trail tile's mesh, from the shelf when it is already there.
+func _mesh_for(pos: Vector2i) -> TileMesh:
+	if _mesh_cache.has(pos):
+		return _mesh_cache[pos]
+	if _mesh_cache.size() >= MAX_CACHED_TILES:
+		_mesh_cache.clear()
+	var mesh := build_tile_mesh(_commands_for(pos))
+	_mesh_cache[pos] = mesh
+	return mesh
+
+## One tile's draw commands as a single indexed triangle list: the points and
+## colours as drawn and, as UVs, the grid point of the ground under each vertex,
+## which the occlusion shader measures the terrain in front against. The UVs cost
+## nothing without the shader: the overlay is untextured, so the default canvas
+## shader samples the plain white texture with them.
+class TileMesh:
+	var points := PackedVector2Array()
+	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+## Lines and circles become triangles too (the engine's own draw_line() and
+## draw_circle() take no UVs), shaped as the engine draws them.
+func build_tile_mesh(commands: Array) -> TileMesh:
+	var mesh := TileMesh.new()
+	for cmd in commands:
+		match cmd.kind:
+			"polygon":
+				_mesh_polygon(mesh, cmd)
+			"line":
+				_mesh_line(mesh, cmd)
+			"circle":
+				_mesh_circle(mesh, cmd)
+	return mesh
+
 ## Fill one projected outline. Every outline is convex in tile units (a band,
 ## a taper or a pad), but sculpted ground lifts its corners by different heights,
 ## and on a steep enough slope the projected outline folds over itself. The
 ## engine cannot triangulate a folded polygon (draw_colored_polygon() then draws
 ## nothing and logs an error), so such an outline is filled as the fan of
-## triangles it is made of in tile units instead.
-func _draw_outline(points: PackedVector2Array, color: Color) -> void:
-	var indices := triangulate_outline(points)
+## triangles it is made of in tile units instead (see `triangulate_outline()`).
+func _mesh_polygon(mesh: TileMesh, cmd: DrawCommand) -> void:
+	var indices := triangulate_outline(cmd.points)
 	if indices.is_empty():
 		return
-	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), indices, points,
-			PackedColorArray([color]))
+	var base := mesh.points.size()
+	for i in cmd.points.size():
+		var point := cmd.points[i]
+		mesh.points.append(point)
+		mesh.colors.append(cmd.color)
+		mesh.uvs.append(cmd.ground[i] if i < cmd.ground.size() else _visible_ground(point))
+	for index in indices:
+		mesh.indices.append(base + index)
+
+## A line `width` pixels thick: the quad CanvasItem.draw_line() fills, each end
+## carrying the ground under it. A blade's tip carries its foot's ground, so it
+## stands on the trail like a sprite on its anchor.
+func _mesh_line(mesh: TileMesh, cmd: DrawCommand) -> void:
+	var along := cmd.b - cmd.a
+	if along.length_squared() <= 0.0:
+		return
+	var half := along.orthogonal().normalized() * (maxf(cmd.width, 1.0) * 0.5)
+	var ground_a := cmd.ground[0] if cmd.ground.size() > 0 else _visible_ground(cmd.a)
+	var ground_b := cmd.ground[1] if cmd.ground.size() > 1 else _visible_ground(cmd.b)
+	var base := mesh.points.size()
+	mesh.points.append_array(PackedVector2Array([cmd.a + half, cmd.b + half, cmd.b - half,
+			cmd.a - half]))
+	mesh.uvs.append_array(PackedVector2Array([ground_a, ground_b, ground_b, ground_a]))
+	for i in 4:
+		mesh.colors.append(cmd.color)
+	mesh.indices.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2,
+			base + 3]))
+
+## A filled circle as a fan. It is round on screen, as draw_circle() draws it,
+## but its ground follows the slope under its centre: each rim vertex carries the
+## grid point the screen offset reaches on the ground's tangent plane there, so a
+## trodden patch on a hillside lies on the hill instead of cutting into it.
+func _mesh_circle(mesh: TileMesh, cmd: DrawCommand) -> void:
+	if cmd.radius <= 0.0:
+		return
+	var centre_ground := cmd.ground[0] if cmd.ground.size() > 0 else _visible_ground(cmd.center)
+	var to_ground := _screen_to_ground(centre_ground)
+	var segments := clampi(ceili(cmd.radius * 2.0), 8, 32)
+	var base := mesh.points.size()
+	mesh.points.append(cmd.center)
+	mesh.colors.append(cmd.color)
+	mesh.uvs.append(centre_ground)
+	for i in segments:
+		var angle := TAU * float(i) / float(segments)
+		var offset := Vector2(cos(angle), sin(angle)) * cmd.radius
+		mesh.points.append(cmd.center + offset)
+		mesh.colors.append(cmd.color)
+		mesh.uvs.append(centre_ground + to_ground.basis_xform(offset))
+	for i in segments:
+		mesh.indices.append_array(PackedInt32Array([base, base + 1 + i,
+				base + 1 + (i + 1) % segments]))
+
+## The linear map from a screen offset at `ground` to the grid offset that
+## reaches it along the ground's tangent plane there (see
+## GroundDecal.screen_to_ground(), shared with the other ground paint).
+func _screen_to_ground(ground: Vector2) -> Transform2D:
+	return GroundDecal.screen_to_ground(terrain_grid, ground)
+
+## The ground a pixel shows, for a command that names none: such paint is then
+## treated as lying on the visible surface, so it is never hidden.
+func _visible_ground(local_point: Vector2) -> Vector2:
+	var world := to_global(local_point)
+	var ground := terrain_grid.screen_to_grid_point(world)
+	if ground == TerrainGrid.INVALID_GRID_POINT:
+		ground = terrain_grid.projection.unproject(world)
+	return ground
 
 ## Triangle indices that fill `points`: the engine's own triangulation where it
 ## succeeds, otherwise the fan from the first point (exact for the convex tile-
@@ -339,7 +479,10 @@ static func triangulate_outline(points: PackedVector2Array) -> PackedInt32Array:
 # Geometry — computed outside the draw cycle so it can be unit-tested.
 # =============================================================================
 
-## One draw command: kind plus its typed payload (see _draw()).
+## One draw command: kind plus its typed payload (see `build_tile_mesh()`).
+## `ground` is the grid point of the ground under the paint: one per point of a
+## polygon, one per end of a line (a blade's tip shares its foot's), and the
+## centre of a circle. It is what the occlusion shader compares the terrain with.
 class DrawCommand:
 	var kind := "polygon"
 	var points: PackedVector2Array
@@ -349,6 +492,7 @@ class DrawCommand:
 	var radius: float
 	var color: Color
 	var width: float
+	var ground: PackedVector2Array
 
 static func _cmd(kind: String) -> DrawCommand:
 	var c := DrawCommand.new()
@@ -530,8 +674,9 @@ func _speckles(pos: Vector2i, from: Vector2, axis: Vector2, dir: Vector2i,
 		var t := rng.randf_range(-0.35, 0.35)
 		var side := 1.0 if rng.randf() < 0.5 else -1.0
 		var reach := lerpf(inner, outer, rng.randf_range(0.25, 1.0))
-		var at := _pt(pos, from + axis * side * reach + Vector2(dir) * t * 0.5)
-		cmds.append(_circle(at, rng.randf_range(0.022, 0.042) * unit, color))
+		var spot := from + axis * side * reach + Vector2(dir) * t * 0.5
+		cmds.append(_circle(_pt(pos, spot), rng.randf_range(0.022, 0.042) * unit, color,
+				Vector2(pos) + spot))
 	return cmds
 
 ## Grass blades leaning over the verges. `verge` is the half-width the blades
@@ -544,11 +689,14 @@ func _blades(pos: Vector2i, from: Vector2, axis: Vector2, dir: Vector2i,
 	for i in range(2):
 		var side := 1.0 if i == 0 else -1.0
 		var t := rng.randf_range(0.18, 0.75)
-		var at := _pt(pos, from + axis * side * (verge + 0.03) + Vector2(dir) * t * 0.5)
+		var foot := from + axis * side * (verge + 0.03) + Vector2(dir) * t * 0.5
+		var at := _pt(pos, foot)
 		var lean := rng.randf_range(-0.05, 0.05)
-		# Blades lean away from the tile centre and lean with the walk.
+		# Blades lean away from the tile centre and lean with the walk. The tip
+		# stands on the foot's ground, rising from it like a sprite.
+		var ground := Vector2(pos) + foot
 		cmds.append(_line(at, at + Vector2(lean, -rng.randf_range(0.05, 0.085)) * unit,
-					GRASS_BLADES, 1.0))
+					GRASS_BLADES, 1.0, ground, ground))
 	return cmds
 
 # =============================================================================
@@ -568,36 +716,44 @@ func _unit(pos: Vector2i, t: Vector2) -> float:
 ## One draw command for an outline given in tile units of this tile.
 func _tile_polygon(pos: Vector2i, outline: Array[Vector2], color: Color) -> DrawCommand:
 	var points := PackedVector2Array()
+	var ground := PackedVector2Array()
 	for t in outline:
 		points.append(_pt(pos, t))
+		ground.append(Vector2(pos) + t)
 	var c := _cmd("polygon")
 	c.points = points
 	c.color = color
+	c.ground = ground
 	return c
 
 ## One draw command for a line between two points in tile units of this tile.
 func _tile_line(pos: Vector2i, a: Vector2, b: Vector2, color: Color, width: float) -> DrawCommand:
-	return _line(_pt(pos, a), _pt(pos, b), color, width)
+	return _line(_pt(pos, a), _pt(pos, b), color, width, Vector2(pos) + a, Vector2(pos) + b)
 
 ## One draw command for a filled circle of `radius` tile units around `t`.
 func _circle_at(pos: Vector2i, t: Vector2, radius: float, color: Color) -> DrawCommand:
-	return _circle(_pt(pos, t), radius * _unit(pos, t), color)
+	return _circle(_pt(pos, t), radius * _unit(pos, t), color, Vector2(pos) + t)
 
-## One draw command for a line between two local points.
-func _line(a: Vector2, b: Vector2, color: Color, width: float) -> DrawCommand:
+## One draw command for a line between two local points, standing on the grid
+## points `ground_a` and `ground_b`.
+func _line(a: Vector2, b: Vector2, color: Color, width: float, ground_a: Vector2,
+		ground_b: Vector2) -> DrawCommand:
 	var c := _cmd("line")
 	c.a = a
 	c.b = b
 	c.color = color
 	c.width = width
+	c.ground = PackedVector2Array([ground_a, ground_b])
 	return c
 
-## One draw command for a filled circle in local space (pebbles, dust).
-func _circle(center: Vector2, radius: float, color: Color) -> DrawCommand:
+## One draw command for a filled circle in local space (pebbles, dust), centred
+## on the grid point `ground`.
+func _circle(center: Vector2, radius: float, color: Color, ground: Vector2) -> DrawCommand:
 	var c := _cmd("circle")
 	c.center = center
 	c.radius = radius
 	c.color = color
+	c.ground = PackedVector2Array([ground])
 	return c
 
 ## A band of the walk from `from` to `to`, `half_width` across it. `axis` is the

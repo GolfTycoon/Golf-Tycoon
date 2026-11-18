@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://i7f4cisbm8gj"
-path="res://.godot/imported/dead_tree_n.png-9000ea75a117ef6392d8b15dffc30d53.ctex"
+path="res://.godot/imported/dead_tree_0.png-1096145d838071090a8f6033d11af2dd.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/dead_tree_0.png"
-dest_files=["res://.godot/imported/dead_tree_n.png-9000ea75a117ef6392d8b15dffc30d53.ctex"]
+dest_files=["res://.godot/imported/dead_tree_0.png-1096145d838071090a8f6033d11af2dd.ctex"]
 
 [params]
 

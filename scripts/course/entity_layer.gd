@@ -37,8 +37,7 @@ signal building_selected(building: Building)
 @onready var decorations_container = Node2D.new()
 
 func _ready() -> void:
-	# Relative shadow layers (-2/-1) must remain above the opaque terrain.
-	z_index = 2
+	z_index = 2  # Standing sprites, above ground detail.
 	y_sort_enabled = true
 	buildings_container.name = "Buildings"
 	decorations_container.name = "Decorations"

@@ -6,8 +6,9 @@ extends GameTest
 ## water, flowers - at z 1. A golfer used to sit at z 0 as well, the band of the
 ## opaque surface, so a golfer on a trail was drawn UNDER the trail's ribbon.
 ## Golfers paint in the entity band now: z 2 on the scene root
-## (docs/architecture.md, Draw Order), with the name label as an offset of that
-## one band, and no ground shadow or coloured rings underneath the golfer.
+## (docs/architecture.md, Draw Order), with the name tag under their feet in
+## that same band - no offset above the bodies - and no ground shadow or
+## coloured rings underneath the golfer.
 ##
 ## A band is only a number, so these tests hold the arrangement the game builds:
 ## the grid laid down first, the entity containers after it. Items sharing a band
@@ -69,7 +70,27 @@ func test_the_golfer_is_drawn_in_the_entity_band() -> void:
 	assert_eq(_effective_z(golfer), ENTITY_BAND,
 			"a golfer belongs with the other entities, not with the ground (z %d)" % _effective_z(golfer))
 	assert_true(golfer.z_as_relative,
-			"the label is an offset of that one band")
+			"the name tag y-sorts with the body inside that one band")
+
+func test_the_name_tag_sits_below_the_feet_in_the_golfer_band() -> void:
+	var label := golfer.get_node_or_null("InfoContainer/NameLabel") as Label
+	assert_not_null(label, "every golfer wears a name tag")
+	var container := label.get_parent() as Control
+	assert_eq(_effective_z(label), ENTITY_BAND,
+			"the name tag draws at z %d, in the golfer's own band, not over other sprites"
+					% _effective_z(label))
+	assert_eq(_effective_z(container), ENTITY_BAND, "and so does the box that holds it")
+	# Under the feet: the tag's top edge sits at or below the node origin, where
+	# the feet meet the ground (a whisker of clearance, never overlapping).
+	assert_gte(container.global_position.y, golfer.global_position.y,
+			"the name tag hangs below the golfer's feet, not above their head")
+	assert_true(label.visible, "the name is worn at all times, not only on hover")
+
+func test_the_name_tag_is_white() -> void:
+	var label := golfer.get_node_or_null("InfoContainer/NameLabel") as Label
+	assert_not_null(label, "every golfer wears a name tag")
+	assert_eq(label.get_theme_color("font_color"), Color.WHITE,
+			"the name is written in white on every tier")
 
 func test_the_walking_trail_is_ground_art() -> void:
 	var trail := grid.get_node_or_null("WalkingPathOverlay") as CanvasItem

@@ -399,7 +399,7 @@ static func _parse_rule(theme: GuiTheme, entry: Dictionary) -> Dictionary:
 			theme.warnings.append("A rule's 'icon' must be an image file path (a .png in your mod folder); it was ignored.")
 	if entry.has("glyph"):
 		var glyph_name := str(entry["glyph"]).strip_edges()
-		if PixelCircleButton.ICONS.has(glyph_name):
+		if PixelCircleButton.ICONS.has(glyph_name) or PixelCircleButton.SECTION_ART.has(glyph_name) or PixelCircleButton.SHELF_ART.has(glyph_name):
 			rule["glyph"] = glyph_name
 			styled = true
 		else:

@@ -2,8 +2,8 @@
 
 > Hired staff walk the course inside a designated area and do their job: groundskeepers pull weeds, greeters lift attitudes, marshals keep pace and vendors serve drinks. Weeds left on the course lower its condition.
 
-**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/entities/owner_duty.gd` (the owner's own golfer doing the same work), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd`
-**Tests:** `tests/unit/economy_and_land/test_staff_manager.gd`, `tests/unit/economy_and_land/test_weed_manager.gd`, `tests/unit/economy_and_land/test_staff_panel.gd`, `tests/unit/economy_and_land/test_staff_service.gd`, `tests/unit/economy_and_land/test_staff_area_overlay.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
+**Source:** `scripts/managers/staff_manager.gd` (`STAFF_DATA`, `get_pace_modifier()`, `process_daily_maintenance()`, `serialize()`), `scripts/entities/staff_member.gd` (state machine, `SERVICE_RANGE_TILES`), `scripts/entities/owner_duty.gd` (the owner's own golfer doing the same work), `scripts/managers/weed_manager.gd` (`HOST_TURF`, `grow_daily()`, `MAX_WEEDS`, `DAILY_GROWTH`), `scripts/entities/weed.gd`, `scripts/entities/golfer.gd` (`STAFF_HELP_COOLDOWN_SECONDS`, `receive_*()`), `scripts/systems/golfer_attributes.gd` (thirst constants), `scripts/ui/staff_panel.gd`, `scripts/ui/staff_area_overlay.gd` (`build_ring()`, `ring_geometry()`), `scripts/terrain/ground_decal.gd`
+**Tests:** `tests/unit/economy_and_land/test_staff_manager.gd`, `tests/unit/economy_and_land/test_weed_manager.gd`, `tests/unit/economy_and_land/test_staff_panel.gd`, `tests/unit/economy_and_land/test_staff_service.gd`, `tests/unit/economy_and_land/test_staff_area_overlay.gd`, `tests/unit/course_design/test_terrain_occlusion.gd`, `tests/unit/golf_play/test_owner_on_course.gd`
 
 ---
 
@@ -18,7 +18,7 @@ Hiring an employee puts them on the course. They walk around their **designated 
 | Marshal | Ranger | Marshall | Talk to groups to keep the pace moving |
 | Drinks vendor | Soda Vendor | Cart Refresher | Serve thirsty golfers a drink |
 
-**Designated areas.** Each employee has a circle of tiles as their area. They only work on targets inside it, and they wander within it when there is nothing to do. Areas show as translucent rings on the course. On the **Staff** tab, press an employee's **Area** button, then left-click a tile to move their area there. Right-click or Esc cancels.
+**Designated areas.** Each employee has a circle of tiles as their area. They only work on targets inside it, and they wander within it when there is nothing to do. Areas show as translucent rings on the course, lying over the hills inside them; a hill nearer the camera hides the part of a ring behind it. On the **Staff** tab, press an employee's **Area** button, then left-click a tile to move their area there. Right-click or Esc cancels.
 
 **Your own golfer works too.** The owner's own golfer is on the course between rounds, and does the groundskeeper and greeter jobs on a ground of their own: a gold ring you can move from the **Edit Player** page. See [The Owner's Golfer on the Course](../golf-play/owner-on-the-course.md).
 
@@ -69,6 +69,8 @@ WORKING   countdown of work_seconds / work_speed; then apply the effect
 - **Nothing to do:** a random point inside the area, so the employee wanders.
 
 All distances use grid space (`TerrainGrid.screen_to_grid_point()`), so the area reads as a true circle even in the isometric view.
+
+**Drawing the areas.** `StaffAreaOverlay.build_ring()` builds each area in grid space: a rim with a point every half tile, and a disc cut along the tiles - a tile wholly inside the rim is four triangles about its centre, each tile the rim crosses is clipped to it and fanned. Every vertex is then lifted onto the ground, so the ring follows the hills it crosses, and carries its grid point for the terrain occlusion shader, which hides it behind nearer hills (see [Course Surface](../course-design/course-surface.md#8-layering-and-lighting)). Nothing is left for the engine to triangulate: an outline projected onto ground that folds over itself, behind a hill rising toward the camera, is a polygon it cannot fill. The mesh is kept while the area stays put; a sculpt only re-lifts it and a turn of the view only re-projects it.
 
 A service only takes effect if the golfer is still within `SERVICE_RANGE_TILES` = **2.5** tiles when the work finishes. Walking away mid-conversation means no effect.
 

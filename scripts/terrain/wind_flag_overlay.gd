@@ -42,6 +42,8 @@ func _on_load_completed(_success: bool) -> void:
 	# Rebuild flags after a save is loaded
 	call_deferred("_rebuild_all_flags")
 
+## Stand every pin back in its cup after the view turned or the ground moved
+## (see WindFlag.stand_on(), which also re-aims the pin's terrain clip).
 func refresh_flag_positions() -> void:
 	if not _terrain_grid or not GameManager.course_data:
 		return
@@ -50,7 +52,7 @@ func refresh_flag_positions() -> void:
 		var flag := _flags[i]
 		if not is_instance_valid(flag) or i >= holes.size():
 			continue
-		flag.position = _terrain_grid.grid_to_screen_center(holes[i].hole_position)
+		flag.stand_on(_terrain_grid, holes[i].hole_position)
 
 func _rebuild_all_flags() -> void:
 	# Remove existing flags immediately (not queue_free) to prevent stale _draw() calls
@@ -70,7 +72,7 @@ func _rebuild_all_flags() -> void:
 		green_flag._flag_color = Color(0.9, 0.15, 0.15)  # Red for pin
 		green_flag._pole_height = 38.0
 		green_flag._flag_length = 18.0
-		green_flag.position = _terrain_grid.grid_to_screen_center(hole_data.hole_position)
+		green_flag.stand_on(_terrain_grid, hole_data.hole_position)
 		add_child(green_flag)
 		green_flag.z_index = 0  # WindFlagOverlay already sits in WindFlag.ENTITY_Z_INDEX
 		_flags.append(green_flag)

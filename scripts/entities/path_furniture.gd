@@ -10,6 +10,17 @@ var facing := Vector2i.DOWN
 static func has_art(type: String) -> bool:
 	return type in ["park_bench", "ball_washer"]
 
+## The lowest visible pixel relative to the anchor: the bench's front feet,
+## or the washer's post ending at the anchor. This is the terrain clip's reach.
+static func ground_reach(type: String, front: Vector2i) -> float:
+	if type != "park_bench":
+		return 0.0
+	var lowest := 0.0
+	for x in [-14, 14]:
+		for y in [-4, 4]:
+			lowest = maxf(lowest, _p(x, y, 0, front).y)
+	return lowest
+
 static func layout(grid: TerrainGrid, pos: Vector2i, type: String) -> Dictionary:
 	var result := {"offset": Vector2.ZERO, "facing": Vector2i.DOWN}
 	if not grid or type not in SMALL_FIXTURES:
@@ -68,12 +79,9 @@ static func _back(canvas: CanvasItem, front: Vector2i, alpha: float) -> void:
 static func draw_item(canvas: CanvasItem, type: String, front: Vector2i, alpha: float = 1.0) -> void:
 	match type:
 		"park_bench":
-			# Feet and contact marks share exactly the same projected ground plane.
 			for x in [-14, 14]:
 				for y in [-4, 4]:
-					var foot := _p(x, y, 0, front)
-					canvas.draw_line(foot + Vector2(-2, 1), foot + Vector2(3, 1), _color("26362c66", alpha), 2.0)
-					canvas.draw_line(foot, _p(x, y, 8, front), _color("354641", alpha), 2.0)
+					canvas.draw_line(_p(x, y, 0, front), _p(x, y, 8, front), _color("354641", alpha), 2.0)
 			if front.y >= 0:
 				_back(canvas, front, alpha)
 			for y in [-3, 0, 3]:
@@ -86,7 +94,6 @@ static func draw_item(canvas: CanvasItem, type: String, front: Vector2i, alpha: 
 			if front.y < 0:
 				_back(canvas, front, alpha)
 		"ball_washer":
-			canvas.draw_line(Vector2(-4, 1), Vector2(4, 1), _color("26362c66", alpha), 2.0)
 			canvas.draw_rect(Rect2(-1, -18, 3, 18), _color("42594c", alpha))
 			canvas.draw_rect(Rect2(-5, -25, 10, 9), _color("945347", alpha))
 			canvas.draw_line(Vector2(-5, -25), Vector2(5, -25), _color("d89871", alpha), 1.0)

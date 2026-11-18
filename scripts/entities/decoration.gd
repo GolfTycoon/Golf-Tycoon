@@ -15,12 +15,17 @@ var decoration_data: Dictionary = {}
 var terrain_grid: TerrainGrid
 var _layout_refresh_pending := false
 
-## Shadow references for updates when sun changes
-var _shadow_refs: Dictionary = {}
-var _shadow_config: ShadowRenderer.ShadowConfig = null
-## The shadow quality the current polygons were built for, so an unrelated
-## graphics change (a rate, the water detail) does not rebuild every prop.
-var _shadow_detail_built: int = -1
+## Clips the prop where nearer terrain covers it, as a billboard standing on its tile.
+const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
+## How near a sculpt must be, in tiles, to move the ground the clip is measured
+## on: the prop's own tile and the ground its art's base reaches down onto.
+const OCCLUSION_REACH_TILES := 2
+## The tile the prop stands on: its own, or the middle of a larger footprint.
+var _anchor_tile: Vector2i = Vector2i.ZERO
+## Created the first time the course has relief, and only worn while occlusion is on.
+var _art_material: ShaderMaterial = null
+var _occlusion_active := false
+var _occlusion_refresh_queued := false
 
 ## Variation data for this decoration instance
 var _variation: PropVariation.VariationResult = null
@@ -41,15 +46,6 @@ const SPRITE_PATHS: Dictionary = {
 const SPRITE_BASE_OFFSETS: Dictionary = {
 	"fountain": 25.0, "ball_washer": 20.0, "park_bench": 21.0,
 	"golfer_statue": 22.0, "sundial": 20.0,
-}
-
-## Visual dimensions for shadow configuration
-const DECORATION_VISUALS: Dictionary = {
-	"fountain": {"visual_height": 36.0, "base_width": 40.0},
-	"ball_washer": {"visual_height": 18.0, "base_width": 10.0},
-	"park_bench": {"visual_height": 14.0, "base_width": 22.0},
-	"golfer_statue": {"visual_height": 36.0, "base_width": 16.0},
-	"sundial": {"visual_height": 24.0, "base_width": 18.0},
 }
 
 ## Variation parameters per decoration type
@@ -78,20 +74,11 @@ func _ready() -> void:
 		terrain_grid.tile_changed.connect(_on_ground_changed)
 		terrain_grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
 		terrain_grid.surface_refreshed.connect(_queue_layout_refresh)
+		terrain_grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
 
 	if not decoration_type.is_empty():
 		_generate_variation()
 		_update_visuals()
-
-	# Connect to sun direction changes if ShadowSystem is available
-	if has_node("/root/ShadowSystem"):
-		var shadow_system = get_node("/root/ShadowSystem")
-		if shadow_system.has_signal("sun_direction_changed"):
-			shadow_system.sun_direction_changed.connect(_on_sun_direction_changed)
-	# Switching shadow quality on the Display page re-shapes every prop at once;
-	# a decoration follows without the course being rebuilt.
-	if not PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
-		PerformanceSettings.profile_changed.connect(_on_graphics_settings_changed)
 
 
 func _exit_tree() -> void:
@@ -102,12 +89,8 @@ func _exit_tree() -> void:
 			terrain_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
 		if terrain_grid.surface_refreshed.is_connected(_queue_layout_refresh):
 			terrain_grid.surface_refreshed.disconnect(_queue_layout_refresh)
-	if has_node("/root/ShadowSystem"):
-		var shadow_system = get_node("/root/ShadowSystem")
-		if shadow_system.sun_direction_changed.is_connected(_on_sun_direction_changed):
-			shadow_system.sun_direction_changed.disconnect(_on_sun_direction_changed)
-	if PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
-		PerformanceSettings.profile_changed.disconnect(_on_graphics_settings_changed)
+		if terrain_grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed):
+			terrain_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
 
 
 func set_decoration_type(type: String, data: Dictionary) -> void:
@@ -158,6 +141,11 @@ func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> voi
 		if footprint.has_point(tile):
 			_queue_layout_refresh()
 			return
+	# Ground near the prop is what its clip is measured on.
+	if _occlusion_active and footprint.grow(OCCLUSION_REACH_TILES).has_point(vertex) \
+			and not _occlusion_refresh_queued:
+		_occlusion_refresh_queued = true
+		call_deferred("refresh_terrain_occlusion")
 
 func _queue_layout_refresh() -> void:
 	if not _layout_refresh_pending:
@@ -185,20 +173,21 @@ func set_terrain_grid(grid: TerrainGrid) -> void:
 func set_position_in_grid(pos: Vector2i) -> void:
 	var old_pos = grid_position
 	grid_position = pos
+	_anchor_tile = pos
 	if terrain_grid:
 		# For multi-tile decorations, position at center of footprint
 		if size.x > 1 or size.y > 1:
 			var center_offset = Vector2(size.x - 1, size.y - 1) * 0.5
 			var center_pos = Vector2(pos.x, pos.y) + center_offset
-			var world_pos = terrain_grid.grid_to_screen_center(Vector2i(int(center_pos.x), int(center_pos.y)))
-			global_position = world_pos
-		else:
-			var world_pos = terrain_grid.grid_to_screen_center(pos)
-			global_position = world_pos
+			_anchor_tile = Vector2i(int(center_pos.x), int(center_pos.y))
+		global_position = terrain_grid.grid_to_screen_center(_anchor_tile)
 
 	if old_pos != pos and is_inside_tree():
 		_generate_variation()
 		_update_visuals()
+	else:
+		# A turn of the view comes through here too: re-aim the clip.
+		refresh_terrain_occlusion()
 
 
 func get_footprint() -> Array:
@@ -226,7 +215,6 @@ func get_decoration_info() -> Dictionary:
 
 
 func _update_visuals() -> void:
-	"""Create visual representation with shadows and variation"""
 	if has_node("Visual"):
 		var previous := get_node("Visual")
 		remove_child(previous)
@@ -235,8 +223,6 @@ func _update_visuals() -> void:
 	var visual = Node2D.new()
 	visual.name = "Visual"
 	add_child(visual)
-	_shadow_refs.clear()
-	_shadow_config = null
 	var layout := PathFurniture.layout(terrain_grid, grid_position, decoration_type)
 	visual.position = layout.offset
 	if PathFurniture.has_art(decoration_type):
@@ -245,6 +231,7 @@ func _update_visuals() -> void:
 		furniture.kind = decoration_type
 		furniture.facing = layout.facing
 		visual.add_child(furniture)
+		refresh_terrain_occlusion()
 		return
 
 	var base_color = DECORATION_COLORS.get(decoration_type, Color.WHITE)
@@ -258,26 +245,6 @@ func _update_visuals() -> void:
 	var color = base_color
 	if _variation:
 		color = _variation.apply_color_shift(base_color)
-
-	# Configure shadow
-	var vis_data = DECORATION_VISUALS.get(decoration_type, {"visual_height": 16.0, "base_width": 20.0})
-	var visual_height = vis_data["visual_height"]
-	var base_width = vis_data["base_width"]
-	# The Visual parent applies variation to both sprite and shadow. Anchor at
-	# the sprite foot; a positive offset detached the contact shadow from it.
-	_shadow_config = ShadowRenderer.ShadowConfig.new(visual_height, base_width)
-	_shadow_config.base_offset = Vector2.ZERO
-
-	# Small decorations skip drop shadow
-	if visual_height <= 16.0:
-		_shadow_config.cast_drop_shadow = false
-
-	var shadow_system: Node = null
-	if has_node("/root/ShadowSystem"):
-		shadow_system = get_node("/root/ShadowSystem")
-
-	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
-	_shadow_detail_built = PerformanceSettings.shadow_detail
 
 	# Use sprite if available, otherwise procedural fallback
 	if decoration_type in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
@@ -306,6 +273,74 @@ func _update_visuals() -> void:
 	if _variation:
 		visual.scale = Vector2(_variation.scale, _variation.scale)
 		visual.rotation = _variation.rotation
+	refresh_terrain_occlusion()
+
+
+## Clip the prop wherever a nearer hill covers it, as trees are clipped, while
+## the course has relief and the graphics setting allows it (see
+## TerrainGrid.terrain_occlusion_enabled()). The art is a billboard standing on
+## its tile's centre, measured from the art's lowest pixel - a bench set out to
+## the edge of a path is measured from its front feet - so the ground under its
+## own base never cuts into it (TerrainOcclusion.contact_reach()). Runs again
+## whenever the prop is laid out or moves, the view turns, or the ground near
+## it is sculpted. Only a prop drawn on the course's own canvas is clipped.
+func refresh_terrain_occlusion() -> void:
+	_occlusion_refresh_queued = false
+	var visual := get_node_or_null("Visual") as Node2D
+	var grid := terrain_grid if is_instance_valid(terrain_grid) else null
+	_occlusion_active = visual != null and is_inside_tree() and grid != null and grid.is_inside_tree() \
+			and grid._course_surface != null and grid.terrain_occlusion_enabled() \
+			and get_canvas() == grid.get_canvas()
+	if not _occlusion_active:
+		if visual != null:
+			visual.material = null
+		return
+	var anchor := Vector2(_anchor_tile) + Vector2(0.5, 0.5)
+	if _art_material == null:
+		_art_material = ShaderMaterial.new()
+		_art_material.shader = TERRAIN_SPRITE_OCCLUSION
+		_art_material.set_shader_parameter("occlusion_epsilon", TerrainOcclusion.PROP_EPSILON)
+	var below := to_global(visual.position).y + art_reach() - grid.grid_point_to_screen(anchor).y
+	var lift := TerrainOcclusion.contact_reach(grid, anchor, below) if below > 0.0 else 0.0
+	grid._course_surface.configure_sprite_occlusion(_art_material, anchor, Vector2(0.0, lift))
+	visual.material = _art_material
+	_clip_art_below(visual)
+
+## How far below its foot (the origin of its Visual) the prop's art reaches
+## down the screen, in pixels. A sprite is cut so that its lowest visible pixel
+## is the foot itself (SPRITE_BASE_OFFSETS); path furniture and the drawn
+## fallback shapes reach a little further down, toward the viewer.
+func art_reach() -> float:
+	var visual := get_node_or_null("Visual") as Node2D
+	if visual == null:
+		return 0.0
+	var reach := 0.0
+	for child in visual.get_children():
+		if child is PathFurniture:
+			var furniture := child as PathFurniture
+			reach = maxf(reach, PathFurniture.ground_reach(furniture.kind, furniture.facing) * absf(visual.scale.y))
+		elif child is Polygon2D:
+			var part := child as Polygon2D
+			for point in part.polygon:
+				reach = maxf(reach, visual.transform.basis_xform(part.transform * point).y)
+	return reach
+
+## Whether the terrain hides the prop's pixel at a world point: the test its art's
+## occlusion shader runs.
+func terrain_hides_point(world: Vector2) -> bool:
+	if not _occlusion_active or _art_material == null:
+		return false
+	return TerrainOcclusion.hides_with_material(terrain_grid, _art_material, world)
+
+## Every part of the art, including a fountain's spray, shares the visual's material.
+func _clip_art_below(node: Node) -> void:
+	for child in node.get_children():
+		if child is CanvasItem:
+			(child as CanvasItem).use_parent_material = true
+			_clip_art_below(child)
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	refresh_terrain_occlusion()
 
 
 func _draw_procedural(visual: Node2D, color: Color) -> void:
@@ -432,7 +467,7 @@ func _draw_sculpture(visual: Node2D, color: Color) -> void:
 			Vector2(-8, -10), Vector2(-10, -7)
 		])
 		visual.add_child(disc)
-		# Gnomon (shadow casting pin)
+		# Gnomon
 		var gnomon = Polygon2D.new()
 		gnomon.color = Color(0.30, 0.30, 0.30)
 		gnomon.polygon = PackedVector2Array([
@@ -456,32 +491,3 @@ func _make_circle_polygon(radius: float, segments: int, offset: Vector2 = Vector
 		var angle = TAU * i / segments
 		points.append(Vector2(cos(angle) * radius, sin(angle) * radius) + offset)
 	return points
-
-
-func _on_sun_direction_changed(_direction: Vector2) -> void:
-	"""Update shadows when sun direction changes"""
-	_rebuild_shadows()
-
-
-## The graphics quality owns how many shadow polygons a prop carries: redraw
-## this one from the shapes the new setting allows, keeping the sprite as it is.
-func _on_graphics_settings_changed(_terrain_fast: bool) -> void:
-	if PerformanceSettings.shadow_detail == _shadow_detail_built:
-		return
-	_rebuild_shadows()
-
-
-func _rebuild_shadows() -> void:
-	if _shadow_config == null or not has_node("Visual"):
-		return
-	var visual = get_node("Visual")
-	var shadow_system: Node = null
-	if has_node("/root/ShadowSystem"):
-		shadow_system = get_node("/root/ShadowSystem")
-	# Remove old shadows
-	for key in _shadow_refs:
-		if _shadow_refs[key] and is_instance_valid(_shadow_refs[key]):
-			_shadow_refs[key].queue_free()
-	_shadow_refs.clear()
-	_shadow_refs = ShadowRenderer.add_shadows_to_entity(visual, _shadow_config, shadow_system)
-	_shadow_detail_built = PerformanceSettings.shadow_detail

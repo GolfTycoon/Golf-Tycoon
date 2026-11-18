@@ -17,6 +17,16 @@ const WEB_FLAG_REDRAW_INTERVAL: float = 0.1  # 10 FPS for flag flutter on web
 ## Entity band shared with golfers, trees, buildings, decorations, and balls so
 ## flags Y-sort cleanly against nearby sprites.
 const ENTITY_Z_INDEX: int = 2
+## Clips the pin where nearer terrain covers it, as trees are clipped (see
+## refresh_terrain_occlusion()).
+const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
+
+## The course and the cup the pin stands in, once stand_on() has put it there.
+var _grid: TerrainGrid = null
+var _ground: Vector2 = Vector2.ZERO
+## The pin's occlusion material: created the first time the course has relief,
+## and only worn while occlusion is on.
+var _occlusion_material: ShaderMaterial = null
 
 func _ready() -> void:
 	_is_web = OS.get_name() == "Web"
@@ -25,11 +35,73 @@ func _ready() -> void:
 	_phase_offset = randf() * TAU  # Random phase so flags don't all flutter in sync
 	z_index = ENTITY_Z_INDEX
 
+func _enter_tree() -> void:
+	_watch_terrain_occlusion(true)
+	refresh_terrain_occlusion()
+
 func _exit_tree() -> void:
 	if EventBus.wind_changed.is_connected(_on_wind_changed):
 		EventBus.wind_changed.disconnect(_on_wind_changed)
 	if PerformanceSettings.profile_changed.is_connected(_on_graphics_settings_changed):
 		PerformanceSettings.profile_changed.disconnect(_on_graphics_settings_changed)
+	_watch_terrain_occlusion(false)
+
+## Stand the pin in the cup at `tile` of `grid`: on the ground at the tile's
+## centre, and clipped wherever nearer terrain covers it. Its owner calls this
+## again whenever a turn of the view or a sculpt moves that ground on screen,
+## which also gives the clip the new view.
+func stand_on(grid: TerrainGrid, tile: Vector2i) -> void:
+	if grid != _grid:
+		_watch_terrain_occlusion(false)
+		_grid = grid
+		_watch_terrain_occlusion(true)
+	_ground = Vector2(tile) + Vector2(0.5, 0.5)
+	if grid:
+		position = grid.grid_to_screen_center(tile)
+	refresh_terrain_occlusion()
+
+## Clip the pin wherever a nearer hill covers it, as trees are clipped, while the
+## course has relief and the graphics setting allows it (see
+## TerrainGrid.terrain_occlusion_enabled()). The pin is a billboard on its cup:
+## its pole stands on the ground there, so a hill in front hides the foot of the
+## pole first and the pennant only once the hill rises past it. Only a pin drawn
+## on the course's own canvas is clipped.
+func refresh_terrain_occlusion() -> void:
+	if not is_instance_valid(_grid):
+		_grid = null
+	var grid := _grid
+	var active := is_inside_tree() and grid != null and grid.is_inside_tree() \
+			and grid._course_surface != null and grid.terrain_occlusion_enabled() \
+			and get_canvas() == grid.get_canvas()
+	if active:
+		if _occlusion_material == null:
+			_occlusion_material = ShaderMaterial.new()
+			_occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
+			_occlusion_material.set_shader_parameter("occlusion_epsilon", TerrainOcclusion.PROP_EPSILON)
+		# The pole's lowest pixel is its foot, so nothing lifts the anchor.
+		grid._course_surface.configure_sprite_occlusion(_occlusion_material, _ground, Vector2.ZERO)
+	material = _occlusion_material if active else null
+
+## Whether the terrain hides the pin's pixel at a world point: the same test its
+## occlusion shader runs.
+func terrain_hides_point(world: Vector2) -> bool:
+	var occlusion := material as ShaderMaterial
+	if occlusion == null or _grid == null:
+		return false
+	return TerrainOcclusion.hides_with_material(_grid, occlusion, world)
+
+## Follow the course's terrain occlusion switch while in the scene tree.
+func _watch_terrain_occlusion(watch: bool) -> void:
+	if not is_instance_valid(_grid):
+		return
+	var connected := _grid.terrain_occlusion_changed.is_connected(_on_terrain_occlusion_changed)
+	if watch and not connected and is_inside_tree():
+		_grid.terrain_occlusion_changed.connect(_on_terrain_occlusion_changed)
+	elif not watch and connected:
+		_grid.terrain_occlusion_changed.disconnect(_on_terrain_occlusion_changed)
+
+func _on_terrain_occlusion_changed(_enabled: bool) -> void:
+	refresh_terrain_occlusion()
 
 func _on_graphics_settings_changed(_terrain_fast: bool) -> void:
 	queue_redraw()

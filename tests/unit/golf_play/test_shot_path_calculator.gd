@@ -76,6 +76,44 @@ func test_a_potential_hole_does_not_borrow_another_holes_green() -> void:
 	assert_eq(ShotPathCalculator.calculate_route(TEE, par5_cup, 5, -1), clean,
 			"hole_index -1 ignores the course's existing holes")
 
+func test_visualizer_hides_connection_line_and_markers_until_highlighted() -> void:
+	var visualizer := HoleVisualizer.new()
+	add_child_autofree(visualizer)
+	visualizer.initialize(_hole(TEE, CUP), grid)
+	assert_false(visualizer.line.visible, "Connection line is hidden when no hole is selected")
+	assert_eq(visualizer.waypoint_markers.size(), 1)
+	assert_false(visualizer.waypoint_markers[0].visible,
+			"Landing zone markers stay hidden while the line is hidden")
+	assert_true(visualizer.flag.visible, "The flag remains visible")
+	assert_true(visualizer.info_label.visible, "The tee plaque remains visible")
+
+	# Terrain/par updates while unselected must keep the line and newly created markers hidden.
+	visualizer.hole_data.par = 3
+	visualizer.update_visualization()
+	assert_false(visualizer.line.visible)
+	visualizer.hole_data.par = 4
+	visualizer.update_visualization()
+	assert_false(visualizer.line.visible)
+	assert_false(visualizer.waypoint_markers[0].visible)
+
+	# Selecting the hole reveals both the line and its landing zone markers.
+	visualizer.highlight(true)
+	assert_true(visualizer.line.visible, "Highlighting shows the hole's connection line")
+	assert_true(visualizer.waypoint_markers[0].visible, "Highlighting shows the landing zone markers")
+
+	# Rebuilding markers while highlighted keeps them visible.
+	visualizer.hole_data.par = 3
+	visualizer.update_visualization()
+	visualizer.hole_data.par = 4
+	visualizer.update_visualization()
+	assert_true(visualizer.line.visible)
+	assert_true(visualizer.waypoint_markers[0].visible)
+
+	# Clearing the selection hides them again.
+	visualizer.highlight(false)
+	assert_false(visualizer.line.visible, "Unhighlighting hides the connection line")
+	assert_false(visualizer.waypoint_markers[0].visible, "Unhighlighting hides the landing zone markers")
+
 func test_visualizer_reuses_markers_and_preserves_highlight() -> void:
 	var visualizer := HoleVisualizer.new()
 	add_child_autofree(visualizer)

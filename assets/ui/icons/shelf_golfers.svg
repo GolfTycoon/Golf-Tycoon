@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="shirt" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#a9d8d4"/>
+      <stop offset="1" stop-color="#4f8e9c"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#f5d7a8"/>
+      <stop offset="1" stop-color="#cf966a"/>
+    </linearGradient>
+    <linearGradient id="bag" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fbd7a"/>
+      <stop offset="1" stop-color="#3f7e57"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(64 64) scale(1.08) translate(-64 -64)" stroke="#10251c" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 59 29 27M38 58 44 20M44 60 57 31" fill="none" stroke="#f4ecd0" stroke-width="3.3"/>
+    <path d="M25 27q4-7 9 0M40 20q5-7 9 0M53 31q6-5 9 2" fill="none" stroke="#d8bb71" stroke-width="4"/>
+    <path d="M24 58c5-6 16-7 23-2l-2 42c-4 7-17 8-23 1z" fill="url(#bag)" stroke-width="4"/>
+    <path d="M26 63c6 3 13 3 19 0M26 91c6 4 13 4 19 0" fill="none" stroke="#d5e6ad" stroke-width="2.5"/>
+    <path d="M32 61 42 89" fill="none" stroke="#d8bb71" stroke-width="3"/>
+    <path d="M55 52c-4-12 2-22 17-22s21 10 17 22l-2 15H57z" fill="url(#skin)" stroke-width="3.5"/>
+    <path d="M52 47c2-15 9-22 21-22 11 0 18 7 19 20-12-5-26-4-40 2z" fill="#264944" stroke-width="4"/>
+    <path d="M52 47c13-5 27-6 41-1l1 5c-15-2-29-1-42 4z" fill="#e5bd66" stroke-width="3"/>
+    <path d="M46 101c1-22 8-32 24-37l9 7 9-7c15 5 22 15 23 37z" fill="url(#shirt)" stroke-width="4"/>
+    <path d="m68 67 9 9 9-9M77 76v20" fill="none" stroke="#e2f1dc" stroke-width="3"/>
+    <circle cx="69" cy="55" r="1.6" fill="#513c2d" stroke="none"/>
+    <circle cx="84" cy="55" r="1.6" fill="#513c2d" stroke="none"/>
+    <path d="M71 62c4 2 8 2 12 0" fill="none" stroke="#9c604b" stroke-width="1.8"/>
+    <circle cx="101" cy="91" r="6" fill="#f4ecd0" stroke-width="2.5"/>
+    <circle cx="99" cy="89" r="1" fill="#a8b4a1" stroke="none"/>
+    <circle cx="103" cy="91" r="1" fill="#a8b4a1" stroke="none"/>
+    <path d="M52 107h53" fill="none" stroke="#73a76c" stroke-width="3"/>
+  </g>
+</svg>

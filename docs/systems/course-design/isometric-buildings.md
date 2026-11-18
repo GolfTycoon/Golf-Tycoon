@@ -2,8 +2,8 @@
 
 > Every facility is a pixel image standing on the tiles it was bought for: one sprite per upgrade tier and per fifteen-degree view step. The same picture draws the placed building, its placement ghost and its tile on the Buildings tab.
 
-**Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing), `assets/sprites/buildings/` (432 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures)
-**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load)
+**Source:** `scripts/entities/course_architecture.gd` (`grid_origin_offset()`, `project_point()`, `draw_building()`), `scripts/entities/building_sprites.gd` (manifest, textures, drawing), `assets/sprites/buildings/` (432 PNGs and `sprites.json`), `tools/building_art/` (the generator that produced them), `scripts/entities/building.gd` (`set_position_in_grid()`), `scripts/ui/placement_preview.gd` (ghosts), `scripts/ui/components/building_tile_art.gd` (Buildings tab pictures), `shaders/terrain_footprint_occlusion.gdshader` and `scripts/terrain/terrain_occlusion.gd` (hills in front)
+**Tests:** `tests/unit/course_design/test_isometric_architecture.gd`, `tests/unit/ui_and_controls/test_building_tile_art.gd`, `tests/integration/course_design/test_buildings_isometric.gd` (sprite bounds); `tests/unit/course_design/test_building_foundations.gd`, `tests/integration/course_design/test_building_foundations_flow.gd` (ground, moves, undo and save/load); `tests/unit/course_design/test_terrain_occlusion.gd` (hills in front)
 
 ---
 
@@ -18,6 +18,8 @@ Three things use the same image, so they always match:
 - the **picture** on the Buildings tab.
 
 Comparing the picture with the footprint under the cursor shows the same building, only at a different scale.
+
+A hill nearer the camera hides the part of a placed building behind it, just as it hides a tree's trunk: the walls it covers disappear behind the hill, and everything standing above the hill or in front of it is drawn as before. The **Terrain-aware occlusion** graphics setting turns this off.
 
 The park bench is not a building at all: it is a ground fixture on the Improvements tab, drawn by [Path Furniture](path-furniture.md).
 
@@ -129,7 +131,15 @@ point; connected legacy buildings are leveled together if necessary rather
 than losing a building. Ground already lost before that save cannot be
 reconstructed.
 
-### 7. Facilities
+### 7. Hills in front
+
+A building sorts with the other standing sprites in band 2, which puts every pixel of its art over the course surface. While the course has relief and the **Terrain-aware occlusion** setting is on (`TerrainGrid.terrain_occlusion_enabled()`), the placed building's `Architecture` node draws with `terrain_footprint_occlusion.gdshader`, which discards the pixels a nearer hill covers (`Building.refresh_terrain_occlusion()`).
+
+A tree's shader measures every pixel against one ground point. That suits a thin trunk, not a building: anchored at its centre, a building would have its own foundation cut away the walls in front of that centre. The footprint shader measures against the building's volume instead. Every pixel of the art shows a point inside the column standing on the footprint, and the only terrain inside that column is the level foundation (section 6), so terrain can only be in front of the building where it is in front of the column. Each pixel's screen ray is met with the column's front face — a slab test against `footprint_position` and `footprint_size` — and the pixel is hidden only where the heightfield crosses the ray nearer the camera than that face (`terrain_hides()` in `terrain_heightfield.gdshaderinc`, the intersection the surface and the trees use). On level ground nothing is hidden; a mound before the front corner hides the foot of the walls and leaves whatever rises above the mound's top; a hill behind the building hides nothing. Art that overhangs the footprint continues smoothly from its edge, and a pixel below the foundation is measured at the foundation's height.
+
+The heightfield texture is the surface's own, so a sculpt reaches every building at once. The footprint and the projection are set again by `set_position_in_grid()`, which a move, a new foundation and every step of a view turn already run, and by `_update_visuals()` after an upgrade or a restore. A flat course, the placement ghost and the Buildings tab picture draw with no material. A click on a covered pixel belongs to the hill, not the building: `terrain_hides_point()` asks `TerrainOcclusion.hides_footprint()`, the same test on the CPU.
+
+### 8. Facilities
 
 | Building | Distinguishing features |
 | --- | --- |
@@ -188,6 +198,7 @@ The generator is offline and is not part of the game build. The PNGs and `sprite
 | Pixel scale | `tools/building_art/render.py` `OUTPUT_SCALE` (or `--scale`) | 1.0 art pixel per world pixel (2.5 in the HD art pack) | Texture density in the source PNGs; the manifest rects stay in world pixels |
 | Palette | `tools/building_art/render.py` | Cream walls, red/brown/slate roofs, green trim | The course's look |
 | Catalogue scale | `building_tile_art.gd` `preview_transform()` | `min(0.34, 60 / width)`, tile/84 | How big a facility looks on its tab tile |
+| Occlusion slack | `terrain_footprint_occlusion.gdshader` `occlusion_epsilon` (mirrored by `TerrainOcclusion.FOOTPRINT_EPSILON`) | `0.05` px | How far in front of a wall a hill must rise before it hides it |
 
 ---
 

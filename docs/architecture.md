@@ -57,7 +57,6 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 | `SaveManager` | `scripts/autoload/save_manager.gd` | Saves and loads the game (see [Save & Load](save-and-load.md)) |
 | `InputBindings` | `scripts/autoload/input_bindings.gd` | Rebindable course controls, their defaults and saved overrides |
 | `FeedbackManager` | `scripts/autoload/feedback_manager.gd` | Daily golfer satisfaction and feedback totals |
-| `ShadowSystem` | `scripts/systems/shadow_system.gd` | Shared shadow direction and intensity |
 | `UIConstants` | `scripts/autoload/ui_constants.gd` | Shared sizes, spacing and colours |
 | `TooltipManager` | `scripts/autoload/tooltip_manager.gd` | Tooltip display |
 | `SoundManager` | `scripts/autoload/sound_manager.gd` | Sound effects |
@@ -138,10 +137,10 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 | Band | What paints there |
 | --- | --- |
 | 0 | The course surface (`CourseSurface`): turf, sand, water, stones |
-| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows and a ball's contact shadow (`-1`) |
+| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus a ball's contact shadow (`-1`) |
 | 2 | Entities and standing course objects: golfers (`scenes/entities/golfer.tscn`), golf balls (`scripts/entities/ball.gd`), pin flags (`WindFlagOverlay` and waiting pins in `CupOverlay`), trees (`TreeOverlay`), staff, weeds, and the buildings and decorations layer (`entity_layer.gd`) |
 | 4-5 | Course-editing helpers drawn over the ground: elevation preview (4) and land boundary (5) |
-| 10 | Hole visuals (`hole_visualizer.gd`), the aim guide, and the routing overlay; a golfer's name label rides `+10` from its own band |
+| 10 | Hole visuals (`hole_visualizer.gd`), the aim guide, and the routing overlay. A golfer's name tag is *not* here: it is white lettering under the golfer's feet, drawn in the entity band (2) with the body |
 | 100 | Floating text, the rain overlay, and the UI that paints on the course (placement preview, tile inspector) |
 | 150-300 | Impact and celebration effects |
 
@@ -158,19 +157,49 @@ Standing sprites and course objects share a Y-sort chain through Main,
 TerrainGrid (`TreeOverlay`, `WindFlagOverlay`, and waiting pins in `CupOverlay`),
 Entities (`Golfers`, `Balls`, `Staff`, `Weeds`), and EntityLayer (`Buildings`,
 `Decorations`). All standing bodies resolve to z 2, allowing Godot to interleave
-them across containers. Higher screen Y draws in front. Trees and flags have one
-CanvasItem per tile, anchored at ground level; building visuals sort at the
-footprint centre while their art keeps its original placement; airborne golf balls
+them across containers. Higher screen Y draws in front. A golfer's name tag is
+part of that band, so a golfer standing behind a tree has their name hidden by
+it too, exactly as their body is; the tag hangs below the feet rather than
+floating over the sprites in front. A hill that hides a golfer's feet hides the
+tag as well, whole: clipped pixel by pixel, it would lose its lower rows to any
+slope rising in front of the golfer, which is drawn where it hangs. Trees and
+flags have one CanvasItem per tile, anchored at ground level; building visuals
+sort at the footprint centre while their art keeps its original placement; airborne golf balls
 keep their Visual sort anchor on the ground track directly beneath the flight arc
 while offsetting the drawn ball back to its lifted height. View rotation refreshes
-the anchors along with the sprites. Tree materials additionally sample the same
-heightfield as the course surface: ground in front of a tree clips only the
-covered sprite pixels, leaving a crown that extends above or in front of a hill
-visible. Shadows, labels, and gameplay overlays retain their separate
-relative bands.
+the anchors along with the sprites. Tree, building, walking-trail, golfer,
+golf-ball, tee-marker, cup, pin, designated-area and decoration materials
+additionally sample the same heightfield as the course surface, because no band
+can put a hill in front of something painted after the surface: ground in front
+of a tree clips only the covered sprite pixels, leaving a crown that extends
+above or in front of a hill visible; a golfer is clipped the same way, as a
+billboard on the ground point they stand on, a golf ball - its contact shadow
+included - as one over the ground under it, a pin as one in its cup, and a
+decoration's art as one on its tile; a building is measured against its
+footprint's front face, and trails and designated-area rings against the ground
+each pixel is painted on, while a tee's aim marker and a cup stand on their tile
+like a sign planted there
+(`terrain_hides()` in `terrain_heightfield.gdshaderinc`, with `TerrainOcclusion`
+as its CPU twin; `GroundDecal` lays the ground paint out with the ground under
+every vertex). Where hills overlap on screen, one
+pixel shows several surfaces, and the front-most is not always the ground under a
+golfer or a ball: `Golfer.ground_point()` follows a golfer from move to move
+(`TerrainOcclusion.standing_point()`), so a golfer walking behind a hill stays
+behind it, and a view turn carries them and their walk across on that ground
+rather than on the hill drawn over it. `Ball.ground_point()` does the same for a
+ball, along the ground track of the shot the golfer played. Shadows and gameplay overlays retain
+their separate relative bands; a golfer's name tag is the exception among
+labels, because it is part of the golfer's own band rather than an overlay on
+top of the world.
 
-`tests/unit/golfers/test_golfer_draw_order.gd` protects ground visibility and
+`tests/unit/golfers/test_golfer_draw_order.gd` protects ground visibility, the
+name tag's band and its place under the feet, and
 `tests/unit/course_design/test_terrain_draw_order.gd` covers tree anchors and bands.
+`tests/unit/course_design/test_terrain_occlusion.gd` covers the hills in front of
+trails, buildings, golfers, golf balls, tee markers, cups and pins, area rings
+and decorations, and `tests/integration/ui_and_controls/test_view_controls.gd` a
+hidden golfer and their balls, a statue and an area ring carried across a view
+turn.
 
 ---
 

@@ -79,8 +79,8 @@ const TAB_TITLES := {
 	Tab.STAFF: "Staff", Tab.EDIT_PLAYER: "Edit Player Golfer",
 	Tab.PLAYER_SKILLS: "Player Golfer Skills",
 }
-const TAB_ICONS := ["terrain", "improvements", "buildings", "elevation", "holes",
-	"golfers", "play", "club", "staff", "edit", "skills"]
+const TAB_ICONS := ["shelf_terrain", "shelf_improvements", "shelf_buildings", "shelf_elevation", "shelf_holes",
+	"shelf_golfers", "shelf_play", "shelf_club", "shelf_staff", "shelf_edit", "shelf_skills"]
 const PLAYER_TABS := [Tab.PLAYER, Tab.EDIT_PLAYER, Tab.PLAYER_SKILLS]
 const HEADER_HEIGHT := 28.0
 ## The tabs occupy a mirrored arc to the left of the scrolling pages, and the
@@ -356,6 +356,10 @@ var _selected_visitor := ""
 ## leave a shelf alone when nothing about it changed. Freeing and rebuilding
 ## the plates every second is what pulled the keyboard/gamepad focus off them.
 var _visitor_shelf_signature := "<unset>"
+## The same guard for an open profile: the card row is only rebuilt when the
+## visitor's own data moves, so a golfer reading a profile keeps their place
+## on it - and the shelf does not re-lay itself out once a second.
+var _visitor_detail_signature := "<closed>"
 var player_tab: PlayerTab
 var _building_registry: Dictionary = {}
 var _building_shelf: TileHoneycomb = null
@@ -911,6 +915,8 @@ func collapse_section() -> void:
 	section_collapsed = true
 	visible = false
 	section_visibility_changed.emit(false)
+	if current_tab == Tab.HOLES and _selected_hole > 0:
+		hole_detail_changed.emit(0)
 
 func expand_section() -> void:
 	if not section_collapsed:
@@ -918,6 +924,8 @@ func expand_section() -> void:
 	section_collapsed = false
 	visible = true
 	section_visibility_changed.emit(true)
+	if current_tab == Tab.HOLES and _selected_hole > 0:
+		hole_detail_changed.emit(_selected_hole)
 
 func _sync_navigation(tab_index: int) -> void:
 	for section in SECTION_TABS:
@@ -1585,8 +1593,13 @@ func _build_golfers_tab(hbox: HBoxContainer) -> void:
 	_visitor_register = HBoxContainer.new()
 	_visitor_register.add_theme_constant_override("separation", 16)
 	page.add_child(_visitor_register)
+	# The profile is the same height as the register however much it holds:
+	# its cards are fixed-height and overflow to the right (see
+	# VisitorProfileRow), so the shelf never grows when a profile opens.
 	_visitor_detail = HBoxContainer.new()
-	_visitor_detail.add_theme_constant_override("separation", 14)
+	_visitor_detail.name = "VisitorProfile"
+	_visitor_detail.add_theme_constant_override("separation", 8)
+	_visitor_detail.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(_visitor_detail)
 	_visitor_shelf = HBoxContainer.new()
 	_visitor_shelf.name = "VisitingGolfersShelf"
@@ -2179,8 +2192,8 @@ func _show_page(tab_index: int) -> void:
 
 func select_tab(tab_index: int) -> void:
 	if tab_index >= 0 and tab_index < _pages.size():
-		expand_section()
 		current_tab = tab_index
+		expand_section()
 		_sync_navigation(tab_index)
 		_sync_header_row_content()
 		_show_page(tab_index)
@@ -2290,7 +2303,7 @@ func _refresh_holes_tab() -> void:
 		_show_hole(_selected_hole)
 	else:
 		_clear_shelf(_hole_detail)
-	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES else 0)
+	hole_detail_changed.emit(_selected_hole if showing_detail and current_tab == Tab.HOLES and not section_collapsed else 0)
 
 func _show_hole(hole_number: int) -> void:
 	_clear_shelf(_hole_detail)
@@ -2502,10 +2515,16 @@ func _refresh_golfer_lists() -> void:
 		var snapshot: Dictionary = _visitor_archive.get(visitor_name, {}).duplicate(true)
 		snapshot.merge(row_data, true)
 		_visitor_archive[visitor_name] = snapshot
-	_visitor_register.visible = _selected_visitor.is_empty()
-	_visitor_detail.visible = not _selected_visitor.is_empty()
-	if not _selected_visitor.is_empty():
-		_show_visitor(_selected_visitor, active_names.has(_selected_visitor))
+	var showing_profile := not _selected_visitor.is_empty()
+	_visitor_register.visible = not showing_profile
+	_visitor_detail.visible = showing_profile
+	if showing_profile:
+		var visitor_active := active_names.has(_selected_visitor)
+		var detail_signature := _visitor_detail_signature_for(_selected_visitor, visitor_active)
+		if detail_signature != _visitor_detail_signature:
+			_show_visitor(_selected_visitor, visitor_active)
+	else:
+		_visitor_detail_signature = "<closed>"
 
 	# The register reads most recently started round first, on the course and
 	# in the archive alike: golfer ids are allocated in spawn order, so the
@@ -2577,11 +2596,12 @@ func _portrait_fingerprint(portrait: Variant) -> int:
 	return portrait.get_instance_id() if portrait is Texture2D else 0
 
 ## Where the keyboard/gamepad focus sits inside the Golfers tab, so a refresh
-## can put it back on the same visitor after the buttons are rebuilt. Both
-## the register and an open profile rebuild wholesale while the tab is open;
-## without this the focused control is freed and focus falls back to the
-## dock's starting button. Returns an empty dictionary when the focus is
-## elsewhere (or nothing holds it).
+## can put it back on the same visitor after the buttons are rebuilt. The
+## register rebuilds when its visitors change, and an open profile rebuilds
+## when its golfer's round moves (both are fingerprinted first, so a quiet
+## second leaves them alone); without this the focused control is freed and
+## focus falls back to the dock's starting button. Returns an empty dictionary
+## when the focus is elsewhere (or nothing holds it).
 func _remember_visitor_focus() -> Dictionary:
 	var focused := get_viewport().gui_get_focus_owner()
 	if focused == null:
@@ -2742,71 +2762,36 @@ func _make_visitor_card(data: Dictionary, active: bool) -> Control:
 func _show_visitor(visitor_name: String, active: bool) -> void:
 	_clear_shelf(_visitor_detail)
 	var data: Dictionary = _visitor_archive.get(visitor_name, {})
-	var back := _visitor_button("< Guest register", Color("e2c681"))
-	back.pressed.connect(func():
+
+	# The camera chip only exists for a golfer still out on the course; it
+	# floats over the portrait's corner in the identity card.
+	var locate: Button = null
+	if active:
+		locate = _locate_button()
+		locate.tooltip_text = "Center the camera on " + visitor_name
+		locate.accessibility_name = "Center the camera on " + visitor_name
+		locate.pressed.connect(_on_golfer_row_pressed.bind(int(data.get("id", -1))))
+
+	# One row of fixed-height cards: the way back, the golfer, then a card for
+	# every profile section. Long sections continue to the right, where the
+	# page already scrolls, instead of making the shelf taller.
+	var row := VisitorProfileRow.build(visitor_name, data, active, locate,
+		_visitor_archive.size())
+	for control in row:
+		_visitor_detail.add_child(control)
+	(row[0] as Button).pressed.connect(func():
 		_selected_visitor = ""
 		_refresh_golfer_lists())
-	_visitor_detail.add_child(back)
-	var portrait := VisitorPortrait.new()
-	portrait.texture = data.get("portrait")
-	_visitor_detail.add_child(portrait)
-	var identity := VBoxContainer.new()
-	_visitor_detail.add_child(identity)
-	identity.add_child(_visitor_label(visitor_name, Color("e2c681")))
-	identity.add_child(_visitor_label(GolferTier.get_tier_name(data.get("tier", 1))))
-	# Club membership: who the golfer is to the club, and what they pay.
-	var membership := int(data.get("membership", ClubMembership.Tier.NON_MEMBER))
-	if ClubMembership.is_member(membership):
-		identity.add_child(_visitor_label(
-			"%s - %d%% green fee" % [ClubMembership.tier_name(membership),
-				int(round(ClubMembership.fee_multiplier(membership) * 100.0))],
-			ClubMembership.tier_color(membership)))
-	identity.add_child(_visitor_label("ON THE COURSE" if active else "PAST VISITOR", Color("83c9a4")))
-	identity.add_child(_visitor_label("Strokes: %d" % data.get("strokes", 0)))
-	if active:
-		identity.add_child(_visitor_label("Hole: %d  /  Attitude: %d%%" % [data.get("hole", 1), int(float(data.get("attitude", 0.5)) * 100)]))
-		var locate := _locate_button()
-		locate.tooltip_text = "Center the camera on " + visitor_name
-		locate.pressed.connect(_on_golfer_row_pressed.bind(data.get("id", -1)))
-		identity.add_child(locate)
-	elif data.has("day"):
-		identity.add_child(_visitor_label("Last round: " + GameCalendar.format_date_short(data.day)))
-		var diff := int(data.get("strokes", 0)) - int(data.get("par", 0))
-		identity.add_child(_visitor_label("Score: %+d to par" % diff, UIConstants.get_score_color(diff)))
-	for section in data.get("profile", []):
-		var lines: Array = section.get("lines", [])
-		var column: VBoxContainer
-		# Short, horizontally scrolling columns keep the dock's height fixed.
-		for index in maxi(lines.size(), 1):
-			if index % 4 == 0:
-				column = VBoxContainer.new()
-				column.custom_minimum_size.x = 230
-				column.add_theme_constant_override("separation", 4)
-				var scroll := ScrollContainer.new()
-				scroll.custom_minimum_size = Vector2(290, 150)
-				scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-				_visitor_detail.add_child(scroll)
-				column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				scroll.add_child(column)
-				column.add_child(_visitor_label(str(section.get("title", "Profile")) + (" (continued)" if index > 0 else ""), Color("87b9cf")))
-			if index < lines.size():
-				var label := _visitor_label(str(lines[index]))
-				label.custom_minimum_size.x = 260
-				label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-				column.add_child(label)
-		var meters: Dictionary = section.get("meters", {})
-		for meter_name in meters:
-			var row := HBoxContainer.new()
-			column.add_child(row)
-			var label := _visitor_label("%s: %d%%" % [meter_name, int(float(meters[meter_name]) * 100)])
-			label.custom_minimum_size.x = 110
-			row.add_child(label)
-			var bar := ProgressBar.new()
-			bar.custom_minimum_size = Vector2(100, 12)
-			bar.max_value = 1.0
-			bar.value = float(meters[meter_name])
-			bar.show_percentage = false
-			row.add_child(bar)
+	_visitor_detail_signature = _visitor_detail_signature_for(visitor_name, active)
+
+## What the open profile would draw: the visitor's whole data row and the skin
+## snapshot its portrait uses. The one-second refresh only rebuilds the card
+## row when this changes, so a live profile still follows the round (a new
+## hole, a moving attitude) without being torn down when nothing moved.
+func _visitor_detail_signature_for(visitor_name: String, active: bool) -> String:
+	var data: Dictionary = _visitor_archive.get(visitor_name, {})
+	return "%s|%s|%d|%s" % [visitor_name, active,
+		_portrait_fingerprint(data.get("portrait")), str(data)]
 
 func show_visitor_profile(visitor_name: String) -> void:
 	_selected_visitor = visitor_name

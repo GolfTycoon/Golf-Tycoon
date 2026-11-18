@@ -2,8 +2,8 @@
 
 > Each tee tile carries a painted arrow that points at the hole. On a dogleg the arrow curves to follow the bend, so a golfer can see the direction of play from the tee.
 
-**Source:** `scripts/course/tee_aim_route.gd` (`aim_route()`, fairway spine and dogleg detection), `scripts/terrain/tee_aim_overlay.gd` (`rebuild()`, `marker_layout()`, arrow fitting), `scripts/terrain/terrain_grid.gd` (`tile_polygon()`), `scripts/tools/hole_layout.gd` (`unused_cups()`)
-**Tests:** `tests/unit/test_tee_aim_route.gd`, `tests/unit/test_tee_aim_overlay.gd`, `tests/integration/tee_aim_arrows.gd`
+**Source:** `scripts/course/tee_aim_route.gd` (`aim_route()`, fairway spine and dogleg detection), `scripts/terrain/tee_aim_overlay.gd` (`rebuild()`, `marker_layout()`, arrow fitting, `marker_mesh()`), `scripts/terrain/ground_decal.gd` (`add_polyline()`, `stand_on()`), `scripts/terrain/terrain_grid.gd` (`tile_polygon()`), `scripts/tools/hole_layout.gd` (`unused_cups()`)
+**Tests:** `tests/unit/test_tee_aim_route.gd`, `tests/unit/test_tee_aim_overlay.gd`, `tests/unit/course_design/test_terrain_occlusion.gd`, `tests/integration/tee_aim_arrows.gd`
 
 ---
 
@@ -72,6 +72,10 @@ Two tile shapes cannot be fitted honestly, and both stop at `MIN_FIT_SCALE` inst
 - **Sliver tile.** A tile leaning sharply can leave less room at its centre than the arrowhead needs.
 
 In these cases the marker may overlap a neighbouring tile by a pixel or two. That is acceptable, because a clear arrow still shows the direction of play and a speck does not.
+
+### 5. Behind a hill
+
+A hill nearer the camera hides the marker - arrow, red balls and their shadows - pixel by pixel, as it hides a tree, while the course has relief and the **Terrain-aware occlusion** setting is on. `marker_mesh()` lays the marker out once as a triangle mesh, its lines and circles shaped as `draw_polyline()` and `draw_circle()` shape them, and `GroundDecal.stand_on()` stands it on the tile's centre: every vertex is measured as a sprite on that point would be, from the marker's lowest pixel, so the tee's own slope never hides any of it, however steep. A camera pan repaints the meshes it already has; a sculpt, a change of the holes or a turn of the view lays them out again.
 
 ---
 

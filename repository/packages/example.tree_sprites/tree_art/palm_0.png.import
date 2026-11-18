@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d24rdu06k861r"
-path="res://.godot/imported/palm_n.png-c9e6b0de1d69c09725d5a28fbc05e8b7.ctex"
+path="res://.godot/imported/palm_0.png-4eba80d6a8130f92bc44d7f7cab7f92b.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/palm_0.png"
-dest_files=["res://.godot/imported/palm_n.png-c9e6b0de1d69c09725d5a28fbc05e8b7.ctex"]
+dest_files=["res://.godot/imported/palm_0.png-4eba80d6a8130f92bc44d7f7cab7f92b.ctex"]
 
 [params]
 

@@ -135,6 +135,76 @@ func test_a_hole_button_opens_the_hole_detail_on_the_holes_tab() -> void:
 	assert_false(toolbar._hole_detail.visible, "and the hole detail view is hidden")
 
 
+## Asserts that only `selected_hole` (0 for none) shows its tee-to-hole
+## connection line and landing zone markers.
+func _assert_only_hole_line_visible(selected_hole: int, context: String) -> void:
+	for vis in main.hole_manager.get_all_hole_visualizers():
+		var hole_num: int = vis.get_hole_number()
+		var expected: bool = hole_num == selected_hole
+		assert_eq(vis.line.visible, expected,
+			"%s: hole %d line visibility" % [context, hole_num])
+		for marker in vis.waypoint_markers:
+			assert_eq(marker.visible, expected,
+				"%s: hole %d waypoint marker visibility" % [context, hole_num])
+		assert_true(vis.flag.visible, "%s: hole %d flag stays visible" % [context, hole_num])
+		assert_true(vis.info_label.visible, "%s: hole %d plaque stays visible" % [context, hole_num])
+
+
+func test_connection_lines_only_show_for_the_selected_hole() -> void:
+	var toolbar: TerrainToolbar = main.terrain_toolbar
+	toolbar.close_hole_detail()
+	toolbar.select_tab(TerrainToolbar.Tab.HOLES)
+	await process_frames(2)
+
+	_assert_only_hole_line_visible(0, "No hole selected")
+
+	main._on_hole_button_pressed(2)
+	await process_frames(2)
+	_assert_only_hole_line_visible(2, "Hole 2 selected")
+
+	main._on_hole_button_pressed(5)
+	await process_frames(2)
+	_assert_only_hole_line_visible(5, "Switched to Hole 5")
+
+	toolbar.collapse_section()
+	await process_frames(2)
+	_assert_only_hole_line_visible(0, "Collapsed shelf hides Hole 5 line")
+
+	toolbar.expand_section()
+	await process_frames(2)
+	_assert_only_hole_line_visible(5, "Expanded shelf restores Hole 5 line")
+
+	toolbar.select_tab(TerrainToolbar.Tab.TERRAIN)
+	await process_frames(2)
+	_assert_only_hole_line_visible(0, "Switching away from Holes tab hides Hole 5 line")
+
+	main._on_hole_button_pressed(5)
+	await process_frames(2)
+	_assert_only_hole_line_visible(5, "Re-selecting Hole 5 shows its line")
+
+	toolbar.close_hole_detail()
+	await process_frames(2)
+	_assert_only_hole_line_visible(0, "Closing detail hides Hole 5 line")
+
+	# Moving a hole's tee keeps its line shown even if the shelf collapses,
+	# and cancelling move mode hides it again when no hole detail is open.
+	main._on_hole_button_pressed(3)
+	await process_frames(2)
+	main._on_context_move_tee(3)
+	await process_frames(2)
+	toolbar.collapse_section()
+	await process_frames(2)
+	_assert_only_hole_line_visible(3, "Move mode keeps Hole 3 line visible while shelf is collapsed")
+
+	main._cancel_hole_move_mode()
+	await process_frames(2)
+	_assert_only_hole_line_visible(0, "Cancelling move mode hides Hole 3 line while collapsed")
+
+	toolbar.close_hole_detail()
+	toolbar.expand_section()
+	await process_frames(2)
+
+
 func test_clicking_a_hole_tee_or_flag_opens_its_hole_tab_detail() -> void:
 	var toolbar: TerrainToolbar = main.terrain_toolbar
 	main._close_hole_context_menu()

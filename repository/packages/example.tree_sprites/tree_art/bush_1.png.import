@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bf7a8jsmpbj3n"
-path="res://.godot/imported/bush_e.png-b1d5ecec4eb5dbdcc0c5b27d20e7b06d.ctex"
+path="res://.godot/imported/bush_1.png-cf9b960bc269b87f7d18ce5e7e4fb784.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://repository/packages/example.tree_sprites/tree_art/bush_1.png"
-dest_files=["res://.godot/imported/bush_e.png-b1d5ecec4eb5dbdcc0c5b27d20e7b06d.ctex"]
+dest_files=["res://.godot/imported/bush_1.png-cf9b960bc269b87f7d18ce5e7e4fb784.ctex"]
 
 [params]
 

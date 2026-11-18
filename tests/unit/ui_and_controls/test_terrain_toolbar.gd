@@ -249,7 +249,7 @@ func test_toolbar_has_eleven_tabs_in_three_sections() -> void:
 		"and into Manage")
 	for index in TerrainToolbar.TAB_TITLES:
 		assert_eq(toolbar._tab_buttons[index].accessibility_name, TerrainToolbar.TAB_TITLES[index])
-		assert_true(PixelCircleButton.ICONS.has(toolbar._tab_buttons[index].glyph))
+		assert_true(PixelCircleButton.SHELF_ART.has(toolbar._tab_buttons[index].glyph))
 
 func test_all_pages_scroll_horizontally_behind_fixed_chrome() -> void:
 	for i in toolbar._pages.size():
@@ -1609,6 +1609,166 @@ func test_the_guest_register_stays_inside_the_bottom_bar() -> void:
 	assert_true(toolbar._visitor_detail.visible, "The profile opened")
 	assert_lte(content.get_combined_minimum_size().y, available,
 		"An open visitor profile fits under the tab bar too")
+
+## A profile is a row of fixed-height dossier cards: the way back, the golfer
+## themselves, then one card per section (and a continuation card when a
+## section outgrows one). The row is exactly as tall as a full column of the
+## register's plates, so opening a profile - however much it holds - never
+## makes the shelf taller than the register it replaces.
+func test_a_visitor_profile_is_a_row_of_fixed_height_cards() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	_provide_golfers(3)
+	toolbar._refresh_golfer_lists()
+	await _settle_layout()
+	var content := toolbar.page_content(TerrainToolbar.Tab.GOLFERS)
+	var register_height := content.get_combined_minimum_size().y
+
+	var golfer := Golfer.new()
+	golfer.golfer_name = "Alexandra Montgomery"
+	var portrait := VisitorPortrait.for_golfer(golfer)
+	var profile := _rich_profile()
+	toolbar.golfer_data_provider = func() -> Array:
+		return [{"id": 12, "name": golfer.golfer_name, "tier": 2, "hole": 8,
+			"strokes": 42, "attitude": 0.72, "membership": ClubMembership.Tier.GOLD,
+			"returning": true, "profile": profile, "portrait": portrait}]
+	toolbar._refresh_golfer_lists()
+	toolbar.show_visitor_profile(golfer.golfer_name)
+	await _settle_layout()
+
+	assert_true(toolbar._visitor_detail.visible, "The profile opened")
+	var detail := toolbar._visitor_detail
+	assert_eq(detail.get_combined_minimum_size().y, VisitorProfileStyle.CARD_HEIGHT,
+		"Every card in the row is the same fixed height")
+	assert_eq(content.get_combined_minimum_size().y, register_height,
+		"A profile is never taller than a full column of visitor plates")
+	assert_lte(content.get_combined_minimum_size().y,
+		float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT,
+		"and it fits under the tab bar")
+
+	var back := detail.get_child(0) as VisitorRegisterTab
+	assert_not_null(back, "The row starts with the tall Guest register tab")
+	var identity := detail.get_child(1) as VisitorIdentityCard
+	assert_not_null(identity, "The second card is the golfer themselves")
+	assert_eq(identity.texture, portrait, "It wears the same skin snapshot as the plate")
+	for index in range(2, detail.get_child_count()):
+		var card := detail.get_child(index) as VisitorProfileCard
+		assert_not_null(card, "Every other child is a dossier card")
+		assert_eq(card.size.y, VisitorProfileStyle.CARD_HEIGHT,
+			"Card %d stays at the fixed height" % index)
+
+	var titles := _profile_card_titles(detail)
+	assert_eq(titles, ["Identity", "Club Membership", "Current Round", "Scorecard",
+		"Scorecard", "Golf Skills", "Golf Skills", "Golfer Traits", "Golfer Skills",
+		"Golfer Statuses", "Golfer Comments", "Golfer Comments", "Course Experience"],
+		"Sections read in profile order, continuing to the right")
+	assert_true(_clipped_labels(detail).is_empty(),
+		"No value in the profile is cut off: %s" % str(_clipped_labels(detail)))
+	golfer.free()
+
+## A past visitor's profile is the same fixed row: the tan identity card with
+## their last round's readings, and no Locate chip - there is nobody left on
+## the course to centre on.
+func test_a_past_visitors_profile_is_the_same_fixed_row() -> void:
+	toolbar.select_tab(TerrainToolbar.Tab.GOLFERS)
+	toolbar.golfer_data_provider = func() -> Array: return []
+	toolbar.record_completed_round({"id": 31, "name": "Past Pat", "strokes": 74,
+		"par": 72, "day": 40, "tier": 1, "membership": ClubMembership.Tier.SILVER,
+		"profile": _rich_profile()})
+	await _settle_layout()
+	toolbar.show_visitor_profile("Past Pat")
+	await _settle_layout()
+
+	var detail := toolbar._visitor_detail
+	var identity := detail.get_child(1) as VisitorIdentityCard
+	assert_not_null(identity, "The past visitor keeps the identity card")
+	assert_eq(identity.accent, VisitorProfileStyle.PAST_ACCENT,
+		"and wears the past-visitor tan")
+	assert_eq(detail.get_combined_minimum_size().y, VisitorProfileStyle.CARD_HEIGHT,
+		"The past visitor's row is the same fixed height")
+	assert_lte(toolbar.page_content(TerrainToolbar.Tab.GOLFERS)
+		.get_combined_minimum_size().y,
+		float(UIConstants.BOTTOM_BAR_HEIGHT) - TerrainToolbar.HEADER_HEIGHT,
+		"and still fits under the tab bar")
+	assert_null(_find_profile_locate(detail),
+		"A past visitor has no Locate chip in their profile")
+	assert_true(_clipped_labels(detail).is_empty(),
+		"No value in the past visitor's profile is cut off")
+
+## The Locate chip in an open profile, if there is one.
+func _find_profile_locate(root: Node) -> Button:
+	for child in root.get_children():
+		if child is Button and (child as Button).tooltip_text.begins_with("Center the camera on "):
+			return child as Button
+		var found := _find_profile_locate(child)
+		if found != null:
+			return found
+	return null
+
+## The card titles of an open profile, left to right.
+func _profile_card_titles(detail: Control) -> Array[String]:
+	var titles: Array[String] = []
+	for index in range(2, detail.get_child_count()):
+		var card := detail.get_child(index) as VisitorProfileCard
+		if card != null:
+			titles.append(card.title_text)
+	return titles
+
+## Every single-line label in `root` whose text is wider than the room it was
+## given. The profile is laid out headless, so this is how a layout test sees
+## a caption that would run under its card's rim.
+func _clipped_labels(root: Node) -> Array[String]:
+	var clipped: Array[String] = []
+	for child in root.get_children():
+		if child is Label:
+			var label := child as Label
+			if label.autowrap_mode == TextServer.AUTOWRAP_OFF and label.text != "":
+				var font_size := label.get_theme_font_size("font_size")
+				var width := label.get_theme_font("font").get_string_size(label.text,
+					HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+				if width > label.size.x + 0.5:
+					clipped.append(label.text)
+		clipped.append_array(_clipped_labels(child))
+	return clipped
+
+## A profile carrying every section main.gd writes, with rows long enough to
+## need continuations: ten golf skills, a nine-hole scorecard, five comments.
+func _rich_profile() -> Array[Dictionary]:
+	var traits: Array[String] = []
+	for trait_name in ["Neat", "Outgoing", "Active", "Playful", "Nice"]:
+		traits.append("%s: On" % trait_name)
+	var golfer_skills: Array[String] = ["Length: On", "Accuracy: Off", "Imagination: On"]
+	var golf_skills: Array[String] = ["Power Hitter: 60%", "Long Driver: 45%",
+		"Accurate Driver: 70%", "Accurate Irons: 55%", "Accurate Putter: 80%",
+		"Draw Shot (R to L): 30%", "Fade Shot (L to R): 35%",
+		"High Backspin Shot: 20%", "Recovery Skills: 65%", "Luck: 50%"]
+	var comments: Array[String] = ["Positive 2 / Neutral 1 / Negative 1",
+		"Positive: The greens were running beautifully today.",
+		"Neutral: Clubhouse sandwich was fine, nothing special.",
+		"Negative: Waited far too long on the seventh tee.",
+		"Positive: Staff were friendly and the range was in great shape.",
+		"Neutral: Music in the bar was a little loud for my taste."]
+	var scores: Array[String] = []
+	for hole in range(1, 10):
+		scores.append("H%d: %d strokes / par 4 / %s" % [hole, 4 + hole % 2,
+			"Par" if hole % 2 == 0 else "Bogey"])
+	var profile: Array[Dictionary] = [
+		{"title": "Identity", "lines": ["Profession: Landscape Architect",
+			"Age / Gender: 47 / Female", "Marital Status: Married",
+			"Returning guest: Yes"]},
+		{"title": "Club Membership", "lines": ["Membership: Gold member",
+			"Green fee: 150% of the public fee", "Referred by a club member"]},
+		{"title": "Golfer Traits", "lines": traits},
+		{"title": "Golfer Skills", "lines": golfer_skills},
+		{"title": "Golf Skills", "lines": golf_skills},
+		{"title": "Golfer Statuses", "meters": {"Fun": 0.7, "Attitude": 0.72,
+			"Energy": 0.4, "Hunger": 0.3, "Thirst": 0.6}},
+		{"title": "Golfer Comments", "lines": comments},
+		{"title": "Course Experience", "lines": ["Walking to the 9th tee",
+			"Traffic wait: 2.0 game minutes", "Amenities used: 3", "No incidents"]},
+		{"title": "Current Round", "lines": ["Score: 42 (+6)", "Hole: 8"]},
+		{"title": "Scorecard", "lines": scores},
+	]
+	return profile
 
 ## A card opens that visitor's profile in place of the register, and the way
 ## back puts the register up again. Locate is the separate action: it centres

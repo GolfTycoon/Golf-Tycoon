@@ -2,8 +2,8 @@
 
 > How the ball travels on screen: an arc through the air, then a roll that depends on the ground it lands on, the slope and any backspin.
 
-**Source:** `scripts/entities/ball.gd` (flight and rollout animation), `scripts/managers/ball_manager.gd` (`animate_shot()`, `_on_ball_shot_precise()`), `scripts/entities/golfer.gd` (`_calculate_rollout()`, `_estimate_flight_duration()`), `scripts/systems/golf_rules.gd` (`get_roll_multiplier()`, `stops_ball_on_landing()`, `catches_rolling_ball()`)
-**Tests:** `tests/unit/golf_play/test_ball_and_hole_size.gd`, `tests/unit/golf_play/test_aim_guide.gd`
+**Source:** `scripts/entities/ball.gd` (flight and rollout animation, `ground_point()`, `refresh_terrain_occlusion()`), `scripts/managers/ball_manager.gd` (`animate_shot()`, `_on_ball_shot_precise()`, `_shot_ground()`), `scripts/entities/golfer.gd` (`_calculate_rollout()`, `_estimate_flight_duration()`, `_record_shot_ground()`), `scripts/systems/golf_rules.gd` (`get_roll_multiplier()`, `stops_ball_on_landing()`, `catches_rolling_ball()`), `shaders/terrain_sprite_occlusion.gdshader` and `scripts/terrain/terrain_occlusion.gd` (`hides_ball()`, `contact_reach()`: hills in front)
+**Tests:** `tests/unit/golf_play/test_ball_and_hole_size.gd`, `tests/unit/golf_play/test_aim_guide.gd`, `tests/unit/course_design/test_terrain_occlusion.gd` (hills in front), `tests/integration/ui_and_controls/test_view_controls.gd` (view turns)
 
 ---
 
@@ -13,13 +13,17 @@ Ball physics has two phases: **flight** (the carry through the air) and **rollou
 
 ### Flight
 
-Full shots follow a **parabolic arc**. The ball rises to a peak mid-flight and comes down at the landing point. The arc height scales with distance and is capped at 150 pixels. Putts have no arc and roll along the ground.
+Full shots follow a **parabolic arc**. The ball rises to a peak mid-flight and comes down at the landing point. The arc height scales with distance and is capped at 150 pixels. Putts have no arc and roll along the ground, up and over any crown in the green.
 
 **Wind drift** is a bell curve of sideways displacement. The ball drifts most at mid-flight and returns to the landing point at the end. It is cosmetic, because wind has already been applied to the landing.
 
 The ball is drawn with a 1.75 px radius on the ground and a slightly larger 2.24 px radius in flight for visibility. It also grows slightly at the peak of its arc, which gives a sense of depth as it comes closer to the camera. The visible cup and ball shadow scale with the ground ball size; this does not change the rules for holing a shot.
 
-Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 50% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Prop & ball shadows** setting: *Contact only* keeps it, *Off* drops it, and an already-placed ball obeys a change without being rebuilt.
+Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 50% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Ball shadow** setting: *On* shows it, *Off* hides it, and an already-placed ball obeys a change without being rebuilt.
+
+### Behind hills
+
+A hill nearer the camera hides the ball behind it, pixel by pixel and contact shadow included, as it hides a tree's trunk or a golfer. A ball on the hill's face, on its top or in front of it is drawn as before, and the shadow of a ball on a slope rising toward the camera is never cut by the slope it lies on. A drive over a ridge stays in view as it climbs and clears the crest, and disappears as it comes down behind it; it lands, rolls and lies behind the ridge, and stays there when the view turns. A low chip is taken to clear a crown it crosses, never to bore through it, and putts and rolls are drawn on the ground. The **Terrain-aware occlusion** graphics setting turns this off, and a flat course never pays for it.
 
 ### Rollout
 
@@ -54,6 +58,8 @@ wind_drift  = wind_visual_offset × sin(flight_progress × PI)
 
 position    = linear_pos − (0, arc_height) + wind_drift
 ```
+
+A putt (no arc) whose ground is known is drawn on the ground under it instead, `grid_point_to_screen(ground_point())`, so it follows the green's contours rather than the straight screen line between its ends (§12). On level ground the two are the same line.
 
 ### 2. Depth scale
 
@@ -179,7 +185,7 @@ screen_dist = rollout_tiles × 64                        # 64 px per tile
 duration    = clamp(0.3 + (screen_dist / 200) × 0.8, 0.2, 1.2)
 ```
 
-Rolls shorter than **0.15 tile** (about 3 yards) skip the animation.
+Rolls shorter than **0.15 tile** (about 3 yards) skip the animation. The rolling ball is drawn on the ground under it, `grid_point_to_screen(lerp(roll_start_ground, roll_end_ground, eased_t))`, which on level ground is the straight screen line from the carry to the resting point.
 
 ### 11. Landing effect
 
@@ -194,6 +200,23 @@ Rolls shorter than **0.15 tile** (about 3 yards) skip the animation.
 | Anything else | `default` (grey) |
 
 The burst is skipped for putts and short chips (flight height 10 px or less), and it is not created in the web build.
+
+### 12. Hills in front
+
+The ball is a `Node2D` drawn after the course surface, so no draw order can put a hill in front of it. While the course has relief and the **Terrain-aware occlusion** setting is on (`TerrainGrid.terrain_occlusion_enabled()`), the ball wears `terrain_sprite_occlusion.gdshader`, the tree's and the golfer's per-pixel clip, and every part of it - the ball, a flight's motion blur, a splash and the contact shadow - draws with that material (`use_parent_material`). Each pixel is discarded where the heightfield crosses the pixel's screen ray nearer the camera than the ball (`terrain_hides()` in `terrain_heightfield.gdshaderinc`). Only a ball on the course's own canvas is clipped, and a flat course draws it with no material.
+
+**The ground under the ball.** The shader stands the ball over one grid point, `Ball.ground_point()`, and a screen position cannot supply it: where hills overlap on screen, the front-most surface on a ball's pixel can be the hill in front of it rather than the ground under it. So the ball keeps grid points of its own - `rest_ground`, the ends of its flight (`flight_start_ground`, `flight_end_ground`) and of its roll (`roll_start_ground`, `roll_end_ground`) - and `ground_point()` lerps along them as the screen position lerps between the matching screen ends. The golfer records each shot's ground points just before the shot signals go out (`Golfer.shot_ground_from`, `shot_ground_carry`, `shot_ground_rest`), and `BallManager._shot_ground()` hands them to the ball when they project onto the signalled screen positions (within `Ball.GROUND_MATCH_PX`); anything else falls back to the ground under the screen position, nearest a known point (`TerrainOcclusion.standing_point()`). The tile a ball lands or stops on is the one under that ground point, and a view turn carries the ball across on it (`main.gd`'s `_ball_point_entry()`).
+
+**How high the ball is.** The ball is measured from `ground_offset.y` pixels along its rays past its ground point:
+
+```
+reach  = contact_reach(ground_point, OCCLUSION_FOOT)       # OCCLUSION_FOOT = (0.9 + 0.5) × BALL_RADIUS = 2.45 px
+track  = flat_y(ground_point) − (position.y + arc_height)  # how high the straight flight track is there
+lift   = reach + max(0, ground_t(ground_point) − track)
+hidden = terrain_t(pixel) > flat_y(ground_point) + lift − pixel.y + BALL_EPSILON
+```
+
+`OCCLUSION_FOOT` is how far down the screen the ball's art reaches below its ground point: the foot of its contact shadow. `TerrainOcclusion.contact_reach()` walks from the ground point toward the camera, straight down the screen, to the ground drawn that far down, and returns how far along the ray it lies. On level ground that is `OCCLUSION_FOOT` itself. On a slope rising `s` pixels a pixel toward the camera, it is `OCCLUSION_FOOT / (1 − s)` - 6.5 px for two levels a tile, 39 px for three - so the slope under the shadow does not cut it. Where the ground in front turns its face away from the camera before the walk gets there, it folds over the ball, and the walk falls back to `OCCLUSION_FOOT` so that its near side hides the ball. A flight's arc is drawn over a straight track between its ends, and the ground in between can rise above that track; the second term lifts the ball to the ground there, so it flies over a hill, never through it. A ball at rest, a putt and a roll are drawn on the ground, so the term is zero for them. A sculpt refreshes the uniforms before the next frame, a view turn re-projects them, and a ball moved from outside its own flight or roll - main.gd carrying a resting ball across the turn - is followed as it is moved. `TerrainOcclusion.hides_ball()` runs the same test on the CPU, and `Ball.terrain_hides_point()` asks it for the tests.
 
 ---
 
@@ -219,7 +242,11 @@ The burst is skipped for putts and short chips (flight height 10 px or less), an
 | Rough deceleration | `Golfer._calculate_rollout()` | `0.6×` | Lower makes rough stop the ball faster |
 | Minimum rollout | `Golfer._calculate_rollout()` | `0.15` tile | Lower shows shorter rolls |
 | Preview rollout fraction | `Golfer._calculate_rollout()` (deterministic) | `0.5` (mean) | Higher makes the aim guide roll further |
-| Ease-out exponent | `Ball._start_rollout()` | `2.0` | Higher gives a more dramatic slowdown |
+| Ease-out exponent | `Ball._roll_eased()` | `2.0` | Higher gives a more dramatic slowdown |
+| Occlusion slack | `TerrainOcclusion.BALL_EPSILON` (the ball material's `occlusion_epsilon`) | `2.0` px | How far in front of a ball a hill must rise before it hides it |
+| Contact shadow reach | `Ball.OCCLUSION_FOOT` | `2.45` px (the shadow's foot) | How far below its ground point a ball's art is kept clear of the ground it lies on |
+| Contact reach limit | `TerrainOcclusion.CONTACT_REACH_LIMIT` | `64` px | How far toward the camera the ground under a ball's shadow is looked for |
+| Ground match | `Ball.GROUND_MATCH_PX` | `0.5` px | How near a recorded ground point must project to a shot's screen position to be used |
 | Ball states | `Ball.BallState` | `AT_REST`, `IN_FLIGHT`, `ROLLING`, `IN_WATER`, `OUT_OF_BOUNDS` | Drives what the rest of the game reacts to |
 
 ---

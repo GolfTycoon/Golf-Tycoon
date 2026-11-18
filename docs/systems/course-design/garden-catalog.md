@@ -10,7 +10,7 @@
 
 The catalog is data-driven. Each item is a JSON entry, so adding a new item needs no new code path and older saves need no migration.
 
-- **Improvements** are the path-side and ornamental items on the Improvements tab: the **Path**, the **Ball Washer**, the **Park Bench**, the **Fountain**, the **Golfer Statue** and the **Sundial**. Benches and ball washers are drawn with `PathFurniture`; the fountain, statue and sundial use their pixel-art sprites, with a simple procedural drawing as a fallback.
+- **Improvements** are the path-side and ornamental items on the Improvements tab: the **Path**, the **Ball Washer**, the **Park Bench**, the **Fountain**, the **Golfer Statue** and the **Sundial**. Benches and ball washers are drawn with `PathFurniture`; the fountain, statue and sundial use their pixel-art sprites, with a simple procedural drawing as a fallback. Improvements cast no ground shadows.
 - **Facilities** are the buildings on the Buildings tab: the **putting green, snack bar, pub, pro shop, driving range, cart garage, tennis court, stable, spa, swim club, resort hotel, airstrip, castle, casino** and **theme park**. Each has a construction cost, a daily operating cost, and an effect. A facility that serves golfers earns revenue only when a golfer uses it during a normal interaction check. Which facilities a course is offered depends on its location theme; see [Buildings](../../data-reference.md#buildings).
 
 Facilities are pixel-art sprites: the Buildings tab tile, the placement ghost and the placed building all draw the same image. See [Isometric Buildings](isometric-buildings.md).

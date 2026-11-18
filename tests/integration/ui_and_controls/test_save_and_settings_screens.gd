@@ -635,6 +635,10 @@ func test_graphics_presets_apply_and_save_their_separate_settings() -> void:
 			"AnimationRate", "CameraUpdateRate", "GolferUpdateRate"]:
 		assert_not_null(menu.find_child(control_name, true, false),
 			"%s is an independently adjustable graphics setting" % control_name)
+	var ball_shadow := menu.find_child("ShadowDetail", true, false) as OptionButton
+	assert_eq(ball_shadow.item_count, 2, "the ball's single shadow has no separate detail levels")
+	assert_eq(ball_shadow.get_item_text(0), "Off")
+	assert_eq(ball_shadow.get_item_text(1), "On")
 
 	var performance_index := options.get_item_index(PerformanceSettings.GraphicsPreset.PERFORMANCE)
 	options.select(performance_index)
