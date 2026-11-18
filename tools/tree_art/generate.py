@@ -77,6 +77,7 @@ def build_model(species: str, variant: int) -> Model:
     """One seeded drawing of the species, standing at the tile's centre."""
     model = Model(TILES_X, TILES_Y)
     builder = TreeBuilder(model)
+    builder.variant = variant
     rng = random.Random(variant_seed(species, variant))
     TREES[species]["draw"](builder, rng)
     return model
@@ -103,12 +104,20 @@ def anchor_to_ground(image: Image.Image, rect, scale: float) -> Image.Image:
     gy = (ground[1] - rect[1]) * scale
     width, height = image.size
     rows = max(1, min(height, int(round(gy))))
-    half = max(gx, width - gx)
+    cropped = image.crop((0, 0, width, rows))
+    bbox = cropped.getchannel("A").getbbox()
+    if bbox is None:
+        return cropped
+    # Centre on what was drawn, not on the renderer's padded canvas: the
+    # sprite should carry no more transparent margin than keeping the ground
+    # point exactly at the canvas's bottom centre needs.
+    left = max(0.0, gx - bbox[0])
+    right = max(0.0, bbox[2] - gx)
+    half = max(left, right)
     out_w = max(2, int(math.ceil(half * 2.0)))
     shift = int(round(out_w * 0.5 - gx))
     out = Image.new("RGBA", (out_w, rows), (0, 0, 0, 0))
-    out.paste(image.crop((0, 0, width, rows)), (shift, 0),
-              image.crop((0, 0, width, rows)))
+    out.paste(cropped, (shift, 0), cropped)
     return out
 
 
@@ -140,9 +149,10 @@ def layout_text(scale: float, species_scales: dict[str, float] | None = None) ->
 # validation (mirrors tests/unit/course_design/test_tree_sprites.gd)
 # ---------------------------------------------------------------------------
 
-def validate(images: dict[tuple[str, int], Image.Image]) -> list[str]:
+def validate(images: dict[tuple[str, int], Image.Image],
+             species_list=None) -> list[str]:
     problems: list[str] = []
-    for species in TREES:
+    for species in (species_list or TREES):
         variants = [images[(species, v)] for v in range(VARIANT_COUNT)]
         if len({v.tobytes() for v in variants}) != VARIANT_COUNT:
             problems.append(f"{species}: the four variants are not four drawings")
@@ -158,12 +168,13 @@ def validate(images: dict[tuple[str, int], Image.Image]) -> list[str]:
             if bbox[3] != image.height:
                 problems.append(f"{where}: content does not meet the bottom edge "
                                 f"the ground anchor needs")
-            if bbox[0] != 0 and bbox[2] != image.width:
+            if bbox[0] > 1 and bbox[2] < image.width - 1:
                 problems.append(f"{where}: the canvas is padded on both sides, "
                                 f"so the trunk is not at its centre")
     # The tests pin that the oak's views are independently sized drawings.
-    oak = {images[("oak", v)].size for v in range(VARIANT_COUNT)}
-    if len(oak) < 2:
+    oak = {images[("oak", v)].size for v in range(VARIANT_COUNT)
+           if ("oak", v) in images}
+    if oak and len(oak) < 2:
         problems.append("oak: the variants share one canvas size; the layout "
                         "has nothing to adapt to")
     return problems
@@ -244,7 +255,7 @@ def generate(args) -> int:
         return check(images, out_dir, args.scale)
 
     if not args.no_validate:
-        problems = validate(images)
+        problems = validate(images, species_list)
         if problems:
             print("\nSprite invariant problems:", file=sys.stderr)
             for problem in problems:

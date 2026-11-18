@@ -190,7 +190,8 @@ The generator is offline and is not part of the game build. The PNGs and `sprite
 The woodland sprites are baked the same way by `tools/tree_art/`, which reuses
 this renderer (`render.py`) and its primitives: each species is a 3D model in
 `tools/tree_art/trees.py`, and `tools/tree_art/generate.py` writes
-`assets/sprites/trees/` and its `layout.json` (see [Terrain Types](terrain-types.md)).
+`assets/sprites/trees/` and its `layout.json` (see [Tree Art](tree-art.md) and
+[Terrain Types](terrain-types.md)).
 
 ---
 
