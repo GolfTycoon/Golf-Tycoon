@@ -34,9 +34,8 @@ const SHADOW_RADII: Vector2 = Vector2(1.0, 0.5)
 ## foot, a touch to the right, away from the sun, so the dark rim shows under
 ## the ball rather than hiding behind it.
 const SHADOW_OFFSET: Vector2 = Vector2(0.2, 0.9)
-## Darkness of the contact shadow on the ground. It is a lighter touch than a
-## prop's contact shadow because a ball is small and a full-strength blob would
-## read as a second ball.
+## Darkness of the contact shadow on the ground. A darker blob would read as
+## a second ball.
 const SHADOW_ALPHA: float = 0.3
 ## In the air the shadow stays on the ground and tightens to this fraction of
 ## its resting size, and fades to this fraction of its resting darkness, at the
@@ -453,9 +452,7 @@ func _update_visual() -> void:
 	_apply_occlusion_material()
 	_update_shadow()
 
-## Build the ball's one contact shadow. It is the same kind of ground contact
-## the props get, and it goes with them when shadows are switched off on the
-## Display page.
+## Build the ball's one contact shadow, toggled on the Display page.
 func _ensure_ground_shadow() -> void:
 	if _ground_shadow != null and is_instance_valid(_ground_shadow):
 		return

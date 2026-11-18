@@ -1,7 +1,7 @@
 extends RefCounted
 class_name GroundDecal
 ## Paint laid on the course — a tee's aim arrow and its red markers, the cut of a
-## cup, a designated-area ring, a prop's shadow — as one indexed triangle list
+## cup, a designated-area ring — as one indexed triangle list
 ## whose UVs name, at every vertex, the grid point of the ground the paint lies
 ## on. terrain_decal_occlusion.gdshader reads them to hide the paint wherever
 ## nearer terrain covers it (TerrainOcclusion.hides_decal() is its CPU twin),
@@ -38,8 +38,6 @@ var points := PackedVector2Array()
 var colors := PackedColorArray()
 var uvs := PackedVector2Array()
 var indices := PackedInt32Array()
-
-static var _uv_carrier: ImageTexture = null
 
 func is_empty() -> bool:
 	return indices.is_empty()
@@ -351,14 +349,3 @@ static func ground_under(grid: TerrainGrid, world: Vector2, near: Vector2) -> Ve
 		if not improved:
 			break
 	return ground
-
-## A plain white 1x1 texture. A Polygon2D only passes its `uv` to the renderer
-## while it has a texture, so a shadow painted as one wears this to carry the
-## ground under each of its points to the occlusion shader; sampled anywhere, it
-## leaves the polygon's colour exactly as it was.
-static func uv_carrier() -> Texture2D:
-	if _uv_carrier == null:
-		var image := Image.create_empty(1, 1, false, Image.FORMAT_RGBA8)
-		image.fill(Color.WHITE)
-		_uv_carrier = ImageTexture.create_from_image(image)
-	return _uv_carrier

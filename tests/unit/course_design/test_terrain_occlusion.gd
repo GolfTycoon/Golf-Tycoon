@@ -1529,25 +1529,11 @@ func _hidden_art_samples(decoration: Decoration) -> int:
 	return hidden
 
 
-func _shadow_samples(decoration: Decoration) -> Array:
-	var samples := []
-	for shadow in decoration._shadow_polygons():
-		for i in shadow.polygon.size():
-			samples.append([shadow.uv[i] if i < shadow.uv.size() else Vector2.ZERO, shadow.to_global(shadow.polygon[i])])
-	return samples
-
-
 func test_decorations_wear_occlusion_materials_only_on_relief() -> void:
 	var fountain := _place_decoration("fountain", Vector2i(4, 4))
 	var bench := _place_decoration("park_bench", Vector2i(8, 4))
 	var visual := _decoration_visual(fountain)
-	var shadows := []
-	shadows.append_array(fountain._shadow_polygons())
-	assert_eq(shadows.size(), 2, "precondition: the contact shadow and the sun's")
 	assert_null(visual.material, "a flat course draws the prop with no shader")
-	for shadow in shadows:
-		assert_null(shadow.material)
-		assert_null(shadow.texture, "and its shadows as plain polygons")
 	grid.set_vertex_elevation(Vector2i(12, 12), BASE + 3)
 	var art := visual.material as ShaderMaterial
 	assert_not_null(art, "the first sculpt clips the props already standing")
@@ -1558,55 +1544,16 @@ func test_decorations_wear_occlusion_materials_only_on_relief() -> void:
 	assert_eq(art.get_shader_parameter("ground_grid"), Vector2(4.5, 4.5), "standing on its tile")
 	assert_eq(art.get_shader_parameter("occlusion_epsilon"), TerrainOcclusion.PROP_EPSILON)
 	for part in visual.find_children("*", "CanvasItem", true, false):
-		assert_eq((part as CanvasItem).use_parent_material, not shadows.has(part),
-			"%s wears the art's clip" % part.name if not shadows.has(part) else "%s wears its own" % part.name)
-	for shadow in shadows:
-		var mat := shadow.material as ShaderMaterial
-		assert_not_null(mat, "%s is clipped as paint on the ground" % shadow.name)
-		if mat == null:
-			return
-		assert_eq(mat.shader, Decoration.TERRAIN_DECAL_OCCLUSION)
-		assert_eq(mat.get_shader_parameter("occlusion_epsilon"), TerrainOcclusion.SHADOW_EPSILON)
-		assert_same(shadow.texture, GroundDecal.uv_carrier(), "carrying its grounds as UVs")
-		assert_eq(shadow.uv.size(), shadow.polygon.size())
-	var misplaced := 0
-	for sample in _shadow_samples(fountain):
-		if grid.grid_point_to_screen(sample[0]).distance_to(sample[1]) > Decoration.SHADOW_GROUND_MISS:
-			misplaced += 1
-	assert_eq(misplaced, 0, "every point of a shadow names the ground drawn under it")
+		assert_true((part as CanvasItem).use_parent_material, "%s wears the art's clip" % part.name)
 	assert_not_null(_decoration_visual(bench).material, "path furniture is clipped too")
-	# A sculpt beside the prop moves the ground under its shadow, not the prop.
-	var grounds := []
-	for sample in _shadow_samples(fountain):
-		grounds.append(sample[0])
-	grid.set_vertex_elevation(Vector2i(6, 5), BASE + 2)
-	await process_frames(1)
-	var moved := 0
-	misplaced = 0
-	var samples := _shadow_samples(fountain)
-	for i in samples.size():
-		if samples[i][0] != grounds[i]:
-			moved += 1
-		if grid.grid_point_to_screen(samples[i][0]).distance_to(samples[i][1]) > Decoration.SHADOW_GROUND_MISS:
-			misplaced += 1
-	assert_gt(moved, 0, "precondition: the sculpt reaches ground under the shadow")
-	assert_eq(misplaced, 0, "the shadow names the ground drawn under it after a sculpt beside the prop")
 	# A turn of the view comes through set_position_in_grid() (main.gd).
 	grid.set_view_orientation(3)
 	fountain.set_position_in_grid(fountain.grid_position)
 	assert_eq(art.get_shader_parameter("grid_origin"), grid.projection.grid_origin(), "the mask turns with the view")
-	misplaced = 0
-	for sample in _shadow_samples(fountain):
-		if grid.grid_point_to_screen(sample[0]).distance_to(sample[1]) > Decoration.SHADOW_GROUND_MISS:
-			misplaced += 1
-	assert_eq(misplaced, 0, "and the shadows name the ground drawn under them now")
 	grid.set_view_orientation(0)
 	fountain.set_position_in_grid(fountain.grid_position)
 	PerformanceSettings.set_graphics_setting(OCCLUSION, 0)
 	assert_null(visual.material, "the graphics setting turns it off")
-	for shadow in shadows:
-		assert_null(shadow.material)
-		assert_null(shadow.texture)
 	PerformanceSettings.set_graphics_setting(OCCLUSION, 1)
 	assert_same(visual.material, art, "turning it back on reuses the prop's material")
 
@@ -1624,16 +1571,11 @@ func test_a_ridge_hides_decorations_behind_it_but_not_those_on_or_before_it() ->
 	for entry in placed:
 		var row: int = entry[0]
 		var decoration: Decoration = entry[1]
-		var art := _art_samples(decoration)
-		var shadows := _shadow_samples(decoration)
 		var what := "%s %s" % [decoration.decoration_type, rows[row]]
 		if row == 5:
-			assert_eq(_hidden_art_samples(decoration), art.size(), "the ridge covers the %s" % what)
-			if not shadows.is_empty():
-				assert_gt(_hidden_trail_samples(shadows) * 10, shadows.size() * 9, "and its shadow on the ground behind it")
+			assert_eq(_hidden_art_samples(decoration), _art_samples(decoration).size(), "the ridge covers the %s" % what)
 		else:
 			assert_eq(_hidden_art_samples(decoration), 0, "the %s stays drawn" % what)
-			assert_eq(_hidden_trail_samples(shadows), 0, "and so does its shadow")
 
 
 func test_a_decoration_is_measured_from_the_lowest_pixel_of_its_art() -> void:

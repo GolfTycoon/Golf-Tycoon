@@ -568,11 +568,10 @@ func _build_display_cards(mode: int) -> Array[Control]:
 		10, COLOR_MUTED)
 	detail_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	performance_body.add_child(detail_hint)
-	_add_graphics_setting(performance_body, "Prop & ball shadows", "ShadowDetail",
+	_add_graphics_setting(performance_body, "Ball shadow", "ShadowDetail",
 		PerformanceSettings.GraphicsSetting.SHADOW_DETAIL, [
 			{"label": "Off", "value": PerformanceSettings.ShadowDetail.OFF},
-			{"label": "Contact only", "value": PerformanceSettings.ShadowDetail.CONTACT_ONLY},
-			{"label": "Full", "value": PerformanceSettings.ShadowDetail.FULL},
+			{"label": "On", "value": PerformanceSettings.ShadowDetail.FULL},
 		])
 	_add_graphics_setting(performance_body, "Course wildlife", "WildlifeDetail",
 		PerformanceSettings.GraphicsSetting.WILDLIFE_DETAIL, [

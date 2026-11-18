@@ -40,10 +40,10 @@ Plaza and intersection tiles, which are surrounded on every side, keep the tile 
 ### 2. Drawing
 
 - **Edge offset:** `23` px for an edge on the horizontal axis, `10` px for an edge on the vertical axis. This keeps the middle of a walk open.
-- **Benches** project their length and depth onto the grid, with height drawn upward. A horizontal walk gets a horizontal bench. A vertical walk gets a bench that recedes at half scale. The legs and contact marks share the same foot coordinates. The backrest stays visible when seen edge-on.
+- **Benches** project their length and depth onto the grid, with height drawn upward. A horizontal walk gets a horizontal bench. A vertical walk gets a bench that recedes at half scale. The backrest stays visible when seen edge-on.
 - **Foot anchor:** decorations use the visible bottom of their artwork as the foot, which corrects for transparent padding. The fountain's animated droplets use the same correction.
 - **Built fixtures** stay upright. **Natural plantings** keep their deterministic variation. Ghosts use the same anchor and variation as placed sprites.
-- **Behind a hill:** a nearer hill hides furniture and every other decoration pixel by pixel. Each stands on its tile's centre and is measured from the lowest pixel of its art: a sprite's foot, or a bench's front feet and their contact marks (`ground_reach()`), so the ground it stands on never cuts into it. Its shadows lie on the ground. Ghosts are never clipped.
+- **Behind a hill:** a nearer hill hides furniture and every other decoration pixel by pixel. Each stands on its tile's centre and is measured from the lowest pixel of its art: a sprite's foot, or a bench's front feet (`ground_reach()`), so the ground it stands on never cuts into it. Furniture casts no ground shadow, and ghosts are never clipped.
 
 ### 3. Refresh
 

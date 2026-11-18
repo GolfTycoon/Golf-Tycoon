@@ -19,7 +19,7 @@ Full shots follow a **parabolic arc**. The ball rises to a peak mid-flight and c
 
 The ball is drawn with a 1.75 px radius on the ground and a slightly larger 2.24 px radius in flight for visibility. It also grows slightly at the peak of its arc, which gives a sense of depth as it comes closer to the camera. The visible cup and ball shadow scale with the ground ball size; this does not change the rules for holing a shot.
 
-Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 50% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Prop & ball shadows** setting: *Contact only* keeps it, *Off* drops it, and an already-placed ball obeys a change without being rebuilt.
+Every ball lays a **contact shadow** on the ground, painted beneath the ball so the ball sits on the course rather than hovering over it. At rest it is a soft, flat ellipse at the ball's foot. In flight it stays on the ground the ball is flying over - directly under the ball's line of flight - and tightens to 55% of its resting size and fades to 50% of its darkness at the top of the arc, then settles back as the ball comes down. The shadow follows the Display page's **Ball shadow** setting: *On* shows it, *Off* hides it, and an already-placed ball obeys a change without being rebuilt.
 
 ### Behind hills
 

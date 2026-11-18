@@ -20,8 +20,8 @@ class_name TerrainOcclusion
 ##   - a golf ball is a billboard over the grid point under it, measured from
 ##     the ground under the foot of its contact shadow (`contact_reach()`) and
 ##     lifted by its flight arc (`hides_ball()`, terrain_sprite_occlusion.gdshader);
-##   - a tee's aim arrow, a cup, a designated-area ring and a prop's shadow are
-##     paint on the ground, like the trail (`decal_t()`, laid out by GroundDecal);
+##   - a tee's aim arrow, a cup and a designated-area ring are paint on the
+##     ground, like the trail (`decal_t()`, laid out by GroundDecal);
 ##   - a pin and a decoration are billboards on their foot, measured from the
 ##     lowest pixel of their art (`contact_reach()`, `hides_with_material()`).
 ## The shaders and this class compute the same quantities, so building and
@@ -45,10 +45,6 @@ const BALL_EPSILON := 2.0
 ## reaches a pixel or so to either side of it (a pole's width, a prop's slight
 ## tilt, the rounding of its sprite), so their materials get the same slack.
 const PROP_EPSILON := 2.0
-## A prop's shadow is one Polygon2D whose few triangles span the whole blob, so
-## the ground named at its points is interpolated across tens of pixels of
-## curved ground: its material gets twice the trail's slack.
-const SHADOW_EPSILON := 3.0
 
 ## How far, in tiles, a figure can move between two updates and still be taken to
 ## stand on the surface it stood on. Walking covers a fraction of a tile a frame;

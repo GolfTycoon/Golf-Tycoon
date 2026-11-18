@@ -13,6 +13,7 @@ enum UpdateRate { LOW, STANDARD, HIGH }
 ## Decorative detail. These three cost draw calls rather than redraw cadence:
 ## each one paints something the course can do without, so a device that is
 ## short of fill rate can shed it instead of slowing the whole course down.
+## Saved IDs: the old Contact only and Full choices both mean the ball shadow is on.
 enum ShadowDetail { OFF, CONTACT_ONLY, FULL }
 enum WildlifeDetail { OFF, REDUCED, FULL }
 enum EffectDetail { OFF, REDUCED, FULL }
@@ -252,12 +253,7 @@ func camera_redraw_interval() -> float:
 func simulation_update_interval() -> float:
 	return UPDATE_INTERVALS[clampi(golfer_update_rate, UpdateRate.LOW, UpdateRate.HIGH)]
 
-## A prop's stretched sun shadow follows the sun and costs a second polygon;
-## the contact blob under it is the cheap half and is what keeps a prop
-## standing on the ground rather than hovering over it.
-func drop_shadows_enabled() -> bool:
-	return shadow_detail == ShadowDetail.FULL
-
+## Only the ball's ground shadow uses this setting.
 func contact_shadows_enabled() -> bool:
 	return shadow_detail != ShadowDetail.OFF
 
@@ -360,7 +356,7 @@ func _normalize_setting_value(setting: int, value: int) -> int:
 		GraphicsSetting.ANIMATION_RATE, GraphicsSetting.CAMERA_UPDATE_RATE, GraphicsSetting.GOLFER_UPDATE_RATE:
 			return clampi(value, UpdateRate.LOW, UpdateRate.HIGH)
 		GraphicsSetting.SHADOW_DETAIL:
-			return clampi(value, ShadowDetail.OFF, ShadowDetail.FULL)
+			return ShadowDetail.FULL if value > ShadowDetail.OFF else ShadowDetail.OFF
 		GraphicsSetting.WILDLIFE_DETAIL:
 			return clampi(value, WildlifeDetail.OFF, WildlifeDetail.FULL)
 		GraphicsSetting.EFFECT_DETAIL:

@@ -57,7 +57,6 @@ These singletons are registered in `project.godot`. They are loaded in this orde
 | `SaveManager` | `scripts/autoload/save_manager.gd` | Saves and loads the game (see [Save & Load](save-and-load.md)) |
 | `InputBindings` | `scripts/autoload/input_bindings.gd` | Rebindable course controls, their defaults and saved overrides |
 | `FeedbackManager` | `scripts/autoload/feedback_manager.gd` | Daily golfer satisfaction and feedback totals |
-| `ShadowSystem` | `scripts/systems/shadow_system.gd` | Shared shadow direction and intensity |
 | `UIConstants` | `scripts/autoload/ui_constants.gd` | Shared sizes, spacing and colours |
 | `TooltipManager` | `scripts/autoload/tooltip_manager.gd` | Tooltip display |
 | `SoundManager` | `scripts/autoload/sound_manager.gd` | Sound effects |
@@ -138,7 +137,7 @@ use world Y-sorting for standing sprites, and tree order for ground detail:
 | Band | What paints there |
 | --- | --- |
 | 0 | The course surface (`CourseSurface`): turf, sand, water, stones |
-| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus entity drop shadows and a ball's contact shadow (`-1`) |
+| 1 | Ground detail painted over the surface, bottom-up in the order `TerrainGrid.GROUND_DETAIL_ORDER` ranks them: the cup cut in the green (`CupOverlay`), the painted tee arrow and red tee markers (`TeeAimOverlay`), flowers (`FlowerOverlay`), the walking trail (`WalkingPathOverlay`), and the wildlife that wanders through it all — plus a ball's contact shadow (`-1`) |
 | 2 | Entities and standing course objects: golfers (`scenes/entities/golfer.tscn`), golf balls (`scripts/entities/ball.gd`), pin flags (`WindFlagOverlay` and waiting pins in `CupOverlay`), trees (`TreeOverlay`), staff, weeds, and the buildings and decorations layer (`entity_layer.gd`) |
 | 4-5 | Course-editing helpers drawn over the ground: elevation preview (4) and land boundary (5) |
 | 10 | Hole visuals (`hole_visualizer.gd`), the aim guide, and the routing overlay. A golfer's name tag is *not* here: it is white lettering under the golfer's feet, drawn in the entity band (2) with the body |
@@ -177,9 +176,9 @@ above or in front of a hill visible; a golfer is clipped the same way, as a
 billboard on the ground point they stand on, a golf ball - its contact shadow
 included - as one over the ground under it, a pin as one in its cup, and a
 decoration's art as one on its tile; a building is measured against its
-footprint's front face, and the trail, the designated-area rings and a
-decoration's shadows against the ground each pixel is painted on, while a tee's
-aim marker and a cup stand on their tile like a sign planted there
+footprint's front face, and trails and designated-area rings against the ground
+each pixel is painted on, while a tee's aim marker and a cup stand on their tile
+like a sign planted there
 (`terrain_hides()` in `terrain_heightfield.gdshaderinc`, with `TerrainOcclusion`
 as its CPU twin; `GroundDecal` lays the ground paint out with the ground under
 every vertex). Where hills overlap on screen, one

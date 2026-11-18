@@ -87,6 +87,14 @@ func test_plazas_and_large_decorations_retain_their_anchor() -> void:
 	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "fountain").offset, Vector2.ZERO)
 	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "golfer_statue").offset, Vector2.ZERO)
 
+func test_furniture_reach_ends_at_the_feet() -> void:
+	assert_eq(PathFurniture.ground_reach("park_bench", Vector2i.DOWN), 2.0,
+		"a bench facing down reaches to its front feet")
+	assert_eq(PathFurniture.ground_reach("park_bench", Vector2i.RIGHT), 7.0,
+		"an edge-on bench reaches to its nearest end")
+	assert_eq(PathFurniture.ground_reach("ball_washer", Vector2i.DOWN), 0.0,
+		"the base of the washer ends at its anchor")
+
 func test_sprite_feet_and_animated_details_use_the_same_anchor() -> void:
 	for type in ["fountain", "golfer_statue", "sundial"]:
 		var dec := entities.place_decoration(type, Vector2i(3, 3), registry)
