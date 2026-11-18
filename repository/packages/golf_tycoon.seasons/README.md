@@ -13,9 +13,10 @@ weather weights - eight seasonal events, and the woodland's seasonal art.
   to the loader as `tree_art_root` in `mod.json`. The game's own
   `assets/sprites/trees/` keeps the evergreen (summer) art, so switching this
   mod off leaves every tree wearing that. The core views are independent PNGs
-  with their sizing and ground anchors in `assets/sprites/trees/layout.json`;
+  with their sizing and ground anchors in `assets/sprites/trees/layout.json`,
+  generated from 3D models like the building art (`tools/tree_art/generate.py`);
   seasonal views are generated from their unsuffixed source drawings with
-  `tools/tree_art/generate.py`.
+  `tools/tree_art/mod_views.py`.
 - The Start New Game "Seasons" toggle decides per company whether the
   seasons act on that company's courses; disabling this mod removes them
   entirely (the game then runs the neutral built-in provider).

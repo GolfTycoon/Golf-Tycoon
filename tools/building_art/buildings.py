@@ -335,7 +335,8 @@ class Builder:
 
     # -- curved solids ----------------------------------------------------
     def cylinder(self, cx, cy, z0, z1, radius, material, segments=12,
-                 cap=True, cap_material=None, ao_base=0.8) -> None:
+                 cap=True, cap_material=None, ao_base=0.8,
+                 group: int | None = None) -> None:
         cap_material = material if cap_material is None else cap_material
         for i in range(segments):
             a0 = 2 * math.pi * i / segments
@@ -347,7 +348,7 @@ class Builder:
             self.m.quad(p0, p1, p2, p3, material,
                         uvs=((a0 * radius, z0), (a1 * radius, z0),
                              (a1 * radius, z1), (a0 * radius, z1)),
-                        ao=(ao_base, ao_base, 1.0, 1.0))
+                        ao=(ao_base, ao_base, 1.0, 1.0), group=group)
         if cap:
             for i in range(segments):
                 a0 = 2 * math.pi * i / segments
@@ -355,11 +356,11 @@ class Builder:
                 self.m.tri((cx, cy, z1),
                            (cx + radius * math.cos(a0), cy + radius * math.sin(a0), z1),
                            (cx + radius * math.cos(a1), cy + radius * math.sin(a1), z1),
-                           cap_material, ao=(1.0, 1.0, 1.0))
+                           cap_material, ao=(1.0, 1.0, 1.0), group=group)
                 self.m.tri((cx, cy, z0),
                            (cx + radius * math.cos(a1), cy + radius * math.sin(a1), z0),
                            (cx + radius * math.cos(a0), cy + radius * math.sin(a0), z0),
-                           material, ao=(0.5, 0.5, 0.5))
+                           material, ao=(0.5, 0.5, 0.5), group=group)
 
     def cylinder_between(self, p0, p1, radius, material, segments=10,
                          cap=True) -> None:
@@ -427,7 +428,7 @@ class Builder:
                                 ao=(ao0, ao0, ao1, ao1))
 
     def cone(self, cx, cy, z0, z1, radius, material, segments=10,
-             cap=True) -> None:
+             cap=True, group: int | None = None) -> None:
         for i in range(segments):
             a0 = 2 * math.pi * i / segments
             a1 = 2 * math.pi * (i + 1) / segments
@@ -436,7 +437,7 @@ class Builder:
             self.m.tri(p0, p1, (cx, cy, z1), material,
                        uvs=((a0 * radius, 0.0), (a1 * radius, 0.0),
                             ((a0 + a1) * 0.5 * radius, z1 - z0)),
-                       ao=(0.9, 0.9, 1.0))
+                       ao=(0.9, 0.9, 1.0), group=group)
         if cap:
             for i in range(segments):
                 a0 = 2 * math.pi * i / segments
@@ -444,7 +445,7 @@ class Builder:
                 self.m.tri((cx, cy, z0),
                            (cx + radius * math.cos(a1), cy + radius * math.sin(a1), z0),
                            (cx + radius * math.cos(a0), cy + radius * math.sin(a0), z0),
-                           material, ao=(0.5, 0.5, 0.5))
+                           material, ao=(0.5, 0.5, 0.5), group=group)
 
     # -- trim -------------------------------------------------------------
     def _eave_trim(self, x0, y0, x1, y1, z) -> None:

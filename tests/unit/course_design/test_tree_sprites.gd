@@ -1,7 +1,7 @@
 extends GameTest
 ## The four view variants of a tree (TreeOverlay's `_0` to `_3` sprites).
 ##
-## Every core species ships four independently authored variants —
+## Every core species ships four independently drawn variants —
 ## `<species>_0.png` and its `_1`, `_2`, `_3` siblings — and each tile wears
 ## one of them for the life of the course. Their canvases may differ;
 ## `layout.json` keeps each view scaled and anchored to its own dimensions.

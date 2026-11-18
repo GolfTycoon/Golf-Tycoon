@@ -1,239 +1,341 @@
 #!/usr/bin/env python3
-"""Generate seasonal/mod tree views from their unsuffixed source drawings.
+"""Generate Golf Tycoon's 3D-baked pixel-art tree sprites.
 
 Run from the repository root:
 
-    python3 tools/tree_art/generate.py            # write every generated view
-    python3 tools/tree_art/generate.py --preview  # also draw a contact sheet
-    python3 tools/tree_art/generate.py --check    # fail if a view is stale
+    python3 tools/tree_art/generate.py            # write every sprite
+    python3 tools/tree_art/generate.py --preview  # also draw contact sheets
+    python3 tools/tree_art/generate.py --only oak,pine --preview
+    python3 tools/tree_art/generate.py --check    # fail if the art is stale
 
-The core evergreen sprites in `assets/sprites/trees/` are independently
-provided `<species>_0/_1/_2/_3.png` images and are deliberately not processed
-here: their canvases can differ, with draw scales and normalized ground anchors
-in the neighboring `layout.json`. This tool handles unsuffixed source images
-inside bundled mods, including the Seasons mod's `spring/`, `fall/` and
-`winter/` tree-art folders (see `art_roots()`).
+Every species is a real 3D model (see ``trees.py``), rendered through the
+building art's 2:1 isometric pipeline (``tools/building_art/render.py``) - the
+same projection, sun, quantised shading and pixel-art outlines the facility
+sprites are baked with.  One PNG per species and view variant is written to
+``assets/sprites/trees/`` as ``<species>_<variant>.png``, matching the files
+``TreeOverlay`` loads.
 
-For a source drawing, the tool derives the other views as follows:
+Each variant is its own seeded drawing of the species, not a rotation of one
+model: a woodland tile wears one variant for the life of the course
+(``TreeOverlay.facing_at()``), so the four drawings are alternatives shown side
+by side in one wood and they share one sun direction.  Every sprite is cropped
+so the trunk's ground point sits at the bottom-centre of its canvas, which is
+what the layout anchors assume.
 
-    _0  the authored drawing, copied unchanged;
-    _1  the crown foreshortened (squashed toward the trunk) and leaned a few
-        pixels, lit from the right;
-    _2  mirrored, as a tree's left and right swap places when it is seen from
-        behind, and shaded as the side away from the sun;
-    _3  mirrored and foreshortened like _1, leaned and lit the opposite way.
+``layout.json`` is written next to the PNGs and records, per species, the draw
+scale (``1 / --scale``) under the normalized ground anchor the renderer
+guarantees (``ground_x_ratio`` 0.5, ``ground_y_ratio`` 1.0).  The game then
+positions each texture from its own canvas size, so variants may differ in
+dimensions without a code edit.
 
-Generated views keep their source's canvas size and ground line. Edit the
-unsuffixed source and re-run this tool rather than editing a generated view by
-hand. TreeOverlay gives each tile one of the four variants for the life of the
-course (`facing_offset()`), so one wood shows several drawings at once and
-turning the course never swaps the art under a canopy. Views may also keep the
-older `_n/_e/_s/_w` spelling; the numbered file wins when both are present.
+After rendering, the set is checked against the invariants the game's tests
+rely on: every species has four distinct, individually-sized variants (the
+oak's included), and each canvas carries its ground point.
+
+The generator is offline and is not part of the game build.  The PNGs and the
+layout are committed, so the game and the tests need only Godot.
+
+Dependencies: Pillow and NumPy (``pip install -r tools/tree_art/requirements.txt``).
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
-import shutil
+import random
 import sys
 
-from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools", "building_art"))
+
+from PIL import Image, ImageDraw  # noqa: E402
+
+from render import (  # noqa: E402  (building_art on the path)
+    OUTPUT_SCALE, Model, grid_origin_offset, project, render,
+)
+from trees import TREES, VARIANT_COUNT, TreeBuilder, variant_seed  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MODS_DIR = os.path.join(ROOT, "mods")
+OUT_DIR = os.path.join(ROOT, "assets", "sprites", "trees")
 PREVIEW_DIR = os.path.join(ROOT, "tmp_preview")
+LAYOUT_FILE = "layout.json"
 
-# The folder a mod's tree art lives in, named by its manifest's
-# `tree_art_root` content key (see docs/modding/manifest-and-packaging.md).
-MOD_ART_DIR = "tree_art"
-
-# View variants 0..3, in the order TreeOverlay.FACINGS lists them.
-FACINGS = ("0", "1", "2", "3")
-
-# The compass spelling earlier art packs used for the same four views. A
-# source file carrying one of these is a generated view, not a source, just
-# like the numbered spelling.
-LEGACY_FACINGS = ("n", "e", "s", "w")
-
-# How each view is derived from the authored first drawing:
-#   flip    mirror left-right (variants 2 and 3: left and right swap places)
-#   squash  horizontal foreshortening toward the trunk (variants 1 and 3)
-#   shear   crown lean in pixels at the crown's top for a 64px canvas,
-#           scaled by each sprite's width; 0 at the ground line so the
-#           trunk stays planted
-#   light   (overall, gradient) brightness: a pixel is scaled by
-#           overall + gradient * u, u being its offset from the trunk in
-#           [-1, 1], quantised to 1/20 steps so the shading bands like
-#           pixel art instead of washing the palette out
-PROFILES = {
-    "0": {"flip": False, "squash": 1.0, "shear": 0.0, "light": (1.0, 0.0)},
-    "1": {"flip": False, "squash": 0.82, "shear": 3.0, "light": (0.98, 0.11)},
-    "2": {"flip": True, "squash": 1.0, "shear": 0.0, "light": (0.88, -0.05)},
-    "3": {"flip": True, "squash": 0.82, "shear": -3.0, "light": (0.98, -0.11)},
-}
+#: The footprint every tree stands on: one tile, trunk at its centre.
+TILES_X, TILES_Y = 1, 1
+BASE_X, BASE_Y, BASE_Z = 32.0, 16.0, 0.0
 
 
-def art_roots() -> list[str]:
-    """Bundled mods' tree-art folders; core evergreen views are authored
-    independently and intentionally do not pass through this generator."""
-    roots = []
-    if os.path.isdir(MODS_DIR):
-        for mod in sorted(os.listdir(MODS_DIR)):
-            if mod.startswith(("_", ".")):
-                continue  # Never discovered as a mod, so never art either.
-            candidate = os.path.join(MODS_DIR, mod, MOD_ART_DIR)
-            if os.path.isdir(candidate):
-                roots.append(candidate)
-    return roots
+# ---------------------------------------------------------------------------
+# rendering
+# ---------------------------------------------------------------------------
+
+def build_model(species: str, variant: int) -> Model:
+    """One seeded drawing of the species, standing at the tile's centre."""
+    model = Model(TILES_X, TILES_Y)
+    builder = TreeBuilder(model)
+    rng = random.Random(variant_seed(species, variant))
+    TREES[species]["draw"](builder, rng)
+    return model
 
 
-def source_sprites() -> list[str]:
-    """Every unsuffixed tree-art source in a bundled mod, seasonal folders
-    included. The core's four-facing files are not generated from one source."""
-    sources = []
-    for root in art_roots():
-        for dirpath, _dirs, files in os.walk(root):
-            for name in sorted(files):
-                if not name.endswith(".png"):
-                    continue
-                stem = name[:-len(".png")]
-                if any(stem.endswith("_" + facing) for facing in FACINGS + LEGACY_FACINGS):
-                    continue  # A generated view, not a source.
-                sources.append(os.path.join(dirpath, name))
-    return sorted(sources)
+def ground_point(facing: int = 0) -> tuple[float, float]:
+    """The trunk's foot in the local draw space ``render()`` reports in."""
+    origin = grid_origin_offset(TILES_X, TILES_Y, facing)
+    px, py = project(BASE_X, BASE_Y, BASE_Z, facing)
+    return (origin[0] + px, origin[1] + py)
 
 
-def view_path(source: str, facing: str) -> str:
-    stem = source[:-len(".png")]
-    return f"{stem}_{facing}.png"
+def anchor_to_ground(image: Image.Image, rect, scale: float) -> Image.Image:
+    """Re-crop a render so the ground point is the canvas's bottom-centre.
 
-
-def render_view(image: Image.Image, facing: str) -> Image.Image:
-    """One angle of `image`, derived per PROFILES on the source's canvas."""
-    profile = PROFILES[facing]
-    drawn = image.convert("RGBA")
-    if profile["flip"]:
-        drawn = drawn.transpose(Image.FLIP_LEFT_RIGHT)
-    width, height = drawn.size
-    pixels = drawn.load()
-    bbox = drawn.getchannel("A").getbbox() or (0, 0, width, height)
-    crown_top, ground = bbox[1], bbox[3] - 1
-    # The authored sprites stand their trunk on the canvas centre (that is
-    # where TreeOverlay anchors them), so every derivation turns about it.
-    centre_x = (width - 1) / 2.0
-    squash = profile["squash"]
-    shear_px = profile["shear"] * width / 64.0
-    overall, gradient = profile["light"]
-
-    out = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    target = out.load()
-    for y in range(height):
-        rise = 0.0 if ground == crown_top else max(
-            0.0, min(1.0, (ground - y) / max(1, ground - crown_top)))
-        shift = round(shear_px * rise)
-        for x in range(width):
-            # The source columns this destination pixel covers. Sampling
-            # the nearest *opaque* one keeps 1px stems and twigs alive
-            # under the side views' foreshortening, where plain nearest
-            # sampling would skip a thin column and delete it whole.
-            lo = centre_x + (x - 0.5 - shift - centre_x) / squash
-            hi = centre_x + (x + 0.5 - shift - centre_x) / squash
-            middle = (lo + hi) / 2.0
-            best = None
-            best_gap = math.inf
-            for sx in range(math.floor(min(lo, hi)), math.ceil(max(lo, hi)) + 1):
-                if 0 <= sx < width and pixels[sx, y][3] > 0 and abs(sx - middle) < best_gap:
-                    best = pixels[sx, y]
-                    best_gap = abs(sx - middle)
-            if best is None:
-                continue
-            u = max(-1.0, min(1.0, (x - centre_x) / (width / 2.0)))
-            factor = round((overall + gradient * u) * 20) / 20
-            target[x, y] = tuple(
-                max(0, min(255, round(channel * factor))) for channel in best[:3]
-            ) + (best[3],)
+    ``layout.json`` anchors every sprite at ``ground_x_ratio`` 0.5 and
+    ``ground_y_ratio`` 1.0 - the trunk's foot at the bottom edge, horizontally
+    centred - so the game can position any canvas by its own size.  Content
+    below the ground line (the front rim of the root flare) is cut away the way
+    a drawn tree is cut flat where it meets the turf.
+    """
+    ground = ground_point()
+    gx = (ground[0] - rect[0]) * scale
+    gy = (ground[1] - rect[1]) * scale
+    width, height = image.size
+    rows = max(1, min(height, int(round(gy))))
+    half = max(gx, width - gx)
+    out_w = max(2, int(math.ceil(half * 2.0)))
+    shift = int(round(out_w * 0.5 - gx))
+    out = Image.new("RGBA", (out_w, rows), (0, 0, 0, 0))
+    out.paste(image.crop((0, 0, width, rows)), (shift, 0),
+              image.crop((0, 0, width, rows)))
     return out
 
 
-def generate(preview: bool) -> None:
-    sheet_rows = []
-    for source in source_sprites():
-        image = Image.open(source)
-        views = []
-        for facing in FACINGS:
-            if facing == "0":
-                # The first variant is the authored drawing itself, byte for
-                # byte: the default view of the course must not change.
-                shutil.copyfile(source, view_path(source, facing))
-                views.append(Image.open(source).convert("RGBA"))
+def render_one(species: str, variant: int, scale: float) -> Image.Image:
+    model = build_model(species, variant)
+    image, rect = render(model, 0, scale=scale)
+    return anchor_to_ground(image, rect, scale)
+
+
+def file_name(species: str, variant: int) -> str:
+    return f"{species}_{variant}.png"
+
+
+def layout_text(scale: float, species_scales: dict[str, float] | None = None) -> str:
+    """The layout sidecar: draw scales under the anchors the art is cut to."""
+    species_scales = species_scales or {}
+    layout = {
+        "ground_x_ratio": 0.5,
+        "ground_y_ratio": 1.0,
+        "species": {
+            species: {"scale": round(species_scales.get(species, 1.0 / scale), 3)}
+            for species in sorted(TREES)
+        },
+    }
+    return json.dumps(layout, indent="\t", sort_keys=True) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# validation (mirrors tests/unit/course_design/test_tree_sprites.gd)
+# ---------------------------------------------------------------------------
+
+def validate(images: dict[tuple[str, int], Image.Image]) -> list[str]:
+    problems: list[str] = []
+    for species in TREES:
+        variants = [images[(species, v)] for v in range(VARIANT_COUNT)]
+        if len({v.tobytes() for v in variants}) != VARIANT_COUNT:
+            problems.append(f"{species}: the four variants are not four drawings")
+        for variant, image in enumerate(variants):
+            where = f"{species}_{variant}"
+            if image.width < 4 or image.height < 4:
+                problems.append(f"{where}: canvas {image.size} is too small")
+            alpha = image.getchannel("A")
+            bbox = alpha.getbbox()
+            if bbox is None:
+                problems.append(f"{where}: the canvas is empty")
                 continue
-            view = render_view(image, facing)
-            view.save(view_path(source, facing))
-            views.append(view)
-        sheet_rows.append((os.path.relpath(source, ROOT), views))
-        print(f"{os.path.relpath(source, ROOT)} -> " +
-              " ".join("_" + facing for facing in FACINGS))
-    if preview:
-        draw_preview(sheet_rows)
+            if bbox[3] != image.height:
+                problems.append(f"{where}: content does not meet the bottom edge "
+                                f"the ground anchor needs")
+            if bbox[0] != 0 and bbox[2] != image.width:
+                problems.append(f"{where}: the canvas is padded on both sides, "
+                                f"so the trunk is not at its centre")
+    # The tests pin that the oak's views are independently sized drawings.
+    oak = {images[("oak", v)].size for v in range(VARIANT_COUNT)}
+    if len(oak) < 2:
+        problems.append("oak: the variants share one canvas size; the layout "
+                        "has nothing to adapt to")
+    return problems
 
 
-def check() -> int:
-    """Fail when a committed view differs from what its source generates."""
+# ---------------------------------------------------------------------------
+# previews
+# ---------------------------------------------------------------------------
+
+def _tile_diamond(draw, cx, cy, w, h, fill):
+    draw.polygon([(cx, cy - h / 2), (cx + w / 2, cy),
+                  (cx, cy + h / 2), (cx - w / 2, cy)], fill=fill)
+
+
+def draw_preview(images: dict[tuple[str, int], Image.Image]) -> None:
+    os.makedirs(PREVIEW_DIR, exist_ok=True)
+    # One contact sheet: a row per species, its four variants along it.
+    cell_w, cell_h, scale = 190, 180, 2
+    rows = len(TREES)
+    sheet = Image.new("RGBA", (cell_w * VARIANT_COUNT, cell_h * rows),
+                      (70, 107, 52, 255))
+    draw = ImageDraw.Draw(sheet)
+    for row, species in enumerate(TREES):
+        for col in range(VARIANT_COUNT):
+            view = images[(species, col)]
+            enlarged = view.resize((view.width * scale, view.height * scale),
+                                   Image.NEAREST)
+            sheet.alpha_composite(enlarged, (
+                col * cell_w + (cell_w - enlarged.width) // 2,
+                row * cell_h + (cell_h - 24 - enlarged.height) // 2 + 12))
+        draw.text((8, row * cell_h + 6), species, fill=(240, 240, 220))
+    sheet.convert("RGB").save(os.path.join(PREVIEW_DIR, "trees_sheet.png"))
+
+    # Each variant standing on its tile, the way the course draws it: the
+    # sprite's bottom-centre planted on the tile's centre.
+    cell_w, cell_h, scale = 240, 190, 2
+    cols = 3
+    rows = (len(TREES) + cols - 1) // cols
+    scene = Image.new("RGBA", (cell_w * cols, cell_h * rows), (60, 96, 52, 255))
+    draw = ImageDraw.Draw(scene)
+    for index, species in enumerate(TREES):
+        cx = (index % cols) * cell_w + cell_w // 2
+        cy = (index // cols) * cell_h + cell_h - 36
+        _tile_diamond(draw, cx, cy, 128, 64, (77, 115, 64, 255))
+        view = images[(species, index % VARIANT_COUNT)]
+        enlarged = view.resize((view.width * scale, view.height * scale),
+                               Image.NEAREST)
+        scene.alpha_composite(enlarged,
+                              (cx - enlarged.width // 2, cy - enlarged.height))
+        draw.text((cx - 20, cy + 22), species, fill=(240, 240, 220))
+    scene.convert("RGB").save(os.path.join(PREVIEW_DIR, "trees_on_course.png"))
+
+
+# ---------------------------------------------------------------------------
+# entry point
+# ---------------------------------------------------------------------------
+
+def generate(args) -> int:
+    species_list = [s.strip() for s in args.only.split(",") if s.strip()] \
+        or list(TREES)
+    missing = [s for s in species_list if s not in TREES]
+    if missing:
+        print(f"unknown species: {', '.join(missing)}", file=sys.stderr)
+        return 2
+
+    out_dir = os.path.abspath(args.out_dir)
+    os.makedirs(out_dir, exist_ok=True)
+    images: dict[tuple[str, int], Image.Image] = {}
+    for species in species_list:
+        for variant in range(VARIANT_COUNT):
+            image = render_one(species, variant, args.scale)
+            images[(species, variant)] = image
+            if not args.check:
+                image.save(os.path.join(out_dir, file_name(species, variant)),
+                           optimize=True)
+
+    if args.check:
+        return check(images, out_dir, args.scale)
+
+    if not args.no_validate:
+        problems = validate(images)
+        if problems:
+            print("\nSprite invariant problems:", file=sys.stderr)
+            for problem in problems:
+                print(f"  - {problem}", file=sys.stderr)
+            return 1
+        print("Sprite invariants: OK")
+
+    # Keep the scales of species this run did not re-render.
+    scales = {s: 1.0 / args.scale for s in species_list}
+    layout_path = os.path.join(out_dir, LAYOUT_FILE)
+    if os.path.exists(layout_path) and len(species_list) != len(TREES):
+        try:
+            with open(layout_path) as handle:
+                old = json.load(handle)
+            for species, entry in old.get("species", {}).items():
+                if species not in scales and isinstance(entry, dict):
+                    value = entry.get("scale")
+                    if isinstance(value, (int, float)):
+                        scales[species] = float(value)
+        except (OSError, ValueError):
+            pass
+    with open(layout_path, "w") as handle:
+        handle.write(layout_text(args.scale, scales))
+
+    print(f"Rendered {len(images)} sprites at {args.scale:g} px/world pixel:")
+    for species in species_list:
+        sizes = sorted({images[(species, v)].size for v in range(VARIANT_COUNT)})
+        shown = ", ".join(f"{w}x{h}" for w, h in sizes)
+        print(f"  {species:10s} {VARIANT_COUNT} variants  {shown}")
+    print(f"Layout written to {os.path.relpath(layout_path, ROOT)}")
+
+    if args.preview:
+        draw_preview(images)
+        print(f"Previews written to {os.path.relpath(PREVIEW_DIR, ROOT)}/")
+    return 0
+
+
+def check(images: dict[tuple[str, int], Image.Image], out_dir: str,
+          scale: float) -> int:
+    """Fail when the committed art differs from what the models generate."""
     stale = []
-    for source in source_sprites():
-        image = Image.open(source).convert("RGBA")
-        for facing in FACINGS:
-            path = view_path(source, facing)
-            if not os.path.exists(path):
-                stale.append(f"{path} is missing")
-                continue
-            expected = image if facing == "0" else render_view(image, facing)
-            actual = Image.open(path).convert("RGBA")
-            if actual.size != expected.size or actual.tobytes() != expected.tobytes():
-                stale.append(f"{path} does not match its source")
-                continue
-            if facing != "0" and actual.tobytes() == image.tobytes():
-                stale.append(f"{path} is only a copy of the first view")
+    for (species, variant), image in sorted(images.items()):
+        path = os.path.join(out_dir, file_name(species, variant))
+        if not os.path.exists(path):
+            stale.append(f"{path} is missing")
+            continue
+        committed = Image.open(path).convert("RGBA")
+        if committed.size != image.size or committed.tobytes() != image.tobytes():
+            stale.append(f"{path} does not match its model")
+    layout_path = os.path.join(out_dir, LAYOUT_FILE)
+    if not os.path.exists(layout_path):
+        stale.append(f"{layout_path} is missing")
+    else:
+        try:
+            with open(layout_path) as handle:
+                layout = json.load(handle)
+        except ValueError:
+            layout = {}
+        if layout.get("ground_x_ratio") != 0.5 or layout.get("ground_y_ratio") != 1.0:
+            stale.append(f"{layout_path} no longer anchors at the bottom-centre")
+        entries = layout.get("species", {})
+        for species in sorted({s for s, _v in images}):
+            want = round(1.0 / scale, 3)
+            got = entries.get(species, {}).get("scale")
+            if got != want:
+                stale.append(f"{layout_path}: {species} scale {got} != {want}")
     if stale:
         for problem in stale:
             print(f"STALE: {problem}", file=sys.stderr)
         print("Re-run tools/tree_art/generate.py", file=sys.stderr)
         return 1
-    print(f"All {len(source_sprites()) * len(FACINGS)} tree views are up to date.")
+    print(f"All {len(images)} tree sprites are up to date.")
     return 0
-
-
-def draw_preview(sheet_rows) -> None:
-    """A contact sheet: one row per source, the four angles along it."""
-    os.makedirs(PREVIEW_DIR, exist_ok=True)
-    cell_w, cell_h, scale = 170, 190, 2
-    sheet = Image.new("RGBA", (cell_w * len(FACINGS), cell_h * len(sheet_rows)),
-                      (70, 107, 52, 255))
-    for row, (_name, views) in enumerate(sheet_rows):
-        for col, view in enumerate(views):
-            enlarged = view.resize((view.width * scale, view.height * scale),
-                                   Image.NEAREST)
-            sheet.alpha_composite(enlarged, (
-                col * cell_w + (cell_w - enlarged.width) // 2,
-                row * cell_h + (cell_h - enlarged.height) // 2))
-    path = os.path.join(PREVIEW_DIR, "tree_facings.png")
-    sheet.save(path)
-    print(f"preview: {os.path.relpath(path, ROOT)}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--preview", action="store_true",
-                        help="also draw tmp_preview/tree_facings.png")
+                        help="also write contact sheets to tmp_preview/")
+    parser.add_argument("--only", default="",
+                        help="comma-separated species ids to render")
+    parser.add_argument("--scale", type=float, default=OUTPUT_SCALE,
+                        help="source-art pixels per world pixel")
+    parser.add_argument("--out-dir", default=OUT_DIR,
+                        help="directory for the PNGs and layout.json")
     parser.add_argument("--check", action="store_true",
-                        help="only verify the committed views, writing nothing")
+                        help="only verify the committed art, writing nothing")
+    parser.add_argument("--no-validate", action="store_true",
+                        help="skip the sprite invariant checks")
     args = parser.parse_args()
-    if args.check:
-        return check()
-    generate(args.preview)
-    return 0
+    return generate(args)
 
 
 if __name__ == "__main__":

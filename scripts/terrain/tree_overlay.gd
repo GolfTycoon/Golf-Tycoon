@@ -15,7 +15,7 @@ class_name TreeOverlay
 ## from the tile's coordinates so the mix is varied yet identical every time the
 ## course loads.
 ##
-## Each species can have four independently authored variants —
+## Each species can have four independently drawn variants —
 ## `<species>_0.png` through `<species>_3.png` — and each tile wears one of
 ## them for its whole life (see `facing_at()`). The variants are alternatives,
 ## not four sides of a turning model: a wood is drawn from several of them at
@@ -46,11 +46,12 @@ class_name TreeOverlay
 ## the same tree keeps the same sprite however the course is turned.
 
 ## The evergreen art lives here as `<species>_0/_1/_2/_3.png`; each variant is
-## an independent source image, so its canvas can be sized to suit that
-## drawing. `layout.json` next to these files controls draw scale and the
-## ground anchor. This is the summer art of every species, and the only tree
-## art the game itself ships — a season's variants come from the mods (see
-## `register_mod_art()`).
+## its own drawing - a seeded 3D model baked through the building art's
+## renderer (see `tools/tree_art/generate.py`) - so its canvas can be sized to
+## suit that drawing. `layout.json` next to these files, written by the same
+## generator, controls draw scale and the ground anchor. This is the summer art
+## of every species, and the only tree art the game itself ships — a season's
+## variants come from the mods (see `register_mod_art()`).
 const SPRITE_DIR := "res://assets/sprites/trees/"
 const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
 
@@ -879,7 +880,7 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 ## Fallback art: a trunk and a crown in the species' color, sized by its shape,
 ## so an evergreen, a shrub and a clump of grass still tell each other apart.
 ## It varies with the tree's variant like generated art does (see PROFILES in
-## tools/tree_art/generate.py): variants 2 and 3 mirror it, 1 and 3 foreshorten
+## tools/tree_art/mod_views.py): variants 2 and 3 mirror it, 1 and 3 foreshorten
 ## and lean it about its ground point, and variant 2 sits darker.
 func _draw_silhouette(canvas: Node2D, center: Vector2, species: String, scale_v: float,
 		facing: int = DEFAULT_FACING) -> void:

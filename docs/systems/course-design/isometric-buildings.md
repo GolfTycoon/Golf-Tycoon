@@ -187,6 +187,11 @@ the pack's own `sprites.json`, which `mod_main.gd` registers view by view.
 
 The generator is offline and is not part of the game build. The PNGs and `sprites.json` are committed, so the game and the tests need nothing but Godot. Regenerate and commit all 432 PNGs and the manifest when a design changes; the geometry, palette and building list all live in `buildings.py`. The shipped output is 1:1 art by default (`OUTPUT_SCALE = 1.0`); run `--scale 2.5 --out-dir …` to rebuild the HD pack. Art replaced by hand at another resolution is equally valid: keep the file names and manifest rects, and `BuildingSprites.texture()` fits the new image to the rect at load time.
 
+The woodland sprites are baked the same way by `tools/tree_art/`, which reuses
+this renderer (`render.py`) and its primitives: each species is a 3D model in
+`tools/tree_art/trees.py`, and `tools/tree_art/generate.py` writes
+`assets/sprites/trees/` and its `layout.json` (see [Terrain Types](terrain-types.md)).
+
 ---
 
 ## Tuning Levers
