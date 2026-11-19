@@ -149,30 +149,30 @@ func test_tee_number_sprite_replaces_label_and_tracks_tee_and_number() -> void:
 	add_child_autofree(visualizer)
 	visualizer.initialize(_hole(TEE, CUP, 18), grid)
 	assert_null(visualizer.get_node_or_null("InfoLabel"), "No text plaque under the tee")
-	var sign := visualizer.tee_number_sprite
-	assert_true(sign.texture.resource_path.ends_with("/18.png"))
-	assert_eq(sign.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+	var marker_sprite := visualizer.tee_number_sprite
+	assert_true(marker_sprite.texture.resource_path.ends_with("/18.png"))
+	assert_eq(marker_sprite.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
 	var expected := grid.grid_to_screen_center(TEE) + grid.projection.reproject_screen_offset(Vector2(17, 0))
-	assert_almost_eq(sign.global_position, expected, Vector2.ONE * 0.01)
+	assert_almost_eq(marker_sprite.global_position, expected, Vector2.ONE * 0.01)
 	visualizer.update_tee_position(Vector2i(6, 20))
 	expected = grid.grid_to_screen_center(Vector2i(6, 20)) + grid.projection.reproject_screen_offset(Vector2(17, 0))
-	assert_almost_eq(sign.global_position, expected, Vector2.ONE * 0.01)
+	assert_almost_eq(marker_sprite.global_position, expected, Vector2.ONE * 0.01)
 	visualizer.hole_data.hole_number = 9
 	visualizer.refresh_positions()
-	assert_true(sign.texture.resource_path.ends_with("/9.png"), "Renumbering refreshes the baked image")
+	assert_true(marker_sprite.texture.resource_path.ends_with("/9.png"), "Renumbering refreshes the baked image")
 
 func test_all_tee_number_art_has_transparency_and_anchor_metadata() -> void:
 	var layout: Dictionary = HoleVisualizer.TEE_NUMBER_LAYOUT.data
 	for number in range(1, 100):
-		var name := "%d.png" % number
-		var texture := load("res://assets/sprites/tee_numbers/" + name) as Texture2D
-		assert_not_null(texture, name)
+		var sprite_file := "%d.png" % number
+		var texture := load("res://assets/sprites/tee_numbers/" + sprite_file) as Texture2D
+		assert_not_null(texture, sprite_file)
 		var world_size := texture.get_size() * float(layout.scale)
-		assert_lte(world_size.x, 18.0, "Compact width: " + name)
-		assert_lte(world_size.y, 19.5, "No base or stem below the medallion: " + name)
-		assert_true(texture.get_image().is_invisible() == false, "Sign has visible pixels: " + name)
-		assert_true(texture.get_image().get_pixel(0, 0).a < 0.01, "Transparent canvas: " + name)
-		assert_true(layout.sprites.has(name), "Ground anchor: " + name)
+		assert_lte(world_size.x, 14.5, "Compact width: " + sprite_file)
+		assert_lte(world_size.y, 16.0, "No base or stem below the medallion: " + sprite_file)
+		assert_true(texture.get_image().is_invisible() == false, "Marker has visible pixels: " + sprite_file)
+		assert_true(texture.get_image().get_pixel(0, 0).a < 0.01, "Transparent canvas: " + sprite_file)
+		assert_true(layout.sprites.has(sprite_file), "Ground anchor: " + sprite_file)
 
 func test_tee_sign_sorts_in_world_band_and_follows_corner_relief() -> void:
 	var old_occlusion := PerformanceSettings.tree_occlusion_enabled
@@ -180,24 +180,24 @@ func test_tee_sign_sorts_in_world_band_and_follows_corner_relief() -> void:
 	var visualizer := HoleVisualizer.new()
 	add_child_autofree(visualizer)
 	visualizer.initialize(_hole(TEE, CUP), grid)
-	var sign := visualizer.tee_number_sprite
-	assert_eq(visualizer.z_index, 0, "No overlay Z inherited by the sign")
-	assert_true(visualizer.y_sort_enabled, "Expose the sign's ground position to world Y-sort")
-	assert_false(sign.z_as_relative, "Sign depth is independent of selection overlays")
-	assert_eq(sign.z_index, 2, "Same world band as trees, golfers and pins")
-	assert_null(sign.material, "Flat terrain needs no occlusion shader")
+	var marker_sprite := visualizer.tee_number_sprite
+	assert_eq(visualizer.z_index, 0, "No overlay Z inherited by the marker")
+	assert_true(visualizer.y_sort_enabled, "Expose the marker's ground position to world Y-sort")
+	assert_false(marker_sprite.z_as_relative, "Marker depth is independent of selection overlays")
+	assert_eq(marker_sprite.z_index, 2, "Same world band as trees, golfers and pins")
+	assert_null(marker_sprite.material, "Flat terrain needs no occlusion shader")
 	grid.set_vertex_elevation(TEE + Vector2i.ONE, TerrainGrid.BASE_ELEVATION + 3)
 	var ground := grid.tile_local_grid_point(TEE, HoleVisualizer.TEE_CORNER)
-	assert_almost_eq(sign.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
-		"Sign samples slope height at its actual corner")
-	var mat := sign.material as ShaderMaterial
-	assert_not_null(mat, "Hilly terrain clips the sign with the shared heightfield")
+	assert_almost_eq(marker_sprite.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
+		"Marker samples slope height at its actual corner")
+	var mat := marker_sprite.material as ShaderMaterial
+	assert_not_null(mat, "Hilly terrain clips the marker with the shared heightfield")
 	if mat:
 		assert_eq(mat.shader, HoleVisualizer.TEE_OCCLUSION)
 		assert_eq(mat.get_shader_parameter("ground_grid"), ground)
 	grid.set_view_orientation(6)
-	assert_almost_eq(sign.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
+	assert_almost_eq(marker_sprite.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
 		"Rotation updates both the sort anchor and terrain projection")
 	grid.set_vertex_elevation(TEE + Vector2i.ONE, TerrainGrid.BASE_ELEVATION)
-	assert_null(sign.material, "Levelling the terrain drops the shader")
+	assert_null(marker_sprite.material, "Levelling the terrain drops the shader")
 	PerformanceSettings.tree_occlusion_enabled = old_occlusion
