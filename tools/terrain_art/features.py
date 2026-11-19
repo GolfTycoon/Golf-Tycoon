@@ -285,63 +285,70 @@ def lichen_face(builder: TreeBuilder, cx: float, cy: float, rx: float,
 # ---------------------------------------------------------------------------
 
 def draw_rocks(builder: TreeBuilder, rng) -> None:
-    """A break in the bedrock: angular slate slabs, gravel and quartz grit.
+    """A scatter of small slate outcrops across the tile.
 
-    The tile's ground already paints packed scree, so the model adds the stones
-    that stand proud of it: a broad slab with a flat sunlit crown, a lower
-    shelf beside it, a scatter of angular chunks wedged around them and pale
-    quartz flecks catching the light.  The field spreads across the tile so
-    neighbouring rocky tiles read as one continuous outcrop, and nothing stands
-    very tall - this is ground you can see across, not a wall.
+    The tile stands its stones on Rough ground, so the model lays a handful of
+    separate low outcrops across the tile - each a cracked slab with its own
+    broken ledge - rather than one central pile.  A scatter of angular chunks,
+    two tilted flakes and pale quartz flecks fill the gaps, and nothing stands
+    high: this is stony ground you see across, not a wall.
     """
-    # The main slab: the biggest plane of rock in the tile, set off-centre.
-    slab_angle = rng.uniform(0.0, math.tau)
-    slab_x = BASE_X + math.cos(slab_angle) * rng.uniform(1.0, 5.0)
-    slab_y = BASE_Y + math.sin(slab_angle) * rng.uniform(0.5, 3.0)
-    slab_rx = rng.uniform(8.5, 11.5)
-    slab_ry = slab_rx * rng.uniform(0.58, 0.80)
-    slab_h = rng.uniform(5.0, 7.5)
-    rock_solid(builder, slab_x, slab_y, 0.0, slab_rx, slab_ry, slab_h,
-               SLATE_TONES, rng, sides=6,
-               taper=rng.uniform(0.62, 0.82), wobble=0.22,
-               lean=(rng.uniform(-0.10, 0.10), rng.uniform(-0.08, 0.08)),
-               cap_tone=rng.choice((SLATE_LIGHT, SLATE_SUN)))
+    # Four slots: one stone in the middle, three spread around it. The slots
+    # (rather than a random ring) keep every tile's scatter wide and even, so a
+    # rocky stretch reads as many small stones, not one central pile.
+    slots = [(0.0, 0.0), (-13.0, 1.5), (13.0, -1.0), (0.0, -8.0)]
+    count = rng.randint(3, 4)
+    for i in range(count):
+        cx = BASE_X + slots[i][0] + rng.uniform(-2.0, 2.0)
+        cy = BASE_Y + slots[i][1] + rng.uniform(-1.5, 1.5)
+        rx = rng.uniform(4.6, 6.6) if i == 0 else rng.uniform(3.6, 5.4)
+        ry = rx * rng.uniform(0.58, 0.80)
+        # Low slabs: the whole field stays about knee-high to a golfer.
+        height = rng.uniform(3.8, 5.2) if i == 0 else rng.uniform(2.6, 3.8)
+        rock_solid(builder, cx, cy, 0.0, rx, ry, height,
+                   SLATE_TONES, rng, sides=6 if i == 0 else 5,
+                   taper=rng.uniform(0.58, 0.80), wobble=0.24,
+                   lean=(rng.uniform(-0.14, 0.14), rng.uniform(-0.10, 0.10)),
+                   cap_tone=rng.choice((SLATE_LIGHT, SLATE_SUN)))
 
-    # A second, lower shelf beside it: the outcrop has ledges, not one dome.
-    ledge_angle = slab_angle + math.pi + rng.uniform(-0.8, 0.8)
-    ledge_x = BASE_X + math.cos(ledge_angle) * rng.uniform(12.0, 18.0)
-    ledge_y = BASE_Y + math.sin(ledge_angle) * rng.uniform(3.0, 7.5)
-    ledge_rx = rng.uniform(5.5, 8.0)
-    rock_solid(builder, ledge_x, ledge_y, 0.0, ledge_rx,
-               ledge_rx * rng.uniform(0.6, 0.85), rng.uniform(2.8, 4.6),
-               SLATE_TONES, rng, sides=5,
-               taper=rng.uniform(0.55, 0.8), wobble=0.26,
-               lean=(rng.uniform(-0.12, 0.12), rng.uniform(-0.10, 0.10)),
-               cap_tone=SLATE_LIGHT)
+        # A lower shelf beside every other outcrop: each stone has ledges.
+        if i % 2 == 0:
+            ledge_angle = rng.uniform(0.0, math.tau)
+            ledge_reach = rng.uniform(4.0, 7.0)
+            ledge_rx = rng.uniform(2.4, 3.6)
+            rock_solid(builder,
+                       cx + math.cos(ledge_angle) * ledge_reach,
+                       cy + math.sin(ledge_angle) * ledge_reach * 0.60,
+                       0.0, ledge_rx, ledge_rx * rng.uniform(0.6, 0.85),
+                       rng.uniform(1.4, 2.2), SLATE_TONES, rng, sides=5,
+                       taper=rng.uniform(0.50, 0.75), wobble=0.28,
+                       lean=(rng.uniform(-0.16, 0.16), rng.uniform(-0.12, 0.12)),
+                       cap_tone=SLATE_LIGHT)
 
-    # Angular chunks wedged around the slabs: a field of stone, not one pile.
-    for _ in range(rng.randint(9, 13)):
+    # Angular chunks wedged between the slabs: a field of stone, not one pile.
+    for _ in range(rng.randint(12, 16)):
         angle = rng.uniform(0.0, math.tau)
-        reach = rng.uniform(7.0, 29.0)
-        r = rng.uniform(1.8, 4.4)
+        reach = rng.uniform(7.0, 28.0)
+        r = rng.uniform(1.5, 3.8)
         chip(builder, BASE_X + math.cos(angle) * reach,
              BASE_Y + math.sin(angle) * reach * 0.60, r,
              SLATE_TONES, rng)
 
-    # A tilted flake leaning against the main slab: broken slate, not a scoop
-    # of gravel.
-    flake_angle = slab_angle + rng.uniform(-1.4, 1.4)
-    flake_reach = rng.uniform(9.0, 14.0)
-    rock_solid(builder, BASE_X + math.cos(flake_angle) * flake_reach,
-               BASE_Y + math.sin(flake_angle) * flake_reach * 0.6,
-               rng.uniform(2.0, 4.0), rng.uniform(4.0, 6.5),
-               rng.uniform(2.0, 3.2), rng.uniform(1.2, 2.2),
-               SLATE_TONES, rng, sides=4, taper=0.5, wobble=0.2,
-               lean=(rng.uniform(-0.25, 0.25), rng.uniform(-0.2, 0.2)),
-               cap_tone=SLATE_SUN, buried=0.4)
+    # Two tilted flakes of broken slate leaning out of the field.
+    for _ in range(2):
+        flake_angle = rng.uniform(0.0, math.tau)
+        flake_reach = rng.uniform(8.0, 16.0)
+        flake_rx = rng.uniform(2.8, 4.4)
+        rock_solid(builder, BASE_X + math.cos(flake_angle) * flake_reach,
+                   BASE_Y + math.sin(flake_angle) * flake_reach * 0.60,
+                   rng.uniform(0.8, 1.8), flake_rx,
+                   rng.uniform(1.8, 3.0), rng.uniform(1.0, 1.8),
+                   SLATE_TONES, rng, sides=4, taper=0.5, wobble=0.2,
+                   lean=(rng.uniform(-0.25, 0.25), rng.uniform(-0.2, 0.2)),
+                   cap_tone=SLATE_SUN, buried=0.4)
 
     # Gravel and quartz grit that has shaken loose between the stones.
-    for _ in range(rng.randint(7, 11)):
+    for _ in range(rng.randint(8, 12)):
         angle = rng.uniform(0.0, math.tau)
         reach = rng.uniform(5.0, 27.0)
         speckle_stone(builder,
@@ -484,86 +491,87 @@ def _gorse_clump(builder: TreeBuilder, cx: float, cy: float, cz: float,
                          ao_base=0.94, segments=5, rings=3, group=gid)
 
 
-def draw_brush(builder: TreeBuilder, rng) -> None:
-    """A dense stand of gorse and bramble: thorny stems, gnarled crowns.
+def _gorse_bush(builder: TreeBuilder, rng, cx: float, cy: float, scale: float,
+                stem_group: int, crown_group: int) -> None:
+    """One low gorse bush: short woody stems under a flat crown of foliage."""
+    stem_count = rng.randint(2, 3)
+    for i in range(stem_count):
+        yaw = math.tau * i / stem_count + rng.uniform(-0.5, 0.5)
+        base = (cx + math.cos(yaw) * rng.uniform(0.4, 1.8),
+                cy + math.sin(yaw) * rng.uniform(0.3, 1.4), 0.0)
+        top = (cx + math.cos(yaw) * rng.uniform(1.5, 4.0) * scale,
+               cy + math.sin(yaw) * rng.uniform(1.2, 3.0) * scale,
+               rng.uniform(3.2, 5.0) * scale)
+        builder.limb(base, top, 0.75, 0.30, SCRUB_TWIG,
+                     segments=4, group=stem_group)
+        # A short fork or two, so the wood still shows through the crown.
+        for side in (-0.7, 0.8):
+            if rng.random() > 0.65:
+                continue
+            fork_yaw = yaw + side + rng.uniform(-0.3, 0.3)
+            fork_reach = rng.uniform(1.8, 3.6) * scale
+            tip = (top[0] + math.cos(fork_yaw) * fork_reach,
+                   top[1] + math.sin(fork_yaw) * fork_reach * 0.7,
+                   top[2] + rng.uniform(0.5, 1.5) * scale)
+            builder.limb(top, tip, 0.42, 0.16, SCRUB_TWIG_DARK,
+                         segments=3, group=stem_group, cap=False)
 
-    A low, spreading thicket: stems fork out of the turf first, so the scrub is
-    visibly woody rather than a green boulder; three or four flat leaf clouds
-    then grow along the stems, each with its own sunlit rim, and yellow gorse
-    blossoms catch the light on the warm side.  A few thorn branches poke out
-    of the silhouette and a skirt of low sprigs roots the clump into the tile.
-    It stands about as tall as a rock, so it covers ground rather than treetops.
+    rx = rng.uniform(6.2, 8.4) * scale
+    ry = rx * rng.uniform(0.68, 0.86)
+    _gorse_clump(builder, cx, cy, rng.uniform(3.8, 5.2) * scale,
+                 (rx, ry, rng.uniform(2.6, 3.6) * scale),
+                 rng, group=crown_group, count=20, cluster=2.0, tips=8)
+
+
+def draw_brush(builder: TreeBuilder, rng) -> None:
+    """Several low gorse bushes scattered across the tile.
+
+    The tile wears Rough ground, so the model plants a handful of separate low
+    thickets across it - a central bush ringed by two or three more - each with
+    its own short woody stems and flat crown of foliage.  Thorn stems and a
+    skirt of low sprigs tie them to the turf.  The whole stand is about a
+    rock's height: brush is ground cover, not a hedge.
     """
     stem_group = builder.group()
     crown_group = builder.group()
 
-    # The woody framework: four or five forking stems, tallest at the centre.
-    # Gorse in this course grows low: the whole thicket stays about a rock's
-    # height, so it reads as ground cover rather than a tree.
-    tips = []
-    stem_count = rng.randint(4, 6)
-    for i in range(stem_count):
-        yaw = math.tau * i / stem_count + rng.uniform(-0.4, 0.4)
-        reach = rng.uniform(2.0, 8.0)
-        height = rng.uniform(4.5, 10.0) * (1.0 if i % 2 else 0.78)
-        base = (BASE_X + math.cos(yaw) * rng.uniform(0.5, 3.5),
-                BASE_Y + math.sin(yaw) * rng.uniform(0.4, 2.4), 0.0)
-        top = (BASE_X + math.cos(yaw) * reach,
-               BASE_Y + math.sin(yaw) * reach * 0.75, height)
-        builder.limb(base, top, 0.95, 0.40, SCRUB_TWIG,
-                     segments=5, group=stem_group)
-        # Two short forks per stem; their tips carry the leaf clouds.
-        for side in (-0.7, 0.65):
-            fork_yaw = yaw + side + rng.uniform(-0.2, 0.2)
-            fork_reach = rng.uniform(4.0, 8.0)
-            tip = (top[0] + math.cos(fork_yaw) * fork_reach,
-                   top[1] + math.sin(fork_yaw) * fork_reach * 0.7,
-                   top[2] + rng.uniform(1.0, 2.6))
-            builder.limb(top, tip, 0.5, 0.20, SCRUB_TWIG_DARK,
-                         segments=4, group=stem_group, cap=False)
-            tips.append((tip, rng.uniform(4.2, 6.2)))
+    # Four slots: one bush in the middle, three spread around it, so every tile
+    # shows several separate thickets instead of one hedge.
+    slots = [(0.0, 0.0), (-13.0, 1.5), (13.0, -1.0), (0.0, -8.0)]
+    count = rng.randint(3, 4)
+    for i in range(count):
+        cx = BASE_X + slots[i][0] + rng.uniform(-2.0, 2.0)
+        cy = BASE_Y + slots[i][1] + rng.uniform(-1.5, 1.5)
+        scale = rng.uniform(0.88, 1.10)
+        _gorse_bush(builder, rng, cx, cy, scale, stem_group, crown_group)
 
-    # A low central cushion, then one cloud at each stem tip: separate masses
-    # with twigs showing between them, exactly as a real gorse thicket reads.
-    main_rx = rng.uniform(13.0, 16.0)
-    main_ry = main_rx * rng.uniform(0.66, 0.80)
-    _gorse_clump(builder, BASE_X + rng.uniform(-2.0, 2.0),
-                 BASE_Y + rng.uniform(-1.0, 1.0), rng.uniform(6.0, 8.0),
-                 (main_rx, main_ry, rng.uniform(3.2, 4.2)),
-                 rng, group=crown_group, count=30, cluster=2.5, tips=12)
-    for (tx, ty, tz), radius in tips:
-        _gorse_clump(builder, tx, ty, tz + radius * 0.30,
-                     (radius, radius * rng.uniform(0.72, 0.92),
-                      radius * rng.uniform(0.48, 0.66)),
-                     rng, group=crown_group, count=16, cluster=2.1, tips=7)
+        # A thorn branch or two breaking each bush's silhouette.
+        for _ in range(rng.randint(1, 2)):
+            thorn_angle = rng.uniform(0.0, math.tau)
+            thorn_reach = rng.uniform(5.0, 9.0) * scale
+            start_z = rng.uniform(2.2, 4.0) * scale
+            end = (cx + math.cos(thorn_angle) * thorn_reach,
+                   cy + math.sin(thorn_angle) * thorn_reach * 0.72,
+                   start_z + rng.uniform(0.5, 2.0) * scale)
+            builder.limb((cx, cy, start_z), end, 0.34, 0.10,
+                         SCRUB_TWIG_DARK, segments=3, group=stem_group,
+                         cap=False)
+            for _ in range(rng.randint(1, 2)):
+                builder.blob(end[0] + rng.uniform(-1.2, 1.2),
+                             end[1] + rng.uniform(-0.9, 0.9),
+                             end[2] + rng.uniform(-0.8, 0.8),
+                             0.42, 0.42, 0.42, THORN,
+                             ao_base=0.96, segments=4, rings=3,
+                             group=stem_group)
 
-    # Thorn branches breaking the silhouette: a bramble's warning.
-    for _ in range(rng.randint(4, 7)):
+    # Low sprigs trailing onto the turf, so the bushes are rooted in the tile.
+    for _ in range(rng.randint(6, 9)):
         angle = rng.uniform(0.0, math.tau)
-        reach = rng.uniform(10.0, 17.0)
-        start = (BASE_X + math.cos(angle) * 3.0,
-                 BASE_Y + math.sin(angle) * 2.0, rng.uniform(3.0, 6.5))
-        end = (BASE_X + math.cos(angle) * reach,
-               BASE_Y + math.sin(angle) * reach * 0.72,
-               start[2] + rng.uniform(1.0, 3.0))
-        builder.limb(start, end, 0.38, 0.10, SCRUB_TWIG_DARK,
-                     segments=3, group=stem_group, cap=False)
-        for _ in range(rng.randint(1, 3)):
-            builder.blob(end[0] + rng.uniform(-1.2, 1.2),
-                         end[1] + rng.uniform(-0.9, 0.9),
-                         end[2] + rng.uniform(-0.8, 0.8),
-                         0.42, 0.42, 0.42, THORN,
-                         ao_base=0.96, segments=4, rings=3,
-                         group=stem_group)
-
-    # Low sprigs trailing onto the turf, so the clump is rooted in its tile.
-    for _ in range(rng.randint(4, 6)):
-        angle = rng.uniform(0.0, math.tau)
-        reach = rng.uniform(10.0, 15.0)
+        reach = rng.uniform(8.0, 16.0)
         builder.leaf_tuft(BASE_X + math.cos(angle) * reach,
                           BASE_Y + math.sin(angle) * reach * 0.7,
-                          rng.uniform(0.8, 2.6), GORSE, rng,
-                          size=1.7, spread=1.2, group=crown_group, count=3)
+                          rng.uniform(0.6, 1.8), GORSE, rng,
+                          size=1.5, spread=1.1, group=crown_group, count=3)
 
 
 #: The features the game draws as a sprite over their tile, in toolbar order.

@@ -53,9 +53,9 @@ beside an oak belongs to the same afternoon.
 
 | Feature | Silhouette | Detail |
 | --- | --- | --- |
-| **Rocks** | A main slate slab and a lower ledge, surrounded by a field of angular chunks | Slate tones from shadow to sunlit grey-blue, a tilted flake of broken slate, quartz flecks and loose grit between the stones |
+| **Rocks** | Three or four separate low outcrops — a central slab and a scatter around it, each with its own broken ledge — among a field of angular chunks | Slate tones from shadow to sunlit grey-blue, two tilted flakes of broken slate, quartz flecks and loose grit between the stones |
 | **Boulder** | A low bedrock shelf carrying one broad, slightly leaning granite mass, with a second lobe breaking out of its flank | A companion shard leans against the other flank, wedged stones gather at the foot, warm-grey granite tones, cream lichen on the crown and face, and moss gathering in the seam at the foot |
-| **Brush** | A low, spreading thicket: four to six woody stems carrying separate flattened clouds of gorse foliage, about as tall as a rock | Gorse four-tone foliage, bright yellow blossom sprays on the sunward shell, thorn branches breaking the rim and low sprigs rooting the clump |
+| **Brush** | Three or four separate low bushes — a central one and a scatter around it — each with short woody stems and a flat crown of gorse foliage, about as tall as a rock | Gorse four-tone foliage, bright yellow blossom sprays on the sunward shell, thorn branches breaking the bush rims and low sprigs rooting the stand |
 
 ---
 
@@ -171,7 +171,9 @@ exactly as the overlay places it).
 | Stone tones | `tools/terrain_art/features.py` `SLATE_*`, `GRANITE_*` | Four slate and five granite tones | How cold, light and readable stone is against the ground |
 | Gorse tones and blossom | `tools/terrain_art/features.py` `GORSE_*`, `BLOSSOM*` | Four foliage tones, two yellows | The scrub's colour and how thickly it flowers |
 | Ground under a sprite | `shaders/course_surface.gdshader` `surface()` (`palette_color(3.0)` and Rough's tuft noise) and `boundary_class()` | Rough's own turf, shared with Rough tiles | Whether the three tiles read as rough studded with stone or scrub, and where their grass merges into adjacent rough |
-| Brush height | `tools/terrain_art/features.py` `draw_brush()` | Stems 4.5–10, crowns 3.2–4.2, tip clouds 4.2–6.2 | How tall the thicket stands; it should stay about a rock's height |
+| Object height | `tools/terrain_art/features.py` `draw_rocks()`, `draw_brush()` | Slabs 2.6–5.2 high; bush crowns 2.6–3.6 tall, centred 3.8–5.2 up | How tall the stones and bushes stand; both should stay low ground cover |
+| Stones per tile | `tools/terrain_art/features.py` `draw_rocks()` `slots`, `count` | Three or four slots: centre, left, right and back | How many separate outcrops one Rocks drawing shows |
+| Bushes per tile | `tools/terrain_art/features.py` `draw_brush()` `slots`, `count` | Three or four slots: centre, left, right and back | How many separate thickets one Brush drawing shows |
 
 ---
 
