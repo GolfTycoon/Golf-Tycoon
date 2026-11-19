@@ -9,6 +9,9 @@ var flag: Flag
 # Visual components
 var line: Line2D
 var tee_number_sprite: Sprite2D
+const TEE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
+const TEE_CORNER := Vector2(17, 0)
+var _tee_occlusion_material: ShaderMaterial
 const TEE_NUMBER_LAYOUT = preload("res://assets/sprites/tee_numbers/layout.json")
 # Shared metadata: each complete sprite has its own cropped-canvas foot anchor.
 static var _tee_layout: Dictionary = {}
@@ -21,13 +24,18 @@ var _highlighted: bool = false
 signal hole_selected(hole_number: int)
 
 func _ready() -> void:
-	z_index = 10  # Render above terrain but below entities
+	# Participate in the world Y-sort; only selection annotations are overlays.
+	z_index = 0
+	y_sort_enabled = true
 
 func initialize(hole: GameManager.HoleData, grid: TerrainGrid) -> void:
 	hole_data = hole
 	terrain_grid = grid
 	_create_visuals()
 	EventBus.terrain_tile_changed.connect(_on_terrain_tile_changed)
+	terrain_grid.view_rotated.connect(_on_tee_view_rotated)
+	terrain_grid.vertex_elevation_changed.connect(_on_tee_elevation_changed)
+	terrain_grid.terrain_occlusion_changed.connect(_on_tee_occlusion_changed)
 
 func _create_visuals() -> void:
 	# Create shot path line (routed through golfer AI waypoints)
@@ -52,7 +60,7 @@ func _create_connection_line() -> void:
 	line.width = 3.0 if _highlighted else 1.0
 	line.default_color = Color(1, 1, 0, 0.7) if _highlighted else Color(0.96, 0.91, 0.70, 0.24)
 	line.antialiased = true
-	line.z_index = -1  # Behind everything else
+	line.z_index = 9  # Selection route above the world, beneath annotations
 	line.visible = _highlighted
 	add_child(line)
 
@@ -101,7 +109,7 @@ func _create_waypoint_marker(grid_pos: Vector2i) -> Node2D:
 	var marker := Node2D.new()
 	var screen_pos: Vector2 = terrain_grid.grid_to_screen_center(grid_pos)
 	marker.position = to_local(screen_pos)
-	marker.z_index = -1
+	marker.z_index = 9
 	marker.visible = _highlighted
 
 	# Outer ring (dark outline for contrast)
@@ -151,6 +159,9 @@ func _create_tee_number_sprite() -> void:
 	tee_number_sprite = Sprite2D.new()
 	tee_number_sprite.name = "TeeNumberSprite"
 	tee_number_sprite.centered = false
+	# Same depth band as trees, pins and golfers, sorted at its ground contact.
+	tee_number_sprite.z_as_relative = false
+	tee_number_sprite.z_index = 2
 	tee_number_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(tee_number_sprite)
 	_update_tee_number_sprite()
@@ -171,11 +182,28 @@ func _update_tee_number_sprite() -> void:
 	tee_number_sprite.scale = Vector2.ONE * draw_scale
 	var anchor: Array = sprites[file_name]
 	tee_number_sprite.offset = -tee_number_sprite.texture.get_size() * Vector2(anchor[0], anchor[1])
-	var tee_screen := terrain_grid.grid_to_screen_center(hole_data.tee_position)
-	# Inset from the east corner. Reproject the ground anchor, not the readable
-	# sign, so it stays on the same tile corner in rotated and top-down views.
-	var corner := terrain_grid.projection.reproject_screen_offset(Vector2(17, 0))
-	tee_number_sprite.position = to_local(tee_screen + corner)
+	# Use the actual fractional corner height, not the tile centre's elevation.
+	var ground := terrain_grid.tile_local_grid_point(hole_data.tee_position, TEE_CORNER)
+	tee_number_sprite.global_position = terrain_grid.grid_point_to_screen(ground)
+	if terrain_grid.terrain_occlusion_enabled() and terrain_grid._course_surface != null:
+		if _tee_occlusion_material == null:
+			_tee_occlusion_material = ShaderMaterial.new()
+			_tee_occlusion_material.shader = TEE_OCCLUSION
+			_tee_occlusion_material.set_shader_parameter("occlusion_epsilon", TerrainOcclusion.PROP_EPSILON)
+		terrain_grid._course_surface.configure_sprite_occlusion(_tee_occlusion_material, ground, Vector2.ZERO)
+		tee_number_sprite.material = _tee_occlusion_material
+	else:
+		tee_number_sprite.material = null
+
+func _on_tee_view_rotated(_orientation: int, _isometric: bool) -> void:
+	_update_tee_number_sprite()
+
+func _on_tee_elevation_changed(_vertex: Vector2i, _old: int, _new: int) -> void:
+	# Sculpting can change the corner height without changing terrain type/par.
+	_update_tee_number_sprite()
+
+func _on_tee_occlusion_changed(_enabled: bool) -> void:
+	_update_tee_number_sprite()
 
 func set_visible_state(visible_state: bool) -> void:
 	visible = visible_state
@@ -281,7 +309,7 @@ func _update_carry_annotations() -> void:
 
 func _create_carry_annotation(seg: ForcedCarryCalculator.CarrySegment) -> Node2D:
 	var ann = Node2D.new()
-	ann.z_index = 0
+	ann.z_index = 10
 
 	var start_screen = terrain_grid.grid_to_screen_center(seg.start_grid)
 	var end_screen = terrain_grid.grid_to_screen_center(seg.end_grid)
@@ -335,6 +363,13 @@ func get_hole_number() -> int:
 	return hole_data.hole_number if hole_data else 0
 
 func _exit_tree() -> void:
+	if is_instance_valid(terrain_grid):
+		if terrain_grid.view_rotated.is_connected(_on_tee_view_rotated):
+			terrain_grid.view_rotated.disconnect(_on_tee_view_rotated)
+		if terrain_grid.vertex_elevation_changed.is_connected(_on_tee_elevation_changed):
+			terrain_grid.vertex_elevation_changed.disconnect(_on_tee_elevation_changed)
+		if terrain_grid.terrain_occlusion_changed.is_connected(_on_tee_occlusion_changed):
+			terrain_grid.terrain_occlusion_changed.disconnect(_on_tee_occlusion_changed)
 	if EventBus.terrain_tile_changed.is_connected(_on_terrain_tile_changed):
 		EventBus.terrain_tile_changed.disconnect(_on_terrain_tile_changed)
 

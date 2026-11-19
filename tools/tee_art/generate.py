@@ -15,7 +15,6 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/building_art'))
 from render import Model, C, mat, render, project, grid_origin_offset
-from buildings import Builder
 
 OUT = ROOT / 'assets/sprites/tee_numbers'
 DIGITS = [
@@ -29,23 +28,17 @@ DIGITS = [
 
 def bake(number):
     model = Model(1, 1)
-    b = Builder(model)
     brass = mat(C('cfad62'), 'metal', emissive=0.18)
     green = mat(C('123e34'), unlit=True)
     rim_shadow = mat(C('594b30'))
     gold_light = mat(C('e2c884'), unlit=True)
-    stone = mat(C('777b70'), 'gravel')
     cream = mat(C('fff0be'), unlit=True)
-    # Compact club-crest marker: 17 world pixels wide, with a low stone foot.
-    # Keep the glyphs large relative to the face rather than shrinking the old
-    # sign wholesale; two-digit numbers remain legible at normal game zoom.
-    b.cylinder(32, 16, 0, 1.5, 4.5, stone, segments=32)
-    b.cylinder(32, 16, 1.5, 4, 1.2, brass, segments=16)
-
+    # A standalone medallion: no stone base, plinth or supporting stem.
+    # Its lower rim touches the ground anchor used by sorting and occlusion.
     def point(u, v, depth=0):
         # A camera-facing plane: horizontal model motion projects horizontally.
         # The round sign stays readable as its ground anchor rotates with the tee.
-        return (32 + u + depth, 16 - u * 0.5 + depth * 0.5, 11 + v)
+        return (32 + u + depth, 16 - u * 0.5 + depth * 0.5, 8.5 + v)
 
     def disk(radius, depth, material):
         group = model.group()

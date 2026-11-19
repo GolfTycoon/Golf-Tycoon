@@ -43,6 +43,7 @@ script = ExtResource("6_ball_manager")
 script = ExtResource("7_hole_manager")
 
 [node name="Holes" type="Node2D" parent="." unique_id=1134261089]
+y_sort_enabled = true
 
 [node name="IsometricCamera" type="Camera2D" parent="." unique_id=581873074]
 position = Vector2(2000, 1000)

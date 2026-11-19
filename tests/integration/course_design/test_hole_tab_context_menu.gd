@@ -285,3 +285,13 @@ func test_delete_hole_asks_first_and_the_columns_close_the_gap() -> void:
 	assert_eq(hole_grid.get_child_count(), 8, "Eight holes are left")
 	assert_eq(hole_grid.columns, 3, "Eight holes fill two columns of three and start a third")
 	assert_eq(_slot_holes(), [1, 4, 7, 2, 5, 8, 3, 6], "The remaining holes are renumbered down the columns")
+
+func test_tee_signs_participate_in_the_world_sort_tree() -> void:
+	var holes := main.get_node("Holes") as Node2D
+	assert_true(main.y_sort_enabled)
+	assert_true(holes.y_sort_enabled, "Holes must not batch their signs at the origin")
+	for visualizer in main.hole_manager.get_all_hole_visualizers():
+		assert_true(visualizer.y_sort_enabled)
+		assert_eq(visualizer.z_index, 0)
+		assert_eq(visualizer.tee_number_sprite.z_index, 2)
+		assert_false(visualizer.tee_number_sprite.z_as_relative)
