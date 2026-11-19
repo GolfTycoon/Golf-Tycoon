@@ -8,7 +8,10 @@ var flag: Flag
 
 # Visual components
 var line: Line2D
-var info_label: Label
+var tee_number_sprite: Sprite2D
+const TEE_NUMBER_LAYOUT = preload("res://assets/sprites/tee_numbers/layout.json")
+# Shared metadata: each complete sprite has its own cropped-canvas foot anchor.
+static var _tee_layout: Dictionary = {}
 var waypoint_markers: Array[Node2D] = []
 var carry_annotations: Array[Node2D] = []
 static var carry_annotations_visible: bool = false  # Toggled by J hotkey with fairway width
@@ -33,8 +36,8 @@ func _create_visuals() -> void:
 	# Create flag at hole position
 	_create_flag()
 
-	# Create info label
-	_create_info_label()
+	# Create a baked number sign inside the tee corner
+	_create_tee_number_sprite()
 
 	# Create forced carry annotations
 	_update_carry_annotations()
@@ -141,41 +144,38 @@ func _create_flag() -> void:
 	# Connect flag signals
 	flag.flag_selected.connect(_on_flag_selected)
 
-func _create_info_label() -> void:
-	if info_label:
-		remove_child(info_label)
-		info_label.free()
+func _create_tee_number_sprite() -> void:
+	if tee_number_sprite:
+		remove_child(tee_number_sprite)
+		tee_number_sprite.free()
+	tee_number_sprite = Sprite2D.new()
+	tee_number_sprite.name = "TeeNumberSprite"
+	tee_number_sprite.centered = false
+	tee_number_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(tee_number_sprite)
+	_update_tee_number_sprite()
 
-	info_label = Label.new()
-	info_label.name = "InfoLabel"
-	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	add_child(info_label)
-
-	_update_info_label()
-
-func _update_info_label() -> void:
-	if not info_label or not terrain_grid or not hole_data:
+func _update_tee_number_sprite() -> void:
+	if not tee_number_sprite or not terrain_grid or not hole_data:
 		return
-
-	# Compact tee-side plaque keeps the landscape clear of multiline debug labels.
-	var tee_screen = terrain_grid.grid_to_screen_center(hole_data.tee_position)
-	info_label.position = to_local(tee_screen) + Vector2(-32, 20)
-	var par_text = "PAR %d" % hole_data.par
-	if hole_data.par_override > 0:
-		par_text += "*"
-	info_label.text = "%02d  ·  %s" % [hole_data.hole_number, par_text]
-	info_label.tooltip_text = "Hole %d · Difficulty %.1f" % [hole_data.hole_number, hole_data.difficulty_rating]
-	info_label.add_theme_font_size_override("font_size", 18)
-	info_label.add_theme_color_override("font_color", UIConstants.COLOR_TEXT)
-	info_label.add_theme_color_override("font_outline_color", UIConstants.COLOR_BG_DARK)
-	info_label.add_theme_constant_override("outline_size", 4)
-	var plaque := StyleBoxFlat.new()
-	plaque.bg_color = Color("203f32dd")
-	plaque.set_content_margin_all(5)
-	plaque.set_corner_radius_all(4)
-	info_label.add_theme_stylebox_override("normal", plaque)
-	info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _tee_layout.is_empty():
+		_tee_layout = TEE_NUMBER_LAYOUT.data
+	var file_name := "%d.png" % hole_data.hole_number
+	var sprites: Dictionary = _tee_layout.get("sprites", {})
+	# Unsupported custom-course numbers must not silently show the wrong hole.
+	tee_number_sprite.visible = sprites.has(file_name)
+	if not tee_number_sprite.visible:
+		return
+	tee_number_sprite.texture = load("res://assets/sprites/tee_numbers/" + file_name)
+	var draw_scale: float = _tee_layout.get("scale", 0.5)
+	tee_number_sprite.scale = Vector2.ONE * draw_scale
+	var anchor: Array = sprites[file_name]
+	tee_number_sprite.offset = -tee_number_sprite.texture.get_size() * Vector2(anchor[0], anchor[1])
+	var tee_screen := terrain_grid.grid_to_screen_center(hole_data.tee_position)
+	# Inset from the east corner. Reproject the ground anchor, not the readable
+	# sign, so it stays on the same tile corner in rotated and top-down views.
+	var corner := terrain_grid.projection.reproject_screen_offset(Vector2(17, 0))
+	tee_number_sprite.position = to_local(tee_screen + corner)
 
 func set_visible_state(visible_state: bool) -> void:
 	visible = visible_state
@@ -220,8 +220,10 @@ func _deferred_terrain_update() -> void:
 		var new_difficulty = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 		if absf(new_difficulty - hole_data.difficulty_rating) > 0.05:
 			hole_data.difficulty_rating = new_difficulty
-			_update_info_label()
+			_update_tee_number_sprite()
 			EventBus.hole_difficulty_changed.emit(hole_data.hole_number, new_difficulty)
+
+		_update_tee_number_sprite()
 
 		# Recalculate shot path (terrain changes affect golfer routing)
 		_update_line()
@@ -233,7 +235,7 @@ func update_tee_position(new_tee_pos: Vector2i) -> void:
 	_recalculate_par_with_override()
 	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 	_update_line()
-	_update_info_label()
+	_update_tee_number_sprite()
 	_update_carry_annotations()
 	EventBus.hole_updated.emit(hole_data.hole_number)
 
@@ -247,7 +249,7 @@ func update_green_position(new_green_pos: Vector2i) -> void:
 	_recalculate_par_with_override()
 	hole_data.difficulty_rating = DifficultyCalculator.calculate_hole_difficulty(hole_data, terrain_grid)
 	_update_line()
-	_update_info_label()
+	_update_tee_number_sprite()
 	_update_carry_annotations()
 	EventBus.hole_updated.emit(hole_data.hole_number)
 
@@ -321,7 +323,7 @@ func _create_carry_annotation(seg: ForcedCarryCalculator.CarrySegment) -> Node2D
 
 func update_visualization() -> void:
 	_update_line()
-	_update_info_label()
+	_update_tee_number_sprite()
 	_update_carry_annotations()
 
 func refresh_positions() -> void:

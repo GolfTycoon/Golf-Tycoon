@@ -85,7 +85,7 @@ func test_visualizer_hides_connection_line_and_markers_until_highlighted() -> vo
 	assert_false(visualizer.waypoint_markers[0].visible,
 			"Landing zone markers stay hidden while the line is hidden")
 	assert_true(visualizer.flag.visible, "The flag remains visible")
-	assert_true(visualizer.info_label.visible, "The tee plaque remains visible")
+	assert_true(visualizer.tee_number_sprite.visible, "The tee number sprite remains visible")
 
 	# Terrain/par updates while unselected must keep the line and newly created markers hidden.
 	visualizer.hole_data.par = 3
@@ -143,3 +143,30 @@ func test_combined_flight_scan_matches_original_helpers() -> void:
 		else:
 			assert_eq(combined, ShotAI._count_trees_along_path(start, end, copy))
 		copy.free()
+
+func test_tee_number_sprite_replaces_label_and_tracks_tee_and_number() -> void:
+	var visualizer := HoleVisualizer.new()
+	add_child_autofree(visualizer)
+	visualizer.initialize(_hole(TEE, CUP, 18), grid)
+	assert_null(visualizer.get_node_or_null("InfoLabel"), "No text plaque under the tee")
+	var sign := visualizer.tee_number_sprite
+	assert_true(sign.texture.resource_path.ends_with("/18.png"))
+	assert_eq(sign.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+	var expected := grid.grid_to_screen_center(TEE) + grid.projection.reproject_screen_offset(Vector2(17, 0))
+	assert_almost_eq(sign.global_position, expected, Vector2.ONE * 0.01)
+	visualizer.update_tee_position(Vector2i(6, 20))
+	expected = grid.grid_to_screen_center(Vector2i(6, 20)) + grid.projection.reproject_screen_offset(Vector2(17, 0))
+	assert_almost_eq(sign.global_position, expected, Vector2.ONE * 0.01)
+	visualizer.hole_data.hole_number = 9
+	visualizer.refresh_positions()
+	assert_true(sign.texture.resource_path.ends_with("/9.png"), "Renumbering refreshes the baked image")
+
+func test_all_tee_number_art_has_transparency_and_anchor_metadata() -> void:
+	var layout: Dictionary = HoleVisualizer.TEE_NUMBER_LAYOUT.data
+	for number in range(1, 100):
+		var name := "%d.png" % number
+		var texture := load("res://assets/sprites/tee_numbers/" + name) as Texture2D
+		assert_not_null(texture, name)
+		assert_true(texture.get_image().is_invisible() == false, "Sign has visible pixels: " + name)
+		assert_true(texture.get_image().get_pixel(0, 0).a < 0.01, "Transparent canvas: " + name)
+		assert_true(layout.sprites.has(name), "Ground anchor: " + name)

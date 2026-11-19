@@ -147,7 +147,7 @@ func _assert_only_hole_line_visible(selected_hole: int, context: String) -> void
 			assert_eq(marker.visible, expected,
 				"%s: hole %d waypoint marker visibility" % [context, hole_num])
 		assert_true(vis.flag.visible, "%s: hole %d flag stays visible" % [context, hole_num])
-		assert_true(vis.info_label.visible, "%s: hole %d plaque stays visible" % [context, hole_num])
+		assert_true(vis.tee_number_sprite.visible, "%s: hole %d number sprite stays visible" % [context, hole_num])
 
 
 func test_connection_lines_only_show_for_the_selected_hole() -> void:
