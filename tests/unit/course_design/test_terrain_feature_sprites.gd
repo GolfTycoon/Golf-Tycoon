@@ -10,10 +10,11 @@ extends GameTest
 ## * `layout.json` anchors each drawing by its own canvas size, because the
 ##   variants are cropped to different silhouettes;
 ## * the toolbar preview reads the first drawing;
-## * a painted tile gets one CanvasItem at its own projected centre, in the
-##   ground band, below the standing trees;
-## * Rocks and Brush scatter two or three different variant drawings inside that
-##   CanvasItem, while Boulder stands a single drawing;
+## * a painted tile gets one container at its own projected centre, in the
+##   ground band, below the standing trees, and every drawing inside it is its
+##   own CanvasItem;
+## * Rocks and Brush scatter two or three different variant drawings across that
+##   container, while Boulder stands a single drawing;
 ## * the variant a tile wears is a mixed hash of its position, deterministic and
 ##   independent of the course's view.
 ##
@@ -137,16 +138,65 @@ func test_every_painted_feature_tile_gets_a_sprite_at_its_centre() -> void:
 	grid._feature_overlay._sync_visuals()
 
 	assert_eq(grid._feature_overlay._visuals.size(), expected.size(),
-			"one CanvasItem per painted feature tile")
+			"one stamp container per painted feature tile")
 	for pos in expected:
 		assert_true(grid._feature_overlay._visuals.has(pos),
 				"a %s tile has a sprite" % TerrainFeatureOverlay.feature_key(expected[pos]))
 		var visual := grid._feature_overlay._visuals[pos] as Node2D
 		assert_eq(visual.position, grid.grid_to_screen_center(pos),
-				"the sprite is anchored to the tile's projected centre")
-		assert_almost_eq(TerrainFeatureOverlay.ground_jitter(pos).y,
+				"the tile's container is anchored to its projected centre")
+		var key := TerrainFeatureOverlay.feature_key(expected[pos])
+		var stamps := TerrainFeatureOverlay.stamps_for(key, pos, TerrainFeatureOverlay.DEFAULT_FACING)
+		assert_eq(visual.get_child_count(), stamps.size(),
+				"every drawing of the tile is its own CanvasItem")
+		var jitter := TerrainFeatureOverlay.ground_jitter(pos)
+		for i in range(stamps.size()):
+			var stamp := visual.get_child(i) as Node2D
+			assert_eq(stamp.position, jitter + Vector2(stamps[i]["offset"]),
+					"drawing %d stands on its own spot inside the tile" % i)
+			assert_eq(stamp.get_meta("stamp_index"), i,
+					"drawing %d knows which stamp it is" % i)
+		assert_almost_eq(jitter.y,
 				TerrainFeatureOverlay.variation_for_tile(pos)["jitter"].y, 0.001,
 				"the draw and the occlusion shader agree on the jitter")
+
+
+func test_every_drawing_clips_against_its_own_painted_base() -> void:
+	var pos := Vector2i(4, 2)
+	grid.set_tile(pos, TerrainTypes.Type.ROCKS)
+	grid._feature_overlay._occlusion_enabled = true
+	grid._feature_overlay._sync_visuals()
+
+	var container := grid._feature_overlay._visuals[pos] as Node2D
+	assert_gte(container.get_child_count(), 2, "Rocks wears several drawings")
+	var materials: Dictionary = {}
+	for i in range(container.get_child_count()):
+		var stamp := container.get_child(i) as Node2D
+		var mat := stamp.material as ShaderMaterial
+		assert_not_null(mat, "drawing %d has its own occlusion material" % i)
+		materials[mat] = true
+		var offset: Vector2 = stamp.get_meta("occlusion_offset")
+		assert_eq(mat.get_shader_parameter("ground_offset"), offset,
+				"the material clips against drawing %d's own base" % i)
+		assert_almost_eq(offset.x, stamp.position.x, 0.001,
+				"its base stays on the drawing's spot inside the tile")
+		assert_gt(offset.y, stamp.position.y,
+				"the base sits below the tile-centre anchor, on the painted skirt")
+		var key := TerrainFeatureOverlay.feature_key(TerrainTypes.Type.ROCKS)
+		var stamps := TerrainFeatureOverlay.stamps_for(key, pos,
+				TerrainFeatureOverlay.facing_at(pos))
+		var path := TerrainFeatureOverlay.sprite_path(key, int(stamps[i]["variant"]))
+		var scale_v := float(TerrainFeatureOverlay.variation_for_tile(pos)["scale"]) \
+				* float(stamps[i]["scale"])
+		assert_almost_eq(offset.y, stamp.position.y
+				+ TerrainFeatureOverlay.art_bottom_offset(key, path, scale_v), 0.001,
+				"drawing %d clips at the bottom row of its own canvas" % i)
+	assert_eq(materials.size(), container.get_child_count(),
+			"no two drawings share one silhouette or one clip")
+
+	assert_gt(TerrainFeatureOverlay.art_bottom_offset("boulder",
+			TerrainFeatureOverlay.sprite_path("boulder", 0), 1.0), 4.0,
+			"a boulder's painted skirt reaches well below its anchor")
 
 
 func test_replacing_a_feature_tile_releases_its_sprite() -> void:
@@ -169,7 +219,10 @@ func test_a_feature_sprite_reuses_its_tile_when_the_feature_changes() -> void:
 	grid.set_tile(pos, TerrainTypes.Type.BRUSH)
 	grid._feature_overlay._sync_visuals()
 	assert_same(grid._feature_overlay._visuals[pos], before,
-			"the tile keeps its CanvasItem and only redraws the new sprite")
+			"the tile keeps its container and only redraws the new sprite")
+	var stamps := TerrainFeatureOverlay.stamps_for("brush", pos, TerrainFeatureOverlay.DEFAULT_FACING)
+	assert_eq(before.get_child_count(), stamps.size(),
+			"the container grows or shrinks to the new feature's drawings")
 
 
 func test_a_plain_tile_has_no_feature_sprite() -> void:
