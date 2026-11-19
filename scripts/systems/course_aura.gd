@@ -55,6 +55,7 @@ const TRIGGER_LABELS: Dictionary = {
 	"PACED_UP": "Marshalling",
 	"COURSE_TIDY": "Tidy course",
 	"COURSE_MESSY": "Weeds",
+	"TREE_HIT": "Tree hits",
 }
 const TRIGGER_FALLBACK: String = "Comment"
 

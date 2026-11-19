@@ -31,6 +31,7 @@ enum TriggerType {
 	## Course upkeep, seen by golfers with the Neat trait
 	COURSE_TIDY,
 	COURSE_MESSY,
+	TREE_HIT,
 }
 
 ## Trigger data: messages array and sentiment
@@ -149,6 +150,11 @@ const TRIGGERS: Dictionary = {
 		"messages": ["Weeds everywhere...", "Needs a good cleanup", "This place is getting scruffy", "Who maintains this?"],
 		"sentiment": "negative",
 		"probability": 0.8,
+	},
+	TriggerType.TREE_HIT: {
+		"messages": ["Timber!", "Caught a branch!", "Bad bounce!", "Into the trees...", "Clonk!"],
+		"sentiment": "neutral",
+		"probability": 0.65,
 	},
 }
 

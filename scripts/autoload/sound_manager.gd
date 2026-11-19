@@ -26,6 +26,7 @@ var _bird_timer: Timer = null
 
 var _last_swing_time: float = 0.0
 var _last_impact_time: float = 0.0
+var _last_tree_hit_time: float = 0.0
 
 # Current environment state for ambient updates
 var _current_wind_speed: float = 0.0
@@ -38,6 +39,9 @@ var _rain_buffer_dirty: bool = true
 var _click_buffer: PackedVector2Array
 var _cup_buffer: PackedVector2Array
 var _chime_buffer: PackedVector2Array
+var _tree_wood_buffer: PackedVector2Array
+var _tree_foliage_buffer: PackedVector2Array
+var _tree_brush_buffer: PackedVector2Array
 
 func _ready() -> void:
 	_create_sfx_pool()
@@ -81,11 +85,15 @@ func _pregenerate_buffers() -> void:
 	_click_buffer = ProceduralAudio.generate_click(SAMPLE_RATE, 0.3)
 	_cup_buffer = ProceduralAudio.generate_cup_sound(SAMPLE_RATE, 0.5)
 	_chime_buffer = ProceduralAudio.generate_chime(SAMPLE_RATE, 0.4)
+	_tree_wood_buffer = ProceduralAudio.generate_tree_wood_clonk(SAMPLE_RATE, 0.55)
+	_tree_foliage_buffer = ProceduralAudio.generate_tree_foliage_rustle(SAMPLE_RATE, 0.45)
+	_tree_brush_buffer = ProceduralAudio.generate_tree_brush_swish(SAMPLE_RATE, 0.35)
 
 func _connect_signals() -> void:
 	EventBus.shot_taken.connect(_on_shot_taken)
 	EventBus.ball_shot_landed_precise.connect(_on_ball_shot_landed)
 	EventBus.ball_putt_landed_precise.connect(_on_ball_putt_landed)
+	EventBus.ball_hit_tree.connect(_on_ball_hit_tree)
 	EventBus.ball_in_hole.connect(_on_ball_in_hole)
 	EventBus.hazard_penalty.connect(_on_hazard_penalty)
 	EventBus.record_broken.connect(_on_record_broken)
@@ -103,6 +111,8 @@ func _exit_tree() -> void:
 		EventBus.ball_shot_landed_precise.disconnect(_on_ball_shot_landed)
 	if EventBus.ball_putt_landed_precise.is_connected(_on_ball_putt_landed):
 		EventBus.ball_putt_landed_precise.disconnect(_on_ball_putt_landed)
+	if EventBus.ball_hit_tree.is_connected(_on_ball_hit_tree):
+		EventBus.ball_hit_tree.disconnect(_on_ball_hit_tree)
 	if EventBus.ball_in_hole.is_connected(_on_ball_in_hole):
 		EventBus.ball_in_hole.disconnect(_on_ball_in_hole)
 	if EventBus.hazard_penalty.is_connected(_on_hazard_penalty):
@@ -207,6 +217,26 @@ func _on_shot_taken(golfer_id: int, _hole_number: int, _strokes: int) -> void:
 func _on_ball_shot_landed(_golfer_id: int, _from_screen: Vector2, to_screen: Vector2,
 		_distance_yards: int, _carry_screen: Vector2) -> void:
 	_play_impact_at_screen_position(to_screen)
+
+func _on_ball_hit_tree(_golfer_id: int, _tree_tile: Vector2i, _species: String,
+		material_type: int, world_position: Vector2) -> void:
+	if is_muted:
+		return
+	if not _is_screen_position_visible(world_position):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _last_tree_hit_time < 0.08:
+		return
+	_last_tree_hit_time = now
+	var buffer: PackedVector2Array
+	match material_type:
+		TreeCollisionProfile.MAT_WOOD:
+			buffer = _tree_wood_buffer
+		TreeCollisionProfile.MAT_BRUSH:
+			buffer = _tree_brush_buffer
+		_:
+			buffer = _tree_foliage_buffer
+	_play_buffer(buffer, sfx_volume * master_volume)
 
 func _on_ball_putt_landed(_golfer_id: int, _from_screen: Vector2, to_screen: Vector2,
 		_distance_yards: int) -> void:

@@ -103,6 +103,20 @@ var flight_end_ground := TerrainGrid.INVALID_GRID_POINT
 var roll_start_ground := TerrainGrid.INVALID_GRID_POINT
 var roll_end_ground := TerrainGrid.INVALID_GRID_POINT
 
+## Multi-segment airborne deflection state (non-empty only on tree-impact shots).
+var flight_start_height: float = 0.0
+var flight_end_height: float = 0.0
+var flight_phase_start: float = 0.0
+var flight_phase_end: float = 1.0
+var _flight_end_tree_hit: Dictionary = {}
+var _queued_flight_segments: Array[Dictionary] = []
+
+## Multi-waypoint ground rollout state (used when rolling past/off a tree trunk).
+var _roll_waypoints_ground: PackedVector2Array = PackedVector2Array()
+var _roll_waypoints_screen: PackedVector2Array = PackedVector2Array()
+var _roll_cum_dist: PackedFloat32Array = PackedFloat32Array()
+var _roll_tree_events: Array[Dictionary] = []
+
 ## The course grid whose terrain-occlusion switch, sculpting and turns are followed.
 var _occlusion_grid: TerrainGrid = null
 ## This ball's occlusion material: made the first time the course has relief,
@@ -120,6 +134,7 @@ signal ball_landed(landing_pos: Vector2i)
 signal ball_state_changed(old_state: BallState, new_state: BallState)
 signal ball_landed_in_bunker(landing_pos: Vector2i)
 signal ball_landed_in_water(landing_pos: Vector2i)
+signal ball_hit_tree(tree_tile: Vector2i, species: String, material_type: int, world_position: Vector2)
 
 func _ready() -> void:
 	z_index = ENTITY_Z_INDEX
@@ -161,22 +176,75 @@ func set_position_in_grid(pos: Vector2i) -> void:
 		global_position = world_pos
 	_update_visual()
 
+func _clear_flight_tree_tracks() -> void:
+	flight_start_height = 0.0
+	flight_end_height = 0.0
+	flight_phase_start = 0.0
+	flight_phase_end = 1.0
+	_flight_end_tree_hit.clear()
+	_queued_flight_segments.clear()
+
+
+func _clear_roll_waypoints() -> void:
+	_roll_waypoints_ground.clear()
+	_roll_waypoints_screen.clear()
+	_roll_cum_dist.clear()
+	_roll_tree_events.clear()
+
+
 ## Configure rollout to play after the current flight lands.
 ## carry_screen is where the ball first hits ground (should match flight_end_pos).
 ## final_screen is where it comes to rest after rolling; `final_ground` is the
 ## grid point there, when the caller knows it (see rest_ground).
 func set_rollout(final_screen: Vector2, duration: float,
 		final_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
+	_clear_roll_waypoints()
 	roll_end_pos = final_screen
 	roll_duration = duration
 	roll_end_ground = final_ground
 	_has_pending_rollout = true
+
+
+## Configure a multi-waypoint rollout (used when rolling past/off tree trunks or brush).
+func set_rollout_waypoints(waypoints_center: PackedVector2Array, duration: float,
+		roll_hits: Array = []) -> void:
+	_clear_roll_waypoints()
+	if waypoints_center.size() < 2 or not is_instance_valid(terrain_grid):
+		return
+	var total_len := 0.0
+	_roll_cum_dist.append(0.0)
+	for i in range(waypoints_center.size()):
+		var g_pt := waypoints_center[i] + Vector2(0.5, 0.5)
+		var s_pt := terrain_grid.grid_point_to_screen(g_pt)
+		_roll_waypoints_ground.append(g_pt)
+		_roll_waypoints_screen.append(s_pt)
+		if i > 0:
+			total_len += _roll_waypoints_screen[i - 1].distance_to(s_pt)
+			_roll_cum_dist.append(total_len)
+	if total_len > 0.0001:
+		for i in range(_roll_cum_dist.size()):
+			_roll_cum_dist[i] /= total_len
+	for hit in roll_hits:
+		var wp_idx := clampi(int(hit.get("waypoint_index", 0)), 0, _roll_cum_dist.size() - 1)
+		_roll_tree_events.append({
+			"t": float(_roll_cum_dist[wp_idx]),
+			"triggered": false,
+			"tree_tile": hit.get("tree_tile", Vector2i(-1, -1)),
+			"species": str(hit.get("species", "oak")),
+			"material": int(hit.get("material", TreeCollisionProfile.MAT_WOOD)),
+		})
+	roll_end_pos = _roll_waypoints_screen[_roll_waypoints_screen.size() - 1]
+	roll_end_ground = _roll_waypoints_ground[_roll_waypoints_ground.size() - 1]
+	roll_duration = duration
+	_has_pending_rollout = true
+
 
 ## Start a flight animation from one position to another
 func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5, is_putt: bool = false, wind_offset: Vector2 = Vector2.ZERO) -> void:
 	if not terrain_grid:
 		return
 
+	_clear_flight_tree_tracks()
 	grid_position = from_grid
 	flight_start_pos = terrain_grid.grid_to_screen_center(from_grid)
 	flight_end_pos = terrain_grid.grid_to_screen_center(to_grid)
@@ -206,6 +274,7 @@ func start_flight(from_grid: Vector2i, to_grid: Vector2i, duration: float = 1.5,
 func start_flight_screen(from_screen: Vector2, to_screen: Vector2, duration: float = 1.5, is_putt: bool = false,
 		from_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT,
 		to_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
+	_clear_flight_tree_tracks()
 	flight_start_pos = from_screen
 	flight_end_pos = to_screen
 	_set_flight_ground(from_ground, to_ground)
@@ -232,6 +301,7 @@ func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, dura
 		wind_offset: Vector2 = Vector2.ZERO,
 		from_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT,
 		to_ground: Vector2 = TerrainGrid.INVALID_GRID_POINT) -> void:
+	_clear_flight_tree_tracks()
 	flight_start_pos = from_screen
 	flight_end_pos = to_screen
 	_set_flight_ground(from_ground, to_ground)
@@ -248,15 +318,123 @@ func start_flight_screen_with_arc(from_screen: Vector2, to_screen: Vector2, dura
 	global_position = flight_start_pos
 	_update_shadow()
 
+
+## Start a chained multi-segment airborne flight produced by tree impacts.
+func start_flight_tree_segments(segments: Array, total_duration: float) -> void:
+	if segments.is_empty() or not is_instance_valid(terrain_grid):
+		return
+	_clear_flight_tree_tracks()
+
+	var total_weight := 0.0
+	for seg in segments:
+		total_weight += maxf(float(seg.get("duration_weight", 1.0)), 1.0)
+
+	var origin_proj := terrain_grid.projection.project(Vector2.ZERO)
+	for seg in segments:
+		var fg: Vector2 = Vector2(seg.get("from", Vector2.ZERO)) + Vector2(0.5, 0.5)
+		var tg: Vector2 = Vector2(seg.get("to", Vector2.ZERO)) + Vector2(0.5, 0.5)
+		var curve_g: Vector2 = seg.get("bend_grid", Vector2.ZERO) + seg.get("wind_grid", Vector2.ZERO)
+		var wind_scr := terrain_grid.projection.project(curve_g) - origin_proj if curve_g != Vector2.ZERO else Vector2.ZERO
+		var w := maxf(float(seg.get("duration_weight", 1.0)), 1.0)
+		var seg_dur := maxf(total_duration * (w / total_weight), 0.06)
+		var hit_info: Dictionary = {}
+		if bool(seg.get("hit_at_end", false)):
+			hit_info = {
+				"tree_tile": seg.get("hit_tree_tile", Vector2i(-1, -1)),
+				"species": str(seg.get("hit_species", "oak")),
+				"material": int(seg.get("hit_material", TreeCollisionProfile.MAT_FOLIAGE)),
+			}
+		_queued_flight_segments.append({
+			"from_ground": fg,
+			"to_ground": tg,
+			"from_pos": terrain_grid.grid_point_to_screen(fg),
+			"to_pos": terrain_grid.grid_point_to_screen(tg),
+			"start_h": float(seg.get("start_h", 0.0)),
+			"end_h": float(seg.get("end_h", 0.0)),
+			"pop_h": float(seg.get("pop_h", 0.0)),
+			"phase_from": float(seg.get("phase_from", 0.0)),
+			"phase_to": float(seg.get("phase_to", 1.0)),
+			"curve_grid": curve_g,
+			"wind_offset": wind_scr,
+			"duration": seg_dur,
+			"hit_info": hit_info,
+		})
+
+	_load_flight_segment(_queued_flight_segments.pop_front())
+	_shadow_lift = 0.0
+	scale = Vector2.ONE
+	_change_state(BallState.IN_FLIGHT)
+	place_on_track()
+
+
+func _load_flight_segment(seg: Dictionary) -> void:
+	flight_start_ground = seg.from_ground
+	flight_end_ground = seg.to_ground
+	flight_start_pos = seg.from_pos
+	flight_end_pos = seg.to_pos
+	flight_start_height = float(seg.start_h)
+	flight_end_height = float(seg.end_h)
+	flight_max_height = float(seg.pop_h)
+	flight_phase_start = float(seg.phase_from)
+	flight_phase_end = float(seg.phase_to)
+	wind_visual_offset = seg.wind_offset
+	flight_duration = float(seg.duration)
+	flight_progress = 0.0
+	_flight_end_tree_hit = seg.hit_info
+
+
+func _current_flight_phase() -> float:
+	return lerpf(flight_phase_start, flight_phase_end, flight_progress)
+
+
+func _current_arc_height() -> float:
+	var phase := _current_flight_phase()
+	var base_h := lerpf(flight_start_height, flight_end_height, flight_progress)
+	return base_h + sin(phase * PI) * flight_max_height
+
+
+## Recompute queued bounce segments and rollout waypoints after a camera view rotation.
+func reproject_extra_tracks(grid: TerrainGrid) -> void:
+	if not is_instance_valid(grid):
+		return
+	var origin_proj := grid.projection.project(Vector2.ZERO)
+	for seg in _queued_flight_segments:
+		seg["from_pos"] = grid.grid_point_to_screen(seg.from_ground)
+		seg["to_pos"] = grid.grid_point_to_screen(seg.to_ground)
+		var cg: Vector2 = seg.get("curve_grid", Vector2.ZERO)
+		seg["wind_offset"] = grid.projection.project(cg) - origin_proj if cg != Vector2.ZERO else Vector2.ZERO
+	if not _roll_waypoints_ground.is_empty():
+		_roll_waypoints_screen.resize(_roll_waypoints_ground.size())
+		for i in range(_roll_waypoints_ground.size()):
+			_roll_waypoints_screen[i] = grid.grid_point_to_screen(_roll_waypoints_ground[i])
+		if _roll_waypoints_screen.size() > 0:
+			roll_start_pos = _roll_waypoints_screen[0]
+			roll_end_pos = _roll_waypoints_screen[_roll_waypoints_screen.size() - 1]
+
+
 func _process_flight(delta: float) -> void:
-	flight_progress += delta / flight_duration
+	flight_progress += delta / maxf(flight_duration, 0.001)
 
 	if flight_progress >= 1.0:
-		# Flight complete - ball hits the ground
 		flight_progress = 1.0
-		global_position = flight_end_pos
+		place_on_track()
 
-		# Update grid position to carry spot
+		if not _flight_end_tree_hit.is_empty():
+			ball_hit_tree.emit(
+				_flight_end_tree_hit.get("tree_tile", Vector2i(-1, -1)),
+				str(_flight_end_tree_hit.get("species", "oak")),
+				int(_flight_end_tree_hit.get("material", TreeCollisionProfile.MAT_FOLIAGE)),
+				global_position
+			)
+			_flight_end_tree_hit.clear()
+
+		if not _queued_flight_segments.is_empty():
+			_load_flight_segment(_queued_flight_segments.pop_front())
+			place_on_track()
+			return
+
+		# All airborne segments finished - ball hits the ground
+		global_position = flight_end_pos
 		if terrain_grid:
 			grid_position = _tile_under(flight_end_ground, flight_end_pos)
 
@@ -268,7 +446,8 @@ func _process_flight(delta: float) -> void:
 		_spawn_landing_impact()
 
 		# Check if rollout was configured — if so, start rolling instead of landing
-		if _has_pending_rollout and roll_end_pos.distance_to(flight_end_pos) > 1.0:
+		var has_roll_dist := _roll_waypoints_ground.size() >= 2 or roll_end_pos.distance_to(flight_end_pos) > 1.0
+		if _has_pending_rollout and has_roll_dist:
 			_has_pending_rollout = false
 			_start_rollout()
 		else:
@@ -278,9 +457,11 @@ func _process_flight(delta: float) -> void:
 		return
 
 	# Update visual scale for depth perception (skip for putts rolling on ground)
-	if flight_max_height > 0.0:
-		var arc_height = sin(flight_progress * PI) * flight_max_height
-		var scale_factor = 1.0 + (arc_height / flight_max_height) * 0.5
+	var arc_height := _current_arc_height()
+	if flight_max_height > 0.0 or flight_start_height > 0.0:
+		var is_standard_arc := flight_start_height == 0.0 and flight_phase_start == 0.0 and flight_phase_end == 1.0
+		var ref_h := flight_max_height if is_standard_arc else maxf(flight_max_height, maxf(flight_start_height, 60.0))
+		var scale_factor := 1.0 + clampf(arc_height / maxf(ref_h, 1.0), 0.0, 1.0) * 0.5
 		scale = Vector2(scale_factor, scale_factor)
 
 	place_on_track()
@@ -298,14 +479,15 @@ func place_on_track() -> void:
 	var knows_ground := ground != TerrainGrid.INVALID_GRID_POINT and is_instance_valid(terrain_grid)
 	match ball_state:
 		BallState.IN_FLIGHT:
-			var arc_height := sin(flight_progress * PI) * flight_max_height
+			var phase := _current_flight_phase()
+			var arc_height := _current_arc_height()
 			# Apply wind visual drift as a bell curve: peaks at mid-flight,
 			# smoothly returns to zero at landing so the ball arrives at the
 			# correct position.
 			var track := flight_start_pos.lerp(flight_end_pos, flight_progress) \
-					+ wind_visual_offset * sin(flight_progress * PI)
+					+ wind_visual_offset * sin(phase * PI)
 			var under := terrain_grid.grid_point_to_screen(ground) if knows_ground else track
-			if flight_max_height <= 0.0 and knows_ground:
+			if flight_max_height <= 0.0 and flight_start_height <= 0.0 and knows_ground:
 				global_position = under
 			else:
 				global_position = track - Vector2(0.0, arc_height)
@@ -313,12 +495,46 @@ func place_on_track() -> void:
 			# back down onto the ground the ball is flying over.
 			_shadow_lift = maxf(under.y - global_position.y, 0.0)
 		BallState.ROLLING:
-			global_position = terrain_grid.grid_point_to_screen(ground) if knows_ground \
-					else roll_start_pos.lerp(roll_end_pos, _roll_eased())
+			var u := _roll_eased()
+			if knows_ground:
+				global_position = terrain_grid.grid_point_to_screen(ground)
+			elif _roll_waypoints_screen.size() >= 2:
+				global_position = _sample_roll_array(_roll_waypoints_screen, u)
+			else:
+				global_position = roll_start_pos.lerp(roll_end_pos, u)
+			_trigger_pending_roll_tree_events(u)
 			_shadow_lift = 0.0
 		_:
 			return
 	_update_shadow()
+
+
+func _sample_roll_array(arr: PackedVector2Array, u: float) -> Vector2:
+	var n := arr.size()
+	if n == 0:
+		return Vector2.ZERO
+	if n == 1 or u <= 0.0:
+		return arr[0]
+	if u >= 1.0:
+		return arr[n - 1]
+	for i in range(1, n):
+		if u <= _roll_cum_dist[i]:
+			var seg_len := _roll_cum_dist[i] - _roll_cum_dist[i - 1]
+			var seg_t := (u - _roll_cum_dist[i - 1]) / seg_len if seg_len > 0.00001 else 0.0
+			return arr[i - 1].lerp(arr[i], seg_t)
+	return arr[n - 1]
+
+
+func _trigger_pending_roll_tree_events(u: float) -> void:
+	for ev in _roll_tree_events:
+		if not bool(ev.triggered) and u >= float(ev.t):
+			ev.triggered = true
+			ball_hit_tree.emit(
+				ev.tree_tile,
+				str(ev.species),
+				int(ev.material),
+				global_position
+			)
 
 ## How far along its roll the ball has got: eased out, so it slows as it rolls.
 func _roll_eased() -> float:
@@ -500,8 +716,10 @@ func _update_shadow() -> void:
 		return
 
 	var lift_ratio := 0.0
-	if ball_state == BallState.IN_FLIGHT and flight_max_height > 0.0:
-		lift_ratio = clampf(_shadow_lift / flight_max_height, 0.0, 1.0)
+	if ball_state == BallState.IN_FLIGHT:
+		var max_h := maxf(flight_max_height, flight_start_height)
+		if max_h > 0.0:
+			lift_ratio = clampf(_shadow_lift / max_h, 0.0, 1.0)
 
 	# The flight depth scale enlarges the ball, and everything under it. Undo it
 	# so the shadow keeps its resting footprint rather than growing with height.
@@ -594,11 +812,13 @@ func ground_point() -> Vector2:
 				return TerrainGrid.INVALID_GRID_POINT
 			var ground := flight_start_ground.lerp(flight_end_ground, flight_progress)
 			if wind_visual_offset != Vector2.ZERO and is_instance_valid(terrain_grid):
-				var drift := wind_visual_offset * sin(flight_progress * PI)
+				var drift := wind_visual_offset * sin(_current_flight_phase() * PI)
 				ground += terrain_grid.projection.unproject(drift) \
 						- terrain_grid.projection.unproject(Vector2.ZERO)
 			return ground
 		BallState.ROLLING:
+			if _roll_waypoints_ground.size() >= 2:
+				return _sample_roll_array(_roll_waypoints_ground, _roll_eased())
 			if roll_start_ground == TerrainGrid.INVALID_GRID_POINT \
 					or roll_end_ground == TerrainGrid.INVALID_GRID_POINT:
 				return TerrainGrid.INVALID_GRID_POINT
@@ -739,7 +959,7 @@ func _refresh_occlusion() -> void:
 		anchor = TerrainOcclusion.point_on_ray(grid, global_position, TerrainOcclusion.UNHIDDEN_T)
 	else:
 		lift = TerrainOcclusion.contact_reach(grid, anchor, OCCLUSION_FOOT)
-		var arc := sin(flight_progress * PI) * flight_max_height if ball_state == BallState.IN_FLIGHT else 0.0
+		var arc := _current_arc_height() if ball_state == BallState.IN_FLIGHT else 0.0
 		var track_t := grid.projection.project(anchor).y - (global_position.y + arc)
 		lift += maxf(0.0, TerrainOcclusion.ground_t(grid, anchor) - track_t)
 	_occlusion_anchor = anchor

@@ -328,6 +328,9 @@ var _current_direction: String = "south"  # south, east, north, west + diagonals
 var shot_ground_from := TerrainGrid.INVALID_GRID_POINT
 var shot_ground_carry := TerrainGrid.INVALID_GRID_POINT
 var shot_ground_rest := TerrainGrid.INVALID_GRID_POINT
+## Deflected multi-segment flight and bent rollout details for the latest shot,
+## consumed by BallManager alongside shot_ground_*. Empty when no tree was hit.
+var last_shot_tree_data: Dictionary = {}
 
 ## Clips the golfer where nearer terrain covers them, exactly as a tree is
 ## clipped: the sprite is a billboard on the ground point they stand on.
@@ -1888,6 +1891,15 @@ func preview_shot(target: Vector2i) -> Dictionary:
 		"shape_bend_deg": shape_bend_degrees(player_shape),
 		"punch": is_player_punch(),
 		"arc_scale": 0.3 if is_player_punch() else (1.4 if player_shape == 3 else 1.0),
+		"tree_hit": bool(shot.get("tree_hit", false)),
+		"tree_flight_hit": bool(shot.get("tree_flight_hit", false)),
+		"tree_roll_hit": bool(shot.get("tree_roll_hit", false)),
+		"tree_species": str(shot.get("tree_species", "")),
+		"tree_material": int(shot.get("tree_material", TreeCollisionProfile.MAT_EMPTY)),
+		"tree_impact_ground": shot.get("tree_impact_ground", carry),
+		"tree_impact_height": float(shot.get("tree_impact_height", 0.0)),
+		"flight_segments": shot.get("flight_segments", []),
+		"roll_tree_hits": shot.get("roll_tree_hits", []),
 	}
 
 ## Predict a shot whose *resting point* is the selected tile centre or vertex.
@@ -1964,6 +1976,15 @@ func preview_shot_to_rest(target: Vector2, anchor_type: String = "") -> Dictiona
 		"shape_bend_deg": shape_bend_degrees(player_shape),
 		"punch": is_player_punch(),
 		"arc_scale": 0.3 if is_player_punch() else (1.4 if player_shape == 3 else 1.0),
+		"tree_hit": bool(shot.get("tree_hit", false)),
+		"tree_flight_hit": bool(shot.get("tree_flight_hit", false)),
+		"tree_roll_hit": bool(shot.get("tree_roll_hit", false)),
+		"tree_species": str(shot.get("tree_species", "")),
+		"tree_material": int(shot.get("tree_material", TreeCollisionProfile.MAT_EMPTY)),
+		"tree_impact_ground": shot.get("tree_impact_ground", carry),
+		"tree_impact_height": float(shot.get("tree_impact_height", 0.0)),
+		"flight_segments": shot.get("flight_segments", []),
+		"roll_tree_hits": shot.get("roll_tree_hits", []),
 	}
 
 ## Take the shot selected by preview_shot_to_rest(). Kept separate from play_shot()
@@ -2009,15 +2030,22 @@ func _solve_aim_for_rest(target: Vector2) -> Dictionary:
 		proposed = Club.WEDGE
 
 	var best: Dictionary = {}
+	var proposed_tree_blocked := false
 	for club: Club in _owner_club_order(proposed):
 		var plan := _solve_aim_with_club(club, origin, target)
 		if plan.is_empty():
 			continue
 		# Keep the proposal unless another club lands on the anchor or is clearly
 		# closer to it; the first club that lands exactly settles the choice.
-		if best.is_empty() or (best.clamped and (not plan.clamped \
-				or plan.target_error < best.target_error - CLUB_SWITCH_MARGIN)):
+		if best.is_empty():
 			best = plan
+			proposed_tree_blocked = best.clamped and bool(best.shot.get("tree_flight_hit", false)) \
+				and target_distance <= best.max_range
+		elif best.clamped:
+			if not plan.clamped or (not proposed_tree_blocked and plan.target_error < best.target_error - CLUB_SWITCH_MARGIN):
+				best = plan
+				proposed_tree_blocked = best.clamped and bool(best.shot.get("tree_flight_hit", false)) \
+					and target_distance <= best.max_range
 		if not best.clamped:
 			break
 	if best.is_empty():
@@ -2048,6 +2076,7 @@ func _solve_aim_with_club(club: Club, origin: Vector2, target: Vector2) -> Dicti
 	var line := target_delta.normalized()
 
 	var probe := _probe_aim(origin + line * minf(target_delta.length(), max_range), target)
+	var initial_probe := probe
 	var best := probe
 	# The latest probes that rest short of / long of the target along the line of
 	# play. Terrain edges (a bunker, the green's faster roll, the smallest visible
@@ -2063,7 +2092,12 @@ func _solve_aim_with_club(club: Club, origin: Vector2, target: Vector2) -> Dicti
 			long_probe = probe
 		if refinements >= REST_SOLVE_ITERATIONS:
 			break
-		var corrected_aim: Vector2 = probe.aim + (target - probe.rest)
+		var step_corr: Vector2 = target - probe.rest
+		# If a flight tree deflection knocked the ball sideways, refine along the
+		# aim line instead of chasing lateral bounce angles around the obstacle.
+		if bool(probe.shot.get("tree_flight_hit", false)):
+			step_corr = line * step_corr.dot(line)
+		var corrected_aim: Vector2 = probe.aim + step_corr
 		var corrected_delta := corrected_aim - origin
 		if corrected_delta.length() > max_range:
 			corrected_aim = origin + corrected_delta.normalized() * max_range
@@ -2093,6 +2127,15 @@ func _solve_aim_with_club(club: Club, origin: Vector2, target: Vector2) -> Dicti
 			else:
 				above = middle
 		range_limited = best.error > REST_SOLVE_TOLERANCE and best.aim.distance_to(origin) >= max_range - 0.01
+
+	# If a tree stopped the shot mid-flight and no club refinement landed on target,
+	# keep the natural aim toward target instead of extrapolating wildly past it.
+	if best.error > REST_SOLVE_TOLERANCE and bool(initial_probe.shot.get("tree_flight_hit", false)):
+		if bool(best.shot.get("tree_flight_hit", false)) \
+				and best.aim.distance_to(origin) > minf(target_delta.length(), max_range) + 0.6:
+			best = initial_probe
+		if target_delta.length() <= max_range:
+			range_limited = false
 
 	return {
 		"club": club,
@@ -2208,6 +2251,7 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 		if terrain_grid:
 			var from_screen = terrain_grid.grid_to_screen_precise(shot_result.from_precise)
 			var to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_precise)
+			last_shot_tree_data = {}
 			_record_shot_ground(shot_result.from_precise, shot_result.landing_precise, shot_result.landing_precise)
 			EventBus.ball_putt_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance)
 	else:
@@ -2236,6 +2280,7 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 			var from_screen = terrain_grid.grid_to_screen_precise(from_precise)
 			var carry_screen: Vector2
 			var to_screen: Vector2
+			last_shot_tree_data = {}
 			if is_chip_in:
 				carry_screen = terrain_grid.grid_to_screen_precise(hole_pos_vec)
 				to_screen = carry_screen
@@ -2245,6 +2290,15 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 				to_screen = terrain_grid.grid_to_screen_precise(shot_result.landing_position_precise)
 				_record_shot_ground(from_precise, shot_result.carry_position_precise,
 						shot_result.landing_position_precise)
+				if shot_result.get("tree_hit", false):
+					last_shot_tree_data = {
+						"from_screen": from_screen,
+						"carry_screen": carry_screen,
+						"to_screen": to_screen,
+						"flight_segments": shot_result.get("flight_segments", []),
+						"roll_path": shot_result.get("roll_path", PackedVector2Array()),
+						"roll_tree_hits": shot_result.get("roll_tree_hits", []),
+					}
 			EventBus.ball_shot_landed_precise.emit(golfer_id, from_screen, to_screen, shot_result.distance, carry_screen)
 
 	# Debug output
@@ -2327,6 +2381,19 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 	var hole_data = GameManager.course_data.holes[current_hole]
 	var ball_holed = HoleManager.is_ball_holed(ball_position_precise, Vector2(hole_data.hole_position))
 
+	var flight_time := _estimate_flight_duration(shot_result.distance)
+	var first_hit_fraction := 0.65
+	var f_segs: Array = shot_result.get("flight_segments", [])
+	if not is_putt and f_segs.size() > 1:
+		var total_w := 0.0
+		for seg in f_segs:
+			total_w += float(seg.get("duration_weight", 0.0))
+		if total_w > 0.0:
+			var seg_yards := int((total_w / TreeCollision.PX_PER_TILE) * 22.0)
+			flight_time = clampf(1.0 + (float(seg_yards) / 300.0) * 1.5, 0.5, 3.2)
+			first_hit_fraction = clampf(float(f_segs[0].get("duration_weight", 0.0)) / total_w, 0.05, 0.95)
+	var rollout_time := _estimate_rollout_duration(shot_result.get("rollout_tiles", 0.0))
+
 	if ball_holed:
 		# Calculate animation duration to match BallManager's putt/shot animation
 		var anim_duration: float
@@ -2334,8 +2401,7 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 			anim_duration = 0.3 + (shot_result.distance / 100.0) * 0.7
 			anim_duration = clampf(anim_duration, 0.3, 1.5)
 		else:
-			anim_duration = 1.0 + (shot_result.distance / 300.0) * 1.5
-			anim_duration = clampf(anim_duration, 0.5, 3.0)
+			anim_duration = flight_time
 		# Hide ball when animation reaches the hole
 		var hole_num = hole_data.hole_number
 		var gid = golfer_id
@@ -2345,9 +2411,13 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 
 	# Watch the ball fly (and roll) before walking to it
 	_change_state(State.WATCHING)
-	var flight_time = _estimate_flight_duration(shot_result.distance)
-	var rollout_time = _estimate_rollout_duration(shot_result.get("rollout_tiles", 0.0))
-	_watch_ball_then_walk(flight_time + rollout_time + 0.5, ball_holed, previous_position)
+	var tree_thought_delay: float = -1.0
+	if not is_putt and bool(shot_result.get("tree_hit", false)) and not bool(shot_result.get("is_shank", false)):
+		var target_delay := flight_time * first_hit_fraction
+		if not bool(shot_result.get("tree_flight_hit", false)):
+			target_delay = flight_time + rollout_time * 0.35
+		tree_thought_delay = minf(target_delay, maxf(flight_time + rollout_time - 0.1, 0.25))
+	_watch_ball_then_walk(flight_time + rollout_time + 0.5, ball_holed, previous_position, tree_thought_delay)
 
 
 ## Watch the ball for `watch_seconds`, take any hazard penalty, then walk to it.
@@ -2355,8 +2425,16 @@ func take_shot_precise(target: Vector2, expected_rest: Vector2 = Vector2(-1, -1)
 ## shot's hole data and results, held across these waits by take_shot_precise(),
 ## would leak if the golfer were freed while watching (a load, a new game,
 ## quitting).
-func _watch_ball_then_walk(watch_seconds: float, ball_holed: bool, previous_position: Vector2i) -> void:
-	await Delay.seconds(self, watch_seconds)
+func _watch_ball_then_walk(watch_seconds: float, ball_holed: bool, previous_position: Vector2i,
+		tree_thought_delay: float = -1.0) -> void:
+	if tree_thought_delay >= 0.0 and tree_thought_delay < watch_seconds:
+		await Delay.seconds(self, tree_thought_delay)
+		if not is_instance_valid(self):
+			return
+		show_thought(FeedbackTriggers.TriggerType.TREE_HIT)
+		await Delay.seconds(self, watch_seconds - tree_thought_delay)
+	else:
+		await Delay.seconds(self, watch_seconds)
 	if not is_instance_valid(self):
 		return
 
@@ -3067,30 +3145,67 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 			"target": target,
 		}
 
+	# --- Tree sprite flight collision ---
+	var from_vec := Vector2(from)
+	var is_punch := is_player_punch()
+	var wants_backspin := (player_profile != null and player_shape == 3) or (_ai_shape == 3)
+	var arc_scale_f := 0.3 if is_punch else (1.4 if wants_backspin else 1.0)
+	var from_screen_f := terrain_grid.grid_to_screen_precise(from_vec)
+	var carry_screen_f := terrain_grid.grid_to_screen_precise(carry_position_precise)
+	var flight_max_h := minf(from_screen_f.distance_to(carry_screen_f) * 0.3, 150.0) * arc_scale_f
+	var bend_grid := Vector2.ZERO
+	if player_profile != null and player_shape in [1, 2]:
+		var delta_g: Vector2 = carry_position_precise - from_vec
+		bend_grid = Vector2(-delta_g.y, delta_g.x) * (-1.0 if player_shape == 1 else 1.0) * 0.06
+	elif player_profile == null and _ai_shape in [1, 2] and attributes != null:
+		var shape_idx := GolferAttributes.GolfSkill.FADE_SHOT if _ai_shape == 1 \
+			else GolferAttributes.GolfSkill.DRAW_SHOT
+		var delta_g: Vector2 = carry_position_precise - from_vec
+		bend_grid = Vector2(-delta_g.y, delta_g.x) * (-1.0 if _ai_shape == 1 else 1.0) \
+			* 0.06 * attributes.shape_bend_multiplier(shape_idx)
+	var wind_visual_grid := Vector2.ZERO
+	if GameManager.wind_system:
+		var shot_dir_scr := (carry_screen_f - from_screen_f).normalized()
+		if shot_dir_scr != Vector2.ZERO:
+			var dist_tiles: float = from_screen_f.distance_to(carry_screen_f) / float(terrain_grid.tile_width)
+			var wind_disp: Vector2 = GameManager.wind_system.get_wind_displacement(shot_dir_scr, dist_tiles, 1)
+			var wind_scr: Vector2 = wind_disp * float(terrain_grid.tile_width) * 0.5
+			wind_visual_grid = terrain_grid.projection.unproject(wind_scr) \
+				- terrain_grid.projection.unproject(Vector2.ZERO)
+
+	var tree_flight := TreeCollision.simulate_flight(
+		terrain_grid, from_vec, carry_position_precise,
+		flight_max_h, bend_grid, wind_visual_grid, club, deterministic
+	)
+	var tree_flight_hit: bool = bool(tree_flight.get("hit", false))
+	var roll_dir_override := Vector2.ZERO
+	var roll_speed_scale := 1.0
+	if tree_flight_hit:
+		carry_position_precise = tree_flight.carry
+		carry_position_precise.x = clampf(carry_position_precise.x, 0.0, float(terrain_grid.grid_width - 1))
+		carry_position_precise.y = clampf(carry_position_precise.y, 0.0, float(terrain_grid.grid_height - 1))
+		carry_position = Vector2i(carry_position_precise.round())
+		roll_dir_override = tree_flight.get("final_dir", Vector2.ZERO)
+		roll_speed_scale = float(tree_flight.get("speed_factor", 1.0))
+
 	# --- Rollout calculation ---
 	# Calculate how far the ball rolls after landing based on club, terrain, slope, and skill
 	var rollout = _calculate_rollout(club, carry_position, carry_position_precise,
-		Vector2(from), actual_distance, total_accuracy, deterministic)
+		from_vec, actual_distance, total_accuracy, deterministic,
+		1.5 if is_punch else 1.0, roll_dir_override, roll_speed_scale)
 
 	var carry_tile: int = terrain_grid.get_tile(carry_position)
 	# High Backspin Shot: a high shot that lands and rolls back slightly,
 	# overshooting gently while avoiding the hazard behind the pin. The owner
 	# selects it as a shot shape; AI golfers with Imagination pick it near the
 	# green. The High Backspin Golf Skill sets how much bite the ball has.
-	var wants_backspin := (player_profile != null and player_shape == 3) or (_ai_shape == 3)
-	if wants_backspin and (carry_tile == TerrainTypes.Type.GREEN or TerrainTypes.is_fairway(carry_tile)):
+	if wants_backspin and not tree_flight_hit and (carry_tile == TerrainTypes.Type.GREEN or TerrainTypes.is_fairway(carry_tile)):
 		var spin := minf(1.5, 0.25 * (1.0 + golf_bonus(GolferAttributes.GolfSkill.HIGH_BACKSPIN)))
 		rollout.final_position = carry_position_precise - direction * spin
 		rollout.rollout_distance = spin
 		rollout.is_backspin = true
 		# Backspin sends the ball straight back along the shot line.
 		rollout.roll_path = PackedVector2Array([carry_position_precise, rollout.final_position])
-	elif is_player_punch():
-		rollout.final_position = carry_position_precise + (rollout.final_position - carry_position_precise) * 1.5
-		rollout.rollout_distance *= 1.5
-		# Punch scales the whole roll so the traced path stays glued to the ball.
-		for i in rollout.roll_path.size():
-			rollout.roll_path[i] = carry_position_precise + (rollout.roll_path[i] - carry_position_precise) * 1.5
 
 	var final_position_precise = rollout.final_position
 	var final_position = Vector2i(final_position_precise.round())
@@ -3100,7 +3215,16 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 		final_position = carry_position
 		final_position_precise = carry_position_precise
 
-	var distance_yards = terrain_grid.calculate_distance_yards_precise(Vector2(from), final_position_precise)
+	var distance_yards = terrain_grid.calculate_distance_yards_precise(from_vec, final_position_precise)
+	var roll_tree_hits: Array = rollout.get("roll_tree_hits", [])
+	var tree_roll_hit := not roll_tree_hits.is_empty()
+	var tree_hit := tree_flight_hit or tree_roll_hit
+	var first_species := str(tree_flight.get("first_hit_species", "")) if tree_flight_hit else (
+		str(roll_tree_hits[0].get("species", "")) if tree_roll_hit else ""
+	)
+	var first_material := int(tree_flight.get("first_hit_material", TreeCollisionProfile.MAT_EMPTY)) if tree_flight_hit else (
+		int(roll_tree_hits[0].get("material", TreeCollisionProfile.MAT_EMPTY)) if tree_roll_hit else TreeCollisionProfile.MAT_EMPTY
+	)
 
 	return {
 		"landing_position": final_position,
@@ -3115,6 +3239,15 @@ func _calculate_shot_precise(from: Vector2i, target: Vector2, deterministic: boo
 		"miss_angle_deg": miss_angle_deg,
 		"is_shank": is_shank,
 		"target": target,
+		"tree_hit": tree_hit,
+		"tree_flight_hit": tree_flight_hit,
+		"tree_roll_hit": tree_roll_hit,
+		"tree_species": first_species,
+		"tree_material": first_material,
+		"tree_impact_ground": tree_flight.get("first_hit_ground", carry_position_precise),
+		"tree_impact_height": float(tree_flight.get("first_hit_height", 0.0)),
+		"flight_segments": tree_flight.get("segments", []),
+		"roll_tree_hits": roll_tree_hits,
 	}
 
 ## Swing randomness helper. Real shots sample the range; a deterministic preview
@@ -3143,13 +3276,15 @@ func _get_terrain_distance_modifier(terrain_type: int) -> float:
 ## `deterministic` uses the middle of the rollout range instead of a random sample.
 func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2,
 		shot_origin: Vector2, carry_distance: float, _total_accuracy: float,
-		deterministic: bool = false) -> Dictionary:
+		deterministic: bool = false, roll_scale: float = 1.0,
+		dir_override: Vector2 = Vector2.ZERO, speed_scale: float = 1.0) -> Dictionary:
 	var terrain_grid = GameManager.terrain_grid
 	var no_rollout = {
 		"final_position": carry_precise,
 		"rollout_distance": 0.0,
 		"is_backspin": false,
 		"roll_path": PackedVector2Array([carry_precise]),
+		"roll_tree_hits": [],
 	}
 	if not terrain_grid:
 		return no_rollout
@@ -3200,7 +3335,7 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 
 	# --- Backspin for full wedge shots ---
 	var is_backspin = false
-	if club == Club.WEDGE and not is_wedge_chip:
+	if club == Club.WEDGE and not is_wedge_chip and dir_override == Vector2.ZERO:
 		# Backspin ability scales with accuracy and recovery skill
 		var spin_skill = (accuracy_ability() * 0.6 + recovery_ability() * 0.4)
 		# High-skill players (>0.7) can generate backspin; lower skill just reduces roll
@@ -3224,19 +3359,23 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 		terrain_roll_mult = lerpf(1.0, terrain_roll_mult, 0.4)
 
 	var rollout_fraction = base_rollout_fraction * terrain_roll_mult
-	var rollout_distance = carry_distance * absf(rollout_fraction)
+	var rollout_distance = carry_distance * absf(rollout_fraction) * speed_scale
 
 	# Minimum visible rollout threshold (0.15 tiles ≈ 3 yards)
 	if rollout_distance < 0.15:
 		return no_rollout
+	rollout_distance *= roll_scale
 
 	# --- Slope influence on rollout ---
 	var slope: Vector2 = terrain_grid.get_slope_at_precise(carry_precise)
 	var slope_strength: float = clampf(slope.length(), 0.0, 1.0)
 	var slope_dir: Vector2 = slope.normalized() if slope.length_squared() > 0.000001 else Vector2.ZERO
 
-	# Roll direction: continue along shot line, blended with slope
-	var shot_direction = (carry_precise - shot_origin).normalized()
+	# Roll direction: continue along shot line (or post-bounce flight dir), blended with slope
+	var shot_direction = dir_override.normalized() if dir_override != Vector2.ZERO \
+		else (carry_precise - shot_origin).normalized()
+	if shot_direction == Vector2.ZERO:
+		return no_rollout
 	var roll_direction: Vector2
 
 	if is_backspin:
@@ -3257,18 +3396,52 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 	elif slope_dot < 0:
 		rollout_distance *= maxf(0.2, 1.0 + slope_dot * 0.5)  # Uphill: reduce roll
 
-	# --- Walk rollout path checking for hazards ---
+	# --- Walk rollout path checking for tree trunks/brush and terrain hazards ---
 	var final_position = carry_precise
 	var roll_path := PackedVector2Array([carry_precise])
-	var steps = int(ceilf(rollout_distance * 4.0))  # Check every quarter-tile
-	var step_size = rollout_distance / maxf(steps, 1)
+	var roll_tree_hits: Array[Dictionary] = []
+	var roll_tree_cache: Dictionary = {}
+	var start_tile := Vector2i(shot_origin.round())
+	var recent_hit_tile := Vector2i(-999, -999)
+	var total_path_len := 0.0
+	var remaining: float = rollout_distance
+	var curr_point := carry_precise
+	var base_step: float = rollout_distance / maxf(float(int(ceilf(rollout_distance * 4.0))), 1.0)
+	base_step = minf(base_step, 0.25)
+	var safety_iters := 0
+	var rough_damped := false
 
-	for i in range(1, steps + 1):
-		var check_point = carry_precise + roll_direction * (step_size * i)
-		var check_grid = Vector2i(check_point.round())
+	while remaining > 0.005 and safety_iters < 120:
+		safety_iters += 1
+		var step_d := minf(base_step, remaining)
+		var check_point := curr_point + roll_direction * step_d
+		var check_grid := Vector2i(check_point.round())
 
 		if not terrain_grid.is_valid_position(check_grid):
 			break  # Stop at map edge
+
+		var tree_hit := TreeCollision.check_roll_step(
+			terrain_grid, curr_point, check_point, roll_direction,
+			start_tile, recent_hit_tile, roll_tree_cache, deterministic
+		)
+		if bool(tree_hit.get("hit", false)):
+			var hit_pos: Vector2 = tree_hit.hit_pos
+			total_path_len += curr_point.distance_to(hit_pos)
+			curr_point = hit_pos
+			final_position = hit_pos
+			roll_path.append(hit_pos)
+			roll_tree_hits.append({
+				"waypoint_index": roll_path.size() - 1,
+				"tree_tile": tree_hit.tree_tile,
+				"species": tree_hit.species,
+				"material": tree_hit.material,
+			})
+			if roll_tree_hits.size() >= TreeCollision.MAX_ROLL_HITS:
+				break
+			roll_direction = tree_hit.new_dir
+			remaining = maxf(remaining - step_d, 0.0) * float(tree_hit.damp)
+			recent_hit_tile = tree_hit.tree_tile
+			continue
 
 		var check_terrain = terrain_grid.get_tile(check_grid)
 
@@ -3276,24 +3449,28 @@ func _calculate_rollout(club: Club, carry_grid: Vector2i, carry_precise: Vector2
 		# (EMPTY = outside property), a bunker, or deep rough / brush that
 		# swallows it.
 		if GolfRules.catches_rolling_ball(check_terrain):
+			total_path_len += curr_point.distance_to(check_point)
 			final_position = check_point
 			roll_path.append(check_point)
 			break
 
-		# Rough slows progressively — reduce remaining roll
-		if check_terrain == TerrainTypes.Type.ROUGH and carry_terrain != TerrainTypes.Type.ROUGH:
-			# Entering rough from fairway/green — ball decelerates faster
-			rollout_distance *= 0.6
-			steps = int(ceilf(rollout_distance * 4.0))
+		remaining -= step_d
+		# Rough slows progressively — reduce remaining roll once on entry
+		if not rough_damped and check_terrain == TerrainTypes.Type.ROUGH and carry_terrain != TerrainTypes.Type.ROUGH:
+			remaining *= 0.6
+			rough_damped = true
 
+		total_path_len += step_d
+		curr_point = check_point
 		final_position = check_point
 		roll_path.append(check_point)
 
 	return {
 		"final_position": final_position,
-		"rollout_distance": carry_precise.distance_to(final_position),
+		"rollout_distance": total_path_len if not roll_tree_hits.is_empty() else carry_precise.distance_to(final_position),
 		"is_backspin": is_backspin,
 		"roll_path": roll_path,
+		"roll_tree_hits": roll_tree_hits,
 	}
 
 ## Estimate ball flight duration (mirrors BallManager calculation)

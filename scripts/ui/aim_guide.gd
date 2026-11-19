@@ -116,6 +116,14 @@ static func build_geometry(grid: TerrainGrid, aim_preview: Dictionary,
 		return {}
 
 	var shape := _shape_for_preview(aim_preview)
+	var flight_segments: Array = aim_preview.get("flight_segments", [])
+	if bool(aim_preview.get("tree_flight_hit", false)) and flight_segments.size() >= 1:
+		return _build_tree_deflected_geometry(
+			grid, aim_preview, origin, actual_carry, rest,
+			origin_screen, rest_screen, aim_screen, target_screen, raw_target_screen,
+			shape, flight_segments, arc_steps
+		)
+
 	var roll_ratio := roll_ratio_for_shape(shape)
 	# `roll_ratio` is roll/carry. For backspin, the selected rest is behind the
 	# carry point, so the nominal carry is placed just beyond the target anchor.
@@ -161,10 +169,17 @@ static func build_geometry(grid: TerrainGrid, aim_preview: Dictionary,
 			+ wind_drift * swell - Vector2(0.0, max_height * swell))
 
 	var roll := PackedVector2Array()
-	var roll_steps := maxi(1, ceili(guide_roll_tiles / ROLL_SAMPLE_SPACING_TILES))
-	for i in range(roll_steps + 1):
-		var t := float(i) / float(roll_steps)
-		roll.append(carry_screen.lerp(rest_screen, t))
+	var raw_roll_path: PackedVector2Array = aim_preview.get("roll_path", PackedVector2Array())
+	if bool(aim_preview.get("tree_roll_hit", false)) and raw_roll_path.size() >= 2:
+		roll.append(carry_screen)
+		for i in range(1, raw_roll_path.size() - 1):
+			roll.append(grid.grid_to_screen_precise(raw_roll_path[i]))
+		roll.append(rest_screen)
+	else:
+		var roll_steps := maxi(1, ceili(guide_roll_tiles / ROLL_SAMPLE_SPACING_TILES))
+		for i in range(roll_steps + 1):
+			var t := float(i) / float(roll_steps)
+			roll.append(carry_screen.lerp(rest_screen, t))
 
 	# One continuous guide path, from the golfer, through flight and nominal roll.
 	var trajectory := arc.duplicate()
@@ -191,6 +206,85 @@ static func build_geometry(grid: TerrainGrid, aim_preview: Dictionary,
 		"guide_carry_yards": grid.calculate_distance_yards_precise(origin, guide_carry_grid),
 		"guide_roll_yards": grid.calculate_distance_yards_precise(guide_carry_grid, rest),
 		"guide_backspin": shape == 3,
+		"shape": shape,
+	}
+
+
+static func _build_tree_deflected_geometry(grid: TerrainGrid, aim_preview: Dictionary,
+		origin: Vector2, actual_carry: Vector2, rest: Vector2,
+		origin_screen: Vector2, rest_screen: Vector2, aim_screen: Vector2,
+		target_screen: Vector2, raw_target_screen: Vector2,
+		shape: int, flight_segments: Array, arc_steps: int) -> Dictionary:
+	var arc := PackedVector2Array()
+	var ground_track := PackedVector2Array()
+	var max_apex := 0.0
+	var origin_proj := grid.projection.project(Vector2.ZERO)
+
+	for seg_idx in range(flight_segments.size()):
+		var seg: Dictionary = flight_segments[seg_idx]
+		var seg_from: Vector2 = seg.get("from", origin)
+		var seg_to: Vector2 = seg.get("to", actual_carry)
+		var start_h := float(seg.get("start_h", 0.0))
+		var end_h := float(seg.get("end_h", 0.0))
+		var pop_h := float(seg.get("pop_h", 0.0))
+		var p_from := float(seg.get("phase_from", 0.0))
+		var p_to := float(seg.get("phase_to", 1.0))
+		var curve_g: Vector2 = seg.get("bend_grid", Vector2.ZERO) + seg.get("wind_grid", Vector2.ZERO)
+		var curve_scr := grid.projection.project(curve_g) - origin_proj if curve_g != Vector2.ZERO else Vector2.ZERO
+		var from_scr := grid.grid_to_screen_precise(seg_from)
+		var to_scr := grid.grid_to_screen_precise(seg_to)
+		var seg_steps := maxi(6, int(ceilf(float(arc_steps) * 0.45)))
+		var start_i := 0 if seg_idx == 0 else 1
+		for i in range(start_i, seg_steps + 1):
+			var u := float(i) / float(seg_steps)
+			var phase := lerpf(p_from, p_to, u)
+			var swell := sin(phase * PI)
+			var h := lerpf(start_h, end_h, u) + swell * pop_h
+			if h > max_apex:
+				max_apex = h
+			var g_pt := from_scr.lerp(to_scr, u) + curve_scr * swell
+			ground_track.append(g_pt)
+			arc.append(g_pt - Vector2(0.0, h))
+
+	var carry_screen := arc[arc.size() - 1] if not arc.is_empty() else grid.grid_to_screen_precise(actual_carry)
+	var roll := PackedVector2Array()
+	var raw_roll_path: PackedVector2Array = aim_preview.get("roll_path", PackedVector2Array())
+	if raw_roll_path.size() >= 2:
+		roll.append(carry_screen)
+		for i in range(1, raw_roll_path.size() - 1):
+			roll.append(grid.grid_to_screen_precise(raw_roll_path[i]))
+		roll.append(rest_screen)
+	elif carry_screen.distance_to(rest_screen) > 0.5:
+		roll.append(carry_screen)
+		roll.append(rest_screen)
+	else:
+		roll.append(carry_screen)
+
+	var trajectory := arc.duplicate()
+	for i in range(1, roll.size()):
+		trajectory.append(roll[i])
+
+	var roll_tiles := float(aim_preview.get("rollout_tiles", actual_carry.distance_to(rest)))
+	return {
+		"origin": origin_screen,
+		"aim": aim_screen,
+		"target": target_screen,
+		"raw_target": raw_target_screen,
+		"anchor_type": str(aim_preview.get("anchor_type", "center")),
+		"carry": carry_screen,
+		"physical_carry": carry_screen,
+		"guide_carry_grid": actual_carry,
+		"rest": rest_screen,
+		"arc": arc,
+		"ground_track": ground_track,
+		"roll": roll,
+		"trajectory": trajectory,
+		"apex_height": max_apex,
+		"carry_distance": origin_screen.distance_to(carry_screen),
+		"guide_roll_distance_tiles": roll_tiles,
+		"guide_carry_yards": grid.calculate_distance_yards_precise(origin, actual_carry),
+		"guide_roll_yards": grid.calculate_distance_yards_precise(actual_carry, rest),
+		"guide_backspin": false,
 		"shape": shape,
 	}
 
@@ -295,9 +389,10 @@ func _draw_labels(geometry: Dictionary, status_color: Color) -> void:
 	elif shape == 3:
 		head += " · backspin"
 	# Explain why the guide stops short of the requested resting anchor.
-	if bool(preview.get("range_limited", preview.get("clamped", false))):
+	var tree_hit := bool(preview.get("tree_hit", false))
+	if bool(preview.get("range_limited", preview.get("clamped", false))) and not tree_hit:
 		head += " · out of range"
-	elif bool(preview.get("clamped", false)):
+	elif bool(preview.get("clamped", false)) and not tree_hit:
 		head += " · terrain limited"
 	_draw_outlined_text(font, to_local(geometry.origin) + Vector2(-6.0, -18.0), head, Color(1, 1, 1, 0.92))
 
@@ -310,6 +405,15 @@ func _draw_labels(geometry: Dictionary, status_color: Color) -> void:
 			"text": "backspin ~%d yd" % roll_yards if backspin else "roll ~%d yd" % roll_yards,
 			"color": status_color,
 			"size": LABEL_FONT_SIZE,
+		})
+	if tree_hit:
+		var tree_label := str(preview.get("tree_species", "tree")).replace("_", " ")
+		if tree_label.is_empty():
+			tree_label = "tree"
+		caption_lines.append({
+			"text": "hits %s!" % tree_label,
+			"color": BLOCKED_COLOR,
+			"size": SMALL_FONT_SIZE,
 		})
 	if bool(preview.get("blocked", false)):
 		caption_lines.append({

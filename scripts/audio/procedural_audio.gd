@@ -805,6 +805,72 @@ static func generate_filtered_noise(sample_rate: int, duration: float,
 
 # ─── UI Sounds ────────────────────────────────────────────────────────────────
 
+## Generate a hollow wooden clonk sound for ball-vs-trunk impacts.
+static func generate_tree_wood_clonk(sample_rate: int, amplitude: float) -> PackedVector2Array:
+	var duration := 0.14
+	var sample_count := int(sample_rate * duration)
+	var buffer := PackedVector2Array()
+	buffer.resize(sample_count)
+
+	var p1 := 0.0
+	var p2 := 0.0
+	var p3 := 0.0
+	for i in sample_count:
+		var time_s := float(i) / float(sample_rate)
+		var env := exp(-time_s * 34.0) * amplitude
+		if time_s < 0.003:
+			env *= time_s / 0.003
+		var pitch_drop := exp(-time_s * 28.0)
+		p1 += TWO_PI * (390.0 + 180.0 * pitch_drop) / float(sample_rate)
+		p2 += TWO_PI * (640.0 + 220.0 * pitch_drop) / float(sample_rate)
+		p3 += TWO_PI * 1240.0 / float(sample_rate)
+		var snap := randf_range(-0.35, 0.35) * exp(-time_s * 160.0)
+		var sample := (sin(p1) * 0.6 + sin(p2) * 0.35 + sin(p3) * 0.15 + snap) * env
+		buffer[i] = Vector2(sample, sample)
+	return buffer
+
+## Generate a crisp leafy rustle for ball-vs-canopy impacts.
+static func generate_tree_foliage_rustle(sample_rate: int, amplitude: float) -> PackedVector2Array:
+	var duration := 0.21
+	var sample_count := int(sample_rate * duration)
+	var buffer := PackedVector2Array()
+	buffer.resize(sample_count)
+
+	var dt := 1.0 / float(sample_rate)
+	var lp_alpha := dt / (1.0 / (TWO_PI * 2400.0) + dt)
+	var hp_alpha := dt / (1.0 / (TWO_PI * 450.0) + dt)
+	var lp := 0.0
+	var hp_lp := 0.0
+	for i in sample_count:
+		var time_s := float(i) / float(sample_rate)
+		var t := float(i) / float(maxi(sample_count - 1, 1))
+		var flutter := 0.65 + 0.35 * sin(time_s * TWO_PI * 32.0)
+		var env := sin(t * PI) * exp(-time_s * 6.5) * flutter * amplitude
+		var noise := randf_range(-1.0, 1.0)
+		lp += lp_alpha * (noise - lp)
+		hp_lp += hp_alpha * (lp - hp_lp)
+		var sample := (lp - hp_lp) * env * 1.4
+		buffer[i] = Vector2(sample, sample)
+	return buffer
+
+## Generate a soft dry grass/heather swish for brush snag impacts.
+static func generate_tree_brush_swish(sample_rate: int, amplitude: float) -> PackedVector2Array:
+	var duration := 0.16
+	var sample_count := int(sample_rate * duration)
+	var buffer := PackedVector2Array()
+	buffer.resize(sample_count)
+
+	var dt := 1.0 / float(sample_rate)
+	var lp_alpha := dt / (1.0 / (TWO_PI * 1600.0) + dt)
+	var lp := 0.0
+	for i in sample_count:
+		var t := float(i) / float(maxi(sample_count - 1, 1))
+		var env := sin(t * PI) * (1.0 - t * 0.5) * amplitude
+		lp += lp_alpha * (randf_range(-1.0, 1.0) - lp)
+		var sample := lp * env
+		buffer[i] = Vector2(sample, sample)
+	return buffer
+
 ## Generate a short UI click sound.
 static func generate_click(sample_rate: int, amplitude: float) -> PackedVector2Array:
 	var duration := 0.025

@@ -2966,11 +2966,13 @@ func _restore_moving_entities(snapshot: Array) -> void:
 				ball.wind_visual_offset = _grid_delta_to_world(entry["wind_delta"])
 				if entry.has("roll_end"):
 					ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
+				ball.reproject_extra_tracks(terrain_grid)
 				ball.place_on_track()
 			"ball_rolling":
 				var ball := node as Ball
 				ball.roll_start_pos = _precise_grid_to_world(entry["roll_start"])
 				ball.roll_end_pos = _precise_grid_to_world(entry["roll_end"])
+				ball.reproject_extra_tracks(terrain_grid)
 				ball.place_on_track()
 			"staff":
 				var staff := node as StaffMember

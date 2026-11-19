@@ -176,6 +176,7 @@ func initialize(grid: TerrainGrid) -> void:
 	EventBus.season_changed.connect(_on_season_changed)
 	EventBus.theme_changed.connect(_on_theme_changed)
 	EventBus.view_rotated.connect(_on_view_rotated)
+	EventBus.ball_hit_tree.connect(_on_ball_hit_tree)
 	terrain_grid.vertex_elevation_changed.connect(_on_vertex_elevation_changed)
 	PerformanceSettings.profile_changed.connect(_on_performance_profile_changed)
 	rescan()
@@ -191,6 +192,8 @@ func _exit_tree() -> void:
 		EventBus.theme_changed.disconnect(_on_theme_changed)
 	if EventBus.view_rotated.is_connected(_on_view_rotated):
 		EventBus.view_rotated.disconnect(_on_view_rotated)
+	if EventBus.ball_hit_tree.is_connected(_on_ball_hit_tree):
+		EventBus.ball_hit_tree.disconnect(_on_ball_hit_tree)
 	if is_instance_valid(terrain_grid) and terrain_grid.vertex_elevation_changed.is_connected(_on_vertex_elevation_changed):
 		terrain_grid.vertex_elevation_changed.disconnect(_on_vertex_elevation_changed)
 	if PerformanceSettings.profile_changed.is_connected(_on_performance_profile_changed):
@@ -425,6 +428,7 @@ static func register_mod_art(mod_id: String, root: String) -> int:
 			registered += 1
 		if not per_species.is_empty():
 			_season_art[season] = per_species
+	TreeCollisionProfile.invalidate_cache()
 	return registered
 
 ## Register the direct files in a tree-art root as an all-season replacement
@@ -635,6 +639,7 @@ static func unregister_mod_art(mod_id: String) -> void:
 				per_species.erase(seasonal_species)
 		if per_species.is_empty():
 			_season_art.erase(season)
+	TreeCollisionProfile.invalidate_cache()
 
 ## Forget every mod's art, and the textures loaded from it — what
 ## ContentRegistry.reset_mod_content() does when the mod set is re-run or the
@@ -646,6 +651,7 @@ static func clear_mod_art() -> void:
 	_season_art_owners.clear()
 	_art_layouts.clear()
 	_texture_cache.clear()
+	TreeCollisionProfile.invalidate_cache()
 
 ## How far above a sprite's centre its trunk meets the tile. `scale_factor`
 ## keeps a downsized or enlarged mod sprite anchored proportionally to its art.
@@ -663,6 +669,15 @@ static func ground_jitter(pos: Vector2i) -> Vector2:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos)
 	return Vector2(rng.randf_range(-JITTER_X, JITTER_X), rng.randf_range(-JITTER_Y, JITTER_Y))
+
+## Deterministic per-tile jitter and scale matching _draw_tree() without creating
+## a TreeOverlay node.
+static func variation_for_tile(pos: Vector2i) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = variation_seed(pos)
+	var jitter := Vector2(rng.randf_range(-JITTER_X, JITTER_X), rng.randf_range(-JITTER_Y, JITTER_Y))
+	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
+	return {"jitter": jitter, "scale": scale_v}
 
 # =============================================================================
 # DRAWING
@@ -803,12 +818,38 @@ func _obtain_visual() -> Node2D:
 func _release_visual(pos: Vector2i) -> void:
 	var visual: Node2D = _visuals[pos]
 	_visuals.erase(pos)
+	if visual.has_meta("wobble_tween"):
+		var existing_tween: Variant = visual.get_meta("wobble_tween")
+		if existing_tween is Tween and is_instance_valid(existing_tween):
+			existing_tween.kill()
+		visual.remove_meta("wobble_tween")
+	visual.rotation = 0.0
 	visual.visible = false
 	visual.set_meta("tree_pos", Vector2i(-1, -1))
 	if _pooled_visuals.size() < MAX_POOLED_VISUALS:
 		_pooled_visuals.append(visual)
 	else:
 		visual.queue_free()
+
+func _on_ball_hit_tree(_golfer_id: int, tree_tile: Vector2i, _species: String,
+		material_type: int, _world_position: Vector2) -> void:
+	if not _visuals.has(tree_tile) or not is_inside_tree():
+		return
+	var visual: Node2D = _visuals[tree_tile]
+	if not is_instance_valid(visual) or not visual.visible:
+		return
+	if visual.has_meta("wobble_tween"):
+		var existing_tween: Variant = visual.get_meta("wobble_tween")
+		if existing_tween is Tween and is_instance_valid(existing_tween):
+			existing_tween.kill()
+	# Solid trunks give a quick tight shudder; leafy canopies sway slightly wider.
+	var amp := 0.035 if material_type == TreeCollisionProfile.MAT_WOOD else 0.055
+	var tween := visual.create_tween()
+	visual.set_meta("wobble_tween", tween)
+	tween.tween_property(visual, "rotation", amp, 0.05).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(visual, "rotation", -amp * 0.7, 0.07).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(visual, "rotation", amp * 0.35, 0.07).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(visual, "rotation", 0.0, 0.09).set_trans(Tween.TRANS_SINE)
 
 func _on_tree_visual_draw(visual: Node2D) -> void:
 	var pos: Vector2i = visual.get_meta("tree_pos", Vector2i(-1, -1))

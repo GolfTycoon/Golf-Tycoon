@@ -71,6 +71,7 @@ signal ball_in_hole(golfer_id: int, hole_number: int)
 signal hazard_penalty(golfer_id: int, hazard_type: String, reset_position: Vector2i)
 signal ball_putt_landed_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int)
 signal ball_shot_landed_precise(golfer_id: int, from_screen: Vector2, to_screen: Vector2, distance_yards: int, carry_screen: Vector2)
+signal ball_hit_tree(golfer_id: int, tree_tile: Vector2i, species: String, material_type: int, world_position: Vector2)
 
 # UI Signals
 signal ui_notification(message: String, type: String)

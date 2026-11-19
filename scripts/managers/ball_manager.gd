@@ -71,6 +71,7 @@ func get_or_create_ball(golfer_id: int) -> Ball:
 	ball.ball_state_changed.connect(_on_ball_state_changed.bind(golfer_id))
 	ball.ball_landed_in_bunker.connect(_on_ball_landed_in_bunker.bind(golfer_id))
 	ball.ball_landed_in_water.connect(_on_ball_landed_in_water.bind(golfer_id))
+	ball.ball_hit_tree.connect(_on_ball_hit_tree.bind(golfer_id))
 
 	ball_created.emit(golfer_id, ball)
 	return ball
@@ -266,6 +267,13 @@ func _on_ball_landed_in_water(_landing_pos: Vector2i, golfer_id: int) -> void:
 		WaterSplashEffect.create_at(ball.get_parent(), ball.global_position)
 		ball.visible = false  # Hide ball after splash (it's in the water)
 
+func _on_ball_hit_tree(tree_tile: Vector2i, species: String, material_type: int,
+		world_position: Vector2, golfer_id: int) -> void:
+	var ball = get_ball(golfer_id)
+	if ball and ball.get_parent():
+		TreeImpactEffect.create_at(ball.get_parent(), world_position, material_type, species)
+	EventBus.ball_hit_tree.emit(golfer_id, tree_tile, species, material_type, world_position)
+
 func _on_golfer_started_hole(_golfer_id: int, _hole_number: int) -> void:
 	# Golfer started a new hole - ball will be placed when they take their first shot
 	# Don't show ball here - the shot handlers will make it visible at the correct tee position
@@ -329,6 +337,17 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 	var duration = base_duration + (carry_distance_yards / 300.0) * 1.5
 	duration = clamp(duration, 0.5, 3.0)
 
+	# Check whether the shooting golfer recorded multi-segment tree impact tracks.
+	var golfer := _golfer_for(golfer_id)
+	var tree_data: Dictionary = {}
+	if golfer != null and not golfer.last_shot_tree_data.is_empty():
+		var rec_from: Vector2 = golfer.last_shot_tree_data.get("from_screen", Vector2(INF, INF))
+		var rec_carry: Vector2 = golfer.last_shot_tree_data.get("carry_screen", Vector2(INF, INF))
+		if rec_from.distance_to(from_screen) <= Ball.GROUND_MATCH_PX \
+				and rec_carry.distance_to(carry_screen) <= Ball.GROUND_MATCH_PX:
+			tree_data = golfer.last_shot_tree_data
+		golfer.last_shot_tree_data = {}
+
 	# Calculate wind visual offset
 	var wind_offset = Vector2.ZERO
 	if GameManager.wind_system and terrain_grid:
@@ -337,31 +356,48 @@ func _on_ball_shot_precise(golfer_id: int, from_screen: Vector2, to_screen: Vect
 		var wind_tile_disp = GameManager.wind_system.get_wind_displacement(shot_direction, distance_tiles, 1)
 		wind_offset = wind_tile_disp * terrain_grid.tile_width * 0.5
 
-	# Configure rollout if carry and final positions differ
+	# Configure rollout if carry and final positions differ (or if bent around trees)
 	var ground := _shot_ground(golfer_id, from_screen, carry_screen, to_screen)
-	if carry_screen.distance_to(to_screen) > 1.0:
+	var roll_path: PackedVector2Array = tree_data.get("roll_path", PackedVector2Array()) if not tree_data.is_empty() else PackedVector2Array()
+	var roll_hits: Array = tree_data.get("roll_tree_hits", []) if not tree_data.is_empty() else []
+	if not roll_hits.is_empty() and roll_path.size() >= 2 and terrain_grid:
+		var path_screen_len := 0.0
+		for i in range(1, roll_path.size()):
+			path_screen_len += terrain_grid.grid_to_screen_precise(roll_path[i - 1]).distance_to(
+				terrain_grid.grid_to_screen_precise(roll_path[i])
+			)
+		var roll_dur = clamp(0.3 + (path_screen_len / 200.0) * 0.8, 0.2, 1.2)
+		ball.set_rollout_waypoints(roll_path, roll_dur, roll_hits)
+	elif carry_screen.distance_to(to_screen) > 1.0:
 		var rollout_screen_dist = carry_screen.distance_to(to_screen)
 		# Rollout duration: ~0.3s base + scaled by distance, feels natural
 		var roll_dur = 0.3 + (rollout_screen_dist / 200.0) * 0.8
 		roll_dur = clamp(roll_dur, 0.2, 1.2)
 		ball.set_rollout(to_screen, roll_dur, ground[2])
 
+	var flight_segments: Array = tree_data.get("flight_segments", []) if not tree_data.is_empty() else []
+	if flight_segments.size() > 1:
+		var total_weight := 0.0
+		for seg in flight_segments:
+			total_weight += float(seg.get("duration_weight", 0.0))
+		var seg_yards := int((total_weight / TreeCollision.PX_PER_TILE) * 22.0)
+		var seg_dur := clampf(1.0 + (float(seg_yards) / 300.0) * 1.5, 0.5, 3.2)
+		ball.start_flight_tree_segments(flight_segments, seg_dur)
+		return
+
 	# Flight goes to the carry position (where ball first hits ground)
 	ball.start_flight_screen_with_arc(from_screen, carry_screen, duration, wind_offset, ground[0], ground[1])
-	var golfer_manager = get_parent().get_node_or_null("GolferManager")
-	if golfer_manager:
-		var golfer: Golfer = golfer_manager.get_golfer(golfer_id)
-		if golfer and golfer.player_profile:
-			if golfer.is_player_punch():
-				ball.flight_max_height *= 0.3
-			elif golfer.player_shape == 3:
-				ball.flight_max_height *= 1.4
-			if golfer.player_shape in [1, 2]:
-				# Curved flight starts on the aim line and bends toward its carry.
-				var sign_value := -1.0 if golfer.player_shape == 1 else 1.0
-				var grid_delta := Vector2(terrain_grid.screen_to_grid(carry_screen) - terrain_grid.screen_to_grid(from_screen))
-				var bend := Vector2(-grid_delta.y, grid_delta.x) * sign_value * 0.06
-				ball.wind_visual_offset += terrain_grid.grid_to_screen_precise(bend) - terrain_grid.grid_to_screen_precise(Vector2.ZERO)
+	if golfer and golfer.player_profile:
+		if golfer.is_player_punch():
+			ball.flight_max_height *= 0.3
+		elif golfer.player_shape == 3:
+			ball.flight_max_height *= 1.4
+		if golfer.player_shape in [1, 2]:
+			# Curved flight starts on the aim line and bends toward its carry.
+			var sign_value := -1.0 if golfer.player_shape == 1 else 1.0
+			var grid_delta := Vector2(terrain_grid.screen_to_grid(carry_screen) - terrain_grid.screen_to_grid(from_screen))
+			var bend := Vector2(-grid_delta.y, grid_delta.x) * sign_value * 0.06
+			ball.wind_visual_offset += terrain_grid.grid_to_screen_precise(bend) - terrain_grid.grid_to_screen_precise(Vector2.ZERO)
 
 ## The grid points under a shot's screen positions - where it is struck from,
 ## where it first comes down and where it comes to rest - from the shooter's
