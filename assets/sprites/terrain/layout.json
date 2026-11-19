@@ -28,36 +28,36 @@
 			"ground_y_ratio": 0.6025
 		},
 		"brush_0": {
-			"ground_x_ratio": 0.4959,
-			"ground_y_ratio": 0.8274
+			"ground_x_ratio": 0.5017,
+			"ground_y_ratio": 0.6548
 		},
 		"brush_1": {
-			"ground_x_ratio": 0.5135,
-			"ground_y_ratio": 0.7497
+			"ground_x_ratio": 0.4577,
+			"ground_y_ratio": 0.6828
 		},
 		"brush_2": {
-			"ground_x_ratio": 0.4799,
-			"ground_y_ratio": 0.8
+			"ground_x_ratio": 0.4742,
+			"ground_y_ratio": 0.6905
 		},
 		"brush_3": {
-			"ground_x_ratio": 0.5142,
-			"ground_y_ratio": 0.8509
+			"ground_x_ratio": 0.5006,
+			"ground_y_ratio": 0.7305
 		},
 		"rocks_0": {
-			"ground_x_ratio": 0.4403,
-			"ground_y_ratio": 0.482
+			"ground_x_ratio": 0.4779,
+			"ground_y_ratio": 0.4243
 		},
 		"rocks_1": {
-			"ground_x_ratio": 0.4921,
-			"ground_y_ratio": 0.5017
+			"ground_x_ratio": 0.4653,
+			"ground_y_ratio": 0.467
 		},
 		"rocks_2": {
-			"ground_x_ratio": 0.5049,
-			"ground_y_ratio": 0.5286
+			"ground_x_ratio": 0.5143,
+			"ground_y_ratio": 0.5075
 		},
 		"rocks_3": {
-			"ground_x_ratio": 0.5069,
-			"ground_y_ratio": 0.53
+			"ground_x_ratio": 0.5681,
+			"ground_y_ratio": 0.5193
 		}
 	}
 }
