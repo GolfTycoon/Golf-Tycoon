@@ -15,8 +15,8 @@ extends GameTest
 ##   own CanvasItem;
 ## * Rocks and Brush scatter two or three different variant drawings across that
 ##   container, while Boulder stands a single drawing;
-## * the variant a tile wears is a mixed hash of its position, deterministic and
-##   independent of the course's view.
+## * each tile has a deterministic mixed-hash variant that stays fixed as the
+##   map turns, while its scatter positions stay aligned with the terrain.
 ##
 ## The art itself is baked by `tools/terrain_art/generate.py` (see
 ## `tools/terrain_art/features.py`); `--check` there fails when the committed
@@ -152,8 +152,11 @@ func test_every_painted_feature_tile_gets_a_sprite_at_its_centre() -> void:
 		var jitter := TerrainFeatureOverlay.ground_jitter(pos)
 		for i in range(stamps.size()):
 			var stamp := visual.get_child(i) as Node2D
-			assert_eq(stamp.position, jitter + Vector2(stamps[i]["offset"]),
-					"drawing %d stands on its own spot inside the tile" % i)
+			var expected_offset: Vector2 = jitter + Vector2(stamps[i]["offset"])
+			assert_almost_eq(stamp.position.x, expected_offset.x, 0.001,
+					"drawing %d stays at its tile-local x position" % i)
+			assert_almost_eq(stamp.position.y, expected_offset.y, 0.001,
+					"drawing %d stays at its tile-local y position" % i)
 			assert_eq(stamp.get_meta("stamp_index"), i,
 					"drawing %d knows which stamp it is" % i)
 		assert_almost_eq(jitter.y,
@@ -175,21 +178,26 @@ func test_every_drawing_clips_against_its_own_painted_base() -> void:
 		var mat := stamp.material as ShaderMaterial
 		assert_not_null(mat, "drawing %d has its own occlusion material" % i)
 		materials[mat] = true
-		var offset: Vector2 = stamp.get_meta("occlusion_offset")
-		assert_eq(mat.get_shader_parameter("ground_offset"), offset,
-				"the material clips against drawing %d's own base" % i)
-		assert_almost_eq(offset.x, stamp.position.x, 0.001,
-				"its base stays on the drawing's spot inside the tile")
-		assert_gt(offset.y, stamp.position.y,
-				"the base sits below the tile-centre anchor, on the painted skirt")
+		var ground_grid: Vector2 = stamp.get_meta("occlusion_grid")
+		assert_eq(mat.get_shader_parameter("ground_grid"), ground_grid,
+				"the material clips against drawing %d's terrain point" % i)
+		var art_ground_offset: Vector2 = stamp.get_meta("art_ground_offset")
+		assert_eq(mat.get_shader_parameter("ground_offset"), art_ground_offset,
+				"the material includes only the sprite's authored skirt offset")
+		var expected_position := grid.grid_point_to_screen(ground_grid) - container.position
+		assert_almost_eq(stamp.position.x, expected_position.x, 0.001,
+				"its base stays attached to the projected terrain point")
+		assert_almost_eq(stamp.position.y, expected_position.y, 0.001,
+				"its base follows the local terrain height")
 		var key := TerrainFeatureOverlay.feature_key(TerrainTypes.Type.ROCKS)
 		var stamps := TerrainFeatureOverlay.stamps_for(key, pos,
 				TerrainFeatureOverlay.facing_at(pos))
 		var path := TerrainFeatureOverlay.sprite_path(key, int(stamps[i]["variant"]))
 		var scale_v := float(TerrainFeatureOverlay.variation_for_tile(pos)["scale"]) \
 				* float(stamps[i]["scale"])
-		assert_almost_eq(offset.y, stamp.position.y
-				+ TerrainFeatureOverlay.art_bottom_offset(key, path, scale_v), 0.001,
+		assert_almost_eq(art_ground_offset.y,
+				TerrainFeatureOverlay.art_bottom_offset(key, path, scale_v)
+				+ TerrainFeatureOverlay.art_offset_y(path), 0.001,
 				"drawing %d clips at the bottom row of its own canvas" % i)
 	assert_eq(materials.size(), container.get_child_count(),
 			"no two drawings share one silhouette or one clip")
@@ -272,6 +280,37 @@ func test_tile_variants_are_mixed_and_deterministic() -> void:
 			seen[variant] = true
 	assert_eq(seen.size(), TerrainFeatureOverlay.FACINGS.size(),
 			"a stretch of terrain shows every drawing, not one stamp")
+
+
+func test_feature_sprite_variant_stays_fixed_across_course_turns() -> void:
+	var tile := Vector2i(4, 7)
+	var assigned := TerrainFeatureOverlay.facing_offset(tile)
+	for view in range(TerrainFeatureOverlay.FACINGS.size()):
+		assert_eq(TerrainFeatureOverlay.facing_at(tile, view), assigned,
+				"the feature keeps its sprite variant at view %d" % view)
+
+	var feature_grid := make_grid(16, 16)
+	var features := feature_grid.get_node("TerrainFeatureOverlay") as TerrainFeatureOverlay
+	var offset := Vector2(17.0, -10.0)
+	assert_eq(features._tile_surface_offset(tile, offset), offset,
+			"the default view preserves the authored tile point")
+	feature_grid.set_view_orientation(2)
+	assert_eq(features._tile_surface_offset(tile, offset), -offset,
+			"scatter offsets move to the opposite tile point after a half turn")
+	feature_grid.set_view_orientation(1)
+	var fractional_point := feature_grid.tile_local_grid_point(tile, offset)
+	var projected_offset := feature_grid.grid_point_to_screen(fractional_point) \
+			- feature_grid.grid_to_screen_center(tile)
+	assert_eq(features._tile_surface_offset(tile, offset), projected_offset,
+			"the offset follows the isometric basis, not a flat screen rotation")
+
+	feature_grid.set_view_orientation(0)
+	var slope_probe := Vector2(1.0, 1.0)
+	var flat_anchor := features._tile_surface_offset(tile, slope_probe)
+	feature_grid.set_vertex_elevation(tile, TerrainGrid.MAX_ELEVATION)
+	var sloped_anchor := features._tile_surface_offset(tile, slope_probe)
+	assert_ne(sloped_anchor, flat_anchor,
+			"the sprite anchor samples the local terrain height, not just the tile centre")
 
 
 func test_rocks_and_brush_scatter_several_variant_drawings_on_one_tile() -> void:

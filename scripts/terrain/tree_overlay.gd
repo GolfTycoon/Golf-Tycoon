@@ -16,11 +16,10 @@ class_name TreeOverlay
 ## course loads.
 ##
 ## Each species can have four independently drawn variants —
-## `<species>_0.png` through `<species>_3.png` — and each tile wears one of
-## them for its whole life (see `facing_at()`). The variants are alternatives,
-## not four sides of a turning model: a wood is drawn from several of them at
-## once, and turning the course never swaps the art under a canopy. Variants
-## may have different canvas dimensions: `layout.json` supplies their scale and
+## `<species>_0.png` through `<species>_3.png` — and each tile keeps the same
+## coordinate-selected drawing through view turns. The tile's lean rotates with
+## the course, but its art variant does not. Variants may have different canvas
+## dimensions: `layout.json` supplies their scale and
 ## normalized ground anchor, while the renderer positions each texture from its
 ## own size. A missing variant falls back to the unsuffixed drawing, then to
 ## variant 0. Art packs published under the older compass spelling
@@ -39,11 +38,9 @@ class_name TreeOverlay
 ## before both the seasonal wardrobe and the core art, so a sprite pack can
 ## repaint every tree without having to duplicate its files into four seasons.
 ##
-## Which variant a tile wears is its own: a quarter-turn index (see
-## `facing_offset()`) fixed for the life of the course and mixed across the
-## wood, so one screen shows several drawings instead of a plantation of
-## identical canopies. It deliberately ignores the course's view orientation —
-## the same tree keeps the same sprite however the course is turned.
+## Each tile's variant is its own: a quarter-turn index (see `facing_offset()`)
+## fixed for the life of the course and mixed across the wood. Turning the view
+## rotates its tile-local lean without changing the artwork the tree wears.
 
 ## The evergreen art lives here as `<species>_0/_1/_2/_3.png`; each variant is
 ## its own drawing - a seeded 3D model baked through the building art's
@@ -67,12 +64,9 @@ const ART_LAYOUT_FILE := "layout.json"
 const MIN_ART_SCALE := 0.05
 const MAX_ART_SCALE := 4.0
 
-## The four view variants a tree can wear, numbered in the order a course's
-## view turns (see TerrainGrid.get_view_orientation()): 0 is the default
-## screen, then one step per quarter turn. They are alternative drawings of
-## the same tree, not four sides of a turning model: every tree keeps the one
-## variant its tile picked (see `facing_at()`) whichever way the course is
-## viewed, so turning the screen never swaps the art under a canopy.
+## The four drawings a tree can wear. The tile's stable hash selects one and
+## keeps it through view turns; the sprite's tile-local placement still follows
+## the course orientation.
 const FACINGS: Array[String] = ["0", "1", "2", "3"]
 
 ## The old 0..3 spelling of the same views, kept so art packs published under
@@ -213,10 +207,8 @@ func rescan() -> void:
 					_tree_tiles[pos] = species_at(type, pos)
 	_sync_visuals(true)
 
-## The course's view orientation (0..3). Trees do not turn with the course —
-## each keeps the variant its tile picked — but a rotation is still the moment
-## the visible wood is re-synced, and the toolbar asks this to know which way
-## the course is facing.
+## The course's nearest quarter-turn orientation (0..3), used to advance each
+## tree's view-facing sprite. The toolbar also reads this for its preview.
 func view_facing() -> int:
 	return terrain_grid.get_view_orientation() if terrain_grid else DEFAULT_FACING
 
@@ -250,10 +242,8 @@ static func facing_suffixes(facing: int) -> Array[String]:
 	var index := wrapi(facing, 0, FACINGS.size())
 	return ["_" + FACINGS[index], LEGACY_FACING_SUFFIXES[index]]
 
-## The variant index the tree on `pos` is drawn with, independent of course
-## view orientation: every tree keeps the same sprite image for every
-## direction, while the four variants (`_0` to `_3`, or the older
-## `_n`/`_e`/`_s`/`_w`) serve as per-tile alternative sprite images.
+## The drawing assigned to this tile. `view` remains accepted for callers
+## that also pass an orientation, but the tile's artwork never changes on a turn.
 static func facing_at(pos: Vector2i, _view: int = DEFAULT_FACING) -> int:
 	return facing_offset(pos)
 
@@ -711,8 +701,7 @@ func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> voi
 		var new_position := terrain_grid.grid_to_screen_center(pos)
 		if visual.position != new_position:
 			visual.position = new_position
-		if _occlusion_enabled:
-			visual.queue_redraw()
+		visual.queue_redraw()
 
 ## Bulk elevation loads do not emit one vertex signal per point. Refresh only
 ## the currently visible trees after such a load.
@@ -721,8 +710,7 @@ func refresh_elevation_visuals() -> void:
 	for pos in _visuals:
 		var visual: Node2D = _visuals[pos]
 		visual.position = terrain_grid.grid_to_screen_center(pos)
-		if _occlusion_enabled:
-			visual.queue_redraw()
+		visual.queue_redraw()
 
 func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
 	if TerrainTypes.is_tree(new_type):
@@ -886,13 +874,20 @@ func _configure_occlusion(tree: Node2D, pos: Vector2i) -> void:
 		occlusion_material = ShaderMaterial.new()
 		occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
 		tree.material = occlusion_material
+	var ground_grid := terrain_grid.tile_local_grid_point(pos, ground_jitter(pos))
 	terrain_grid._course_surface.configure_sprite_occlusion(
-			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
+			occlusion_material, ground_grid, Vector2.ZERO)
 
-## The view variant this overlay paints the tree on `pos` with: the tile's own
-## index, so a wood holds several variants at once and no rotation changes it.
+## The stable variant this overlay paints for the tree on `pos`.
 func facing_for(pos: Vector2i) -> int:
-	return facing_at(pos, view_facing())
+	return facing_at(pos)
+
+## Reproject a tree's authored default-view lean through the tile basis and
+## heightfield. The artwork stays upright while its base follows the terrain.
+func _tile_surface_offset(pos: Vector2i, offset: Vector2) -> Vector2:
+	if terrain_grid == null:
+		return offset
+	return terrain_grid.tile_local_screen_offset(pos, offset)
 
 ## One tree: the species' sprite for this tile's variant — or its silhouette,
 ## shaped the same way, when the art is missing. The sprite is drawn straight
@@ -902,8 +897,9 @@ func _draw_tree(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DE
 	var species: String = _tree_tiles[pos]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos)
-	var center := ground + Vector2(rng.randf_range(-JITTER_X, JITTER_X),
+	var jitter := Vector2(rng.randf_range(-JITTER_X, JITTER_X),
 			rng.randf_range(-JITTER_Y, JITTER_Y))
+	var center := ground + _tile_surface_offset(pos, jitter)
 	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
 
 	var path := sprite_path(species, -1, -1, facing)

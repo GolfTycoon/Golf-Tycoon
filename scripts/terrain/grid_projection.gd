@@ -65,6 +65,29 @@ func _rotate(offset: Vector2, turns: float) -> Vector2:
 	var s := sin(radians)
 	return Vector2(offset.x * c - offset.y * s, offset.x * s + offset.y * c)
 
+## Convert an offset authored in the default view's screen pixels into a
+## fractional tile-space displacement. Sprite anchors use this to stay attached
+## to the same point on an isometric tile as the view changes.
+func screen_offset_to_grid(offset: Vector2) -> Vector2:
+	var half_width := tile_size.x * 0.5
+	var half_height := tile_size.y * 0.5
+	if is_zero_approx(half_width) or is_zero_approx(half_height):
+		return Vector2.ZERO
+	var horizontal := offset.x / half_width
+	var vertical := offset.y / half_height
+	return Vector2((horizontal + vertical) * 0.5, (vertical - horizontal) * 0.5)
+
+## Project a fractional tile-space displacement through the active view.
+func project_grid_offset(offset: Vector2) -> Vector2:
+	_ensure_fresh()
+	return _axis_x * offset.x + _axis_y * offset.y
+
+## Reproject a default-view screen offset through the active isometric basis.
+## This preserves its terrain point, unlike rotating screen pixels directly
+## (the isometric axes are not square).
+func reproject_screen_offset(offset: Vector2) -> Vector2:
+	return project_grid_offset(screen_offset_to_grid(offset))
+
 func _refresh() -> void:
 	_center = Vector2(grid_size.x * 0.5, grid_size.y * 0.5)
 

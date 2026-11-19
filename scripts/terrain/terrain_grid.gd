@@ -547,6 +547,20 @@ func grid_to_screen_precise(grid_pos: Vector2) -> Vector2:
 func grid_point_to_screen(grid_pos: Vector2) -> Vector2:
 	return projection.project(grid_pos) + get_elevation_displacement(grid_pos)
 
+## A screen-space offset authored in the default view, expressed as a point
+## inside `pos`'s tile. The fractional point follows the isometric basis and
+## samples sculpted elevation at its own location, so sprite bases stay planted
+## on sloped terrain through every view rotation.
+func tile_local_grid_point(pos: Vector2i, default_view_offset: Vector2) -> Vector2:
+	return Vector2(pos) + Vector2(0.5, 0.5) \
+		+ projection.screen_offset_to_grid(default_view_offset)
+
+## World displacement from the tile centre to an authored screen-space offset,
+## including the heightfield difference between the centre and that point.
+func tile_local_screen_offset(pos: Vector2i, default_view_offset: Vector2) -> Vector2:
+	return grid_point_to_screen(tile_local_grid_point(pos, default_view_offset)) \
+		- grid_to_screen_center(pos)
+
 func tile_polygon(grid_pos: Vector2i) -> PackedVector2Array:
 	var p := Vector2(grid_pos)
 	return PackedVector2Array([

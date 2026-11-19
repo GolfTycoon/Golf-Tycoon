@@ -11,10 +11,9 @@ class_name TerrainFeatureOverlay
 ## canopy: each stone or bush Y-sorts and clips against the terrain on its own.
 ##
 ## The art lives in `assets/sprites/terrain/` as `<feature>_<variant>.png`, with
-## up to four independently drawn variants per feature.  The variants are
-## alternatives, not four sides of a turning model: every tile picks its own for
-## the life of the course (`facing_at()`), so a rocky stretch shows several
-## outcrops at once and turning the view never swaps the art under a tile.
+## up to four independently drawn variants per feature. A stable tile hash
+## chooses each tile's drawing and it remains the same through view turns; only
+## the tile-local scatter positions rotate to stay aligned with the terrain.
 ##
 ## Rocks and Brush are scatters rather than single objects: each of their tiles
 ## wears two or three *different* variant drawings, spread across the tile
@@ -178,9 +177,9 @@ static func feature_key(type: int) -> String:
 static func facing_name(facing: int) -> String:
 	return FACINGS[wrapi(facing, 0, FACINGS.size())]
 
-## Which drawing a tile wears: a mixed hash of the tile, fixed for the life of
-## the course and independent of the course's view orientation.
-static func facing_at(pos: Vector2i) -> int:
+## The stable drawing assigned to the tile. `view` remains accepted for callers
+## that pass an orientation too, but terrain turns never change the art variant.
+static func facing_at(pos: Vector2i, _view: int = DEFAULT_FACING) -> int:
 	return facing_offset(pos)
 
 ## How many drawings this tile stands apart from the first: 0..3, one per tile,
@@ -417,7 +416,9 @@ func _on_load_completed(_success: bool) -> void:
 	rescan()
 
 func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
-	_sync_visuals()
+	# The visible tile window can remain unchanged while every tile-local scatter
+	# and view-facing sprite has moved. Reposition/redraw the active nodes too.
+	_sync_visible_features(true)
 
 func _on_performance_profile_changed(_low_detail: bool) -> void:
 	var previous_occlusion := _occlusion_enabled
@@ -436,9 +437,8 @@ func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> voi
 		var new_position := terrain_grid.grid_to_screen_center(pos)
 		if container.position != new_position:
 			container.position = new_position
-		if _occlusion_enabled:
-			for stamp in container.get_children():
-				(stamp as Node2D).queue_redraw()
+		for stamp in container.get_children():
+			_update_stamp_anchor(pos, stamp)
 
 ## Bulk elevation loads do not emit one vertex signal per point. Refresh only
 ## the currently visible features after such a load.
@@ -447,9 +447,8 @@ func refresh_elevation_visuals() -> void:
 	for pos in _visuals:
 		var container: Node2D = _visuals[pos]
 		container.position = terrain_grid.grid_to_screen_center(pos)
-		if _occlusion_enabled:
-			for stamp in container.get_children():
-				(stamp as Node2D).queue_redraw()
+		for stamp in container.get_children():
+			_update_stamp_anchor(pos, stamp)
 
 func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
 	var new_key := feature_key(new_type)
@@ -484,6 +483,14 @@ func update_visible_features() -> void:
 ## the full tile index immediately.
 func _sync_visuals() -> void:
 	_sync_visible_features(true)
+
+## Reproject a feature's authored default-view offset to the same fractional
+## point on its tile. TerrainGrid includes the local heightfield so bases follow
+## both course rotation and sculpted slopes without rotating the sprite itself.
+func _tile_surface_offset(pos: Vector2i, offset: Vector2) -> Vector2:
+	if terrain_grid == null:
+		return offset
+	return terrain_grid.tile_local_screen_offset(pos, offset)
 
 func _sync_visible_features(force_membership: bool) -> void:
 	if terrain_grid == null:
@@ -529,20 +536,33 @@ func _sync_visible_features(force_membership: bool) -> void:
 		var tile_scale := float(variation_for_tile(pos)["scale"])
 		for i in range(stamps.size()):
 			var stamp: Node2D = container.get_child(i)
-			var offset: Vector2 = stamps[i]["offset"]
+			var stamp_offset: Vector2 = stamps[i]["offset"]
 			var path := sprite_path(key, int(stamps[i]["variant"]))
 			var stamp_scale := tile_scale * float(stamps[i]["scale"])
-			# The jitter is the tile's; the slot is the drawing's. Each stamp
-			# carries both, so Y-sort sees its own ground point, and the
-			# occlusion ground sits on that drawing's own bottom edge.
-			var ground_offset := jitter + offset
-			ground_offset.y += art_bottom_offset(key, path, stamp_scale)
+			# Keep the authored scatter coordinate and sample its real terrain
+			# height; only the sprite image's own skirt remains a screen offset.
+			var tile_offset := jitter + stamp_offset
+			var art_ground_offset := Vector2(art_offset_x(path),
+					art_offset_y(path) + art_bottom_offset(key, path, stamp_scale))
 			stamp.set_meta("feature_pos", pos)
 			stamp.set_meta("stamp_index", i)
-			stamp.set_meta("occlusion_offset", ground_offset)
-			stamp.position = jitter + offset
-			_configure_occlusion(stamp, pos, ground_offset)
+			stamp.set_meta("tile_offset", tile_offset)
+			stamp.set_meta("art_ground_offset", art_ground_offset)
+			_update_stamp_anchor(pos, stamp)
 			stamp.queue_redraw()
+
+## Replant a stamp on the exact fractional terrain point that its authored
+## default-view offset represents. This also refreshes the shader's ground
+## anchor, keeping Y-sort and hill occlusion in agreement with the sprite base.
+func _update_stamp_anchor(pos: Vector2i, stamp: Node2D) -> void:
+	var tile_offset: Vector2 = stamp.get_meta("tile_offset", Vector2.ZERO)
+	var ground_grid := terrain_grid.tile_local_grid_point(pos, tile_offset)
+	var parent := stamp.get_parent() as Node2D
+	if parent != null:
+		stamp.position = terrain_grid.grid_point_to_screen(ground_grid) - parent.position
+	stamp.set_meta("occlusion_grid", ground_grid)
+	_configure_occlusion(stamp, ground_grid,
+			stamp.get_meta("art_ground_offset", Vector2.ZERO))
 
 func _obtain_visual() -> Node2D:
 	var container: Node2D
@@ -602,8 +622,7 @@ func _redraw_active_visuals() -> void:
 	for pos in _visuals:
 		var container: Node2D = _visuals[pos]
 		for stamp in container.get_children():
-			_configure_occlusion(stamp, pos,
-					stamp.get_meta("occlusion_offset", ground_jitter(pos)))
+			_update_stamp_anchor(pos, stamp)
 			(stamp as Node2D).queue_redraw()
 
 func _should_enable_occlusion() -> bool:
@@ -618,14 +637,13 @@ func _refresh_occlusion_mode(force: bool = false) -> void:
 	for pos in _visuals:
 		var container: Node2D = _visuals[pos]
 		for stamp in container.get_children():
-			_configure_occlusion(stamp, pos,
-					stamp.get_meta("occlusion_offset", ground_jitter(pos)))
+			_update_stamp_anchor(pos, stamp)
 	for container in _pooled_visuals:
 		if not _occlusion_enabled:
 			for stamp in container.get_children():
 				(stamp as Node2D).material = null
 
-func _configure_occlusion(feature: Node2D, pos: Vector2i,
+func _configure_occlusion(feature: Node2D, ground_grid: Vector2,
 		ground_offset: Vector2) -> void:
 	if not _occlusion_enabled or terrain_grid == null or terrain_grid._course_surface == null:
 		feature.material = null
@@ -636,7 +654,7 @@ func _configure_occlusion(feature: Node2D, pos: Vector2i,
 		occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
 		feature.material = occlusion_material
 	terrain_grid._course_surface.configure_sprite_occlusion(
-			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_offset)
+			occlusion_material, ground_grid, ground_offset)
 
 # =============================================================================
 # DRAWING

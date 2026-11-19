@@ -266,8 +266,9 @@ func test_tree_sprites_share_the_terrain_occlusion_heightfield() -> void:
 	assert_eq(mat.shader, TreeOverlay.TERRAIN_SPRITE_OCCLUSION)
 	assert_same(mat.get_shader_parameter("vertex_elevation"),
 		grid._course_surface._elevation_texture, "sculpts update the ground and sprite mask together")
-	assert_eq(mat.get_shader_parameter("ground_grid"), Vector2(pos) + Vector2(0.5, 0.5))
-	assert_eq(mat.get_shader_parameter("ground_offset"), TreeOverlay.ground_jitter(pos))
+	assert_eq(mat.get_shader_parameter("ground_grid"),
+			grid.tile_local_grid_point(pos, TreeOverlay.ground_jitter(pos)))
+	assert_eq(mat.get_shader_parameter("ground_offset"), Vector2.ZERO)
 	grid.set_view_orientation(1)
 	assert_eq(mat.get_shader_parameter("grid_origin"), grid.projection.grid_origin(),
 		"the occlusion projection turns with the tree and the ground")

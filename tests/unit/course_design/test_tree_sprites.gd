@@ -382,24 +382,32 @@ func test_fractional_view_angles_pick_the_nearest_quarter_turn() -> void:
 	assert_eq(trees.view_facing(), 0, "angles past 315 degrees wrap to 0")
 
 
-func test_rotating_the_view_keeps_each_tree_on_its_own_texture() -> void:
+func test_rotating_the_view_keeps_each_tree_on_its_assigned_sprite() -> void:
 	GameManager.set_gradual_view_rotation(false)
 	var grid := make_grid(8, 8)
 	var tile := Vector2i(3, 3)
 	grid.set_tile(tile, TerrainTypes.Type.PALM)
 	var trees := grid.get_node("TreeOverlay") as TreeOverlay
-	var variant := trees.facing_for(tile)
-	var texture := TreeOverlay.texture_for("palm", variant)
-	assert_not_null(texture, "the palm has art in its variant")
-	var worn: Dictionary = {}
+	var assigned_variant := trees.facing_for(tile)
+	var assigned_texture := TreeOverlay.texture_for("palm", assigned_variant)
 	for step in range(4):
-		assert_eq(trees.facing_for(tile), variant,
-				"orientation %d leaves the tile on its own variant" % trees.view_facing())
-		assert_eq(TreeOverlay.texture_for("palm", trees.facing_for(tile)), texture,
-				"and paints the same drawing it started with")
-		worn[variant] = true
+		assert_eq(trees.facing_for(tile), assigned_variant,
+				"course orientation %d does not change the tree's variant" % trees.view_facing())
+		assert_same(TreeOverlay.texture_for("palm", trees.facing_for(tile)), assigned_texture,
+				"the tree keeps the same texture through every turn")
 		grid.rotate_view_cw()
-	assert_eq(worn.size(), 1, "a full turn of the course never swaps the art under the canopy")
+
+
+func test_tree_lean_rotates_around_its_tile_without_turning_the_tree_over() -> void:
+	var grid := make_grid(8, 8)
+	var trees := grid.get_node("TreeOverlay") as TreeOverlay
+	var original := Vector2(3.0, -2.0)
+	var tile := Vector2i(3, 3)
+	assert_eq(trees._tile_surface_offset(tile, original), original,
+			"the default flat view keeps the tile offset")
+	grid.set_view_orientation(2)
+	assert_eq(trees._tile_surface_offset(tile, original), -original,
+			"a half turn moves the lean to the opposite side of its planted point")
 
 
 func test_repainting_a_tree_species_redraws_its_existing_sprite() -> void:
@@ -439,17 +447,16 @@ func test_a_wood_shows_every_variant_whichever_way_it_is_viewed() -> void:
 					% [view, TreeOverlay.facing_name(facing)])
 
 
-## Rotating the course keeps every tree on the same sprite image for every
-## direction: the variants are per-tile alternatives, not a turning model.
-func test_rotating_the_course_keeps_every_tree_on_its_same_sprite() -> void:
+## Every tree keeps its deterministic tile variant at each course orientation.
+func test_tree_sprite_variant_stays_fixed_across_course_turns() -> void:
 	var angles := TreeOverlay.FACINGS.size()
 	for x in range(6):
 		for y in range(6):
 			var pos := Vector2i(x, y)
-			var base := TreeOverlay.facing_at(pos, 0)
+			var assigned := TreeOverlay.facing_offset(pos)
 			for view in range(angles):
-				assert_eq(TreeOverlay.facing_at(pos, view), base,
-						"the tree on %s keeps the same sprite at view %d" % [pos, view])
+				assert_eq(TreeOverlay.facing_at(pos, view), assigned,
+						"the tree on %s keeps its sprite at view %d" % [pos, view])
 
 
 ## The offset is the tile's own: fixed for the life of the course, so the wood
