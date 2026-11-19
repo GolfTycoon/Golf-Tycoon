@@ -30,18 +30,22 @@ DIGITS = [
 def bake(number):
     model = Model(1, 1)
     b = Builder(model)
-    brass = mat(C('cfad62'), 'metal')
-    green = mat(C('173e32'))
+    brass = mat(C('cfad62'), 'metal', emissive=0.18)
+    green = mat(C('123e34'), unlit=True)
+    rim_shadow = mat(C('594b30'))
+    gold_light = mat(C('e2c884'), unlit=True)
     stone = mat(C('777b70'), 'gravel')
     cream = mat(C('fff0be'), unlit=True)
-    # Circular footing and a slim round stem avoid the old boxy silhouette.
-    b.cylinder(32, 16, 0, 2, 6, stone, segments=32)
-    b.cylinder(32, 16, 2, 7, 1.6, brass, segments=16)
+    # Compact club-crest marker: 17 world pixels wide, with a low stone foot.
+    # Keep the glyphs large relative to the face rather than shrinking the old
+    # sign wholesale; two-digit numbers remain legible at normal game zoom.
+    b.cylinder(32, 16, 0, 1.5, 4.5, stone, segments=32)
+    b.cylinder(32, 16, 1.5, 4, 1.2, brass, segments=16)
 
     def point(u, v, depth=0):
         # A camera-facing plane: horizontal model motion projects horizontally.
         # The round sign stays readable as its ground anchor rotates with the tee.
-        return (32 + u + depth, 16 - u * 0.5 + depth * 0.5, 16 + v)
+        return (32 + u + depth, 16 - u * 0.5 + depth * 0.5, 11 + v)
 
     def disk(radius, depth, material):
         group = model.group()
@@ -56,15 +60,26 @@ def bake(number):
     edge_group = model.group()
     for i in range(48):
         a, c = math.tau * i / 48, math.tau * (i + 1) / 48
-        model.quad(point(11 * math.cos(a), 11 * math.sin(a), -1),
-                   point(11 * math.cos(c), 11 * math.sin(c), -1),
-                   point(10.5 * math.cos(c), 10.5 * math.sin(c), 1),
-                   point(10.5 * math.cos(a), 10.5 * math.sin(a), 1),
+        model.quad(point(8.5 * math.cos(a), 8.5 * math.sin(a), -1),
+                   point(8.5 * math.cos(c), 8.5 * math.sin(c), -1),
+                   point(8.1 * math.cos(c), 8.1 * math.sin(c), 1),
+                   point(8.1 * math.cos(a), 8.1 * math.sin(a), 1),
                    brass, group=edge_group)
-    disk(10.5, 1, brass)
-    disk(8.8, 1.15, green)
+    disk(8.1, 1, rim_shadow)
+    disk(7.7, 1.08, brass)
+    disk(6.9, 1.15, green)
+
+    def ornament(points, material=gold_light):
+        model.quad(*(point(u, v, 1.3) for u, v in points), material,
+                   group=model.group())
+
+    # A tiny compass-diamond crest and two restrained laurel leaves. These
+    # embellishments occupy the spare poles, keeping the number's field clear.
+    ornament([(0, 6.3), (0.8, 5.5), (0, 4.7), (-0.8, 5.5)])
+    ornament([(-3.8, -4.3), (-1.8, -5.4), (-0.5, -5.4), (-2.5, -4.3)])
+    ornament([(3.8, -4.3), (1.8, -5.4), (0.5, -5.4), (2.5, -4.3)])
     text = str(number)
-    unit = 1.8
+    unit = 1.4
     start = -(len(text) * 4 - 1) * unit / 2
     # Raised cream glyphs are part of the single baked sprite, not UI text.
     glyph_group = model.group()
@@ -73,7 +88,7 @@ def bake(number):
             for col, bit in enumerate(pixels):
                 if bit == '1':
                     u = start + (i * 4 + col) * unit
-                    v = 4.5 - row * unit
+                    v = 3.5 - row * unit
                     model.quad(point(u, v, 1.3), point(u+unit, v, 1.3),
                                point(u+unit, v-unit, 1.3), point(u, v-unit, 1.3), cream, group=glyph_group)
     image, rect = render(model, 0, scale=2.0, pad=(4,4,4,4))

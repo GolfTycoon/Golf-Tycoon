@@ -167,6 +167,9 @@ func test_all_tee_number_art_has_transparency_and_anchor_metadata() -> void:
 		var name := "%d.png" % number
 		var texture := load("res://assets/sprites/tee_numbers/" + name) as Texture2D
 		assert_not_null(texture, name)
+		var world_size := texture.get_size() * float(layout.scale)
+		assert_lte(world_size.x, 18.0, "Compact width: " + name)
+		assert_lte(world_size.y, 23.0, "Low-profile height: " + name)
 		assert_true(texture.get_image().is_invisible() == false, "Sign has visible pixels: " + name)
 		assert_true(texture.get_image().get_pixel(0, 0).a < 0.01, "Transparent canvas: " + name)
 		assert_true(layout.sprites.has(name), "Ground anchor: " + name)
