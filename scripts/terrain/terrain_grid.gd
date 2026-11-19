@@ -109,6 +109,7 @@ var _water_overlay: WaterOverlay = null
 var _bunker_overlay: BunkerOverlay = null
 var _grass_overlay: GrassOverlay = null
 var _fairway_overlay: FairwayOverlay = null
+var _feature_overlay: TerrainFeatureOverlay = null
 var _tree_overlay: TreeOverlay = null
 var _flower_overlay: FlowerOverlay = null
 var _walking_path_overlay: WalkingPathOverlay = null
@@ -135,7 +136,8 @@ var _elevation_shader_rect: ColorRect = null
 ## entities with their shadows ride their own bands above.
 ## See docs/architecture.md, Draw Order.
 const GROUND_DETAIL_ORDER: Array[String] = [
-	"CupOverlay", "TeeAimOverlay", "FlowerOverlay", "WalkingPathOverlay", "TreeOverlay",
+	"CupOverlay", "TeeAimOverlay", "FlowerOverlay", "WalkingPathOverlay",
+	"TerrainFeatureOverlay", "TreeOverlay",
 ]
 
 ## Camera tracking for the viewport-culling overlays. A pan only changes what
@@ -172,9 +174,11 @@ func _ready() -> void:
 	# overlay classes available for older tools, but don't double draw.
 	# The ground detail is added bottom-up and then ranked once, by
 	# `_order_ground_detail()`: flowers and the walking trail on the turf, the
-	# standing trees over both.
+	# ground-cover sprites (Brush, Rocks, Boulder) over both, and the standing
+	# trees over everything.
 	_setup_flower_overlay()
 	_setup_walking_path_overlay()
+	_setup_feature_overlay()
 	_setup_tree_overlay()
 	_order_ground_detail()
 	_setup_elevation_overlay()
@@ -245,6 +249,8 @@ func _process(_delta: float) -> void:
 		_camera_redraw_pending = false
 		camera_repaint_count += 1
 		_redraw_all_overlays()
+		if _feature_overlay:
+			_feature_overlay.update_visible_features()
 		if _tree_overlay:
 			_tree_overlay.update_visible_trees()
 
@@ -741,6 +747,8 @@ func refresh_all_overlays() -> void:
 	if _fairway_overlay and _fairway_overlay.has_method("_scan_tiles"):
 		_fairway_overlay._scan_tiles()
 		_fairway_overlay.queue_redraw()
+	if _feature_overlay:
+		_feature_overlay.rescan()
 	if _tree_overlay:
 		_tree_overlay.rescan()
 	if _flower_overlay and _flower_overlay.has_method("_scan_flower_tiles"):
@@ -1170,6 +1178,12 @@ func _setup_fairway_overlay() -> void:
 	_fairway_overlay.name = "FairwayOverlay"
 	add_child(_fairway_overlay)
 	_fairway_overlay.initialize(self)
+
+func _setup_feature_overlay() -> void:
+	_feature_overlay = TerrainFeatureOverlay.new()
+	_feature_overlay.name = "TerrainFeatureOverlay"
+	add_child(_feature_overlay)
+	_feature_overlay.initialize(self)
 
 func _setup_tree_overlay() -> void:
 	_tree_overlay = TreeOverlay.new()
@@ -1793,6 +1807,8 @@ func _after_elevation_bulk_load() -> void:
 	if _heightmap:
 		_heightmap.request_rebuild(self)
 	_refresh_elevation_visuals()
+	if _feature_overlay:
+		_feature_overlay.refresh_elevation_visuals()
 	if _tree_overlay:
 		_tree_overlay.refresh_elevation_visuals()
 	_refresh_terrain_occlusion()

@@ -40,6 +40,7 @@ var _outline: Line2D
 var _name_label: Label
 var _cup_flag: Sprite2D
 var _tree_art: Sprite2D = null  # The species sprite on a woodland tile
+var _feature_art: Sprite2D = null  # The sprite on a Brush, Rocks or Boulder tile
 var _green_places_cup := true
 var _hovered := false
 
@@ -174,6 +175,13 @@ func _build_tile() -> void:
 		add_child(trail)
 		if _name_label:
 			move_child(trail, _name_label.get_index())
+	elif tool_type is int and TerrainFeatureOverlay.is_feature_tile(tool_type):
+		# The tile paints its own ground, so the button stands the same sprite
+		# the course draws over it — the arrangement a rocky tile wears in play.
+		_feature_art = _make_feature_art()
+		add_child(_feature_art)
+		if _name_label:
+			move_child(_feature_art, _name_label.get_index())
 	elif tool_type is int and TerrainTypes.is_tree(tool_type):
 		# The tile already paints the species' own ground, so the button only
 		# has to stand the sprite the TreeOverlay uses on top of it — the same
@@ -187,6 +195,39 @@ func _build_tile() -> void:
 
 	_refresh_palette()
 	_update_visual_state()
+
+## The sprite that stands on a Brush, Rocks or Boulder tile, sized to the
+## diamond. It is the art the course draws, so the tile and the terrain agree.
+func _make_feature_art() -> Sprite2D:
+	var sprite := Sprite2D.new()
+	sprite.name = "TerrainFeaturePreviewArt"
+	sprite.centered = true
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.position = Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
+	_draw_feature_art(sprite)
+	return sprite
+
+func _draw_feature_art(sprite: Sprite2D) -> void:
+	var key := TerrainFeatureOverlay.feature_key(int(tool_type))
+	var path := TerrainFeatureOverlay.sprite_path(key)
+	var texture := TerrainFeatureOverlay.texture_at(path)
+	if texture == null:
+		# No art on this machine: a bare tile is better than a stretched one.
+		sprite.texture = null
+		return
+	sprite.texture = texture
+	var art_size := texture.get_size()
+	var layout_scale := TerrainFeatureOverlay.art_scale(path)
+	# Fit inside the catalogue diamond. A boulder is shorter than a tree, so
+	# its box is lower and wider than the woodland preview's.
+	var fit_scale := minf(34.0 / (art_size.y * layout_scale),
+			76.0 / (art_size.x * layout_scale))
+	sprite.scale = Vector2.ONE * fit_scale * layout_scale
+	var anchor := TerrainFeatureOverlay.art_anchor_offset(key, path, art_size, fit_scale)
+	var terrain_anchor := Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
+	sprite.position = terrain_anchor - anchor + Vector2(
+			TerrainFeatureOverlay.art_offset_x(path),
+			TerrainFeatureOverlay.art_offset_y(path))
 
 ## The species sprite that stands on a woodland tile, sized to the diamond. It
 ## is the art the course draws, so the tile and the grove always agree.
