@@ -17,6 +17,9 @@ sys.path.insert(0, str(ROOT / 'tools/building_art'))
 from render import Model, C, mat, render, project, grid_origin_offset
 
 OUT = ROOT / 'assets/sprites/tee_numbers'
+# Model-space reduction, not a runtime texture shrink: re-bake clean edges
+# at the same two source pixels per world pixel as the rest of the tee art.
+MARKER_SCALE = 0.8
 DIGITS = [
     ('111','101','101','101','111'), ('010','110','010','010','111'),
     ('111','001','111','100','111'), ('111','001','111','001','111'),
@@ -38,7 +41,9 @@ def bake(number):
     def point(u, v, depth=0):
         # A camera-facing plane: horizontal model motion projects horizontally.
         # The round sign stays readable as its ground anchor rotates with the tee.
-        return (32 + u + depth, 16 - u * 0.5 + depth * 0.5, 8.5 + v)
+        return (32 + (u + depth) * MARKER_SCALE,
+                16 + (-u * 0.5 + depth * 0.5) * MARKER_SCALE,
+                (8.5 + v) * MARKER_SCALE)
 
     def disk(radius, depth, material):
         group = model.group()
