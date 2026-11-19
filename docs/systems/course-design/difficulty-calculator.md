@@ -63,7 +63,7 @@ difficulty  = water_count × 0.30
 | Out of bounds | 0.20 | Stroke and distance penalty |
 | Bunker (always shallow) | 0.15 | Hard to escape, no penalty |
 | Trees (any species) | 0.10 | Blocked shots, little recovery |
-| Brush, rocks, small and large boulders | 0.08 | Wedge-only hack-outs |
+| Brush, rocks, boulder | 0.08 | Wedge-only hack-outs |
 | Deep rough | 0.04 | Poor lie, ball snags |
 | Waste bunker | 0.03 | Sandy lie, no penalty |
 

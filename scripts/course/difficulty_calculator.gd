@@ -58,7 +58,7 @@ static func _calculate_hazard_difficulty(corridor_tiles: Array, terrain_grid: Te
 				trouble_difficulty += 0.08
 			TerrainTypes.Type.ROCKS:
 				trouble_difficulty += 0.08
-			TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS:
+			TerrainTypes.Type.BOULDER:
 				# Every boulder tile is painted ground now: the same 0.08 of
 				# trouble the Rocks tile carries.
 				trouble_difficulty += 0.08

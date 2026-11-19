@@ -274,11 +274,6 @@ const ACTIONS: Array[Dictionary] = [
 		"defaults": [{"type": "key", "keycode": KEY_6}],
 	},
 	{
-		"action": "terrain_out_of_bounds", "group": "terrain",
-		"label": "Out of bounds", "hint": "",
-		"defaults": [{"type": "key", "keycode": KEY_7}],
-	},
-	{
 		"action": "terrain_path", "group": "terrain",
 		"label": "Walking path", "hint": "",
 		"defaults": [{"type": "key", "keycode": KEY_8}],
@@ -319,13 +314,8 @@ const ACTIONS: Array[Dictionary] = [
 		"defaults": [{"type": "key", "keycode": KEY_8, "shift": true}],
 	},
 	{
-		"action": "terrain_small_boulders", "group": "terrain",
-		"label": "Small boulders", "hint": "",
-		"defaults": [{"type": "key", "keycode": KEY_9, "shift": true}],
-	},
-	{
 		"action": "terrain_large_boulders", "group": "terrain",
-		"label": "Large boulders", "hint": "",
+		"label": "Boulder", "hint": "",
 		"defaults": [{"type": "key", "keycode": KEY_0, "shift": true}],
 	},
 	{

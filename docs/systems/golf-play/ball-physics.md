@@ -147,7 +147,7 @@ terrain_mult = lerp(1.0, terrain_mult, 0.4)           # 40% of the terrain effec
 | Waste bunker | 0.3× | Firm sand lets the ball skid a little |
 | Heavy rough | 0.12× | Stops fast |
 | Trees | 0.2× | Dense ground cover |
-| Rocks, small and large boulders | 0.15× | Stony ground kills momentum |
+| Rocks, boulder | 0.15× | Stony ground kills momentum |
 | Deep rough | 0.06× | Nestles down almost where it lands |
 | Brush | 0.05× | Swallowed by the scrub |
 | Water, stream, out of bounds, bunker, pot bunker, flower bed | — | No roll |

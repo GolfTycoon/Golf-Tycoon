@@ -78,7 +78,7 @@ The headless tournament simulator (`tournament_simulator.gd`) applies the same w
 | Pot bunker | 0.35 / 0.15 | 0.45 | Steep revetted face; ShotAI only takes a wedge |
 | Trees | 0.3 | 0.60 | One lie for the whole tree family |
 | Brush | 0.3 | 0.50 | ShotAI only takes a wedge |
-| Rocks, small and large boulders | 0.25 | 0.50 | One stone lie |
+| Rocks, boulder | 0.25 | 0.50 | One stone lie |
 
 ### 2. Angular spread
 

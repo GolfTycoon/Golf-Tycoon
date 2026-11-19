@@ -3641,7 +3641,7 @@ func _find_water_drop_position(entry_position: Vector2i) -> Vector2i:
 					TerrainTypes.Type.FESCUE, TerrainTypes.Type.CATTAILS, TerrainTypes.Type.HEATHER:
 						score = 10.0
 					TerrainTypes.Type.BRUSH, TerrainTypes.Type.ROCKS, \
-							TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS:
+							TerrainTypes.Type.BOULDER:
 						score = 5.0
 
 				# Prefer closer to the entry point (shorter walk)

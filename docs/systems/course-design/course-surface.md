@@ -20,7 +20,7 @@ The simulation still uses the same tile grid (128 × 128 by default). This is a 
 
 Desktop and web use the same shader. The terrain data is stored in a small texture, one pixel per tile. Theme colours live in a separate palette texture, with one texel per terrain type. A new terrain type therefore needs only a new palette key.
 
-Some terrain types share looks. Rocks, Small Boulders and Large Boulders use one stone base colour, with three stone sizes. The twelve woodland types all paint ground from the same trees palette entry.
+Some terrain types share looks. Rocks and Boulder use one stone base colour, with two stone sizes. The twelve woodland types all paint ground from the same trees palette entry.
 
 The same palette colours the two small maps of the course: the minimap and the
 Course Map both ask `CourseSurface.map_color(type)` for each tile, so the ground
@@ -35,8 +35,7 @@ repaints all three together. See [Course Map](course-map.md).
 | Firm Fairway | Fairway mower passes, paler, with sun-dried straw patches. It reads as faster, drier turf inside a normal fairway. |
 | Deep Rough | Long standing blades, darker clumps and pale seed-head dots. |
 | Rocks | Gravel field. |
-| Small Boulders | Pebbles, with the odd larger stone. |
-| Large Boulders | Big stones that stand up out of the ground, with a contact shadow. |
+| Boulder | Big stones that stand up out of the ground, with a contact shadow. |
 | Brush | Sparse shrubs with occasional blossoms. |
 | Waste Bunker | Coarse sand with pebbles and wiregrass tufts. It breaks up raggedly into the surrounding turf. |
 | Pot Bunker | A turf lip, a stacked-turf wall and a sand floor. The lip is the same rough turf a stream's banks keep (`bank_turf()`), so a pot sunk in Rough or beside a stream shows the same grass rather than a square of its neighbour's. |
@@ -78,7 +77,7 @@ Material boundaries sit on the shared tile edges, inside a narrow anti-aliased b
 - Unbordered grass tiles (native grass, fairway, firm fairway, rough and heavy rough) next to an inset tile (Pot Bunker or Stream) draw **no** boundary band; both Pot Bunker and Stream keep their own rough turf (`bank_turf()`, `keeps_own_turf()`), and show that same grass inside a neighbour's band instead of the neighbour's own.
 - A Bunker's lip is painted by `surface()` at the open edges, on the same `FRINGE` band and `EDGE_LIP_LO` / `EDGE_LIP_HI` coverage ramp every other bordered tile copies. `bunker_bowl()` then shades the pit inside that band, so the bowl never spills into a neighbour's border.
 - A stream's grass bank keeps its own turf and draws a narrow, dark border along open edges instead of blending across them (`stream_bank_border()`), using the shared `FRINGE` band and `EDGE_LIP_LO` / `EDGE_LIP_HI` coverage thresholds so it matches the Bunker's grass lip. Water, Rough and Pot Bunker meet the bank with no border at all (`stream_borders()`); everywhere else the border follows each edge's boundary strength, thinning out through a channel mouth and staying inside the tile.
-- Deep Rough, Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and `OAK`..`HEATHER`) each fill the full tile with a distinct procedural texture (`stony_surface()`, `brush_surface()`, `flower_bed_surface()`, `tree_ground()`, and the `surface()` branches for Deep Rough and Waste Bunker) and keep their own `boundary_class(id) == id`. Connected tiles of the same type merge seamlessly across shared edges, while edges shared with any different terrain tile type draw that tile's own distinct border (`tile_border()`) across the exact same `FRINGE` / `EDGE_LIP_LO`..`EDGE_LIP_HI` coverage ramp as the Bunker's lip instead of blending.
+- Deep Rough, Waste Bunker, Brush, Rocks, Boulder, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and `OAK`..`HEATHER`) each fill the full tile with a distinct procedural texture (`stony_surface()`, `brush_surface()`, `flower_bed_surface()`, `tree_ground()`, and the `surface()` branches for Deep Rough and Waste Bunker) and keep their own `boundary_class(id) == id`. Connected tiles of the same type merge seamlessly across shared edges, while edges shared with any different terrain tile type draw that tile's own distinct border (`tile_border()`) across the exact same `FRINGE` / `EDGE_LIP_LO`..`EDGE_LIP_HI` coverage ramp as the Bunker's lip instead of blending.
 - Streams and ponds stay linked as wet terrain but use separate boundary classes. A bank marks where pond water meets the stream's rough turf, while the widening channel mouth cuts an opening so the water connects continuously.
 
 ### 3. Bunkers
@@ -177,7 +176,7 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Stream bank and pot lip turf | `course_surface.gdshader` `bank_turf()` | Rough's palette colour plus its tuft variation | Colour and texture of a stream's grass bank and a pot bunker's lip |
 | Waste margin raggedness | `inset_tile()` | Edge noise, up to about `0.2` tiles | How ragged sand edges look |
 | Stone size and density | `rocks_radius()`, `rocks_present_threshold()` | See the table in the source | How many stones and how big |
-| Boulder height | `rocks_tallness()` | `1.7` for Large Boulders | How far boulders stand up |
+| Boulder height | `rocks_tallness()` | `1.7` for Boulder | How far boulders stand up |
 | Water body | `course_surface.gdshader` `same_water_body()`, `WATER_LEVEL_TOLERANCE` | Water tiles at one elevation level, joined edge to edge; `0.5` levels of tolerance | What counts as one pond. Water deepens only inside a body: tiles under half a level apart are the same water, and the next level up is a bank |
 | Water depth | `course_surface.gdshader` `WATER_MAX_DEPTH`, `WATER_ABSORB`, `WATER_DETAIL_ABSORB` | `3.2` tiles, `0.95`, `2.4` | Deepest water measured, how fast the column darkens with depth, and how fast the floor's fine detail is lost |
 | Water flatness | `course_surface.gdshader` `water_fall()`, `WATER_FLAT_EPSILON` | `0.25` levels | How far a tile may fall and still count as still water, which keeps the wandering wave |

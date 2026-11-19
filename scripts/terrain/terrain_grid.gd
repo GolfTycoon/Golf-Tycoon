@@ -1725,6 +1725,10 @@ func deserialize(data: Dictionary) -> void:
 				if type == TerrainTypes.Type.RETIRED_PATH:
 					type = TerrainTypes.Type.ROUGH
 					_retired_cart_paths[pos] = true
+				elif type == TerrainTypes.Type.RETIRED_SMALL_BOULDERS:
+					type = TerrainTypes.Type.BOULDER
+				elif type == TerrainTypes.Type.OUT_OF_BOUNDS:
+					type = TerrainTypes.Type.GRASS
 				_grid[pos] = type
 	terrain_revision += 1
 	_reindex_tee_boxes()

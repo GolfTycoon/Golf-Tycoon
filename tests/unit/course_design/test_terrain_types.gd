@@ -1,12 +1,12 @@
 extends GameTest
 ## Firm Fairway, Pot Bunker, Stream, Deep Rough, Waste Bunker, Rocks, Small
-## Boulders, Large Boulders and Brush: save-compatible ids, terrain families,
+## Boulders, Boulder and Brush: save-compatible ids, terrain families,
 ## golf rules, roll-out, shot AI, rendering data and the Course Terrain toolbar.
 
 const T := TerrainTypes.Type
 
 const NEW_TYPES := [T.FIRM_FAIRWAY, T.POT_BUNKER, T.STREAM, T.DEEP_ROUGH,
-	T.WASTE_BUNKER, T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.BRUSH]
+	T.WASTE_BUNKER, T.ROCKS, T.BOULDER, T.BRUSH]
 
 func _grid(size: int = 16, fill: int = T.GRASS, in_tree: bool = false) -> TerrainGrid:
 	var grid: TerrainGrid = TerrainGrid.new()
@@ -36,8 +36,8 @@ func test_new_ids_are_appended_so_saved_terrain_keeps_its_meaning() -> void:
 	assert_eq(T.DEEP_ROUGH, 17)
 	assert_eq(T.WASTE_BUNKER, 18)
 	assert_eq(T.BRUSH, 19)
-	assert_eq(T.SMALL_BOULDERS, 20, "Small Boulders is appended after Brush")
-	assert_eq(T.LARGE_BOULDERS, 21, "Large Boulders is appended after Small Boulders")
+	assert_eq(T.RETIRED_SMALL_BOULDERS, 20, "Small Boulders is appended after Brush")
+	assert_eq(T.BOULDER, 21, "Boulder is appended after Small Boulders")
 	assert_eq(T.OAK, 22, "The tree species are appended after the boulder fields")
 	assert_eq(T.HEATHER, 32, "Heather is the last appended id")
 	assert_eq(T.values().size(), 33)
@@ -59,8 +59,8 @@ func test_every_type_has_properties_names_and_costs() -> void:
 	assert_eq(TerrainTypes.get_type_name(T.WASTE_BUNKER), "Waste Bunker")
 	assert_eq(TerrainTypes.get_type_name(T.ROCKS), "Rocks")
 	assert_eq(TerrainTypes.get_type_name(T.BRUSH), "Brush")
-	assert_eq(TerrainTypes.get_type_name(T.SMALL_BOULDERS), "Small Boulders")
-	assert_eq(TerrainTypes.get_type_name(T.LARGE_BOULDERS), "Large Boulders")
+	assert_eq(TerrainTypes.get_type_name(T.RETIRED_SMALL_BOULDERS), "Retired Small Boulders")
+	assert_eq(TerrainTypes.get_type_name(T.BOULDER), "Boulder")
 
 func test_upkeep_and_hazard_flags() -> void:
 	assert_gt(TerrainTypes.get_maintenance_cost(T.POT_BUNKER), TerrainTypes.get_maintenance_cost(T.BUNKER),
@@ -75,7 +75,7 @@ func test_upkeep_and_hazard_flags() -> void:
 	assert_false(TerrainTypes.is_hazard(T.WASTE_BUNKER), "A waste bunker is not a hazard")
 	assert_false(TerrainTypes.is_playable(T.STREAM))
 	assert_lt(TerrainTypes.get_speed_modifier(T.BRUSH), 1.0, "Golfers wade slowly through brush")
-	for type in [T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+	for type in [T.ROCKS, T.BOULDER]:
 		assert_eq(TerrainTypes.get_maintenance_cost(type), 0,
 			"%s is never cut or raked" % TerrainTypes.get_type_name(type))
 
@@ -138,8 +138,7 @@ func test_families_group_each_variant_with_its_parent() -> void:
 	assert_true(TerrainTypes.is_out_of_play(T.STREAM))
 	assert_false(TerrainTypes.is_out_of_play(T.ROCKS))
 	assert_true(TerrainTypes.is_rocks(T.ROCKS))
-	assert_true(TerrainTypes.is_rocks(T.SMALL_BOULDERS))
-	assert_true(TerrainTypes.is_rocks(T.LARGE_BOULDERS))
+	assert_true(TerrainTypes.is_rocks(T.BOULDER))
 	assert_false(TerrainTypes.is_rocks(T.BRUSH), "Brush is scrub, not stone")
 	for type in NEW_TYPES:
 		assert_true(type in TerrainTypes.COURSE_PAINT_TYPES, "%s is a paintable course tile" % TerrainTypes.get_type_name(type))
@@ -217,8 +216,8 @@ func test_brush_and_stony_ground_are_hack_outs() -> void:
 	assert_eq(GolfRules.get_lie_modifier(T.ROCKS, Golfer.Club.WEDGE), 0.25, "Rocks keep their existing lie")
 	assert_eq(GolfRules.get_terrain_distance_modifier(T.ROCKS), 0.5)
 	assert_eq(GolfRules.get_terrain_distance_modifier(T.BRUSH), 0.5)
-	# Small and Large Boulders are the same stone lie as Rocks.
-	for type in [T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+	# Small and Boulder are the same stone lie as Rocks.
+	for type in [T.BOULDER]:
 		assert_eq(GolfRules.get_lie_modifier(type, Golfer.Club.WEDGE), 0.25,
 			"%s is a wedge-only hack out" % TerrainTypes.get_type_name(type))
 		assert_eq(GolfRules.get_lie_modifier(type, Golfer.Club.IRON), 0.25,
@@ -238,8 +237,7 @@ func test_roll_multipliers_keep_existing_values_and_rank_the_new_ground() -> voi
 	assert_eq(GolfRules.get_roll_multiplier(T.RETIRED_PATH), GolfRules.get_roll_multiplier(T.ROUGH),
 			"The retired id plays as the rough a migrated tile becomes")
 	assert_eq(GolfRules.get_roll_multiplier(T.ROCKS), 0.15)
-	assert_eq(GolfRules.get_roll_multiplier(T.SMALL_BOULDERS), 0.15, "Boulder patches kill roll like Rocks")
-	assert_eq(GolfRules.get_roll_multiplier(T.LARGE_BOULDERS), 0.15)
+	assert_eq(GolfRules.get_roll_multiplier(T.BOULDER), 0.15)
 	assert_gt(GolfRules.get_roll_multiplier(T.FIRM_FAIRWAY), GolfRules.get_roll_multiplier(T.GREEN),
 		"Firm fairway is the fastest-running turf")
 	assert_lt(GolfRules.get_roll_multiplier(T.DEEP_ROUGH), GolfRules.get_roll_multiplier(T.HEAVY_ROUGH))
@@ -249,12 +247,12 @@ func test_which_ground_stops_or_catches_the_ball() -> void:
 	for type in [T.WATER, T.STREAM, T.BUNKER, T.POT_BUNKER, T.OUT_OF_BOUNDS, T.FLOWER_BED]:
 		assert_true(GolfRules.stops_ball_on_landing(type), "%s stops a landing ball" % TerrainTypes.get_type_name(type))
 	for type in [T.WASTE_BUNKER, T.FIRM_FAIRWAY, T.DEEP_ROUGH, T.ROCKS,
-			T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.BRUSH]:
+			T.BOULDER, T.BRUSH]:
 		assert_false(GolfRules.stops_ball_on_landing(type))
 	for type in [T.STREAM, T.POT_BUNKER, T.DEEP_ROUGH, T.BRUSH]:
 		assert_true(GolfRules.catches_rolling_ball(type), "%s catches a rolling ball" % TerrainTypes.get_type_name(type))
 	for type in [T.FAIRWAY, T.FIRM_FAIRWAY, T.ROUGH, T.WASTE_BUNKER, T.GREEN,
-			T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+			T.ROCKS, T.BOULDER]:
 		assert_false(GolfRules.catches_rolling_ball(type))
 
 
@@ -320,7 +318,7 @@ func test_stream_penalty_drops_at_the_point_of_entry_on_dry_ground() -> void:
 
 func test_shot_ai_scores_every_terrain_type() -> void:
 	for type in T.values():
-		if type == T.RETIRED_PATH:
+		if type in [T.RETIRED_PATH, T.RETIRED_SMALL_BOULDERS]:
 			# The retired cart path keeps its id so that no other id moves, but
 			# nothing is painted with it any more: a saved course still carrying
 			# one is migrated to rough on load. There is no score for ground that
@@ -336,20 +334,18 @@ func test_shot_ai_scores_every_terrain_type() -> void:
 	assert_gt(ShotAI.TERRAIN_SCORES[T.FIRM_FAIRWAY], ShotAI.TERRAIN_SCORES[T.ROUGH])
 
 func test_shot_ai_plays_recovery_from_the_trouble_lies() -> void:
-	for type in [T.POT_BUNKER, T.DEEP_ROUGH, T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.BRUSH]:
+	for type in [T.POT_BUNKER, T.DEEP_ROUGH, T.ROCKS, T.BOULDER, T.BRUSH]:
 		assert_lt(ShotAI._assess_lie_quality(type), 0.4, "%s is a recovery lie" % TerrainTypes.get_type_name(type))
 	for type in [T.FIRM_FAIRWAY, T.WASTE_BUNKER]:
 		assert_gte(ShotAI._assess_lie_quality(type), 0.4, "%s plays a normal shot" % TerrainTypes.get_type_name(type))
 	assert_eq(ShotAI._get_recovery_clubs(T.POT_BUNKER), [Golfer.Club.WEDGE])
 	assert_eq(ShotAI._get_recovery_clubs(T.BRUSH), [Golfer.Club.WEDGE])
-	assert_eq(ShotAI._get_recovery_clubs(T.SMALL_BOULDERS), [Golfer.Club.WEDGE],
-		"Small Boulders are wedge-only, exactly like Rocks")
 	for species in TerrainTypes.TREE_SPECIES_TILES:
 		assert_eq(ShotAI._assess_lie_quality(species), ShotAI._assess_lie_quality(T.TREES),
 			"%s is buried in the roots exactly like Trees" % TerrainTypes.get_type_name(species))
 		assert_eq(ShotAI._get_recovery_clubs(species), ShotAI._get_recovery_clubs(T.TREES),
 			"%s punches out with the same clubs" % TerrainTypes.get_type_name(species))
-	assert_eq(ShotAI._get_recovery_clubs(T.LARGE_BOULDERS), [Golfer.Club.WEDGE])
+	assert_eq(ShotAI._get_recovery_clubs(T.BOULDER), [Golfer.Club.WEDGE])
 	assert_false(Golfer.Club.FAIRWAY_WOOD in ShotAI._get_recovery_clubs(T.DEEP_ROUGH))
 
 func test_hole_difficulty_counts_the_new_hazards() -> void:
@@ -370,7 +366,7 @@ func test_hole_difficulty_counts_the_new_hazards() -> void:
 func test_hole_difficulty_counts_every_stony_tile() -> void:
 	var grid := _grid(10)
 	var tiles: Array = [Vector2i(3, 3)]
-	for type in [T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+	for type in [T.ROCKS, T.BOULDER]:
 		grid._grid[tiles[0]] = type
 		assert_gt(DifficultyCalculator._calculate_hazard_difficulty(tiles, grid), 0.0,
 			"%s is stony trouble and counts" % TerrainTypes.get_type_name(type))
@@ -385,7 +381,7 @@ func test_small_and_large_boulders_paint_as_stone_like_rocks() -> void:
 	grid.grid_width = 8
 	grid.grid_height = 8
 	add_child_autofree(grid)
-	for type in [T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+	for type in [T.ROCKS, T.BOULDER]:
 		grid.set_tile(Vector2i(2, 2), type)
 		assert_eq(grid.get_tile(Vector2i(2, 2)), type)
 		assert_eq(roundi(grid._course_surface._data.get_pixel(2, 2).r * 255.0), type,
@@ -395,14 +391,17 @@ func test_small_and_large_boulders_paint_as_stone_like_rocks() -> void:
 		assert_eq(CourseSurface.PALETTE_KEYS[type], "rocks",
 			"%s wears the stone palette" % TerrainTypes.get_type_name(type))
 
-func test_small_and_large_boulder_patches_survive_a_save_round_trip() -> void:
+func test_retired_terrain_migrates_without_changing_boulder() -> void:
 	var grid := _grid(8)
-	grid.set_tile(Vector2i(1, 1), T.SMALL_BOULDERS)
-	grid.set_tile(Vector2i(2, 2), T.LARGE_BOULDERS)
+	grid.set_tile(Vector2i(1, 1), T.RETIRED_SMALL_BOULDERS)
+	grid.set_tile(Vector2i(3, 3), T.OUT_OF_BOUNDS)
+	grid.set_tile(Vector2i(2, 2), T.BOULDER)
 	var loaded := _grid(8)
 	loaded.deserialize(grid.serialize())
-	assert_eq(loaded.get_tile(Vector2i(1, 1)), T.SMALL_BOULDERS)
-	assert_eq(loaded.get_tile(Vector2i(2, 2)), T.LARGE_BOULDERS)
+	assert_eq(loaded.get_tile(Vector2i(1, 1)), T.BOULDER)
+	assert_eq(loaded.get_tile(Vector2i(2, 2)), T.BOULDER)
+	assert_eq(loaded.get_tile(Vector2i(3, 3)), T.GRASS)
+	assert_eq(loaded.get_tile(Vector2i(-1, 0)), T.OUT_OF_BOUNDS)
 
 func test_course_terrain_tiles_replace_each_other() -> void:
 	var grid := _grid(8, T.GRASS, true)
@@ -503,19 +502,19 @@ func test_toolbar_paints_all_course_tiles_in_two_rows() -> void:
 		assert_eq(tiles.find(button), slot, "%s sits in toolbar order" % TerrainTypes.get_type_name(type))
 		assert_eq(button.tool_name, TerrainTypes.get_type_name(type))
 		assert_eq(TerrainToolbar.TOOL_TAB_MAP[type], TerrainToolbar.Tab.TERRAIN)
-	assert_eq(TerrainTypes.COURSE_PAINT_TYPES.size(), 16, "Eight course tiles in each of the two rows")
+	assert_eq(TerrainTypes.COURSE_PAINT_TYPES.size(), 14, "Seven course tiles in each of the two rows")
 	# Two rows include both course and landscape tiles.
 	assert_eq(grid.columns, ceili(float(tiles.size()) / 2.0),
 		"The two rows hold every course and landscape tile")
-	for type in [T.TEE_BOX, T.GREEN, T.BUNKER, T.ROUGH, T.POT_BUNKER, T.STREAM, T.WATER, T.OUT_OF_BOUNDS]:
+	for type in [T.TEE_BOX, T.GREEN, T.BUNKER, T.ROUGH, T.POT_BUNKER, T.STREAM, T.WATER]:
 		assert_lt(tiles.find(toolbar._tool_buttons[type]), grid.columns,
 			"%s on the top row" % TerrainTypes.get_type_name(type))
 	for type in [T.FAIRWAY, T.FIRM_FAIRWAY, T.DEEP_ROUGH, T.WASTE_BUNKER, T.BRUSH, T.ROCKS,
-			T.SMALL_BOULDERS, T.LARGE_BOULDERS]:
+			T.BOULDER]:
 		assert_gte(tiles.find(toolbar._tool_buttons[type]), grid.columns,
 			"%s on the bottom row" % TerrainTypes.get_type_name(type))
-	assert_eq(toolbar._tool_buttons[T.SMALL_BOULDERS].tool_name, "Small Boulders")
-	assert_eq(toolbar._tool_buttons[T.LARGE_BOULDERS].tool_name, "Large Boulders")
+	assert_false(toolbar._tool_buttons.has(T.RETIRED_SMALL_BOULDERS))
+	assert_eq(toolbar._tool_buttons[T.BOULDER].tool_name, "Boulder")
 
 func test_toolbar_hotkeys_select_the_new_tiles() -> void:
 	GameManager.current_mode = GameManager.GameMode.BUILDING
@@ -523,8 +522,8 @@ func test_toolbar_hotkeys_select_the_new_tiles() -> void:
 	add_child_autofree(toolbar)
 	var cases := [[KEY_9, false, T.FIRM_FAIRWAY], [KEY_0, false, T.WASTE_BUNKER],
 		[KEY_2, true, T.DEEP_ROUGH], [KEY_5, true, T.POT_BUNKER], [KEY_6, true, T.STREAM],
-		[KEY_7, true, T.ROCKS], [KEY_8, true, T.BRUSH], [KEY_9, true, T.SMALL_BOULDERS],
-		[KEY_0, true, T.LARGE_BOULDERS], [KEY_5, false, T.BUNKER]]
+		[KEY_7, true, T.ROCKS], [KEY_8, true, T.BRUSH],
+		[KEY_0, true, T.BOULDER], [KEY_5, false, T.BUNKER]]
 	for case in cases:
 		var event := InputEventKey.new()
 		event.keycode = case[0]
@@ -542,7 +541,7 @@ func test_tile_previews_show_a_flowing_stream_and_patches_of_scatter() -> void:
 	assert_eq(roundi(stream.get_pixel(2, 1).r * 255.0), T.STREAM, "and leaves from the other")
 	assert_eq(roundi(stream.get_pixel(1, 0).r * 255.0), T.GRASS, "with grass banks")
 	for type in [T.FIRM_FAIRWAY, T.POT_BUNKER, T.DEEP_ROUGH, T.WASTE_BUNKER,
-			T.BRUSH, T.ROCKS, T.SMALL_BOULDERS, T.LARGE_BOULDERS, T.FLOWER_BED]:
+			T.BRUSH, T.ROCKS, T.BOULDER, T.FLOWER_BED]:
 		var image: Image = toolbar._tool_buttons[type]._surface_material.get_shader_parameter("terrain_data").get_image()
 		assert_eq(roundi(image.get_pixel(1, 1).r * 255.0), type,
 			"%s previews its full-tile texture" % TerrainTypes.get_type_name(type))

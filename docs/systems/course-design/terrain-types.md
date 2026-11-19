@@ -13,8 +13,8 @@
 
 | Row | Tiles (left to right) |
 | --- | --- |
-| Top | Tee Box, Green, Bunker, Rough, Pot Bunker, Stream, Water, Out of Bounds |
-| Bottom | Fairway, Firm Fairway, Deep Rough, Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders |
+| Top | Tee Box, Green, Bunker, Rough, Pot Bunker, Stream, Water |
+| Bottom | Fairway, Firm Fairway, Deep Rough, Waste Bunker, Brush, Rocks, Boulder |
 
 The woodland tiles follow, and their number depends on the theme. **Open Hole** is a small cell nestled between the Tee Box and Green tiles. Its ring is gold when a tee and a cup are waiting to be paired, and grey when they are not. The Bulldozer is not a course tool. It lives on the Improvements and Buildings tabs, and it removes paths, decorations and buildings, never course terrain. The Path is an improvement, shown on the Improvements tab (see [Improvement Catalog](garden-catalog.md)).
 
@@ -28,7 +28,7 @@ The woodland tiles follow, and their number depends on the theme. **Open Hole** 
 - **Stream.** Running water. It takes the same penalty and point-of-entry drop as Water, but it is narrow, and golfers can walk across it. It can cut through a hole. Paint it in lines, because the channel only joins edge-adjacent stream tiles and widens where it meets a pond. Its grassy banks keep their own turf, bordered by a narrow dark rim — as wide as a Bunker's grass lip — wherever the tile meets a different terrain, so a stream laid across a fairway stays crisply edged; Water, Rough and Pot Bunker beside it are met without a border.
 - **Deep Rough.** Knee-high unmown grass. It is harsher than Heavy Rough, and it stops a rolling ball dead. It costs $1 to paint and has no upkeep.
 - **Waste Bunker.** Natural sandy scrubland. It is **not** a hazard, so you can ground your club in it. It plays like sandy rough and has no upkeep.
-- **Rocks, Small Boulders and Large Boulders.** Stony ground, the worst lie on the course. Each one plays exactly like the others. They differ only in the stones drawn on them: gravel for Rocks, pebbles with the odd large stone for Small Boulders, and big standing boulders for Large Boulders.
+- **Rocks and Boulder.** Stony ground, the worst lie on the course. Each one plays exactly like the others. They differ only in the stones drawn on them: gravel for Rocks and big standing stones for Boulder.
 - **Brush.** Dense scrub (gorse, heather, sagebrush). It has a poor lie, cuts the distance, and swallows rolling balls. Golfers wade through it slowly.
 - **Woodland, one tile per species.** Oak, Pine, Maple, Birch, Cactus, Fescue, Cattails, Shrub, Palm, Dead Tree and Heather, plus the generic Trees tile. Every one plays exactly like Trees: same cost, no upkeep, same lie, same blocked shot, same roll and same AI score. Only the canopy drawn on the tile and the ground painted under it change (see [Course Surface](course-surface.md)). Each theme offers the species that suit it. A desert offers cacti, and a links offers fescue, but none of them plays differently.
 
@@ -45,14 +45,14 @@ Saves store terrain as raw integers. New types are therefore only ever appended 
 | 0 | Empty | 17 | Deep Rough |
 | 1 | Grass | 18 | Waste Bunker |
 | 2 | Fairway | 19 | Brush |
-| 3 | Rough | 20 | Small Boulders |
-| 4 | Heavy Rough | 21 | Large Boulders |
+| 3 | Rough | 20 | Retired Small Boulders (loads as Boulder) |
+| 4 | Heavy Rough | 21 | Boulder |
 | 5 | Green | 22 to 32 | Oak, Pine, Maple, Birch, Cactus, Fescue, Cattails, Shrub, Palm, Dead Tree, Heather |
 | 6 | Tee Box | 11 | Trees (generic) |
 | 7 | Bunker | 12 | Flower Bed |
 | 8 | Water | 13 | Rocks |
 | 9 | *(retired)* | 14 | Firm Fairway |
-| 10 | Out of Bounds | 15 | Pot Bunker |
+| 10 | Out of Bounds (off-grid only; saved tiles load as Natural Grass) | 15 | Pot Bunker |
 | | | 16 | Stream |
 
 Id 9 is retired: the cart path is no longer a terrain. It was replaced by the Path improvement, which lays a walking trail *over* the ground rather than being ground of its own (see [Walking Paths](walking-paths.md)). The id is kept, never reused and never renumbered, because saves store raw integers. `Type.RETIRED_PATH` still exists so the palette, the shader and the toolbar's hotkey numbering keep their indexes; its properties mirror Rough, so a stray 9 read anywhere answers like rough. An older save that stored one becomes Rough carrying a walking trail on load (see [Save & Load](../../save-and-load.md)), and nothing in the game paints the id any more.
@@ -73,7 +73,7 @@ Gameplay code asks about families rather than single types, so each variant beha
 | `is_sand()` | Bunker, Pot Bunker, Waste Bunker | Sand spray and sandy lies |
 | `is_fairway()` | Fairway, Firm Fairway | Shot shapes, AI bonuses, carries |
 | `is_rough()` | Rough, Heavy Rough, Deep Rough | Rough lies |
-| `is_rocks()` | Rocks, Small Boulders, Large Boulders | Stony lies |
+| `is_rocks()` | Rocks, Boulder | Stony lies |
 | `is_tree()` | Trees and all eleven species | Blocked shots |
 
 Walking is the exception. Golfers path around water, out of bounds and off-property land, but they can cross streams.
@@ -96,7 +96,7 @@ Walking is the exception. Golfers path around water, out of bounds and off-prope
 | Water | $20 | $0 | Yes | 1 stroke and drop at entry | — |
 | Stream | $15 | $0 | Yes | 1 stroke and drop at entry | — |
 | Brush | $3 | $0 | No | — | 0.75× |
-| Rocks, Small Boulders, Large Boulders | $8 | $0 | No | — | 1.0× |
+| Rocks, Boulder | $8 | $0 | No | — | 1.0× |
 | Trees and all species | $10 | $0 | No | — | 1.0× |
 | Out of Bounds | $0 | $0 | Yes | 1 stroke and distance | — |
 
@@ -138,7 +138,7 @@ The AI plays a recovery shot when its lie quality falls below 0.4. That covers d
 
 ### 6. Rendering
 
-Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Water is drawn as a bed under a moving column of water, and gets deeper only inside a body of Water tiles that run together at one elevation level — the shallows run clear over the bed, the middle of a pond darkens, and a step between two levels is a bank (`water_depth()`, `same_water_body()`). Flat water wears one slow wandering wave; a tile that is not flat replaces it with lit streamers sliding toward the tile's lowest corner (`water_fall()`, `water_run_light()`). A Bunker is shaded as a bowl (`bunker_rim()`, `bunker_lip()`, `bunker_bowl()`): its lip is the shared edge band, drawn in `lip_turf()` grass, and the sand under it is lit as a shallow pit. Pot Bunker and Stream are inset terrain drawn inside their own rough turf bank (`bank_turf`), with Stream drawing a dark bank rim — the same width as a Bunker's grass lip — along edges shared with terrains other than Water, Rough and Pot Bunker. Deep Rough, Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and the eleven species) each fill the full tile with their own unique procedural texture and frame edges shared with any different terrain tile type with their own distinct Bunker-sized border instead of blending.
+Each type has its own look in `shaders/course_surface.gdshader`. See [Course Surface](course-surface.md). Water is drawn as a bed under a moving column of water, and gets deeper only inside a body of Water tiles that run together at one elevation level — the shallows run clear over the bed, the middle of a pond darkens, and a step between two levels is a bank (`water_depth()`, `same_water_body()`). Flat water wears one slow wandering wave; a tile that is not flat replaces it with lit streamers sliding toward the tile's lowest corner (`water_fall()`, `water_run_light()`). A Bunker is shaded as a bowl (`bunker_rim()`, `bunker_lip()`, `bunker_bowl()`): its lip is the shared edge band, drawn in `lip_turf()` grass, and the sand under it is lit as a shallow pit. Pot Bunker and Stream are inset terrain drawn inside their own rough turf bank (`bank_turf`), with Stream drawing a dark bank rim — the same width as a Bunker's grass lip — along edges shared with terrains other than Water, Rough and Pot Bunker. Deep Rough, Waste Bunker, Brush, Rocks, Boulder, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and the eleven species) each fill the full tile with their own unique procedural texture and frame edges shared with any different terrain tile type with their own distinct Bunker-sized border instead of blending.
 
 ---
 
@@ -153,7 +153,7 @@ Each type has its own look in `shaders/course_surface.gdshader`. See [Course Sur
 | AI terrain scores | `shot_ai.gd` `TERRAIN_SCORES` | See the shot table | Where AI golfers aim |
 | Walk speed | `terrain_types.gd` `speed_modifier` | Deep rough 0.85×, brush 0.75× | Pace through long grass and scrub |
 | Walk speed with a trail | `terrain_grid.gd` `walk_speed_modifier_at()` | The tile's own rate × 1.25 dirt or 1.5 paved | A laid trail quickens the walk over any hostable ground — see [Walking Paths](walking-paths.md) |
-| Hotkeys | `terrain_toolbar.gd` | `9`, `0`, Shift+2/5/6/7/8/9/0 | Keyboard access to the tiles (Shift+9 Small Boulders, Shift+0 Large Boulders) |
+| Hotkeys | `terrain_toolbar.gd` | `9`, `0`, Shift+2/5/6/7/8/0 | Keyboard access to the tiles (Shift+0 Boulder) |
 | Woodland grounds | `terrain_types.gd` `TREE_GROUND_LOOKS` | 12 distinct per-species grounds | Unique ground description for each woodland tile |
 | Species per theme | `course_theme.gd` `get_tree_types()` | 4 to 6 per theme | Which tree tiles the tab shows |
 | Core tree sprite layout | `assets/sprites/trees/layout.json` and `tree_overlay.gd` | Per-species draw scale and normalized ground anchor | Replace independently-sized evergreen views without editing renderer code |

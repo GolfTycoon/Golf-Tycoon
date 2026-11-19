@@ -52,8 +52,7 @@ const TERRAIN_COSTS: Dictionary = {
 	TerrainTypes.Type.BRUSH: 2.0,
 	TerrainTypes.Type.FLOWER_BED: 2.0,
 	TerrainTypes.Type.ROCKS: 2.0,
-	TerrainTypes.Type.SMALL_BOULDERS: 2.0,
-	TerrainTypes.Type.LARGE_BOULDERS: 2.0,
+	TerrainTypes.Type.BOULDER: 2.0,
 	TerrainTypes.Type.STREAM: 2.0,
 }
 

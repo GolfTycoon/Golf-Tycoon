@@ -56,7 +56,7 @@ For par 4s and par 5s the AI plans backwards from the green. The ideal is to lea
 | Deep rough | 0.2 |
 | Pot bunker, trees | 0.15 |
 | Brush | 0.12 |
-| Rocks, small and large boulders | 0.1 |
+| Rocks, boulder | 0.1 |
 | Water, stream, out of bounds, empty | 0.0 |
 | Anything else | 0.2 |
 

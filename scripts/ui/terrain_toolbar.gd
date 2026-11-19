@@ -156,9 +156,7 @@ const TOOL_TAB_MAP := {
 	TerrainTypes.Type.WASTE_BUNKER: Tab.TERRAIN,
 	TerrainTypes.Type.BRUSH: Tab.TERRAIN,
 	TerrainTypes.Type.ROCKS: Tab.TERRAIN,
-	TerrainTypes.Type.SMALL_BOULDERS: Tab.TERRAIN,
-	TerrainTypes.Type.LARGE_BOULDERS: Tab.TERRAIN,
-	TerrainTypes.Type.OUT_OF_BOUNDS: Tab.TERRAIN,
+	TerrainTypes.Type.BOULDER: Tab.TERRAIN,
 	TerrainTypes.Type.TREES: Tab.TERRAIN,
 	TerrainTypes.Type.OAK: Tab.TERRAIN,
 	TerrainTypes.Type.PINE: Tab.TERRAIN,
@@ -200,17 +198,17 @@ const TOOL_TAB_MAP := {
 ## course-tool key it does not handle.
 const TOOL_SHORTCUTS: Array[String] = [
 	"terrain_fairway", "terrain_rough", "terrain_green", "terrain_tee",
-	"terrain_bunker", "terrain_water", "terrain_out_of_bounds", "terrain_path",
+	"terrain_bunker", "terrain_water", "terrain_path",
 	"terrain_firm_fairway", "terrain_waste_bunker", "terrain_deep_rough",
 	"terrain_pot_bunker", "terrain_stream", "terrain_rocks", "terrain_brush",
-	"terrain_small_boulders", "terrain_large_boulders", "terrain_flowers",
+	"terrain_large_boulders", "terrain_flowers",
 	"tool_trees", "tool_building", "tool_decoration", "tool_open_hole",
 	"tool_bulldozer", "tab_terrain", "tab_improvements", "tab_elevation",
 	"elevation_vertex", "elevation_flat", "elevation_gradual",
 ]
 
 const TOOL_ROW_HEIGHT := 30
-const COURSE_TILE_COLUMNS := 8  # Top row runs tee -> out of bounds, bottom row fairway -> large boulders
+const COURSE_TILE_COLUMNS := 7  # Top row runs tee -> water, bottom row fairway -> boulder
 const TILE_ROWS := 2  # Course and building tiles always sit in two interlocking rows
 ## Tiles that lead the Improvements honeycomb ahead of the decoration
 ## catalogue — just the walking path, which opens the top row. The shelf's
@@ -1159,8 +1157,8 @@ func _build_terrain_tab(hbox: HBoxContainer) -> void:
 	# The course tiles share one honeycomb of two rows, the bottom row shifted
 	# half a tile right so each diamond drops into a notch between the two tiles
 	# above it. Top row: Tee Box, Green, Bunker, Rough, Pot Bunker, Stream,
-	# Water, Out of Bounds. Bottom row: Fairway, Firm Fairway, Deep Rough,
-	# Waste Bunker, Brush, Rocks, Small Boulders, Large Boulders.
+	# Water. Bottom row: Fairway, Firm Fairway, Deep Rough,
+	# Waste Bunker, Brush, Rocks, Boulder.
 	var tiles_grid = TileHoneycomb.new()
 	_course_tiles = tiles_grid
 	tiles_grid.name = "CourseTilesGrid"
@@ -1178,7 +1176,6 @@ func _build_terrain_tab(hbox: HBoxContainer) -> void:
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.POT_BUNKER, "name": "Pot Bunker", "hotkey": "Shift+5", "desc": "Small, deep bunker with a steep stacked-turf face. Wedge only, and the ball barely advances", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.STREAM, "name": "Stream", "hotkey": "Shift+6", "desc": "Running water hazard with a one-stroke penalty. Paint it in lines; golfers can still walk across", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.WATER, "name": "Water", "hotkey": "6", "desc": "Water hazard with penalty", "tile_preview": true})
-	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.OUT_OF_BOUNDS, "name": "Out of Bounds", "hotkey": "7", "desc": "Boundary area with stroke penalty", "tile_preview": true})
 	# Bottom row: playing surfaces and natural ground, each variant beside its parent.
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.FAIRWAY, "name": "Fairway", "hotkey": "1", "desc": "Mowed playing surface for approach shots", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.FIRM_FAIRWAY, "name": "Firm Fairway", "hotkey": "9", "desc": "Fast-running links turf: a tight lie, and balls bound on and roll about 60% farther", "tile_preview": true})
@@ -1186,8 +1183,7 @@ func _build_terrain_tab(hbox: HBoxContainer) -> void:
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.WASTE_BUNKER, "name": "Waste Bunker", "hotkey": "0", "desc": "Natural sandy scrubland. Not a hazard: plays like sandy rough and needs no upkeep", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.BRUSH, "name": "Brush", "hotkey": "Shift+8", "desc": "Dense scrub that swallows the ball. Only a wedge hacks it out", "tile_preview": true})
 	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.ROCKS, "name": "Rocks", "hotkey": "Shift+7", "desc": "Stony ground scattered with stones: the worst lie on the course, wedge only", "tile_preview": true})
-	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.SMALL_BOULDERS, "name": "Small Boulders", "hotkey": "Shift+9", "desc": "Stony ground paved with small boulders: the worst lie on the course, wedge only", "tile_preview": true})
-	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.LARGE_BOULDERS, "name": "Large Boulders", "hotkey": "Shift+0", "desc": "Stony ground broken up by large boulders: the worst lie on the course, wedge only", "tile_preview": true})
+	_add_tool_button(tiles_grid, {"type": TerrainTypes.Type.BOULDER, "name": "Boulder", "hotkey": "Shift+0", "desc": "Stony ground broken up by large boulders: the worst lie on the course, wedge only", "tile_preview": true})
 	# The grid carries its own breathing room above and below the rows, so it
 	# keeps that spacing instead of stretching to fill the whole page height.
 	hbox.add_child(_make_tab_group("", tiles_grid, true))
@@ -2921,8 +2917,6 @@ func _input(event: InputEvent) -> void:
 			_on_tool_button_pressed(TerrainTypes.Type.BUNKER)
 		"terrain_water":
 			_on_tool_button_pressed(TerrainTypes.Type.WATER)
-		"terrain_out_of_bounds":
-			_on_tool_button_pressed(TerrainTypes.Type.OUT_OF_BOUNDS)
 		"terrain_path":
 			_on_tool_button_pressed(TerrainTypes.WALKING_PATH_TOOL)
 		"terrain_firm_fairway":
@@ -2939,10 +2933,8 @@ func _input(event: InputEvent) -> void:
 			_on_tool_button_pressed(TerrainTypes.Type.ROCKS)
 		"terrain_brush":
 			_on_tool_button_pressed(TerrainTypes.Type.BRUSH)
-		"terrain_small_boulders":
-			_on_tool_button_pressed(TerrainTypes.Type.SMALL_BOULDERS)
 		"terrain_large_boulders":
-			_on_tool_button_pressed(TerrainTypes.Type.LARGE_BOULDERS)
+			_on_tool_button_pressed(TerrainTypes.Type.BOULDER)
 		"terrain_flowers":
 			select_tab(Tab.TERRAIN)
 			_on_tool_button_pressed(TerrainTypes.Type.FLOWER_BED)

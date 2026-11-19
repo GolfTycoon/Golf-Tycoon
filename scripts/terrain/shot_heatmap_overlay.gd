@@ -173,7 +173,7 @@ func _arc_color(is_putt: bool, landing_terrain: int) -> Color:
 		TerrainTypes.Type.ROUGH, TerrainTypes.Type.HEAVY_ROUGH, TerrainTypes.Type.DEEP_ROUGH, \
 				TerrainTypes.Type.BUNKER, TerrainTypes.Type.POT_BUNKER, TerrainTypes.Type.WASTE_BUNKER, \
 				TerrainTypes.Type.BRUSH, TerrainTypes.Type.ROCKS, \
-				TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS:
+				TerrainTypes.Type.BOULDER:
 			return ARC_COLOR_OK
 		TerrainTypes.Type.WATER, TerrainTypes.Type.STREAM, TerrainTypes.Type.OUT_OF_BOUNDS:
 			return ARC_COLOR_TROUBLE

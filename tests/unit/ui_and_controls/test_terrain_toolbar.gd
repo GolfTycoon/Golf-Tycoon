@@ -49,12 +49,12 @@ func test_bottom_bar_fits_two_rows_of_course_tiles() -> void:
 ## tiles, ending with the two boulder grounds.
 const TOP_ROW := [TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.GREEN,
 	TerrainTypes.Type.BUNKER, TerrainTypes.Type.ROUGH, TerrainTypes.Type.POT_BUNKER,
-	TerrainTypes.Type.STREAM, TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]
+	TerrainTypes.Type.STREAM, TerrainTypes.Type.WATER]
 
 const BOTTOM_ROW := [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.FIRM_FAIRWAY,
 	TerrainTypes.Type.DEEP_ROUGH, TerrainTypes.Type.WASTE_BUNKER, TerrainTypes.Type.BRUSH,
-	TerrainTypes.Type.ROCKS, TerrainTypes.Type.SMALL_BOULDERS,
-	TerrainTypes.Type.LARGE_BOULDERS]
+	TerrainTypes.Type.ROCKS,
+	TerrainTypes.Type.BOULDER]
 
 func test_course_tiles_share_one_group_in_top_and_bottom_rows() -> void:
 	var grid: TileHoneycomb = toolbar._tool_buttons[TerrainTypes.Type.TEE_BOX].get_parent()
@@ -601,7 +601,7 @@ func test_terrain_paint_tools_are_isometric_course_tiles() -> void:
 	# as a tile too — it just lives in the Improvements honeycomb.
 	var paint_tools := [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.ROUGH,
 		TerrainTypes.Type.GREEN, TerrainTypes.Type.TEE_BOX, TerrainTypes.Type.BUNKER,
-		TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS, TerrainTypes.WALKING_PATH_TOOL]
+		TerrainTypes.Type.WATER, TerrainTypes.WALKING_PATH_TOOL]
 	for tool_type in paint_tools:
 		var button: ToolButton = toolbar._tool_buttons[tool_type]
 		assert_true(button is TerrainTileButton, "%s should be a tile button" % button.tool_name)
@@ -681,7 +681,7 @@ func test_tile_previews_use_course_shader_and_neighboring_grass() -> void:
 		"The swatch has the same 2:1 footprint as a projected grid cell")
 
 	for tool_type in [TerrainTypes.Type.FAIRWAY, TerrainTypes.Type.GREEN,
-			TerrainTypes.Type.BUNKER, TerrainTypes.Type.WATER, TerrainTypes.Type.OUT_OF_BOUNDS]:
+			TerrainTypes.Type.BUNKER, TerrainTypes.Type.WATER]:
 		var button: TerrainTileButton = toolbar._tool_buttons[tool_type]
 		var tile: Polygon2D = button.get_child(1)
 		assert_eq(tile.polygon, corners)
@@ -2053,16 +2053,17 @@ func test_flower_bed_boulders_and_trees_are_terrain_tiles_in_course_terrain_tab(
 	assert_eq(fb_btn.get_parent(), toolbar._course_tiles,
 		"Wild Flowers should live on the unified honeycomb in Course Terrain tab")
 
-	# Small and Large Boulders are plain terrain tiles on the same honeycomb.
-	for b_type in [TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS]:
+	# Small and Boulder are plain terrain tiles on the same honeycomb.
+	for b_type in [TerrainTypes.Type.BOULDER]:
 		var b_btn: ToolButton = toolbar._tool_buttons[b_type]
 		assert_true(b_btn is TerrainTileButton,
 			"%s should be a TerrainTileButton" % TerrainTypes.get_type_name(b_type))
 		assert_eq(b_btn.get_parent(), toolbar._course_tiles,
 			"%s should live on the unified honeycomb in Course Terrain tab" % TerrainTypes.get_type_name(b_type))
 
-	assert_eq(toolbar._tool_buttons[TerrainTypes.Type.SMALL_BOULDERS].tool_name, "Small Boulders")
-	assert_eq(toolbar._tool_buttons[TerrainTypes.Type.LARGE_BOULDERS].tool_name, "Large Boulders")
+	assert_false(toolbar._tool_buttons.has(TerrainTypes.Type.RETIRED_SMALL_BOULDERS))
+	assert_false(toolbar._tool_buttons.has(TerrainTypes.Type.OUT_OF_BOUNDS))
+	assert_eq(toolbar._tool_buttons[TerrainTypes.Type.BOULDER].tool_name, "Boulder")
 
 	# The theme's trees are ordinary paint tiles on the same honeycomb as the rest.
 	var theme_trees: Array = CourseTheme.get_tree_types(CourseTheme.Type.PARKLAND)
@@ -2100,8 +2101,8 @@ func test_improvements_tab_holds_paths_and_every_decoration_tile() -> void:
 		tool_names.append(btn.tool_name)
 
 	assert_false(tool_names.has("Trees"), "Improvements tab must not contain Trees")
-	assert_false(tool_names.has("Small Boulders"), "Improvements tab must not contain Small Boulders")
-	assert_false(tool_names.has("Large Boulders"), "Improvements tab must not contain Large Boulders")
+	assert_false(tool_names.has("Retired Small Boulders"), "Improvements tab must not contain Small Boulders")
+	assert_false(tool_names.has("Boulder"), "Improvements tab must not contain Boulder")
 	assert_false(tool_names.has("Wild Flowers"), "Improvements tab must not contain Wild Flowers")
 	assert_true(tool_names.has("Path"), "Improvements tab should contain Path")
 	assert_false(tool_names.has("Decorations"),
@@ -2368,11 +2369,8 @@ func test_tree_and_boulder_tile_selection_signals() -> void:
 	assert_true(toolbar.has_selection())
 
 	# The boulder tiles are ordinary terrain tiles: they select the terrain tool.
-	toolbar._on_tool_button_pressed(TerrainTypes.Type.SMALL_BOULDERS)
-	assert_signal_emitted_with_parameters(toolbar, "tool_selected", [TerrainTypes.Type.SMALL_BOULDERS])
-	assert_eq(toolbar.get_current_tool(), TerrainTypes.Type.SMALL_BOULDERS)
-	toolbar._on_tool_button_pressed(TerrainTypes.Type.LARGE_BOULDERS)
-	assert_eq(toolbar.get_current_tool(), TerrainTypes.Type.LARGE_BOULDERS)
+	toolbar._on_tool_button_pressed(TerrainTypes.Type.BOULDER)
+	assert_eq(toolbar.get_current_tool(), TerrainTypes.Type.BOULDER)
 	assert_true(toolbar.has_selection())
 
 	# Selecting Wild Flowers selects tool TerrainTypes.Type.FLOWER_BED
@@ -2389,7 +2387,7 @@ func test_theme_changes_keep_one_honeycomb_without_stale_tiles() -> void:
 		GameManager.current_theme = theme
 		EventBus.theme_changed.emit(theme)
 		var trees: Array = CourseTheme.get_tree_types(theme)
-		assert_eq(grid.flow_children().size(), 17 + trees.size(),
+		assert_eq(grid.flow_children().size(), TerrainTypes.COURSE_PAINT_TYPES.size() + 1 + trees.size(),
 			"Theme refresh must immediately remove old tiles, even within one frame")
 		assert_eq(grid.columns, ceili(float(grid.flow_children().size()) / 2.0))
 		assert_same(toolbar._tool_buttons[TerrainTypes.Type.TEE_BOX], tee,

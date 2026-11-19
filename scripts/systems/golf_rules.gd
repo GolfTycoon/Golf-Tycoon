@@ -212,7 +212,7 @@ static func get_putt_miss_characteristics(distance_tiles: float, putting_ability
 ## Get accuracy modifier for a given terrain type and club.
 ## Returns 0.0-1.05 where 1.0 = perfect lie, lower = harder.
 static func get_lie_modifier(terrain_type: int, club: int) -> float:
-	# Rocks, Small Boulders and Large Boulders are one lie; only the stones
+	# Rocks and Boulder are one lie; only the stones
 	# drawn on them differ (they are not grouped in the match below, whose arms
 	# are single terrain ids).
 	if TerrainTypes.is_rocks(terrain_type):

@@ -19,7 +19,7 @@ enum Type {
 	WASTE_BUNKER = 18, BRUSH = 19,
 	# Boulder fields: the Rocks tile's stony ground scattered with small or
 	# large stones. They play exactly like Rocks (see is_rocks).
-	SMALL_BOULDERS = 20, LARGE_BOULDERS = 21,
+	RETIRED_SMALL_BOULDERS = 20, BOULDER = 21,
 	# The tree catalogue: one tile per species, painted like any other Course
 	# Terrain tile. They play exactly like Trees (see is_tree) and differ only
 	# in the canopy the course draws on the tile.
@@ -64,8 +64,8 @@ const PROPERTIES: Dictionary = {
 	# Stony ground. The three Rocks tiles share one look and one set of rules;
 	# only the stones the course surface draws on them change (see the shader).
 	Type.ROCKS: {"name": "Rocks", "color": Color(0.55, 0.52, 0.48), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.8},
-	Type.SMALL_BOULDERS: {"name": "Small Boulders", "color": Color(0.60, 0.57, 0.53), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.8},
-	Type.LARGE_BOULDERS: {"name": "Large Boulders", "color": Color(0.50, 0.47, 0.44), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.8},
+	Type.RETIRED_SMALL_BOULDERS: {"name": "Retired Small Boulders", "color": Color.GRAY, "playable": false, "placement_cost": 0},
+	Type.BOULDER: {"name": "Boulder", "color": Color(0.50, 0.47, 0.44), "playable": true, "placement_cost": 8, "maintenance_cost": 0, "shot_difficulty": 0.8},
 	# Links-style fast running turf: plays like fairway but the ball releases.
 	Type.FIRM_FAIRWAY: {"name": "Firm Fairway", "color": Color(0.62, 0.70, 0.38), "playable": true, "placement_cost": 6, "maintenance_cost": 1, "shot_difficulty": 0.05},
 	# Small, deep bunker with a steep revetted face — wedge out, often sideways.
@@ -161,7 +161,7 @@ static func is_rough(type: int) -> bool:
 ## same — the worst lie on the course — while each fills the full tile with
 ## its own stone texture and border.
 static func is_rocks(type: int) -> bool:
-	return type == Type.ROCKS or type == Type.SMALL_BOULDERS or type == Type.LARGE_BOULDERS
+	return type == Type.ROCKS or type == Type.BOULDER
 
 ## Woodland: the Trees tile and every species tile beside it. They play the
 ## same — a ball buried in the roots, a shot that has to be punched out — while
@@ -234,15 +234,15 @@ const REPLACES_ANY_COURSE_TILE := "Replaces any other Course Terrain tile."
 
 ## Every terrain type the player can paint from the Course Terrain tab, in
 ## toolbar order: row 1 (tee box, green, bunker, rough, pot bunker, stream,
-## water, out of bounds) then row 2 (fairway, firm fairway, deep rough, waste
-## bunker, brush, rocks, small boulders, large boulders). Wild flowers and
+## water) then row 2 (fairway, firm fairway, deep rough, waste
+## bunker, brush, rocks, boulder). Wild flowers and
 ## theme trees share the tab and the same replacement rule; they are appended
 ## beside this list.
 const COURSE_PAINT_TYPES: Array[int] = [
 	Type.TEE_BOX, Type.GREEN, Type.BUNKER, Type.ROUGH, Type.POT_BUNKER,
-	Type.STREAM, Type.WATER, Type.OUT_OF_BOUNDS,
+	Type.STREAM, Type.WATER,
 	Type.FAIRWAY, Type.FIRM_FAIRWAY, Type.DEEP_ROUGH, Type.WASTE_BUNKER,
-	Type.BRUSH, Type.ROCKS, Type.SMALL_BOULDERS, Type.LARGE_BOULDERS,
+	Type.BRUSH, Type.ROCKS, Type.BOULDER,
 ]
 
 ## Landscape terrain tiles beside COURSE_PAINT_TYPES on the Course Terrain
@@ -278,7 +278,7 @@ static func is_natural_generation_type(type: int) -> bool:
 ## takes a trail — nor is sand, water, out of bounds or natural grass.
 const WALKING_PATH_TERRAINS: Array[int] = [
 	Type.ROUGH, Type.DEEP_ROUGH, Type.WASTE_BUNKER, Type.BRUSH,
-	Type.ROCKS, Type.SMALL_BOULDERS, Type.LARGE_BOULDERS, Type.STREAM,
+	Type.ROCKS, Type.BOULDER, Type.STREAM,
 	Type.FLOWER_BED,
 	Type.TREES, Type.OAK, Type.PINE, Type.MAPLE, Type.BIRCH, Type.PALM,
 	Type.CACTUS, Type.DEAD_TREE, Type.SHRUB, Type.FESCUE, Type.CATTAILS, Type.HEATHER

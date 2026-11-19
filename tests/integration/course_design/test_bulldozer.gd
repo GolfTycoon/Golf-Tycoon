@@ -90,12 +90,10 @@ func test_woods_and_boulders_are_painted_like_any_other_ground() -> void:
 	# A wood is ground, so it is painted over like anything else, and the
 	# boulder terrains overwrite any tile they land on.
 	var tree_over_rough := _next_scenario_tile()
-	var small_boulders := _next_scenario_tile()
 	var tree_on_water := _next_scenario_tile()
 	var large_boulders := _next_scenario_tile()
 	var rocks_over_tree := _next_scenario_tile()
 	_prep(tree_over_rough, TerrainTypes.Type.OAK)
-	_prep(small_boulders, TerrainTypes.Type.WATER)
 	_prep(tree_on_water, TerrainTypes.Type.WATER)
 	_prep(large_boulders, TerrainTypes.Type.BUNKER)
 	_prep(rocks_over_tree, TerrainTypes.Type.MAPLE)
@@ -110,10 +108,8 @@ func test_woods_and_boulders_are_painted_like_any_other_ground() -> void:
 	main._perform_redo()
 	assert_eq(grid.get_tile(tree_over_rough), TerrainTypes.Type.ROUGH, "Redo paints Rough back")
 
-	_paint_with_toolbar(TerrainTypes.Type.SMALL_BOULDERS, small_boulders)
-	assert_eq(grid.get_tile(small_boulders), TerrainTypes.Type.SMALL_BOULDERS, "Small Boulders replace Water")
-	_paint_with_toolbar(TerrainTypes.Type.LARGE_BOULDERS, large_boulders)
-	assert_eq(grid.get_tile(large_boulders), TerrainTypes.Type.LARGE_BOULDERS, "Large Boulders replace a Bunker")
+	_paint_with_toolbar(TerrainTypes.Type.BOULDER, large_boulders)
+	assert_eq(grid.get_tile(large_boulders), TerrainTypes.Type.BOULDER, "Large Boulders replace a Bunker")
 	_paint_with_toolbar(TerrainTypes.Type.ROCKS, rocks_over_tree)
 	assert_eq(grid.get_tile(rocks_over_tree), TerrainTypes.Type.ROCKS, "Rocks replace a maple tile")
 	assert_eq(grid._course_surface._data.get_pixel(rocks_over_tree.x, rocks_over_tree.y).a, 1.0,
@@ -131,7 +127,7 @@ func test_the_bulldozer_never_touches_course_terrain() -> void:
 	var tiles := {}
 	for terrain in [TerrainTypes.Type.ROUGH, TerrainTypes.Type.FAIRWAY,
 			TerrainTypes.Type.BUNKER, TerrainTypes.Type.STREAM,
-			TerrainTypes.Type.OAK, TerrainTypes.Type.SMALL_BOULDERS]:
+			TerrainTypes.Type.OAK, TerrainTypes.Type.BOULDER]:
 		tiles[_next_scenario_tile()] = terrain
 	for tile in tiles:
 		_prep(tile, tiles[tile])

@@ -534,7 +534,7 @@ Mouse and touch controls are fixed: clicking, dragging, the wheel, pinch and the
 | Key | Action |
 | --- | --- |
 | `1` to `9`, `0` | Terrain tools |
-| `Shift+2`, `Shift+5` to `Shift+9`, `Shift+0`, `Shift+F` | More terrain tools (Shift+9 Small Boulders, Shift+0 Large Boulders) |
+| `Shift+2`, `Shift+5` to `Shift+8`, `Shift+0`, `Shift+F` | More terrain tools (Shift+0 Boulder) |
 | `T`, `B`, `O`, `H`, `X` | Tool shortcuts. `T` is the Tree tool and `H` is Open Hole. |
 | `=`, `.`, `R` | Switch the toolbar tabs |
 | `V`, `+`, `-` | Elevation tools |

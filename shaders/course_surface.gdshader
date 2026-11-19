@@ -63,8 +63,7 @@ const float T_STREAM = 16.0;
 const float T_DEEP_ROUGH = 17.0;
 const float T_WASTE_BUNKER = 18.0;
 const float T_BRUSH = 19.0;
-const float T_SMALL_BOULDERS = 20.0;
-const float T_LARGE_BOULDERS = 21.0;
+const float T_BOULDER = 21.0;
 // The tree catalogue: one id per species, 11 and 22..32, matching
 // TerrainTypes.TREE_SPECIES_TILES. The canopies are drawn by the TreeOverlay;
 // the surface paints what each species stands on.
@@ -97,7 +96,7 @@ const float EDGE_LIP_HI = 0.68;
 // Stony ground: painted Rocks and the two boulder fields. Each fills the full
 // tile with its own stone texture and draws its own border against other tiles.
 bool is_rocks(float id) {
-	return id == T_ROCKS || id == T_SMALL_BOULDERS || id == T_LARGE_BOULDERS;
+	return id == T_ROCKS || id == T_BOULDER;
 }
 
 // Woodland: the Trees tile and every species tile beside it. Each fills the
@@ -114,16 +113,13 @@ bool is_bordered_tile(float id) {
 		|| is_rocks(id) || id == T_FLOWER_BED || is_tree(id);
 }
 
-// Stone cell density, radius and standing height for the three stony grounds.
+// Stone cell density, radius and standing height for the two stony grounds.
 float rocks_cell_scale(float id) {
-	return id == T_SMALL_BOULDERS ? 2.8 : (id == T_LARGE_BOULDERS ? 1.85 : 5.0);
+	return id == T_BOULDER ? 1.85 : 5.0;
 }
 
 float rocks_radius(float id, float roll) {
-	if (id == T_SMALL_BOULDERS) {
-		return 0.082 + roll * 0.075;   // Rounded cobbles and fieldstones
-	}
-	if (id == T_LARGE_BOULDERS) {
+	if (id == T_BOULDER) {
 		return 0.145 + roll * 0.105;   // Massive standing boulders
 	}
 	return 0.048 + roll * 0.040;       // Packed angular scree and gravel
@@ -132,7 +128,7 @@ float rocks_radius(float id, float roll) {
 // How much taller a stone stands than its footprint along the ground (1 = a
 // stone lying flat on the ground, 1.45 = a boulder standing up).
 float rocks_tallness(float id) {
-	return id == T_LARGE_BOULDERS ? 1.45 : 1.0;
+	return id == T_BOULDER ? 1.45 : 1.0;
 }
 
 // One tile of the surface data: R is the terrain id, B the tile's elevation
@@ -321,22 +317,20 @@ float dots(vec2 x, float density, float radius) {
 	return (1.0 - smoothstep(radius * 0.6, radius, d)) * step(1.0 - density, hash(n + vec2(11.0, 23.0)));
 }
 
-// Full-tile stony surfaces: Rocks (packed angular slate scree), Small Boulders
-// (rounded river cobbles over sandy loam), and Large Boulders (massive craggy
-// granite boulders over fissured dark bedrock).
+// Rocks are packed angular slate scree; Boulder is craggy granite over fissured bedrock.
 vec3 stony_surface(float id, vec3 base, vec2 g) {
 	float scale = rocks_cell_scale(id);
 	vec2 to_point;
 	vec4 c = cells(g * scale, to_point);
 	float tall = rocks_tallness(id);
 	float radius = rocks_radius(id, c.z);
-	float present = step(id == T_LARGE_BOULDERS ? 0.02 : 0.05, c.z);
+	float present = step(id == T_BOULDER ? 0.02 : 0.05, c.z);
 	vec2 from_center = -to_point / scale;
 	vec2 up = is_isometric ? vec2(-0.70710678) : vec2(0.0, -1.0);
 	float rise = dot(from_center, up);
 	vec2 lateral = from_center - up * rise;
 	float r = sqrt((rise / tall) * (rise / tall) + dot(lateral, lateral));
-	float outline_scale = id == T_SMALL_BOULDERS ? 0.22 : 0.36;
+	float outline_scale = 0.36;
 	float outline = (noise(g * (scale * 3.4) + vec2(id * 3.0, 1.0)) - 0.5) * radius * outline_scale;
 	float body = (1.0 - smoothstep(radius - 0.010, radius + 0.010, r + outline)) * present;
 	float lit = clamp(0.5 + dot(from_center / max(radius, 0.01), GROUND_LIGHT) * 0.58, 0.0, 1.0);
@@ -350,12 +344,6 @@ vec3 stony_surface(float id, vec3 base, vec2 g) {
 		ground = mix(base * 0.60, vec3(0.35, 0.37, 0.42), 0.50) * (0.90 + noise(g * 10.5) * 0.18);
 		ground = mix(ground, vec3(0.76, 0.78, 0.80), dots(g * 23.0, 0.36, 0.25) * 0.45);
 		stone_tint = mix(base, vec3(0.56, 0.59, 0.65), 0.34) * (0.86 + c.z * 0.28);
-	} else if (id == T_SMALL_BOULDERS) {
-		// Warm sandy-loam matrix with mossy specks and rounded fieldstones.
-		ground = mix(base * 0.62, vec3(0.45, 0.37, 0.26), 0.54) * (0.88 + noise(g * 7.5) * 0.22);
-		ground = mix(ground, vec3(0.32, 0.44, 0.24), dots(g * 15.0 + vec2(4.0, 9.0), 0.26, 0.28) * 0.45);
-		vec3 warm_cobble = mix(vec3(0.68, 0.58, 0.44), vec3(0.54, 0.51, 0.47), fract(c.z * 7.3));
-		stone_tint = mix(base, warm_cobble, 0.52) * (0.90 + c.z * 0.22);
 	} else {
 		// Dark fissured granite bedrock with wedged stones beneath tall boulders.
 		ground = mix(base * 0.46, vec3(0.24, 0.23, 0.22), 0.58) * (0.86 + noise(g * 5.8) * 0.24);
@@ -370,7 +358,7 @@ vec3 stony_surface(float id, vec3 base, vec2 g) {
 	vec3 feature = stone_tint * (0.62 + lit * 0.54) * (0.92 + noise(g * 32.0) * 0.14);
 	float crown = clamp(rise / max(radius * tall, 0.01), -1.0, 1.0);
 	feature *= 1.0 + (tall - 1.0) * 0.34 * crown;
-	if (id == T_LARGE_BOULDERS) {
+	if (id == T_BOULDER) {
 		// Lichen patches and crag striations on big boulders.
 		float lichen = dots(g * 9.5 + vec2(2.0, 7.0), 0.26, 0.30) * step(0.15, crown);
 		feature = mix(feature, vec3(0.58, 0.64, 0.42), lichen * 0.42);
@@ -544,10 +532,7 @@ vec3 tile_border(float id, vec2 g, float grain) {
 	if (id == T_ROCKS) {
 		return vec3(0.17, 0.20, 0.30) * (1.0 + tex); // Dark blue-slate stone kerb
 	}
-	if (id == T_SMALL_BOULDERS) {
-		return vec3(0.76, 0.72, 0.58) * (1.0 + tex); // Pale buff limestone rim
-	}
-	if (id == T_LARGE_BOULDERS) {
+	if (id == T_BOULDER) {
 		return vec3(0.30, 0.37, 0.48) * (1.0 + tex); // Cool steely granite rim
 	}
 	if (id == T_FLOWER_BED) {

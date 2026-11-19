@@ -67,7 +67,7 @@ func test_trees_are_terrain_not_improvements() -> void:
 		assert_eq(details.improvements, "None")
 
 func test_boulder_ground_reads_as_terrain_not_an_improvement() -> void:
-	for type in [TerrainTypes.Type.SMALL_BOULDERS, TerrainTypes.Type.LARGE_BOULDERS]:
+	for type in [TerrainTypes.Type.BOULDER]:
 		grid.set_tile(TILE, type)
 		var details := TileInspector.describe_tile(grid, entities, TILE)
 		assert_string_contains(details.terrain, TerrainTypes.get_type_name(type))
