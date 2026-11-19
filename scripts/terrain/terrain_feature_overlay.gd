@@ -6,9 +6,9 @@ class_name TerrainFeatureOverlay
 ## tangled stand of gorse, **Rocks** a slate outcrop, **Boulder** a rounded
 ## granite boulder.  Each is one painted terrain id, laid and replaced like a tree
 ## tile, and the course surface paints the ground beneath it (see `tile_at()` in
-## `course_surface.gdshader`).  This overlay stands the sprite on that ground -
-## one independently depth-sorted CanvasItem per visible tile, the same
-## arrangement `TreeOverlay` gives a canopy.
+## `course_surface.gdshader`).  This overlay stands the sprite on that ground,
+## one CanvasItem per drawing, the same arrangement `TreeOverlay` gives a
+## canopy: each stone or bush Y-sorts and clips against the terrain on its own.
 ##
 ## The art lives in `assets/sprites/terrain/` as `<feature>_<variant>.png`, with
 ## up to four independently drawn variants per feature.  The variants are
@@ -106,7 +106,7 @@ const MAX_STAMPS := 3
 const STAMP_SEED_SALT := 0x51ed270b
 
 var terrain_grid: TerrainGrid
-var _visuals: Dictionary = {}  # visible Vector2i -> Node2D
+var _visuals: Dictionary = {}  # visible Vector2i -> stamp container Node2D
 var _pooled_visuals: Array[Node2D] = []
 var _feature_tiles: Dictionary = {}  # Vector2i -> art key drawn on that tile
 var _visual_sync_pending := false
@@ -158,7 +158,7 @@ func rescan() -> void:
 				var key := feature_key(terrain_grid.get_tile(pos))
 				if not key.is_empty():
 					_feature_tiles[pos] = key
-	_sync_visuals(true)
+	_sync_visuals()
 
 # =============================================================================
 # ART LOOKUP — the toolbar's feature tiles read their preview from here too
@@ -329,6 +329,20 @@ static func art_anchor_offset(key: String, path: String, source_size: Vector2,
 		anchor_y = (ground_y - source_size.y * 0.5) * scale_value
 	return Vector2(anchor_x, anchor_y)
 
+## How far the bottom edge of a drawing's canvas sits below the tile-centre
+## anchor it is drawn around. Ground-cover art keeps a painted skirt below that
+## anchor, so it is the canvas bottom - not the anchor - that rests on the
+## terrain. The occlusion material is pinned there: ground in front of a pixel
+## below the anchor would otherwise clip the whole skirt in one flat line.
+static func art_bottom_offset(key: String, path: String, scale_v: float) -> float:
+	var texture := texture_at(path)
+	if texture == null:
+		return 0.0
+	var source_size := texture.get_size()
+	var size := source_size * scale_v * art_scale(path)
+	var anchor := art_anchor_offset(key, path, source_size, scale_v)
+	return size.y * 0.5 - anchor.y + art_offset_y(path)
+
 ## Forget the loaded textures and layout — what the tests use, and what a
 ## future art pack replacing the folder on disk needs.
 static func clear_art_cache() -> void:
@@ -345,13 +359,13 @@ static func variation_seed(pos: Vector2i) -> int:
 
 ## The small screen-space offset also supplied to the occlusion material. Keep
 ## this sequence identical to the two jitter draws at the start of
-## `_draw_feature()`.
+## `_on_stamp_draw()`.
 static func ground_jitter(pos: Vector2i) -> Vector2:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos)
 	return Vector2(rng.randf_range(-JITTER_X, JITTER_X), rng.randf_range(-JITTER_Y, JITTER_Y))
 
-## Deterministic per-tile jitter and scale matching `_draw_feature()` without
+## Deterministic per-tile jitter and scale matching `_on_stamp_draw()` without
 ## creating an overlay node.
 static func variation_for_tile(pos: Vector2i) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
@@ -403,36 +417,39 @@ func _on_load_completed(_success: bool) -> void:
 	rescan()
 
 func _on_view_rotated(_orientation: int, _isometric: bool) -> void:
-	_sync_visuals(true)
+	_sync_visuals()
 
 func _on_performance_profile_changed(_low_detail: bool) -> void:
 	var previous_occlusion := _occlusion_enabled
 	_refresh_occlusion_mode()
 	if previous_occlusion != _occlusion_enabled:
-		for visual in _visuals.values():
-			(visual as Node2D).queue_redraw()
+		for container in _visuals.values():
+			for stamp in (container as Node2D).get_children():
+				(stamp as Node2D).queue_redraw()
 
 func _on_vertex_elevation_changed(vertex: Vector2i, _old: int, _new: int) -> void:
 	_refresh_occlusion_mode()
 	for pos in terrain_grid.tiles_around_vertex(vertex):
 		if not _visuals.has(pos):
 			continue
-		var visual: Node2D = _visuals[pos]
+		var container: Node2D = _visuals[pos]
 		var new_position := terrain_grid.grid_to_screen_center(pos)
-		if visual.position != new_position:
-			visual.position = new_position
+		if container.position != new_position:
+			container.position = new_position
 		if _occlusion_enabled:
-			visual.queue_redraw()
+			for stamp in container.get_children():
+				(stamp as Node2D).queue_redraw()
 
 ## Bulk elevation loads do not emit one vertex signal per point. Refresh only
 ## the currently visible features after such a load.
 func refresh_elevation_visuals() -> void:
 	_refresh_occlusion_mode(true)
 	for pos in _visuals:
-		var visual: Node2D = _visuals[pos]
-		visual.position = terrain_grid.grid_to_screen_center(pos)
+		var container: Node2D = _visuals[pos]
+		container.position = terrain_grid.grid_to_screen_center(pos)
 		if _occlusion_enabled:
-			visual.queue_redraw()
+			for stamp in container.get_children():
+				(stamp as Node2D).queue_redraw()
 
 func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) -> void:
 	var new_key := feature_key(new_type)
@@ -443,11 +460,12 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 		_feature_tiles.erase(tile_pos)
 	else:
 		_feature_tiles[tile_pos] = new_key
-		var visual := _visuals.get(tile_pos) as Node2D
-		if visual:
+		var container := _visuals.get(tile_pos) as Node2D
+		if container:
 			# A different feature (or a different outcrop) reuses the tile's
-			# CanvasItem, whose cached draw commands still hold the old sprite.
-			visual.queue_redraw()
+			# CanvasItems, whose cached draw commands still hold the old sprites.
+			for stamp in container.get_children():
+				(stamp as Node2D).queue_redraw()
 	# Tile generation may change thousands of tiles in one frame. Defer the
 	# visible-node diff so those edits coalesce into one bounded sync.
 	_visual_sync_pending = true
@@ -456,18 +474,18 @@ func _on_terrain_tile_changed(tile_pos: Vector2i, old_type: int, new_type: int) 
 func _draw() -> void:
 	if _visual_sync_pending:
 		_visual_sync_pending = false
-		_sync_visible_features(false, true)
+		_sync_visible_features(true)
 
 ## Called by TerrainGrid only when the camera's visible range needs refreshing.
 func update_visible_features() -> void:
-	_sync_visible_features(false, false)
+	_sync_visible_features(false)
 
 ## Compatibility/test entry point: force the current visible-node set to match
 ## the full tile index immediately.
-func _sync_visuals(force_redraw: bool = false) -> void:
-	_sync_visible_features(force_redraw, true)
+func _sync_visuals() -> void:
+	_sync_visible_features(true)
 
-func _sync_visible_features(force_redraw: bool, force_membership: bool) -> void:
+func _sync_visible_features(force_membership: bool) -> void:
 	if terrain_grid == null:
 		return
 	var tile_range := terrain_grid.get_visible_tile_range()
@@ -493,56 +511,100 @@ func _sync_visible_features(force_redraw: bool, force_membership: bool) -> void:
 			_release_visual(pos)
 
 	for pos in desired:
-		var visual: Node2D
-		var is_new := false
+		var key: String = _feature_tiles[pos]
+		var stamps := stamps_for(key, pos, facing_at(pos))
+		var container: Node2D
 		if _visuals.has(pos):
-			visual = _visuals[pos]
-			if force_redraw:
-				_configure_occlusion(visual, pos)
+			container = _visuals[pos]
 		else:
-			visual = _obtain_visual()
-			visual.set_meta("feature_pos", pos)
-			visual.name = "Feature_%d_%d" % [pos.x, pos.y]
-			visual.visible = true
-			_visuals[pos] = visual
-			_configure_occlusion(visual, pos)
-			is_new = true
+			container = _obtain_visual()
+			container.set_meta("feature_pos", pos)
+			container.name = "Feature_%d_%d" % [pos.x, pos.y]
+			container.visible = true
+			_visuals[pos] = container
+		_ensure_stamp_count(container, stamps.size())
+		container.position = terrain_grid.grid_to_screen_center(pos)
 
-		var projected_position := terrain_grid.grid_to_screen_center(pos)
-		if visual.position != projected_position:
-			visual.position = projected_position
-			visual.queue_redraw()
-		elif force_redraw or is_new:
-			visual.queue_redraw()
+		var jitter := ground_jitter(pos)
+		var tile_scale := float(variation_for_tile(pos)["scale"])
+		for i in range(stamps.size()):
+			var stamp: Node2D = container.get_child(i)
+			var offset: Vector2 = stamps[i]["offset"]
+			var path := sprite_path(key, int(stamps[i]["variant"]))
+			var stamp_scale := tile_scale * float(stamps[i]["scale"])
+			# The jitter is the tile's; the slot is the drawing's. Each stamp
+			# carries both, so Y-sort sees its own ground point, and the
+			# occlusion ground sits on that drawing's own bottom edge.
+			var ground_offset := jitter + offset
+			ground_offset.y += art_bottom_offset(key, path, stamp_scale)
+			stamp.set_meta("feature_pos", pos)
+			stamp.set_meta("stamp_index", i)
+			stamp.set_meta("occlusion_offset", ground_offset)
+			stamp.position = jitter + offset
+			_configure_occlusion(stamp, pos, ground_offset)
+			stamp.queue_redraw()
 
 func _obtain_visual() -> Node2D:
+	var container: Node2D
 	if not _pooled_visuals.is_empty():
-		return _pooled_visuals.pop_back()
-	var visual := Node2D.new()
-	visual.draw.connect(_on_feature_visual_draw.bind(visual))
-	add_child(visual)
-	return visual
+		container = _pooled_visuals.pop_back()
+	else:
+		container = Node2D.new()
+		# Each drawing is its own CanvasItem under this container, so the
+		# container only Y-sorts them; it draws nothing itself.
+		container.y_sort_enabled = true
+		add_child(container)
+	return container
+
+## Grow or shrink a tile's container to exactly one CanvasItem per drawing.
+func _ensure_stamp_count(container: Node2D, count: int) -> void:
+	while container.get_child_count() > count:
+		var extra := container.get_child(container.get_child_count() - 1)
+		container.remove_child(extra)
+		extra.queue_free()
+	while container.get_child_count() < count:
+		var stamp := Node2D.new()
+		stamp.name = "Stamp%d" % container.get_child_count()
+		stamp.draw.connect(_on_stamp_draw.bind(stamp))
+		container.add_child(stamp)
 
 func _release_visual(pos: Vector2i) -> void:
-	var visual: Node2D = _visuals[pos]
+	var container: Node2D = _visuals[pos]
 	_visuals.erase(pos)
-	visual.visible = false
-	visual.set_meta("feature_pos", Vector2i(-1, -1))
+	container.visible = false
+	container.set_meta("feature_pos", Vector2i(-1, -1))
+	for stamp in container.get_children():
+		stamp.set_meta("feature_pos", Vector2i(-1, -1))
 	if _pooled_visuals.size() < MAX_POOLED_VISUALS:
-		_pooled_visuals.append(visual)
+		_pooled_visuals.append(container)
 	else:
-		visual.queue_free()
+		container.queue_free()
 
-func _on_feature_visual_draw(visual: Node2D) -> void:
-	var pos: Vector2i = visual.get_meta("feature_pos", Vector2i(-1, -1))
-	if _feature_tiles.has(pos):
-		_draw_feature(visual, pos, Vector2.ZERO, facing_at(pos))
+func _on_stamp_draw(stamp: Node2D) -> void:
+	var pos: Vector2i = stamp.get_meta("feature_pos", Vector2i(-1, -1))
+	if not _feature_tiles.has(pos):
+		return
+	var index := int(stamp.get_meta("stamp_index", 0))
+	var key: String = _feature_tiles[pos]
+	var stamps := stamps_for(key, pos, facing_at(pos))
+	if index < 0 or index >= stamps.size():
+		return
+	var stamp_data: Dictionary = stamps[index]
+	var path := sprite_path(key, int(stamp_data["variant"]))
+	var texture := texture_at(path)
+	var scale_v := float(variation_for_tile(pos)["scale"]) * float(stamp_data["scale"])
+	if texture != null:
+		_draw_art(stamp, texture, path, key, Vector2.ZERO, scale_v)
+	else:
+		_draw_silhouette(stamp, Vector2.ZERO, key, scale_v, pos)
 
 func _redraw_active_visuals() -> void:
 	for pos in _visuals:
-		var visual: Node2D = _visuals[pos]
-		_configure_occlusion(visual, pos)
-		visual.queue_redraw()
+		var container: Node2D = _visuals[pos]
+		for stamp in container.get_children():
+			_configure_occlusion(stamp, pos,
+					stamp.get_meta("occlusion_offset", ground_jitter(pos)))
+			(stamp as Node2D).queue_redraw()
 
 func _should_enable_occlusion() -> bool:
 	return terrain_grid != null and terrain_grid.has_relief() \
@@ -554,12 +616,17 @@ func _refresh_occlusion_mode(force: bool = false) -> void:
 		return
 	_occlusion_enabled = should_enable
 	for pos in _visuals:
-		_configure_occlusion(_visuals[pos], pos)
-	for visual in _pooled_visuals:
+		var container: Node2D = _visuals[pos]
+		for stamp in container.get_children():
+			_configure_occlusion(stamp, pos,
+					stamp.get_meta("occlusion_offset", ground_jitter(pos)))
+	for container in _pooled_visuals:
 		if not _occlusion_enabled:
-			visual.material = null
+			for stamp in container.get_children():
+				(stamp as Node2D).material = null
 
-func _configure_occlusion(feature: Node2D, pos: Vector2i) -> void:
+func _configure_occlusion(feature: Node2D, pos: Vector2i,
+		ground_offset: Vector2) -> void:
 	if not _occlusion_enabled or terrain_grid == null or terrain_grid._course_surface == null:
 		feature.material = null
 		return
@@ -569,31 +636,11 @@ func _configure_occlusion(feature: Node2D, pos: Vector2i) -> void:
 		occlusion_material.shader = TERRAIN_SPRITE_OCCLUSION
 		feature.material = occlusion_material
 	terrain_grid._course_surface.configure_sprite_occlusion(
-			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_jitter(pos))
+			occlusion_material, Vector2(pos) + Vector2(0.5, 0.5), ground_offset)
 
 # =============================================================================
 # DRAWING
 # =============================================================================
-
-## One feature tile: its drawings laid on and around the tile centre — or their
-## silhouettes, shaped the same way, when the art is missing.
-func _draw_feature(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
-	var key: String = _feature_tiles[pos]
-	var rng := RandomNumberGenerator.new()
-	rng.seed = variation_seed(pos)
-	var center := ground + Vector2(rng.randf_range(-JITTER_X, JITTER_X),
-			rng.randf_range(-JITTER_Y, JITTER_Y))
-	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
-
-	for stamp in stamps_for(key, pos, facing):
-		var offset: Vector2 = stamp["offset"]
-		var stamp_scale: float = scale_v * float(stamp["scale"])
-		var path := sprite_path(key, int(stamp["variant"]))
-		var texture := texture_at(path)
-		if texture != null:
-			_draw_art(canvas, texture, path, key, center + offset, stamp_scale)
-		else:
-			_draw_silhouette(canvas, center + offset, key, stamp_scale, pos)
 
 ## One drawing of a feature: laid so its own anchor (the tile centre it was
 ## cropped around) falls on `center`.

@@ -132,13 +132,17 @@ shared with its occlusion material by `ground_jitter()` / `variation_for_tile()`
 - `TerrainGrid.GROUND_DETAIL_ORDER` ranks it **after** `WalkingPathOverlay` and
   **before** `TreeOverlay`: a boulder covers the trail trodden under it, and a
   canopy covers the rock beneath it.
-- One `Node2D` CanvasItem per visible tile is created lazily and pooled, exactly
+- One `Node2D` container per visible tile is created lazily and pooled, exactly
   as `TreeOverlay` does for canopies; the camera moving only changes membership,
-  not how any sprite is drawn. A Rocks or Brush tile draws its two or three
-  variant stamps inside that one CanvasItem, back to front.
-- With terrain-aware occlusion on, each sprite samples the shared heightfield
+  not how any sprite is drawn. Inside it, every variant drawing is its **own
+  CanvasItem**, so a Rocks or Brush tile's two or three stamps Y-sort and clip
+  independently rather than sharing one silhouette.
+- With terrain-aware occlusion on, each drawing samples the shared heightfield
   (`shaders/terrain_sprite_occlusion.gdshader`), so a hill rising in front of a
-  boulder clips it pixel by pixel.
+  boulder clips it pixel by pixel. The material's ground point is the bottom
+  edge of that drawing's canvas (`art_bottom_offset()`), not the tile-centre
+  anchor: ground-cover art keeps a painted skirt below the anchor, and clipping
+  against the anchor would shear the skirt off in a flat horizontal line.
 - The Course Terrain tab's tile buttons use `stamps_for()`, `sprite_path()` and
   `art_anchor_offset()` to stand the same scatter of variant drawings on the
   catalogue diamond.
