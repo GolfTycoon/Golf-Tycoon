@@ -169,7 +169,35 @@ func test_all_tee_number_art_has_transparency_and_anchor_metadata() -> void:
 		assert_not_null(texture, name)
 		var world_size := texture.get_size() * float(layout.scale)
 		assert_lte(world_size.x, 18.0, "Compact width: " + name)
-		assert_lte(world_size.y, 23.0, "Low-profile height: " + name)
+		assert_lte(world_size.y, 19.5, "No base or stem below the medallion: " + name)
 		assert_true(texture.get_image().is_invisible() == false, "Sign has visible pixels: " + name)
 		assert_true(texture.get_image().get_pixel(0, 0).a < 0.01, "Transparent canvas: " + name)
 		assert_true(layout.sprites.has(name), "Ground anchor: " + name)
+
+func test_tee_sign_sorts_in_world_band_and_follows_corner_relief() -> void:
+	var old_occlusion := PerformanceSettings.tree_occlusion_enabled
+	PerformanceSettings.tree_occlusion_enabled = true
+	var visualizer := HoleVisualizer.new()
+	add_child_autofree(visualizer)
+	visualizer.initialize(_hole(TEE, CUP), grid)
+	var sign := visualizer.tee_number_sprite
+	assert_eq(visualizer.z_index, 0, "No overlay Z inherited by the sign")
+	assert_true(visualizer.y_sort_enabled, "Expose the sign's ground position to world Y-sort")
+	assert_false(sign.z_as_relative, "Sign depth is independent of selection overlays")
+	assert_eq(sign.z_index, 2, "Same world band as trees, golfers and pins")
+	assert_null(sign.material, "Flat terrain needs no occlusion shader")
+	grid.set_vertex_elevation(TEE + Vector2i.ONE, TerrainGrid.BASE_ELEVATION + 3)
+	var ground := grid.tile_local_grid_point(TEE, HoleVisualizer.TEE_CORNER)
+	assert_almost_eq(sign.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
+		"Sign samples slope height at its actual corner")
+	var mat := sign.material as ShaderMaterial
+	assert_not_null(mat, "Hilly terrain clips the sign with the shared heightfield")
+	if mat:
+		assert_eq(mat.shader, HoleVisualizer.TEE_OCCLUSION)
+		assert_eq(mat.get_shader_parameter("ground_grid"), ground)
+	grid.set_view_orientation(6)
+	assert_almost_eq(sign.global_position, grid.grid_point_to_screen(ground), Vector2.ONE * 0.01,
+		"Rotation updates both the sort anchor and terrain projection")
+	grid.set_vertex_elevation(TEE + Vector2i.ONE, TerrainGrid.BASE_ELEVATION)
+	assert_null(sign.material, "Levelling the terrain drops the shader")
+	PerformanceSettings.tree_occlusion_enabled = old_occlusion
