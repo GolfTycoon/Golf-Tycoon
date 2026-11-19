@@ -62,7 +62,7 @@ A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 ### Ground cover
 
-Brush, Rocks and Boulder are Rough plus sprite. `surface()` paints them with Rough's `palette_color(3.0)` and tuft noise, and `boundary_class()` maps them to Rough's id, so their grass merges into the rough around them rather than drawing a stone or scrub rim. `TerrainFeatureOverlay` then draws the outcrop, the boulder and the low gorse thicket over that ground in the ground band, ranked after the walking trail and before the trees. The ground deliberately stays plain: the tile's whole subject is the sprite, so there is never a second copy of the same thing in the shader.
+Brush, Rocks and Boulder are Rough plus sprite. `surface()` paints them with Rough's `palette_color(3.0)` and tuft noise, and `boundary_class()` maps them to Rough's id, so their grass merges into the rough around them rather than drawing a stone or scrub rim. `TerrainFeatureOverlay` then draws the outcrops, the boulder and the low gorse bushes over that ground in the ground band, ranked after the walking trail and before the trees; Rocks and Brush scatter two or three different variant drawings across every tile. The ground deliberately stays plain: the tile's whole subject is the sprite, so there is never a second copy of the same thing in the shader.
 
 The sprites are baked as real 3D models by `tools/terrain_art/generate.py` and come in four independently drawn variants per feature, chosen per tile by a mixed hash and anchored to the tile centre through `assets/sprites/terrain/layout.json`. See [Ground-Cover Art](terrain-art.md).
 

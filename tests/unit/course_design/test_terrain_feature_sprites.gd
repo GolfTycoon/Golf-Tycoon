@@ -12,6 +12,8 @@ extends GameTest
 ## * the toolbar preview reads the first drawing;
 ## * a painted tile gets one CanvasItem at its own projected centre, in the
 ##   ground band, below the standing trees;
+## * Rocks and Brush scatter two or three different variant drawings inside that
+##   CanvasItem, while Boulder stands a single drawing;
 ## * the variant a tile wears is a mixed hash of its position, deterministic and
 ##   independent of the course's view.
 ##
@@ -217,6 +219,48 @@ func test_tile_variants_are_mixed_and_deterministic() -> void:
 			seen[variant] = true
 	assert_eq(seen.size(), TerrainFeatureOverlay.FACINGS.size(),
 			"a stretch of terrain shows every drawing, not one stamp")
+
+
+func test_rocks_and_brush_scatter_several_variant_drawings_on_one_tile() -> void:
+	for key in ["rocks", "brush"]:
+		var pos := Vector2i(4, 7)
+		var stamps := TerrainFeatureOverlay.stamps_for(key, pos, 1)
+		assert_true(TerrainFeatureOverlay.uses_multiple_sprites(key),
+				"%s scatters several drawings" % key)
+		assert_between(stamps.size(), TerrainFeatureOverlay.MIN_STAMPS,
+				TerrainFeatureOverlay.MAX_STAMPS)
+		var variants: Dictionary = {}
+		var offsets: Dictionary = {}
+		for stamp in stamps:
+			var variant := int(stamp["variant"])
+			variants[variant] = true
+			offsets[stamp["offset"]] = true
+			assert_between(variant, 0, TerrainFeatureOverlay.FACINGS.size() - 1)
+			assert_between(float(stamp["scale"]), 0.90, 1.10,
+					"each drawing is placed at its own small size")
+		assert_eq(variants.size(), stamps.size(),
+				"no variation drawing is repeated on one tile")
+		assert_eq(offsets.size(), stamps.size(),
+				"each drawing stands in its own spot")
+		assert_eq(TerrainFeatureOverlay.stamps_for(key, pos, 1), stamps,
+				"the scatter is deterministic")
+		for i in range(1, stamps.size()):
+			var previous: Vector2 = stamps[i - 1]["offset"]
+			var current: Vector2 = stamps[i]["offset"]
+			assert_true(previous.y <= current.y,
+					"the drawings are painted back to front")
+		assert_false(TerrainFeatureOverlay.stamps_for(key, Vector2i(4, 8), 1) == stamps,
+				"the next tile scatters them differently")
+
+
+func test_a_boulder_keeps_to_one_drawing() -> void:
+	assert_false(TerrainFeatureOverlay.uses_multiple_sprites("boulder"),
+			"Boulder is one mass, not a field")
+	var stamps := TerrainFeatureOverlay.stamps_for("boulder", Vector2i(2, 3), 2)
+	assert_eq(stamps.size(), 1, "one drawing per Boulder tile")
+	assert_eq(int(stamps[0]["variant"]), 2, "the tile's own variation")
+	assert_eq(stamps[0]["offset"], Vector2.ZERO, "standing on the tile centre")
+	assert_eq(float(stamps[0]["scale"]), 1.0)
 
 
 func test_per_tile_variation_is_small_and_stable() -> void:
