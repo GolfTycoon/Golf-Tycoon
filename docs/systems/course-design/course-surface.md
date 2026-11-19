@@ -1,6 +1,6 @@
 # Course Surface
 
-> The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds. A few tiles — Brush, Rocks, Boulder and the woodlands — then stand a sprite on the ground they paint.
+> The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds. Brush, Rocks and Boulder stand a sprite on the course's Rough turf; the woodlands paint their own ground and stand a sprite on that.
 
 **Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `water_depth()`, `same_water_body()`, `water_fall()`, `water_run_light()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
@@ -34,14 +34,14 @@ repaints all three together. See [Course Map](course-map.md).
 | Bunker | A raked sand bowl in a grass lip. The lips of neighbouring bunkers open into each other, so a run of tiles is one pit with one lip around the outside of it; the lip's shade falls on the near side of the floor and the sun on the far wall, the sand sags in the middle, raking arcs follow the lip, and drifts of drier grains lie over the floor. |
 | Firm Fairway | Fairway mower passes, paler, with sun-dried straw patches. It reads as faster, drier turf inside a normal fairway. |
 | Deep Rough | Long standing blades, darker clumps and pale seed-head dots. |
-| Rocks | Packed slate scree with quartz grit, drawn under the slate slabs its sprite raises. |
-| Boulder | Fissured granite bedrock with wedged stones, drawn under the granite boulder its sprite raises. |
-| Brush | Tangled woody undergrowth and low sprigs, drawn under the gorse bushes its sprite raises. |
+| Rocks | The course's Rough turf, drawn under the slate slabs its sprite raises. |
+| Boulder | The course's Rough turf, drawn under the granite boulder its sprite raises. |
+| Brush | The course's Rough turf, drawn under the low gorse thicket its sprite raises. |
 | Waste Bunker | Coarse sand with pebbles and wiregrass tufts. It breaks up raggedly into the surrounding turf. |
 | Pot Bunker | A turf lip, a stacked-turf wall and a sand floor. The lip is the same rough turf a stream's banks keep (`bank_turf()`), so a pot sunk in Rough or beside a stream shows the same grass rather than a square of its neighbour's. |
 | Stream | A narrow channel cut through the same rough turf a pot bunker's lip keeps (`bank_turf()`), with a muddy, pebbled margin and soft crests drifting downstream. The bank opens at the channel mouth so its water joins a pond. Its grass keeps its own turf and is edged with a narrow dark border — the same width as a Bunker's grass lip — wherever the tile meets different terrain, instead of fading into it; Water, Rough and Pot Bunker meet it with no border. |
 
-Rocks, boulders, brush and waste bunkers fill the full tile and frame their open edges with a border instead of an outline, so a connected patch reads as one continuous field. Rocks, Boulder and Brush then stand their objects on that ground: see [Ground-Cover Art](terrain-art.md).
+Waste bunkers fill the full tile and frame their open edges with a border instead of an outline, so a connected patch reads as one continuous field. Rocks, Boulder and Brush do not: they lie on the course's Rough turf, and their stones or scrub stand on it — see [Ground-Cover Art](terrain-art.md).
 
 ### Trees
 
@@ -62,7 +62,7 @@ A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 ### Ground cover
 
-Brush, Rocks and Boulder are ground plus sprite. `stony_surface()` paints the slate scree and the granite bed, and `brush_surface()` paints the woody scrub bed; `TerrainFeatureOverlay` then draws the outcrop, the standing boulder and the gorse bushes over it in the ground band, ranked after the walking trail and before the trees. The bed deliberately holds back the objects: Boulder's granite carries only small wedged stones instead of its own standing boulders, and Brush's bed holds undergrowth instead of full gorse crowns, so the tile is never two copies of the same thing.
+Brush, Rocks and Boulder are Rough plus sprite. `surface()` paints them with Rough's `palette_color(3.0)` and tuft noise, and `boundary_class()` maps them to Rough's id, so their grass merges into the rough around them rather than drawing a stone or scrub rim. `TerrainFeatureOverlay` then draws the outcrop, the boulder and the low gorse thicket over that ground in the ground band, ranked after the walking trail and before the trees. The ground deliberately stays plain: the tile's whole subject is the sprite, so there is never a second copy of the same thing in the shader.
 
 The sprites are baked as real 3D models by `tools/terrain_art/generate.py` and come in four independently drawn variants per feature, chosen per tile by a mixed hash and anchored to the tile centre through `assets/sprites/terrain/layout.json`. See [Ground-Cover Art](terrain-art.md).
 
@@ -83,7 +83,7 @@ Material boundaries sit on the shared tile edges, inside a narrow anti-aliased b
 - Unbordered grass tiles (native grass, fairway, firm fairway, rough and heavy rough) next to an inset tile (Pot Bunker or Stream) draw **no** boundary band; both Pot Bunker and Stream keep their own rough turf (`bank_turf()`, `keeps_own_turf()`), and show that same grass inside a neighbour's band instead of the neighbour's own.
 - A Bunker's lip is painted by `surface()` at the open edges, on the same `FRINGE` band and `EDGE_LIP_LO` / `EDGE_LIP_HI` coverage ramp every other bordered tile copies. `bunker_bowl()` then shades the pit inside that band, so the bowl never spills into a neighbour's border.
 - A stream's grass bank keeps its own turf and draws a narrow, dark border along open edges instead of blending across them (`stream_bank_border()`), using the shared `FRINGE` band and `EDGE_LIP_LO` / `EDGE_LIP_HI` coverage thresholds so it matches the Bunker's grass lip. Water, Rough and Pot Bunker meet the bank with no border at all (`stream_borders()`); everywhere else the border follows each edge's boundary strength, thinning out through a channel mouth and staying inside the tile.
-- Deep Rough, Waste Bunker, Brush, Rocks, Boulder, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and `OAK`..`HEATHER`) each fill the full tile with a distinct procedural texture (`stony_surface()`, `brush_surface()`, `flower_bed_surface()`, `tree_ground()`, and the `surface()` branches for Deep Rough and Waste Bunker) and keep their own `boundary_class(id) == id`. Connected tiles of the same type merge seamlessly across shared edges, while edges shared with any different terrain tile type draw that tile's own distinct border (`tile_border()`) across the exact same `FRINGE` / `EDGE_LIP_LO`..`EDGE_LIP_HI` coverage ramp as the Bunker's lip instead of blending.
+- Deep Rough, Waste Bunker, Wild Flowers (`FLOWER_BED`) and all twelve woodland tiles (`TREES` and `OAK`..`HEATHER`) each fill the full tile with a distinct procedural texture (`flower_bed_surface()`, `tree_ground()`, and the `surface()` branches for Deep Rough and Waste Bunker) and keep their own `boundary_class(id) == id`. Connected tiles of the same type merge seamlessly across shared edges, while edges shared with any different terrain tile type draw that tile's own distinct border (`tile_border()`) across the exact same `FRINGE` / `EDGE_LIP_LO`..`EDGE_LIP_HI` coverage ramp as the Bunker's lip instead of blending. Brush, Rocks and Boulder are the exception: they paint Rough's ground and share its boundary class, so they blend into rough and into each other.
 - Streams and ponds stay linked as wet terrain but use separate boundary classes. A bank marks where pond water meets the stream's rough turf, while the widening channel mouth cuts an opening so the water connects continuously.
 
 ### 3. Bunkers

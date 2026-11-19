@@ -487,22 +487,25 @@ def _gorse_clump(builder: TreeBuilder, cx: float, cy: float, cz: float,
 def draw_brush(builder: TreeBuilder, rng) -> None:
     """A dense stand of gorse and bramble: thorny stems, gnarled crowns.
 
-    Stems fork out of the turf first, so the scrub is visibly woody rather
-    than a green boulder; three or four leaf clouds then grow along the stems,
-    each with its own sunlit rim, and yellow gorse blossoms catch the light on
-    the warm side.  A few thorn branches poke out of the silhouette and a
-    skirt of low sprigs roots the clump into the tile.
+    A low, spreading thicket: stems fork out of the turf first, so the scrub is
+    visibly woody rather than a green boulder; three or four flat leaf clouds
+    then grow along the stems, each with its own sunlit rim, and yellow gorse
+    blossoms catch the light on the warm side.  A few thorn branches poke out
+    of the silhouette and a skirt of low sprigs roots the clump into the tile.
+    It stands about as tall as a rock, so it covers ground rather than treetops.
     """
     stem_group = builder.group()
     crown_group = builder.group()
 
     # The woody framework: four or five forking stems, tallest at the centre.
+    # Gorse in this course grows low: the whole thicket stays about a rock's
+    # height, so it reads as ground cover rather than a tree.
     tips = []
     stem_count = rng.randint(4, 6)
     for i in range(stem_count):
         yaw = math.tau * i / stem_count + rng.uniform(-0.4, 0.4)
         reach = rng.uniform(2.0, 8.0)
-        height = rng.uniform(9.0, 20.0) * (1.0 if i % 2 else 0.78)
+        height = rng.uniform(4.5, 10.0) * (1.0 if i % 2 else 0.78)
         base = (BASE_X + math.cos(yaw) * rng.uniform(0.5, 3.5),
                 BASE_Y + math.sin(yaw) * rng.uniform(0.4, 2.4), 0.0)
         top = (BASE_X + math.cos(yaw) * reach,
@@ -515,23 +518,23 @@ def draw_brush(builder: TreeBuilder, rng) -> None:
             fork_reach = rng.uniform(4.0, 8.0)
             tip = (top[0] + math.cos(fork_yaw) * fork_reach,
                    top[1] + math.sin(fork_yaw) * fork_reach * 0.7,
-                   top[2] + rng.uniform(1.5, 4.5))
+                   top[2] + rng.uniform(1.0, 2.6))
             builder.limb(top, tip, 0.5, 0.20, SCRUB_TWIG_DARK,
                          segments=4, group=stem_group, cap=False)
-            tips.append((tip, rng.uniform(5.0, 7.5)))
+            tips.append((tip, rng.uniform(4.2, 6.2)))
 
     # A low central cushion, then one cloud at each stem tip: separate masses
     # with twigs showing between them, exactly as a real gorse thicket reads.
     main_rx = rng.uniform(13.0, 16.0)
     main_ry = main_rx * rng.uniform(0.66, 0.80)
     _gorse_clump(builder, BASE_X + rng.uniform(-2.0, 2.0),
-                 BASE_Y + rng.uniform(-1.0, 1.0), rng.uniform(12.0, 15.0),
-                 (main_rx, main_ry, rng.uniform(5.0, 6.6)),
+                 BASE_Y + rng.uniform(-1.0, 1.0), rng.uniform(6.0, 8.0),
+                 (main_rx, main_ry, rng.uniform(3.2, 4.2)),
                  rng, group=crown_group, count=30, cluster=2.5, tips=12)
     for (tx, ty, tz), radius in tips:
-        _gorse_clump(builder, tx, ty, tz + radius * 0.45,
+        _gorse_clump(builder, tx, ty, tz + radius * 0.30,
                      (radius, radius * rng.uniform(0.72, 0.92),
-                      radius * rng.uniform(0.62, 0.85)),
+                      radius * rng.uniform(0.48, 0.66)),
                      rng, group=crown_group, count=16, cluster=2.1, tips=7)
 
     # Thorn branches breaking the silhouette: a bramble's warning.
@@ -539,10 +542,10 @@ def draw_brush(builder: TreeBuilder, rng) -> None:
         angle = rng.uniform(0.0, math.tau)
         reach = rng.uniform(10.0, 17.0)
         start = (BASE_X + math.cos(angle) * 3.0,
-                 BASE_Y + math.sin(angle) * 2.0, rng.uniform(6.0, 13.0))
+                 BASE_Y + math.sin(angle) * 2.0, rng.uniform(3.0, 6.5))
         end = (BASE_X + math.cos(angle) * reach,
                BASE_Y + math.sin(angle) * reach * 0.72,
-               start[2] + rng.uniform(2.0, 7.0))
+               start[2] + rng.uniform(1.0, 3.0))
         builder.limb(start, end, 0.38, 0.10, SCRUB_TWIG_DARK,
                      segments=3, group=stem_group, cap=False)
         for _ in range(rng.randint(1, 3)):

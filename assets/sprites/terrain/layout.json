@@ -28,20 +28,20 @@
 			"ground_y_ratio": 0.6025
 		},
 		"brush_0": {
-			"ground_x_ratio": 0.4989,
-			"ground_y_ratio": 0.8841
+			"ground_x_ratio": 0.4959,
+			"ground_y_ratio": 0.8274
 		},
 		"brush_1": {
-			"ground_x_ratio": 0.5279,
-			"ground_y_ratio": 0.8311
+			"ground_x_ratio": 0.5135,
+			"ground_y_ratio": 0.7497
 		},
 		"brush_2": {
-			"ground_x_ratio": 0.4701,
-			"ground_y_ratio": 0.8657
+			"ground_x_ratio": 0.4799,
+			"ground_y_ratio": 0.8
 		},
 		"brush_3": {
-			"ground_x_ratio": 0.4971,
-			"ground_y_ratio": 0.888
+			"ground_x_ratio": 0.5142,
+			"ground_y_ratio": 0.8509
 		},
 		"rocks_0": {
 			"ground_x_ratio": 0.4403,

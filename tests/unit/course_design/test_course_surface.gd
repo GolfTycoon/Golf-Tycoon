@@ -187,27 +187,79 @@ func test_stream_pond_bank_leaves_the_channel_mouth_open() -> void:
 	assert_true(source.contains("edge_between_at(t_e, a, f.y, stream_end_e, tile_world)"),
 		"The pond-side shoreline has the same opening, so water remains continuous")
 
+func test_brush_rocks_and_boulder_wear_rough_ground() -> void:
+	var shader := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
+	assert_false(shader.is_empty(), "The course surface shader is readable")
+
+	# The three painted object tiles are laid on the course's Rough ground: their
+	# grass merges with the rough around them instead of drawing a bed and a rim.
+	var boundary_start := shader.find("float boundary_class(")
+	var boundary_end := shader.find("float differs(", boundary_start)
+	var boundary_fn := shader.substr(boundary_start, boundary_end - boundary_start)
+	assert_true(boundary_fn.contains("id == T_BRUSH || is_rocks(id)"),
+		"Brush, Rocks and Boulder share Rough's boundary class")
+	assert_true(boundary_fn.contains("return 3.0;"),
+		"Their boundary class is Rough's id (3), so their grass runs into rough")
+
+	var bordered_start := shader.find("bool is_bordered_tile(")
+	var bordered_end := shader.find("// Full-tile terrains", bordered_start)
+	var bordered_fn := shader.substr(bordered_start, bordered_end - bordered_start)
+	for token in ["T_BRUSH", "is_rocks", "T_ROCKS", "T_BOULDER"]:
+		assert_false(bordered_fn.contains(token),
+			"%s does not frame its open edges with a stone or scrub rim" % token)
+
+	# surface() paints the Rough palette and tufts under the sprite.
+	var surface_start := shader.find("vec3 surface(")
+	var surface_end := shader.find("float is_wet(", surface_start)
+	var surface_fn := shader.substr(surface_start, surface_end - surface_start)
+	assert_true(surface_fn.contains("} else if (is_rocks(id) || id == T_BRUSH) {"),
+		"surface() has one rough-ground branch for the three object tiles")
+	assert_true(surface_fn.contains("base = palette_color(3.0);"),
+		"Their ground is the Rough tile's own colour")
+	assert_true(surface_fn.contains("noise(world * vec2(0.32, 0.65))"),
+		"Their ground gets Rough's grass tufts")
+	assert_false(surface_fn.contains("stony_surface"),
+		"No separate scree or granite bed is painted under Rocks or Boulder")
+	assert_false(surface_fn.contains("brush_surface"),
+		"No separate undergrowth bed is painted under Brush")
+	assert_false(shader.contains("vec3 stony_surface("),
+		"The old full-tile stony bed is gone")
+	assert_false(shader.contains("vec3 brush_surface("),
+		"The old full-tile scrub bed is gone")
+
+	# Performance mode uses the same Rough colour and grain for the three tiles.
+	var low_start := shader.find("vec3 low_detail_surface(")
+	var low_end := shader.find("float is_wet(", low_start)
+	var low_fn := shader.substr(low_start, low_end - low_start)
+	assert_true(low_fn.contains("is_rocks(id) || id == T_BRUSH ? 3.0 : id"),
+		"Low detail paints the Rough palette under the sprites too")
+
+	# The three tiles no longer own a border branch; their edges are rough.
+	var border_start := shader.find("vec3 tile_border(")
+	var border_end := shader.find("// ---", border_start)
+	var border_fn := shader.substr(border_start, border_end - border_start)
+	for token in ["T_BRUSH", "T_ROCKS", "T_BOULDER"]:
+		assert_false(border_fn.contains("id == " + token),
+			"tile_border() no longer gives %s a rim" % token)
+
 func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders() -> void:
 	var shader := FileAccess.get_file_as_string("res://shaders/course_surface.gdshader")
 	assert_false(shader.is_empty(), "The course surface shader is readable")
 
 	var shader_tokens := [
-		"T_DEEP_ROUGH", "T_WASTE_BUNKER", "T_BRUSH",
-		"T_ROCKS", "T_BOULDER",
+		"T_DEEP_ROUGH", "T_WASTE_BUNKER",
 		"T_FLOWER_BED", "T_TREES",
 		"T_OAK", "T_PINE", "T_MAPLE", "T_BIRCH", "T_CACTUS", "T_FESCUE",
 		"T_CATTAILS", "T_SHRUB", "T_PALM", "T_DEAD_TREE", "T_HEATHER",
 	]
-	assert_eq(shader_tokens.size(), 18, "All 18 requested terrain tiles are accounted for")
+	assert_eq(shader_tokens.size(), 15, "All 15 bordered terrain tiles are accounted for")
 
-	# None of the 18 tiles blends across open edges into neighbours; each keeps its
+	# None of the 15 tiles blends across open edges into neighbours; each keeps its
 	# own boundary class id so same-type tiles connect seamlessly while any
 	# different terrain tile type draws a border.
 	var boundary_start := shader.find("float boundary_class(")
 	var boundary_end := shader.find("float differs(", boundary_start)
 	var boundary_fn := shader.substr(boundary_start, boundary_end - boundary_start)
-	assert_false(boundary_fn.contains("is_rocks("),
-		"Rocks and Boulder do not share a boundary class")
 	assert_false(boundary_fn.contains("is_tree("),
 		"Different tree tiles do not share a boundary class")
 
@@ -220,7 +272,7 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 	var inset_pred_start := shader.find("bool is_inset(")
 	var inset_pred_end := shader.find("bool carries(", inset_pred_start)
 	var inset_pred := shader.substr(inset_pred_start, inset_pred_end - inset_pred_start)
-	for token in ["is_rocks", "T_WASTE_BUNKER", "T_BRUSH", "is_tree", "T_FLOWER_BED", "T_DEEP_ROUGH"]:
+	for token in ["T_WASTE_BUNKER", "is_tree", "T_FLOWER_BED", "T_DEEP_ROUGH"]:
 		assert_false(inset_pred.contains(token),
 			"%s fills the full tile rather than sitting inset over surrounding turf" % token)
 
@@ -230,21 +282,13 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 	assert_false(inset_fn.contains("mix(own, outside"),
 		"inset_tile() no longer blends bordered tiles into surrounding turf")
 
-	# Each of the 18 tiles has its own full-tile procedural texture branch.
-	var stony_start := shader.find("vec3 stony_surface(")
-	var brush_start := shader.find("vec3 brush_surface(", stony_start)
-	var flower_start := shader.find("vec3 flower_bed_surface(", brush_start)
+	# Each of the 15 tiles has its own full-tile procedural texture branch.
+	var flower_start := shader.find("vec3 flower_bed_surface(")
 	var tree_start := shader.find("vec3 tree_ground(", flower_start)
 	var border_start := shader.find("vec3 tile_border(", tree_start)
-	assert_gt(stony_start, 0, "stony_surface() paints full-tile stone textures")
-	assert_gt(brush_start, stony_start, "brush_surface() paints full-tile scrub bushes")
-	assert_gt(flower_start, brush_start, "flower_bed_surface() paints full-tile wildflowers")
+	assert_gt(flower_start, 0, "flower_bed_surface() paints full-tile wildflowers")
 	assert_gt(tree_start, flower_start, "tree_ground() paints full-tile woodland grounds")
 	assert_gt(border_start, tree_start, "tile_border() defines each tile's border")
-
-	var stony_fn := shader.substr(stony_start, brush_start - stony_start)
-	assert_true(stony_fn.contains("id == T_ROCKS") and stony_fn.contains("id == T_BOULDER"),
-		"Both stony tiles have distinct ground and stone treatments")
 
 	var tree_fn := shader.substr(tree_start, border_start - tree_start)
 	for tree_tok in ["T_TREES", "T_OAK", "T_PINE", "T_MAPLE", "T_BIRCH", "T_CACTUS",
@@ -252,7 +296,7 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 		assert_true(tree_fn.contains("id == " + tree_tok),
 			"%s has its own dedicated ground branch in tree_ground()" % tree_tok)
 
-	# Every one of the 18 tiles applies its own distinct border via the exact same
+	# Every one of the 15 tiles applies its own distinct border via the exact same
 	# `edge = 1.0 - smoothstep(EDGE_LIP_LO, EDGE_LIP_HI, cover)` sizing as Bunker.
 	var surface_start := shader.find("vec3 surface(")
 	var surface_end := shader.find("float is_wet(", surface_start)
@@ -261,15 +305,14 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 		"surface() computes the shared Bunker lip edge curve")
 	assert_true(surface_fn.contains("if (is_bordered_tile(id)) {")
 		and surface_fn.contains("tile_border(id, world / tile_size, grain), edge"),
-		"All 18 bordered tiles apply tile_border() across the Bunker-sized `edge` band")
-	for surf_branch in ["id == T_DEEP_ROUGH", "id == T_WASTE_BUNKER", "is_rocks(id)",
-			"id == T_BRUSH", "id == T_FLOWER_BED", "is_tree(id)"]:
+		"All 15 bordered tiles apply tile_border() across the Bunker-sized `edge` band")
+	for surf_branch in ["id == T_DEEP_ROUGH", "id == T_WASTE_BUNKER",
+			"id == T_FLOWER_BED", "is_tree(id)"]:
 		assert_true(surface_fn.contains(surf_branch),
 			"surface() paints full-tile texture for %s" % surf_branch)
 
 	var border_fn := shader.substr(border_start, shader.find("// ---", border_start) - border_start)
-	for tok in ["T_DEEP_ROUGH", "T_WASTE_BUNKER", "T_BRUSH", "T_ROCKS",
-			"T_BOULDER", "T_FLOWER_BED", "T_TREES", "T_OAK", "T_PINE", "T_MAPLE",
+	for tok in ["T_DEEP_ROUGH", "T_WASTE_BUNKER", "T_FLOWER_BED", "T_TREES", "T_OAK", "T_PINE", "T_MAPLE",
 			"T_BIRCH", "T_CACTUS", "T_FESCUE", "T_CATTAILS", "T_SHRUB", "T_PALM", "T_DEAD_TREE"]:
 		assert_true(border_fn.contains("id == " + tok),
 			"tile_border() gives %s its own border branch" % tok)
@@ -282,7 +325,7 @@ func test_bordered_tiles_have_unique_full_tile_textures_and_bunker_sized_borders
 		if c == Vector3(0.30, 0.28, 0.26):
 			continue  # Birch's dark lenticel fleck accent
 		border_colors.append(c)
-	assert_eq(border_colors.size(), 18, "18 primary border colors for the 18 tiles")
+	assert_eq(border_colors.size(), 15, "15 primary border colors for the 15 tiles")
 	var bunker_lip := Vector3(0.35, 0.40, 0.24)
 	for i in range(border_colors.size()):
 		assert_gt(border_colors[i].distance_to(bunker_lip), 0.08,
