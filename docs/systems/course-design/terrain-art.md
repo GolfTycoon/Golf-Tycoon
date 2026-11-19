@@ -116,8 +116,9 @@ size, anchored at its own centre.
 hash of the tile (deliberately salted differently from `TreeOverlay`'s seed, so
 a rock and a tree on neighbouring tiles never share a lean). Rocks and Brush
 then scatter two or three drawings: `stamps_for()` takes that first variant and
-the next ones, drops them on the centre, left, right and back slots of the tile
-with a little deterministic jitter and scale, and paints them back to front.
+the next ones, drops them on the left, right, back and front slots of the tile
+— 17 px out from the centre, so they sit apart rather than in a clump — with a
+little deterministic jitter and scale, and paints them back to front.
 Boulder skips the scatter and stands its one drawing on the centre. Each tile
 also gets a small base jitter (±3 px across, ±1.5 px down) and scale (0.94–1.06),
 shared with its occlusion material by `ground_jitter()` / `variation_for_tile()`.
@@ -179,7 +180,7 @@ exactly as the overlay places it).
 | Ground under a sprite | `shaders/course_surface.gdshader` `surface()` (`palette_color(3.0)` and Rough's tuft noise) and `boundary_class()` | Rough's own turf, shared with Rough tiles | Whether the three tiles read as rough studded with stone or scrub, and where their grass merges into adjacent rough |
 | Object height | `tools/terrain_art/features.py` `draw_rocks()`, `draw_brush()` | Slabs 1.4–5.6 high; bush crowns 2.6–3.6 tall, centred 3.8–5.2 up | How tall one stone or bush stands; both should stay low ground cover |
 | Drawings per tile | `terrain_feature_overlay.gd` `MIN_STAMPS`, `MAX_STAMPS` | Two or three | How many variant drawings a Rocks or Brush tile wears at once |
-| Stamp slots | `terrain_feature_overlay.gd` `STAMP_SLOTS` | Centre, left, right and back, in screen pixels from the tile centre | Where the scattered drawings stand, and how far they spread |
+| Stamp slots | `terrain_feature_overlay.gd` `STAMP_SLOTS` | Left and right 17 px out, back 10 px up, front 6 px down, in screen pixels from the tile centre | Where the scattered drawings stand, and how far they spread |
 
 ---
 

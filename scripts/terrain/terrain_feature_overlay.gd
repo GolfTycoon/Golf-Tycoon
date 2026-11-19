@@ -88,11 +88,15 @@ const MAX_POOLED_VISUALS := 192
 ## once. Boulder is a single stone and stays a single drawing.
 const MULTI_SPRITE_KEYS: Array[String] = ["rocks", "brush"]
 
-## Where a scattered drawing stands, in screen pixels from the tile centre.
-## Slot 0 is the centre; the rest spread left, right and back. A fourth slot is
-## held back for the occasional three-drawing tile.
+## Where a scattered drawing stands, in screen pixels from the tile centre. The
+## slots are the corners of the tile's footprint rather than its middle: two or
+## three drawings at 17 px out read as separate stones or bushes, where a
+## centre slot and two close neighbours would bunch into one clump.
 const STAMP_SLOTS: Array[Vector2] = [
-	Vector2(0.0, 0.0), Vector2(-11.0, 1.0), Vector2(11.0, -1.0), Vector2(0.0, -7.0),
+	Vector2(-17.0, 2.0),   # left
+	Vector2(17.0, 2.0),    # right
+	Vector2(0.0, -10.0),   # back
+	Vector2(0.0, 6.0),     # front
 ]
 const MIN_STAMPS := 2
 const MAX_STAMPS := 3
@@ -374,12 +378,12 @@ static func stamps_for(key: String, pos: Vector2i,
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos) ^ STAMP_SEED_SALT
 	var count := rng.randi_range(MIN_STAMPS, MAX_STAMPS)
-	var side_start := rng.randi_range(0, 2)
+	var slot_start := rng.randi_range(0, STAMP_SLOTS.size() - 1)
 	var stamps: Array[Dictionary] = []
 	for i in range(count):
-		var slot := 0 if i == 0 else 1 + (side_start + i - 1) % 3
+		var slot := (slot_start + i) % STAMP_SLOTS.size()
 		var offset: Vector2 = STAMP_SLOTS[slot] + Vector2(
-				rng.randf_range(-2.0, 2.0), rng.randf_range(-1.0, 1.0))
+				rng.randf_range(-1.5, 1.5), rng.randf_range(-1.5, 1.5))
 		stamps.append({
 			"variant": wrapi(facing + i, 0, FACINGS.size()),
 			"offset": offset,
