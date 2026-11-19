@@ -12,9 +12,13 @@ class_name TerrainFeatureOverlay
 ##
 ## The art lives in `assets/sprites/terrain/` as `<feature>_<variant>.png`, with
 ## up to four independently drawn variants per feature.  The variants are
-## alternatives, not four sides of a turning model: every tile wears one of them
-## for the life of the course (`facing_at()`), so a rocky stretch shows several
+## alternatives, not four sides of a turning model: every tile picks its own for
+## the life of the course (`facing_at()`), so a rocky stretch shows several
 ## outcrops at once and turning the view never swaps the art under a tile.
+##
+## Rocks and Brush are scatters rather than single objects: each of their tiles
+## wears two or three *different* variant drawings, spread across the tile
+## (`stamps_for()`).  Boulder is one mass and keeps to a single drawing.
 ##
 ## Unlike a tree, a feature is anchored to its *tile centre* rather than to a
 ## trunk's foot, and the point differs per drawing because the canvas was cropped
@@ -29,7 +33,8 @@ class_name TerrainFeatureOverlay
 ##
 ## A tile whose sprite is missing on this machine still reads: a silhouette in
 ## the feature's own colour is painted in its place, so a stripped art folder
-## never leaves a bare patch of ground.
+## never leaves a bare patch of ground. Rocks and Brush draw one silhouette per
+## scattered drawing.
 
 ## The sprite art lives here as `<feature>_0/_1/_2/_3.png`; `layout.json` next to
 ## them records the draw scale and normalized tile-centre anchor per file.
@@ -78,6 +83,23 @@ const SCALE_MAX := 1.06
 ## avoids reallocating sprites while panning without retaining one node per map
 ## tile.
 const MAX_POOLED_VISUALS := 192
+
+## Rocks and Brush are fields, so one tile wears several of their drawings at
+## once. Boulder is a single stone and stays a single drawing.
+const MULTI_SPRITE_KEYS: Array[String] = ["rocks", "brush"]
+
+## Where a scattered drawing stands, in screen pixels from the tile centre.
+## Slot 0 is the centre; the rest spread left, right and back. A fourth slot is
+## held back for the occasional three-drawing tile.
+const STAMP_SLOTS: Array[Vector2] = [
+	Vector2(0.0, 0.0), Vector2(-11.0, 1.0), Vector2(11.0, -1.0), Vector2(0.0, -7.0),
+]
+const MIN_STAMPS := 2
+const MAX_STAMPS := 3
+
+## Salt that keeps the scatter RNG out of the base jitter/scale draws shared with
+## the occlusion material (`ground_jitter()`, `variation_for_tile()`).
+const STAMP_SEED_SALT := 0x51ed270b
 
 var terrain_grid: TerrainGrid
 var _visuals: Dictionary = {}  # visible Vector2i -> Node2D
@@ -334,6 +356,41 @@ static func variation_for_tile(pos: Vector2i) -> Dictionary:
 	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
 	return {"jitter": jitter, "scale": scale_v}
 
+## True when one tile wears several drawings of this feature (Rocks, Brush).
+static func uses_multiple_sprites(key: String) -> bool:
+	return MULTI_SPRITE_KEYS.has(key)
+
+## The drawings one tile wears, in the order they should be painted: a
+## Dictionary per drawing with its `variant`, its screen `offset` from the tile
+## centre and its `scale`. A single-drawing feature returns one entry at the
+## centre. Rocks and Brush return two or three entries, each a different
+## variant, spread across the tile, so a tile shows several stones or bushes
+## rather than one stamp repeated. Deterministic for a tile and independent of
+## the course's view, like `facing_at()`.
+static func stamps_for(key: String, pos: Vector2i,
+		facing: int = DEFAULT_FACING) -> Array[Dictionary]:
+	if not uses_multiple_sprites(key):
+		return [{"variant": facing, "offset": Vector2.ZERO, "scale": 1.0}]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = variation_seed(pos) ^ STAMP_SEED_SALT
+	var count := rng.randi_range(MIN_STAMPS, MAX_STAMPS)
+	var side_start := rng.randi_range(0, 2)
+	var stamps: Array[Dictionary] = []
+	for i in range(count):
+		var slot := 0 if i == 0 else 1 + (side_start + i - 1) % 3
+		var offset: Vector2 = STAMP_SLOTS[slot] + Vector2(
+				rng.randf_range(-2.0, 2.0), rng.randf_range(-1.0, 1.0))
+		stamps.append({
+			"variant": wrapi(facing + i, 0, FACINGS.size()),
+			"offset": offset,
+			"scale": rng.randf_range(0.90, 1.10),
+		})
+	# Low objects on one ground plane: paint the back-most first so a front
+	# stone or bush overlaps its neighbour, exactly as two tiles would.
+	stamps.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["offset"].y < b["offset"].y)
+	return stamps
+
 # =============================================================================
 # EVENTS AND VISIBLE-SET SYNC
 # =============================================================================
@@ -514,8 +571,8 @@ func _configure_occlusion(feature: Node2D, pos: Vector2i) -> void:
 # DRAWING
 # =============================================================================
 
-## One feature: its sprite for this tile's drawing, laid on the tile centre —
-## or its silhouette, shaped the same way, when the art is missing.
+## One feature tile: its drawings laid on and around the tile centre — or their
+## silhouettes, shaped the same way, when the art is missing.
 func _draw_feature(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int = DEFAULT_FACING) -> void:
 	var key: String = _feature_tiles[pos]
 	var rng := RandomNumberGenerator.new()
@@ -524,17 +581,26 @@ func _draw_feature(canvas: Node2D, pos: Vector2i, ground: Vector2, facing: int =
 			rng.randf_range(-JITTER_Y, JITTER_Y))
 	var scale_v := rng.randf_range(SCALE_MIN, SCALE_MAX)
 
-	var path := sprite_path(key, facing)
-	var texture := texture_at(path)
-	if texture != null:
-		var source_size := texture.get_size()
-		var size := source_size * scale_v * art_scale(path)
-		var anchor := art_anchor_offset(key, path, source_size, scale_v)
-		var top_left := center - size * 0.5 - anchor
-		top_left += Vector2(art_offset_x(path), art_offset_y(path))
-		canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
-	else:
-		_draw_silhouette(canvas, center, key, scale_v, pos)
+	for stamp in stamps_for(key, pos, facing):
+		var offset: Vector2 = stamp["offset"]
+		var stamp_scale: float = scale_v * float(stamp["scale"])
+		var path := sprite_path(key, int(stamp["variant"]))
+		var texture := texture_at(path)
+		if texture != null:
+			_draw_art(canvas, texture, path, key, center + offset, stamp_scale)
+		else:
+			_draw_silhouette(canvas, center + offset, key, stamp_scale, pos)
+
+## One drawing of a feature: laid so its own anchor (the tile centre it was
+## cropped around) falls on `center`.
+func _draw_art(canvas: Node2D, texture: Texture2D, path: String, key: String,
+		center: Vector2, scale_v: float) -> void:
+	var source_size := texture.get_size()
+	var size := source_size * scale_v * art_scale(path)
+	var anchor := art_anchor_offset(key, path, source_size, scale_v)
+	var top_left := center - size * 0.5 - anchor
+	top_left += Vector2(art_offset_x(path), art_offset_y(path))
+	canvas.draw_texture_rect(texture, Rect2(top_left, size), false)
 
 ## Fallback art: the feature's shape in its own colour, so a stripped art
 ## folder still shows scrub and stone rather than a bare patch of ground.

@@ -40,7 +40,7 @@ var _outline: Line2D
 var _name_label: Label
 var _cup_flag: Sprite2D
 var _tree_art: Sprite2D = null  # The species sprite on a woodland tile
-var _feature_art: Sprite2D = null  # The sprite on a Brush, Rocks or Boulder tile
+var _feature_art: Node2D = null  # The drawings on a Brush, Rocks or Boulder tile
 var _green_places_cup := true
 var _hovered := false
 
@@ -196,38 +196,55 @@ func _build_tile() -> void:
 	_refresh_palette()
 	_update_visual_state()
 
-## The sprite that stands on a Brush, Rocks or Boulder tile, sized to the
-## diamond. It is the art the course draws, so the tile and the terrain agree.
-func _make_feature_art() -> Sprite2D:
-	var sprite := Sprite2D.new()
-	sprite.name = "TerrainFeaturePreviewArt"
-	sprite.centered = true
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.position = Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
-	_draw_feature_art(sprite)
-	return sprite
-
-func _draw_feature_art(sprite: Sprite2D) -> void:
+## The drawings that stand on a Brush, Rocks or Boulder tile, sized to the
+## diamond. It is the art the course draws, so the tile and the terrain agree:
+## a Rocks or Brush tile shows the same scatter of variant drawings, a Boulder
+## its single stone.
+func _make_feature_art() -> Node2D:
+	var root := Node2D.new()
+	root.name = "TerrainFeaturePreviewArt"
+	root.position = Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
 	var key := TerrainFeatureOverlay.feature_key(int(tool_type))
-	var path := TerrainFeatureOverlay.sprite_path(key)
-	var texture := TerrainFeatureOverlay.texture_at(path)
-	if texture == null:
-		# No art on this machine: a bare tile is better than a stretched one.
-		sprite.texture = null
-		return
-	sprite.texture = texture
-	var art_size := texture.get_size()
-	var layout_scale := TerrainFeatureOverlay.art_scale(path)
-	# Fit inside the catalogue diamond. A boulder is shorter than a tree, so
-	# its box is lower and wider than the woodland preview's.
-	var fit_scale := minf(34.0 / (art_size.y * layout_scale),
-			76.0 / (art_size.x * layout_scale))
-	sprite.scale = Vector2.ONE * fit_scale * layout_scale
-	var anchor := TerrainFeatureOverlay.art_anchor_offset(key, path, art_size, fit_scale)
-	var terrain_anchor := Vector2(BUTTON_SIZE.x * 0.5, BUTTON_SIZE.y * 0.52)
-	sprite.position = terrain_anchor - anchor + Vector2(
-			TerrainFeatureOverlay.art_offset_x(path),
-			TerrainFeatureOverlay.art_offset_y(path))
+	var fit := _feature_fit_scale(key)
+	for stamp in TerrainFeatureOverlay.stamps_for(key, Vector2i.ZERO):
+		var path := TerrainFeatureOverlay.sprite_path(key, int(stamp["variant"]))
+		var texture := TerrainFeatureOverlay.texture_at(path)
+		if texture == null:
+			continue
+		var art_scale := TerrainFeatureOverlay.art_scale(path)
+		var stamp_scale: float = fit * art_scale * float(stamp["scale"])
+		var sprite := Sprite2D.new()
+		sprite.name = "FeatureStamp"
+		sprite.centered = true
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.texture = texture
+		sprite.scale = Vector2.ONE * stamp_scale
+		# Offset in world pixels, then the drawing's own tile-centre anchor.
+		var offset: Vector2 = stamp["offset"]
+		var anchor := TerrainFeatureOverlay.art_anchor_offset(
+				key, path, texture.get_size(), fit * float(stamp["scale"]))
+		sprite.position = offset * art_scale * fit - anchor
+		root.add_child(sprite)
+	return root
+
+## The scale that fits a feature's largest drawing inside the catalogue diamond,
+## leaving room for the scatter when the feature wears several drawings.
+func _feature_fit_scale(key: String) -> float:
+	var max_width := 1.0
+	var max_height := 1.0
+	for facing in range(TerrainFeatureOverlay.FACINGS.size()):
+		var path := TerrainFeatureOverlay.sprite_path(key, facing)
+		var texture := TerrainFeatureOverlay.texture_at(path)
+		if texture == null:
+			continue
+		var layout_scale := TerrainFeatureOverlay.art_scale(path)
+		max_width = maxf(max_width, texture.get_size().x * layout_scale)
+		max_height = maxf(max_height, texture.get_size().y * layout_scale)
+	var fit := minf(34.0 / max_height, 76.0 / max_width)
+	if TerrainFeatureOverlay.uses_multiple_sprites(key):
+		# The stamps spread across the tile; leave margin so they all fit.
+		fit *= 0.72
+	return fit
 
 ## The species sprite that stands on a woodland tile, sized to the diamond. It
 ## is the art the course draws, so the tile and the grove always agree.
