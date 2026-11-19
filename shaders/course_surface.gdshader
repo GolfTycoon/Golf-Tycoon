@@ -84,8 +84,8 @@ const vec2 GROUND_LIGHT = vec2(-0.83, -0.55);
 // Half width of the anti-aliased material boundary, and of the edge-treatment
 // band every surface's `edge` fade runs in. EDGE_LIP_LO..HI are the coverage
 // values that fade runs across: the Bunker's grass lip uses them, and the
-// borders on stream banks, deep rough, waste bunkers, brush, stony grounds,
-// wild flowers and woodland tiles copy them, so every border is the same size.
+// borders on stream banks, deep rough, waste bunkers, wild flowers and
+// woodland tiles copy them, so every border is the same size.
 // Declared up here because the shading language wants every constant before
 // its first use.
 const float AA = 0.04;
@@ -93,8 +93,8 @@ const float FRINGE = 0.30;
 const float EDGE_LIP_LO = 0.50;
 const float EDGE_LIP_HI = 0.68;
 
-// Stony ground: painted Rocks and the two boulder fields. Each fills the full
-// tile with its own stone texture and draws its own border against other tiles.
+// Stony ground: painted Rocks and Boulder. Both wear the Rough ground under
+// their sprites (see surface()), so this only answers "is a rock tile".
 bool is_rocks(float id) {
 	return id == T_ROCKS || id == T_BOULDER;
 }
@@ -105,36 +105,12 @@ bool is_tree(float id) {
 	return id == T_TREES || (id >= T_OAK && id <= T_HEATHER);
 }
 
-// Full-tile rough, scrub, sand, stone, floral and woodland terrains that frame
-// open edges with a border of the same size as the Bunker's lip instead of
-// blending into neighbouring terrain types.
+// Full-tile terrains that frame open edges with a border of the same size as
+// the Bunker's lip instead of blending into neighbouring terrain types. Brush,
+// Rocks and Boulder are not here: they wear Rough ground and blend with it.
 bool is_bordered_tile(float id) {
-	return id == T_DEEP_ROUGH || id == T_WASTE_BUNKER || id == T_BRUSH
-		|| is_rocks(id) || id == T_FLOWER_BED || is_tree(id);
-}
-
-// Stone cell density, radius and standing height for the two stony grounds.
-// Painted Rocks keeps its packed scree field under the few slabs the tile's
-// sprite raises. Boulder paints the fissured granite bed under its sprite crag:
-// only small wedged stones stand proud of it here, because the boulder the tile
-// is named for is the one TerrainFeatureOverlay draws, not a second one baked
-// into the ground.
-float rocks_cell_scale(float id) {
-	return id == T_BOULDER ? 6.5 : 5.0;
-}
-
-float rocks_radius(float id, float roll) {
-	if (id == T_BOULDER) {
-		return 0.038 + roll * 0.044;   // Wedged stones in the granite bed
-	}
-	return 0.048 + roll * 0.040;       // Packed angular scree and gravel
-}
-
-// How much taller a stone stands than its footprint along the ground (1 = a
-// stone lying flat on the ground, 1.18 = a wedged stone standing a little
-// proud of the bed).
-float rocks_tallness(float id) {
-	return id == T_BOULDER ? 1.18 : 1.0;
+	return id == T_DEEP_ROUGH || id == T_WASTE_BUNKER
+		|| id == T_FLOWER_BED || is_tree(id);
 }
 
 // One tile of the surface data: R is the terrain id, B the tile's elevation
@@ -163,6 +139,10 @@ float tile_level(vec4 data) {
 // of the same type merge seamlessly while different types draw a border.
 float boundary_class(float id) {
 	if (id == T_STREAM) { return T_STREAM; }
+	// Brush, Rocks and Boulder are laid on Rough ground (surface()); giving
+	// them Rough's class means their grass melts into the rough around them
+	// instead of framing every painted tile with its own rim.
+	if (id == T_BRUSH || is_rocks(id)) { return 3.0; }
 	return id;
 }
 
@@ -239,7 +219,8 @@ vec2 fast_surface_grid_at_world(vec2 world, out bool hit) {
 // subtle world-anchored grain, and a narrow material seam. The detail-heavy
 // terrain functions below remain the Balanced/High path.
 vec3 low_detail_surface(float id, vec2 cell, vec2 local, vec2 world, float elevation) {
-	vec3 color = palette_color(id);
+	// Brush, Rocks and Boulder wear the Rough ground under their sprites.
+	vec3 color = palette_color(is_rocks(id) || id == T_BRUSH ? 3.0 : id);
 	float grain = hash(floor(world * 0.18));
 	float brightness = (0.97 + grain * 0.06) * (0.96 + elevation * 0.08);
 	if (id == 2.0 || id == T_FIRM_FAIRWAY) {
@@ -248,7 +229,7 @@ vec3 low_detail_surface(float id, vec2 cell, vec2 local, vec2 world, float eleva
 		brightness *= 0.96 + grain * 0.12;
 	} else if (id == 8.0 || id == T_STREAM) {
 		brightness *= 0.98 + grain * 0.04;
-	} else if (is_tree(id) || id == T_BRUSH || id == T_FLOWER_BED) {
+	} else if (is_tree(id) || id == T_FLOWER_BED) {
 		brightness *= 0.94 + grain * 0.08;
 	}
 	color *= brightness;
@@ -321,84 +302,6 @@ float dots(vec2 x, float density, float radius) {
 	vec2 o = vec2(hash(n + vec2(41.0, 7.0)), hash(n + vec2(3.0, 59.0))) * 0.5 + 0.25;
 	float d = length(fract(x) - o);
 	return (1.0 - smoothstep(radius * 0.6, radius, d)) * step(1.0 - density, hash(n + vec2(11.0, 23.0)));
-}
-
-// Rocks are packed angular slate scree; Boulder is craggy granite over fissured bedrock.
-vec3 stony_surface(float id, vec3 base, vec2 g) {
-	float scale = rocks_cell_scale(id);
-	vec2 to_point;
-	vec4 c = cells(g * scale, to_point);
-	float tall = rocks_tallness(id);
-	float radius = rocks_radius(id, c.z);
-	float present = step(id == T_BOULDER ? 0.02 : 0.05, c.z);
-	vec2 from_center = -to_point / scale;
-	vec2 up = is_isometric ? vec2(-0.70710678) : vec2(0.0, -1.0);
-	float rise = dot(from_center, up);
-	vec2 lateral = from_center - up * rise;
-	float r = sqrt((rise / tall) * (rise / tall) + dot(lateral, lateral));
-	float outline_scale = 0.36;
-	float outline = (noise(g * (scale * 3.4) + vec2(id * 3.0, 1.0)) - 0.5) * radius * outline_scale;
-	float body = (1.0 - smoothstep(radius - 0.010, radius + 0.010, r + outline)) * present;
-	float lit = clamp(0.5 + dot(from_center / max(radius, 0.01), GROUND_LIGHT) * 0.58, 0.0, 1.0);
-	float shade = (1.0 - smoothstep(radius * 0.88, radius * (1.55 + (tall - 1.0) * 0.85),
-			length(from_center + GROUND_LIGHT * radius * 0.42))) * present;
-
-	vec3 ground;
-	vec3 stone_tint;
-	if (id == T_ROCKS) {
-		// Cool slate-gravel scree dusted with pale quartz grit.
-		ground = mix(base * 0.60, vec3(0.35, 0.37, 0.42), 0.50) * (0.90 + noise(g * 10.5) * 0.18);
-		ground = mix(ground, vec3(0.76, 0.78, 0.80), dots(g * 23.0, 0.36, 0.25) * 0.45);
-		stone_tint = mix(base, vec3(0.56, 0.59, 0.65), 0.34) * (0.86 + c.z * 0.28);
-	} else {
-		// Dark fissured granite bedrock with wedged stones beneath tall boulders.
-		ground = mix(base * 0.46, vec3(0.24, 0.23, 0.22), 0.58) * (0.86 + noise(g * 5.8) * 0.24);
-		float fissure = 1.0 - smoothstep(0.0, 0.055, abs(noise(g * 4.4 + vec2(6.0, 2.0)) - 0.5));
-		ground *= 1.0 - fissure * 0.28;
-		float wedged = dots(g * 5.2 + vec2(3.7, 8.1), 0.72, 0.36);
-		ground = mix(ground, mix(base, vec3(0.46, 0.44, 0.42), 0.45), wedged * 0.75);
-		vec3 crag_tone = mix(vec3(0.52, 0.50, 0.48), vec3(0.62, 0.56, 0.50), fract(c.z * 5.1));
-		stone_tint = mix(base, crag_tone, 0.42) * (0.88 + c.z * 0.24);
-	}
-	ground *= 1.0 - shade * (0.30 + (tall - 1.0) * 0.20);
-	vec3 feature = stone_tint * (0.62 + lit * 0.54) * (0.92 + noise(g * 32.0) * 0.14);
-	float crown = clamp(rise / max(radius * tall, 0.01), -1.0, 1.0);
-	feature *= 1.0 + (tall - 1.0) * 0.34 * crown;
-	if (id == T_BOULDER) {
-		// Lichen patches and crag striations on big boulders.
-		float lichen = dots(g * 9.5 + vec2(2.0, 7.0), 0.26, 0.30) * step(0.15, crown);
-		feature = mix(feature, vec3(0.58, 0.64, 0.42), lichen * 0.42);
-	}
-	return mix(ground, feature, body);
-}
-
-// Full-tile scrub bed under the Brush sprite: tangled woody undergrowth and
-// low sprigs, with the gorse bushes themselves raised by
-// TerrainFeatureOverlay. The ground keeps the bed the bushes grow out of, so a
-// brush tile is never a bare tile if its art is missing.
-vec3 brush_surface(vec3 base, vec2 g) {
-	float scale = 4.8;
-	vec2 to_point;
-	vec4 c = cells(g * scale + vec2(3.1, 7.4), to_point);
-	float radius = 0.062 + c.z * 0.032;
-	vec2 from_center = -to_point / scale;
-	float r = length(from_center);
-	float outline = (noise(g * 22.0) - 0.5) * 0.036;
-	float body = 1.0 - smoothstep(radius - 0.014, radius + 0.014, r + outline);
-	float lit = clamp(0.5 + dot(from_center / max(radius, 0.01), GROUND_LIGHT) * 0.56, 0.0, 1.0);
-	float shade = 1.0 - smoothstep(radius * 0.85, radius * 1.55,
-			length(from_center + GROUND_LIGHT * radius * 0.40));
-
-	vec3 undergrowth = mix(base * 0.48, vec3(0.24, 0.20, 0.12), 0.45) * (0.86 + noise(g * 11.0) * 0.24);
-	float twigs = 1.0 - smoothstep(0.0, 0.06, abs(noise(vec2((g.x + g.y) * 14.0, (g.x - g.y) * 5.0)) - 0.5));
-	undergrowth = mix(undergrowth, vec3(0.38, 0.28, 0.16), twigs * 0.40);
-	undergrowth *= 1.0 - shade * 0.28;
-
-	vec3 crown = mix(base, vec3(0.28, 0.42, 0.18), 0.28) * (0.60 + lit * 0.58)
-		* (0.86 + noise(g * 26.0) * 0.26);
-	float blossom = dots(g * 14.5, 0.14, 0.26) * step(0.56, lit);
-	crown = mix(crown, vec3(0.95, 0.84, 0.28), blossom * 0.62);
-	return mix(undergrowth, crown, body);
 }
 
 // Full-tile wildflower meadow: lush clover sward carpeted with multi-colour blooms.
@@ -534,15 +437,6 @@ vec3 tile_border(float id, vec2 g, float grain) {
 	}
 	if (id == T_WASTE_BUNKER) {
 		return vec3(0.44, 0.28, 0.15) * (1.0 + tex); // Weathered ochre-umber crust
-	}
-	if (id == T_BRUSH) {
-		return vec3(0.58, 0.50, 0.13) * (1.0 + tex); // Thorny gorse-ochre hedge rim
-	}
-	if (id == T_ROCKS) {
-		return vec3(0.17, 0.20, 0.30) * (1.0 + tex); // Dark blue-slate stone kerb
-	}
-	if (id == T_BOULDER) {
-		return vec3(0.30, 0.37, 0.48) * (1.0 + tex); // Cool steely granite rim
 	}
 	if (id == T_FLOWER_BED) {
 		return vec3(0.78, 0.36, 0.44) * (1.0 + tex); // Terracotta rose-clay garden edging
@@ -1118,14 +1012,14 @@ vec3 surface(float id, float cover, vec2 world, float grain, float patch) {
 		float tuft = dots(g * 4.5 + vec2(3.0, 8.0), 0.22, 0.40 + noise(g * 9.0) * 0.10);
 		base = mix(base, palette_color(1.0) * (0.62 + noise(g * 26.0) * 0.30), tuft * 0.88);
 		variation = (grain - 0.5) * 0.04;
-	} else if (is_rocks(id)) {
-		// Full-tile stony surfaces: angular scree, rounded cobbles or standing boulders.
-		base = stony_surface(id, base, world / tile_size);
-		variation = (grain - 0.5) * 0.035;
-	} else if (id == T_BRUSH) {
-		// Full-tile tangled scrub and gorse bushes with blossoms.
-		base = brush_surface(base, world / tile_size);
-		variation = (grain - 0.5) * 0.035;
+	} else if (is_rocks(id) || id == T_BRUSH) {
+		// Brush, Rocks and Boulder lie on the course's own Rough ground: grass
+		// tufts and hollows, with the tile's whole subject standing on it as a
+		// sprite (TerrainFeatureOverlay). No separate bed and no stone kerb, so
+		// a rocky stretch reads as rough studded with stone rather than a slab
+		// of alien material.
+		base = palette_color(3.0);
+		variation += (noise(world * vec2(0.32, 0.65)) - 0.5) * 0.045;
 	} else if (id == T_FLOWER_BED) {
 		// Full-tile lush wildflower meadow beneath the seasonal FlowerOverlay blooms.
 		base = flower_bed_surface(base, world / tile_size);

@@ -2,9 +2,9 @@
 
 > Brush, Rocks and Boulder are drawn, not just painted. Each tile is a tiny 3D
 > model baked to pixel art through the same isometric renderer as the trees and
-> buildings, then stood on the ground its tile paints.
+> buildings, then stood on the course's Rough ground.
 
-**Source:** `tools/terrain_art/features.py` (palette, `rock_solid()`, `rock_dome()`, `lichen_patch()`, `draw_rocks()`, `draw_boulder()`, `draw_brush()`), `tools/terrain_art/generate.py` (`render_one()`, `anchor_ratios()`, `validate()`, `check()`), `tools/building_art/render.py` (projection, lighting, patterns, outlines), `scripts/terrain/terrain_feature_overlay.gd` (`TerrainFeatureOverlay`), `shaders/course_surface.gdshader` (`stony_surface()`, `brush_surface()`), `assets/sprites/terrain/layout.json`
+**Source:** `tools/terrain_art/features.py` (palette, `rock_solid()`, `rock_dome()`, `lichen_patch()`, `draw_rocks()`, `draw_boulder()`, `draw_brush()`), `tools/terrain_art/generate.py` (`render_one()`, `anchor_ratios()`, `validate()`, `check()`), `tools/building_art/render.py` (projection, lighting, patterns, outlines), `scripts/terrain/terrain_feature_overlay.gd` (`TerrainFeatureOverlay`), `shaders/course_surface.gdshader` (`surface()`, `boundary_class()`), `assets/sprites/terrain/layout.json`
 **Tests:** `tests/unit/course_design/test_terrain_feature_sprites.gd`, `python3 tools/terrain_art/generate.py --check`
 
 ---
@@ -16,20 +16,22 @@ and its canopy already share:
 
 | Layer | Who draws it | What it is |
 | --- | --- | --- |
-| Ground | `CourseSurface` (band 0) | The tile's own procedural bed: slate scree and quartz grit for Rocks, fissured granite for Boulder, tangled woody undergrowth for Brush, each with the tile's distinct border against different terrain |
-| Sprite | `TerrainFeatureOverlay` (band 1) | The objects the tile is named for: angular slate slabs and chunks, a rounded granite boulder with a shoulder lobe and a leaning shard, a stand of gorse and bramble with yellow blossom |
+| Ground | `CourseSurface` (band 0) | The course's own Rough turf: Rough's palette, grass tufts and hollows, with no bed or rim of its own. Brush, Rocks and Boulder share Rough's `boundary_class()`, so their grass runs straight into the rough around them |
+| Sprite | `TerrainFeatureOverlay` (band 1) | The objects the tile is named for: angular slate slabs and chunks, a rounded granite boulder with a shoulder lobe and a leaning shard, a low stand of gorse and bramble with yellow blossom |
 
-The split is what keeps the tiles readable as ground rather than as props. The
-surface paints a continuous field across touching tiles of the same type, and
-the sprites add the stones or scrub that stand proud of it. A tile with no art
-on the machine still shows its bed and a fallback silhouette, never a bare
-patch of grass.
+The split is what keeps the tiles readable as terrain rather than as props.
+Rough is the course's default ground, so a rocky stretch, a boulder field and a
+scrub bank all sit on the same grass as the rough around them; the sprites add
+the stones or scrub that stand proud of it, and the terrain id still owns the
+lie, the cost and the edge of the tile. A tile with no art on the machine still
+shows its Rough ground and a fallback silhouette, never a bare patch.
 
-Boulder's bed deliberately no longer bakes its own standing boulders: the
-shader grew small wedged stones in fissured bedrock (`rocks_cell_scale()`,
-`rocks_radius()` in `course_surface.gdshader`), and the boulder the player sees
-is the sprite. Brush keeps only undergrowth and low sprigs in its bed; the
-gorse bushes themselves are sprite work.
+The three tiles deliberately lost their own beds. Scree, fissured granite and
+tangled undergrowth turned a painted tile into a slab of alien material in the
+middle of a links course; grass under the sprite makes it read as rough studded
+with stone or scrub instead. It also means the tiles can never be mistaken for
+two copies of the same thing, and the shader has one ground to maintain rather
+than three.
 
 ---
 
@@ -40,11 +42,11 @@ beside an oak belongs to the same afternoon.
 
 | Rule | What it means |
 | --- | --- |
-| Silhouette first | A gorse clump reads as a thorny bush at one pixel per world pixel; a boulder reads as a rounded standing stone with a broad sunlit crown and a dark lee; a scree tile reads as scattered angular slabs, not gravel noise. |
+| Silhouette first | A gorse clump reads as a low thorny bush at one pixel per world pixel; a boulder reads as a rounded standing stone with a broad sunlit crown and a dark lee; a rocky tile reads as scattered angular slabs, not gravel noise. |
 | One sun, four tones | Every stone facet and leaf cluster takes one of four tones by the direction it faces the renderer's warm sun (`render.SUN`, upper right). Geometry alone would leave every camera-facing plane in shadow and turn a boulder into a hole; the toned faces keep a stone readable from every side. |
 | Shard, not pebble | `rock_solid()` builds two irregular rings of corners – a buried foot and a narrower, twisted crown – bridged by flat side planes and closed with a flat cap. The result has hard facets, a broad lit top and a footprint that is never a smooth circle. It is the slate slab and the broken chip. |
 | Boulder, not block | `rock_dome()` lathes rings whose radius falls away towards the top, so the mass is widest where it meets the turf, shoulders through the middle and rounds to a broad crown. It is what makes a Boulder read as one weathered stone rather than as a stack of slabs. |
-| Grounded | Stones are set into the turf, scrub springs from woody stems that fork out of the ground, and each drawing keeps some bare ground so the tile's border and bed still show at the edges. |
+| Grounded | Stones are set into the rough, scrub springs from woody stems that fork out of it, and each drawing keeps some bare ground so the Rough turf still shows at the edges. |
 | Four drawings, one feature | The four variants are independent seeded drawings (`feature_seed()`), not rotations. Neighbouring tiles wear different outcrops at once, and turning the course never swaps the art under a tile. |
 
 ### The features
@@ -53,7 +55,7 @@ beside an oak belongs to the same afternoon.
 | --- | --- | --- |
 | **Rocks** | A main slate slab and a lower ledge, surrounded by a field of angular chunks | Slate tones from shadow to sunlit grey-blue, a tilted flake of broken slate, quartz flecks and loose grit between the stones |
 | **Boulder** | A low bedrock shelf carrying one broad, slightly leaning granite mass, with a second lobe breaking out of its flank | A companion shard leans against the other flank, wedged stones gather at the foot, warm-grey granite tones, cream lichen on the crown and face, and moss gathering in the seam at the foot |
-| **Brush** | Four to six woody stems carrying separate clouds of gorse foliage | Gorse four-tone foliage, bright yellow blossom sprays on the sunward shell, thorn branches breaking the rim and low sprigs rooting the clump |
+| **Brush** | A low, spreading thicket: four to six woody stems carrying separate flattened clouds of gorse foliage, about as tall as a rock | Gorse four-tone foliage, bright yellow blossom sprays on the sunward shell, thorn branches breaking the rim and low sprigs rooting the clump |
 
 ---
 
@@ -168,7 +170,8 @@ exactly as the overlay places it).
 | Stone geometry | `tools/terrain_art/features.py` `rock_solid()` | 4–7 sides, taper 0.45–0.97, wobble 0.15–0.26 | Facet count, blockiness and irregularity of every stone |
 | Stone tones | `tools/terrain_art/features.py` `SLATE_*`, `GRANITE_*` | Four slate and five granite tones | How cold, light and readable stone is against the ground |
 | Gorse tones and blossom | `tools/terrain_art/features.py` `GORSE_*`, `BLOSSOM*` | Four foliage tones, two yellows | The scrub's colour and how thickly it flowers |
-| Ground texture under a sprite | `shaders/course_surface.gdshader` `stony_surface()`, `brush_surface()`, `rocks_cell_scale()`, `rocks_radius()` | Scree, granite bed and undergrowth | How much stone/scrub the ground itself paints beneath the sprite |
+| Ground under a sprite | `shaders/course_surface.gdshader` `surface()` (`palette_color(3.0)` and Rough's tuft noise) and `boundary_class()` | Rough's own turf, shared with Rough tiles | Whether the three tiles read as rough studded with stone or scrub, and where their grass merges into adjacent rough |
+| Brush height | `tools/terrain_art/features.py` `draw_brush()` | Stems 4.5–10, crowns 3.2–4.2, tip clouds 4.2–6.2 | How tall the thicket stands; it should stay about a rock's height |
 
 ---
 
