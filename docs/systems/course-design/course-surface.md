@@ -1,6 +1,6 @@
 # Course Surface
 
-> The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds, instead of per-tile sprites.
+> The course ground is drawn as one continuous, shader-based landscape, with mower passes, collars, raked bunker bowls, moving water and painted tree grounds. A few tiles — Brush, Rocks, Boulder and the woodlands — then stand a sprite on the ground they paint.
 
 **Source:** `scripts/terrain/course_surface.gd` (data and palette textures, `PALETTE_KEYS`, `palette_key()`, `map_color()`, upload coalescing), `shaders/course_surface.gdshader` (`surface()`, `edge_between()`, `inset_tile()`, `bunker_rim()`, `bunker_lip()`, `bunker_bowl()`, `water_depth()`, `same_water_body()`, `water_fall()`, `water_run_light()`, `stream_bank_border()`, `tree_ground()`, `link_distance()`), `shaders/foliage_breeze.gdshader`, `scripts/terrain/terrain_grid.gd` (`grid_width`, `refresh_all_overlays()`)
 **Tests:** `tests/unit/test_course_surface.gd`, `tests/unit/test_new_terrain_types.gd`
@@ -34,14 +34,14 @@ repaints all three together. See [Course Map](course-map.md).
 | Bunker | A raked sand bowl in a grass lip. The lips of neighbouring bunkers open into each other, so a run of tiles is one pit with one lip around the outside of it; the lip's shade falls on the near side of the floor and the sun on the far wall, the sand sags in the middle, raking arcs follow the lip, and drifts of drier grains lie over the floor. |
 | Firm Fairway | Fairway mower passes, paler, with sun-dried straw patches. It reads as faster, drier turf inside a normal fairway. |
 | Deep Rough | Long standing blades, darker clumps and pale seed-head dots. |
-| Rocks | Gravel field. |
-| Boulder | Big stones that stand up out of the ground, with a contact shadow. |
-| Brush | Sparse shrubs with occasional blossoms. |
+| Rocks | Packed slate scree with quartz grit, drawn under the slate slabs its sprite raises. |
+| Boulder | Fissured granite bedrock with wedged stones, drawn under the granite boulder its sprite raises. |
+| Brush | Tangled woody undergrowth and low sprigs, drawn under the gorse bushes its sprite raises. |
 | Waste Bunker | Coarse sand with pebbles and wiregrass tufts. It breaks up raggedly into the surrounding turf. |
 | Pot Bunker | A turf lip, a stacked-turf wall and a sand floor. The lip is the same rough turf a stream's banks keep (`bank_turf()`), so a pot sunk in Rough or beside a stream shows the same grass rather than a square of its neighbour's. |
 | Stream | A narrow channel cut through the same rough turf a pot bunker's lip keeps (`bank_turf()`), with a muddy, pebbled margin and soft crests drifting downstream. The bank opens at the channel mouth so its water joins a pond. Its grass keeps its own turf and is edged with a narrow dark border — the same width as a Bunker's grass lip — wherever the tile meets different terrain, instead of fading into it; Water, Rough and Pot Bunker meet it with no border. |
 
-Rocks, boulders, brush and waste bunkers are **inset terrain**. They are drawn over whatever turf surrounds them, so a patch has a natural outline rather than a square one.
+Rocks, boulders, brush and waste bunkers fill the full tile and frame their open edges with a border instead of an outline, so a connected patch reads as one continuous field. Rocks, Boulder and Brush then stand their objects on that ground: see [Ground-Cover Art](terrain-art.md).
 
 ### Trees
 
@@ -59,6 +59,12 @@ Every tree is a painted tile, including the generic Trees tile and its species. 
 A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 `TreeOverlay` paints only the sprite: a tree casts no contact shadow of its own. The ground its tile paints already shades it, and a flattened grey ellipse under every trunk darkened that art and read as a smudge rather than a shadow.
+
+### Ground cover
+
+Brush, Rocks and Boulder are ground plus sprite. `stony_surface()` paints the slate scree and the granite bed, and `brush_surface()` paints the woody scrub bed; `TerrainFeatureOverlay` then draws the outcrop, the standing boulder and the gorse bushes over it in the ground band, ranked after the walking trail and before the trees. The bed deliberately holds back the objects: Boulder's granite carries only small wedged stones instead of its own standing boulders, and Brush's bed holds undergrowth instead of full gorse crowns, so the tile is never two copies of the same thing.
+
+The sprites are baked as real 3D models by `tools/terrain_art/generate.py` and come in four independently drawn variants per feature, chosen per tile by a mixed hash and anchored to the tile centre through `assets/sprites/terrain/layout.json`. See [Ground-Cover Art](terrain-art.md).
 
 ---
 

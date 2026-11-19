@@ -46,6 +46,7 @@ Building the course: terrain, holes, buildings, themes and ratings inputs.
 | [Hole Routing & the Order of Play](course-design/hole-routing.md) | Reordering the round, flipping holes, par and the route report |
 | [Buildings on the Grid](course-design/isometric-buildings.md) | How buildings are drawn in isometric view |
 | [Tree Art](course-design/tree-art.md) | The art direction and 3D models behind every tree sprite |
+| [Ground-Cover Art](course-design/terrain-art.md) | The sprite art and 3D models behind Brush, Rocks and Boulder |
 | [Tee Aim Arrow](course-design/tee-aim-arrow.md) | The aiming arrow on each tee |
 | [Terrain Types](course-design/terrain-types.md) | Every terrain type, its cost and its shot rules |
 

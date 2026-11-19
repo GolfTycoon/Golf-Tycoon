@@ -140,3 +140,4 @@ and `tools/tree_art/mod_views.py` derives their numbered views. The core
 - [Terrain Types](terrain-types.md) — the woodland tiles, their ground and shot rules.
 - [Buildings on the Grid](isometric-buildings.md) — the shared isometric renderer and palette.
 - [Course Surface](course-surface.md) — the painted grounds under the trees.
+- [Ground-Cover Art](terrain-art.md) — the same pipeline applied to the Brush, Rocks and Boulder tiles.

@@ -114,21 +114,27 @@ bool is_bordered_tile(float id) {
 }
 
 // Stone cell density, radius and standing height for the two stony grounds.
+// Painted Rocks keeps its packed scree field under the few slabs the tile's
+// sprite raises. Boulder paints the fissured granite bed under its sprite crag:
+// only small wedged stones stand proud of it here, because the boulder the tile
+// is named for is the one TerrainFeatureOverlay draws, not a second one baked
+// into the ground.
 float rocks_cell_scale(float id) {
-	return id == T_BOULDER ? 1.85 : 5.0;
+	return id == T_BOULDER ? 6.5 : 5.0;
 }
 
 float rocks_radius(float id, float roll) {
 	if (id == T_BOULDER) {
-		return 0.145 + roll * 0.105;   // Massive standing boulders
+		return 0.038 + roll * 0.044;   // Wedged stones in the granite bed
 	}
 	return 0.048 + roll * 0.040;       // Packed angular scree and gravel
 }
 
 // How much taller a stone stands than its footprint along the ground (1 = a
-// stone lying flat on the ground, 1.45 = a boulder standing up).
+// stone lying flat on the ground, 1.18 = a wedged stone standing a little
+// proud of the bed).
 float rocks_tallness(float id) {
-	return id == T_BOULDER ? 1.45 : 1.0;
+	return id == T_BOULDER ? 1.18 : 1.0;
 }
 
 // One tile of the surface data: R is the terrain id, B the tile's elevation
@@ -366,12 +372,15 @@ vec3 stony_surface(float id, vec3 base, vec2 g) {
 	return mix(ground, feature, body);
 }
 
-// Full-tile tangled scrub and gorse bushes with sunlit yellow blossoms.
+// Full-tile scrub bed under the Brush sprite: tangled woody undergrowth and
+// low sprigs, with the gorse bushes themselves raised by
+// TerrainFeatureOverlay. The ground keeps the bed the bushes grow out of, so a
+// brush tile is never a bare tile if its art is missing.
 vec3 brush_surface(vec3 base, vec2 g) {
-	float scale = 3.2;
+	float scale = 4.8;
 	vec2 to_point;
 	vec4 c = cells(g * scale + vec2(3.1, 7.4), to_point);
-	float radius = 0.105 + c.z * 0.048;
+	float radius = 0.062 + c.z * 0.032;
 	vec2 from_center = -to_point / scale;
 	float r = length(from_center);
 	float outline = (noise(g * 22.0) - 0.5) * 0.036;
@@ -387,8 +396,8 @@ vec3 brush_surface(vec3 base, vec2 g) {
 
 	vec3 crown = mix(base, vec3(0.28, 0.42, 0.18), 0.28) * (0.60 + lit * 0.58)
 		* (0.86 + noise(g * 26.0) * 0.26);
-	float blossom = dots(g * 14.5, 0.20, 0.30) * step(0.42, lit);
-	crown = mix(crown, vec3(0.95, 0.84, 0.28), blossom * 0.82);
+	float blossom = dots(g * 14.5, 0.14, 0.26) * step(0.56, lit);
+	crown = mix(crown, vec3(0.95, 0.84, 0.28), blossom * 0.62);
 	return mix(undergrowth, crown, body);
 }
 
