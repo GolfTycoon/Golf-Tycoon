@@ -242,6 +242,13 @@ func test_rocks_and_brush_scatter_several_variant_drawings_on_one_tile() -> void
 				"no variation drawing is repeated on one tile")
 		assert_eq(offsets.size(), stamps.size(),
 				"each drawing stands in its own spot")
+		var spots: Array[Vector2] = []
+		for stamp in stamps:
+			spots.append(stamp["offset"])
+		for i in range(spots.size()):
+			for j in range(i + 1, spots.size()):
+				assert_true((spots[i] - spots[j]).length() >= 12.0,
+						"%s drawings are spread apart, not bunched" % key)
 		assert_eq(TerrainFeatureOverlay.stamps_for(key, pos, 1), stamps,
 				"the scatter is deterministic")
 		for i in range(1, stamps.size()):
