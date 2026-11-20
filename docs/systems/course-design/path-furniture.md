@@ -1,8 +1,8 @@
 # Path Furniture Placement
 
-> Benches and ball washers are drawn on the ground plane and turned to face the walk they sit beside. Their placement never changes pathfinding or terrain.
+> Benches and ball washers are baked sprites turned to face the walk they sit beside. Their placement never changes pathfinding or terrain.
 
-**Source:** `scripts/entities/path_furniture.gd` (`layout()`, `draw_item()`, `ground_reach()`, `SMALL_FIXTURES`, `EDGE_ORDER`), `scripts/entities/decoration.gd` (`refresh_terrain_occlusion()`, `art_reach()`), `scripts/terrain/terrain_grid.gd` (`surface_refreshed`), `scripts/terrain/walking_path_overlay.gd`
+**Source:** `scripts/entities/path_furniture.gd` (`layout()`, `draw_item()`, `ground_reach()`, `SMALL_FIXTURES`, `EDGE_ORDER`), `scripts/entities/improvement_art.gd` (sprite, front and foot lookup), `scripts/entities/decoration.gd` (`refresh_terrain_occlusion()`, `art_reach()`), `scripts/terrain/terrain_grid.gd` (`surface_refreshed`), `scripts/terrain/walking_path_overlay.gd`, `assets/sprites/improvements/`
 **Tests:** `tests/unit/test_path_furniture.gd`, `tests/unit/course_design/test_terrain_occlusion.gd`
 
 ---
@@ -40,10 +40,10 @@ Plaza and intersection tiles, which are surrounded on every side, keep the tile 
 ### 2. Drawing
 
 - **Edge offset:** `23` px for an edge on the horizontal axis, `10` px for an edge on the vertical axis. This keeps the middle of a walk open.
-- **Benches** project their length and depth onto the grid, with height drawn upward. A horizontal walk gets a horizontal bench. A vertical walk gets a bench that recedes at half scale. The backrest stays visible when seen edge-on.
-- **Foot anchor:** decorations use the visible bottom of their artwork as the foot, which corrects for transparent padding. The fountain's animated droplets use the same correction.
-- **Built fixtures** stay upright. **Natural plantings** keep their deterministic variation. Ghosts use the same anchor and variation as placed sprites.
-- **Behind a hill:** a nearer hill hides furniture and every other decoration pixel by pixel. Each stands on its tile's centre and is measured from the lowest pixel of its art: a sprite's foot, or a bench's front feet (`ground_reach()`), so the ground it stands on never cuts into it. Furniture casts no ground shadow, and ghosts are never clipped.
+- **Benches and washers** are baked sprites, one drawing per front (`assets/sprites/improvements/park_bench_0..3.png`). `draw_item()` draws the drawing that matches `facing`; the old vector bench remains only as a fallback when the art is missing. See [Improvement Art](improvement-art.md).
+- **Foot anchor:** the art is cropped to its pixels and anchored from the tile-centre foot recorded in `layout.json` (`ImprovementArt.foot_offset()`), never from transparent padding or a centered sprite.
+- **Built fixtures** stay upright. **Natural plantings** keep their deterministic variation. Ghosts use the same texture, foot and variation as placed props.
+- **Behind a hill:** a nearer hill hides furniture and every other decoration pixel by pixel. Each stands on its tile's centre and is measured from the lowest pixel of its art: `ground_reach()` is the drawing's own overhang below that foot, so the ground it stands on never cuts into it. Furniture casts no ground shadow, and ghosts are never clipped.
 
 ### 3. Refresh
 

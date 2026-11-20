@@ -2,7 +2,7 @@
 
 > The catalog of improvements (5) and buildings (16) that the player can place, what each one does, and how placement is validated.
 
-**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/entities/building_sprites.gd`, `assets/sprites/buildings/`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/managers/placement_manager.gd`, `scripts/ui/placement_preview.gd`, `scripts/terrain/walking_path_overlay.gd`
+**Source:** `data/decorations.json` (5 entries, root key `decorations`), `data/buildings.json` (16 entries, root key `buildings`), `scripts/entities/decoration.gd` (sprite anchoring and procedural fallback), `scripts/entities/improvement_art.gd` (baked art and foot anchors), `scripts/entities/path_furniture.gd` (bench and ball washer artwork), `scripts/entities/building.gd`, `scripts/entities/course_architecture.gd`, `scripts/entities/building_sprites.gd`, `assets/sprites/buildings/`, `assets/sprites/improvements/`, `scripts/ui/components/decoration_tile_art.gd`, `scripts/ui/components/terrain_tile_button.gd`, `scripts/managers/placement_manager.gd`, `scripts/ui/placement_preview.gd`, `scripts/terrain/walking_path_overlay.gd`
 
 ---
 
@@ -10,7 +10,7 @@
 
 The catalog is data-driven. Each item is a JSON entry, so adding a new item needs no new code path and older saves need no migration.
 
-- **Improvements** are the path-side and ornamental items on the Improvements tab: the **Path**, the **Ball Washer**, the **Park Bench**, the **Fountain**, the **Golfer Statue** and the **Sundial**. Benches and ball washers are drawn with `PathFurniture`; the fountain, statue and sundial use their pixel-art sprites, with a simple procedural drawing as a fallback. Improvements cast no ground shadows.
+- **Improvements** are the path-side and ornamental items on the Improvements tab: the **Path**, the **Ball Washer**, the **Park Bench**, the **Fountain**, the **Golfer Statue** and the **Sundial**. All five ornaments use baked sprites (see [Improvement Art](improvement-art.md)); benches and ball washers keep `PathFurniture` for their facing and edge offset, and the fountain, statue and sundial are anchored from `layout.json`. Improvements cast no ground shadows.
 - **Facilities** are the buildings on the Buildings tab: the **putting green, snack bar, pub, pro shop, driving range, cart garage, tennis court, stable, spa, swim club, resort hotel, airstrip, castle, casino** and **theme park**. Each has a construction cost, a daily operating cost, and an effect. A facility that serves golfers earns revenue only when a golfer uses it during a normal interaction check. Which facilities a course is offered depends on its location theme; see [Buildings](../../data-reference.md#buildings).
 
 Facilities are pixel-art sprites: the Buildings tab tile, the placement ghost and the placed building all draw the same image. See [Isometric Buildings](isometric-buildings.md).
@@ -61,7 +61,8 @@ A golfer uses a facility when the needs check selects it. Revenue is paid only i
 | Building catalog | `data/buildings.json` | 16 entries | Buildings and facilities |
 | Facility cost and operating cost | `data/buildings.json` per entry | Per entry | Cost to build and daily operating cost |
 | Facility golfer service | `data/buildings.json` `needs_service` | Per entry | Which golfer need the facility restores |
-| Bench and ball washer artwork | `scripts/entities/path_furniture.gd` | Code | Look of the two drawn improvements |
+| Improvement art | `tools/improvement_art/`, `assets/sprites/improvements/` | Baked PNGs | Look of all five ornaments |
+| Path grain | `tools/path_art/`, `assets/sprites/paths/` | Baked PNGs | Surface texture on dirt and paving |
 | Path tile preview | `scripts/terrain/walking_path_overlay.gd` | Code | Colours and widths of the dirt ribbon, of the paving, and of the thresholds where either meets a building |
 
 ---

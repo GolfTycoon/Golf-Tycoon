@@ -91,6 +91,14 @@ const PAVED_SPEED_MODIFIER := 1.5
 ## terrain_occlusion_enabled()).
 const TERRAIN_DECAL_OCCLUSION: Shader = preload("res://shaders/terrain_decal_occlusion.gdshader")
 
+## Seamless grain for the two surfaces (see tools/path_art/generate.py). The
+## commands already carry the tint and the shape; these textures multiply a
+## little packed earth or dressed stone over them so a trail reads as ground
+## rather than as a flat ribbon. They are supplied per tile, because a walk's
+## surface (dirt or paved) is a property of the tile, not of the overlay.
+const DIRT_TEXTURE: Texture2D = preload("res://assets/sprites/paths/dirt.png")
+const PAVED_TEXTURE: Texture2D = preload("res://assets/sprites/paths/paved.png")
+
 var terrain_grid: TerrainGrid
 ## Tiles with the walking-path flag, the subset rendered as paved stone, and
 ## every tile a building stands on (a walk runs up to a wall it comes against).
@@ -119,6 +127,10 @@ func initialize(grid: TerrainGrid) -> void:
 	# trail crosses keeps its trunks and crowns, drawn over the ribbon
 	# (see TerrainGrid.GROUND_DETAIL_ORDER).
 	z_index = 1
+	# A tile's UV is the absolute ground grid point (needed by the occlusion
+	# shader), so the grain maps must be allowed to wrap: one 64 px texture per
+	# ground unit, continuous across neighbouring trail tiles.
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	_is_web = OS.get_name() == "Web"
 	if grid:
 		grid.walking_paths_changed.connect(rebuild)
@@ -335,8 +347,10 @@ func _draw() -> void:
 		var mesh := _mesh_for(pos)
 		if mesh.indices.is_empty():
 			continue
+		var grain: RID = (PAVED_TEXTURE if _upgraded_tiles.has(pos) else DIRT_TEXTURE).get_rid()
 		RenderingServer.canvas_item_add_triangle_array(canvas_item, mesh.indices,
-				mesh.points, mesh.colors, mesh.uvs)
+				mesh.points, mesh.colors, mesh.uvs, PackedInt32Array(),
+				PackedFloat32Array(), grain)
 
 ## The draw commands for one trail tile, from the shelf when it is already
 ## there. `tile_draw_commands()` measures and allocates every band, pebble and

@@ -88,20 +88,26 @@ func test_plazas_and_large_decorations_retain_their_anchor() -> void:
 	assert_eq(PathFurniture.layout(grid, Vector2i(3, 2), "golfer_statue").offset, Vector2.ZERO)
 
 func test_furniture_reach_ends_at_the_feet() -> void:
-	assert_eq(PathFurniture.ground_reach("park_bench", Vector2i.DOWN), 2.0,
-		"a bench facing down reaches to its front feet")
-	assert_eq(PathFurniture.ground_reach("park_bench", Vector2i.RIGHT), 7.0,
-		"an edge-on bench reaches to its nearest end")
-	assert_eq(PathFurniture.ground_reach("ball_washer", Vector2i.DOWN), 0.0,
-		"the base of the washer ends at its anchor")
+	assert_almost_eq(PathFurniture.ground_reach("park_bench", Vector2i.DOWN),
+		ImprovementArt.below_foot("park_bench", "0"), 0.001,
+		"a bench reaches to the lowest pixel of its front drawing")
+	assert_true(PathFurniture.ground_reach("park_bench", Vector2i.RIGHT)
+		> PathFurniture.ground_reach("park_bench", Vector2i.UP),
+		"an edge-on bench reaching past its end covers more ground than its back")
+	assert_almost_eq(PathFurniture.ground_reach("ball_washer", Vector2i.DOWN),
+		ImprovementArt.below_foot("ball_washer", "0"), 0.001,
+		"the washer's drawn base sets its reach")
 
 func test_sprite_feet_and_animated_details_use_the_same_anchor() -> void:
 	for type in ["fountain", "golfer_statue", "sundial"]:
 		var dec := entities.place_decoration(type, Vector2i(3, 3), registry)
 		var sprite: Sprite2D = dec.get_node("Visual/DecorationSprite")
-		var bottom := sprite.texture.get_image().get_used_rect().end.y
-		assert_almost_eq(sprite.position.y + bottom - sprite.texture.get_height() * 0.5, 0.0, 0.01, "%s base meets its anchor" % type)
+		var foot := ImprovementArt.foot_offset(type, "0")
+		assert_almost_eq(sprite.position.x + foot.x, 0.0, 0.01, "%s foot meets its anchor" % type)
+		assert_almost_eq(sprite.position.y + foot.y, 0.0, 0.01, "%s foot meets its anchor" % type)
+		assert_false(sprite.centered, "%s is anchored from its own cropped canvas" % type)
 		if type == "fountain":
-			assert_eq(dec.get_node("Visual/Atmosphere").position.y, -5.0)
+			assert_eq(dec.get_node("Visual/Atmosphere").position.y, 0.0,
+				"the animated beads are drawn in the sprite's own anchored space")
 		entities.remove_decoration(Vector2i(3, 3))
 		await process_frames(1)

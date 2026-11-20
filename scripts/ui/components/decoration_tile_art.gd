@@ -16,7 +16,7 @@ const FURNITURE_SCALE := 1.15
 ## Pixel-art sprites are square canvases with transparent padding, so they are
 ## fitted, rather than scaled by a fixed factor, to keep every ornament a
 ## similar size on its tile.
-const SPRITE_BOX := Vector2(58, 44)
+const SPRITE_BOX := Vector2(60, 52)
 const SPRITE_CENTER := Vector2(PREVIEW_SIZE.x * 0.5, PREVIEW_SIZE.y * 0.55)
 
 var decoration_type := ""
@@ -25,9 +25,12 @@ var _texture: Texture2D = null
 func configure(type: String) -> void:
 	decoration_type = type
 	_texture = null
-	var sprite_path: String = Decoration.SPRITE_PATHS.get(type, "")
-	if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
-		_texture = load(sprite_path)
+	if type in ImprovementArt.KEYS:
+		_texture = ImprovementArt.texture(type, "0")
+	else:
+		var sprite_path: String = Decoration.SPRITE_PATHS.get(type, "")
+		if not sprite_path.is_empty() and ResourceLoader.exists(sprite_path):
+			_texture = load(sprite_path)
 	queue_redraw()
 
 ## True when the tile has something to show: the shared path furniture or the
@@ -35,6 +38,8 @@ func configure(type: String) -> void:
 static func has_art(type: String) -> bool:
 	if PathFurniture.has_art(type):
 		return true
+	if type in ImprovementArt.KEYS:
+		return ImprovementArt.texture(type, "0") != null
 	var sprite_path: String = Decoration.SPRITE_PATHS.get(type, "")
 	return not sprite_path.is_empty() and ResourceLoader.exists(sprite_path)
 

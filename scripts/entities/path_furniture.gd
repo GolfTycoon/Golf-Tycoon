@@ -13,6 +13,10 @@ static func has_art(type: String) -> bool:
 ## The lowest visible pixel relative to the anchor: the bench's front feet,
 ## or the washer's post ending at the anchor. This is the terrain clip's reach.
 static func ground_reach(type: String, front: Vector2i) -> float:
+	var suffix := ImprovementArt.suffix_for(type, front)
+	var reach := ImprovementArt.below_foot(type, suffix)
+	if reach > 0.0:
+		return reach
 	if type != "park_bench":
 		return 0.0
 	var lowest := 0.0
@@ -77,6 +81,15 @@ static func _back(canvas: CanvasItem, front: Vector2i, alpha: float) -> void:
 		_board(canvas, front, -4, z, alpha)
 
 static func draw_item(canvas: CanvasItem, type: String, front: Vector2i, alpha: float = 1.0) -> void:
+	# The baked sprite is the prop.  The old vector drawings stay as a fallback
+	# for a checkout whose improvement art has not been imported or baked.
+	if type in ImprovementArt.KEYS:
+		var suffix := ImprovementArt.suffix_for(type, front)
+		var texture := ImprovementArt.texture(type, suffix)
+		if texture != null:
+			canvas.draw_texture(texture, -ImprovementArt.foot_offset(type, suffix),
+					Color(1.0, 1.0, 1.0, alpha))
+			return
 	match type:
 		"park_bench":
 			for x in [-14, 14]:

@@ -1595,8 +1595,13 @@ func test_a_decoration_is_measured_from_the_lowest_pixel_of_its_art() -> void:
 	assert_eq(art.get_shader_parameter("ground_grid"), Vector2(5.5, 6.5), "standing on its tile")
 	assert_almost_eq((art.get_shader_parameter("ground_offset") as Vector2).y, below, 0.001,
 		"measured from its front feet, under its tile's centre")
-	assert_almost_eq((_decoration_visual(sundial).material as ShaderMaterial).get_shader_parameter("ground_offset").y,
-		0.0, 0.001, "a sprite is measured from its foot")
+	# The baked sundial hangs a few pixels of moss and footing below its foot, so
+	# the clip is measured from that lowest painted pixel, not from the anchor.
+	var sundial_reach: float = (_decoration_visual(sundial).material as ShaderMaterial) \
+			.get_shader_parameter("ground_offset").y
+	assert_gt(sundial_reach, 0.0, "a sprite is measured from the lowest pixel of its art")
+	assert_almost_eq(sundial_reach, sundial.art_reach(), 1.5,
+		"the clip reaches almost to the painted base")
 	# The ground rising toward the camera in front of the bench: the ground under
 	# its feet lies further along their rays, and never cuts into them.
 	_raise_ramp(6, 2)

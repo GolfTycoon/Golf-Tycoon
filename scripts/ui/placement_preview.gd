@@ -855,6 +855,17 @@ func _draw_decoration_ghost(pos: Vector2, color: Color) -> void:
 		return
 
 	# Use the same foot anchor and deterministic transform as the placed sprite.
+	if dec_type in ImprovementArt.KEYS:
+		var suffix := ImprovementArt.suffix_for(dec_type, layout.facing)
+		var tex := ImprovementArt.texture(dec_type, suffix)
+		if tex != null:
+			var variation := Decoration.visual_variation(dec_type, current_grid_pos)
+			var tint := variation.apply_color_shift(Color.WHITE)
+			tint.a = a
+			draw_set_transform(anchor, variation.rotation, Vector2.ONE * variation.scale)
+			draw_texture(tex, -ImprovementArt.foot_offset(dec_type, suffix), tint)
+			draw_set_transform(Vector2.ZERO)
+			return
 	if dec_type in Decoration.SPRITE_PATHS:
 		var sprite_path = Decoration.SPRITE_PATHS[dec_type]
 		if ResourceLoader.exists(sprite_path):

@@ -246,8 +246,26 @@ func _update_visuals() -> void:
 	if _variation:
 		color = _variation.apply_color_shift(base_color)
 
-	# Use sprite if available, otherwise procedural fallback
-	if decoration_type in SPRITE_PATHS and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
+	# Use sprite if available, otherwise procedural fallback.  The improvement
+	# art is anchored from the tile-centre foot recorded in layout.json, so the
+	# sprite's own size and the prop's shape both live in the art, not here.
+	var has_sprite := false
+	if decoration_type in ImprovementArt.KEYS:
+		var suffix := ImprovementArt.suffix_for(decoration_type, layout.facing)
+		var texture: Texture2D = ImprovementArt.texture(decoration_type, suffix)
+		if texture != null:
+			var sprite := Sprite2D.new()
+			sprite.name = "DecorationSprite"
+			sprite.texture = texture
+			sprite.centered = false
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			if _variation:
+				sprite.modulate = _variation.apply_color_shift(Color.WHITE)
+			sprite.position = -ImprovementArt.foot_offset(decoration_type, suffix)
+			visual.add_child(sprite)
+			has_sprite = true
+	if not has_sprite and decoration_type in SPRITE_PATHS \
+			and ResourceLoader.exists(SPRITE_PATHS[decoration_type]):
 		var sprite = Sprite2D.new()
 		sprite.name = "DecorationSprite"
 		sprite.texture = load(SPRITE_PATHS[decoration_type])
@@ -258,7 +276,8 @@ func _update_visuals() -> void:
 		var offset_y = SPRITE_BASE_OFFSETS.get(decoration_type, 16.0)
 		sprite.position.y = -offset_y
 		visual.add_child(sprite)
-	else:
+		has_sprite = true
+	if not has_sprite:
 		_draw_procedural(visual, color)
 
 	# Apply scale and rotation variation
@@ -266,8 +285,9 @@ func _update_visuals() -> void:
 		var atmosphere := DecorationAtmosphere.new()
 		atmosphere.name = "Atmosphere"
 		atmosphere.terrain_grid = terrain_grid
-		# Keep the falling beads aligned with the newly grounded sprite.
-		atmosphere.position.y = -5.0
+		# The beads are drawn in the sprite's local space (see
+		# DecorationAtmosphere), which is already anchored on the tile.
+		atmosphere.position.y = 0.0
 		visual.add_child(atmosphere)
 
 	if _variation:
@@ -307,9 +327,10 @@ func refresh_terrain_occlusion() -> void:
 	_clip_art_below(visual)
 
 ## How far below its foot (the origin of its Visual) the prop's art reaches
-## down the screen, in pixels. A sprite is cut so that its lowest visible pixel
-## is the foot itself (SPRITE_BASE_OFFSETS); path furniture and the drawn
-## fallback shapes reach a little further down, toward the viewer.
+## down the screen, in pixels. The improvement sprites are cropped and anchored
+## from their tile-centre foot, so a fountain's moss or a statue's flowers may
+## hang below it; path furniture and the drawn fallback shapes reach toward the
+## viewer too.
 func art_reach() -> float:
 	var visual := get_node_or_null("Visual") as Node2D
 	if visual == null:
@@ -319,6 +340,13 @@ func art_reach() -> float:
 		if child is PathFurniture:
 			var furniture := child as PathFurniture
 			reach = maxf(reach, PathFurniture.ground_reach(furniture.kind, furniture.facing) * absf(visual.scale.y))
+		elif child is Sprite2D:
+			var sprite := child as Sprite2D
+			if sprite.texture != null:
+				var bottom := sprite.position.y + sprite.texture.get_height()
+				if sprite.centered:
+					bottom = sprite.position.y + sprite.texture.get_height() * 0.5
+				reach = maxf(reach, visual.transform.basis_xform(Vector2(sprite.position.x, bottom)).y)
 		elif child is Polygon2D:
 			var part := child as Polygon2D
 			for point in part.polygon:

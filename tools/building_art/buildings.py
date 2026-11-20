@@ -363,7 +363,7 @@ class Builder:
                            material, ao=(0.5, 0.5, 0.5), group=group)
 
     def cylinder_between(self, p0, p1, radius, material, segments=10,
-                         cap=True) -> None:
+                         cap=True, group: int | None = None) -> None:
         a = np.asarray(p0, dtype=float)
         b = np.asarray(p1, dtype=float)
         axis = b - a
@@ -386,7 +386,7 @@ class Builder:
                         material,
                         uvs=((a0 * radius, 0.0), (a1 * radius, 0.0),
                              (a1 * radius, length), (a0 * radius, length)),
-                        ao=(0.86, 0.86, 1.0, 1.0))
+                        ao=(0.86, 0.86, 1.0, 1.0), group=group)
         if cap:
             for i in range(segments):
                 a0 = 2 * math.pi * i / segments
@@ -394,12 +394,12 @@ class Builder:
                 o0 = u * (radius * math.cos(a0)) + v * (radius * math.sin(a0))
                 o1 = u * (radius * math.cos(a1)) + v * (radius * math.sin(a1))
                 self.m.tri(tuple(b), tuple(b + o0), tuple(b + o1), material,
-                           ao=(1.0, 1.0, 1.0))
+                           ao=(1.0, 1.0, 1.0), group=group)
                 self.m.tri(tuple(a), tuple(a + o1), tuple(a + o0), material,
-                           ao=(0.5, 0.5, 0.5))
+                           ao=(0.5, 0.5, 0.5), group=group)
 
     def ellipsoid(self, cx, cy, cz, rx, ry, rz, material, segments=10,
-                  rings=6, ao_base=0.78) -> None:
+                  rings=6, ao_base=0.78, group: int | None = None) -> None:
         def point(angle, lat):
             return (cx + rx * math.cos(lat) * math.cos(angle),
                     cy + ry * math.cos(lat) * math.sin(angle),
@@ -418,14 +418,16 @@ class Builder:
                 ao0 = ao_base + (1.0 - ao_base) * (j / rings)
                 ao1 = ao_base + (1.0 - ao_base) * ((j + 1) / rings)
                 if j == 0:
-                    self.m.tri(p00, p11, p01, material, ao=(ao0, ao1, ao1))
+                    self.m.tri(p00, p11, p01, material, ao=(ao0, ao1, ao1),
+                               group=group)
                 elif j == rings - 1:
-                    self.m.tri(p00, p10, p01, material, ao=(ao0, ao0, ao1))
+                    self.m.tri(p00, p10, p01, material, ao=(ao0, ao0, ao1),
+                               group=group)
                 else:
                     self.m.quad(p00, p10, p11, p01, material,
                                 uvs=((a0 * rx, t0 * rz), (a1 * rx, t0 * rz),
                                      (a1 * rx, t1 * rz), (a0 * rx, t1 * rz)),
-                                ao=(ao0, ao0, ao1, ao1))
+                                ao=(ao0, ao0, ao1, ao1), group=group)
 
     def cone(self, cx, cy, z0, z1, radius, material, segments=10,
              cap=True, group: int | None = None) -> None:
