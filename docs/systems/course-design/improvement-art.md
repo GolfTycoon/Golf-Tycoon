@@ -22,16 +22,16 @@ not a separate set of icons.
 | One palette | Cream and warm stone, slate iron, warm timber, brass and one bronze family. Colours are chosen bright, because the front faces land near half exposure under the building sun. |
 | Silhouette first | At 1× a bench must read as open slats and a leaning back; a statue as a golfer mid-swing; a washer as post, drum and towel. Fine detail that only shows at 4× is noise. |
 | Compact palette | Every baked sprite is reduced to 24 colours with no dithering. That is what turns the renderer's hundreds of near-identical facets back into hand-painted tones. |
-| Four fronts | The bench and ball washer are laid beside a walk and turn to face it, so each ships four drawings (south, east, north, west). The fountain, statue and sundial stand in the open and ship one. |
+| Four fronts, one bench | The bench is laid beside a walk and turns to face it, so it ships four drawings (south, east, north, west). The fountain, statue, ball washer and sundial stand in the open and ship one. |
 | Painted, not modelled, when read from above | The fountain's basin and the sundial's face are horizontal. A 3D rim is taller than the water behind it and a dial face projects to a handful of pixels, so both are painted in screen space at 4× and reduced once. |
 
 ### Style split
 
 | Improvement | How it is made | Why |
 | --- | --- | --- |
-| Park Bench | 3D model | Slats, back, arms and iron legs are all side-on shapes the renderer models well. |
+| Park Bench | 3D model, four fronts | Slats, back, arms and iron legs are all side-on shapes the renderer models well. |
 | Golfer Statue | 3D model | A figure needs real limbs and a turned torso; the bronze facets shade the pose. |
-| Ball Washer | 3D model | Post, drum, lid, tank, towel and enamel sign read as volumes. |
+| Ball Washer | 3D model, one drawing | Post, drum, lid, tank, towel and enamel sign read as volumes; it is small enough that one view serves every walk. |
 | Fountain | Painted at 4× | A wide basin, visible water and a bright plume need a clean ellipse the camera looks into. |
 | Sundial | Painted at 4× | The engraved face and the gnomon shadow have to be legible; a horizontal face rendered in 3D is only a few pixels tall. |
 
@@ -104,7 +104,7 @@ and the sprite is drawn at `-foot_offset` from its top-left. A centred
 `Sprite2D` is not used: its offset depends on the transparent padding, and the
 whole point of cropping is that there is none.
 
-The bench and washer keep the existing `PathFurniture` node, facing and edge
+The bench keeps the existing `PathFurniture` node, facing and edge
 offset. `PathFurniture.draw_item()` now draws the baked texture for that front,
 so the placement ghost, the catalogue tile and the placed prop all agree.
 `PathFurniture.ground_reach()` is the drawing's own overhang below its foot, not

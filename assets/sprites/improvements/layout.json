@@ -10,7 +10,7 @@
 		},
 		"ball_washer": {
 			"scale": 1.0,
-			"drawings": 4
+			"drawings": 1
 		},
 		"park_bench": {
 			"scale": 1.0,
@@ -24,39 +24,21 @@
 	"sprites": {
 		"fountain_0": {
 			"foot_x_ratio": 0.5,
-			"foot_y_ratio": 0.876923,
-			"width": 62,
-			"height": 65
+			"foot_y_ratio": 0.878151,
+			"width": 52,
+			"height": 56
 		},
 		"golfer_statue_0": {
-			"foot_x_ratio": 0.5,
-			"foot_y_ratio": 0.839683,
-			"width": 36,
-			"height": 63
+			"foot_x_ratio": 0.542401,
+			"foot_y_ratio": 0.854098,
+			"width": 28,
+			"height": 61
 		},
 		"ball_washer_0": {
-			"foot_x_ratio": 0.497619,
+			"foot_x_ratio": 0.491765,
 			"foot_y_ratio": 0.865216,
-			"width": 21,
-			"height": 45
-		},
-		"ball_washer_1": {
-			"foot_x_ratio": 0.374093,
-			"foot_y_ratio": 0.865697,
-			"width": 23,
-			"height": 45
-		},
-		"ball_washer_2": {
-			"foot_x_ratio": 0.476667,
-			"foot_y_ratio": 0.905459,
-			"width": 21,
-			"height": 43
-		},
-		"ball_washer_3": {
-			"foot_x_ratio": 0.6105,
-			"foot_y_ratio": 0.865697,
-			"width": 24,
-			"height": 45
+			"width": 17,
+			"height": 36
 		},
 		"park_bench_0": {
 			"foot_x_ratio": 0.5125,
@@ -84,9 +66,9 @@
 		},
 		"sundial_0": {
 			"foot_x_ratio": 0.5,
-			"foot_y_ratio": 0.892857,
+			"foot_y_ratio": 0.938776,
 			"width": 42,
-			"height": 56
+			"height": 49
 		}
 	}
 }

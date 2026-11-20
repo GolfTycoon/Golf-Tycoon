@@ -26,10 +26,10 @@ Art direction
   station it is: post, housing, lid and towel.
 * **Grounded and detailed.**  Every prop meets the turf at a real foot: a stone
   apron, iron feet or a brass base plate.
-* **Four fronts, one prop.**  The bench and ball washer are laid *beside* a walk
-  and turn to face it, so each is modelled once facing south and rotated around
-  the tile centre for the four cardinal fronts.  The statue stands in the open
-  and is drawn once.
+* **Four fronts, one bench.**  The bench is laid *beside* a walk and turns to
+  face it, so it is modelled once facing south and rotated around the tile
+  centre for the four cardinal fronts.  The statue and ball washer stand in the
+  open and are drawn once.
 
 Model space
 -----------
@@ -73,7 +73,7 @@ FRONT_TURNS = {"down": 0, "right": 1, "up": 2, "left": 3}
 
 #: Props that are laid beside a walk and turn to face it.  The rest stand in
 #: the open and have one drawing.
-DIRECTIONAL = ("park_bench", "ball_washer")
+DIRECTIONAL = ("park_bench",)
 
 #: Every improvement key, in the order the generator bakes them.
 PROP_KEYS = ("path", "park_bench", "ball_washer", "fountain", "golfer_statue", "sundial")
@@ -91,6 +91,9 @@ ORNAMENT_KEYS = ("fountain", "golfer_statue", "ball_washer", "park_bench", "sund
 CREAM = C("efe2c2")
 CREAM_DARK = C("cdbc97")
 GRANITE = mat(C("8b8377"), "stone")
+#: Cool granite for the statue's round pedestal, flat so the drum keeps one tone.
+PLINTH_STONE = mat(C("8f9597"), "flat", emissive=0.05)
+PLINTH_STONE_LIGHT = mat(C("b9bfc1"), "flat", emissive=0.07)
 GRANITE_LIGHT = mat(C("a49b8c"), "stone")
 GRANITE_DARK = mat(C("6b6459"), "stone")
 STONE_WARM = mat(C("d2c3a0"), "stone")
@@ -382,26 +385,25 @@ def golfer_statue(b: Builder) -> None:
     """A bronze golfer mid-swing on a stepped stone plinth."""
     cx, cy = BASE_X, BASE_Y
     z = 0.0
-    # Three shallow steps and a tapered plinth with a polished cap.
-    b.box(cx - 19.0, cy - 8.5, cx + 19.0, cy + 8.5, z, z + 2.0, STONE_WARM_DARK,
-          top=STONE_WARM)
-    b.box(cx - 16.4, cy - 6.8, cx + 16.4, cy + 6.8, z + 2.0, z + 3.4,
-          STONE_WARM, top=STONE_CLEAN_LIGHT)
-    frustum(b, cx, cy, z + 3.4, z + 12.6, 8.4, 5.8, STONE_WARM,
-            segments=8, cap=False)
-    b.box(cx - 6.2, cy - 3.5, cx + 6.2, cy + 3.5, z + 12.6, z + 14.0,
-          STONE_CLEAN_LIGHT, top=STONE_PALE_LIGHT)
-    # A bronze nameplate on the plinth's front.
-    b.box(cx - 5.2, cy + 3.8, cx + 5.2, cy + 4.4, z + 6.4, z + 9.8,
-          BRONZE_DARK, top=BRONZE)
-    b.m.decal((cx - 4.6, cy + 4.46, z + 9.4), (cx + 4.6, cy + 4.46, z + 9.4),
-              (cx + 4.6, cy + 4.46, z + 6.8), (cx - 4.6, cy + 4.46, z + 6.8),
-              mat(C("ffffff"), texture=_plaque_text("1897", scale=1)),
-              (9, 3), bias=0.08)
+    # Three round steps and a turned plinth, so the memorial reads as a
+    # circular stone drum rather than a square packing crate.
+    # One round drum on a round footing: a memorial pedestal, not a stack of
+    # square slabs with the corners knocked off.
+    b.cylinder(cx, cy, z, z + 1.6, 9.4, PLINTH_STONE, segments=10,
+               cap_material=PLINTH_STONE_LIGHT)
+    b.cylinder(cx, cy, z + 1.6, z + 11.8, 7.4, PLINTH_STONE, segments=10,
+               cap=False)
+    b.cylinder(cx, cy, z + 11.8, z + 12.6, 8.4, PLINTH_STONE_LIGHT,
+               segments=10, cap_material=STONE_PALE_LIGHT)
+    b.cylinder(cx, cy, z + 12.6, z + 13.2, 6.0, PLINTH_STONE,
+               segments=10, cap_material=STONE_PALE_LIGHT)
+    # A slim bronze band around the drum, in place of a flat plaque.
+    b.cylinder(cx, cy, z + 7.4, z + 8.2, 7.6, BRASS_DARK, segments=10,
+               cap=False)
     # The figure: a wide, braced stance, a turned torso and a driver held at
     # the top of the backswing.  Each limb is one crease group, so its facets
     # shade as a cast bronze limb rather than a stack of segments.
-    base_z = z + 14.0
+    base_z = z + 13.2
     for (fx, fy, knee_x, knee_y, hip_x, hip_y) in (
             (-6.0, 3.0, -7.2, 1.8, -3.0, 0.3),
             (6.0, -1.8, 6.8, -0.8, 3.0, 0.3)):
@@ -456,7 +458,7 @@ def golfer_statue(b: Builder) -> None:
           base_z + 32.0, BRONZE, top=BRONZE_LIGHT)
     # Flowers and moss at the plinth's foot.
     stone_scatter(b, cx, cy, z, np.random.default_rng(0x57A7E), count=5,
-                  spread=22.0)
+                  spread=18.0)
     for px, py, col in ((-14.0, 7.0, FLOWER), (13.0, 6.0, mat(C("e3a1bf"), "bloom")),
                         (16.0, -3.0, FLOWER)):
         b.ellipsoid(cx + px, cy + py, z + 1.2, 1.5, 1.3, 1.2, col,
@@ -486,7 +488,7 @@ def build_prop(key: str) -> Model:
 #: Props whose authored model is a little small for a 64x32 tile.  Scaling the
 #: model (rather than the render) keeps every output pixel an output pixel.
 MODEL_SCALE = {
-    "ball_washer": 1.10,
+    "ball_washer": 0.88,
 }
 
 

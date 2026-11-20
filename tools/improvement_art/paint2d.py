@@ -94,9 +94,16 @@ class Canvas:
         self.image.paste(grad, (x0, y0), mask)
 
     # -- output -----------------------------------------------------------
-    def finish(self):
-        down = self.image.resize((self.width, self.height), Image.LANCZOS)
-        return down
+    def finish(self, width: int | None = None, height: int | None = None):
+        """Reduce the supersampled canvas, optionally to a smaller target.
+
+        Painting stays in the logical 1x coordinates; a prop that should sit
+        smaller on its tile passes a smaller target here instead of respacing
+        every ellipse.
+        """
+        size = (width if width is not None else self.width,
+                height if height is not None else self.height)
+        return self.image.resize(size, Image.LANCZOS)
 
 
 def _ellipse_points(cx, cy, rx, ry, segments):
@@ -246,86 +253,94 @@ def paint_fountain() -> tuple[Image.Image, float, float]:
         c.dot(cx + x, 31.2, 0.75, (232, 250, 255))
 
     _moss(c, cx, ground, spread=25.0, rng=0.4)
-    return c.finish(), cx, float(ground)
+    # Sit the whole basin smaller on the tile: 54x58 of the authored 64x68, so
+    # the fountain leaves the path and its neighbours some air.
+    target = (54, 58)
+    return (c.finish(*target), cx * target[0] / w, float(ground) * target[1] / h)
 
 
 def paint_sundial() -> tuple[Image.Image, float, float]:
-    """A brass sundial on a chunky stone plinth, the dial face turned up."""
-    w, h, ground = 48, 56, 50
+    """A brass sundial on a short, sturdy stone plinth."""
+    w, h, ground = 48, 50, 47
     c = Canvas(w, h, ground)
     cx = 24.0
+    dial_y = 16.3
 
     # Shadow and a three-step plinth.
-    c.ellipse((cx - 16, ground - 4, cx + 16, ground + 4), fill=(30, 46, 34, 95))
+    c.ellipse((cx - 16, ground - 4, cx + 16, ground + 3), fill=(30, 46, 34, 95))
     c.ellipse((cx - 15, ground - 5, cx + 15, ground + 2), fill=STONE_DARK,
               outline=INK, width=0.8)
     c.ellipse((cx - 13, ground - 8, cx + 13, ground - 1), fill=STONE_MID,
               outline=INK, width=0.7)
     c.ellipse((cx - 10.4, ground - 11, cx + 10.4, ground - 3), fill=STONE_LIGHT,
               outline=INK, width=0.7)
-    # The pedestal shaft, block-built and lit from the left.
-    c.poly([(cx - 9.2, ground - 6.0), (cx + 9.2, ground - 6.0),
-            (cx + 6.2, 26.0), (cx - 6.2, 26.0)], fill=STONE_MID,
+    # A short block-built shaft: the dial sits low over the steps now.
+    c.poly([(cx - 9.2, ground - 8.0), (cx + 9.2, ground - 8.0),
+            (cx + 6.6, 26.0), (cx - 6.6, 26.0)], fill=STONE_MID,
            outline=INK, width=0.8)
-    c.poly([(cx - 9.2, ground - 6.0), (cx - 1.0, ground - 6.0),
-            (cx - 0.8, 26.0), (cx - 6.2, 26.0)], fill=STONE_LIGHT)
-    for y in (34.0, 42.0):
-        c.line([(cx - 6.8, y), (cx + 6.8, y)], INK, width=0.45)
-    for x in (-3.2, 2.6):
-        c.line([(cx + x, 27.0), (cx + x * 1.25, ground - 7.0)], INK,
+    c.poly([(cx - 9.2, ground - 8.0), (cx - 1.0, ground - 8.0),
+            (cx - 0.8, 26.0), (cx - 6.6, 26.0)], fill=STONE_LIGHT)
+    for y in (33.0, 39.0):
+        c.line([(cx - 7.0, y), (cx + 7.0, y)], INK, width=0.45)
+    for x in (-3.4, 2.8):
+        c.line([(cx + x, 27.0), (cx + x * 1.2, ground - 9.0)], INK,
                width=0.4)
     # A flared foot with a chamfered plinth.
-    c.poly([(cx - 9.6, ground - 6.0), (cx + 9.6, ground - 6.0),
-            (cx + 8.0, ground - 9.4), (cx - 8.0, ground - 9.4)],
+    c.poly([(cx - 9.6, ground - 8.0), (cx + 9.6, ground - 8.0),
+            (cx + 8.0, ground - 11.4), (cx - 8.0, ground - 11.4)],
            fill=STONE_LIGHT, outline=INK, width=0.6)
-    c.line([(cx - 8.2, ground - 7.6), (cx + 8.2, ground - 7.6)], STONE_DARK,
+    c.line([(cx - 8.2, ground - 9.6), (cx + 8.2, ground - 9.6)], STONE_DARK,
            width=0.5)
-    # A moulded cap between the shaft and the dial.
-    c.ellipse((cx - 7.8, 22.6, cx + 7.8, 28.6), fill=STONE_DARK,
+    # A moulded cap, shorter and wider than the old pedestal's.
+    c.ellipse((cx - 8.2, 21.6, cx + 8.2, 27.6), fill=STONE_DARK,
               outline=INK, width=0.7)
-    c.ellipse((cx - 7.0, 22.0, cx + 7.0, 27.0), fill=STONE_LIGHT,
+    c.ellipse((cx - 7.4, 21.0, cx + 7.4, 26.0), fill=STONE_LIGHT,
               outline=INK, width=0.6)
-    c.ellipse((cx - 5.4, 21.6, cx + 5.4, 25.2), fill=STONE_PALE)
-    # A turned brass stem.
-    c.poly([(cx - 2.2, 22.0), (cx + 2.2, 22.0), (cx + 1.8, 17.0),
+    c.ellipse((cx - 5.6, 20.6, cx + 5.6, 24.2), fill=STONE_PALE)
+    # A turned brass stem under the dish.
+    c.poly([(cx - 2.2, 21.0), (cx + 2.2, 21.0), (cx + 1.8, 17.0),
             (cx - 1.8, 17.0)], fill=BRASS_DARK, outline=INK, width=0.5)
 
     # The dial plate: a thick brass dish with a cream engraved face.
-    c.ellipse((cx - 18.6, 13.2, cx + 18.6, 23.0), fill=BRASS_DARK,
-              outline=INK, width=0.9)
-    c.ellipse((cx - 18.0, 8.0, cx + 18.0, 20.0), fill=BRASS,
-              outline=BRASS_LIGHT, width=0.7)
-    c.ellipse((cx - 16.6, 8.8, cx + 16.6, 18.6), fill=CREAM,
-              outline=CREAM_DARK, width=0.6)
+    c.ellipse((cx - 18.6, dial_y - 2.0, cx + 18.6, dial_y + 8.0),
+              fill=BRASS_DARK, outline=INK, width=0.9)
+    c.ellipse((cx - 18.0, dial_y - 5.4, cx + 18.0, dial_y + 6.0),
+              fill=BRASS, outline=BRASS_LIGHT, width=0.7)
+    c.ellipse((cx - 16.6, dial_y - 4.6, cx + 16.6, dial_y + 4.8),
+              fill=CREAM, outline=CREAM_DARK, width=0.6)
     # Twelve hour marks.
     for i in range(12):
         a = math.tau * i / 12.0
         r0 = 15.0 if i % 3 == 0 else 14.2
         x0 = cx + math.cos(a) * r0
-        y0 = 13.7 + math.sin(a) * (r0 * 0.31)
+        y0 = dial_y + math.sin(a) * (r0 * 0.235)
         x1 = cx + math.cos(a) * 11.8
-        y1 = 13.7 + math.sin(a) * (11.8 * 0.31)
+        y1 = dial_y + math.sin(a) * (11.8 * 0.235)
         c.line([(x0, y0), (x1, y1)], INK, width=0.55)
     # The gnomon's shadow, falling left across the face.
-    c.poly([(cx - 0.6, 16.6), (cx - 9.6, 12.4), (cx - 8.8, 11.6),
-            (cx - 0.4, 13.0)], fill=CREAM_DARK)
-    c.ellipse((cx - 3.0, 11.8, cx + 3.0, 15.4), fill=BRASS,
+    c.poly([(cx - 0.6, dial_y + 3.2), (cx - 9.6, dial_y - 1.2),
+            (cx - 8.8, dial_y - 2.0), (cx - 0.4, dial_y - 0.2)],
+           fill=CREAM_DARK)
+    c.ellipse((cx - 3.0, dial_y - 1.8, cx + 3.0, dial_y + 1.8), fill=BRASS,
               outline=BRASS_DARK, width=0.45)
-    c.ellipse((cx - 1.6, 12.4, cx + 1.6, 14.4), fill=BRASS_LIGHT)
+    c.ellipse((cx - 1.6, dial_y - 1.2, cx + 1.6, dial_y + 0.8),
+              fill=BRASS_LIGHT)
     # The gnomon: a broad gold blade, wide at the noon line and tapering to
     # the finial, with a lit left face.
-    c.poly([(cx - 3.4, 16.8), (cx + 3.2, 16.8), (cx + 1.0, 3.0)],
-           fill=BRASS_DARK, outline=INK, width=0.7)
-    c.poly([(cx - 2.6, 16.4), (cx + 1.4, 16.4), (cx + 0.6, 4.0)],
-           fill=BRASS_LIGHT)
-    c.line([(cx - 0.4, 15.6), (cx - 0.1, 4.8)], (250, 228, 160), width=0.5)
-    c.line([(cx - 0.4, 15.0), (cx - 0.5, 4.2)], (248, 224, 154), width=0.45)
-    c.dot(cx + 0.1, 2.4, 1.6, BRASS)
-    c.dot(cx - 0.3, 2.0, 0.8, BRASS_LIGHT)
+    c.poly([(cx - 3.4, dial_y + 3.6), (cx + 3.2, dial_y + 3.6),
+            (cx + 1.0, 6.0)], fill=BRASS_DARK, outline=INK, width=0.7)
+    c.poly([(cx - 2.6, dial_y + 3.2), (cx + 1.4, dial_y + 3.2),
+            (cx + 0.6, 7.0)], fill=BRASS_LIGHT)
+    c.line([(cx - 0.4, dial_y + 2.6), (cx - 0.1, 7.8)],
+           (250, 228, 160), width=0.5)
+    c.line([(cx - 0.4, dial_y + 2.0), (cx - 0.5, 7.2)],
+           (248, 224, 154), width=0.45)
+    c.dot(cx + 0.1, 5.4, 1.6, BRASS)
+    c.dot(cx - 0.3, 5.0, 0.8, BRASS_LIGHT)
     # Four little ball feet under the dish.
     for a in (0.35, 1.22, 2.09, 2.96):
         x = cx + math.cos(a) * 12.8
-        y = 19.2 + math.sin(a) * 2.6
+        y = dial_y + 5.4 + math.sin(a) * 2.4
         c.dot(x, y, 1.0, BRASS_DARK)
 
     _moss(c, cx, ground, spread=16.0, rng=1.1)

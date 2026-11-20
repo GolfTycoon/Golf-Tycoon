@@ -23,8 +23,8 @@ written to ``assets/sprites/improvements/``:
     ball_washer_0.png .. ball_washer_3.png
     sundial_0.png
 
-The bench and ball washer are laid beside a walk and turn to face it, so they
-ship four fronts; the ornaments that stand in the open ship one drawing.  Every
+The bench is laid beside a walk and turns to face it, so it ships four fronts;
+the statue, the ball washer and the painted ornaments ship one drawing.  Every
 drawing is cropped to the pixels it paints, so ``layout.json`` records the
 normalized place where the prop's tile-centre foot lands in *its own* canvas.
 The game positions a sprite from that ratio and its own texture size, so a

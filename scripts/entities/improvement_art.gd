@@ -9,8 +9,8 @@ class_name ImprovementArt
 ## basin reaches lower than a sundial's steps.  The game anchors every sprite
 ## from those ratios, so a redrawn prop needs no code edit here.
 ##
-## The fountain, statue and sundial stand in the open and ship one drawing; the
-## bench and ball washer are laid beside a walk and ship four fronts, matching
+## The fountain, statue, ball washer and sundial stand in the open and ship one
+## drawing; the bench is laid beside a walk and ships four fronts, matching
 ## `PathFurniture`'s cardinal vectors (south, east, north, west).
 
 const DIR := "res://assets/sprites/improvements/"
@@ -19,7 +19,7 @@ const LAYOUT_FILE := DIR + "layout.json"
 ## The ornaments that ship a sprite (the Path itself is ground art).
 const KEYS := ["fountain", "golfer_statue", "ball_washer", "park_bench", "sundial"]
 ## Clips drawn beside a walk, one per front.
-const DIRECTIONAL := ["park_bench", "ball_washer"]
+const DIRECTIONAL := ["park_bench"]
 ## Fronts in file-suffix order, matching PathFurniture's facing vectors.
 const FRONTS := [Vector2i.DOWN, Vector2i.RIGHT, Vector2i.UP, Vector2i.LEFT]
 

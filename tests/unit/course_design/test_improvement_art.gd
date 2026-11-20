@@ -30,6 +30,13 @@ func test_the_fronts_of_a_directional_prop_are_four_different_drawings() -> void
 				seen[texture.get_rid()] = true
 		assert_eq(seen.size(), 4, "%s ships four distinct fronts" % key)
 
+
+func test_the_ball_washer_ships_one_drawing() -> void:
+	assert_not_null(ImprovementArt.texture("ball_washer", "0"),
+		"the washer has its one drawing")
+	assert_null(ImprovementArt.texture("ball_washer", "1"),
+		"the washer does not ship a second front")
+
 func test_the_path_has_both_grain_maps() -> void:
 	for grain in ["dirt", "paved"]:
 		var path := "res://assets/sprites/paths/%s.png" % grain
