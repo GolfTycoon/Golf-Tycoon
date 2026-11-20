@@ -1,12 +1,18 @@
-"""Hand-painted improvements: radial props that the voxel renderer fights.
+"""Hand-painted improvements: the props the voxel renderer fights.
 
 The fountain and the sundial are read from above: a basin, a water surface and
 a dial face.  Rendered as a 3D solid at one output pixel per world pixel the
 rim occludes its own water and every engraved tick disappears into the facet
-noise, so these two are painted directly in screen space, in the same palette
-and with the same dark outlines as the rendered props.  Everything is drawn on
-a supersampled canvas and reduced once, which gives the crisp pixel shapes of
-the building and terrain art without hand-placing sixty thousand pixels.
+noise.  The ball washer is too narrow and the statue's pedestal too round: the
+one collapses into slanted chips, the other presents the camera with its cap
+ellipse, which reads as a sloped ramp.  All four are painted directly in
+screen space, in the same palette and with the same dark outlines as the
+rendered props.  Everything is drawn on a supersampled canvas and reduced
+once, which gives the crisp pixel shapes of the building and terrain art
+without hand-placing sixty thousand pixels.
+
+The statue itself is a composite: ``generate.py`` renders the bronze figure
+from ``props.py`` and stands it on ``paint_statue_plinth()``'s top face.
 """
 
 from __future__ import annotations
@@ -103,7 +109,13 @@ class Canvas:
         """
         size = (width if width is not None else self.width,
                 height if height is not None else self.height)
-        return self.image.resize(size, Image.LANCZOS)
+        image = self.image.resize(size, Image.LANCZOS)
+        # Lanczos leaves a faint halo of one-alpha pixels around every edge; on
+        # a sprite that is cropped to its painted pixels those strays become
+        # specks floating beside the prop, so drop anything near-transparent.
+        image.putalpha(image.getchannel("A").point(
+            lambda v: 0 if v < 26 else v))
+        return image
 
 
 def _ellipse_points(cx, cy, rx, ry, segments):
@@ -345,3 +357,141 @@ def paint_sundial() -> tuple[Image.Image, float, float]:
 
     _moss(c, cx, ground, spread=16.0, rng=1.1)
     return c.finish(), cx, float(ground)
+
+
+# ---------------------------------------------------------------------------
+# the props that must read dead-on: a small station and a stone pedestal
+# ---------------------------------------------------------------------------
+# Both were modelled in 3D and baked at one output pixel per world pixel, where
+# the washer's facets collapse into a stack of slanted chips and the round
+# plinth's cap ellipse reads as a ramp.  Painting them here gives the same flat
+# bands, narrow ellipse rims and single-pixel ink as the fountain and sundial.
+
+ENAMEL_DARK = (128, 140, 134)
+ENAMEL = (170, 182, 174)
+ENAMEL_LIGHT = (204, 213, 204)
+SIGN_GREEN = (54, 98, 78)
+SIGN_GREEN_DARK = (36, 70, 56)
+IRON = (86, 96, 98)
+IRON_LIGHT = (124, 134, 134)
+TOWEL = (228, 221, 200)
+TOWEL_SHADE = (190, 183, 162)
+BRONZE = (150, 112, 62)
+
+
+def paint_ball_washer() -> tuple[Image.Image, float, float]:
+    """A tee-side ball washer: pad, post, enamelled drum, towel and sign.
+
+    Silhouette first, as with the bench: a pale drum on a slim post, with the
+    brass lid and the hanging towel breaking the outline.  The sign is one
+    small green plate; anything finer disappears into the outline at this size.
+    """
+    w, h, ground = 24, 42, 38
+    c = Canvas(w, h, ground)
+    cx = 12.0
+
+    # Contact shadow, then the cast concrete pad it is bolted to.
+    c.ellipse((cx - 8.6, ground - 3.0, cx + 8.6, ground + 2.4),
+              fill=(30, 46, 34, 95))
+    c.ellipse((cx - 7.4, ground - 4.2, cx + 7.4, ground + 1.2),
+              fill=STONE_DARK, outline=INK, width=0.9)
+    c.ellipse((cx - 7.0, ground - 5.0, cx + 7.0, ground + 0.4),
+              fill=STONE_MID, outline=INK, width=0.8)
+    c.ellipse((cx - 5.2, ground - 4.6, cx + 5.2, ground - 0.8), fill=STONE_LIGHT)
+
+    # The post: a slim pale column down to the pad.
+    c.poly([(cx - 2.0, ground - 2.4), (cx + 2.0, ground - 2.4),
+            (cx + 2.0, 27.0), (cx - 2.0, 27.0)], fill=CREAM, outline=INK,
+           width=0.8)
+    c.poly([(cx - 2.0, ground - 2.4), (cx - 0.5, ground - 2.4),
+            (cx - 0.5, 27.0), (cx - 2.0, 27.0)], fill=(252, 248, 234))
+
+    # The drum: a pale enamelled housing, one shade down its right flank.
+    c.poly([(cx - 5.2, 27.6), (cx + 5.2, 27.6), (cx + 5.2, 12.0),
+            (cx - 5.8, 12.4)], fill=CREAM)
+    c.poly([(cx - 5.2, 12.0), (cx - 1.8, 12.0), (cx - 1.8, 27.6),
+            (cx - 5.2, 27.6)], fill=(252, 248, 234))
+    c.poly([(cx + 2.9, 12.0), (cx + 5.2, 12.0), (cx + 5.2, 27.6),
+            (cx + 2.9, 27.6)], fill=CREAM_DARK)
+    c.ellipse((cx - 5.2, 25.4, cx + 5.2, 29.6), fill=CREAM_DARK, outline=INK,
+              width=0.8)
+    # One brass hoop, low on the drum.
+    c.poly([(cx - 5.3, 23.0), (cx + 5.3, 23.0), (cx + 5.3, 24.6),
+            (cx - 5.3, 24.6)], fill=BRONZE, outline=INK, width=0.5)
+    # A small brass maker's plate, not a window: two ruled lines and a rim.
+    c.poly([(cx - 2.6, 15.6), (cx + 2.6, 15.6), (cx + 2.6, 20.0),
+            (cx - 2.6, 20.0)], fill=BRONZE, outline=INK, width=0.7)
+    c.line([(cx - 1.8, 17.0), (cx + 1.8, 17.0)], BRASS_LIGHT, width=0.6)
+    c.line([(cx - 1.8, 18.4), (cx + 1.0, 18.4)], BRASS_LIGHT, width=0.6)
+
+    # The domed brass lid, overhanging the drum.
+    c.ellipse((cx - 5.8, 8.4, cx + 5.8, 14.0), fill=BRONZE, outline=INK,
+              width=1.0)
+    c.ellipse((cx - 4.4, 8.8, cx + 4.4, 12.0), fill=BRASS_LIGHT)
+
+    # The towel bar and the towel folded over it, on the drum's right.
+    c.line([(cx - 6.4, 27.8), (cx + 6.4, 27.8)], BRONZE, width=1.3)
+    c.poly([(cx + 0.8, 27.4), (cx + 5.6, 27.4), (cx + 5.2, 34.6),
+            (cx + 0.4, 34.6)], fill=TOWEL, outline=INK, width=0.8)
+    c.poly([(cx + 3.4, 27.4), (cx + 5.6, 27.4), (cx + 5.2, 34.6),
+            (cx + 3.0, 34.6)], fill=TOWEL_SHADE)
+    c.poly([(cx + 0.8, 27.4), (cx + 5.6, 27.4), (cx + 5.6, 28.8),
+            (cx + 0.8, 28.8)], fill=(248, 244, 230))
+
+    # Ink the drum's straight silhouette last, so the bands cannot eat it.
+    c.line([(cx - 5.2, 12.0), (cx - 5.2, 27.6)], INK, width=0.9)
+    c.line([(cx + 5.2, 12.0), (cx + 5.2, 27.6)], INK, width=0.9)
+
+    _moss(c, cx, ground, spread=10.0, rng=0.7)
+    return c.finish(), cx, float(ground)
+
+
+def paint_statue_plinth() -> tuple[Image.Image, tuple[float, float], tuple[float, float]]:
+    """The golfer statue's round granite pedestal.
+
+    Returns the 1x image, the tile-centre foot in that image, and the middle of
+    the pedestal's top face, where ``generate.py`` stands the bronze figure.
+    Three flat masses only - a wide base disc, a short tapered drum and a
+    moulded cap - so the pedestal reads as turned stone at 1x instead of the
+    renderer's sloped-looking cap ellipse.
+    """
+    w, h, ground = 24, 30, 28
+    c = Canvas(w, h, ground)
+    cx = 12.0
+    top = 9.4             # middle of the top face
+    drum_top = 10.6       # where the drum's straight sides stop
+    drum_foot = ground - 4.6
+
+    # Contact shadow and the wide base disc.
+    c.ellipse((cx - 9.8, ground - 3.0, cx + 9.8, ground + 2.4),
+              fill=(30, 46, 34, 95))
+    c.ellipse((cx - 9.0, ground - 4.6, cx + 9.0, ground + 0.8),
+              fill=STONE_MID, outline=INK, width=0.9)
+    c.ellipse((cx - 8.6, ground - 5.0, cx + 8.6, ground + 0.4),
+              fill=STONE_LIGHT, outline=INK, width=0.8)
+    c.ellipse((cx - 7.2, ground - 4.6, cx + 7.2, ground - 0.8),
+              fill=STONE_PALE)
+
+    # The drum: straight, slightly tapered sides; one lit column on the left.
+    c.poly([(cx - 5.8, drum_foot), (cx + 5.8, drum_foot), (cx + 5.2, drum_top),
+            (cx - 5.2, drum_top)], fill=STONE_MID)
+    c.poly([(cx - 5.8, drum_foot), (cx - 0.6, drum_foot), (cx - 0.4, drum_top),
+            (cx - 5.2, drum_top)], fill=STONE_LIGHT)
+    c.line([(cx - 5.8, drum_foot), (cx - 5.2, drum_top)], INK, width=0.8)
+    c.line([(cx + 5.8, drum_foot), (cx + 5.2, drum_top)], INK, width=0.8)
+    # One bronze dedication band, level around the drum.
+    c.poly([(cx - 5.7, 16.6), (cx + 5.7, 16.6), (cx + 5.6, 18.4),
+            (cx - 5.6, 18.4)], fill=BRONZE, outline=INK, width=0.5)
+
+    # The cap: a shallow moulded rim over a flat top face.
+    c.ellipse((cx - 7.6, top + 0.6, cx + 7.6, top + 4.2), fill=STONE_MID,
+              outline=INK, width=0.7)
+    c.ellipse((cx - 7.6, top - 1.6, cx + 7.6, top + 2.2), fill=STONE_LIGHT,
+              outline=INK, width=0.9)
+    c.ellipse((cx - 6.2, top - 1.2, cx + 6.2, top + 1.4), fill=STONE_PALE)
+
+    _moss(c, cx, ground, spread=11.0, rng=0.2)
+    for x in (-7.8, 7.4):
+        c.dot(cx + x, ground - 1.4, 1.1, FLOWER)
+        c.dot(cx + x - 0.4, ground - 1.9, 0.6, (244, 228, 168))
+    return c.finish(), (cx, float(ground)), (cx, top)

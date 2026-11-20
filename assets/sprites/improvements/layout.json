@@ -24,21 +24,21 @@
 	"sprites": {
 		"fountain_0": {
 			"foot_x_ratio": 0.5,
-			"foot_y_ratio": 0.878151,
-			"width": 52,
-			"height": 56
+			"foot_y_ratio": 0.873638,
+			"width": 48,
+			"height": 54
 		},
 		"golfer_statue_0": {
-			"foot_x_ratio": 0.542401,
-			"foot_y_ratio": 0.854098,
-			"width": 28,
-			"height": 61
+			"foot_x_ratio": 0.47619,
+			"foot_y_ratio": 0.966667,
+			"width": 21,
+			"height": 60
 		},
 		"ball_washer_0": {
-			"foot_x_ratio": 0.491765,
-			"foot_y_ratio": 0.865216,
-			"width": 17,
-			"height": 36
+			"foot_x_ratio": 0.47619,
+			"foot_y_ratio": 0.909091,
+			"width": 21,
+			"height": 33
 		},
 		"park_bench_0": {
 			"foot_x_ratio": 0.5125,
@@ -66,9 +66,9 @@
 		},
 		"sundial_0": {
 			"foot_x_ratio": 0.5,
-			"foot_y_ratio": 0.938776,
-			"width": 42,
-			"height": 49
+			"foot_y_ratio": 0.93617,
+			"width": 38,
+			"height": 47
 		}
 	}
 }

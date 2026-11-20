@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """3D models for the improvements that read in the round.
 
-The Park Bench, Golfer Statue and Ball Washer are small objects a player buys
-to dress a hole.  Like the trees, ground cover and facilities, they are
-authored here as real little 3D models and baked to pixel art through the
+The Park Bench and the Golfer Statue's bronze figure are small objects a
+player buys to dress a hole.  Like the trees, ground cover and facilities, they
+are authored here as real little 3D models and baked to pixel art through the
 buildings' isometric renderer (``tools/building_art/render.py``) by
 ``tools/improvement_art/generate.py``.  One pixel of the PNG is one world
 pixel, so an improvement stands on its tile at every view rotation without a
 scale factor.
 
-The Fountain and Sundial are **not** modelled here: they are read from above,
-and a 3D basin rim occludes its own water while a horizontal dial face is only
-a few pixels tall.  Both are painted in screen space in ``paint2d.py`` instead,
-in the same palette and outline weight.
+The Fountain, Sundial and Ball Washer are **not** modelled here: they are read
+from above, and a 3D basin rim occludes its own water while a horizontal dial
+face is only a few pixels tall and a washer that narrow collapses into shaded
+facets.  All three are painted in screen space in ``paint2d.py`` instead, in
+the same palette and outline weight - and so is the statue's pedestal, whose
+cap ellipse the renderer turns into a sloped-looking ramp.  ``generate.py``
+stands this file's golfer on that painted plinth.
 
 Art direction
 -------------
@@ -89,21 +92,9 @@ ORNAMENT_KEYS = ("fountain", "golfer_statue", "ball_washer", "park_bench", "sund
 # ---------------------------------------------------------------------------
 
 CREAM = C("efe2c2")
-CREAM_DARK = C("cdbc97")
-GRANITE = mat(C("8b8377"), "stone")
 #: Cool granite for the statue's round pedestal, flat so the drum keeps one tone.
-PLINTH_STONE = mat(C("8f9597"), "flat", emissive=0.05)
-PLINTH_STONE_LIGHT = mat(C("b9bfc1"), "flat", emissive=0.07)
 GRANITE_LIGHT = mat(C("a49b8c"), "stone")
 GRANITE_DARK = mat(C("6b6459"), "stone")
-STONE_WARM = mat(C("d2c3a0"), "stone")
-STONE_WARM_LIGHT = mat(C("e2d5b6"), "stone")
-STONE_WARM_DARK = mat(C("b3a486"), "stone")
-STONE_PALE = mat(C("e8ddc2"), "flat", emissive=0.07)
-STONE_PALE_LIGHT = mat(C("f8efdb"), "flat", emissive=0.09)
-STONE_CLEAN = mat(C("dccfae"), "flat", emissive=0.06)
-STONE_CLEAN_LIGHT = mat(C("efe4c8"), "flat", emissive=0.08)
-STONE_CLEAN_DARK = mat(C("b8a987"), "flat", emissive=0.04)
 MOSS = mat(C("5b7a43"), "hedge")
 MOSS_LIGHT = mat(C("73944f"), "hedge")
 IRON = mat(C("58665d"), "flat", emissive=0.10)
@@ -112,22 +103,14 @@ IRON_DARK = mat(C("394640"), "flat", emissive=0.08)
 BRONZE = mat(C("a67d48"), "flat", specular=0.35, emissive=0.09)
 BRONZE_LIGHT = mat(C("c59a5e"), "flat", specular=0.45, emissive=0.10)
 BRONZE_DARK = mat(C("74562f"), "flat", emissive=0.07)
-PATINA = mat(C("5f8a72"), "flat")
-PATINA_LIGHT = mat(C("7fae8e"), "flat")
 BRASS = mat(C("d9b75e"), "flat", specular=0.5, emissive=0.12)
 BRASS_DARK = mat(C("a4823a"), "flat", emissive=0.08)
-WATER = mat(C("73c4e6"), "flat", specular=0.45, emissive=0.10)
-WATER_LIGHT = mat(C("b7e8f9"), "flat", specular=0.4, emissive=0.14)
-WATER_DARK = mat(C("4f9cc4"), "flat", emissive=0.08)
 TIMBER = mat(C("bd7f4b"), "flat", emissive=0.10)
 TIMBER_LIGHT = mat(C("dba368"), "flat", emissive=0.12)
 TIMBER_DARK = mat(C("87582f"), "flat", emissive=0.08)
-TOWEL = mat(C("eee9d9"), "plank")
-TERRACOTTA = mat(C("b4664a"), "flat")
 LEAF = mat(C("4d7f43"), "leaf_fine")
 LEAF_LIGHT = mat(C("6fa452"), "leaf_fine")
 FLOWER = mat(C("e7c85f"), "bloom")
-SHADOW = mat(C("2f3d28"), alpha=0.22, unlit=True)
 
 
 # ---------------------------------------------------------------------------
@@ -184,40 +167,6 @@ def ring(b: Builder, cx: float, cy: float, z0: float, z1: float,
                  ao=(0.45, 0.45, 0.45, 0.45), group=gid)
 
 
-def frustum(b: Builder, cx: float, cy: float, z0: float, z1: float,
-            r0: float, r1: float, material, segments: int = 16,
-            cap: bool = True, cap_material=None) -> None:
-    """A tapered round plinth: a cylinder whose two rings differ in radius."""
-    cap_material = material if cap_material is None else cap_material
-    gid = b.m.group()
-    for i in range(segments):
-        a0 = 2.0 * math.pi * i / segments
-        a1 = 2.0 * math.pi * (i + 1) / segments
-        c0, s0 = math.cos(a0), math.sin(a0)
-        c1, s1 = math.cos(a1), math.sin(a1)
-        b.m.quad((cx + r0 * c0, cy + r0 * s0, z0),
-                 (cx + r0 * c1, cy + r0 * s1, z0),
-                 (cx + r1 * c1, cy + r1 * s1, z1),
-                 (cx + r1 * c0, cy + r1 * s0, z1),
-                 material, uvs=((a0 * r0, z0), (a1 * r0, z0),
-                                (a1 * r1, z1), (a0 * r1, z1)),
-                 ao=(0.94, 0.94, 1.0, 1.0), group=gid)
-    if cap:
-        for i in range(segments):
-            a0 = 2.0 * math.pi * i / segments
-            a1 = 2.0 * math.pi * (i + 1) / segments
-            b.m.tri((cx, cy, z1),
-                    (cx + r1 * math.cos(a0), cy + r1 * math.sin(a0), z1),
-                    (cx + r1 * math.cos(a1), cy + r1 * math.sin(a1), z1),
-                    cap_material, ao=(1.0, 1.0, 1.0), group=gid)
-
-
-def panel(b: Builder, x0: float, y0: float, x1: float, y1: float,
-          z0: float, z1: float, material, top=None) -> None:
-    """A thin upright slab with a lit top edge, used for plaques and signs."""
-    b.box(x0, y0, x1, y1, z0, z1, material, top=top if top is not None else material)
-
-
 def _plaque_text(text: str, fg=CREAM, bg=None, scale: int = 1):
     if bg is None:
         bg = BRONZE_DARK.color
@@ -232,22 +181,6 @@ def leaf_clump(b: Builder, cx: float, cy: float, cz: float, rx: float,
     b.ellipsoid(cx + rx * 0.45, cy + ry * 0.1, cz + rz * 0.45,
                 rx * 0.62, ry * 0.58, rz * 0.55, light, segments=7, rings=4,
                 ao_base=0.78)
-
-
-def stone_scatter(b: Builder, cx: float, cy: float, z: float, rng,
-                  count: int = 5, spread: float = 13.0) -> None:
-    """A few chippings and a tuft of moss where a heavy prop meets the turf."""
-    for i in range(count):
-        angle = rng.uniform(0.0, math.tau)
-        dist = rng.uniform(spread * 0.55, spread)
-        px = cx + math.cos(angle) * dist
-        py = cy + math.sin(angle) * dist * 0.55
-        size = rng.uniform(1.1, 2.3)
-        b.ellipsoid(px, py, z + size * 0.55, size, size * 0.7, size * 0.55,
-                    GRANITE_LIGHT if i % 2 == 0 else GRANITE_DARK,
-                    segments=5, rings=3, ao_base=0.7)
-    leaf_clump(b, cx + spread * 0.75, cy + spread * 0.35, z + 1.2,
-               4.4, 3.2, 2.4, MOSS, MOSS_LIGHT)
 
 
 # ---------------------------------------------------------------------------
@@ -313,97 +246,20 @@ def park_bench(b: Builder) -> None:
                 segments=5, rings=3)
 
 
-def ball_washer(b: Builder) -> None:
-    """A tee-side ball washer: base plate, post, brush drum, lid and towel.
+def golfer_statue(b: Builder) -> None:
+    """A bronze golfer mid-swing, standing on the ground plane.
 
-    Authored facing south; the towel bar and the enamel sign face the walk.
+    The pedestal is not modelled: a round plinth seen at one pixel per world
+    pixel presents the camera with its cap ellipse, which reads as a sloped
+    ramp beside the painted fountain.  ``paint2d.paint_statue_plinth()`` paints
+    the drum, and ``generate.py`` stands this figure on its top face.
     """
     cx, cy = BASE_X, BASE_Y
-    post = mat(C("d9d4c2"), "flat", emissive=0.10)
-    enamel = mat(C("b65a45"), "flat", emissive=0.10)
-    enamel_dark = mat(C("8d4134"), "flat", emissive=0.08)
-    # A cast base plate bolted to the turf.
-    b.cylinder(cx, cy, 0.0, 1.4, 7.0, IRON_DARK, segments=12,
-               cap_material=IRON)
-    for a in (0.35, 1.9, 3.5, 5.1):
-        b.cylinder(cx + math.cos(a) * 5.0, cy + math.sin(a) * 5.0, 1.4, 2.1,
-                   0.8, BRASS, segments=5)
-    # The post: pale enamel with brass collars.
-    b.cylinder(cx, cy, 1.4, 20.0, 2.1, post, segments=10)
-    for z in (4.0, 10.5, 16.0):
-        b.cylinder(cx, cy, z, z + 1.0, 2.6, BRASS_DARK, segments=10,
-                   cap=False)
-    b.cylinder(cx, cy, 19.2, 20.6, 3.2, IRON, segments=10)
-    # The drum: a fat enamelled housing with three brass hoops and a domed lid.
-    gid = b.m.group()
-    frustum(b, cx, cy, z if False else 20.0, 30.4, 6.2, 5.4, enamel,
-            segments=12, cap=False)
-    b.cylinder(cx, cy, 20.0, 20.8, 6.3, enamel_dark, segments=12,
-               cap=False)
-    for z in (23.0, 26.0, 29.0):
-        b.cylinder(cx, cy, z, z + 0.9, 6.35, BRASS_DARK, segments=12,
-                   cap=False)
-    b.cylinder(cx, cy, 30.4, 31.8, 5.9, BRASS, segments=12,
-               cap_material=BRASS)
-    b.ellipsoid(cx, cy, 32.6, 3.8, 3.7, 1.9, BRASS_DARK, segments=10,
-                rings=4)
-    b.cylinder(cx, cy, 32.8, 34.4, 1.0, BRASS, segments=6)
-    # The brush pokes out of the open top, with a little drip.
-    b.cylinder(cx, cy, 31.0, 31.8, 3.6, WHITE, segments=10, cap=True,
-               cap_material=WHITE)
-    b.m.quad((cx - 1.2, cy - 1.2, 31.7), (cx + 1.2, cy - 0.8, 31.7),
-             (cx + 1.0, cy + 1.0, 20.6), (cx - 1.4, cy + 0.6, 20.6),
-             WATER_LIGHT, uvs=((0, 0), (1, 0), (1, 10), (0, 10)),
-             ao=(1.0, 1.0, 0.8, 0.8), bias=0.06)
-    # The water tank slung on the back of the post, with a brass tap.
-    b.box(cx - 3.8, cy - 7.2, cx + 3.8, cy - 3.4, 11.0, 19.0, IRON_DARK,
-          top=IRON)
-    b.cylinder(cx + 3.8, cy - 5.2, 13.5, 14.5, 0.9, BRASS, segments=6)
-    b.cylinder(cx + 4.7, cy - 5.2, 12.0, 15.0, 0.4, BRASS_DARK, segments=5)
-    # A towel bar on the front, a folded cream towel over it.
-    b.cylinder_between((cx - 5.4, cy + 4.0, 16.0), (cx + 5.4, cy + 4.0, 16.0),
-                       0.7, BRASS, segments=6)
-    b.box(cx - 4.2, cy + 3.6, cx + 4.2, cy + 4.5, 9.2, 16.2, TOWEL,
-          top=WHITE)
-    b.box(cx - 4.2, cy + 3.9, cx + 4.2, cy + 4.8, 9.2, 10.2,
-          mat(C("d8d2c0"), "flat"), top=TOWEL)
-    # A big enamel sign on the drum's front, so the station announces itself.
-    b.box(cx - 5.2, cy + 6.0, cx + 5.2, cy + 6.9, 21.6, 27.2,
-          mat(C("f6efdc"), "flat"), top=WHITE)
-    b.m.decal((cx - 4.8, cy + 6.92, 26.8), (cx + 4.8, cy + 6.92, 26.8),
-              (cx + 4.8, cy + 6.92, 22.0), (cx - 4.8, cy + 6.92, 22.0),
-              mat(C("ffffff"), texture=text_texture(
-                  "WASH", C("2f5c48"), C("f6efdc"), scale=1, padding=1)[0]),
-              (10, (28 if False else 4)), bias=0.08)
-    # Moss and a pebble at the plate.
-    leaf_clump(b, cx + 8.5, cy + 3.0, 0.6, 3.0, 2.2, 1.6, MOSS, MOSS_LIGHT)
-    b.ellipsoid(cx - 8.0, cy + 3.4, 0.9, 1.7, 1.3, 1.0, GRANITE_LIGHT,
-                segments=5, rings=3)
-
-
-def golfer_statue(b: Builder) -> None:
-    """A bronze golfer mid-swing on a stepped stone plinth."""
-    cx, cy = BASE_X, BASE_Y
     z = 0.0
-    # Three round steps and a turned plinth, so the memorial reads as a
-    # circular stone drum rather than a square packing crate.
-    # One round drum on a round footing: a memorial pedestal, not a stack of
-    # square slabs with the corners knocked off.
-    b.cylinder(cx, cy, z, z + 1.6, 9.4, PLINTH_STONE, segments=10,
-               cap_material=PLINTH_STONE_LIGHT)
-    b.cylinder(cx, cy, z + 1.6, z + 11.8, 7.4, PLINTH_STONE, segments=10,
-               cap=False)
-    b.cylinder(cx, cy, z + 11.8, z + 12.6, 8.4, PLINTH_STONE_LIGHT,
-               segments=10, cap_material=STONE_PALE_LIGHT)
-    b.cylinder(cx, cy, z + 12.6, z + 13.2, 6.0, PLINTH_STONE,
-               segments=10, cap_material=STONE_PALE_LIGHT)
-    # A slim bronze band around the drum, in place of a flat plaque.
-    b.cylinder(cx, cy, z + 7.4, z + 8.2, 7.6, BRASS_DARK, segments=10,
-               cap=False)
     # The figure: a wide, braced stance, a turned torso and a driver held at
     # the top of the backswing.  Each limb is one crease group, so its facets
     # shade as a cast bronze limb rather than a stack of segments.
-    base_z = z + 13.2
+    base_z = z
     for (fx, fy, knee_x, knee_y, hip_x, hip_y) in (
             (-6.0, 3.0, -7.2, 1.8, -3.0, 0.3),
             (6.0, -1.8, 6.8, -0.8, 3.0, 0.3)):
@@ -456,13 +312,6 @@ def golfer_statue(b: Builder) -> None:
                        BRONZE_DARK, segments=5, group=gid)
     b.box(cx - 14.4, cy - 6.6, cx - 10.2, cy - 4.0, base_z + 29.0,
           base_z + 32.0, BRONZE, top=BRONZE_LIGHT)
-    # Flowers and moss at the plinth's foot.
-    stone_scatter(b, cx, cy, z, np.random.default_rng(0x57A7E), count=5,
-                  spread=18.0)
-    for px, py, col in ((-14.0, 7.0, FLOWER), (13.0, 6.0, mat(C("e3a1bf"), "bloom")),
-                        (16.0, -3.0, FLOWER)):
-        b.ellipsoid(cx + px, cy + py, z + 1.2, 1.5, 1.3, 1.2, col,
-                    segments=5, rings=3)
 
 
 # ---------------------------------------------------------------------------
@@ -476,20 +325,9 @@ def build_prop(key: str) -> Model:
     b.facing = 0
     {
         "park_bench": park_bench,
-        "ball_washer": ball_washer,
         "golfer_statue": golfer_statue,
     }[key](b)
-    scale = MODEL_SCALE.get(key, 1.0)
-    if abs(scale - 1.0) > 1e-6:
-        model = scale_model(model, scale)
     return model
-
-
-#: Props whose authored model is a little small for a 64x32 tile.  Scaling the
-#: model (rather than the render) keeps every output pixel an output pixel.
-MODEL_SCALE = {
-    "ball_washer": 0.88,
-}
 
 
 def _rescaled(model: Model, point) -> Model:
@@ -505,13 +343,6 @@ def _rescaled(model: Model, point) -> Model:
         out.tris.append(type(tri)(pts, tri.uv, tri.ao, normal,
                                   tri.material, tri.group, tri.bias))
     return out
-
-
-def scale_model(model: Model, factor: float) -> Model:
-    """Uniformly scale a model about its tile centre on the ground plane."""
-    cx, cy = BASE_X, BASE_Y
-    return _rescaled(model, lambda x, y, z: (
-        cx + (x - cx) * factor, cy + (y - cy) * factor, z * factor))
 
 
 def rotate_model(model: Model, turns: int) -> Model:

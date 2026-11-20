@@ -8,19 +8,21 @@ Run from the repository root:
     python3 tools/improvement_art/generate.py --only park_bench --preview
     python3 tools/improvement_art/generate.py --check     # fail if the art is stale
 
-The bench, statue and ball washer are real 3D models (see ``props.py``),
-rendered through the building art's 2:1 isometric pipeline
+The bench and the golfer are real 3D models (see ``props.py``), rendered
+through the building art's 2:1 isometric pipeline
 (``tools/building_art/render.py``) - the same projection, sun, quantised shading
 and pixel-art outlines the trees, ground cover and facility sprites are baked
-with.  The fountain and sundial are read from above, where a rim hides its own
-water and a horizontal dial is only a few pixels tall, so they are painted in
-screen space (see ``paint2d.py``) in the same palette.  One PNG per drawing is
-written to ``assets/sprites/improvements/``:
+with.  The fountain, sundial, ball washer and the statue's pedestal are painted
+in screen space (see ``paint2d.py``) in the same palette: a rim hides its own
+water, a horizontal dial is only a few pixels tall, and a station or a round
+plinth at this size collapses into shaded facets.  The statue is a composite -
+the painted pedestal with the rendered figure standing on its top face.  One
+PNG per drawing is written to ``assets/sprites/improvements/``:
 
     fountain_0.png
     golfer_statue_0.png
     park_bench_0.png .. park_bench_3.png          (front south, east, north, west)
-    ball_washer_0.png .. ball_washer_3.png
+    ball_washer_0.png
     sundial_0.png
 
 The bench is laid beside a walk and turns to face it, so it ships four fronts;
@@ -53,9 +55,11 @@ import render as _art  # noqa: E402
 from PIL import Image, ImageDraw  # noqa: E402
 
 from render import OUTPUT_SCALE, render  # noqa: E402  (building_art on the path)
-from paint2d import paint_fountain, paint_sundial  # noqa: E402
+from paint2d import (  # noqa: E402
+    paint_ball_washer, paint_fountain, paint_statue_plinth, paint_sundial,
+)
 from props import (  # noqa: E402
-    DIRECTIONAL, ORNAMENT_KEYS, PROP_KEYS, foot_ratios, variants_for,
+    DIRECTIONAL, ORNAMENT_KEYS, foot_ratios, prop_foot, variants_for,
 )
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -103,7 +107,7 @@ def file_name(key: str, suffix: str) -> str:
     return f"{key}_{suffix}.png"
 
 
-def enhance(image: Image.Image) -> Image.Image:
+def lift(image: Image.Image) -> Image.Image:
     """Lift the shadows of a one-tile prop.
 
     A facility is metres wide and four storeys tall, so the renderer's one warm
@@ -125,20 +129,22 @@ def enhance(image: Image.Image) -> Image.Image:
     # being lifted into the stone.
     edge = alpha > 0.45
     rgb = np.where(edge & (luma < 0.12), rgb * 0.82, rgb)
-    painted = Image.fromarray(
-        np.clip(np.round(rgb * 255.0), 0, 255).astype(np.uint8), mode="RGB")
-    # A prop is one or two tiles of art, and the renderer's facets, AO and
-    # supersampling can leave a dozen near-identical browns on a bench slat.
-    # Quantising to a compact palette is what turns that render back into a
-    # hand-painted sprite: the same few tones the trees and buildings use, with
-    # no dithering.  Transparent pixels are background black and keep no alpha,
-    # so they cannot steal a palette entry that the painted prop needs.
-    palette = painted.quantize(colors=PROP_PALETTE, method=Image.MEDIANCUT,
-                               dither=Image.NONE).convert("RGB")
-    rgb = np.asarray(palette, dtype=np.float32) / 255.0
     out = np.dstack([rgb, alpha])
     return Image.fromarray(np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8),
                            mode="RGBA")
+
+
+def enhance(image: Image.Image) -> Image.Image:
+    """Lift a render, then reduce it to the shared prop palette.
+
+    A prop is one or two tiles of art, and the renderer's facets, AO and
+    supersampling can leave a dozen near-identical browns on a bench slat.
+    Quantising to a compact palette is what turns that render back into a
+    hand-painted sprite: the same few tones the trees and buildings use, with
+    no dithering.  Transparent pixels are background black and keep no alpha,
+    so they cannot steal a palette entry that the painted prop needs.
+    """
+    return quantise(lift(image))
 
 
 #: Props painted straight onto the screen-space canvas instead of modelled.  A
@@ -147,6 +153,7 @@ def enhance(image: Image.Image) -> Image.Image:
 #: drawn (``paint2d.py``) in the same palette and outline weight as the rest.
 PAINTERS = {
     "fountain": paint_fountain,
+    "ball_washer": paint_ball_washer,
     "sundial": paint_sundial,
 }
 
@@ -175,6 +182,39 @@ def paint_one(key: str):
     return crop, [left, top, crop.width, crop.height], ratios
 
 
+def compose_statue():
+    """The bronze golfer stood on the separately painted pedestal.
+
+    The figure is rendered by the same pipeline as the bench; the pedestal is
+    painted (``paint2d.paint_statue_plinth``) so its drum keeps straight sides
+    and a shallow cap rim instead of the renderer's sloped-looking cap ellipse.
+    The figure's tile-centre foot lands on the middle of that top face, and the
+    anchor returned is the pedestal's foot, so the pedestal keeps standing on
+    the tile centre.
+    """
+    plinth, foot, top = paint_statue_plinth()
+    figure, rect = render(variants_for("golfer_statue")[0][1], 0,
+                          scale=SCALE, pad=PAD)
+    figure = lift(figure)
+    box = figure.getbbox()
+    figure = figure.crop(box)
+    # The render's foot is in the node's draw space: take it into the crop the
+    # renderer returned, then into the tighter crop taken here.
+    fx, fy = prop_foot()
+    fx -= rect[0] + box[0]
+    fy -= rect[1] + box[1]
+    ox = int(round(top[0] - fx))
+    oy = int(round(top[1] - fy))
+    left = min(0, ox)
+    upper = min(0, oy)
+    width = max(plinth.width, ox + figure.width) - left
+    height = max(plinth.height, oy + figure.height) - upper
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas.alpha_composite(plinth, (-left, -upper))
+    canvas.alpha_composite(figure, (ox - left, oy - upper))
+    return canvas, (foot[0] - left, foot[1] - upper)
+
+
 def render_one(key: str, suffix: str, model):
     image, rect = render(model, 0, scale=SCALE, pad=PAD)
     image = enhance(image)
@@ -192,6 +232,16 @@ def build_all(only: str | None = None):
         if key in PAINTERS:
             image, rect, ratios = paint_one(key)
             out.append((key, "0", image, rect, ratios))
+            continue
+        if key == "golfer_statue":
+            image, foot = compose_statue()
+            image = quantise(image)
+            left, top, right, bottom = image.getbbox()
+            crop = image.crop((left, top, right, bottom))
+            ratios = ((foot[0] - left) / max(crop.width, 1),
+                      (foot[1] - top) / max(crop.height, 1))
+            out.append((key, "0", crop,
+                        [left, top, crop.width, crop.height], ratios))
             continue
         for suffix, model in variants_for(key):
             image, rect, ratios = render_one(key, suffix, model)

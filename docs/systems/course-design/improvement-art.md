@@ -2,11 +2,12 @@
 
 > The Path, Park Bench, Fountain, Golfer Statue, Ball Washer and Sundial are drawn
 > at the same density, with the same sun and the same ink outline as the
-> buildings, trees and ground cover. Most of them are tiny 3D models baked to
-> pixel art; the two read from above are painted directly, because a rendered rim
-> hides its own water.
+> buildings, trees and ground cover. The bench and the golfer are tiny 3D models
+> baked to pixel art; the ornaments read from above, the washer and the statue's
+> pedestal are painted directly, because a rendered rim hides its own water and
+> the renderer turns a small round form into a sloped-looking cap.
 
-**Source:** `tools/improvement_art/props.py` (bench, statue, washer models), `tools/improvement_art/paint2d.py` (fountain and sundial painters), `tools/improvement_art/generate.py` (bake, palette, foot anchors, preview, `--check`), `tools/path_art/generate.py` (dirt and paved grain), `scripts/entities/improvement_art.gd` (runtime loader and foot anchor), `scripts/entities/decoration.gd`, `scripts/entities/path_furniture.gd`, `scripts/terrain/walking_path_overlay.gd`, `assets/sprites/improvements/`, `assets/sprites/paths/`
+**Source:** `tools/improvement_art/props.py` (bench and golfer models), `tools/improvement_art/paint2d.py` (fountain, sundial, washer and pedestal painters), `tools/improvement_art/generate.py` (bake, palette, foot anchors, preview, `--check`), `tools/path_art/generate.py` (dirt and paved grain), `scripts/entities/improvement_art.gd` (runtime loader and foot anchor), `scripts/entities/decoration.gd`, `scripts/entities/path_furniture.gd`, `scripts/terrain/walking_path_overlay.gd`, `assets/sprites/improvements/`, `assets/sprites/paths/`
 **Tests:** `tests/unit/course_design/test_path_furniture.gd`, `python3 tools/improvement_art/generate.py --check`, `python3 tools/path_art/generate.py --check`
 
 ---
@@ -23,15 +24,15 @@ not a separate set of icons.
 | Silhouette first | At 1× a bench must read as open slats and a leaning back; a statue as a golfer mid-swing; a washer as post, drum and towel. Fine detail that only shows at 4× is noise. |
 | Compact palette | Every baked sprite is reduced to 24 colours with no dithering. That is what turns the renderer's hundreds of near-identical facets back into hand-painted tones. |
 | Four fronts, one bench | The bench is laid beside a walk and turns to face it, so it ships four drawings (south, east, north, west). The fountain, statue, ball washer and sundial stand in the open and ship one. |
-| Painted, not modelled, when read from above | The fountain's basin and the sundial's face are horizontal. A 3D rim is taller than the water behind it and a dial face projects to a handful of pixels, so both are painted in screen space at 4× and reduced once. |
+| Painted when the renderer fights the shape | The fountain's basin and the sundial's face are horizontal; a 3D rim is taller than the water behind it and a dial face projects to a handful of pixels. The washer is too narrow to survive its own facets, and the statue's round pedestal presents the camera with a cap ellipse that reads as a ramp. All four are painted in screen space at 4× and reduced once. |
 
 ### Style split
 
 | Improvement | How it is made | Why |
 | --- | --- | --- |
 | Park Bench | 3D model, four fronts | Slats, back, arms and iron legs are all side-on shapes the renderer models well. |
-| Golfer Statue | 3D model | A figure needs real limbs and a turned torso; the bronze facets shade the pose. |
-| Ball Washer | 3D model, one drawing | Post, drum, lid, tank, towel and enamel sign read as volumes; it is small enough that one view serves every walk. |
+| Golfer Statue | 3D figure on a painted pedestal | A figure needs real limbs and a turned torso, so the bronze is rendered; the pedestal is painted so its drum keeps straight sides and a shallow cap rim. |
+| Ball Washer | Painted at 4×, one drawing | At 1× a modelled station collapses into a stack of shaded chips; flat enamel bands, a brass lid and the towel read at any size, and one drawing serves every walk. |
 | Fountain | Painted at 4× | A wide basin, visible water and a bright plume need a clean ellipse the camera looks into. |
 | Sundial | Painted at 4× | The engraved face and the gnomon shadow have to be legible; a horizontal face rendered in 3D is only a few pixels tall. |
 
@@ -54,10 +55,18 @@ not a separate set of icons.
 
 ### Painted props
 
-`paint2d.py` draws the fountain and sundial on a 4× canvas with Pillow
-primitives — stone blocks, water gradient, ripples, brass rim, cream dial, hour
-marks, gnomon shadow — then reduces it once with Lanczos and the same 24-colour
-quantiser. The result is the same size and outline weight as a rendered prop.
+`paint2d.py` draws the fountain, sundial, ball washer and statue pedestal on a
+4× canvas with Pillow primitives — stone blocks, water gradient, ripples, brass
+rim, cream dial, hour marks, gnomon shadow, enamel drum, brass lid, towel,
+turned stone drum — then reduces it once with Lanczos and the same 24-colour
+quantiser. The result is the same size and outline weight as a rendered prop,
+and ``Canvas.finish()`` drops the near-transparent Lanczos halo so a cropped
+sprite has no specks beside it.
+
+The statue is the one composite: `generate.py` renders the bronze figure,
+paints the pedestal, and pastes the figure so its tile-centre foot lands on the
+middle of the pedestal's top face. `layout.json` then anchors the whole sprite
+from the pedestal's own foot, so the figure and the stone move together.
 
 ### The Path grain
 
