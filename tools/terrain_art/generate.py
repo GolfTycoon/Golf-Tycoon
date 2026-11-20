@@ -15,10 +15,11 @@ facility sprites are baked with.  One PNG per feature and view variant is
 written to ``assets/sprites/terrain/`` as ``<feature>_<variant>.png``, matching
 the files ``TerrainFeatureOverlay`` loads.
 
-The four variants are independent seeded drawings of the feature, not rotations
-of one model: each tile wears one of them for the life of the course
+The eight variants are independent seeded drawings of the feature, not
+rotations of one model: each tile wears one of them for the life of the course
 (``TerrainFeatureOverlay.facing_at()``), so a rocky stretch shows several
-different outcrops at once.
+different outcrops at once.  The extra Rocks drawings also give a tile enough
+different stones to scatter five to eight of them without a repeat.
 
 ``layout.json`` is written next to the PNGs.  Unlike a tree, a ground-cover
 feature is anchored to its *tile centre* rather than to a trunk foot, and the
@@ -54,7 +55,8 @@ from render import (  # noqa: E402  (building_art on the path)
     OUTPUT_SCALE, Model, grid_origin_offset, project, render,
 )
 from features import (  # noqa: E402
-    BASE_X, BASE_Y, FEATURES, VARIANT_COUNT, TreeBuilder, feature_seed,
+    BASE_X, BASE_Y, FEATURES, VARIANT_COUNT, TreeBuilder, feature_draw_scale,
+    feature_seed,
 )
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -116,13 +118,27 @@ def file_name(feature: str, variant: int) -> str:
     return f"{feature}_{variant}.png"
 
 
+def draw_scale_for(feature: str, render_scale: float) -> float:
+    """The draw scale the layout records for a feature.
+
+    The renderer bakes at ``render_scale`` pixels per world pixel, so the game
+    undoes that with ``1 / render_scale``.  A feature can also ask to be drawn
+    smaller (Rocks does) via ``features.py``'s ``FEATURE_DRAW_SCALE``; both
+    live in the sidecar so the art and its placement stay in one place.
+    """
+    return round(feature_draw_scale(feature) / render_scale, 3)
+
+
 def layout_text(scale: float, ratios: dict[str, dict[str, float]],
                 feature_scales: dict[str, float] | None = None) -> str:
     """The layout sidecar: per-file anchors under per-feature draw scales."""
     feature_scales = feature_scales or {}
     layout = {
         "features": {
-            feature: {"scale": round(feature_scales.get(feature, 1.0 / scale), 3)}
+            feature: {
+                "scale": round(feature_scales.get(
+                    feature, draw_scale_for(feature, scale)), 3)
+            }
             for feature in sorted(FEATURES)
         },
         "sprites": {
@@ -147,7 +163,8 @@ def validate(images: dict[tuple[str, int], Image.Image],
     for feature in (feature_list or FEATURES):
         variants = [images[(feature, v)] for v in range(VARIANT_COUNT)]
         if len({v.tobytes() for v in variants}) != VARIANT_COUNT:
-            problems.append(f"{feature}: the four variants are not four drawings")
+            problems.append(f"{feature}: the {VARIANT_COUNT} variants are not "
+                            f"{VARIANT_COUNT} different drawings")
         for variant, image in enumerate(variants):
             where = f"{feature}_{variant}"
             if image.width < 4 or image.height < 4:
@@ -186,8 +203,10 @@ def draw_preview(images: dict[tuple[str, int], Image.Image],
                  ratios: dict[str, dict[str, float]]) -> None:
     os.makedirs(PREVIEW_DIR, exist_ok=True)
 
-    # One contact sheet: a row per feature, its four variants along it.
-    cell_w, cell_h, scale = 190, 150, 2
+    # One contact sheet: a row per feature, all of its variants along it.
+    # 4x is deliberate - these sprites ship at ~12-24 px, and an artist needs
+    # to see every crack, blossom and rim pixel when tuning a model.
+    cell_w, cell_h, scale = 190, 150, 4
     sheet = Image.new("RGBA", (cell_w * VARIANT_COUNT, cell_h * len(FEATURES)),
                       (70, 107, 52, 255))
     draw = ImageDraw.Draw(sheet)
@@ -269,7 +288,7 @@ def generate(args) -> int:
 
     # Keep the entries of features this run did not re-render.
     layout_path = os.path.join(out_dir, LAYOUT_FILE)
-    feature_scales = {f: 1.0 / args.scale for f in feature_list}
+    feature_scales = {f: draw_scale_for(f, args.scale) for f in feature_list}
     sprite_ratios = dict(ratios)
     if os.path.exists(layout_path) and len(feature_list) != len(FEATURES):
         try:
@@ -326,7 +345,7 @@ def check(images: dict[tuple[str, int], Image.Image],
         entries = layout.get("features", {})
         sprite_ratios = layout.get("sprites", {})
         for feature in sorted({f for f, _v in images}):
-            want = round(1.0 / scale, 3)
+            want = draw_scale_for(feature, scale)
             got = entries.get(feature, {}).get("scale")
             if got != want:
                 stale.append(f"{layout_path}: {feature} scale {got} != {want}")

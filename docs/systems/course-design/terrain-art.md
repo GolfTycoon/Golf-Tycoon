@@ -4,7 +4,7 @@
 > model baked to pixel art through the same isometric renderer as the trees and
 > buildings, then stood on the course's Rough ground.
 
-**Source:** `tools/terrain_art/features.py` (palette, `rock_solid()`, `rock_dome()`, `lichen_patch()`, `draw_rocks()`, `draw_boulder()`, `draw_brush()`), `tools/terrain_art/generate.py` (`render_one()`, `anchor_ratios()`, `validate()`, `check()`), `tools/building_art/render.py` (projection, lighting, patterns, outlines), `scripts/terrain/terrain_feature_overlay.gd` (`TerrainFeatureOverlay`), `shaders/course_surface.gdshader` (`surface()`, `boundary_class()`), `assets/sprites/terrain/layout.json`
+**Source:** `tools/terrain_art/features.py` (palette, `VARIANT_COUNT`, `ROCKS_SIZE`, `FEATURE_DRAW_SCALE`, `ROCK_FORMS`, `BRUSH_FORMS`, `rock_solid()`, `rock_dome()`, `rock_cap_seam()`, `rock_grounding()`, `rock_details()`, `_gorse_spray()`, `_gorse_clump()`, `draw_rocks()`, `draw_boulder()`, `draw_brush()`), `tools/terrain_art/generate.py` (`render_one()`, `anchor_ratios()`, `draw_scale_for()`, `validate()`, `check()`), `tools/building_art/render.py` (projection, lighting, patterns, outlines), `scripts/terrain/terrain_feature_overlay.gd` (`TerrainFeatureOverlay`), `shaders/course_surface.gdshader` (`surface()`, `boundary_class()`), `assets/sprites/terrain/layout.json`
 **Tests:** `tests/unit/course_design/test_terrain_feature_sprites.gd`, `python3 tools/terrain_art/generate.py --check`
 
 ---
@@ -17,7 +17,7 @@ and its canopy already share:
 | Layer | Who draws it | What it is |
 | --- | --- | --- |
 | Ground | `CourseSurface` (band 0) | The course's own Rough turf: Rough's palette, grass tufts and hollows, with no bed or rim of its own. Brush, Rocks and Boulder share Rough's `boundary_class()`, so their grass runs straight into the rough around them |
-| Sprite | `TerrainFeatureOverlay` (band 1) | The objects the tile is named for: angular slate slabs and chunks, a rounded granite boulder with a shoulder lobe and a leaning shard, low gorse bushes with yellow blossom. Rocks and Brush scatter two or three different variant drawings across one tile; Boulder stands a single drawing |
+| Sprite | `TerrainFeatureOverlay` (band 1) | The objects the tile is named for: angular slate slabs and chunks, a rounded granite boulder with a shoulder lobe and a leaning shard, low gorse bushes with yellow blossom. Rocks and Brush scatter five to eight different variant drawings across one tile; Boulder stands a single drawing |
 
 The split is what keeps the tiles readable as terrain rather than as props.
 Rough is the course's default ground, so a rocky stretch, a boulder field and a
@@ -44,18 +44,18 @@ beside an oak belongs to the same afternoon.
 | --- | --- |
 | Silhouette first | A gorse clump reads as a low thorny bush at one pixel per world pixel; a boulder reads as a rounded standing stone with a broad sunlit crown and a dark lee; a rocky tile reads as scattered angular slabs, not gravel noise. |
 | One sun, four tones | Every stone facet and leaf cluster takes one of four tones by the direction it faces the renderer's warm sun (`render.SUN`, upper right). Geometry alone would leave every camera-facing plane in shadow and turn a boulder into a hole; the toned faces keep a stone readable from every side. |
-| Shard, not pebble | `rock_solid()` builds two irregular rings of corners – a buried foot and a narrower, twisted crown – bridged by flat side planes and closed with a flat cap. The result has hard facets, a broad lit top and a footprint that is never a smooth circle. It is the slate slab and the broken chip. |
+| Shard, not pebble | `rock_solid()` builds two irregular rings of corners – a buried foot and a narrower, twisted crown – bridged by flat side planes and closed with a flat cap. The result has hard facets, a broad lit top and a footprint that is never a smooth circle. It is the slate slab and the broken chip; only the "pebbles" form uses rounded water-worn stones, and it does so deliberately. |
 | Boulder, not block | `rock_dome()` lathes rings whose radius falls away towards the top, so the mass is widest where it meets the turf, shoulders through the middle and rounds to a broad crown. It is what makes a Boulder read as one weathered stone rather than as a stack of slabs. |
 | Grounded | Stones are set into the rough, scrub springs from woody stems that fork out of it, and each drawing keeps some bare ground so the Rough turf still shows at the edges. |
-| Four drawings, one feature | The four variants are independent seeded drawings (`feature_seed()`), not rotations. Every Rocks and Brush tile wears two or three of them at once, spread across the tile; Boulder wears one. Neighbouring tiles pick different mixes, and turning the course never swaps the art under a tile. |
+| Eight drawings, one feature | The eight variants are independent seeded drawings (`feature_seed()`), not rotations: more than four, so a dense scatter of small Rocks never repeats a stone. Every Rocks and Brush tile wears five to eight of them at once, spread across the tile; Boulder wears one. Neighbouring tiles pick different mixes, and turning the course never swaps the art under a tile. |
 
 ### The features
 
 | Feature | Silhouette | Detail |
 | --- | --- | --- |
-| **Rocks** | One low outcrop per drawing: a cracked slab with a broken ledge, leaning flake, chunks and grit. The overlay scatters two or three of these drawings across every tile | Slate tones from shadow to sunlit grey-blue, a tilted flake of broken slate, quartz flecks and loose grit around the stone |
+| **Rocks** | Eight different silhouettes - slab, shard, cairn, ledge, split, wedge, pebbles, outcrop - each a single small stone, scaled down (`ROCKS_SIZE`) and drawn at 0.95 scale. The overlay scatters five to eight across every tile | Four slate palettes (cool, warm, mossy, neutral), a hairline cap fissure, moss in the lee, quartz glints on the lit crown and dark scree grounding the foot |
 | **Boulder** | A low bedrock shelf carrying one broad, slightly leaning granite mass, with a second lobe breaking out of its flank | A companion shard leans against the other flank, wedged stones gather at the foot, warm-grey granite tones, cream lichen on the crown and face, and moss gathering in the seam at the foot |
-| **Brush** | One low bush per drawing: short woody stems and a flat crown of gorse foliage, about as tall as a rock. The overlay plants two or three of these drawings across every tile | Gorse four-tone foliage, bright yellow blossom sprays on the sunward shell, thorn branches breaking the rim and low sprigs rooting the bush |
+| **Brush** | Eight different characters - cushion, flowering, windswept, twin, spiky, sprawling, young, old - each with visible woody stems under one or more leaf lobes. The overlay plants five to eight across every tile | Gorse foliage from deep shade to sun-bleached gold, a lit rim of golden clusters, yellow blossom racemes, seed pods, pale thorn tips, low sprigs and fallen petals |
 
 ---
 
@@ -96,7 +96,7 @@ the measured anchor for every file:
 	"features": {
 		"boulder": {"scale": 1.0},
 		"brush": {"scale": 1.0},
-		"rocks": {"scale": 1.0}
+		"rocks": {"scale": 0.95}
 	},
 	"sprites": {
 		"boulder_0": {"ground_x_ratio": 0.4055, "ground_y_ratio": 0.6732},
@@ -105,7 +105,10 @@ the measured anchor for every file:
 }
 ```
 
-`features` gives a per-feature draw scale. `sprites` gives each drawing's
+`features` gives a per-feature draw scale: Rocks is drawn at 0.95 so its
+smaller stones stay chips rather than slabs, while Brush and Boulder use 1.0.
+`FEATURE_DRAW_SCALE` in `tools/terrain_art/features.py` is the source the
+generator writes into the sidecar. `sprites` gives each drawing's
 normalized `ground_x_ratio` / `ground_y_ratio`: the fraction of its own canvas
 where the tile centre lies. `TerrainFeatureOverlay.art_anchor_offset()` turns
 those into the offset from the image's centre, so replacing a PNG with another
@@ -115,10 +118,11 @@ size, anchored at its own centre.
 `TerrainFeatureOverlay` picks the first drawing with `facing_at(pos)`, a mixed
 hash of the tile (deliberately salted differently from `TreeOverlay`'s seed, so
 a rock and a tree on neighbouring tiles never share a lean). Rocks and Brush
-then scatter two or three drawings: `stamps_for()` takes that first variant and
-the next ones, drops them on the left, right, back and front slots of the tile
-— 17 px out from the centre, so they sit apart rather than in a clump — with a
-little deterministic jitter and scale, and paints them back to front.
+then scatter five to eight drawings: `stamps_for()` shuffles a bag of the
+feature's eight drawings and a bag of nine diamond-shaped slots, drops each
+drawing on its own slot — all inside the tile's isometric footprint and at
+least 13.8 px apart — with a little deterministic jitter, a perspective-aware
+scale and a back-to-front paint order. No two tiles pick the same mix.
 Boulder skips the scatter and stands its one drawing on the centre. Each tile
 also gets a small base jitter (±3 px across, ±1.5 px down) and scale (0.94–1.06),
 shared with its occlusion material by `ground_jitter()` / `variation_for_tile()`.
@@ -135,7 +139,7 @@ shared with its occlusion material by `ground_jitter()` / `variation_for_tile()`
 - One `Node2D` container per visible tile is created lazily and pooled, exactly
   as `TreeOverlay` does for canopies; the camera moving only changes membership,
   not how any sprite is drawn. Inside it, every variant drawing is its **own
-  CanvasItem**, so a Rocks or Brush tile's two or three stamps Y-sort and clip
+  CanvasItem**, so a Rocks or Brush tile's five to eight stamps Y-sort and clip
   independently rather than sharing one silhouette.
 - With terrain-aware occlusion on, each drawing samples the shared heightfield
   (`shaders/terrain_sprite_occlusion.gdshader`), so a hill rising in front of a
@@ -177,14 +181,18 @@ exactly as the overlay places it).
 | --- | --- | --- | --- |
 | Feature art mapping | `terrain_feature_overlay.gd` `FEATURE_KEYS` | Brush, Rocks, Boulder → `brush`, `rocks`, `boulder` | Which tiles get a sprite, and the file name each wears |
 | Per-tile lean and size | `terrain_feature_overlay.gd` `JITTER_X`, `JITTER_Y`, `SCALE_MIN`, `SCALE_MAX` | ±3 px, ±1.5 px, 0.94–1.06 | How varied one rocky field reads; large values open gaps between tiles |
-| Draw scale and anchors | `assets/sprites/terrain/layout.json` | Scale 1.0, per-file tile-centre ratios | Replace independently sized outcrop art without editing renderer code |
+| Draw scale and anchors | `assets/sprites/terrain/layout.json`, `features.py` `FEATURE_DRAW_SCALE` | Rocks 0.95, Brush and Boulder 1.0, plus per-file tile-centre ratios | Draw a feature smaller without rebaking its PNGs, or replace independently sized outcrop art without editing renderer code |
 | Stone geometry | `tools/terrain_art/features.py` `rock_solid()` | 4–7 sides, taper 0.45–0.97, wobble 0.15–0.26 | Facet count, blockiness and irregularity of every stone |
-| Stone tones | `tools/terrain_art/features.py` `SLATE_*`, `GRANITE_*` | Four slate and five granite tones | How cold, light and readable stone is against the ground |
-| Gorse tones and blossom | `tools/terrain_art/features.py` `GORSE_*`, `BLOSSOM*` | Four foliage tones, two yellows | The scrub's colour and how thickly it flowers |
+| Rocks size | `tools/terrain_art/features.py` `ROCKS_SIZE`, `draw_rocks()` | 0.95, applied to every slab, chip and reach, with the forms kept compact | How small each baked outcrop is; the tile stands five to eight of them |
+| Rocks forms | `tools/terrain_art/features.py` `ROCK_FORMS`, `ROCK_PALETTES` | Eight silhouettes (slab, shard, cairn, ledge, split, wedge, pebbles, outcrop) over four stone palettes | Whether a field reads as geology or as one repeated pebble |
+| Brush forms | `tools/terrain_art/features.py` `BRUSH_FORMS`, `BRUSH_SHAPES`, `BRUSH_PALETTES` | Eight characters (cushion, flowering, windswept, twin, spiky, sprawling, young, old) with per-form flower/thorn budgets | Whether gorse reads as a living, varied scrub or a green stamp |
+| Stone tones | `tools/terrain_art/features.py` `SLATE_*`, `ROCK_PALETTES`, `GRANITE_*` | Four four-tone slate palettes (cool, warm, mossy, neutral) and five granite tones, with emissive lit caps | How varied and readable the stone is against the ground |
+| Gorse tones and blossom | `tools/terrain_art/features.py` `GORSE_*`, `BRUSH_PALETTES`, `BLOSSOM*` | Four four-tone foliage palettes, four blossom tones, seed pods and thorn tips | The scrub's colour, season and how thickly it flowers |
 | Ground under a sprite | `shaders/course_surface.gdshader` `surface()` (`palette_color(3.0)` and Rough's tuft noise) and `boundary_class()` | Rough's own turf, shared with Rough tiles | Whether the three tiles read as rough studded with stone or scrub, and where their grass merges into adjacent rough |
-| Object height | `tools/terrain_art/features.py` `draw_rocks()`, `draw_brush()` | Slabs 1.4–5.6 high; bush crowns 2.6–3.6 tall, centred 3.8–5.2 up | How tall one stone or bush stands; both should stay low ground cover |
-| Drawings per tile | `terrain_feature_overlay.gd` `MIN_STAMPS`, `MAX_STAMPS` | Two or three | How many variant drawings a Rocks or Brush tile wears at once |
-| Stamp slots | `terrain_feature_overlay.gd` `STAMP_SLOTS` | Left and right 17 px out, back 10 px up, front 6 px down, in screen pixels from the tile centre | Where the scattered drawings stand, and how far they spread |
+| Object height | `tools/terrain_art/features.py` `draw_rocks()`, `draw_brush()` | Rocks slabs 1.2–5.2 high (`ROCKS_SIZE` 0.95); bush crowns 2.6–3.8 tall, centred 4.8–6.2 up | How tall one stone or bush stands; both should stay low ground cover |
+| Drawings per tile | `terrain_feature_overlay.gd` `MIN_STAMPS`, `MAX_STAMPS` | Five to eight | How many variant drawings a Rocks or Brush tile wears at once |
+| Drawings per feature | `tools/terrain_art/features.py` `VARIANT_COUNT`, `terrain_feature_overlay.gd` `FACINGS` | Eight | How many independently drawn variations exist; more than four keeps a dense scatter varied |
+| Stamp slots | `terrain_feature_overlay.gd` `STAMP_SLOTS` | Nine slots inside the isometric diamond (|x|/32 + |y|/16 <= 1), back/front points at ±15 px, a wide middle row at ±24 px | Where the scattered drawings stand, and how far they spread |
 
 ---
 

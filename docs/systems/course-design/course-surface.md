@@ -62,9 +62,9 @@ A lone tree is a patch around its trunk, and a grove is one unbroken floor.
 
 ### Ground cover
 
-Brush, Rocks and Boulder are Rough plus sprite. `surface()` paints them with Rough's `palette_color(3.0)` and tuft noise, and `boundary_class()` maps them to Rough's id, so their grass merges into the rough around them rather than drawing a stone or scrub rim. `TerrainFeatureOverlay` then draws the outcrops, the boulder and the low gorse bushes over that ground in the ground band, ranked after the walking trail and before the trees; Rocks and Brush scatter two or three different variant drawings across every tile. The ground deliberately stays plain: the tile's whole subject is the sprite, so there is never a second copy of the same thing in the shader.
+Brush, Rocks and Boulder are Rough plus sprite. `surface()` paints them with Rough's `palette_color(3.0)` and tuft noise, and `boundary_class()` maps them to Rough's id, so their grass merges into the rough around them rather than drawing a stone or scrub rim. `TerrainFeatureOverlay` then draws the outcrops, the boulder and the low gorse bushes over that ground in the ground band, ranked after the walking trail and before the trees; Rocks and Brush scatter five to eight different variant drawings across every tile. The ground deliberately stays plain: the tile's whole subject is the sprite, so there is never a second copy of the same thing in the shader.
 
-The sprites are baked as real 3D models by `tools/terrain_art/generate.py` and come in four independently drawn variants per feature, chosen per tile by a mixed hash and anchored to the tile centre through `assets/sprites/terrain/layout.json`. See [Ground-Cover Art](terrain-art.md).
+The sprites are baked as real 3D models by `tools/terrain_art/generate.py` and come in eight independently drawn variants per feature, chosen per tile by a mixed hash and anchored to the tile centre through `assets/sprites/terrain/layout.json`. The Rocks outcrops are smaller than the other ground cover — `ROCKS_SIZE` shrinks the baked model and the layout draws them at 0.95 scale — because a tile stands five to eight of them at once. See [Ground-Cover Art](terrain-art.md).
 
 ---
 
@@ -181,8 +181,9 @@ Quick Start paints the course it wants directly. A wood is a tile, so clearing a
 | Stream channel width | `inset_tile()` | Half-width about `0.25` tiles | Width of streams |
 | Stream bank and pot lip turf | `course_surface.gdshader` `bank_turf()` | Rough's palette colour plus its tuft variation | Colour and texture of a stream's grass bank and a pot bunker's lip |
 | Waste margin raggedness | `inset_tile()` | Edge noise, up to about `0.2` tiles | How ragged sand edges look |
-| Stone size and density | `rocks_radius()`, `rocks_present_threshold()` | See the table in the source | How many stones and how big |
-| Boulder height | `rocks_tallness()` | `1.7` for Boulder | How far boulders stand up |
+| Stone size | `tools/terrain_art/features.py` `ROCKS_SIZE`, `FEATURE_DRAW_SCALE` | 0.95 baked, 0.95 drawn | How small each Rocks outcrop is |
+| Stones per tile | `terrain_feature_overlay.gd` `MIN_STAMPS`, `MAX_STAMPS`, `STAMP_SLOTS` | Five to eight, on six spaced slots | How frequently Rocks appear within one tile |
+| Rocks variations | `tools/terrain_art/features.py` `VARIANT_COUNT` | Eight | How many independent Rocks drawings a course can show |
 | Water body | `course_surface.gdshader` `same_water_body()`, `WATER_LEVEL_TOLERANCE` | Water tiles at one elevation level, joined edge to edge; `0.5` levels of tolerance | What counts as one pond. Water deepens only inside a body: tiles under half a level apart are the same water, and the next level up is a bank |
 | Water depth | `course_surface.gdshader` `WATER_MAX_DEPTH`, `WATER_ABSORB`, `WATER_DETAIL_ABSORB` | `3.2` tiles, `0.95`, `2.4` | Deepest water measured, how fast the column darkens with depth, and how fast the floor's fine detail is lost |
 | Water flatness | `course_surface.gdshader` `water_fall()`, `WATER_FLAT_EPSILON` | `0.25` levels | How far a tile may fall and still count as still water, which keeps the wandering wave |

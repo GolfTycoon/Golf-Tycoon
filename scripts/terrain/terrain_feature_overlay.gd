@@ -11,12 +11,13 @@ class_name TerrainFeatureOverlay
 ## canopy: each stone or bush Y-sorts and clips against the terrain on its own.
 ##
 ## The art lives in `assets/sprites/terrain/` as `<feature>_<variant>.png`, with
-## up to four independently drawn variants per feature. A stable tile hash
-## chooses each tile's drawing and it remains the same through view turns; only
-## the tile-local scatter positions rotate to stay aligned with the terrain.
+## eight independently drawn variants per feature — more than four, so a dense
+## scatter of small Rocks never repeats a drawing. A stable tile hash chooses
+## each tile's drawing and it remains the same through view turns; only the
+## tile-local scatter positions rotate to stay aligned with the terrain.
 ##
 ## Rocks and Brush are scatters rather than single objects: each of their tiles
-## wears two or three *different* variant drawings, spread across the tile
+## wears five to eight *different* variant drawings, spread across the tile
 ## (`stamps_for()`).  Boulder is one mass and keeps to a single drawing.
 ##
 ## Unlike a tree, a feature is anchored to its *tile centre* rather than to a
@@ -35,8 +36,9 @@ class_name TerrainFeatureOverlay
 ## never leaves a bare patch of ground. Rocks and Brush draw one silhouette per
 ## scattered drawing.
 
-## The sprite art lives here as `<feature>_0/_1/_2/_3.png`; `layout.json` next to
-## them records the draw scale and normalized tile-centre anchor per file.
+## The sprite art lives here as `<feature>_0 .. <feature>_7.png`; `layout.json`
+## next to them records the draw scale and normalized tile-centre anchor per
+## file (Rocks is drawn smaller than the other two features).
 const SPRITE_DIR := "res://assets/sprites/terrain/"
 const TERRAIN_SPRITE_OCCLUSION: Shader = preload("res://shaders/terrain_sprite_occlusion.gdshader")
 
@@ -46,11 +48,11 @@ const ART_LAYOUT_FILE := "layout.json"
 const MIN_ART_SCALE := 0.05
 const MAX_ART_SCALE := 4.0
 
-## The four drawings a feature can wear, numbered in the order a course's view
-## turns (see TerrainGrid.get_view_orientation()). They are alternative drawings
-## of the same feature, not four sides of a turning model, so a tile keeps the
-## one its own position picked whichever way the course is viewed.
-const FACINGS: Array[String] = ["0", "1", "2", "3"]
+## The eight drawings a feature can wear (more than four, so a tile full of
+## small Rocks can stand a different stone in every slot). They are alternative
+## drawings of the same feature, not sides of a turning model, so a tile keeps
+## the one its own position picked whichever way the course is viewed.
+const FACINGS: Array[String] = ["0", "1", "2", "3", "4", "5", "6", "7"]
 
 ## The drawing used when nothing asks for a particular one — the toolbar's
 ## preview reads it, so a button never turns with the course behind it.
@@ -87,18 +89,28 @@ const MAX_POOLED_VISUALS := 192
 ## once. Boulder is a single stone and stays a single drawing.
 const MULTI_SPRITE_KEYS: Array[String] = ["rocks", "brush"]
 
-## Where a scattered drawing stands, in screen pixels from the tile centre. The
-## slots are the corners of the tile's footprint rather than its middle: two or
-## three drawings at 17 px out read as separate stones or bushes, where a
-## centre slot and two close neighbours would bunch into one clump.
+## Where a scattered drawing stands, in screen pixels from the tile centre.
+## Every slot sits *inside* the isometric diamond (|x|/32 + |y|/16 <= 1), so
+## the tile is covered rather than ringed by stones hovering off its edges.
+## Nine slots - a wide middle row, two staggered shoulder rows and the front
+## and back points - are all at least 13.8 px apart, which leaves room for a
+## dense scatter without any two drawings bunching into one clump.
 const STAMP_SLOTS: Array[Vector2] = [
-	Vector2(-17.0, 2.0),   # left
-	Vector2(17.0, 2.0),    # right
-	Vector2(0.0, -10.0),   # back
-	Vector2(0.0, 6.0),     # front
+	Vector2(0.0, -15.0),   # back point
+	Vector2(-12.0, -8.0),  # back left
+	Vector2(12.0, -8.0),   # back right
+	Vector2(-24.0, 0.0),   # left
+	Vector2(0.0, 0.0),     # centre
+	Vector2(24.0, 0.0),    # right
+	Vector2(-12.0, 8.0),   # front left
+	Vector2(12.0, 8.0),    # front right
+	Vector2(0.0, 15.0),    # front point
 ]
-const MIN_STAMPS := 2
-const MAX_STAMPS := 3
+## More drawings per tile than the old two or three: a Rocky tile now reads as
+## a scatter of stones rather than a couple of slabs. `MAX_STAMPS` cannot exceed
+## `STAMP_SLOTS.size()`, because every drawing needs its own spot.
+const MIN_STAMPS := 5
+const MAX_STAMPS := 8
 
 ## Salt that keeps the scatter RNG out of the base jitter/scale draws shared with
 ## the occlusion material (`ground_jitter()`, `variation_for_tile()`).
@@ -172,8 +184,8 @@ static func is_feature_tile(type: int) -> bool:
 static func feature_key(type: int) -> String:
 	return str(FEATURE_KEYS.get(type, ""))
 
-## The file suffix of the drawing `facing` ("0", "1", "2" or "3"). Orientations
-## outside 0..3 wrap, as the view itself does.
+## The file suffix of the drawing `facing` ("0" .. "7"). Orientations outside
+## 0..7 wrap, as the view itself does.
 static func facing_name(facing: int) -> String:
 	return FACINGS[wrapi(facing, 0, FACINGS.size())]
 
@@ -182,7 +194,7 @@ static func facing_name(facing: int) -> String:
 static func facing_at(pos: Vector2i, _view: int = DEFAULT_FACING) -> int:
 	return facing_offset(pos)
 
-## How many drawings this tile stands apart from the first: 0..3, one per tile,
+## How many drawings this tile stands apart from the first: 0..7, one per tile,
 ## the same on every machine and every reload. A mixed hash rather than a cheap
 ## `x + y` so a rocky field does not sort itself into diagonal stripes of
 ## identical outcrops.
@@ -231,11 +243,13 @@ static func _layout_for_path(path: String) -> Dictionary:
 		_layout_data = _read_layout()
 		_layout_loaded = true
 	var stem := path.get_file().get_basename()
+	# Match the feature rather than a fixed list of variant numbers, so adding
+	# another drawing never loses its feature's draw scale.
 	var key := stem
-	for candidate in FACINGS:
-		var suffix := "_" + candidate
-		if stem.length() > suffix.length() and stem.ends_with(suffix):
-			key = stem.substr(0, stem.length() - suffix.length())
+	for candidate in FEATURE_KEYS.values():
+		var prefix := str(candidate) + "_"
+		if stem == candidate or stem.begins_with(prefix):
+			key = str(candidate)
 			break
 	var result: Dictionary = {}
 	var features: Dictionary = _layout_data.get("features", {})
@@ -380,10 +394,10 @@ static func uses_multiple_sprites(key: String) -> bool:
 ## The drawings one tile wears, in the order they should be painted: a
 ## Dictionary per drawing with its `variant`, its screen `offset` from the tile
 ## centre and its `scale`. A single-drawing feature returns one entry at the
-## centre. Rocks and Brush return two or three entries, each a different
-## variant, spread across the tile, so a tile shows several stones or bushes
-## rather than one stamp repeated. Deterministic for a tile and independent of
-## the course's view, like `facing_at()`.
+## centre. Rocks and Brush return five to eight entries, each a different
+## variant, spread across the tile, so a tile shows a scatter of small stones
+## or bushes rather than one stamp repeated. Deterministic for a tile and
+## independent of the course's view, like `facing_at()`.
 static func stamps_for(key: String, pos: Vector2i,
 		facing: int = DEFAULT_FACING) -> Array[Dictionary]:
 	if not uses_multiple_sprites(key):
@@ -391,16 +405,35 @@ static func stamps_for(key: String, pos: Vector2i,
 	var rng := RandomNumberGenerator.new()
 	rng.seed = variation_seed(pos) ^ STAMP_SEED_SALT
 	var count := rng.randi_range(MIN_STAMPS, MAX_STAMPS)
-	var slot_start := rng.randi_range(0, STAMP_SLOTS.size() - 1)
+	# Shuffle both the drawings and the ground slots.  A shuffled bag of forms
+	# means no tile shows the same four stones in a row; shuffled slots mean a
+	# five-stamp tile still covers the whole diamond instead of one corner.
+	var variants: Array[int] = []
+	for i in range(FACINGS.size()):
+		variants.append(wrapi(facing + i, 0, FACINGS.size()))
+	var slots: Array[int] = []
+	for i in range(STAMP_SLOTS.size()):
+		slots.append(i)
+	for bag in [variants, slots]:
+		for i in range(bag.size() - 1, 0, -1):
+			var swap := rng.randi_range(0, i)
+			var held: int = bag[i]
+			bag[i] = bag[swap]
+			bag[swap] = held
 	var stamps: Array[Dictionary] = []
 	for i in range(count):
-		var slot := (slot_start + i) % STAMP_SLOTS.size()
-		var offset: Vector2 = STAMP_SLOTS[slot] + Vector2(
-				rng.randf_range(-1.5, 1.5), rng.randf_range(-1.5, 1.5))
+		# Tight jitter: the slots are close enough to cover the tile, so a wide
+		# jitter would let two stamps bunch together or stray off its edge.
+		var offset: Vector2 = STAMP_SLOTS[slots[i]] + Vector2(
+				rng.randf_range(-0.6, 0.6), rng.randf_range(-0.6, 0.6))
+		# Near stones are a touch larger than far ones, so a flat ground plane
+		# still reads with a little depth. The spread stays inside 0.90–1.10.
+		var depth := clampf((offset.y + 15.0) / 30.0, 0.0, 1.0)
 		stamps.append({
-			"variant": wrapi(facing + i, 0, FACINGS.size()),
+			"variant": variants[i],
 			"offset": offset,
-			"scale": rng.randf_range(0.90, 1.10),
+			"scale": clampf(0.94 + depth * 0.12 + rng.randf_range(-0.03, 0.03),
+					0.90, 1.10),
 		})
 	# Low objects on one ground plane: paint the back-most first so a front
 	# stone or bush overlaps its neighbour, exactly as two tiles would.
@@ -702,10 +735,12 @@ func _draw_silhouette(canvas: Node2D, center: Vector2, key: String, scale_v: flo
 			_draw_blob(canvas, center + Vector2(-2.0 * scale_v, -17.0 * scale_v),
 					6.5 * scale_v, stone.lightened(0.12))
 		_:
+			# Fallback stones match the baked Rocks art: small chips, because a
+			# tile now stands five to eight drawings of them.
 			for i in 4:
-				var offset := Vector2(rng.randf_range(-12.0, 12.0),
-						rng.randf_range(-7.0, 6.0)) * scale_v
-				var radius := rng.randf_range(3.0, 6.0) * scale_v
+				var offset := Vector2(rng.randf_range(-9.0, 9.0),
+						rng.randf_range(-5.0, 5.0)) * scale_v
+				var radius := rng.randf_range(2.0, 4.0) * scale_v
 				_draw_blob(canvas, center + offset + Vector2(0.0, -radius * 0.4),
 						radius, stone.lightened(rng.randf_range(-0.05, 0.12)))
 
