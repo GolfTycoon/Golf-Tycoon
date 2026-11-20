@@ -6,14 +6,16 @@ extends GameTest
 ## `TerrainFeatureOverlay` stands on top, the arrangement a woodland tile and
 ## `TreeOverlay` already share. This file pins the pieces a player sees:
 ##
-## * every feature ships four independently drawn variants, and every one loads;
+## * every feature ships eight independently drawn variants (more than four,
+##   so a scatter of Rocks never repeats a stone), and every one loads;
 ## * `layout.json` anchors each drawing by its own canvas size, because the
-##   variants are cropped to different silhouettes;
+##   variants are cropped to different silhouettes, and draws Rocks smaller;
+## * the Rocks art is smaller than the other ground-cover art;
 ## * the toolbar preview reads the first drawing;
 ## * a painted tile gets one container at its own projected centre, in the
 ##   ground band, below the standing trees, and every drawing inside it is its
 ##   own CanvasItem;
-## * Rocks and Brush scatter two or three different variant drawings across that
+## * Rocks and Brush scatter five to eight different variant drawings across that
 ##   container, while Boulder stands a single drawing;
 ## * each tile has a deterministic mixed-hash variant that stays fixed as the
 ##   map turns, while its scatter positions stay aligned with the terrain.
@@ -42,10 +44,10 @@ func _layout() -> Dictionary:
 
 
 # ---------------------------------------------------------------------------
-# The art: four drawings per feature, each anchored by its own canvas
+# The art: eight drawings per feature, each anchored by its own canvas
 # ---------------------------------------------------------------------------
 
-func test_every_feature_tile_has_a_key_and_four_loadable_drawings() -> void:
+func test_every_feature_tile_has_a_key_and_eight_loadable_drawings() -> void:
 	for type in TerrainFeatureOverlay.FEATURE_TILES:
 		var key := TerrainFeatureOverlay.feature_key(type)
 		assert_false(key.is_empty(), "%d is drawn as a feature sprite" % type)
@@ -121,6 +123,65 @@ func test_every_feature_has_a_scale_in_the_layout() -> void:
 		assert_almost_eq(TerrainFeatureOverlay.art_scale(path),
 				float(features[key].get("scale", 0.0)), 0.0001,
 				"%s is drawn at the layout's scale" % key)
+
+
+func test_rocks_ship_more_than_four_variation_sprites() -> void:
+	assert_gt(TerrainFeatureOverlay.FACINGS.size(), 4,
+			"Rocks has more than four independently drawn variations")
+	var paths: Dictionary = {}
+	var sprites: Dictionary = _layout().get("sprites", {})
+	for facing in range(TerrainFeatureOverlay.FACINGS.size()):
+		var suffix := TerrainFeatureOverlay.facing_name(facing)
+		var path := TerrainFeatureOverlay.sprite_path("rocks", facing)
+		assert_eq(path, TerrainFeatureOverlay.SPRITE_DIR + "rocks_%s.png" % suffix,
+				"Rocks wears its %s drawing" % suffix)
+		assert_false(paths.has(path), "variation %s has its own file" % suffix)
+		assert_not_null(TerrainFeatureOverlay.texture_at(path),
+				"rocks_%s loads" % suffix)
+		assert_true(sprites.has("rocks_%s" % suffix),
+				"rocks_%s has its own tile-centre anchor" % suffix)
+		paths[path] = true
+	assert_eq(paths.size(), TerrainFeatureOverlay.FACINGS.size(),
+			"every Rocks variation is a separate sprite")
+
+
+func test_rocks_are_drawn_smaller_than_the_other_features() -> void:
+	var features: Dictionary = _layout().get("features", {})
+	var rocks_scale := float(features["rocks"].get("scale", 1.0))
+	assert_lt(rocks_scale, 1.0, "the layout draws Rocks smaller than native size")
+	for key in ["brush", "boulder"]:
+		assert_lt(rocks_scale, float(features[key].get("scale", 1.0)),
+				"Rocks is drawn smaller than %s" % key)
+	for facing in range(TerrainFeatureOverlay.FACINGS.size()):
+		var path := TerrainFeatureOverlay.sprite_path("rocks", facing)
+		assert_almost_eq(TerrainFeatureOverlay.art_scale(path), rocks_scale, 0.0001,
+				"rocks_%d uses the feature's smaller draw scale" % facing)
+
+	# The baked outcrops are smaller too, not just drawn smaller: no Rocks
+	# canvas is as large as even the smallest Boulder or Brush drawing.
+	var rocks_area := 0.0
+	for facing in range(TerrainFeatureOverlay.FACINGS.size()):
+		var size: Vector2 = TerrainFeatureOverlay.texture_at(
+				TerrainFeatureOverlay.sprite_path("rocks", facing)).get_size()
+		rocks_area += size.x * size.y
+	rocks_area /= float(TerrainFeatureOverlay.FACINGS.size())
+	var brush_area := 0.0
+	var boulder_area := 0.0
+	for key in ["brush", "boulder"]:
+		var total := 0.0
+		for facing in range(TerrainFeatureOverlay.FACINGS.size()):
+			var size: Vector2 = TerrainFeatureOverlay.texture_at(
+					TerrainFeatureOverlay.sprite_path(key, facing)).get_size()
+			total += size.x * size.y
+		total /= float(TerrainFeatureOverlay.FACINGS.size())
+		if key == "brush":
+			brush_area = total
+		else:
+			boulder_area = total
+	assert_lt(rocks_area, brush_area,
+			"the baked Rocks outcrops are smaller than Brush bushes")
+	assert_lt(rocks_area, boulder_area,
+			"the baked Rocks outcrops are smaller than a Boulder")
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +411,56 @@ func test_rocks_and_brush_scatter_several_variant_drawings_on_one_tile() -> void
 					"the drawings are painted back to front")
 		assert_false(TerrainFeatureOverlay.stamps_for(key, Vector2i(4, 8), 1) == stamps,
 				"the next tile scatters them differently")
+
+
+func test_rocks_appear_more_frequently_in_each_tile() -> void:
+	assert_gte(TerrainFeatureOverlay.MIN_STAMPS, 5,
+			"a Rocks tile stands at least five drawings, not two")
+	assert_gte(TerrainFeatureOverlay.MAX_STAMPS, TerrainFeatureOverlay.MIN_STAMPS,
+			"the scatter range is valid")
+	assert_gte(TerrainFeatureOverlay.STAMP_SLOTS.size(), TerrainFeatureOverlay.MAX_STAMPS,
+			"every drawing in the busiest tile has its own spot")
+	for x in range(6):
+		for y in range(6):
+			var stamps := TerrainFeatureOverlay.stamps_for(
+					"rocks", Vector2i(x, y), TerrainFeatureOverlay.DEFAULT_FACING)
+			assert_gte(stamps.size(), 5,
+					"a Rocks tile at %s shows a scatter of small stones" % Vector2i(x, y))
+			assert_between(stamps.size(), TerrainFeatureOverlay.MIN_STAMPS,
+					TerrainFeatureOverlay.MAX_STAMPS)
+			var variants: Dictionary = {}
+			for stamp in stamps:
+				variants[int(stamp["variant"])] = true
+			assert_eq(variants.size(), stamps.size(),
+					"a dense tile still never repeats one of the eight variations")
+
+
+func test_scatter_slots_cover_the_tile_without_bunching() -> void:
+	var slots: Array[Vector2] = TerrainFeatureOverlay.STAMP_SLOTS
+	assert_gte(slots.size(), TerrainFeatureOverlay.MAX_STAMPS,
+			"the busiest tile still gives every drawing its own spot")
+	for slot: Vector2 in slots:
+		# |x|/32 + |y|/16 <= 1 is the isometric tile's diamond footprint.
+		assert_lte(absf(slot.x) / 32.0 + absf(slot.y) / 16.0, 1.0,
+				"a stamp at %s sits on the tile, not off its edge" % slot)
+	for i in range(slots.size()):
+		for j in range(i + 1, slots.size()):
+			assert_gte((slots[i] - slots[j]).length(), 13.8,
+					"slots %d and %d are far enough apart to read separately" % [i, j])
+
+
+func test_each_tile_picks_a_different_mix_of_the_eight_drawings() -> void:
+	var mixes: Dictionary = {}
+	for x in range(8):
+		for y in range(8):
+			var stamps := TerrainFeatureOverlay.stamps_for(
+					"rocks", Vector2i(x, y), TerrainFeatureOverlay.DEFAULT_FACING)
+			var variants: Array[int] = []
+			for stamp in stamps:
+				variants.append(int(stamp["variant"]))
+			mixes[str(variants)] = true
+	assert_gte(mixes.size(), 20,
+			"the shuffled bags give a rocky stretch many different stone mixes")
 
 
 func test_a_boulder_keeps_to_one_drawing() -> void:
